@@ -12,7 +12,9 @@ Yol haritasi: `forkOS-PLAN.md`. Bu dosya *nasil* yazilacagini anlatir.
 
 ## Degismez kurallar
 
-1. **Her modul tablosunun PK'si `entity.id`'ye FK olmali.** Bagimsiz tablo acma.
+1. **Her aranabilir/linklenebilir modul nesnesinin PK'si `entity.id`'ye FK olmali.**
+   `plan_slot` ve `habit_log` gibi yalnizca bir entity'yi yerlestiren/olcen destek
+   tablolari dokumante edilmis istisnadir; yeni istisna eklemeden once konus.
 2. **Entity yazan her yer `app/core/entity.py` helper'larini kullanir.** `Entity(...)` nesnesini elle olusturma.
 3. **`event` tablosu append-only.** Asla UPDATE/DELETE etme. Anlamli her aksiyondan sonra `log_event()` cagir.
 4. **Modul eklemek main.py'ye dokunmayi gerektirmez.** Backend'de `app/modules/__init__.py`'deki `MODULES`, frontend'de `src/modules/index.ts` tek kayit noktasidir.

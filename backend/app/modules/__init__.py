@@ -20,9 +20,17 @@ class ModuleSpec:
 
 
 from app.modules.bookmark import MODULE as bookmark_module  # noqa: E402
+from app.modules.habit import MODULE as habit_module  # noqa: E402
+from app.modules.pomodoro import MODULE as pomodoro_module  # noqa: E402
+from app.modules.review import MODULE as review_module  # noqa: E402
 from app.modules.rss import MODULE as rss_module  # noqa: E402
+from app.modules.todo import MODULE as todo_module  # noqa: E402
 
 MODULES: list[ModuleSpec] = [
     bookmark_module,
     rss_module,
+    todo_module,
+    pomodoro_module,
+    habit_module,
+    review_module,
 ]

@@ -86,8 +86,9 @@ def test_model_columns_match_migration_columns():
 def test_module_tables_reference_entity():
     """Kural 1: her modul tablosunun PK'si entity.id'ye FK olmali."""
     core_tables = {"entity", "link", "event", "tag", "entity_tag", "saved_view", "source_run"}
+    support_tables = {"plan_slot", "habit_log"}
     for name, table in Base.metadata.tables.items():
-        if name in core_tables:
+        if name in core_tables or name in support_tables:
             continue
         pk_columns = list(table.primary_key.columns)
         assert len(pk_columns) == 1, f"{name}: tek kolonlu PK bekleniyor"

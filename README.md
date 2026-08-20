@@ -3,8 +3,9 @@
 Tek kullanicilik, **local-only** kisisel isletim sistemi.
 Ayrintili yol haritasi: [`forkOS-PLAN.md`](forkOS-PLAN.md) · calisma kurallari: [`CLAUDE.md`](CLAUDE.md)
 
-Su an **Faz 0 (cekirdek) + Faz 1 (capture dikey dilimi)** tamamlandi:
-Browser Extension → Universal Inbox → Bookmark Library → RSS Reader → Today/Activity.
+Su an **Faz 0-2** tamamlandi:
+Browser Extension → Universal Inbox → Bookmark Library → RSS Reader → Today/Activity
+→ Todo → Weekly Planner → Pomodoro → Habits → Daily/Weekly Review.
 
 ## Kurulum
 
@@ -31,6 +32,7 @@ make migrate
 | Frontend | Today (modullerden beslenen widget'lar), Inbox (dnd-kit surukle-birak), Bookmarks, RSS Reader, Activity, `Ctrl+K` command palette + global arama |
 | Extension | MV3 popup, `Ctrl+Shift+S`, context menu, offline outbox + retry |
 | Offline | PWA precache + `GET /api/**` StaleWhileRevalidate; yazma offline'da kapali (UI banner + disable) |
+| Productivity | Todo/subtask, 7 gunluk planner, sunucu tabanli Pomodoro, habit grid, event tabanli review |
 
 ### Onemli endpoint'ler
 
@@ -46,6 +48,11 @@ POST /api/rss/items/{id}/save                 item -> bookmark + 'saved_from' li
 GET  /api/search?q=                           global arama
 GET  /api/activity                            append-only event akisi
 GET  /api/sources/health                      her kaynagin son kosumu
+GET  /api/todos                               gorevler ve filtreler
+GET  /api/plan?week=2026-08-17                haftalik plan slotlari
+GET  /api/pomodoro/active                     sekme kapansa da suren aktif session
+GET  /api/habits/grid?weeks=8                 habit isi haritasi
+GET  /api/reviews/preview?kind=weekly         event tabanli canli review ozeti
 ```
 
 ## Extension

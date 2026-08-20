@@ -15,6 +15,15 @@ export const VERB_LABELS: Record<string, string> = {
   "rss.feed_disabled": "Feed kapatildi",
   "rss.pruned": "Eski yazilar temizlendi",
   "source.stalled": "Kaynak sessizlesti",
+  "todo.created": "Gorev olusturuldu",
+  "todo.completed": "Gorev tamamlandi",
+  "todo.dropped": "Gorev birakildi",
+  "todo.rescheduled": "Gorev yeniden planlandi",
+  "plan.scheduled": "Haftalik plana eklendi",
+  "pomodoro.completed": "Odak tamamlandi",
+  "pomodoro.interrupted": "Odak yarida kesildi",
+  "habit.checked": "Habit tamamlandi",
+  "review.completed": "Review tamamlandi",
 };
 
 export const ALERT_VERBS = new Set([

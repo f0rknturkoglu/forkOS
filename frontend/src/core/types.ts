@@ -90,6 +90,84 @@ export interface RssStats {
   unread: number;
 }
 
+export interface Todo {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: number;
+  status: "open" | "doing" | "done" | "dropped";
+  due_at: string | null;
+  reminder_at: string | null;
+  completed_at: string | null;
+  parent_id: string | null;
+  position: number;
+}
+
+export interface PlanSlot {
+  id: string;
+  entity_id: string;
+  entity_type: string;
+  title: string;
+  day: string;
+  start_min: number | null;
+  duration_min: number | null;
+  note: string | null;
+  position: number;
+}
+
+export interface PomodoroSession {
+  id: string;
+  started_at: string;
+  ended_at: string | null;
+  planned_min: number;
+  actual_min: number | null;
+  kind: "focus" | "short_break" | "long_break";
+  context_entity_id: string | null;
+  context_title: string | null;
+  topic: string | null;
+  interrupted: boolean;
+}
+
+export interface PomodoroStats {
+  minutes: number;
+  sessions: number;
+  interrupted: number;
+}
+
+export interface Habit {
+  id: string;
+  title: string;
+  cadence: "daily" | "weekly";
+  target_per_week: number;
+  color: string | null;
+  active: boolean;
+  position: number;
+  done_today: boolean;
+  streak: number;
+}
+
+export interface HabitGridEntry {
+  habit_id: string;
+  title: string;
+  day: string;
+  done: boolean;
+  note: string | null;
+}
+
+export interface ReviewPreview {
+  kind: "daily" | "weekly";
+  period_start: string;
+  period_end: string;
+  stats: {
+    todos: { completed: number; created: number; dropped: number; overdue_now: number };
+    focus: { minutes: number; sessions: number; interrupted: number };
+    topics: { topic: string; minutes: number }[];
+    habits: Record<string, number>;
+    capture: { bookmarks: number; rss_read: number };
+  };
+  unfinished_todos: { id: string; title: string; priority: number; due_at: string | null }[];
+}
+
 export interface SavedView {
   id: string;
   name: string;

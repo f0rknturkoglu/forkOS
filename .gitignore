@@ -7,6 +7,8 @@ dist/
 dev-dist/
 .DS_Store
 *.log
+*.tsbuildinfo
+.playwright-cli/
 
 # arac ciktilari
 .pytest_cache/
