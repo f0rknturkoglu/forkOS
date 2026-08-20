@@ -56,7 +56,7 @@ export function CommandPalette() {
             {hits.length > 0 && (
               <Command.Group
                 heading="Sonuclar"
-                className="mb-2 text-[11px] uppercase tracking-wide text-neutral-600"
+                className="mb-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-neutral-600"
               >
                 {hits.map((hit) => (
                   <Command.Item
@@ -79,7 +79,7 @@ export function CommandPalette() {
 
             <Command.Group
               heading="Komutlar"
-              className="text-[11px] uppercase tracking-wide text-neutral-600"
+              className="mb-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-neutral-600"
             >
               {allCommands()
                 .filter((cmd) =>

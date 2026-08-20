@@ -2,6 +2,8 @@
 
 Revision ID: 0002_capture
 Revises: 0001_core
+
+Her DDL komutu ayri string -- asyncpg tek execute'a birden fazla komut almaz.
 """
 from alembic import op
 
@@ -10,12 +12,11 @@ down_revision = "0001_core"
 branch_labels = None
 depends_on = None
 
-
-def upgrade() -> None:
-    op.execute("""
-    -- Universal Inbox ve Bookmark Library AYNI tablo.
-    -- collection='inbox' -> Inbox ekrani, digerleri -> Bookmark Library.
-    -- Surukle-birak tek UPDATE; link ve event'ler kopmaz.
+UPGRADE = [
+    # Universal Inbox ve Bookmark Library AYNI tablo.
+    # collection='inbox' -> Inbox ekrani, digerleri -> Bookmark Library.
+    # Surukle-birak tek UPDATE; link ve event'ler kopmaz.
+    """
     create table bookmark (
       id           uuid primary key references entity(id) on delete cascade,
       url          text        not null,
@@ -29,13 +30,19 @@ def upgrade() -> None:
       favorite     boolean     not null default false,
       saved_at     timestamptz not null default now(),
       client_uuid  uuid unique
-    );
-    create index bookmark_collection_idx on bookmark (collection, saved_at desc);
-    -- url_hash BILEREK unique degil: ayni sayfayi ikinci kez kaydetmek hata degil.
-    create index bookmark_urlhash_idx    on bookmark (url_hash);
-    create index bookmark_unread_idx     on bookmark (read_status, saved_at desc);
-    """)
+    )
+    """,
+    "create index bookmark_collection_idx on bookmark (collection, saved_at desc)",
+    # url_hash BILEREK unique degil: ayni sayfayi ikinci kez kaydetmek hata degil.
+    "create index bookmark_urlhash_idx    on bookmark (url_hash)",
+    "create index bookmark_unread_idx     on bookmark (read_status, saved_at desc)",
+]
+
+
+def upgrade() -> None:
+    for statement in UPGRADE:
+        op.execute(statement)
 
 
 def downgrade() -> None:
-    op.execute("drop table if exists bookmark cascade;")
+    op.execute("drop table if exists bookmark cascade")

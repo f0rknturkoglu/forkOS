@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lifeos}
       POSTGRES_DB: ${POSTGRES_DB:-lifeos}
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+      - "${BIND_ADDR:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
     # NAMED VOLUME — rootless podman'da bind mount UID mapping yüzünden initdb'yi patlatır
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -27,7 +27,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       EXTENSION_ID: ${EXTENSION_ID:-}
     ports:
-      - "127.0.0.1:8787:8787"   # DIŞARI AÇMA — auth yok
+      - "${BIND_ADDR:-127.0.0.1}:8787:8787"   # DIŞARI AÇMA — auth yok
     volumes:
       - ./backend:/app:z         # :z  → SELinux'lu sistemlerde (Fedora) gerekli
     depends_on:
@@ -52,8 +52,10 @@ services:
     command: npm run dev -- --host 0.0.0.0 --port 5173
     environment:
       API_TARGET: http://api:8787      # vite proxy hedefi
+      # Container'da inotify guvenilir degil -> HMR icin polling (bkz. vite.config.ts)
+      WATCH_POLLING: ${WATCH_POLLING:-1}
     ports:
-      - "127.0.0.1:5173:5173"
+      - "${BIND_ADDR:-127.0.0.1}:5173:5173"
     volumes:
       - ./frontend:/app:z
       - /app/node_modules

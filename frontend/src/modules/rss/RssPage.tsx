@@ -186,7 +186,7 @@ function ItemRow({ item }: { item: FeedItem }) {
           )}
         </div>
 
-        <div className="flex shrink-0 gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           <Button disabled={!online} onClick={() => read.mutate(!item.read_at)}>
             {item.read_at ? "okunmadi" : "okundu"}
           </Button>

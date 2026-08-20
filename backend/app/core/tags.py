@@ -77,9 +77,10 @@ async def entity_ids_with_tag(session: AsyncSession, name: str) -> list[uuid.UUI
 
 
 async def list_tags(session: AsyncSession) -> list[tuple[str, int]]:
+    # inner join: kullanimda olmayan etiket (kaydi silinmis) listede yer almaz
     rows = (await session.execute(
         select(Tag.name, func.count(EntityTag.entity_id))
-        .outerjoin(EntityTag, EntityTag.tag_id == Tag.id)
+        .join(EntityTag, EntityTag.tag_id == Tag.id)
         .group_by(Tag.name)
         .order_by(func.count(EntityTag.entity_id).desc(), Tag.name)
     )).all()

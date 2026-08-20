@@ -67,7 +67,7 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex flex-wrap justify-end items-center gap-1">
           <Button
             disabled={!online}
             title="Favori"

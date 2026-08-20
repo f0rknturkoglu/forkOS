@@ -69,7 +69,7 @@ function InboxCard({ bookmark, disabled }: { bookmark: Bookmark; disabled: boole
             </p>
           )}
         </div>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           <Button
             disabled={disabled}
             title="Etiket ekle"

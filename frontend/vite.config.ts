@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -31,9 +32,21 @@ export default defineConfig({
       },
     }),
   ],
+  resolve: {
+    // "@/..." alias'i tsconfig'de de var ama onu SADECE TypeScript okur;
+    // Vite'in kendi cozumleyicisi icin burada da tanimli olmali.
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   server: {
     // Compose icinde API_TARGET=http://api:8787 gelir; disarida npm run dev
     // ile calistirinca 127.0.0.1'e duser.
     proxy: { "/api": process.env.API_TARGET ?? "http://127.0.0.1:8787" },
+    // Container icinde inotify calismiyor (Podman/Docker VM + bind mount):
+    // dosyayi degistiriyorsun, HMR hic tetiklenmiyor. compose WATCH_POLLING=1
+    // gonderir. Native Linux'ta 0 yaparak CPU'yu geri alabilirsin.
+    watch:
+      process.env.WATCH_POLLING === "1"
+        ? { usePolling: true, interval: 400 }
+        : undefined,
   },
 });

@@ -25,11 +25,13 @@ export const ALERT_VERBS = new Set([
 
 export function describe(verb: string, payload: Record<string, unknown>): string {
   const label = VERB_LABELS[verb] ?? verb;
+  const move = payload.to ? `${payload.from ?? "?"} → ${payload.to}` : undefined;
   const detail =
     (payload.message as string | undefined) ??
+    move ??
     (payload.title as string | undefined) ??
     (payload.url as string | undefined) ??
-    (payload.to ? `→ ${payload.to}` : "");
+    "";
   const count = payload.count ? ` (${payload.count})` : "";
   return `${label}${count}${detail ? ` — ${detail}` : ""}`;
 }

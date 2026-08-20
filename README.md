@@ -91,3 +91,28 @@ kolon eklemeyi unutursan burada patlar.
 - Postgres verisi **named volume**'da; rootless bind mount `initdb`'yi patlatir.
 - Windows: `podman machine init && podman machine start` (WSL2 uzerinde calisir).
 - SELinux'lu sistemlerde bind mount'larda `:z` sart (compose.yaml'da var).
+
+### Podman machine (Windows/macOS) ile port erisimi
+
+Podman machine kullanirken servisler bir VM'in icinde kosar ve
+`127.0.0.1:PORT:PORT` yayini **VM'in loopback'ine** baglanir; host tarayicisi
+oraya ulasamaz. Iki secenek var:
+
+1. **Onerilen (tek seferlik):** user-mode networking ac, sonra her sey
+   `127.0.0.1` uzerinden docker'daki gibi calisir.
+   ```bash
+   podman machine stop
+   podman machine set --user-mode-networking
+   podman machine start
+   ```
+2. `.env` icinde `BIND_ADDR=0.0.0.0` yap ve VM'in IP'sinden bagla
+   (`podman machine ssh "ip -4 -o addr show eth0"`). VM NAT'li oldugu icin
+   bu servisi LAN'a **acmaz** -- ama native Linux'ta `0.0.0.0` gercekten disari
+   acar, orada `127.0.0.1` birak.
+
+### HMR / hot reload
+
+Container icinde inotify guvenilir calismiyor: dosyayi degistiriyorsun, Vite
+hic tepki vermiyor. compose `WATCH_POLLING=1` gonderir, Vite polling'e gecer
+(`vite.config.ts`). Native Linux'ta `WATCH_POLLING=0` ile CPU'yu geri alabilirsin.
+Backend tarafinda uvicorn'un WatchFiles'i sorunsuz calisiyor, ayar gerekmiyor.

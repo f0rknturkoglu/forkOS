@@ -2,6 +2,10 @@
 
 Revision ID: 0001_core
 Revises:
+
+NOT: asyncpg her op.execute()'u prepared statement olarak calistirir ve
+prepared statement'a BIRDEN FAZLA komut sigmaz. Bu yuzden her DDL komutu
+ayri bir string; alt alta yapistirip tek execute'a verme.
 """
 from alembic import op
 
@@ -10,20 +14,24 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+UPGRADE = [
+    "create extension if not exists pgcrypto",      # gen_random_uuid()
+    "create extension if not exists pg_trgm",
+    "create extension if not exists unaccent",
 
-def upgrade() -> None:
-    op.execute("""
-    create extension if not exists pgcrypto;
-    create extension if not exists pg_trgm;
-    create extension if not exists unaccent;
-
-    -- unaccent() IMMUTABLE degil, generated column'da dogrudan kullanilamaz.
-    -- Bu wrapper olmadan entity tablosu olusmaz.
+    # unaccent() IMMUTABLE degil, generated column'da dogrudan kullanilamaz.
+    # Bu wrapper olmadan entity tablosu olusmaz.
+    """
     create or replace function immutable_unaccent(text)
       returns text
       language sql immutable strict parallel safe as
-    $$ select public.unaccent('public.unaccent'::regdictionary, $1) $$;
+    $$ select public.unaccent('public.unaccent'::regdictionary, $1) $$
+    """,
 
+    # ── Entity registry ────────────────────────────────────────────
+    # Her modul tablosunun PK'si buraya FK. Link, event, tag, search,
+    # attachment bu sayede tek ve generic kalir.
+    """
     create table entity (
       id           uuid primary key default gen_random_uuid(),
       type         text        not null,
@@ -35,12 +43,15 @@ def upgrade() -> None:
       search_vec   tsvector generated always as (
                      to_tsvector('simple', immutable_unaccent(title || ' ' || search_text))
                    ) stored
-    );
-    create index entity_type_idx    on entity (type) where archived_at is null;
-    create index entity_search_idx  on entity using gin (search_vec);
-    create index entity_trgm_idx    on entity using gin (title gin_trgm_ops);
-    create index entity_updated_idx on entity (updated_at desc);
+    )
+    """,
+    "create index entity_type_idx    on entity (type) where archived_at is null",
+    "create index entity_search_idx  on entity using gin (search_vec)",
+    "create index entity_trgm_idx    on entity using gin (title gin_trgm_ops)",
+    "create index entity_updated_idx on entity (updated_at desc)",
 
+    # ── Iliskiler ──────────────────────────────────────────────────
+    """
     create table link (
       id         uuid primary key default gen_random_uuid(),
       from_id    uuid not null references entity(id) on delete cascade,
@@ -49,9 +60,12 @@ def upgrade() -> None:
       created_at timestamptz not null default now(),
       constraint link_no_self check (from_id <> to_id),
       constraint link_uniq unique (from_id, to_id, relation)
-    );
-    create index link_to_idx on link (to_id);
+    )
+    """,
+    "create index link_to_idx on link (to_id)",
 
+    # ── Activity log (append-only, ASLA update etme) ───────────────
+    """
     create table event (
       id          bigserial primary key,
       entity_id   uuid references entity(id) on delete set null,
@@ -59,23 +73,30 @@ def upgrade() -> None:
       verb        text        not null,
       payload     jsonb       not null default '{}',
       occurred_at timestamptz not null default now()
-    );
-    create index event_time_idx on event (occurred_at desc);
-    create index event_verb_idx on event (verb, occurred_at desc);
+    )
+    """,
+    "create index event_time_idx on event (occurred_at desc)",
+    "create index event_verb_idx on event (verb, occurred_at desc)",
 
+    # ── Tag ────────────────────────────────────────────────────────
+    """
     create table tag (
       id    uuid primary key default gen_random_uuid(),
       name  text not null,
       color text
-    );
-    create unique index tag_name_uniq on tag (lower(name));
-
+    )
+    """,
+    "create unique index tag_name_uniq on tag (lower(name))",
+    """
     create table entity_tag (
       entity_id uuid references entity(id) on delete cascade,
       tag_id    uuid references tag(id)    on delete cascade,
       primary key (entity_id, tag_id)
-    );
+    )
+    """,
 
+    # ── Saved views ────────────────────────────────────────────────
+    """
     create table saved_view (
       id       uuid primary key default gen_random_uuid(),
       name     text    not null,
@@ -84,8 +105,11 @@ def upgrade() -> None:
       sort     text,
       pinned   boolean not null default false,
       position int     not null default 0
-    );
+    )
+    """,
 
+    # ── Kaynak sagligi ─────────────────────────────────────────────
+    """
     create table source_run (
       id          bigserial primary key,
       source      text not null,
@@ -94,13 +118,22 @@ def upgrade() -> None:
       status      text not null default 'ok',
       items_found int  not null default 0,
       error       text
-    );
-    create index source_run_idx on source_run (source, started_at desc);
-    """)
+    )
+    """,
+    "create index source_run_idx on source_run (source, started_at desc)",
+]
+
+DOWNGRADE = [
+    "drop table if exists source_run, saved_view, entity_tag, tag, event, link, entity cascade",
+    "drop function if exists immutable_unaccent(text)",
+]
+
+
+def upgrade() -> None:
+    for statement in UPGRADE:
+        op.execute(statement)
 
 
 def downgrade() -> None:
-    op.execute("""
-    drop table if exists source_run, saved_view, entity_tag, tag, event, link, entity cascade;
-    drop function if exists immutable_unaccent(text);
-    """)
+    for statement in DOWNGRADE:
+        op.execute(statement)

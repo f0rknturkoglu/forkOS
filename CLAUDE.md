@@ -21,7 +21,13 @@ Yol haritasi: `forkOS-PLAN.md`. Bu dosya *nasil* yazilacagini anlatir.
 7. **Inbox ve Bookmark ayni tablo.** Ayirici alan `collection`. Ikinci tablo acma.
 8. **Extension'a giden her yazma idempotent olmali** (`client_uuid`).
 9. Migration'lar elle yazilir ve gozden gecirilir; `--autogenerate` ciktisini kontrol etmeden commit etme.
-10. Postgres'te **Turkce stemmer yok**: `'simple'` config + `immutable_unaccent()` + `pg_trgm`. `to_tsvector('turkish', ...)` yazma.
+10. **Migration'da her SQL komutu ayri `op.execute()`.** asyncpg tek prepared
+    statement'a birden fazla komut almaz; alt alta yapistirilan DDL calisma
+    aninda patlar. `tests/test_migrations.py` bunu kontrol eder.
+11. **`@/` alias'i iki yerde tanimli olmali:** `tsconfig.json` (TypeScript icin)
+    ve `vite.config.ts` `resolve.alias` (Vite icin). Sadece birine yazarsan
+    `tsc` gecer ama uygulama tarayicida acilmaz.
+12. Postgres'te **Turkce stemmer yok**: `'simple'` config + `immutable_unaccent()` + `pg_trgm`. `to_tsvector('turkish', ...)` yazma.
 
 ## Yeni modul ekleme receti (backend)
 
