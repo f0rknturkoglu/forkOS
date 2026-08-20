@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+dist/
+dev-dist/
+.DS_Store
+*.log
+
+# arac ciktilari
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.vite/

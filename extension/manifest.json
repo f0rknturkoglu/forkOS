@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "forkOS Capture",
+  "version": "0.1.0",
+  "description": "Sayfa, secim ve linkleri forkOS Universal Inbox'a kaydeder.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8787/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "forkOS'a kaydet"
+  },
+  "commands": {
+    "quick-save": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Sayfayi Inbox'a kaydet"
+    }
+  }
+}

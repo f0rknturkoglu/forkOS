@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <input id="title" placeholder="Baslik" />
+    <input id="url" readonly />
+    <textarea id="note" placeholder="Not"></textarea>
+    <input id="tags" placeholder="Etiketler (virgulle)" />
+    <select id="collection">
+      <option value="inbox">Inbox</option>
+      <option value="read_later">Read Later</option>
+      <option value="learning">Learning</option>
+      <option value="reference">Reference</option>
+      <option value="projects">Projects</option>
+    </select>
+    <button id="save">Kaydet</button>
+    <p id="status"></p>
+    <div id="duplicate" hidden>
+      <p>Bu sayfa zaten kayitli.</p>
+      <button id="move-learning">Learning'e tasi</button>
+    </div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

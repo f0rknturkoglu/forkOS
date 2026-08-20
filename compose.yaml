@@ -1,0 +1,64 @@
+# Podman:  podman compose up -d      (Podman 4.7+)
+# Docker:  docker compose up -d
+name: forkos
+
+services:
+  db:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lifeos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lifeos}
+      POSTGRES_DB: ${POSTGRES_DB:-lifeos}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    # NAMED VOLUME — rootless podman'da bind mount UID mapping yüzünden initdb'yi patlatır
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lifeos} -d ${POSTGRES_DB:-lifeos}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
+      EXTENSION_ID: ${EXTENSION_ID:-}
+    ports:
+      - "127.0.0.1:8787:8787"   # DIŞARI AÇMA — auth yok
+    volumes:
+      - ./backend:/app:z         # :z  → SELinux'lu sistemlerde (Fedora) gerekli
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    command: python -m app.worker.main
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
+      RSS_DEFAULT_INTERVAL_MINUTES: ${RSS_DEFAULT_INTERVAL_MINUTES:-30}
+      RSS_RETENTION_DAYS: ${RSS_RETENTION_DAYS:-90}
+    volumes:
+      - ./backend:/app:z
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    environment:
+      API_TARGET: http://api:8787      # vite proxy hedefi
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app:z
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

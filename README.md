@@ -1,0 +1,93 @@
+# forkOS
+
+Tek kullanicilik, **local-only** kisisel isletim sistemi.
+Ayrintili yol haritasi: [`forkOS-PLAN.md`](forkOS-PLAN.md) · calisma kurallari: [`CLAUDE.md`](CLAUDE.md)
+
+Su an **Faz 0 (cekirdek) + Faz 1 (capture dikey dilimi)** tamamlandi:
+Browser Extension → Universal Inbox → Bookmark Library → RSS Reader → Today/Activity.
+
+## Kurulum
+
+```bash
+cp .env.example .env
+make up          # Docker kullaniyorsan: make up CO="docker compose"
+make migrate
+```
+
+- API      → http://127.0.0.1:8787  (docs: `/docs`)
+- Frontend → http://127.0.0.1:5173
+- Postgres → 127.0.0.1:5433
+
+`Makefile` varsayilan olarak `podman compose` cagirir. Docker icin ya her komuta
+`CO="docker compose"` ekle ya da `export CO="docker compose"` yap.
+
+## Ne var
+
+| Alan | Icerik |
+|---|---|
+| Cekirdek | `entity` / `link` / `event` / `tag` / `saved_view` / `source_run`, global arama (FTS + trigram), activity log |
+| Capture | `POST /api/capture` (idempotent), Universal Inbox, Bookmark Library, koleksiyonlar, etiketler, kayitli gorunumler |
+| RSS | Feed CRUD, OPML import, conditional GET'li worker, okundu/kaydet akisi, `feed_item → bookmark` link'i |
+| Frontend | Today (modullerden beslenen widget'lar), Inbox (dnd-kit surukle-birak), Bookmarks, RSS Reader, Activity, `Ctrl+K` command palette + global arama |
+| Extension | MV3 popup, `Ctrl+Shift+S`, context menu, offline outbox + retry |
+| Offline | PWA precache + `GET /api/**` StaleWhileRevalidate; yazma offline'da kapali (UI banner + disable) |
+
+### Onemli endpoint'ler
+
+```
+GET  /health                                  modul listesi + durum
+POST /api/capture                             extension/quick capture (client_uuid ile idempotent)
+GET  /api/bookmarks?collection=&q=&tag=       liste + arama + filtre
+PATCH /api/bookmarks/{id}/collection          surukle-birak buraya duser
+GET  /api/bookmarks/stats                     Today kutucuklari
+POST /api/rss/import                          OPML (multipart)
+POST /api/rss/feeds/{id}/refresh              worker'i beklemeden tek feed cek
+POST /api/rss/items/{id}/save                 item -> bookmark + 'saved_from' link
+GET  /api/search?q=                           global arama
+GET  /api/activity                            append-only event akisi
+GET  /api/sources/health                      her kaynagin son kosumu
+```
+
+## Extension
+
+`chrome://extensions` → Developer mode → **Load unpacked** → `extension/`
+Cikan ID'yi `.env` icindeki `EXTENSION_ID`'ye yaz, `make down && make up`
+(CORS origin'i oradan uretilir).
+
+Backend kapaliyken kaydedebilirsin: kayit `chrome.storage` outbox'ina yazilir,
+rozet bekleyen sayisini gosterir, `chrome.alarms` her dakika + tarayici acilisinda
+kuyrugu bosaltmayi dener. `client_uuid` sayesinde retry cift kayit uretmez.
+
+## Worker
+
+- Feed basina `RSS_DEFAULT_INTERVAL_MINUTES` (varsayilan 30dk) + jitter
+- **Conditional GET:** `ETag` / `If-Modified-Since` → 304'te hic parse edilmez
+- **Catch-up:** worker acilista bekleyen tum aktif feed'leri hemen bir tur ceker
+- Her kosum `source_run`'a yazar; ust uste 3 bos kosum → `source.stalled` event'i
+- 5 ardisik hata → feed `active=false` + `rss.feed_disabled` event'i
+- Her gece 04:00: okunmamis + kaydedilmemis item'lari `RSS_RETENTION_DAYS` sonrasi siler
+
+Uyarilar Activity ekraninda ve her sayfanin ustundeki seritte gorunur --
+"sessiz olum" kabul edilmez.
+
+## Gunluk ritmi
+
+Local-only oldugu icin worker sadece makine acikken calisir.
+Sabah `make up` → catch-up turu kacirilan her seyi tek seferde toplar.
+
+## Test
+
+```bash
+make test                    # compose icinde: Postgres'li uctan uca testler dahil
+```
+
+DB'siz de calisir; `tests/test_api.py` Postgres yoksa kendini atlar.
+`tests/test_migrations.py` elle yazilan migration'lar ile modelleri karsilastirir --
+kolon eklemeyi unutursan burada patlar.
+
+## Podman notlari
+
+- Podman 4.7+ ile `podman compose` kullan (`podman-compose` degil).
+- Postgres verisi **named volume**'da; rootless bind mount `initdb`'yi patlatir.
+- Windows: `podman machine init && podman machine start` (WSL2 uzerinde calisir).
+- SELinux'lu sistemlerde bind mount'larda `:z` sart (compose.yaml'da var).
