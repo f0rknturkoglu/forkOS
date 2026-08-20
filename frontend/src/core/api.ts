@@ -24,6 +24,8 @@ export const api = {
     request<T>(p, { method: "POST", body: JSON.stringify(body ?? {}) }),
   patch: <T>(p: string, body?: unknown) =>
     request<T>(p, { method: "PATCH", body: JSON.stringify(body ?? {}) }),
+  put: <T>(p: string, body?: unknown) =>
+    request<T>(p, { method: "PUT", body: JSON.stringify(body ?? {}) }),
   del: (p: string) => request<void>(p, { method: "DELETE" }),
   /** multipart -- Content-Type'i tarayici koysun, elle yazma. */
   upload: <T>(p: string, file: File, field = "file") => {

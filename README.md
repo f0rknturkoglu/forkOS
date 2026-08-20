@@ -3,9 +3,10 @@
 Tek kullanicilik, **local-only** kisisel isletim sistemi.
 Ayrintili yol haritasi: [`forkOS-PLAN.md`](forkOS-PLAN.md) · calisma kurallari: [`CLAUDE.md`](CLAUDE.md)
 
-Su an **Faz 0-2** tamamlandi:
+Su an **Faz 0-5** tamamlandi:
 Browser Extension → Universal Inbox → Bookmark Library → RSS Reader → Today/Activity
-→ Todo → Weekly Planner → Pomodoro → Habits → Daily/Weekly Review.
+→ Todo → Weekly Planner → Pomodoro → Habits → Daily/Weekly Review
+→ Firsatlar → Calisma/Ogrenme → Dokuman/Takvim → Projeler → Finans → Ayarlar/Yedekleme.
 
 ## Kurulum
 
@@ -33,6 +34,12 @@ make migrate
 | Extension | MV3 popup, `Ctrl+Shift+S`, context menu, offline outbox + retry |
 | Offline | PWA precache + `GET /api/**` StaleWhileRevalidate; yazma offline'da kapali (UI banner + disable) |
 | Productivity | Todo/subtask, 7 gunluk planner, sunucu tabanli Pomodoro, habit grid, event tabanli review |
+| Firsatlar | forkjob altyapisi ve LinkedIn scraper, OSYM duyurulari, YLSY burs ilanlari, gereksinim/todo/bildirim/deadline akisi |
+| Ogrenme | Calisma oturumlari, konu/kurs/kitap takibi, alan bazli istatistikler |
+| Dokuman ve takvim | Yerel dokumanlar, Google Drive metadata senkronu, Google Calendar salt-okunur ayna ve plan slotu gonderme |
+| Projeler | Proje/milestone/todo baglantilari, GitHub contribution ve commit senkronu |
+| Finans | Harcama ozeti, kategoriler, tekrarlayan odemeler ve deadline entegrasyonu |
+| Sistem | DB tabanli ayarlar, gruplu global arama, JSON/CSV/Markdown/Netscape/OPML/ICS export ve gzip yedek |
 
 ### Onemli endpoint'ler
 
@@ -53,6 +60,12 @@ GET  /api/plan?week=2026-08-17                haftalik plan slotlari
 GET  /api/pomodoro/active                     sekme kapansa da suren aktif session
 GET  /api/habits/grid?weeks=8                 habit isi haritasi
 GET  /api/reviews/preview?kind=weekly         event tabanli canli review ozeti
+GET  /api/opportunities?kind=exam             OSYM sinav/duyurulari
+GET  /api/opportunities?kind=scholarship      YLSY burs ilanlari
+POST /api/opportunities/sources/osym/refresh  sadece OSYM kaynagini yenile
+POST /api/opportunities/sources/ylsy/refresh  sadece YLSY kaynagini yenile
+GET  /api/search?q=&grouped=true              turune gore gruplanmis global arama
+POST /api/backup                              yerel gzip yedek olustur
 ```
 
 ## Extension
@@ -73,6 +86,11 @@ kuyrugu bosaltmayi dener. `client_uuid` sayesinde retry cift kayit uretmez.
 - Her kosum `source_run`'a yazar; ust uste 3 bos kosum → `source.stalled` event'i
 - 5 ardisik hata → feed `active=false` + `rss.feed_disabled` event'i
 - Her gece 04:00: okunmamis + kaydedilmemis item'lari `RSS_RETENTION_DAYS` sonrasi siler
+- OSYM/YLSY ve is kaynaklari artimli dilimler halinde taranir; baslangicta tam forkjob senkronu yapilmaz
+- Google Calendar 30 dakikada, GitHub 3 saatte bir yenilenir; yedek geceleri alinir
+
+Uzun surecek tum is kaynagi senkronu yerine yukaridaki tek-kaynak refresh endpoint'lerini
+kullan. Worker duruyken de OSYM ve YLSY arayuzden ayri ayri yenilenebilir.
 
 Uyarilar Activity ekraninda ve her sayfanin ustundeki seritte gorunur --
 "sessiz olum" kabul edilmez.
@@ -91,6 +109,17 @@ make test                    # compose icinde: Postgres'li uctan uca testler dah
 DB'siz de calisir; `tests/test_api.py` Postgres yoksa kendini atlar.
 `tests/test_migrations.py` elle yazilan migration'lar ile modelleri karsilastirir --
 kolon eklemeyi unutursan burada patlar.
+
+## Harici entegrasyonlar ve yedek
+
+- Google OAuth icin `.env` dosyasina `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+  ve `GOOGLE_REDIRECT_URI` ekle. Baglanti yoksa Drive/Calendar ozellikleri sessizce
+  devre disi kalir; yerel ozellikler calismaya devam eder.
+- GitHub token'i Ayarlar ekranindan yerel DB'ye kaydedilir. Proje `owner/repo`
+  bilgisiyle contribution ve son commitler cekilir.
+- `make backup` PostgreSQL dump'i alir. `POST /api/backup` ise
+  `backend/backups/` altinda 14 gun saklanan, export edilebilir gzip JSON yedegi uretir.
+  `backup.drive_folder_id` ayarlanirsa ayni dosya Drive'a da yuklenir.
 
 ## Podman notlari
 

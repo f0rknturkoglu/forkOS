@@ -8,6 +8,16 @@ const ROUTE_FOR: Record<string, (id: string) => string> = {
   bookmark: (id) => `#/bookmarks?focus=${id}`,
   feed: (id) => `#/rss?feed=${id}`,
   feed_item: (id) => `#/rss?item=${id}`,
+  todo: () => "#/todos",
+  opportunity: (id) => `#/opportunities?focus=${id}`,
+  study_area: () => "#/study",
+  study_topic: (id) => `#/study?focus=${id}`,
+  course: () => "#/learning",
+  book: () => "#/learning",
+  document: () => "#/documents",
+  project: (id) => `#/projects?focus=${id}`,
+  expense: () => "#/finance",
+  recurring_payment: () => "#/finance",
 };
 
 export function entityRoute(entity: Entity): string {
@@ -19,7 +29,7 @@ export function useGlobalSearch(query: string) {
   const debounced = useDebounced(query.trim(), 200);
   return useQuery({
     queryKey: ["search", debounced],
-    queryFn: () => api.get<Entity[]>(`/search${qs({ q: debounced, limit: 8 })}`),
+    queryFn: () => api.get<Record<string, Entity[]>>(`/search${qs({ q: debounced, limit: 30, grouped: true })}`),
     enabled: debounced.length >= 2,
     staleTime: 10_000,
   });
@@ -29,4 +39,13 @@ export const TYPE_LABELS: Record<string, string> = {
   bookmark: "Bookmark",
   feed: "Feed",
   feed_item: "RSS",
+  todo: "Todo",
+  opportunity: "Opportunity",
+  study_topic: "Study",
+  course: "Course",
+  book: "Book",
+  document: "Document",
+  project: "Project",
+  expense: "Expense",
+  recurring_payment: "Recurring",
 };

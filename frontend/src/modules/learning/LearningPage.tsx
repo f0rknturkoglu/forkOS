@@ -1,0 +1,22 @@
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { api } from "@/core/api";
+import type { Book, Bookmark, Course } from "@/core/types";
+import { Badge, Button, Empty, Panel } from "@/core/ui";
+import { useInvalidate } from "@/lib/hooks";
+
+const queueKinds = ["watch", "read", "listen", "practice"] as const;
+export function LearningPage() {
+  const [tab, setTab] = useState<"courses" | "books" | "queue">("courses"); const [title, setTitle] = useState(""); const invalidate = useInvalidate();
+  const { data: courses = [] } = useQuery({ queryKey: ["courses"], queryFn: () => api.get<Course[]>("/courses") });
+  const { data: books = [] } = useQuery({ queryKey: ["books"], queryFn: () => api.get<Book[]>("/books") });
+  const { data: queue = [] } = useQuery({ queryKey: ["learning-queue"], queryFn: () => api.get<Bookmark[]>("/learning/queue") });
+  const create = useMutation({ mutationFn: () => tab === "courses" ? api.post("/courses", { title }) : api.post("/books", { title }), onSuccess: () => { setTitle(""); invalidate("courses", "books"); } });
+  const patchCourse = useMutation({ mutationFn: ({ id, progress_pct }: { id: string; progress_pct: number }) => api.patch(`/courses/${id}`, { progress_pct, status: progress_pct === 100 ? "done" : "active" }), onSuccess: () => invalidate("courses", "activity") });
+  const patchBook = useMutation({ mutationFn: ({ id, current_page }: { id: string; current_page: number }) => api.patch(`/books/${id}`, { current_page }), onSuccess: () => invalidate("books") });
+  const moveQueue = useMutation({ mutationFn: ({ id, queue_kind }: { id: string; queue_kind: string }) => api.patch(`/bookmarks/${id}`, { queue_kind }), onSuccess: () => invalidate("learning-queue", "bookmarks") });
+  return <div className="space-y-4 p-6"><header className="flex items-end justify-between"><div><h1 className="text-xl font-semibold">Learning</h1><p className="text-xs text-neutral-500">Kurslar, kitaplar ve bookmark tabanlı tüketim kuyruğu.</p></div><div className="flex gap-1">{(["courses","books","queue"] as const).map(x => <Button key={x} variant={tab === x ? "primary" : "ghost"} onClick={() => setTab(x)}>{x}</Button>)}</div></header>
+    {tab !== "queue" && <Panel><form className="flex gap-2" onSubmit={e => { e.preventDefault(); if (title.trim()) create.mutate(); }}><input value={title} onChange={e => setTitle(e.target.value)} className="flex-1 rounded border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm" placeholder={tab === "courses" ? "Yeni kurs" : "Yeni kitap"}/><Button type="submit" variant="primary">ekle</Button></form></Panel>}
+    {tab === "courses" ? <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{courses.map(c => <Panel key={c.id} title={c.title} action={<Badge>{c.status}</Badge>}><p className="mb-2 text-xs text-neutral-500">{c.platform ?? "Platform yok"}</p><input type="range" min="0" max="100" value={c.progress_pct} onChange={e => patchCourse.mutate({ id: c.id, progress_pct: Number(e.target.value) })} className="w-full"/><p className="text-right text-xs">%{c.progress_pct}</p></Panel>)}</div> : tab === "books" ? <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{books.map(b => <Panel key={b.id} title={b.title} action={<Badge>{b.status}</Badge>}><p className="text-xs text-neutral-500">{b.author ?? "Yazar yok"}</p><div className="mt-3 flex items-center gap-2"><input type="number" value={b.current_page} onChange={e => patchBook.mutate({ id: b.id, current_page: Number(e.target.value) })} className="w-20 rounded border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs"/><span className="text-xs text-neutral-500">/ {b.total_pages ?? "?"} sayfa</span></div></Panel>)}</div> : <div className="grid gap-3 xl:grid-cols-4">{queueKinds.map(kind => <Panel key={kind} title={kind}><div className="space-y-2">{queue.filter(x => (x.queue_kind ?? "read") === kind).map(x => <article key={x.id} className="rounded border border-neutral-800 p-2"><a href={x.url} target="_blank" className="text-xs hover:text-sky-400">{x.title}</a><select value={x.queue_kind ?? "read"} onChange={e => moveQueue.mutate({ id: x.id, queue_kind: e.target.value })} className="mt-2 w-full rounded bg-neutral-950 p-1 text-[11px]">{queueKinds.map(k => <option key={k}>{k}</option>)}</select></article>)}</div></Panel>)}</div>}
+    {((tab === "courses" && !courses.length) || (tab === "books" && !books.length) || (tab === "queue" && !queue.length)) && <Empty>Henüz kayıt yok.</Empty>}</div>;
+}

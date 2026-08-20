@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 class CaptureIn(BaseModel):
     """Extension ve Life OS ici quick capture ayni endpoint'i kullanir."""
+
     client_uuid: uuid.UUID | None = None
     url: str
     title: str = ""
@@ -29,12 +30,14 @@ class CaptureIn(BaseModel):
 
 class BookmarkUpdate(BaseModel):
     """Kismi guncelleme. Verilmeyen alana dokunulmaz."""
+
     title: str | None = None
     note: str | None = None
     description: str | None = None
     collection: str | None = None
     read_status: str | None = None
     favorite: bool | None = None
+    queue_kind: str | None = None
     tags: list[str] | None = None
 
 
@@ -46,6 +49,7 @@ class BookmarkOut(BaseModel):
     url: str
     description: str | None = None
     collection: str
+    queue_kind: str | None = None
     source: str
     read_status: str
     favorite: bool

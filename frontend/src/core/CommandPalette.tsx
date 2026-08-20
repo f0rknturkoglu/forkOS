@@ -10,7 +10,8 @@ import { TYPE_LABELS, entityRoute, useGlobalSearch } from "./GlobalSearch";
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const { data: hits = [] } = useGlobalSearch(open ? query : "");
+  const { data: hitGroups = {} } = useGlobalSearch(open ? query : "");
+  const hits = Object.values(hitGroups).flat();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -53,12 +54,12 @@ export function CommandPalette() {
               Sonuc yok.
             </Command.Empty>
 
-            {hits.length > 0 && (
-              <Command.Group
-                heading="Sonuclar"
+            {Object.entries(hitGroups).map(([label, group]) => (
+              <Command.Group key={label}
+                heading={`${label} (${group.length})`}
                 className="mb-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-neutral-600"
               >
-                {hits.map((hit) => (
+                {group.map((hit) => (
                   <Command.Item
                     key={hit.id}
                     value={`hit-${hit.id}`}
@@ -75,7 +76,7 @@ export function CommandPalette() {
                   </Command.Item>
                 ))}
               </Command.Group>
-            )}
+            ))}
 
             <Command.Group
               heading="Komutlar"

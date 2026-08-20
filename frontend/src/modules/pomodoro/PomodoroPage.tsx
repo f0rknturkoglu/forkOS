@@ -15,8 +15,12 @@ function clock(seconds: number) {
 }
 
 export function PomodoroPage() {
-  const [now, setNow] = useState(Date.now()); const [minutes, setMinutes] = useState(25);
-  const [topic, setTopic] = useState(""); const [context, setContext] = useState("");
+  const params = new URLSearchParams(window.location.hash.split("?")[1] ?? "");
+  const initialContext = params.get("context") ?? "";
+  const initialTitle = params.get("title") ?? "";
+  const defaults = JSON.parse(localStorage.getItem("lifeos.pomodoroDefaults") ?? "{}");
+  const [now, setNow] = useState(Date.now()); const [minutes, setMinutes] = useState(Number(defaults.focus) || 25);
+  const [topic, setTopic] = useState(initialTitle); const [context, setContext] = useState(initialContext);
   const online = useOnline(); const invalidate = useInvalidate();
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   const { data: active = null } = useQuery({ queryKey: ["pomodoro-active"],
@@ -51,7 +55,7 @@ export function PomodoroPage() {
           className="mt-1 w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100" /></label>
         <label className="text-xs text-neutral-500">Baglam<select value={context} onChange={(event) => setContext(event.target.value)}
           className="mt-1 w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100">
-          <option value="">Bagimsiz</option>{todos.map((todo) => <option key={todo.id} value={todo.id}>{todo.title}</option>)}</select></label>
+          <option value="">Bagimsiz</option>{initialContext && !todos.some(todo => todo.id === initialContext) && <option value={initialContext}>{initialTitle || "Çalışma konusu"}</option>}{todos.map((todo) => <option key={todo.id} value={todo.id}>{todo.title}</option>)}</select></label>
       </div><input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="Konu (opsiyonel)"
         className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
         <Button variant="primary" disabled={!online || start.isPending} onClick={() => start.mutate()}>odagi baslat</Button></div>}

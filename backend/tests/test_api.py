@@ -3,6 +3,7 @@
 DB yoksa TUM dosya atlanir, boylece `pytest` DB'siz makinede de yesil kalir.
 Compose icinde calistir:  make test
 """
+
 from __future__ import annotations
 
 import uuid
@@ -37,8 +38,13 @@ async def client():
 async def test_capture_is_idempotent(client: AsyncClient):
     client_uuid = str(uuid.uuid4())
     url = f"https://example.com/forkos-test/{uuid.uuid4()}"
-    payload = {"url": url, "title": "Test yazisi", "client_uuid": client_uuid,
-               "collection": "inbox", "source": "manual"}
+    payload = {
+        "url": url,
+        "title": "Test yazisi",
+        "client_uuid": client_uuid,
+        "collection": "inbox",
+        "source": "manual",
+    }
 
     first = await client.post("/api/capture", json=payload)
     assert first.status_code == 201
@@ -63,12 +69,20 @@ async def test_capture_is_idempotent(client: AsyncClient):
 
 async def test_move_between_collections_logs_event(client: AsyncClient):
     url = f"https://example.com/forkos-move/{uuid.uuid4()}"
-    created = (await client.post("/api/capture", json={
-        "url": url, "title": "Tasinacak", "client_uuid": str(uuid.uuid4()),
-    })).json()
+    created = (
+        await client.post(
+            "/api/capture",
+            json={
+                "url": url,
+                "title": "Tasinacak",
+                "client_uuid": str(uuid.uuid4()),
+            },
+        )
+    ).json()
 
     moved = await client.patch(
-        f"/api/bookmarks/{created['id']}/collection", params={"collection": "learning"})
+        f"/api/bookmarks/{created['id']}/collection", params={"collection": "learning"}
+    )
     assert moved.status_code == 200
     assert moved.json()["collection"] == "learning"
 
@@ -81,15 +95,24 @@ async def test_move_between_collections_logs_event(client: AsyncClient):
 
 async def test_tags_and_search(client: AsyncClient):
     title = f"Turkce arama testi {uuid.uuid4().hex[:8]}"
-    created = (await client.post("/api/capture", json={
-        "url": f"https://example.com/forkos-search/{uuid.uuid4()}",
-        "title": title, "tags": ["ai", "okunacak"], "client_uuid": str(uuid.uuid4()),
-    })).json()
+    created = (
+        await client.post(
+            "/api/capture",
+            json={
+                "url": f"https://example.com/forkos-search/{uuid.uuid4()}",
+                "title": title,
+                "tags": ["ai", "okunacak"],
+                "client_uuid": str(uuid.uuid4()),
+            },
+        )
+    ).json()
 
     listed = (await client.get("/api/bookmarks", params={"tag": "ai"})).json()
     assert any(b["id"] == created["id"] for b in listed)
-    assert set((await client.get(f"/api/bookmarks/{created['id']}")).json()["tags"]) == \
-        {"ai", "okunacak"}
+    assert set((await client.get(f"/api/bookmarks/{created['id']}")).json()["tags"]) == {
+        "ai",
+        "okunacak",
+    }
 
     hits = (await client.get("/api/search", params={"q": title.split()[0]})).json()
     assert any(h["id"] == created["id"] for h in hits)
@@ -110,29 +133,45 @@ async def test_phase2_productivity_flow(client: AsyncClient):
     suffix = uuid.uuid4().hex[:8]
     created_ids: list[str] = []
 
-    todo_response = await client.post("/api/todos", json={
-        "title": f"Faz 2 test {suffix}", "priority": 3,
-    })
+    todo_response = await client.post(
+        "/api/todos",
+        json={
+            "title": f"Faz 2 test {suffix}",
+            "priority": 3,
+        },
+    )
     assert todo_response.status_code == 201
     todo = todo_response.json()
     created_ids.append(todo["id"])
 
-    plan = await client.post("/api/plan", json={
-        "entity_id": todo["id"], "day": date.today().isoformat(),
-        "duration_min": 25,
-    })
+    plan = await client.post(
+        "/api/plan",
+        json={
+            "entity_id": todo["id"],
+            "day": date.today().isoformat(),
+            "duration_min": 25,
+        },
+    )
     assert plan.status_code == 201
     assert plan.json()["entity_type"] == "todo"
 
-    pomo_response = await client.post("/api/pomodoro/start", json={
-        "planned_min": 1, "context_entity_id": todo["id"], "topic": f"Test {suffix}",
-    })
+    pomo_response = await client.post(
+        "/api/pomodoro/start",
+        json={
+            "planned_min": 1,
+            "context_entity_id": todo["id"],
+            "topic": f"Test {suffix}",
+        },
+    )
     assert pomo_response.status_code == 201
     pomo = pomo_response.json()
     created_ids.append(pomo["id"])
-    stopped = await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={
-        "interrupted": False,
-    })
+    stopped = await client.post(
+        f"/api/pomodoro/{pomo['id']}/stop",
+        json={
+            "interrupted": False,
+        },
+    )
     assert stopped.status_code == 200
     assert stopped.json()["actual_min"] == 1
 
@@ -140,9 +179,13 @@ async def test_phase2_productivity_flow(client: AsyncClient):
     assert habit_response.status_code == 201
     habit = habit_response.json()
     created_ids.append(habit["id"])
-    checked = await client.post(f"/api/habits/{habit['id']}/check", json={
-        "day": date.today().isoformat(), "done": True,
-    })
+    checked = await client.post(
+        f"/api/habits/{habit['id']}/check",
+        json={
+            "day": date.today().isoformat(),
+            "done": True,
+        },
+    )
     assert checked.status_code == 200
     assert checked.json()["done_today"] is True
 
@@ -151,18 +194,129 @@ async def test_phase2_productivity_flow(client: AsyncClient):
     assert completed.json()["status"] == "done"
 
     period = date.today().isoformat()
-    preview = await client.get("/api/reviews/preview", params={
-        "kind": "daily", "period_start": period,
-    })
+    preview = await client.get(
+        "/api/reviews/preview",
+        params={
+            "kind": "daily",
+            "period_start": period,
+        },
+    )
     assert preview.status_code == 200
     assert preview.json()["stats"]["focus"]["minutes"] >= 1
 
-    review_response = await client.post("/api/reviews", json={
-        "kind": "daily", "period_start": period, "decisions": {},
-    })
+    review_response = await client.post(
+        "/api/reviews",
+        json={
+            "kind": "daily",
+            "period_start": period,
+            "decisions": {},
+        },
+    )
     assert review_response.status_code == 201
     created_ids.append(review_response.json()["id"])
 
     async with engine.begin() as connection:
         await connection.execute(
-            text("delete from entity where id = any(cast(:ids as uuid[]))"), {"ids": created_ids})
+            text("delete from entity where id = any(cast(:ids as uuid[]))"), {"ids": created_ids}
+        )
+
+
+async def test_phase4_learning_flow(client: AsyncClient):
+    """Study context -> Pomodoro stats plus course/book and graceful Google state."""
+    suffix = uuid.uuid4().hex[:8]
+    created_ids: list[str] = []
+
+    area_response = await client.post(
+        "/api/study/areas", json={"title": f"Area {suffix}", "color": "#38bdf8"}
+    )
+    assert area_response.status_code == 201
+    area = area_response.json()
+    created_ids.append(area["id"])
+
+    topic_response = await client.post(
+        "/api/study/topics",
+        json={"title": f"Topic {suffix}", "area_id": area["id"], "target_min": 60},
+    )
+    assert topic_response.status_code == 201
+    topic = topic_response.json()
+    created_ids.append(topic["id"])
+
+    pomo = (
+        await client.post(
+            "/api/pomodoro/start",
+            json={"planned_min": 1, "context_entity_id": topic["id"]},
+        )
+    ).json()
+    created_ids.append(pomo["id"])
+    assert (await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={})).status_code == 200
+    stats = (await client.get(f"/api/study/topics/{topic['id']}/stats")).json()
+    assert stats == {"minutes": 1, "sessions": 1}
+
+    course = (await client.post("/api/courses", json={"title": f"Course {suffix}"})).json()
+    book = (await client.post("/api/books", json={"title": f"Book {suffix}"})).json()
+    created_ids.extend([course["id"], book["id"]])
+    assert (await client.patch(f"/api/courses/{course['id']}", json={"progress_pct": 35})).json()[
+        "progress_pct"
+    ] == 35
+    assert (await client.get("/api/auth/google/status")).status_code == 200
+    assert (await client.get("/api/calendar/events")).status_code == 200
+
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("delete from entity where id = any(cast(:ids as uuid[]))"), {"ids": created_ids}
+        )
+
+
+async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    created_ids: list[str] = []
+    project = (
+        await client.post(
+            "/api/projects",
+            json={
+                "title": f"Project {suffix}",
+                "stack": ["FastAPI", "React"],
+                "next_action": "İlk testi yaz",
+            },
+        )
+    ).json()
+    created_ids.append(project["id"])
+    milestone = await client.post(
+        f"/api/projects/{project['id']}/milestones", json={"title": "Alpha"}
+    )
+    assert milestone.status_code == 201
+    updated = await client.patch(f"/api/projects/{project['id']}", json={"status": "maintenance"})
+    assert updated.json()["status"] == "maintenance"
+
+    recurring = (
+        await client.post(
+            "/api/recurring-payments",
+            json={
+                "title": f"Service {suffix}",
+                "amount": "149.90",
+                "next_due_at": date.today().isoformat(),
+            },
+        )
+    ).json()
+    created_ids.append(recurring["id"])
+    paid = (await client.post(f"/api/recurring-payments/{recurring['id']}/pay")).json()
+    created_ids.append(paid["expense"]["id"])
+    assert paid["expense"]["amount"] == 149.9
+    assert paid["next_due_at"] != date.today().isoformat()
+
+    key = f"test.{suffix}"
+    response = await client.put(f"/api/settings/{key}", json={"value": {"ok": True}})
+    assert response.status_code == 200
+    assert (await client.get("/api/settings")).json()[key] == {"ok": True}
+    grouped = (
+        await client.get("/api/search", params={"q": f"Project {suffix}", "grouped": True})
+    ).json()
+    assert any(item["id"] == project["id"] for item in grouped["Projects"])
+    assert (await client.get("/api/export/csv", params={"module": "expense"})).status_code == 200
+    assert (await client.get("/api/export/ics")).status_code == 200
+
+    async with engine.begin() as connection:
+        await connection.execute(text("delete from setting where key=:key"), {"key": key})
+        await connection.execute(
+            text("delete from entity where id = any(cast(:ids as uuid[]))"), {"ids": created_ids}
+        )

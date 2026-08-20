@@ -1,0 +1,20 @@
+# User-defined LinkedIn search profiles.
+#
+# Managed through the web UI at /linkedin — you do not need to edit this file
+# by hand. Default profiles from data/portals.yaml are merged with these at
+# sync time; both sets run together.
+#
+# Profile fields:
+#   term              required — search keyword (e.g. "backend engineer")
+#   location          optional — city or country (e.g. "Germany")
+#   results_wanted    optional — how many results (default 50)
+#   hours_old         optional — only postings this recent (e.g. 72)
+#   is_remote         optional — true for remote-only
+#   fetch_description optional — fetch full description (slower, more requests)
+
+version: 1
+profiles:
+- term: junior yazılım mühendisi
+  location: ankara
+  results_wanted: 100
+  fetch_description: true

@@ -3,6 +3,7 @@
 Yeni modul eklemek = modules/<ad>/ klasoru + buraya bir satir.
 main.py'ye, search'e, worker'a DOKUNMA -- hepsi bu listeyi okur.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,10 +21,18 @@ class ModuleSpec:
 
 
 from app.modules.bookmark import MODULE as bookmark_module  # noqa: E402
+from app.modules.calendar import MODULE as calendar_module  # noqa: E402
+from app.modules.document import MODULE as document_module  # noqa: E402
+from app.modules.finance import MODULE as finance_module  # noqa: E402
 from app.modules.habit import MODULE as habit_module  # noqa: E402
+from app.modules.learning import MODULE as learning_module  # noqa: E402
+from app.modules.opportunity import MODULE as opportunity_module  # noqa: E402
 from app.modules.pomodoro import MODULE as pomodoro_module  # noqa: E402
+from app.modules.project import MODULE as project_module  # noqa: E402
 from app.modules.review import MODULE as review_module  # noqa: E402
 from app.modules.rss import MODULE as rss_module  # noqa: E402
+from app.modules.study import MODULE as study_module  # noqa: E402
+from app.modules.system import MODULE as system_module  # noqa: E402
 from app.modules.todo import MODULE as todo_module  # noqa: E402
 
 MODULES: list[ModuleSpec] = [
@@ -33,4 +42,12 @@ MODULES: list[ModuleSpec] = [
     pomodoro_module,
     habit_module,
     review_module,
+    opportunity_module,
+    study_module,
+    learning_module,
+    document_module,
+    calendar_module,
+    project_module,
+    finance_module,
+    system_module,
 ]

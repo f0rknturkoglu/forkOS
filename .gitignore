@@ -15,3 +15,4 @@ dev-dist/
 .ruff_cache/
 *.egg-info/
 .vite/
+backend/backups/

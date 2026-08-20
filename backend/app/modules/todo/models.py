@@ -23,7 +23,8 @@ class Todo(EntityBacked, Base):
     reminder_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("todo.id", ondelete="CASCADE"))
+        PgUUID(as_uuid=True), ForeignKey("todo.id", ondelete="CASCADE")
+    )
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
@@ -31,11 +32,14 @@ class PlanSlot(Base):
     __tablename__ = "plan_slot"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, server_default="gen_random_uuid()")
+        PgUUID(as_uuid=True), primary_key=True, server_default="gen_random_uuid()"
+    )
     entity_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), nullable=False)
+        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), nullable=False
+    )
     day: Mapped[date] = mapped_column(Date, nullable=False)
     start_min: Mapped[int | None] = mapped_column(Integer)
     duration_min: Mapped[int | None] = mapped_column(Integer)
     note: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    google_event_id: Mapped[str | None] = mapped_column(Text)

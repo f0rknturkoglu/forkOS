@@ -1,0 +1,307 @@
+# Layer A registry: companies whose public ATS board endpoints we poll.
+#
+# Managed by `forkjob discover` / `forkjob verify`. Hand edits are fine, but a
+# hand-added entry stays verified: false until `verify` confirms it.
+
+version: 1
+companies:
+- name: Adyen
+  ats: greenhouse
+  token: adyen
+  verified: true
+  country: NL
+  region: EU
+  last_verified_at: '2026-08-08T16:25:20+00:00'
+  notes: 'Verified 2026-08-08: 217 postings'
+- name: Amenitiz
+  ats: ashby
+  token: amenitiz
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-08T16:25:20+00:00'
+  notes: 'Verified 2026-08-08: 18 postings, Barcelona'
+- name: Belvo
+  ats: ashby
+  token: belvo
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-08T16:25:20+00:00'
+  notes: 'Verified 2026-08-08: 6 postings'
+- name: Bitpanda
+  ats: greenhouse
+  token: bitpanda
+  verified: true
+  country: AT
+  region: EU
+  last_verified_at: '2026-08-08T16:25:20+00:00'
+  notes: 'Verified 2026-08-08: 46 postings'
+- name: Bunq
+  ats: recruitee
+  token: bunq
+  verified: true
+- name: Cabify
+  ats: greenhouse
+  token: cabify
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-08T16:25:20+00:00'
+  notes: 'Verified 2026-08-08: 52 postings, Madrid HQ'
+- name: Careem
+  ats: greenhouse
+  token: careem
+  verified: true
+  country: AE
+  region: OTHER
+  notes: 'Verified 2026-08-09: 24 postings, Dubai/Karachi/Amman. Gulf visa pipeline.'
+- name: Celonis
+  ats: greenhouse
+  token: celonis
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:21+00:00'
+  notes: 'Verified 2026-08-08: 258 postings'
+- name: Clarity AI
+  ats: greenhouse
+  token: clarityai
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-08T16:25:22+00:00'
+  notes: 'Verified 2026-08-08: 6 postings, Madrid'
+- name: Contentful
+  ats: greenhouse
+  token: contentful
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:22+00:00'
+  notes: 'Verified 2026-08-08: 27 postings'
+- name: Deliveroo
+  ats: ashby
+  token: deliveroo
+  verified: true
+- name: Delivery Hero
+  ats: smartrecruiters
+  token: DeliveryHero
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-09T10:14:58+00:00'
+  notes: Berlin HQ; large non-EU hiring pipeline.
+- name: Doktortakvimi
+  ats: ashby
+  token: doktortakvimi
+  verified: true
+  country: TR
+  region: TR
+  last_verified_at: '2026-08-08T06:52:42+00:00'
+  notes: 'Verified 2026-08-08: 4 postings, Istanbul/Izmir'
+- name: Dream Games
+  ats: lever
+  token: dreamgames
+  verified: true
+  country: TR
+  region: TR
+  last_verified_at: '2026-08-08T06:52:43+00:00'
+  notes: 'Verified 2026-08-08: 15 postings, Istanbul + London'
+- name: Elastic
+  ats: greenhouse
+  token: elastic
+  verified: true
+  country: NL
+  region: EU
+  last_verified_at: '2026-08-08T16:25:22+00:00'
+  notes: 'Verified 2026-08-08: 241 postings, globally distributed'
+- name: Forto
+  ats: ashby
+  token: forto
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:22+00:00'
+  notes: 'Verified 2026-08-08: 12 postings'
+- name: GetYourGuide
+  ats: greenhouse
+  token: getyourguide
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:23+00:00'
+  notes: 'Verified 2026-08-08: 53 postings'
+- name: GitLab
+  ats: greenhouse
+  token: gitlab
+  verified: true
+  country: US
+  region: OTHER
+  last_verified_at: '2026-08-09T00:00:00+00:00'
+  notes: 'Verified 2026-08-09: 188 postings. Globally distributed; includes EOR mentions in HR roles.'
+- name: GoStudent
+  ats: greenhouse
+  token: gostudent
+  verified: true
+  country: AT
+  region: EU
+  last_verified_at: '2026-08-08T16:25:23+00:00'
+  notes: 'Verified 2026-08-08: 25 postings'
+- name: HelloFresh
+  ats: greenhouse
+  token: hellofresh
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:24+00:00'
+  notes: 'Verified 2026-08-08: 344 postings'
+- name: Holded
+  ats: recruitee
+  token: holded
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-08T16:25:25+00:00'
+  notes: 'FIRST live verification of the Recruitee adapter: 8 postings, Barcelona'
+- name: iyzico
+  ats: lever
+  token: iyzico
+  verified: true
+  country: TR
+  region: TR
+  last_verified_at: '2026-08-08T06:52:44+00:00'
+  notes: 'Verified 2026-08-08: 11 postings, all Istanbul'
+- name: Jobandtalent
+  ats: lever
+  token: jobandtalent
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-08T16:25:27+00:00'
+  notes: 'Verified 2026-08-08: 26 postings, Madrid'
+- name: Mentimeter
+  ats: greenhouse
+  token: mentimeter
+  verified: true
+  country: SE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:28+00:00'
+  notes: 'Verified 2026-08-08: 22 postings'
+- name: Miro
+  ats: ashby
+  token: miro
+  verified: true
+  country: NL
+  region: EU
+  last_verified_at: '2026-08-08T16:25:28+00:00'
+  notes: 'Verified 2026-08-08: 46 postings'
+- name: Monzo
+  ats: greenhouse
+  token: monzo
+  verified: true
+- name: N26
+  ats: greenhouse
+  token: n26
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:29+00:00'
+  notes: 'Verified 2026-08-08: 92 postings'
+- name: Peak Games
+  ats: lever
+  token: peakgames
+  verified: true
+  country: TR
+  region: TR
+  last_verified_at: '2026-08-08T06:52:44+00:00'
+  notes: 'Verified 2026-08-08: 20 postings. Board fills categories.location with ''Full-time'' - location
+    unusable, country inferred as unknown'
+- name: Pipedrive
+  ats: lever
+  token: pipedrive
+  verified: true
+  country: EE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:29+00:00'
+  notes: 'Verified 2026-08-08: 16 postings'
+- name: Raisin
+  ats: greenhouse
+  token: raisin
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:29+00:00'
+  notes: 'Verified 2026-08-08: 34 postings'
+- name: Spotify
+  ats: lever
+  token: spotify
+  verified: true
+  country: SE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:30+00:00'
+  notes: 'Verified 2026-08-08: 103 postings'
+- name: Spyke Games
+  ats: lever
+  token: spyke-games
+  verified: true
+  country: TR
+  region: TR
+  last_verified_at: '2026-08-08T06:52:44+00:00'
+  notes: 'Verified 2026-08-08: 10 postings, all Istanbul'
+- name: Trendyol
+  ats: lever
+  token: trendyol
+  verified: true
+  country: TR
+  region: TR
+  last_verified_at: '2026-08-08T06:52:45+00:00'
+  notes: 'Verified 2026-08-08: 34 postings, Istanbul/Maslak + Riyadh/Bucharest/Dubai'
+- name: Trivago
+  ats: greenhouse
+  token: trivago
+  verified: true
+  country: DE
+  region: EU
+  last_verified_at: '2026-08-08T16:25:30+00:00'
+  notes: 'Verified 2026-08-08: 11 postings'
+- name: Typeform
+  ats: greenhouse
+  token: typeform
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-07T13:23:00+00:00'
+  notes: 'Verified 2026-08-07: 12 postings, Barcelona HQ'
+- name: UiPath
+  ats: ashby
+  token: uipath
+  verified: true
+  country: RO
+  region: EU
+  last_verified_at: '2026-08-08T16:25:31+00:00'
+  notes: 'Verified 2026-08-08: 121 postings'
+- name: Wallapop
+  ats: greenhouse
+  token: wallapop
+  verified: true
+  country: ES
+  region: EU
+  last_verified_at: '2026-08-07T13:23:00+00:00'
+  notes: 'Verified 2026-08-07: 11 postings, Barcelona HQ'
+- name: Wise
+  ats: smartrecruiters
+  token: wise
+  verified: true
+  country: GB
+  region: EU
+  last_verified_at: '2026-08-08T16:25:31+00:00'
+  notes: 'FIRST live verification of the SmartRecruiters adapter: 100 postings'
+- name: Wolt
+  ats: greenhouse
+  token: wolt
+  verified: true
+  country: FI
+  region: EU
+  last_verified_at: '2026-08-08T16:25:32+00:00'
+  notes: 'Verified 2026-08-08: 245 postings'

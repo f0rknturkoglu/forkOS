@@ -3,6 +3,7 @@
 Postgres'e ihtiyac duymaz: migration dosyalarindaki SQL string'lerini okuyup
 SQLAlchemy metadata'siyla karsilastirir.
 """
+
 from __future__ import annotations
 
 import ast
@@ -63,6 +64,12 @@ def _tables_from_migrations() -> dict[str, set[str]]:
             parsed = _table_columns(statement)
             if parsed:
                 tables[parsed[0]] = parsed[1]
+                continue
+            altered = re.match(
+                r"alter table (\w+) add column (?:if not exists )?(\w+)", statement, re.I
+            )
+            if altered:
+                tables.setdefault(altered.group(1), set()).add(altered.group(2).lower())
     return tables
 
 
@@ -86,7 +93,16 @@ def test_model_columns_match_migration_columns():
 def test_module_tables_reference_entity():
     """Kural 1: her modul tablosunun PK'si entity.id'ye FK olmali."""
     core_tables = {"entity", "link", "event", "tag", "entity_tag", "saved_view", "source_run"}
-    support_tables = {"plan_slot", "habit_log"}
+    support_tables = {
+        "plan_slot",
+        "habit_log",
+        "opportunity_requirement",
+        "notification",
+        "oauth_token",
+        "milestone",
+        "github_activity",
+        "setting",
+    }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:
             continue

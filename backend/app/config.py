@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     extension_id: str = ""
     rss_default_interval_minutes: int = 30
     rss_retention_days: int = 90
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://127.0.0.1:8787/api/auth/google/callback"
 
     @property
     def cors_origins(self) -> list[str]:

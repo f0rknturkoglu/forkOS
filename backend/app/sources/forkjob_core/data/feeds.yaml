@@ -1,0 +1,24 @@
+# User-defined RSS job feeds.
+#
+# Managed through the web UI at /feeds — you do not need to edit this file by
+# hand. Every enabled feed here is fetched by the `customfeeds` source on the
+# next sync.
+#
+# Feed fields:
+#   url       required — the feed URL (RSS or Atom)
+#   name      optional — label shown in the list; defaults to the host
+#   remote    optional — true if everything on this feed is remote work
+#   country   optional — ISO-3166 alpha-2 to stamp on postings with no location
+#   enabled   optional — false to keep a feed without fetching it
+
+version: 1
+feeds:
+- url: https://weworkremotely.com/categories/remote-programming-jobs.rss
+  name: We Work Remotely — Programming (example)
+  remote: true
+  enabled: false
+- url: https://www.python.org/jobs/feed/rss/
+  name: Python.org Job Board
+- url: https://cryptocurrencyjobs.co/index.xml
+  name: Cryptocurrency Jobs
+  remote: true

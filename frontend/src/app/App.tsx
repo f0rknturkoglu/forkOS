@@ -1,11 +1,12 @@
 import "@/modules";                 // registry'yi doldurur -- ILK import olmali
 import { useQuery } from "@tanstack/react-query";
 import { CommandPalette } from "@/core/CommandPalette";
-import { allRoutes, enabledModules } from "@/core/registry";
+import { allRoutes, enabledModules, hydrateSettings } from "@/core/registry";
 import { api } from "@/core/api";
 import { cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import type { SourceHealth } from "@/core/types";
+import type { AppSettings } from "@/core/types";
 import { useHashRoute } from "./router";
 
 function NotFound() {
@@ -32,6 +33,8 @@ function SourceAlert() {
 export default function App() {
   const { path } = useHashRoute();
   const online = useOnline();
+  const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<AppSettings>("/settings") });
+  if (settings) hydrateSettings(settings);
   const routes = allRoutes();
   const route = routes.find((r) => r.path === path);
   const Page = route?.element ?? (path === "/" ? routes[0]?.element : NotFound) ?? NotFound;
@@ -61,6 +64,7 @@ export default function App() {
             );
           })}
         </ul>
+        {(settings?.["media.links"] ?? []).length > 0 && <div className="mt-5 border-t border-neutral-800 pt-4"><p className="mb-2 text-[10px] uppercase tracking-wider text-neutral-600">Media</p>{settings?.["media.links"].map(link => <a key={link.name} href={link.url} target="_blank" className="block rounded px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-900 hover:text-neutral-200">{link.name} ↗</a>)}</div>}
         <div className="mt-auto space-y-1 pt-6 text-[11px] text-neutral-600">
           <div>
             <kbd className="rounded border border-neutral-800 px-1">Ctrl</kbd>

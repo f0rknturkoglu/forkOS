@@ -4,13 +4,18 @@ Burada SADECE zamanlama ve sirayla calistirma var. Cekme mantigi modulun
 kendisinde (app/modules/rss/service.py) -- boylece "simdi yenile" butonu ve
 worker ayni kodu kullanir, ileride scraper katmani VPS'e tasinabilir (kural 5).
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 
 from app.db import SessionLocal
+from app.modules.calendar.service import sync_google
+from app.modules.opportunity.worker import poll_opportunities as _poll_opportunities
+from app.modules.project.github import sync as sync_github_service
 from app.modules.rss import service as rss
+from app.modules.system.backup import backup_if_stale
 
 log = logging.getLogger("worker.jobs")
 
@@ -65,3 +70,40 @@ async def prune_old_items() -> int:
         removed = await rss.prune_items(session)
     log.info("prune_old_items: %d item silindi", removed)
     return removed
+
+
+async def poll_opportunities(*, limit: int = 4) -> int:
+    total = await _poll_opportunities(limit=limit)
+    log.info("poll_opportunities: %d yeni firsat", total)
+    return total
+
+
+async def sync_calendar() -> int:
+    async with SessionLocal() as session:
+        try:
+            changed = await sync_google(session)
+        except RuntimeError:
+            log.info("sync_calendar: Google bağlı değil")
+            return 0
+    log.info("sync_calendar: %d etkinlik güncellendi", changed)
+    return changed
+
+
+async def sync_github() -> int:
+    async with SessionLocal() as session:
+        try:
+            changed = await sync_github_service(session)
+        except RuntimeError:
+            log.info("sync_github: GitHub bağlı değil")
+            return 0
+    log.info("sync_github: %d commit işlendi", changed)
+    return changed
+
+
+async def nightly_backup() -> str | None:
+    async with SessionLocal() as session:
+        path = await backup_if_stale(session)
+    if path:
+        log.info("nightly_backup: %s", path)
+        return str(path)
+    return None

@@ -4,6 +4,7 @@ Kural 2: entity yazan her yer core/entity.py helper'larini kullanir.
 Kural 3: anlamli her aksiyondan sonra log_event().
 Kural 7: Inbox ve Bookmark ayni tablo -- ayirici alan `collection`.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,7 +30,8 @@ def normalize_url(url: str) -> str:
     """Takip parametrelerini atar, host'u sadelestirir. Dedup burada baslar."""
     parts = urlsplit(url.strip())
     query = "&".join(
-        p for p in parts.query.split("&")
+        p
+        for p in parts.query.split("&")
         if p and not p.split("=")[0].lower().startswith(_TRACKING_PREFIXES)
     )
     host = parts.netloc.lower().removeprefix("www.")
@@ -45,18 +47,26 @@ def _search_text(*parts: str | None) -> str:
 
 
 async def find_by_url(
-    session: AsyncSession, url: str, *, exclude: uuid.UUID | None = None,
+    session: AsyncSession,
+    url: str,
+    *,
+    exclude: uuid.UUID | None = None,
 ) -> Bookmark | None:
     """En eski eslesme -- "zaten kayitli" uyarisi icin."""
-    stmt = (select(Bookmark).where(Bookmark.url_hash == url_hash(url))
-            .order_by(Bookmark.saved_at).limit(1))
+    stmt = (
+        select(Bookmark)
+        .where(Bookmark.url_hash == url_hash(url))
+        .order_by(Bookmark.saved_at)
+        .limit(1)
+    )
     if exclude is not None:
         stmt = stmt.where(Bookmark.id != exclude)
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
 async def capture(
-    session: AsyncSession, data: CaptureIn,
+    session: AsyncSession,
+    data: CaptureIn,
 ) -> tuple[Bookmark, bool, Bookmark | None]:
     """Idempotent capture.
 
@@ -65,9 +75,9 @@ async def capture(
       prior    -> ayni URL daha once kaydedilmis (hata degil, sadece bilgi)
     """
     if data.client_uuid:
-        existing = (await session.execute(
-            select(Bookmark).where(Bookmark.client_uuid == data.client_uuid)
-        )).scalar_one_or_none()
+        existing = (
+            await session.execute(select(Bookmark).where(Bookmark.client_uuid == data.client_uuid))
+        ).scalar_one_or_none()
         if existing is not None:
             return existing, True, None
 
@@ -75,7 +85,8 @@ async def capture(
     prior = await find_by_url(session, data.url)
 
     entity = await create_entity(
-        session, type=Bookmark.ENTITY_TYPE,
+        session,
+        type=Bookmark.ENTITY_TYPE,
         title=data.title.strip() or normalize_url(data.url),
         search_text=_search_text(data.url, data.description, data.selection, data.note),
     )
@@ -96,10 +107,18 @@ async def capture(
     if data.tags:
         await tag_svc.add_tags(session, entity.id, data.tags)
 
-    await log_event(session, verb="bookmark.saved", entity_id=entity.id,
-                    entity_type="bookmark",
-                    payload={"collection": data.collection, "source": data.source,
-                             "url": data.url, "duplicate": prior is not None})
+    await log_event(
+        session,
+        verb="bookmark.saved",
+        entity_id=entity.id,
+        entity_type="bookmark",
+        payload={
+            "collection": data.collection,
+            "source": data.source,
+            "url": data.url,
+            "duplicate": prior is not None,
+        },
+    )
     await session.commit()
     return bookmark, False, prior
 
@@ -113,23 +132,34 @@ async def move(session: AsyncSession, bookmark_id: uuid.UUID, collection: str) -
         await archive_entity(session, bookmark_id)
     await touch_entity(session, bookmark_id)
     if previous != collection:
-        await log_event(session, verb="bookmark.moved", entity_id=bookmark_id,
-                        entity_type="bookmark", payload={"from": previous, "to": collection})
+        await log_event(
+            session,
+            verb="bookmark.moved",
+            entity_id=bookmark_id,
+            entity_type="bookmark",
+            payload={"from": previous, "to": collection},
+        )
     await session.commit()
     return bookmark
 
 
 async def update(
-    session: AsyncSession, bookmark_id: uuid.UUID, data: BookmarkUpdate,
+    session: AsyncSession,
+    bookmark_id: uuid.UUID,
+    data: BookmarkUpdate,
 ) -> Bookmark | None:
     bookmark = await session.get(Bookmark, bookmark_id)
     if bookmark is None:
         return None
 
     if data.collection is not None and data.collection != bookmark.collection:
-        await log_event(session, verb="bookmark.moved", entity_id=bookmark_id,
-                        entity_type="bookmark",
-                        payload={"from": bookmark.collection, "to": data.collection})
+        await log_event(
+            session,
+            verb="bookmark.moved",
+            entity_id=bookmark_id,
+            entity_type="bookmark",
+            payload={"from": bookmark.collection, "to": data.collection},
+        )
         bookmark.collection = data.collection
     if data.note is not None:
         bookmark.note = data.note
@@ -137,21 +167,33 @@ async def update(
         bookmark.description = data.description
     if data.favorite is not None and data.favorite != bookmark.favorite:
         bookmark.favorite = data.favorite
-        await log_event(session, verb="bookmark.favorited", entity_id=bookmark_id,
-                        entity_type="bookmark", payload={"favorite": data.favorite})
+        await log_event(
+            session,
+            verb="bookmark.favorited",
+            entity_id=bookmark_id,
+            entity_type="bookmark",
+            payload={"favorite": data.favorite},
+        )
     if data.read_status is not None and data.read_status != bookmark.read_status:
         bookmark.read_status = data.read_status
         if data.read_status == "read":
-            await log_event(session, verb="bookmark.read", entity_id=bookmark_id,
-                            entity_type="bookmark", payload={})
+            await log_event(
+                session,
+                verb="bookmark.read",
+                entity_id=bookmark_id,
+                entity_type="bookmark",
+                payload={},
+            )
     if data.tags is not None:
         await tag_svc.set_tags(session, bookmark_id, data.tags)
 
     await touch_entity(
-        session, bookmark_id,
+        session,
+        bookmark_id,
         title=data.title.strip() if data.title else None,
-        search_text=_search_text(bookmark.url, bookmark.description, bookmark.selection,
-                                 bookmark.note),
+        search_text=_search_text(
+            bookmark.url, bookmark.description, bookmark.selection, bookmark.note
+        ),
     )
     await session.commit()
     return bookmark
@@ -165,8 +207,13 @@ async def delete(session: AsyncSession, bookmark_id: uuid.UUID) -> bool:
     entity = await session.get(Entity, bookmark_id)
     if entity is None:
         return False
-    await log_event(session, verb="bookmark.deleted", entity_id=bookmark_id,
-                    entity_type="bookmark", payload={"title": entity.title})
+    await log_event(
+        session,
+        verb="bookmark.deleted",
+        entity_id=bookmark_id,
+        entity_type="bookmark",
+        payload={"title": entity.title},
+    )
     await session.flush()
     await session.delete(entity)
     await session.commit()
@@ -174,7 +221,8 @@ async def delete(session: AsyncSession, bookmark_id: uuid.UUID) -> bool:
 
 
 async def list_bookmarks(
-    session: AsyncSession, *,
+    session: AsyncSession,
+    *,
     collection: str | None = None,
     read_status: str | None = None,
     favorite: bool | None = None,
@@ -187,7 +235,8 @@ async def list_bookmarks(
         select(Bookmark, Entity.title)
         .join(Entity, Entity.id == Bookmark.id)
         .order_by(Bookmark.saved_at.desc())
-        .limit(limit).offset(offset)
+        .limit(limit)
+        .offset(offset)
     )
     if collection:
         stmt = stmt.where(Bookmark.collection == collection)
@@ -209,11 +258,13 @@ async def list_bookmarks(
 
 
 async def get(session: AsyncSession, bookmark_id: uuid.UUID) -> BookmarkOut | None:
-    row = (await session.execute(
-        select(Bookmark, Entity.title)
-        .join(Entity, Entity.id == Bookmark.id)
-        .where(Bookmark.id == bookmark_id)
-    )).first()
+    row = (
+        await session.execute(
+            select(Bookmark, Entity.title)
+            .join(Entity, Entity.id == Bookmark.id)
+            .where(Bookmark.id == bookmark_id)
+        )
+    ).first()
     if row is None:
         return None
     bookmark, title = row
@@ -223,29 +274,45 @@ async def get(session: AsyncSession, bookmark_id: uuid.UUID) -> BookmarkOut | No
 
 def _to_out(bookmark: Bookmark, title: str, tags: list[str]) -> BookmarkOut:
     return BookmarkOut(
-        id=bookmark.id, title=title, url=bookmark.url, description=bookmark.description,
-        collection=bookmark.collection, source=bookmark.source,
-        read_status=bookmark.read_status, favorite=bookmark.favorite, note=bookmark.note,
-        selection=bookmark.selection, saved_at=bookmark.saved_at, tags=tags,
+        id=bookmark.id,
+        title=title,
+        url=bookmark.url,
+        description=bookmark.description,
+        collection=bookmark.collection,
+        queue_kind=bookmark.queue_kind,
+        source=bookmark.source,
+        read_status=bookmark.read_status,
+        favorite=bookmark.favorite,
+        note=bookmark.note,
+        selection=bookmark.selection,
+        saved_at=bookmark.saved_at,
+        tags=tags,
     )
 
 
 async def stats(session: AsyncSession) -> dict:
-    per_collection = dict((await session.execute(
-        select(Bookmark.collection, func.count()).group_by(Bookmark.collection)
-    )).all())
-    unread = (await session.execute(
-        select(func.count()).select_from(Bookmark).where(Bookmark.read_status == "unread")
-    )).scalar_one()
+    per_collection = dict(
+        (
+            await session.execute(
+                select(Bookmark.collection, func.count()).group_by(Bookmark.collection)
+            )
+        ).all()
+    )
+    unread = (
+        await session.execute(
+            select(func.count()).select_from(Bookmark).where(Bookmark.read_status == "unread")
+        )
+    ).scalar_one()
     midnight = datetime.combine(date.today(), time.min, tzinfo=UTC)
-    saved_today = (await session.execute(
-        select(func.count()).select_from(Bookmark).where(Bookmark.saved_at >= midnight)
-    )).scalar_one()
+    saved_today = (
+        await session.execute(
+            select(func.count()).select_from(Bookmark).where(Bookmark.saved_at >= midnight)
+        )
+    ).scalar_one()
     return {
         "inbox": per_collection.get("inbox", 0),
         "unread": unread,
         "saved_today": saved_today,
         "total": sum(per_collection.values()),
-        "collections": [{"collection": c, "count": per_collection.get(c, 0)}
-                        for c in COLLECTIONS],
+        "collections": [{"collection": c, "count": per_collection.get(c, 0)} for c in COLLECTIONS],
     }

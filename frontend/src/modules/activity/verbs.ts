@@ -24,6 +24,20 @@ export const VERB_LABELS: Record<string, string> = {
   "pomodoro.interrupted": "Odak yarida kesildi",
   "habit.checked": "Habit tamamlandi",
   "review.completed": "Review tamamlandi",
+  "opportunity.created": "Fırsat oluşturuldu",
+  "opportunity.updated": "Fırsat güncellendi",
+  "opportunity.items_added": "Yeni fırsatlar bulundu",
+  "study.topic_completed": "Çalışma konusu tamamlandı",
+  "study.confidence_changed": "Konu güveni güncellendi",
+  "document.synced": "Belgeler eşitlendi",
+  "calendar.synced": "Takvim eşitlendi",
+  "calendar.plan_pushed": "Plan Google Calendar'a gönderildi",
+  "project.created": "Proje oluşturuldu",
+  "project.updated": "Proje güncellendi",
+  "github.commit": "GitHub commit",
+  "expense.created": "Harcama eklendi",
+  "recurring_payment.created": "Düzenli ödeme eklendi",
+  "recurring.paid": "Düzenli ödeme işlendi",
 };
 
 export const ALERT_VERBS = new Set([

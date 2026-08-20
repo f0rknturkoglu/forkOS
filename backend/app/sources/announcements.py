@@ -1,0 +1,125 @@
+from __future__ import annotations
+
+import hashlib
+import html
+import unicodedata
+from datetime import UTC, datetime
+from urllib.parse import urljoin
+
+import httpx
+from selectolax.parser import HTMLParser
+
+from app.sources.base import RawItem
+
+
+def _norm(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value.casefold())
+    return "".join(c for c in value if not unicodedata.combining(c)).replace("ı", "i")
+
+
+class AnnouncementSource:
+    interval_minutes = 720
+
+    def __init__(self, source_id: str, url: str, keywords: tuple[str, ...], kind: str):
+        self.id, self.url, self.keywords, self.kind = source_id, url, keywords, kind
+
+    async def fetch(self) -> list[RawItem]:
+        async with httpx.AsyncClient(
+            timeout=25,
+            follow_redirects=True,
+            headers={"User-Agent": "forkOS/0.1 local announcement monitor"},
+        ) as client:
+            response = await client.get(self.url, headers={"Accept": "text/html"})
+            response.raise_for_status()
+        items: list[RawItem] = []
+        for anchor in HTMLParser(response.text).css("a"):
+            title = " ".join(anchor.text(deep=True).split())
+            href = anchor.attributes.get("href")
+            normalized = _norm(title)
+            if not href or len(title) < 8 or not any(_norm(k) in normalized for k in self.keywords):
+                continue
+            url = urljoin(str(response.url), href)
+            items.append(
+                RawItem(
+                    external_id=hashlib.sha256(url.encode()).hexdigest(),
+                    title=title,
+                    url=url,
+                    extra={"organization": self.id.upper(), "kind": self.kind},
+                )
+            )
+        return list({item.external_id: item for item in items}.values())
+
+
+class YlsySource(AnnouncementSource):
+    async def fetch(self) -> list[RawItem]:
+        headers = {
+            "User-Agent": "forkOS/0.1 local announcement monitor",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": self.url,
+        }
+        form = {
+            "kategori": "2",
+            "dil": "tr",
+            "draw": "1",
+            "start": "0",
+            "length": "100",
+            "order[0][column]": "2",
+            "order[0][dir]": "desc",
+            "search[value]": "",
+            "columns[0][data]": "ISLEMSAAT",
+            "columns[1][data]": "BASLIK",
+            "columns[2][data]": "SIRAID",
+        }
+        async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=headers) as client:
+            await client.get(self.url)
+            response = await client.post(
+                "https://yyegm.meb.gov.tr/www/icerik_listele_ajax.php", data=form
+            )
+            response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"YLSY duyuru API beklenmeyen cevap: {payload!r}")
+        items: list[RawItem] = []
+        for row in payload.get("data", []):
+            title = " ".join(html.unescape(row.get("BASLIK", "")).split())
+            if not any(_norm(keyword) in _norm(title) for keyword in self.keywords):
+                continue
+            url = urljoin(self.url, row["LINK"])
+            try:
+                published_at = datetime.strptime(row["ISLEMSAAT"], "%d/%m/%Y").replace(tzinfo=UTC)
+            except (KeyError, ValueError):
+                published_at = None
+            items.append(
+                RawItem(
+                    external_id=(
+                        f"ylsy:{row.get('SIRAID') or hashlib.sha256(url.encode()).hexdigest()}"
+                    ),
+                    title=title,
+                    url=url,
+                    published_at=published_at,
+                    extra={"organization": "YLSY", "kind": self.kind},
+                )
+            )
+        return items
+
+
+SOURCES = [
+    AnnouncementSource(
+        "osym",
+        "https://www.osym.gov.tr/Duyurular/Index",
+        ("ales", "yökdil", "yabancı dil", "sınav"),
+        "exam",
+    ),
+    YlsySource(
+        "ylsy",
+        "https://yyegm.meb.gov.tr/www/duyurular/kategori/2",
+        ("ylsy", "burs", "lisansüstü"),
+        "scholarship",
+    ),
+    AnnouncementSource(
+        "yok-msc",
+        "https://genel-sekreterlik.yok.gov.tr/gundem/duyurular",
+        ("yüksek lisans", "lisansüstü", "burs", "başvuru"),
+        "msc",
+    ),
+]

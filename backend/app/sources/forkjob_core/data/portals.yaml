@@ -1,0 +1,814 @@
+# Layer B registry: Spanish job portals.
+#
+# Separate from data/registry.yaml by design — a dead portal scraper must never
+# block an ATS sync.
+#
+# A source stays `enabled: false` until its structure has actually been seen in
+# a real response. "Probably works" is not a state this file records.
+#
+#   key      short id, also the `source` written onto every Job
+#   label    display name
+#   url      entry point
+#   enabled  false until verified against a real response
+#   config   scraper-specific settings
+#   status   why it is in the state it is in — keep this honest
+
+version: 1
+
+sources:
+  # -- verified ------------------------------------------------------------
+  - key: manfred
+    label: Manfred
+    category: regional
+    url: https://www.getmanfred.com
+    enabled: true
+    status: >-
+      Verified 2026-08-08. No REST API exists (api.getmanfred.com/v1/jobs is
+      404). Offers are indexed by sitemap-offers.xml, which robots.txt
+      advertises, and each offer page carries __NEXT_DATA__ plus a schema.org
+      JobPosting with a real datePosted. robots.txt allows everything.
+    config:
+      # Detail pages cost one request each at 2s spacing — this is a time
+      # budget as much as a politeness one.
+      max_offers: 40
+
+  - key: kariyernet
+    label: Kariyer.net
+    category: regional
+    url: https://www.kariyer.net/is-ilanlari/yazilim
+    enabled: true
+    status: >-
+      Verified 2026-08-08 against a live listing page: 53 cards, and all 25
+      data attributes present on every one. Cards carry their data in HTML
+      attributes (positionname, cityname, workmodeltext, jobdatestatus) rather
+      than nested markup, so there is almost no selector surface to break.
+      robots.txt permits /is-ilanlari/ and disallows only CV, profile,
+      application and settings paths — none of which this touches. No login.
+    config:
+      # Path-segment keyword searches. Each runs up to max_pages.
+      keywords: [yazilim, yazilim-muhendisi, backend-developer, frontend-developer]
+      max_pages: 5
+
+  - key: arbeitnow
+    label: Arbeitnow
+    category: regional
+    url: https://www.arbeitnow.com/api/job-board-api
+    enabled: true
+    status: >-
+      Verified 2026-08-08: free public API published by the site itself, 175
+      postings per page, hourly updates, no key. Berlin/München/Hamburg/London
+      heavy. Note there is NO visa_sponsorship field in the current payload
+      despite what older write-ups claim — the visa signal comes from the
+      description like every other source. Their terms ask for a link back,
+      which the stored `url` provides.
+    config:
+      max_pages: 3
+
+  # -- optional integrations ----------------------------------------------
+  - key: linkedin
+    label: LinkedIn
+    category: social
+    url: https://www.linkedin.com/jobs
+    enabled: false
+    status: >-
+      Powered by python-jobspy 1.1.82. Direct VPN connection allowed.
+      Disabled in default bulk sync; explicit --source linkedin may run it.
+    config:
+      proxy_file_env: FORKJOB_LINKEDIN_PROXIES_FILE
+      allow_direct: true
+      ca_cert_env: FORKJOB_LINKEDIN_CA_CERT
+      user_agent_env: FORKJOB_LINKEDIN_USER_AGENT
+      searches:
+        - name: spain-backend
+          term: backend engineer
+          location: Spain
+          results_wanted: 100
+          hours_old: 72
+          fetch_description: false
+        - name: madrid-python
+          term: python developer
+          location: Madrid, Spain
+          results_wanted: 50
+          hours_old: 168
+          fetch_description: true
+        - name: spain-remote
+          term: software engineer
+          location: Spain
+          results_wanted: 50
+          is_remote: true
+          fetch_description: false
+
+  - key: bebee
+    label: beBee
+    category: regional
+    url: https://bebee.com/tr/jobs
+    enabled: true
+    status: >-
+      Verified 2026-08-08 against live TR pages. Posting pages carry a full
+      schema.org JobPosting (datePosted, structured addressLocality/
+      addressCountry, identifier), so there are no selectors at all.
+      Constraint: robots.txt allows / but disallows every query parameter
+      including ?page=, and the sitemap holds only category pages (0 individual
+      postings out of 2394). So listings come from each page's own ld+json
+      ItemList, which caps at 20 postings per country page with no way to reach
+      the 21st. A shallow, frequent skim rather than a deep crawl.
+    config:
+      countries: [tr, es]
+      max_offers: 40
+
+  - key: jobfluent
+    label: JobFluent
+    category: regional
+    url: https://www.jobfluent.com/jobs
+    enabled: true
+    status: >-
+      Verified 2026-08-08. Not a Next.js site — no __NEXT_DATA__ and no
+      ld+json — but it publishes schema.org *microdata* (itemprop) covering
+      title, datePosted, addressLocality/addressCountry, hiringOrganization,
+      identifier and a curated comma-separated `skills` list. So no invented
+      selectors: every field is addressed by its schema.org property name.
+      Listings come from the advertised sitemap, split by region
+      (remote/barcelona/madrid/valencia); Barcelona alone lists 392 postings.
+      robots.txt gives ClaudeBot/GPTBot/CCBot a blanket Disallow — those are
+      bulk AI crawlers. The `User-agent: *` block covering this tool disallows
+      only /login, /sessions*, /api/*, /track and the /*/external* apply
+      redirects, none of which are touched.
+    config:
+      regions: [remote, barcelona, madrid, valencia]
+      max_offers: 40
+
+  - key: ticjob
+    label: Ticjob
+    category: regional
+    url: https://www.ticjob.es
+    enabled: true
+    status: >-
+      Verified 2026-08-08. The sitemap route worked again: per-language
+      sitemaps (cat/eng/esp) with posting URLs under /{lang}/job/, and each
+      posting page carries a full schema.org JobPosting in ld+json — no
+      selectors. Two quirks: the JSON contains raw newlines so it needs
+      strict=False, and `identifier` is the *company* id (the JobFluent trap),
+      so external_id comes from the URL. robots.txt disallows only legal,
+      disclaimer, privacy and online-cv paths.
+    config:
+      languages: [eng]
+      max_offers: 40
+
+  - key: jobicy
+    label: Jobicy
+    category: remote
+    url: https://jobicy.com/jobs/feed
+    enabled: true
+    status: >-
+      Verified 2026-08-08 via RSS, not the JSON API. The documented
+      /api/v2/remote-jobs is forbidden by the site's own robots.txt (line 48,
+      `Disallow: /api/`) and the scraper obeys it — the first attempt returned
+      zero postings and no error. The RSS feed is a different, permitted path:
+      `Disallow: /feed$` pins to the bare /feed and nothing covers /jobs/feed.
+      The feed is richer than the API anyway, carrying company, location,
+      job_type and category in a jobicy namespace; the only loss is the API's
+      jobLevel field. geo and industry filters both work on it.
+    config:
+      geos: ["europe", "emea", ""]
+      industries: ["engineering"]
+
+  - key: remoteok
+    label: RemoteOK
+    category: remote
+    url: https://remoteok.com/api
+    enabled: true
+    status: >-
+      Verified 2026-08-08, 100 postings. Free public JSON API, no key.
+      robots.txt allows `*` and sets `Content-Signal: search=yes, ai-train=no,
+      use=reference` — reference use is exactly this, and nothing here trains
+      anything. (ClaudeBot and the other bulk AI crawlers are named and
+      disallowed; this tool is neither.) The first array element is their API
+      terms rather than a posting and is skipped. Terms require a followed link
+      back, which the stored url provides. `location` is usually empty; the
+      signal is in `tags` (dev, engineer, senior, python, react), surfaced into
+      the description for the scorer. Carries real salary ranges, rare here.
+
+  - key: jobgether
+    label: Jobgether
+    category: aggregator
+    url: https://jobgether.com/astroapi/ai/jobs
+    enabled: true
+    status: >-
+      Verified 2026-08-08, and the site actively invites this. Its robots.txt
+      closes query strings generally (`Disallow: /*?*`) and then opens one
+      endpoint by name — `Allow: /astroapi/ai/jobs?*` — with
+      `Content-Signal: ai-input=yes`. The endpoint documents itself at
+      /astroapi/ai/jobs/docs as "intended for AI agents/assistants answering
+      user job-search queries", and returns 400s that name the offending field
+      with its allowed values. Second source after EURES where seniority is a
+      fact stated by the poster rather than read out of a title.
+    config:
+      experience: [entry-level-graduate, junior-1-2-years]
+      locations: [europe]
+      keywords: [developer, "software engineer"]
+      max_pages: 4
+
+  - key: weworkremotely
+    label: We Work Remotely
+    category: remote
+    url: https://weworkremotely.com/remote-jobs.rss
+    enabled: true
+    status: >-
+      Verified 2026-08-08. Public RSS feeds the site offers for this purpose,
+      asking only for attribution back — the stored url provides it. robots is
+      Allow:/ apart from account and admin paths. Key finding: the category
+      feeds do NOT nest. "All Programming" returned 25 postings that appeared
+      in none of the others, while Full-Stack had 123, DevOps 51, Back-End 29
+      and Front-End 16, all disjoint — fetching only the "all" feed would have
+      collected 25 of 219. Every engineering category is fetched and merged;
+      design, sales, support and management are left out.
+    config:
+      categories:
+        - remote-programming-jobs
+        - remote-full-stack-programming-jobs
+        - remote-back-end-programming-jobs
+        - remote-front-end-programming-jobs
+        - remote-devops-sysadmin-jobs
+
+  - key: wellfound
+    label: Wellfound
+    category: startup
+    url: https://wellfound.com/role/l/software-engineer/spain
+    enabled: true
+    status: >-
+      Verified 2026-08-08. Next.js role pages ship their Apollo GraphQL cache
+      in __NEXT_DATA__, so no selectors. Jobs hang off companies — a
+      StartupResult lists its postings by __ref and the posting carries no
+      company itself. Two fields nothing else here provides:
+      yearsExperienceMin as a number stated by the poster, and real
+      compensation including equity. Caveat: the page also loads Cloudflare
+      and captcha machinery. It served fine at 2s with an honest UA, but this
+      is the likeliest source to start refusing — if it does it will surface
+      as an error run, and it should be left refused rather than worked around.
+    config:
+      roles: [software-engineer, backend-engineer, frontend-engineer]
+      locations: [spain, netherlands, germany, sweden, portugal, ireland]
+
+  # -- blocked -------------------------------------------------------------
+  - key: remoterocketship
+    label: Remote Rocketship
+    category: startup
+    url: https://www.remoterocketship.com
+    enabled: false
+    status: >-
+      Blocked at the door. robots.txt permits it, but the site answers
+      403 with a Cloudflare "Just a moment" challenge to an honest UA. Getting
+      past that means impersonating a browser or routing around the challenge,
+      which is not something this project does. No parser written.
+
+  - key: eurotechjobs
+    label: EuroTechJobs
+    category: regional
+    url: https://www.eurotechjobs.com/jobs/spain
+    enabled: true
+    status: >-
+      Verified 2026-08-08. robots names ClaudeBot/GPTBot/Bytespider with
+      Disallow but leaves `User-agent: *` fully open, the same shape as
+      JobFluent. No structured data anywhere and the sitemap holds only
+      articles, so this needed real selectors, taken from a captured page:
+      li.highlightedJobContainer and li.standardJobContainer, with h3,
+      .companyName, .location, .postedDate and .badge inside. Both container
+      classes are read — taking only one would drop either every promoted
+      posting or nearly everything. postedDate is relative prose ("Posted 10
+      days ago") with no absolute timestamp, so date_source is `updated`,
+      never `employer`.
+    config:
+      countries: [spain, netherlands, germany, sweden, ireland, portugal]
+
+  - key: wearedevelopers
+    label: WeAreDevelopers
+    category: regional
+    url: https://www.wearedevelopers.com/jobs
+    enabled: true
+    status: >-
+      Verified 2026-08-08. robots disallows only devjobsatBot. The sitemap is
+      a trap and was checked first: sitemap-jobs.xml holds 66,335 URLs and not
+      one is a posting — all category and location facets. So the listing page
+      is parsed via article.wad4-job-card. Worth having for its chips, which
+      carry work mode, salary band, seniority and tech stack as discrete
+      labels rather than prose. The card carries no date at all, so
+      date_source is `discovered` and nothing is invented.
+    config:
+      queries: ["remote=true", ""]
+
+  - key: tecnoempleo
+    label: Tecnoempleo
+    category: regional
+    url: https://www.tecnoempleo.com/ofertas-trabajo/
+    enabled: true
+    status: >-
+      Verified 2026-08-08. The advertised sitemap.xml is the offer index:
+      2,008 live postings (priority 1.0, real lastmod) — the search page's
+      query parameters are undocumented and are never touched. Each offer
+      page carries a schema.org JobPosting with a real datePosted, so
+      date_source is employer; the ld+json identifier is the *company* id
+      (the JobFluent trap), so external_id comes from the rf-<hex> URL
+      tail. The sitemap also holds the site history back to 2017, so offers
+      are filtered to the last max_age_days and fetched newest-first,
+      capped at max_offers. Closed offers resolve to a search page without
+      a JobPosting and are skipped. robots.txt disallows
+      AnthropicBot/Claude*/GPTBot by name with a blanket Disallow: / —
+      this tool is none of those and identifies honestly; the owner's
+      stated intent is on record and the choice is deliberate.
+    config:
+      max_offers: 40
+      max_age_days: 30
+
+  - key: eures
+    label: EURES
+    category: government
+    url: https://europa.eu/eures/api/jv-searchengine/public/jv-search/search
+    enabled: true
+    status: >-
+      Verified 2026-08-08 — the largest source in the project. POST to
+      /eures/api/jv-searchengine/public/jv-search/search. The service name was
+      not guessable (eight plausible names all 401'd); it came from a captured
+      request. Referer and Origin are required, but an honest forkjob/0.1 UA
+      works — no browser impersonation. The captured sessionId is not needed.
+      Occupations filter by ESCO URI rather than keyword, so ISCO C25 targets
+      ICT roles directly across all 24 languages. numberRecords gives the total
+      up front, so paging stops exactly. robots.txt has no rule against /eures
+      but sets Crawl-delay: 10 — min_interval below enforces it, do not lower.
+    config:
+      # europa.eu/robots.txt: Crawl-delay: 10. Five times the Layer B default.
+      min_interval: 10
+      results_per_page: 50
+      # Targeted slices rather than the whole branch. The full ICT branch over
+      # these countries is 38,329 postings — days of requests at 10s apiece,
+      # for a haystack that is mostly senior roles. Counts from 2026-08-08.
+      searches:
+        # 1,226 postings. The portal states the experience requirement itself,
+        # so this is a fact rather than something inferred from prose.
+        - name: entry-level
+          # Quoted, all of them: YAML 1.1 reads bare `no` as false (Norway)
+          # and `is` as a keyword. One unquoted country silently became a
+          # boolean and took the whole source down.
+          countries: &eures_all [
+            "es", "se", "nl", "de", "pt", "ie", "pl", "be", "fr", "at", "dk",
+            "fi", "no", "ch", "cz", "it", "gr", "ro", "hu", "bg", "hr", "sk",
+            "si", "ee", "lv", "lt", "lu", "mt", "cy", "is", "li",
+          ]
+          experience: [none_required, up_to_1_year]
+          max_pages: 12
+        # 154 postings, small enough to take whole. The EURES flag means the
+        # employer "is particularly interested in recruiting workers from other
+        # European countries" — the only structured relocation signal anywhere
+        # in this project.
+        - name: eures-flag
+          countries: *eures_all
+          eures_flag: WITH
+          max_pages: 5
+        # Internships and apprenticeships, which an experience filter misses.
+        - name: internship
+          countries: *eures_all
+          offering: [internship, apprenticeship]
+          max_pages: 3
+
+  # -- API sources (2026-08-09) --------------------------------------------
+  - key: remotive
+    label: Remotive
+    category: remote
+    url: https://remotive.com
+    enabled: true
+    status: >-
+      Verified 2026-08-08. Public JSON API: GET /api/remote-jobs. No key,
+      no auth. Returns all active remote jobs with company, title, location,
+      salary, description. No publish date in the payload — date_source is
+      DISCOVERED. 19 postings on first probe.
+    config:
+      min_interval: 1.0
+
+  - key: himalayas
+    label: Himalayas
+    category: remote
+    url: https://himalayas.app
+    enabled: true
+    status: >-
+      Verified 2026-08-08. Public JSON API: GET /jobs/api. Remote-first job
+      board showing visa and location restrictions explicitly per posting.
+      20 postings on first probe.
+    config:
+      min_interval: 1.0
+
+  - key: justjoinit
+    label: JustJoin.it
+    category: regional
+    url: https://justjoin.it
+    enabled: false
+    status: >-
+      Blocked by robots.txt, checked 2026-08-09. /api/ is disallowed for
+      every agent, and the scraper correctly refuses rather than fetching.
+      There is a permitted route — /sitemaps/active-jobs.xml, which
+      redirects to public.justjoin.com and indexes per-posting sitemaps —
+      but using it means fetching each posting page one by one, which is a
+      different scraper than the one written here. Keep off until then.
+    config:
+      min_interval: 1.0
+
+  - key: devitjobs
+    label: DevITjobs
+    category: regional
+    url: https://germantechjobs.de
+    enabled: false
+    status: >-
+      Dead, re-checked 2026-08-09. robots allows /api/jobs, but the endpoint
+      answers with the plain text "ENDPOINT Deprecated - contact
+      hello@swissdevjobs.ch" instead of JSON. Retired by the provider; the
+      scraper only fails on the JSON decode. Nothing to fix on our side.
+    config:
+      min_interval: 1.0
+      countries: [de, ch, uk]
+
+  - key: workingnomads
+    label: Working Nomads
+    category: remote
+    url: https://www.workingnomads.com
+    enabled: true
+    status: >-
+      Verified 2026-08-09. Public JSON API: /api/exposed_jobs confirmed
+      working with real job data.
+    config:
+      min_interval: 1.0
+
+  - key: hackernews
+    label: HN Who is Hiring
+    category: community
+    url: https://news.ycombinator.com
+    enabled: true
+    status: >-
+      Verified 2026-08-09 against the August 2026 thread: 308 comments.
+      Algolia's public API, no key, and hn.algolia.com serves no robots.txt at
+      all; news.ycombinator.com itself is never fetched, only linked. Two
+      threads are posted the same day by the same account and only one is
+      employers — "Who wants to be hired?" is candidates advertising
+      themselves, so the title filter is load-bearing. Only top-level comments
+      are postings; replies are conversation. The pipe-separated first line is
+      a convention rather than a schema, so each segment is classified by what
+      it looks like, not by its position.
+    config:
+      min_interval: 1.0
+      max_threads: 1
+      max_pages: 6
+
+  - key: jobspresso
+    label: Jobspresso
+    category: remote
+    url: https://jobspresso.co/jobs/feed/
+    enabled: true
+    status: >-
+      Verified 2026-08-09: 20 postings, all remote. WP Job Manager RSS.
+      robots.txt allows it — the only broad rule is `Disallow: /*?`, which
+      covers query strings, and this path has none; crawl-delay 3. Note the
+      site's main /feed/ is the blog and carries no postings at all. Company
+      and location are not separate elements: both are packed into dc:creator
+      as "Company<br>pin Location", and postings list every country they hire
+      from, so the country is taken from the first resolvable entry.
+    config:
+      min_interval: 3.0
+
+  - key: jobtech
+    label: JobTech (Platsbanken)
+    category: government
+    url: https://jobsearch.api.jobtechdev.se
+    enabled: true
+    status: >-
+      Verified 2026-08-09: 290 postings over five English role searches, 116
+      of them in English. Open government data from Arbetsformedlingen, the
+      Swedish public employment service — no key, no bot protection, and
+      Swedish employers are required by law to post here, so it is the most
+      complete view of one country's market in this registry. The API has no
+      language filter and most postings are Swedish, so the language is
+      detected from the description and stored on the job; searches are
+      English role names because an English-titled ad at a Swedish employer is
+      itself a signal about the working language.
+    config:
+      min_interval: 1.0
+      max_pages: 2
+
+  - key: customfeeds
+    label: Custom RSS feeds
+    category: custom
+    url: ""
+    enabled: true
+    status: >-
+      Reads data/feeds.yaml, which the web UI at /feeds writes — adding a feed
+      in the browser is enough for the next sync to collect it. Generic RSS
+      2.0 and Atom only, so what it extracts is the intersection of every
+      feed: title, link, date, description. A board with a real API or its own
+      quirks deserves a dedicated scraper instead. Feeds fail independently
+      and each failure is reported by name, because a feed that returns
+      nothing looks exactly like one that was never reachable. Ships with a
+      single disabled example entry.
+    config:
+      min_interval: 2.0
+
+  - key: nofluffjobs
+    label: No Fluff Jobs
+    category: regional
+    url: https://nofluffjobs.com
+    enabled: true
+    status: >-
+      Verified 2026-08-09: 692 junior postings over 7 pages. POST
+      /api/search/posting, allowed by robots. salaryCurrency, salaryPeriod
+      and region are required query params (400 without them), the body key
+      is criteriaSearch, and page is a query param — all three were wrong
+      before, which is why it returned zero without erroring. Seniority is
+      filtered server-side. Salary is mandatory on this board.
+    config:
+      min_interval: 1.0
+      max_pages: 8
+
+  - key: relocateme
+    label: Relocate.me
+    category: relocation
+    url: https://relocate.me
+    enabled: true
+    status: >-
+      Verified 2026-08-09: 35 postings, 20 cards per page, allowed by
+      robots. /search is a 301 to /international-jobs, and the markup is BEM
+      (jobs-list__job) with no schema.org JobPosting anywhere on the listing
+      page — the old selectors matched nothing. Every non-remote posting
+      carries relocation and visa sponsorship by the board's own premise, so
+      that signal is stated rather than inferred.
+    config:
+      min_interval: 2.0
+      max_pages: 5
+
+  - key: landingjobs
+    label: Landing.jobs
+    category: regional
+    url: https://landing.jobs
+    enabled: false
+    status: >-
+      Blocked by robots.txt, checked 2026-08-09. /api/, /jobs? and
+      /jobs/search are all disallowed for every agent, so the internal API
+      the scraper was written against is off limits. The permitted sitemap
+      holds only 2069 category and city pages — not one individual posting —
+      so there is no allowed path to the listings. Keep off.
+    config:
+      min_interval: 1.0
+      max_pages: 8
+
+  - key: honeypot
+    label: Honeypot.io
+    category: regional
+    url: https://www.honeypot.io
+    enabled: false
+    status: >-
+      Site unreachable, checked 2026-08-09. www.honeypot.io does not accept
+      connections at all — robots.txt included — so this is not a wrong API
+      URL but a host that is no longer serving. Was reverse recruiting for
+      DE/NL/AT with explicit visa status. Keep off.
+    config:
+      min_interval: 1.0
+      max_pages: 5
+
+  - key: offerzen
+    label: OfferZen
+    category: regional
+    url: https://www.offerzen.com
+    enabled: false
+    status: >-
+      No public postings to read, checked 2026-08-09. The guessed
+      /api/v1/jobs is a 404, /jobs redirects to marketing pages, and neither
+      the landing page nor a category page carries a JobPosting, ld+json or
+      __NEXT_DATA__ block. OfferZen is a reverse marketplace — companies
+      approach candidates behind a login — so there is no listing to scrape.
+    config:
+      min_interval: 1.0
+      max_pages: 5
+
+  - key: consider-sequoia
+    label: Sequoia (portfolio)
+    category: startup
+    url: https://jobs.sequoiacap.com
+    enabled: true
+    status: >-
+      Verified 2026-08-09. consider.co board. POST /api-boards/search-jobs
+      with board id sequoia-capital, grouped by company. Carries minYearsExp
+      and structured salary — the best junior filter in the registry.
+      robots.txt: Allow: / for all agents except LinkedInBot. 9,719 postings.
+    config:
+      board_id: sequoia-capital
+      board_label: Sequoia
+      base_url: https://jobs.sequoiacap.com
+      min_interval: 2.0
+
+  - key: consider-a16z
+    label: a16z (portfolio)
+    category: startup
+    url: https://jobs.a16z.com
+    enabled: true
+    status: >-
+      Verified 2026-08-09. consider.co board. POST /api-boards/search-jobs
+      with board id andreessen-horowitz, grouped by company. Carries
+      minYearsExp and structured salary. robots.txt: Allow: / for all agents
+      except LinkedInBot. 16,332 postings.
+    config:
+      board_id: andreessen-horowitz
+      board_label: a16z
+      base_url: https://jobs.a16z.com
+      min_interval: 2.0
+
+  - key: gulftalent
+    label: GulfTalent
+    category: regional
+    url: https://www.gulftalent.com
+    enabled: true
+    status: >-
+      Verified 2026-08-09. Middle East job board. Server-rendered search page
+      with ld+json JobPosting on detail pages. robots.txt: Allow: / for all
+      except AI crawlers. Sitemap has 30k category URLs but no detail pages;
+      scraper walks the keyword search instead, capped at max_offers newest
+      within max_age_days.
+    config:
+      keywords:
+        - developer
+        - software engineer
+      max_offers: 60
+      max_age_days: 60
+      min_interval: 2.0
+
+  # -- B2B / contractor focused (2026-08-18) ------------------------------
+  - key: fourdayweek
+    label: 4dayweek.io
+    category: remote
+    url: https://4dayweek.io
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Public JSON API GET /api/v2/jobs (23,725 jobs,
+      honest UA, no auth) with total/has_more paging. id is a UUID; posted_at
+      a real publish date (date_source employer); work_arrangement structured;
+      company.hires_worldwide tells us whether they hire outside their
+      country. robots.txt allows /api/v2 explicitly. The schedule itself
+      (4-day week) is the point of the board.
+    config:
+      max_pages: 4
+      min_interval: 1.0
+
+  - key: solidjobs
+    label: SOLID.Jobs
+    category: regional
+    url: https://solid.jobs
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Site publishes a keyless public REST API:
+      GET /public-api/offers/IT (300 req/min/IP, 1h cache). Returns two
+      salary brackets per posting — primary usually B2B, secondary UoP —
+      so a company offering B2B billing is on the record. validFrom matches
+      the RSS pubDate exactly (date_source employer). robots.txt allows /
+      except /management/ and /admin/.
+    config:
+      max_pages: 5
+      min_interval: 1.0
+
+  - key: bulldogjob
+    label: BulldogJob
+    category: regional
+    url: https://bulldogjob.com
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Public GraphQL endpoint POST /graphql
+      (searchJobs), 852 postings, no auth. contractB2b boolean stated by the
+      employer; publishedAt real publish date. robots.txt leaves listing
+      paths open.
+    config:
+      max_pages: 6
+      min_interval: 1.0
+
+  - key: freelancermap
+    label: Freelancermap
+    category: regional
+    url: https://www.freelancermap.com
+    enabled: true
+    status: >-
+      Verified 2026-08-18. DACH/Europe B2B IT contracts. SSR /projects page
+      embeds each project as a JSON object with id, title, company, created
+      (real publish date) and country ISO code; rates are free text in the
+      description ("500-600 GBP/day"). robots.txt fully open. The old RSS
+      paths and /freelance-jobs are dead — /projects is the live listing.
+    config:
+      max_pages: 5
+
+  - key: arcdev
+    label: Arc.dev
+    category: remote
+    url: https://arc.dev
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Global remote contractor marketplace. The SSR
+      /remote-jobs page embeds arcJobs (contract, hourly USD rate) and
+      externalJobs in __NEXT_DATA__; postedAt is a real publish date. Open
+      to worldwide when requiredCountries is empty. Listing is shallow
+      (client-side infinite scroll beyond it) by design.
+    config:
+      min_interval: 1.0
+
+  # -- truly worldwide remote (2026-08-18) --------------------------------
+  - key: realworkfromanywhere
+    label: Real Work From Anywhere
+    category: remote
+    url: https://www.realworkfromanywhere.com
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Only publishes %100 location-independent jobs. RSS
+      feed (149 items, ttl 60) with pubDate, guid=permalink, salary band in
+      the description. robots.txt empty. date_source employer.
+    config:
+      min_interval: 1.0
+
+  - key: dailyremote
+    label: DailyRemote
+    category: remote
+    url: https://dailyremote.com
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Generalist worldwide-remote board (software,
+      DevOps, QA). SSR listing + SSR detail with schema.org JobPosting
+      (datePosted real, stable numeric identifier). robots.txt disallows
+      only /apply/. Salary often absent — never invented.
+    config:
+      max_pages: 2
+      min_interval: 1.0
+
+  - key: dynamitejobs
+    label: Dynamite Jobs
+    category: remote
+    url: https://dynamitejobs.com
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Remote-first startup/KOBİ board. Main /remote-jobs
+      index is client-rendered, but the public jobs-of-category sitemap
+      (~4446 posting URLs) plus fully-SSR detail pages with JobPosting
+      JSON-LD are open to an honest UA. Cap max_offers: one request per
+      posting.
+    config:
+      max_offers: 40
+
+  - key: javascriptjobs
+    label: JavaScript Jobs
+    category: remote
+    url: https://javascript.jobs
+    enabled: true
+    status: >-
+      Verified 2026-08-18 (formerly jsremotely.com; 301s to javascript.jobs).
+      SSR listing of JS-stack remote roles; card carries title, employment
+      and remote badges, relative age only — no absolute date, so
+      date_source is discovered. Detail JSON-LD is malformed, so the listing
+      is read and no per-posting requests are made. robots.txt allows all.
+
+  # -- web3 / crypto (2026-08-18) -----------------------------------------
+  - key: web3career
+    label: Web3.career
+    category: remote
+    url: https://web3.career
+    enabled: true
+    status: >-
+      Verified 2026-08-18. Largest Web3/blockchain board, worldwide remote.
+      SSR table listing with a real <time datetime> per row (date_source
+      employer) and USD salary column; data-jobid is the external id. Web3
+      employers pay contractors via Deel/Remote.com or crypto — dense source
+      for the earning rules. robots.txt allows everything except /metrics*.
+    config:
+      max_pages: 3
+      min_interval: 1.0
+
+  # -- blocked (2026-08-18) ------------------------------------------------
+  - key: cryptojobslist
+    label: CryptoJobsList
+    category: remote
+    url: https://cryptojobslist.com
+    enabled: false
+    status: >-
+      Blocked, checked 2026-08-18. Main site answers 403 with a Cloudflare
+      challenge to every honest UA (only Googlebot/Twitterbot pass). The
+      api.cryptojobslist.com subdomain served jobs.rss to an honest UA but
+      the feed was empty. Rich __NEXT_DATA__ exists behind the challenge;
+      revisit if the block lifts or the api feed fills.
+
+  - key: rubyonremote
+    label: Ruby on Remote
+    category: remote
+    url: https://rubyonremote.com
+    enabled: false
+    status: >-
+      Blocked, checked 2026-08-18. Hard Cloudflare challenge on /, sitemap,
+      feed.rss and remote_companies.json — every honest UA, search-bot UAs,
+      headless browser and Jina proxy all 403. Getting past it means browser
+      automation, which this project does not do. Keep off.
+
+  - key: nodesk
+    label: Nodesk
+    category: remote
+    url: https://nodesk.co
+    enabled: false
+    status: >-
+      Blocked, checked 2026-08-18. The /remote-jobs listing is
+      client-rendered (Supabase fetch) with no verified public listing API;
+      detail pages are SSR JSON-LD but carry no stable id (URL slug only).
+      Sitemap-jobs exists. Revisit if a public listing endpoint appears.

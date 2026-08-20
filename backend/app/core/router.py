@@ -1,4 +1,5 @@
 """Cekirdek endpoint'ler: search, activity, tag, saved view, link, kaynak sagligi."""
+
 from __future__ import annotations
 
 import uuid
@@ -28,13 +29,16 @@ from app.db import get_session
 router = APIRouter(tags=["core"])
 
 
-@router.get("/search", response_model=list[EntityOut])
+@router.get("/search")
 async def search(
     q: str = Query(min_length=1),
     types: list[str] | None = Query(None),
     limit: int = 30,
+    grouped: bool = False,
     session: AsyncSession = Depends(get_session),
 ):
+    if grouped:
+        return await search_svc.grouped_search(session, q, limit=limit)
     return await search_svc.search_entities(session, q, types=types, limit=limit)
 
 
@@ -79,7 +83,8 @@ async def source_health(session: AsyncSession = Depends(get_session)):
 
 @router.get("/views", response_model=list[SavedViewOut])
 async def list_views(
-    module: str | None = None, session: AsyncSession = Depends(get_session),
+    module: str | None = None,
+    session: AsyncSession = Depends(get_session),
 ):
     stmt = select(SavedView).order_by(SavedView.position, SavedView.name)
     if module:
