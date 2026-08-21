@@ -1,0 +1,18 @@
+import { QueryClient } from "@tanstack/react-query";
+
+/**
+ * Tek QueryClient. main.tsx bunu Provider'a verir.
+ *
+ * Burada durmasinin sebebi: komut paletinin komutlari React agacinin
+ * DISINDA calisir (registerModule icindeki run()), yani useQueryClient
+ * cagiramazlar. Yazma yapan bir komut bitince invalidate() ile ekrani
+ * tazeler -- location.reload() yerine.
+ */
+export const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+});
+
+/** Yazma sonrasi tazeleme. useInvalidate ile ayni anahtarlari alir. */
+export function invalidate(...keys: string[]): void {
+  for (const key of keys) queryClient.invalidateQueries({ queryKey: [key] });
+}

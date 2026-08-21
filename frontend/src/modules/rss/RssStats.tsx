@@ -11,14 +11,14 @@ export function RssStats() {
   return (
     <>
       <Stat
-        label="Okunmamis RSS"
+        label="Okunmamış RSS"
         value={data?.unread ?? "–"}
-        hint={`${data?.active_feeds ?? 0} aktif feed`}
+        hint={`${data?.active_feeds ?? 0} aktif besleme`}
       />
       <Stat
-        label="Sorunlu feed"
+        label="Sorunlu besleme"
         value={data?.failing_feeds ?? "–"}
-        hint={data?.failing_feeds ? "Activity'de detay var" : "hepsi saglikli"}
+        hint={data?.failing_feeds ? "Ayrıntısı Etkinlik’te" : "hepsi sağlıklı"}
       />
     </>
   );

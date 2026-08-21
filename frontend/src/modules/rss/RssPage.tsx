@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, Panel, cx, hostOf, relativeTime } from "@/core/ui";
+import { Badge, Button, Empty, Panel, cx, hostOf, relativeTime, useToast } from "@/core/ui";
+import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import type { Feed, FeedItem } from "@/core/types";
@@ -16,6 +17,7 @@ function AddFeed() {
   const online = useOnline();
   const invalidate = useInvalidate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
   const add = useMutation({
     mutationFn: () =>
@@ -24,7 +26,7 @@ function AddFeed() {
       setUrl("");
       invalidate("feeds", "rss-stats", "activity");
     },
-    onError: (error: Error) => alert(`Feed eklenemedi: ${error.message}`),
+    onError: (error: Error) => toast.push(`Besleme eklenemedi: ${error.message}`, { tone: "danger" }),
   });
 
   const importOpml = useMutation({
@@ -32,7 +34,7 @@ function AddFeed() {
       api.upload<{ added: number; skipped: number }>("/rss/import", file),
     onSuccess: (result) => {
       invalidate("feeds", "rss-stats", "activity");
-      alert(`${result.added} feed eklendi, ${result.skipped} zaten vardi.`);
+      toast.push(`${result.added} besleme eklendi, ${result.skipped} zaten vardı.`, { tone: "ok" });
     },
   });
 
@@ -48,17 +50,17 @@ function AddFeed() {
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Feed URL"
-          className="w-full rounded border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-neutral-600"
+          placeholder="Besleme URL’si"
+          className="w-full rounded border border-subtle bg-surface px-2 py-1.5 text-body outline-none focus:border-accent"
         />
         <input
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           placeholder="Kategori (AI/LLM, Development...)"
-          className="w-full rounded border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-neutral-600"
+          className="w-full rounded border border-subtle bg-surface px-2 py-1.5 text-body outline-none focus:border-accent"
         />
         <Button type="submit" variant="primary" disabled={!online || add.isPending}>
-          Feed ekle
+          Besleme ekle
         </Button>
       </form>
 
@@ -74,7 +76,7 @@ function AddFeed() {
         }}
       />
       <Button disabled={!online || importOpml.isPending} onClick={() => fileRef.current?.click()}>
-        OPML iceri aktar
+        OPML içeri aktar
       </Button>
     </div>
   );
@@ -103,13 +105,13 @@ function FeedRow({
       <button
         onClick={onSelect}
         className={cx(
-          "min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-sm",
-          selected ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:bg-neutral-900",
+          "min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-body",
+          selected ? "bg-surface-sunken text-primary" : "text-secondary hover:bg-surface-hover",
         )}
       >
         {feed.title}
-        {feed.unread > 0 && <span className="ml-1 text-[11px] text-sky-400">{feed.unread}</span>}
-        {!feed.active && <span className="ml-1 text-[11px] text-red-400">kapali</span>}
+        {feed.unread > 0 && <span className="ml-1 text-meta text-accent">{feed.unread}</span>}
+        {!feed.active && <span className="ml-1 text-meta text-danger">kapali</span>}
       </button>
       <span className="hidden gap-1 group-hover:flex">
         <Button disabled={!online} title="Simdi cek" onClick={() => refresh.mutate()}>
@@ -118,7 +120,15 @@ function FeedRow({
         <Button
           variant="danger"
           disabled={!online}
-          onClick={() => confirm(`${feed.title} silinsin mi?`) && remove.mutate()}
+          onClick={async () => {
+            const ok = await confirmDialog({
+              title: "Besleme silinsin mi?",
+              body: <><strong className="font-medium text-primary">{feed.title}</strong> ve ona bağlı okunmamış yazılar listeden kalkar. Bu işlem geri alınamaz.</>,
+              confirmLabel: "Sil",
+              tone: "danger",
+            });
+            if (ok) remove.mutate();
+          }}
         >
           ✕
         </Button>
@@ -147,7 +157,7 @@ function ItemRow({ item }: { item: FeedItem }) {
     <li
       className={cx(
         "rounded border p-3",
-        item.read_at ? "border-neutral-900 bg-transparent" : "border-neutral-800 bg-neutral-900/40",
+        item.read_at ? "border-subtle bg-transparent" : "border-subtle bg-surface",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -155,13 +165,13 @@ function ItemRow({ item }: { item: FeedItem }) {
           <button
             onClick={() => setExpanded((v) => !v)}
             className={cx(
-              "block w-full truncate text-left text-sm",
-              item.read_at ? "text-neutral-500" : "text-neutral-100",
+              "block w-full truncate text-left text-body",
+              item.read_at ? "text-muted" : "text-primary",
             )}
           >
             {item.title}
           </button>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
             <span>{item.feed_title}</span>
             {item.url && <span>· {hostOf(item.url)}</span>}
             {item.published_at && <span>· {relativeTime(item.published_at)}</span>}
@@ -169,7 +179,7 @@ function ItemRow({ item }: { item: FeedItem }) {
             {item.saved_bookmark_id && <Badge tone="ok">kaydedildi</Badge>}
           </div>
           {expanded && item.summary && (
-            <p className="mt-2 text-xs leading-relaxed text-neutral-400">
+            <p className="mt-2 text-meta leading-relaxed text-secondary">
               {stripHtml(item.summary).slice(0, 900)}
             </p>
           )}
@@ -178,7 +188,7 @@ function ItemRow({ item }: { item: FeedItem }) {
               href={item.url}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-block text-xs text-sky-400 hover:underline"
+              className="mt-2 inline-block text-meta text-accent hover:underline"
               onClick={() => !item.read_at && read.mutate(true)}
             >
               Yaziyi ac →
@@ -193,14 +203,14 @@ function ItemRow({ item }: { item: FeedItem }) {
           <Button
             variant="primary"
             disabled={!online || !!item.saved_bookmark_id}
-            title="Read Later'a kaydet"
+            title="Okuma listesine kaydet"
             onClick={() => save.mutate("read_later")}
           >
             → Read Later
           </Button>
           <Button
             disabled={!online || !!item.saved_bookmark_id}
-            title="Learning'e kaydet"
+            title="Öğrenme’ye kaydet"
             onClick={() => save.mutate("learning")}
           >
             → Learning
@@ -215,7 +225,7 @@ export function RssPage() {
   const { params } = useHashRoute();
   const online = useOnline();
   const invalidate = useInvalidate();
-  const [feedId, setFeedId] = useState<string | null>(params.get("feed"));
+  const [feedId, setFeedId] = useState<string | null>(params.get("besleme"));
   const [unreadOnly, setUnreadOnly] = useState(true);
 
   const { data: feeds = [] } = useQuery({
@@ -243,23 +253,23 @@ export function RssPage() {
   return (
     <div className="grid gap-4 p-6 lg:grid-cols-[240px_1fr]">
       <aside className="space-y-4">
-        <Panel title="Feed'ler">
+        <Panel title="Beslemeler">
           <ul className="mb-3 space-y-1">
             <li>
               <button
                 onClick={() => setFeedId(null)}
                 className={cx(
-                  "w-full rounded px-2 py-1 text-left text-sm",
-                  !feedId ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:bg-neutral-900",
+                  "w-full rounded px-2 py-1 text-left text-body",
+                  !feedId ? "bg-surface-sunken text-primary" : "text-secondary hover:bg-surface-hover",
                 )}
               >
-                Tumu
+                Tümü
               </button>
             </li>
           </ul>
           {Object.entries(grouped).map(([category, group]) => (
             <div key={category} className="mb-3">
-              <div className="mb-1 text-[11px] uppercase tracking-wide text-neutral-600">
+              <div className="mb-1 text-meta uppercase tracking-wide text-muted">
                 {category}
               </div>
               <ul className="space-y-0.5">
@@ -274,7 +284,7 @@ export function RssPage() {
               </ul>
             </div>
           ))}
-          {feeds.length === 0 && <Empty>Feed yok. OPML aktar veya URL ekle.</Empty>}
+          {feeds.length === 0 && <Empty>Henüz besleme yok. Yukarıdan URL ekle ya da OPML dosyanı içeri aktar.</Empty>}
         </Panel>
 
         <Panel title="Ekle">
@@ -284,24 +294,24 @@ export function RssPage() {
 
       <div>
         <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold">
-            {feedId ? feeds.find((f) => f.id === feedId)?.title ?? "RSS" : "RSS Reader"}
-          </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <h2 className="font-serif text-title text-primary">
+              {feedId ? feeds.find((f) => f.id === feedId)?.title ?? "RSS" : "Tüm beslemeler"}
+            </h2>
             <Button
               variant={unreadOnly ? "primary" : "ghost"}
               onClick={() => setUnreadOnly((v) => !v)}
             >
-              {unreadOnly ? "sadece okunmamis" : "hepsi"}
+              {unreadOnly ? "sadece okunmamış" : "hepsi"}
             </Button>
             <Button disabled={!online || items.length === 0} onClick={() => readAll.mutate()}>
-              tumunu okundu isaretle
+              tümünü okundu işaretle
             </Button>
           </div>
         </header>
 
         {isLoading ? (
-          <p className="text-sm text-neutral-500">Yukleniyor...</p>
+          <p className="text-body text-muted">Yükleniyor…</p>
         ) : items.length === 0 ? (
           <Empty>Okunacak yeni bir sey yok.</Empty>
         ) : (

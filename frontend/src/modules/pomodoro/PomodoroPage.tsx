@@ -40,30 +40,30 @@ export function PomodoroPage() {
     if (active && left === 0 && !stop.isPending && online) stop.mutate(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [left, active?.id]);
-  return <div className="space-y-4 p-6"><header><h1 className="text-xl font-semibold">Pomodoro</h1>
-    <p className="text-xs text-neutral-500">Sayaç DB'deki started_at'a dayanir; sekme kapansa da devam eder.</p></header>
+  return <div className="space-y-4 p-6"><header>
+    <p className="text-meta text-muted">Sayaç DB'deki started_at'a dayanir; sekme kapansa da devam eder.</p></header>
     <Panel className="mx-auto max-w-xl">
       {active ? <div className="space-y-5 text-center">
-        <div className="text-xs uppercase tracking-[0.2em] text-neutral-500">{active.topic || active.context_title || "Odak"}</div>
+        <div className="text-meta uppercase tracking-[0.2em] text-muted">{active.topic || active.context_title || "Odak"}</div>
         <div className="font-mono text-7xl font-semibold tabular-nums">{clock(left)}</div>
         <div className="flex justify-center gap-2"><Button variant="primary" disabled={!online}
           onClick={() => stop.mutate(false)}>tamamla</Button><Button variant="danger" disabled={!online}
-          onClick={() => stop.mutate(true)}>yarida kes</Button></div>
+          onClick={() => stop.mutate(true)}>yarıda kes</Button></div>
       </div> : <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs text-neutral-500">Dakika<input type="number" min={1} max={240} value={minutes}
+        <label className="text-meta text-muted">Dakika<input type="number" min={1} max={240} value={minutes}
           onChange={(event) => setMinutes(Number(event.target.value))}
-          className="mt-1 w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100" /></label>
-        <label className="text-xs text-neutral-500">Baglam<select value={context} onChange={(event) => setContext(event.target.value)}
-          className="mt-1 w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100">
+          className="mt-1 w-full rounded border border-strong bg-canvas px-3 py-2 text-body text-primary" /></label>
+        <label className="text-meta text-muted">Baglam<select value={context} onChange={(event) => setContext(event.target.value)}
+          className="mt-1 w-full rounded border border-strong bg-canvas px-3 py-2 text-body text-primary">
           <option value="">Bagimsiz</option>{initialContext && !todos.some(todo => todo.id === initialContext) && <option value={initialContext}>{initialTitle || "Çalışma konusu"}</option>}{todos.map((todo) => <option key={todo.id} value={todo.id}>{todo.title}</option>)}</select></label>
       </div><input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="Konu (opsiyonel)"
-        className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm" />
-        <Button variant="primary" disabled={!online || start.isPending} onClick={() => start.mutate()}>odagi baslat</Button></div>}
+        className="w-full rounded border border-strong bg-canvas px-3 py-2 text-body" />
+        <Button variant="primary" disabled={!online || start.isPending} onClick={() => start.mutate()}>Odağı başlat</Button></div>}
     </Panel>
-    <div className="grid grid-cols-3 gap-3">{[["Dakika", stats?.minutes ?? 0], ["Session", stats?.sessions ?? 0],
+    <div className="grid grid-cols-3 gap-3">{[["Dakika", stats?.minutes ?? 0], ["Seans", stats?.sessions ?? 0],
       ["Kesilen", stats?.interrupted ?? 0]].map(([label, value]) => <div key={label}
-        className="rounded border border-neutral-800 p-3 text-center"><div className="text-2xl">{value}</div>
-        <div className="text-xs text-neutral-500">{label}</div></div>)}</div>
+        className="rounded border border-subtle p-3 text-center"><div className="text-display">{value}</div>
+        <div className="text-meta text-muted">{label}</div></div>)}</div>
   </div>;
 }
 

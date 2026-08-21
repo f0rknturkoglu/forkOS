@@ -13,26 +13,26 @@ export function ReadingQueueWidget() {
 
   return (
     <Panel
-      title="Okuma sirasi"
+      title="Okuma sırası"
       action={
         <button
           onClick={() => navigate("/bookmarks")}
-          className="text-xs text-neutral-500 hover:text-neutral-300"
+          className="text-meta text-muted hover:text-primary"
         >
-          tumu →
+          tümü →
         </button>
       }
     >
       {data.length === 0 ? (
-        <Empty>Read Later bos.</Empty>
+        <Empty>Okuma listesi boş.</Empty>
       ) : (
         <ul className="space-y-2">
           {data.map((bookmark) => (
-            <li key={bookmark.id} className="truncate text-sm text-neutral-300">
+            <li key={bookmark.id} className="truncate text-body text-secondary">
               <a href={bookmark.url} target="_blank" rel="noreferrer" className="hover:underline">
                 {bookmark.title || bookmark.url}
               </a>
-              <span className="ml-2 text-[11px] text-neutral-600">{hostOf(bookmark.url)}</span>
+              <span className="ml-2 text-meta text-muted">{hostOf(bookmark.url)}</span>
             </li>
           ))}
         </ul>

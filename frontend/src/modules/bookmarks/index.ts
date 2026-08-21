@@ -1,3 +1,4 @@
+import { Bookmark } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { BookmarksPage } from "./BookmarksPage";
@@ -5,10 +6,10 @@ import { ReadingQueueWidget } from "./ReadingQueueWidget";
 
 registerModule({
   id: "bookmarks",
-  title: "Bookmarks",
+  title: "Yer İmleri", icon: Bookmark, group: "capture",
   routes: [{ path: "/bookmarks", element: BookmarksPage }],
-  todayWidgets: [ReadingQueueWidget],
+  todayWidgets: [{ component: ReadingQueueWidget, zone: "pending" }],
   commands: [
-    { id: "bookmarks.open", label: "Bookmark Library'e git", run: () => navigate("/bookmarks") },
+    { id: "bookmarks.open", label: "Yer İmleri’ni aç", run: () => navigate("/bookmarks") },
   ],
 });

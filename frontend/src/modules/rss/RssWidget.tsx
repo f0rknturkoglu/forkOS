@@ -20,18 +20,18 @@ export function RssWidget() {
       action={
         <button
           onClick={() => navigate("/rss")}
-          className="text-xs text-neutral-500 hover:text-neutral-300"
+          className="text-meta text-muted hover:text-primary"
         >
-          {stats?.unread ?? 0} okunmamis →
+          {stats?.unread ?? 0} okunmamış →
         </button>
       }
     >
       {items.length === 0 ? (
-        <Empty>Yeni yazi yok.</Empty>
+        <Empty>Yeni yazı yok.</Empty>
       ) : (
         <ul className="space-y-2">
           {items.map((item) => (
-            <li key={item.id} className="truncate text-sm text-neutral-300">
+            <li key={item.id} className="truncate text-body text-secondary">
               {item.url ? (
                 <a href={item.url} target="_blank" rel="noreferrer" className="hover:underline">
                   {item.title}
@@ -39,7 +39,7 @@ export function RssWidget() {
               ) : (
                 item.title
               )}
-              <span className="ml-2 text-[11px] text-neutral-600">
+              <span className="ml-2 text-meta text-muted">
                 {item.feed_title}
                 {item.published_at && ` · ${relativeTime(item.published_at)}`}
               </span>
@@ -48,7 +48,7 @@ export function RssWidget() {
         </ul>
       )}
       {stats && stats.failing_feeds > 0 && (
-        <p className="mt-3 text-[11px] text-amber-500">
+        <p className="mt-3 text-meta text-warn">
           {stats.failing_feeds} feed hata veriyor veya kapali.
         </p>
       )}

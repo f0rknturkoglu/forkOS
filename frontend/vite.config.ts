@@ -13,8 +13,8 @@ export default defineConfig({
         short_name: "forkOS",
         start_url: "/",
         display: "standalone",
-        background_color: "#0b0b0c",
-        theme_color: "#0b0b0c",
+        background_color: "#FBFAF7",
+        theme_color: "#FBFAF7",
       },
       workbox: {
         runtimeCaching: [

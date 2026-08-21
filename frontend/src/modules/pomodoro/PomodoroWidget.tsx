@@ -14,10 +14,10 @@ export function PomodoroWidget() {
   const { data: stats } = useQuery({ queryKey: ["pomodoro-stats", "today"],
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day") });
   return <Panel title="Pomodoro" action={<button onClick={() => navigate("/pomodoro")}
-    className="text-xs text-neutral-500 hover:text-neutral-300">ac →</button>}>
+    className="text-meta text-muted hover:text-primary">aç →</button>}>
     {active ? <div><div className="font-mono text-4xl tabular-nums">{clock(remaining(active, now))}</div>
-      <p className="mt-1 truncate text-xs text-neutral-500">{active.topic || active.context_title || "Odak"}</p></div>
-      : <button onClick={() => navigate("/pomodoro")} className="rounded border border-sky-800 px-3 py-2 text-sm text-sky-300">odak baslat</button>}
-    <p className="mt-3 text-[11px] text-neutral-600">Bugun {stats?.minutes ?? 0} dk · {stats?.sessions ?? 0} session</p>
+      <p className="mt-1 truncate text-meta text-muted">{active.topic || active.context_title || "Odak"}</p></div>
+      : <button onClick={() => navigate("/pomodoro")} className="rounded border border-accent-border px-3 py-2 text-body text-accent">Odak başlat</button>}
+    <p className="mt-3 text-meta text-muted">Bugün {stats?.minutes ?? 0} dk · {stats?.sessions ?? 0} seans</p>
   </Panel>;
 }

@@ -16,26 +16,26 @@ export function InboxWidget() {
 
   return (
     <Panel
-      title="Inbox"
+      title="Gelen Kutusu"
       action={
         <button
           onClick={() => navigate("/inbox")}
-          className="text-xs text-neutral-500 hover:text-neutral-300"
+          className="text-meta text-muted hover:text-primary"
         >
           {stats?.inbox ?? 0} bekliyor →
         </button>
       }
     >
       {latest.length === 0 ? (
-        <Empty>Inbox temiz.</Empty>
+        <Empty>Gelen kutusu temiz.</Empty>
       ) : (
         <ul className="space-y-2">
           {latest.map((bookmark) => (
-            <li key={bookmark.id} className="truncate text-sm text-neutral-300">
+            <li key={bookmark.id} className="truncate text-body text-secondary">
               <a href={bookmark.url} target="_blank" rel="noreferrer" className="hover:underline">
                 {bookmark.title || bookmark.url}
               </a>
-              <span className="ml-2 text-[11px] text-neutral-600">
+              <span className="ml-2 text-meta text-muted">
                 {relativeTime(bookmark.saved_at)}
               </span>
             </li>
@@ -43,8 +43,8 @@ export function InboxWidget() {
         </ul>
       )}
       {stats && (
-        <p className="mt-3 text-[11px] text-neutral-600">
-          Bugun {stats.saved_today} kayit · toplam {stats.total}
+        <p className="mt-3 text-meta text-muted">
+          Bugün {stats.saved_today} kayıt · toplam {stats.total}
         </p>
       )}
     </Panel>

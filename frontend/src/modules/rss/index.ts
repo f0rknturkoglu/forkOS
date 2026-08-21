@@ -1,26 +1,33 @@
+import { Rss } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
+import { invalidate } from "@/core/queryClient";
+import { confirmDialog } from "@/core/dialog";
 import { RssPage } from "./RssPage";
 import { RssWidget } from "./RssWidget";
 import { RssStats } from "./RssStats";
 
 registerModule({
   id: "rss",
-  title: "RSS",
+  title: "RSS", icon: Rss, group: "capture",
   routes: [{ path: "/rss", element: RssPage }],
   todayStats: [RssStats],
-  todayWidgets: [RssWidget],
+  todayWidgets: [{ component: RssWidget, zone: "pending" }],
   commands: [
-    { id: "rss.open", label: "RSS Reader'a git", run: () => navigate("/rss") },
+    { id: "rss.open", label: "RSS’i aç", run: () => navigate("/rss") },
     {
       id: "rss.read_all",
-      label: "Tum RSS yazilarini okundu isaretle",
+      label: "Tüm RSS yazılarını okundu işaretle",
       run: async () => {
-        if (confirm("Tum okunmamis yazilar okundu sayilsin mi?")) {
-          await api.post("/rss/read-all");
-          location.reload();
-        }
+        const ok = await confirmDialog({
+          title: "Tümü okundu sayılsın mı?",
+          body: "Okunmamış bütün yazılar okundu işaretlenecek. Tek tek geri almak gerekir.",
+          confirmLabel: "Okundu işaretle",
+        });
+        if (!ok) return;
+        await api.post("/rss/read-all");
+        invalidate("rss-items", "rss-stats", "feeds", "activity");
       },
     },
   ],

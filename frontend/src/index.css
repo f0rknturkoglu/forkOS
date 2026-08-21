@@ -2,21 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────────────
+   Tasarim tokenlari — "Sakin Kagit"
+
+   JSX'e ASLA sabit renk yazma (bg-neutral-900 gibi). Buradaki semantik
+   adlari kullan: bg-canvas, bg-surface, text-muted, border-subtle...
+   Deger cozumu temaya gore burada olur; bilesenler temayi bilmez.
+
+   Kontrast oranlari WCAG 2.1 nispi parlaklikla olculdu; her metin
+   tonunun yaninda kendi zeminine gore orani yaziyor. 4.5 alti bir
+   ton METIN icin kullanilamaz (ikon ve ayrac icin 3.0 yeter).
+   ────────────────────────────────────────────────────────────────────── */
+
 @layer base {
-  html {
+  :root {
+    --canvas:          #FBFAF7;
+    --surface:         #FFFFFF;
+    --surface-sunken:  #F1EDE4;
+    --surface-hover:   #F5F1E9;
+
+    --border:          #E8E4DC;
+    --border-strong:   #D6CFC2;  /* 3.1:1 / surface */
+
+    --text:            #1A1815;  /* 16.8:1 / canvas */
+    --text-secondary:  #6B655C;  /*  5.5:1 / canvas */
+    --text-muted:      #756E65;  /*  4.8:1 / canvas */
+    --icon:            #8C857A;  /*  3.5:1 / canvas — ikon, metin degil */
+
+    --accent:          #96613F;  /*  4.9:1 / canvas */
+    --accent-surface:  #F7EFE7;
+    --accent-border:   #E7D6C6;
+
+    --success:         #4F6342;
+    --success-surface: #F1F5EF;
+    --success-border:  #DCE6D7;
+
+    --warning:         #7A5B28;
+    --warning-surface: #FCF7EC;
+    --warning-border:  #EDE2CE;
+
+    --danger:          #98342A;
+    --danger-surface:  #FDF3F1;
+    --danger-border:   #F0DAD5;
+
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] {
+    --canvas:          #141310;
+    --surface:         #1C1B17;
+    --surface-sunken:  #24221D;
+    --surface-hover:   #26241F;
+
+    --border:          #33302A;
+    --border-strong:   #443F37;
+
+    --text:            #F5F2EC;  /* 16.6:1 / canvas */
+    --text-secondary:  #B3AC9F;  /*  8.4:1 / canvas */
+    --text-muted:      #8F887B;  /*  5.3:1 / canvas */
+    --icon:            #8F887B;
+
+    --accent:          #C99368;  /*  7.0:1 / canvas */
+    --accent-surface:  #2A211A;
+    --accent-border:   #3D3126;
+
+    --success:         #8FB07C;
+    --success-surface: #1D241A;
+    --success-border:  #2C3527;
+
+    --warning:         #D3AC63;
+    --warning-surface: #2A2317;
+    --warning-border:  #3D3320;
+
+    --danger:          #D98878;
+    --danger-surface:  #2A1B18;
+    --danger-border:   #3D2622;
+
     color-scheme: dark;
   }
+
+  html {
+    /* Tarayici varsayilan koyu temayi dayatmasin; tema data-theme'den gelir. */
+    background: var(--canvas);
+  }
+
   body {
-    @apply bg-neutral-950 text-neutral-100 antialiased;
+    @apply bg-canvas text-primary antialiased;
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 13.5px;
+    line-height: 1.5;
   }
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+
+  /* Klavyeyle gezerken odak GORUNUR olmali. Fare tiklamasinda cikmaz. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: 3px;
   }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb {
-    @apply rounded bg-neutral-800;
+    background: var(--border-strong);
+    border-radius: 5px;
+    border: 2px solid var(--canvas);
   }
-  ::-webkit-scrollbar-track {
-    background: transparent;
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  ::selection { background: var(--accent-surface); color: var(--text); }
+}
+
+@layer components {
+  /* Bolum basligi: "BEKLEYENLER" gibi kucuk kapitaller. */
+  .label-caps {
+    @apply text-[10px] font-medium uppercase tracking-[0.16em] text-muted;
+  }
+  /* Serif rakam — saat, sayac, skor. Hizalanmasi icin tabular. */
+  .numeral {
+    font-family: "Newsreader Variable", Newsreader, Georgia, serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
 }

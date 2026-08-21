@@ -11,6 +11,8 @@ export function TodoPage() {
   const [status, setStatus] = useState<string>("open");
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState(2);
+  /** Satir ici duzenlenen gorevin id'si. */
+  const [editing, setEditing] = useState<string | null>(null);
   const online = useOnline();
   const invalidate = useInvalidate();
   const { data: todos = [], isLoading } = useQuery({
@@ -32,28 +34,29 @@ export function TodoPage() {
     onSuccess: refresh,
   });
 
-  function edit(todo: Todo) {
-    const next = prompt("Gorev", todo.title)?.trim();
-    if (next && next !== todo.title) patch.mutate({ id: todo.id, body: { title: next } });
+  function rename(todo: Todo, next: string) {
+    const value = next.trim();
+    setEditing(null);
+    if (value && value !== todo.title) patch.mutate({ id: todo.id, body: { title: value } });
   }
 
   return (
     <div className="space-y-4 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-xl font-semibold">Todo</h1>
-          <p className="text-xs text-neutral-500">Yapilacaklar, alt gorevler ve oncelikler.</p></div>
-        <a href="#/planner" className="text-xs text-sky-400 hover:underline">Weekly Planner →</a>
+        <div>
+          <p className="text-meta text-muted">Yapılacaklar, alt görevler ve öncelikler.</p></div>
+        <a href="#/planner" className="text-meta text-accent hover:underline">Haftalık plan →</a>
       </header>
-      <Panel title="Hizli ekle">
+      <Panel title="Hızlı ekle">
         <form className="flex flex-wrap gap-2" onSubmit={(event) => {
           event.preventDefault();
           if (title.trim()) create.mutate();
         }}>
           <input value={title} onChange={(event) => setTitle(event.target.value)}
             placeholder="Ne yapilacak?" autoFocus
-            className="min-w-64 flex-1 rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-sky-700" />
+            className="min-w-64 flex-1 rounded border border-strong bg-canvas px-3 py-2 text-body outline-none focus:border-accent" />
           <select value={priority} onChange={(event) => setPriority(Number(event.target.value))}
-            className="rounded border border-neutral-700 bg-neutral-950 px-2 text-sm">
+            className="rounded border border-strong bg-canvas px-2 text-body">
             {priorityLabel.map((label, value) => <option key={value} value={value}>{label}</option>)}
           </select>
           <Button type="submit" variant="primary" disabled={!online || !title.trim()}>ekle</Button>
@@ -62,27 +65,43 @@ export function TodoPage() {
       <div className="flex gap-1">
         {["open", "doing", "done", "dropped", ""].map((value) => (
           <Button key={value || "all"} variant={status === value ? "primary" : "ghost"}
-            onClick={() => setStatus(value)}>{value || "tumu"}</Button>
+            onClick={() => setStatus(value)}>{value || "tümü"}</Button>
         ))}
       </div>
       <Panel>
-        {isLoading ? <p className="text-sm text-neutral-500">Yukleniyor...</p> : todos.length === 0 ?
-          <Empty>Bu filtrede gorev yok.</Empty> : (
-          <ul className="divide-y divide-neutral-800">
+        {isLoading ? <p className="text-body text-muted">Yükleniyor…</p> : todos.length === 0 ?
+          <Empty>Bu filtrede görev yok.</Empty> : (
+          <ul className="divide-y divide-subtle">
             {todos.map((todo) => (
               <li key={todo.id} className={cx("flex items-start gap-3 py-3", todo.parent_id && "ml-6")}>
                 <button disabled={!online || todo.status === "done"}
                   onClick={() => complete.mutate(todo.id)}
                   className={cx("mt-0.5 h-4 w-4 rounded border", todo.status === "done"
-                    ? "border-emerald-700 bg-emerald-800" : "border-neutral-600")}
+                    ? "border-ok-border bg-ok" : "border-strong")}
                   aria-label="tamamla" />
                 <div className="min-w-0 flex-1">
-                  <button onClick={() => edit(todo)} className={cx("text-left text-sm",
-                    todo.status === "done" && "text-neutral-600 line-through")}>{todo.title}</button>
-                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-neutral-600">
+                  {editing === todo.id ? (
+                    <form className="flex gap-2" onSubmit={(event) => {
+                      event.preventDefault();
+                      rename(todo, (new FormData(event.currentTarget).get("title") as string) ?? "");
+                    }}>
+                      <input name="title" autoFocus defaultValue={todo.title}
+                        aria-label="Görev başlığı"
+                        onKeyDown={(event) => { if (event.key === "Escape") setEditing(null); }}
+                        className="h-8 min-w-0 flex-1 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
+                      <Button type="submit" variant="primary" size="sm">Kaydet</Button>
+                      <Button size="sm" onClick={() => setEditing(null)}>Vazgeç</Button>
+                    </form>
+                  ) : (
+                    <button disabled={!online} onClick={() => setEditing(todo.id)}
+                      title="Başlığı düzenle"
+                      className={cx("text-left text-body hover:text-accent",
+                        todo.status === "done" && "text-muted line-through")}>{todo.title}</button>
+                  )}
+                  <div className="mt-1 flex flex-wrap gap-2 text-meta text-muted">
                     <span>p{todo.priority} · {priorityLabel[todo.priority]}</span>
                     {todo.due_at && <span>{new Date(todo.due_at).toLocaleString("tr-TR")}</span>}
-                    {todo.parent_id && <Badge>alt gorev</Badge>}
+                    {todo.parent_id && <Badge>alt görev</Badge>}
                   </div>
                 </div>
                 {todo.status === "open" && <Button disabled={!online}

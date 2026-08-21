@@ -36,7 +36,7 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
       id={bookmark.id}
       className={cx(
         "rounded border p-3",
-        focused ? "border-sky-700 bg-sky-950/20" : "border-neutral-800 bg-neutral-900/40",
+        focused ? "border-accent-border bg-accent-surface" : "border-subtle bg-surface",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -46,13 +46,13 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
             target="_blank"
             rel="noreferrer"
             className={cx(
-              "block truncate text-sm hover:underline",
-              bookmark.read_status === "read" ? "text-neutral-500" : "text-neutral-100",
+              "block truncate text-body hover:underline",
+              bookmark.read_status === "read" ? "text-muted" : "text-primary",
             )}
           >
             {bookmark.title || bookmark.url}
           </a>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
             <span>{hostOf(bookmark.url)}</span>
             <span>·</span>
             <span>{relativeTime(bookmark.saved_at)}</span>
@@ -63,7 +63,7 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
             ))}
           </div>
           {bookmark.note && (
-            <p className="mt-2 text-xs text-neutral-400">{bookmark.note}</p>
+            <p className="mt-2 text-meta text-secondary">{bookmark.note}</p>
           )}
         </div>
 
@@ -77,7 +77,7 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
           </Button>
           <Button
             disabled={!online}
-            title="Okundu isaretle"
+            title="Okundu işaretle"
             onClick={() =>
               patch.mutate({ read_status: bookmark.read_status === "read" ? "unread" : "read" })
             }
@@ -88,7 +88,7 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
             disabled={!online}
             value={bookmark.collection}
             onChange={(e) => patch.mutate({ collection: e.target.value })}
-            className="rounded border border-neutral-700 bg-neutral-900 px-1 py-1 text-xs text-neutral-300"
+            className="rounded border border-strong bg-surface px-1 py-1 text-meta text-secondary"
           >
             {COLLECTIONS.map((c) => (
               <option key={c} value={c}>
@@ -113,6 +113,8 @@ export function BookmarksPage() {
 
   const [filter, setFilter] = useState<Filter>({ collection: "" });
   const [search, setSearch] = useState("");
+  /** "+ kaydet" satir ici ad formu acik mi. */
+  const [namingView, setNamingView] = useState(false);
   const q = useDebounced(search, 250);
 
   useEffect(() => {
@@ -160,23 +162,22 @@ export function BookmarksPage() {
     <div className="grid gap-4 p-6 lg:grid-cols-[1fr_260px]">
       <div>
         <header className="mb-4 flex items-baseline justify-between">
-          <h1 className="text-xl font-semibold">Bookmark Library</h1>
-          <span className="text-xs text-neutral-500">{data.length} sonuc</span>
+          <span className="text-meta text-muted">{data.length} sonuc</span>
         </header>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ara (baslik, not, secim)..."
-            className="min-w-48 flex-1 rounded border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm outline-none focus:border-neutral-600"
+            placeholder="Ara (başlık, not, seçim)…"
+            className="min-w-48 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
           />
           <select
             value={filter.collection ?? ""}
             onChange={(e) => setFilter({ ...filter, collection: e.target.value as Collection })}
-            className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm"
+            className="rounded border border-subtle bg-surface px-2 py-1.5 text-body"
           >
-            <option value="">Tum koleksiyonlar</option>
+            <option value="">Tüm koleksiyonlar</option>
             {COLLECTIONS.map((c) => (
               <option key={c} value={c}>
                 {COLLECTION_LABELS[c]}
@@ -188,7 +189,7 @@ export function BookmarksPage() {
             onChange={(e) =>
               setFilter({ ...filter, read_status: e.target.value || undefined })
             }
-            className="rounded border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm"
+            className="rounded border border-subtle bg-surface px-2 py-1.5 text-body"
           >
             <option value="">Okuma durumu</option>
             <option value="unread">Okunmadi</option>
@@ -211,9 +212,9 @@ export function BookmarksPage() {
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-neutral-500">Yukleniyor...</p>
+          <p className="text-body text-muted">Yükleniyor…</p>
         ) : data.length === 0 ? (
-          <Empty>Bu filtreye uyan kayit yok.</Empty>
+          <Empty>Bu filtreye uyan kayıt yok.</Empty>
         ) : (
           <ul className="space-y-2">
             {data.map((bookmark) => (
@@ -225,35 +226,50 @@ export function BookmarksPage() {
 
       <aside className="space-y-4">
         <Panel
-          title="Kayitli gorunumler"
+          title="Kayıtlı görünümler"
           action={
             <Button
               disabled={!online}
-              onClick={() => {
-                const name = prompt("Gorunum adi", "Unread AI articles");
-                if (name) saveView.mutate(name);
-              }}
+              onClick={() => setNamingView((v) => !v)}
             >
               + kaydet
             </Button>
           }
         >
+          {namingView && (
+            <form
+              className="mb-3 flex gap-2 border-b border-subtle pb-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = (new FormData(event.currentTarget).get("name") as string ?? "").trim();
+                if (!name) return;
+                saveView.mutate(name);
+                setNamingView(false);
+              }}
+            >
+              <input name="name" autoFocus placeholder="Görünüm adı"
+                aria-label="Görünüm adı"
+                onKeyDown={(event) => { if (event.key === "Escape") setNamingView(false); }}
+                className="h-8 min-w-0 flex-1 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
+              <Button type="submit" variant="primary" size="sm">Kaydet</Button>
+            </form>
+          )}
           {views.length === 0 ? (
-            <Empty>Henuz gorunum yok.</Empty>
+            <Empty>Henüz görünüm yok.</Empty>
           ) : (
             <ul className="space-y-1">
               {views.map((view) => (
                 <li key={view.id} className="flex items-center justify-between gap-2">
                   <button
                     onClick={() => applyView(view)}
-                    className="truncate text-left text-sm text-neutral-300 hover:text-neutral-100"
+                    className="truncate text-left text-body text-secondary hover:text-primary"
                   >
                     {view.name}
                   </button>
                   <button
                     onClick={() => deleteView.mutate(view.id)}
                     disabled={!online}
-                    className="text-xs text-neutral-600 hover:text-red-400"
+                    className="text-meta text-muted hover:text-danger"
                   >
                     ✕
                   </button>
@@ -272,9 +288,9 @@ export function BookmarksPage() {
                 <button
                   key={tag.name}
                   onClick={() => setFilter({ ...filter, tag: tag.name })}
-                  className="rounded border border-neutral-800 px-1.5 py-0.5 text-[11px] text-neutral-400 hover:border-neutral-600 hover:text-neutral-200"
+                  className="rounded border border-subtle px-1.5 py-0.5 text-meta text-secondary hover:border-strong hover:text-primary"
                 >
-                  #{tag.name} <span className="text-neutral-600">{tag.count}</span>
+                  #{tag.name} <span className="text-muted">{tag.count}</span>
                 </button>
               ))}
             </div>

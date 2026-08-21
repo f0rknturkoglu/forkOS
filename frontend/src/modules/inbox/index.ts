@@ -1,23 +1,25 @@
+import { Inbox } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
+import { invalidate } from "@/core/queryClient";
 import { InboxPage } from "./InboxPage";
 import { InboxWidget } from "./InboxWidget";
 import { InboxStats } from "./InboxStats";
 
 registerModule({
   id: "inbox",
-  title: "Inbox",
+  title: "Gelen Kutusu", icon: Inbox, group: "capture",
   routes: [{ path: "/inbox", element: InboxPage }],
   todayStats: [InboxStats],
-  todayWidgets: [InboxWidget],
+  todayWidgets: [{ component: InboxWidget, zone: "pending" }],
   commands: [
-    { id: "inbox.open", label: "Inbox'a git", run: () => navigate("/inbox") },
+    { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/inbox") },
     {
       id: "inbox.capture",
-      label: "Bookmark kaydet (URL yapistir)",
-      run: async () => {
-        const url = prompt("URL");
+      label: "Bağlantı kaydet",
+      ask: { label: "Kaydedilecek URL", placeholder: "https://…" },
+      run: async (url) => {
         if (!url) return;
         await api.post("/capture", {
           url: url.trim(),
@@ -25,6 +27,7 @@ registerModule({
           source: "manual",
           client_uuid: crypto.randomUUID(),
         });
+        invalidate("bookmarks", "bookmark-stats", "activity");
         navigate("/inbox");
       },
     },

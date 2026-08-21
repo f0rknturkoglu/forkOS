@@ -36,7 +36,7 @@ export function useGlobalSearch(query: string) {
 }
 
 export const TYPE_LABELS: Record<string, string> = {
-  bookmark: "Bookmark",
+  bookmark: "Yer imi",
   feed: "Feed",
   feed_item: "RSS",
   todo: "Todo",

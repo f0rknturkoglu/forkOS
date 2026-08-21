@@ -4,7 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="/favicon.svg" />
+    <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141310" media="(prefers-color-scheme: dark)" />
     <title>forkOS</title>
+    <script>
+      // Temayi ilk boyamadan ONCE yaz; yoksa acik tema bir kare koyu yanip soner.
+      (function () {
+        // Varsayilan acik; yalnizca kullanicinin kendi secimi koyuya gecirir.
+        var saved = localStorage.getItem("forkos.theme");
+        document.documentElement.dataset.theme = saved === "dark" ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

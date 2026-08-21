@@ -1,25 +1,42 @@
-import { useState } from "react";
-import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
+import { useEffect, useRef, useState } from "react";
+import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, Panel, cx, hostOf, relativeTime } from "@/core/ui";
+import { Tag, Trash2 } from "lucide-react";
+import { Badge, Button, Empty, IconButton, Input, Kbd, Panel, cx, hostOf, relativeTime, useToast } from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";
 
 const TARGETS: Collection[] = COLLECTIONS.filter((c) => c !== "inbox");
 
-function InboxCard({ bookmark, disabled }: { bookmark: Bookmark; disabled: boolean }) {
+function InboxCard({
+  bookmark, disabled, selected, onSelect, registerRef,
+}: {
+  bookmark: Bookmark;
+  disabled: boolean;
+  selected: boolean;
+  onSelect: () => void;
+  registerRef: (node: HTMLLIElement | null) => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: bookmark.id,
     disabled,
   });
   const invalidate = useInvalidate();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(bookmark.tags.join(", "));
+  // Duzenleme formu acikken kart kisayollarini yut, yoksa "1" yazamazsin.
+  const swallow = (e: React.KeyboardEvent) => { if (editing) e.stopPropagation(); };
 
   const remove = useMutation({
     mutationFn: () => api.del(`/bookmarks/${bookmark.id}`),
-    onSuccess: () => invalidate("bookmarks", "bookmark-stats", "activity"),
+    onSuccess: () => {
+      invalidate("bookmarks", "bookmark-stats", "activity");
+      toast.push("Yer imi silindi", { tone: "neutral" });
+    },
   });
 
   const setTags = useMutation({
@@ -29,9 +46,16 @@ function InboxCard({ bookmark, disabled }: { bookmark: Bookmark; disabled: boole
 
   return (
     <li
-      ref={setNodeRef}
+      ref={(node) => { setNodeRef(node); registerRef(node); }}
+      // Klavye yolu: kart odaklanabilir; secim ok tuslariyla gezer,
+      // tasima 1-4 ile yapilir. Sayfanin altindaki lejant bunu anlatir.
+      tabIndex={0}
+      aria-current={selected ? "true" : undefined}
+      onFocus={onSelect}
+      onClick={onSelect}
       className={cx(
-        "rounded border border-neutral-800 bg-neutral-900/40 p-3",
+        "rounded-card border bg-surface p-3 transition",
+        selected ? "border-strong ring-1 ring-accent" : "border-subtle",
         isDragging && "opacity-40",
       )}
     >
@@ -40,8 +64,8 @@ function InboxCard({ bookmark, disabled }: { bookmark: Bookmark; disabled: boole
           {...listeners}
           {...attributes}
           disabled={disabled}
-          title={disabled ? "Cevrimdisi - tasima kapali" : "Surukle"}
-          className="mt-0.5 cursor-grab text-neutral-600 hover:text-neutral-400 disabled:cursor-not-allowed"
+          title={disabled ? "Çevrimdışı — taşıma kapalı" : "Sürükle"}
+          className="mt-0.5 cursor-grab text-muted hover:text-secondary disabled:cursor-not-allowed"
         >
           ⠿
         </button>
@@ -50,11 +74,11 @@ function InboxCard({ bookmark, disabled }: { bookmark: Bookmark; disabled: boole
             href={bookmark.url}
             target="_blank"
             rel="noreferrer"
-            className="block truncate text-sm text-neutral-100 hover:underline"
+            className="block truncate text-body text-primary hover:underline"
           >
             {bookmark.title || bookmark.url}
           </a>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
             <span>{hostOf(bookmark.url)}</span>
             <span>·</span>
             <span>{relativeTime(bookmark.saved_at)}</span>
@@ -64,48 +88,90 @@ function InboxCard({ bookmark, disabled }: { bookmark: Bookmark; disabled: boole
             ))}
           </div>
           {bookmark.selection && (
-            <p className="mt-2 border-l-2 border-neutral-700 pl-2 text-xs italic text-neutral-400">
+            <p className="mt-2 border-l-2 border-strong pl-2 text-meta italic text-secondary">
               {bookmark.selection.slice(0, 220)}
             </p>
           )}
         </div>
-        <div className="flex flex-wrap justify-end gap-1">
-          <Button
+        <div className="flex shrink-0 gap-1">
+          <IconButton
+            title="Etiketleri düzenle"
             disabled={disabled}
-            title="Etiket ekle"
-            onClick={() => {
-              const input = prompt("Etiketler (virgulle)", bookmark.tags.join(", "));
-              if (input !== null) {
-                setTags.mutate(input.split(",").map((t) => t.trim()).filter(Boolean));
-              }
-            }}
+            onClick={() => setEditing((v) => !v)}
           >
-            #
-          </Button>
-          <Button variant="danger" disabled={disabled} onClick={() => remove.mutate()}>
-            sil
-          </Button>
+            <Tag size={15} />
+          </IconButton>
+          <IconButton title="Sil" tone="danger" disabled={disabled} onClick={() => remove.mutate()}>
+            <Trash2 size={15} />
+          </IconButton>
         </div>
       </div>
+
+      {editing && (
+        <form
+          onKeyDown={swallow}
+          className="mt-3 flex gap-2 border-t border-subtle pt-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setTags.mutate(draft.split(",").map((t) => t.trim()).filter(Boolean));
+            setEditing(false);
+          }}
+        >
+          <Input
+            autoFocus
+            value={draft}
+            onChange={setDraft}
+            ariaLabel="Etiketler, virgülle ayrılmış"
+            placeholder="etiketler, virgülle"
+            className="flex-1"
+            onKeyDown={(e) => { if (e.key === "Escape") setEditing(false); }}
+          />
+          <Button type="submit" variant="primary" size="sm">Kaydet</Button>
+          <Button size="sm" onClick={() => setEditing(false)}>Vazgeç</Button>
+        </form>
+      )}
     </li>
   );
 }
 
-function DropTarget({ collection, count }: { collection: Collection; count: number }) {
+/**
+ * Hem birakma hedefi (fare) hem buton (klavye).
+ *
+ * Surukle-birak tek yol olamaz: dnd-kit sensoru klavyeyle serbest surukleme
+ * verse de hedefi tutturmak isabetsiz. Sec-ve-tikla ayni isi yapar, ekran
+ * okuyucuya anlatilabilir ve rakam kisayoluyla da calisir.
+ */
+function DropTarget({
+  collection, count, index, hasSelection, onMove,
+}: {
+  collection: Collection;
+  count: number;
+  index: number;
+  hasSelection: boolean;
+  onMove: () => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: collection });
   return (
-    <div
+    <button
+      type="button"
       ref={setNodeRef}
+      onClick={onMove}
+      disabled={!hasSelection}
+      title={hasSelection ? `Seçili kaydı ${COLLECTION_LABELS[collection]} içine taşı` : "Önce bir kart seç"}
       className={cx(
-        "flex items-center justify-between rounded border px-3 py-3 text-sm transition",
+        "flex w-full items-center gap-3 rounded-control border px-3 text-left text-body transition",
+        "h-touch",
         isOver
-          ? "border-sky-600 bg-sky-900/30 text-sky-200"
-          : "border-dashed border-neutral-800 text-neutral-400",
+          ? "border-accent bg-accent-surface text-accent"
+          : hasSelection
+            ? "border-strong bg-surface text-primary hover:bg-surface-hover"
+            : "cursor-not-allowed border-dashed border-subtle text-muted",
       )}
     >
-      <span>{COLLECTION_LABELS[collection]}</span>
-      <span className="text-xs text-neutral-600">{count}</span>
-    </div>
+      <Kbd>{index + 1}</Kbd>
+      <span className="flex-1 truncate">{COLLECTION_LABELS[collection]}</span>
+      <span className="numeral text-[15px] text-secondary">{count}</span>
+    </button>
   );
 }
 
@@ -114,6 +180,8 @@ function QuickCapture() {
   const [title, setTitle] = useState("");
   const online = useOnline();
   const invalidate = useInvalidate();
+
+  const toast = useToast();
 
   const capture = useMutation({
     mutationFn: () =>
@@ -128,7 +196,10 @@ function QuickCapture() {
       setUrl("");
       setTitle("");
       invalidate("bookmarks", "bookmark-stats", "activity");
-      if (result.duplicate) alert("Bu URL zaten kayitli -- yine de eklendi.");
+      toast.push(
+        result.duplicate ? "Bu URL zaten kayıtlıydı — yine de eklendi." : "Gelen kutusuna eklendi",
+        { tone: result.duplicate ? "warn" : "ok" },
+      );
     },
   });
 
@@ -144,13 +215,13 @@ function QuickCapture() {
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="https://..."
-        className="flex-1 rounded border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm outline-none focus:border-neutral-600"
+        className="flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
       />
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="Baslik (istege bagli)"
-        className="w-56 rounded border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm outline-none focus:border-neutral-600"
+        placeholder="Başlık (isteğe bağlı)"
+        className="w-56 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
       />
       <Button type="submit" variant="primary" disabled={!online || capture.isPending}>
         Kaydet
@@ -163,7 +234,14 @@ export function InboxPage() {
   const online = useOnline();
   const invalidate = useInvalidate();
   const [dragging, setDragging] = useState<Bookmark | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  /** Klavye yolunun oznesi: uzerinde islem yapilacak kart. */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const cardRefs = useRef(new Map<string, HTMLLIElement>());
+  const toast = useToast();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor),
+  );
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["bookmarks", "inbox"],
@@ -194,11 +272,61 @@ export function InboxPage() {
   const countOf = (collection: Collection) =>
     stats?.collections.find((c) => c.collection === collection)?.count ?? 0;
 
+  /** Tasima/silme sonrasi odaklanilacak sira. Liste tazelenince kullanilir. */
+  const restoreIndex = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Listeden dusen kart secili kalmasin.
+    if (selectedId && !data.some((b) => b.id === selectedId)) setSelectedId(null);
+
+    // Kart listeden cikinca odak body'ye duserdi; ayni siradaki bir sonrakine
+    // geri koy ki klavyeyle ust uste tasima yapilabilsin.
+    if (restoreIndex.current !== null && data.length > 0) {
+      focusCard(restoreIndex.current);
+      restoreIndex.current = null;
+    }
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function focusCard(index: number) {
+    const target = data[Math.max(0, Math.min(index, data.length - 1))];
+    if (!target) return;
+    setSelectedId(target.id);
+    cardRefs.current.get(target.id)?.focus();
+  }
+
+  function moveSelected(collection: Collection) {
+    if (!selectedId || !online) return;
+    const bookmark = data.find((b) => b.id === selectedId);
+    if (!bookmark) return;
+    const index = data.findIndex((b) => b.id === selectedId);
+    move.mutate({ id: selectedId, collection });
+    toast.push(`“${(bookmark.title || bookmark.url).slice(0, 40)}” ${COLLECTION_LABELS[collection]} içine taşındı`, {
+      tone: "ok",
+      action: { label: "Geri al", run: () => move.mutate({ id: selectedId, collection: "inbox" }) },
+    });
+    restoreIndex.current = index;
+  }
+
+  /** Liste uzerindeki kisayollar. Kart odaktayken calisir. */
+  function onListKeyDown(event: React.KeyboardEvent<HTMLUListElement>) {
+    if (!selectedId) return;
+    const index = data.findIndex((b) => b.id === selectedId);
+    const key = event.key;
+
+    if (key === "ArrowDown" || key === "j") { event.preventDefault(); focusCard(index + 1); return; }
+    if (key === "ArrowUp"   || key === "k") { event.preventDefault(); focusCard(index - 1); return; }
+
+    const slot = Number(key);
+    if (Number.isInteger(slot) && slot >= 1 && slot <= TARGETS.length) {
+      event.preventDefault();
+      moveSelected(TARGETS[slot - 1]);
+    }
+  }
+
   return (
     <div className="p-6">
       <header className="mb-4 flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold">Inbox</h1>
-        <span className="text-xs text-neutral-500">{data.length} kayit</span>
+        <span className="text-meta text-muted">{data.length} kayıt</span>
       </header>
 
       <QuickCapture />
@@ -212,37 +340,65 @@ export function InboxPage() {
         <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
           <div>
             {isLoading ? (
-              <p className="text-sm text-neutral-500">Yukleniyor...</p>
+              <p className="text-body text-muted">Yükleniyor…</p>
             ) : data.length === 0 ? (
-              <Empty>Inbox bos. Ctrl+Shift+S ile tarayicidan kaydet.</Empty>
+              <Empty>Gelen kutusu boş. Tarayıcıdan Ctrl+Shift+S ile kaydet.</Empty>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-2" onKeyDown={onListKeyDown}>
                 {data.map((bookmark) => (
-                  <InboxCard key={bookmark.id} bookmark={bookmark} disabled={!online} />
+                  <InboxCard
+                    key={bookmark.id}
+                    bookmark={bookmark}
+                    disabled={!online}
+                    selected={selectedId === bookmark.id}
+                    onSelect={() => setSelectedId(bookmark.id)}
+                    registerRef={(node) => {
+                      if (node) cardRefs.current.set(bookmark.id, node);
+                      else cardRefs.current.delete(bookmark.id);
+                    }}
+                  />
                 ))}
               </ul>
             )}
           </div>
 
-          <Panel title="Tasi" className="h-fit">
+          <Panel
+            title="Taşı"
+            action={<span className="text-meta text-muted">{selectedId ? "1 kart seçili" : "önce kart seç"}</span>}
+            className="h-fit"
+          >
             <div className="space-y-2">
-              {TARGETS.map((collection) => (
+              {TARGETS.map((collection, index) => (
                 <DropTarget
                   key={collection}
                   collection={collection}
+                  index={index}
                   count={countOf(collection)}
+                  hasSelection={Boolean(selectedId) && online}
+                  onMove={() => moveSelected(collection)}
                 />
               ))}
             </div>
-            <p className="mt-3 text-[11px] text-neutral-600">
-              Surukle-birak tek UPDATE'tir; link ve event'ler kopmaz.
+            <dl className="mt-4 space-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
+              {[
+                ["↑ ↓", "kartlar arasında gez"],
+                [`1–${TARGETS.length}`, "seçili kartı taşı"],
+              ].map(([keys, what]) => (
+                <div key={keys} className="flex items-center gap-2">
+                  <dt><Kbd>{keys}</Kbd></dt>
+                  <dd>{what}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-meta text-muted">
+              Taşıma tek UPDATE’tir; link ve event kayıtları kopmaz.
             </p>
           </Panel>
         </div>
 
         <DragOverlay>
           {dragging && (
-            <div className="rounded border border-sky-700 bg-neutral-900 px-3 py-2 text-sm shadow-xl">
+            <div className="rounded border border-accent-border bg-surface px-3 py-2 text-body shadow-xl">
               {dragging.title || dragging.url}
             </div>
           )}

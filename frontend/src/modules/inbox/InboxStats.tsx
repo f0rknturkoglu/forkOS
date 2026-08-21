@@ -11,8 +11,8 @@ export function InboxStats() {
   });
   return (
     <>
-      <Stat label="Inbox" value={data?.inbox ?? "–"} hint="islenmeyi bekliyor" />
-      <Stat label="Bugun kaydedilen" value={data?.saved_today ?? "–"} hint={`toplam ${data?.total ?? 0}`} />
+      <Stat label="Gelen kutusu" value={data?.inbox ?? "–"} hint="işlenmeyi bekliyor" />
+      <Stat label="Bugün kaydedilen" value={data?.saved_today ?? "–"} hint={`toplam ${data?.total ?? 0}`} />
     </>
   );
 }

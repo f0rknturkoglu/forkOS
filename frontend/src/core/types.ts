@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { LucideIcon } from "lucide-react";
 
 export type Collection =
   | "inbox" | "read_later" | "learning" | "reference" | "projects" | "archive";
@@ -8,12 +9,12 @@ export const COLLECTIONS: Collection[] = [
 ];
 
 export const COLLECTION_LABELS: Record<Collection, string> = {
-  inbox: "Inbox",
-  read_later: "Read Later",
-  learning: "Learning",
-  reference: "Reference",
-  projects: "Projects",
-  archive: "Archive",
+  inbox: "Gelen Kutusu",
+  read_later: "Okuma Listesi",
+  learning: "Öğrenme",
+  reference: "Kaynak",
+  projects: "Projeler",
+  archive: "Arşiv",
 };
 
 export interface Entity {
@@ -284,17 +285,53 @@ export interface Command {
   id: string;
   label: string;
   shortcut?: string;
-  run: () => void;
+  /**
+   * ask verilmisse palet once o alani doldurtur ve degeri buraya gecirir.
+   * Verilmemisse run() argumansiz cagrilir.
+   */
+  run: (input?: string) => void | Promise<void>;
+  /** Komutun ihtiyac duydugu tek serbest metin alani. */
+  ask?: { label: string; placeholder?: string };
+}
+
+/** Sol menudeki gruplar. "pinned" gruplarin ustunde tek basina durur. */
+export type ModuleGroup = "pinned" | "capture" | "do" | "track" | "system";
+
+export const MODULE_GROUPS: { id: ModuleGroup; label: string }[] = [
+  { id: "capture", label: "Yakala" },
+  { id: "do", label: "Yap" },
+  { id: "track", label: "Takip" },
+  { id: "system", label: "Sistem" },
+];
+
+/**
+ * Today uc bolgeye ayrilir:
+ *   now     — "Su an": suren is, siradaki blok, bugunun gorevleri
+ *   pending — "Bekleyenler": islenmeyi bekleyen yiginlar, kompakt
+ *   rhythm  — "Ritim": alistirmalar, degerlendirme, gecmis
+ */
+export type TodayZone = "now" | "pending" | "rhythm";
+
+export interface TodayWidget {
+  component: ComponentType;
+  zone: TodayZone;
 }
 
 export interface ModuleSpec {
   id: string;
   title: string;
-  icon?: ComponentType<{ size?: number }>;
+  /** Lucide ikonu ya da ayni props'lari alan kendi bilesenin. */
+  icon?: LucideIcon | ComponentType<{ size?: number | string; className?: string }>;
+  /** Grup verilmezse modul "Sistem" altina duser. */
+  group?: ModuleGroup;
   routes: { path: string; element: ComponentType }[];
   /** Today ust seridindeki sayi kutucuklari. */
   todayStats?: ComponentType[];
-  todayWidgets?: ComponentType[];
+  /**
+   * Today'e girecek widget'lar. Duz bir bilesen verilirse "ritim" bolgesine
+   * duser; bolge secmek icin { component, zone } yaz.
+   */
+  todayWidgets?: (ComponentType | TodayWidget)[];
   commands?: Command[];
   enabledByDefault?: boolean;
   searchLabel?: string;
