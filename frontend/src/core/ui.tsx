@@ -80,6 +80,94 @@ export function Panel({
   );
 }
 
+/** Sayfalarin ortak genislik ve responsive dis bosluk cercevesi. */
+export function PageFrame({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cx("mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6", className)}>
+      {children}
+    </div>
+  );
+}
+
+/** Sayfa basligi; ana eylemi icerikle ayni hizada tutar. */
+export function PageHeader({
+  eyebrow, title, action,
+}: {
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <header className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        {eyebrow && <p className="label-caps">{eyebrow}</p>}
+        <h1 className="mt-1 font-serif text-title text-primary">{title}</h1>
+      </div>
+      {action}
+    </header>
+  );
+}
+
+/** Basligi kart disinda kalan Glance tipi duz icerik bolumu. */
+export function Section({
+  title, hint, action, children, className, bodyClassName,
+}: {
+  title?: ReactNode;
+  hint?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <section className={className}>
+      {(title || hint || action) && (
+        <header className="mb-2.5 flex min-h-5 items-center gap-3">
+          {title && <h2 className="label-caps shrink-0 text-secondary">{title}</h2>}
+          <span className="h-px min-w-4 flex-1 bg-subtle" />
+          {hint && <span className="text-meta text-muted">{hint}</span>}
+          {action}
+        </header>
+      )}
+      <div className={bodyClassName}>{children}</div>
+    </section>
+  );
+}
+
+/** Yalniz gercek gruplama gerektiren form, pane ve katman yuzeyi. */
+export function Surface({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx("rounded-card border border-subtle bg-surface", className)}>{children}</div>;
+}
+
+/** Tek tek kart kullanmadan sayisal ozeti yatay ayiraclarla verir. */
+export function MetricStrip({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx("grid divide-x divide-subtle border-y border-subtle", className)}>{children}</div>;
+}
+
+export function Metric({ label, value, hint }: { label: ReactNode; value: ReactNode; hint?: ReactNode }) {
+  return (
+    <div className="min-w-0 px-3 py-2.5 first:pl-0 last:pr-0 sm:px-4">
+      <div className="numeral truncate text-[24px] leading-none text-primary">{value}</div>
+      <div className="mt-1 truncate text-meta text-secondary">{label}</div>
+      {hint && <div className="truncate text-meta text-muted">{hint}</div>}
+    </div>
+  );
+}
+
+/** Arama, filtre, siralama ve ana eylemlerin tek responsive seridi. */
+export function Toolbar({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cx("flex flex-wrap items-center gap-2 border-y border-subtle py-2.5", className)}>
+      {children}
+    </div>
+  );
+}
+
+/** Kart yiginlari yerine ince ayiracli veri satirlari. */
+export function RowList({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx("divide-y divide-subtle border-y border-subtle", className)}>{children}</div>;
+}
+
 /**
  * Bolum basligi: kucuk kapital etiket + sayfayi bolen ince cizgi.
  * Today ve liste sayfalari hiyerarsiyi bununla kurar, kart icine almadan.
