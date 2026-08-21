@@ -263,12 +263,51 @@ export interface SourceHealth {
   finished_at: string | null;
 }
 
+export interface SourceSyncBatch {
+  id: string;
+  status: "queued" | "running" | "completed" | "completed_with_errors";
+  source_ids: string[];
+  total_sources: number;
+  completed_sources: number;
+  ok_sources: number;
+  empty_sources: number;
+  error_sources: number;
+  items_found: number;
+  progress_pct: number;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface SourceSyncItem {
+  source: string;
+  status: "queued" | "running" | "ok" | "empty" | "error";
+  started_at: string | null;
+  finished_at: string | null;
+  items_found: number;
+  error: string | null;
+}
+
+export interface SourceSyncStatus {
+  active: SourceSyncBatch | null;
+  last_completed: SourceSyncBatch | null;
+  sources: SourceSyncItem[];
+  running: SourceSyncItem[];
+}
+
 export interface Opportunity {
   id: string; title: string; kind: string; organization: string | null;
   url: string | null; status: string; priority: number; found_at: string;
   deadline_at: string | null; applied_at: string | null; location: string | null;
   remote: string | null; compensation: string | null; source: string;
-  external_id: string | null; raw: Record<string, unknown>; notes: string | null;
+  external_id: string | null; raw: Record<string, unknown>;
+  /** forkjob uyum puanı (0-100); -1 elenmiş demek. Liste ucunda da dolu. */
+  score: number | null;
+  /** Puanın bileşenleri — yalnızca detay ucunda dolu. */
+  score_reasons: Record<string, unknown> | null;
+  notes: string | null;
+  trashed_at: string | null;
+  trashed_from_status: string | null;
 }
 
 export interface Deadline {
@@ -278,7 +317,8 @@ export interface Deadline {
 
 export interface Notification {
   id: number; kind: string; title: string; body: string | null;
-  entity_id: string | null; importance: number; created_at: string; read_at: string | null;
+  entity_id: string | null; entity_type: string | null;
+  importance: number; created_at: string; read_at: string | null;
 }
 
 export interface Command {
@@ -324,7 +364,8 @@ export interface ModuleSpec {
   icon?: LucideIcon | ComponentType<{ size?: number | string; className?: string }>;
   /** Grup verilmezse modul "Sistem" altina duser. */
   group?: ModuleGroup;
-  routes: { path: string; element: ComponentType }[];
+  /** title verilmezse ust seritte modulun adi gorunur. */
+  routes: { path: string; element: ComponentType; title?: string }[];
   /** Today ust seridindeki sayi kutucuklari. */
   todayStats?: ComponentType[];
   /**

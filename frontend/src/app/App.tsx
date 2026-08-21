@@ -4,8 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ExternalLink, Moon, Search, Sun, WifiOff, X } from "lucide-react";
 import { CommandPalette } from "@/core/CommandPalette";
 import { DialogHost } from "@/core/dialog";
+import { NotificationPanel } from "@/core/NotificationPanel";
 import {
-  allRoutes, groupedModules, hydrateSettings, moduleForPath, pinnedModules,
+  allRoutes, groupedModules, hydrateSettings, pinnedModules, titleForPath,
 } from "@/core/registry";
 import { api } from "@/core/api";
 import { Kbd, ToastProvider, applyTheme, cx, readTheme, useTheme } from "@/core/ui";
@@ -180,14 +181,14 @@ function ThemeToggle() {
 }
 
 function Topbar({ path }: { path: string }) {
-  const module = moduleForPath(path);
+  const title = titleForPath(path);
   const today = new Date().toLocaleDateString("tr-TR", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
   return (
     <header className="flex h-[68px] shrink-0 items-center gap-6 border-b border-subtle px-8">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <h1 className="truncate font-serif text-title text-primary">{module?.title ?? "forkOS"}</h1>
+        <h1 className="truncate font-serif text-title text-primary">{title ?? "forkOS"}</h1>
         <p className="text-meta text-muted">{today}</p>
       </div>
       <div className="flex-1" />
@@ -200,6 +201,7 @@ function Topbar({ path }: { path: string }) {
         <span className="flex-1 truncate">Ara veya komut çalıştır…</span>
         <Kbd>Ctrl K</Kbd>
       </button>
+      <NotificationPanel />
       <ThemeToggle />
     </header>
   );

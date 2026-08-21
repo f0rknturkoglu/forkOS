@@ -19,8 +19,10 @@ EMPTY = "empty"
 ERROR = "error"
 
 
-async def start_run(session: AsyncSession, source: str) -> SourceRun:
-    run = SourceRun(source=source, status="running")
+async def start_run(
+    session: AsyncSession, source: str, *, batch_id=None
+) -> SourceRun:
+    run = SourceRun(source=source, status="running", batch_id=batch_id)
     session.add(run)
     await session.flush()
     return run

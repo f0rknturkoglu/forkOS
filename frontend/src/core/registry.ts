@@ -85,3 +85,12 @@ export function groupedModules(): { id: ModuleGroup; label: string; modules: Mod
 export function moduleForPath(path: string): ModuleSpec | undefined {
   return enabledModules().find((m) => m.routes.some((r) => r.path === path));
 }
+
+/** Ust seritte gorunecek baslik: once rotanin kendi adi, sonra modulunki. */
+export function titleForPath(path: string): string | undefined {
+  for (const module of enabledModules()) {
+    const route = module.routes.find((r) => r.path === path);
+    if (route) return route.title ?? module.title;
+  }
+  return undefined;
+}

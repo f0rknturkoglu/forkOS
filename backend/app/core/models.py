@@ -145,3 +145,28 @@ class SourceRun(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="ok")
     items_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error: Mapped[str | None] = mapped_column(Text)
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("source_sync_batch.id", ondelete="SET NULL")
+    )
+
+
+class SourceSyncBatch(Base):
+    """Manuel kaynak cekimlerinin kalici operasyonel ilerleme kaydi."""
+    __tablename__ = "source_sync_batch"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    source_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    total_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    completed_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ok_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    empty_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    items_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

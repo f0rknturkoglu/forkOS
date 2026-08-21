@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -8,7 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity, touch_entity
+from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.modules.opportunity.models import Notification, Opportunity, OpportunityRequirement
@@ -22,6 +23,20 @@ from app.modules.opportunity.schemas import (
 
 def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> OpportunityOut:
     o, title = row
+    # Skor raw'in icinde duruyor; listede raw'i tasimadan yalnizca sayiyi
+    # cikariyoruz, cunku kart siralamasi ve elemesi buna dayaniyor.
+    forkjob = (o.raw or {}).get("forkjob") or {}
+    score = forkjob.get("score")
+    # forkjob'in to_row() ciktisinda reasons JSON metni olarak duruyor;
+    # dict bekleyen sema icin cozuyoruz. Bozuksa alan bos gecer.
+    reasons = forkjob.get("reasons")
+    if isinstance(reasons, str):
+        try:
+            reasons = json.loads(reasons)
+        except ValueError:
+            reasons = None
+    if not isinstance(reasons, dict):
+        reasons = None
     return OpportunityOut(
         id=o.id,
         title=title,
@@ -39,7 +54,11 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
         source=o.source,
         external_id=o.external_id,
         raw=o.raw if include_raw else {},
+        score=score if isinstance(score, (int, float)) else None,
+        score_reasons=reasons if include_raw else None,
         notes=o.notes,
+        trashed_at=o.trashed_at,
+        trashed_from_status=o.trashed_from_status,
     )
 
 
@@ -48,6 +67,7 @@ async def list_opportunities(
     status: str | None = None,
     kind: str | None = None,
     limit: int = 200,
+    trashed_only: bool = False,
 ) -> list[OpportunityOut]:
     stmt = (
         select(Opportunity, Entity.title)
@@ -58,12 +78,94 @@ async def list_opportunities(
             Opportunity.found_at.desc(),
         )
     )
+    stmt = stmt.where(
+        Opportunity.trashed_at.is_not(None)
+        if trashed_only
+        else Opportunity.trashed_at.is_(None)
+    )
     if status:
         stmt = stmt.where(Opportunity.status == status)
     if kind:
         stmt = stmt.where(Opportunity.kind == kind)
     stmt = stmt.limit(limit)
     return [_out(row, include_raw=False) for row in (await session.execute(stmt)).all()]
+
+
+async def trash_opportunity(
+    session: AsyncSession, item_id: uuid.UUID
+) -> OpportunityOut | None:
+    item = await session.get(Opportunity, item_id)
+    if item is None:
+        return None
+    if item.trashed_at is None:
+        item.trashed_from_status = item.status
+        item.status = "trashed"
+        item.trashed_at = datetime.now(UTC)
+        await touch_entity(session, item.id)
+        await log_event(
+            session,
+            verb="opportunity.trashed",
+            entity_id=item.id,
+            entity_type="opportunity",
+            payload={"from_status": item.trashed_from_status},
+        )
+        await session.commit()
+    row = (
+        await session.execute(
+            select(Opportunity, Entity.title).join(Entity).where(Opportunity.id == item_id)
+        )
+    ).one()
+    return _out(row)
+
+
+async def restore_opportunity(
+    session: AsyncSession, item_id: uuid.UUID
+) -> OpportunityOut | None:
+    item = await session.get(Opportunity, item_id)
+    if item is None:
+        return None
+    if item.trashed_at is not None:
+        restored_status = item.trashed_from_status or "discovered"
+        item.status = restored_status
+        item.trashed_at = None
+        item.trashed_from_status = None
+        await touch_entity(session, item.id)
+        await log_event(
+            session,
+            verb="opportunity.restored",
+            entity_id=item.id,
+            entity_type="opportunity",
+            payload={"status": restored_status},
+        )
+        await session.commit()
+    row = (
+        await session.execute(
+            select(Opportunity, Entity.title).join(Entity).where(Opportunity.id == item_id)
+        )
+    ).one()
+    return _out(row)
+
+
+async def delete_opportunity(session: AsyncSession, item_id: uuid.UUID) -> bool:
+    row = (
+        await session.execute(
+            select(Opportunity, Entity.title).join(Entity).where(Opportunity.id == item_id)
+        )
+    ).first()
+    if row is None:
+        return False
+    item, title = row
+    await log_event(
+        session,
+        verb="opportunity.deleted",
+        entity_id=item.id,
+        entity_type="opportunity",
+        payload={"opportunity_id": str(item.id), "title": title},
+    )
+    await session.flush()
+    await delete_entity(session, item.id)
+    await session.commit()
+    return True
 
 
 async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
@@ -225,7 +327,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             session,
             kind="opportunity.digest",
             title=f"{source_label}: {added} yeni fırsat",
-            body="Yeni kayıtlar Opportunity Hub'a eklendi.",
+            body="Yeni kayıtlar Fırsatlar ekranına eklendi.",
             dedup_key=f"digest:{source_label}:{datetime.now(UTC).date()}",
         )
     return added

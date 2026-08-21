@@ -62,32 +62,42 @@ export function ActivityPage() {
         Object.entries(days).map(([day, dayEvents]) => (
           <section key={day} className="mb-6">
             <h2 className="mb-2 text-meta uppercase tracking-wide text-muted">{day}</h2>
-            <ul className="space-y-1 border-l border-subtle pl-4">
-              {dayEvents.map((event) => (
-                <li key={event.id} className="relative py-1 text-body">
-                  <span
-                    className={cx(
-                      "absolute -left-[21px] top-2.5 h-1.5 w-1.5 rounded-full",
-                      ALERT_VERBS.has(event.verb) ? "bg-warn" : "bg-strong",
-                    )}
-                  />
-                  <span
-                    className={cx(
-                      ALERT_VERBS.has(event.verb) ? "text-warn" : "text-secondary",
-                    )}
-                  >
-                    {describe(event.verb, event.payload)}
-                  </span>
-                  <span className="ml-2 text-meta text-muted">
-                    {relativeTime(event.occurred_at)}
-                  </span>
-                  {event.entity_type && (
-                    <span className="ml-2">
-                      <Badge>{event.entity_type}</Badge>
+            <ul>
+              {dayEvents.map((event, index) => {
+                const first = index === 0;
+                const last = index === dayEvents.length - 1;
+                const alert = ALERT_VERBS.has(event.verb)
+                  || (event.verb === "source_sync.completed" && Number(event.payload.errors ?? 0) > 0);
+                return (
+                  <li key={event.id} className="flex min-h-10 text-body">
+                    <span className="relative w-7 shrink-0" aria-hidden>
+                      {!first && (
+                        <span className="absolute left-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-strong" />
+                      )}
+                      {!last && (
+                        <span className="absolute bottom-0 left-1/2 h-1/2 w-px -translate-x-1/2 bg-strong" />
+                      )}
+                      <span
+                        className={cx(
+                          "absolute left-1/2 top-1/2 z-[1] h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-[3px] ring-canvas",
+                          alert ? "bg-warn" : "bg-strong",
+                        )}
+                      />
                     </span>
-                  )}
-                </li>
-              ))}
+                    <div className="min-w-0 flex-1 py-2 pl-2">
+                      <span className={cx(alert ? "text-warn" : "text-secondary")}>
+                        {describe(event.verb, event.payload)}
+                      </span>
+                      <span className="ml-2 text-meta text-muted">
+                        {relativeTime(event.occurred_at)}
+                      </span>
+                      {event.entity_type && (
+                        <span className="ml-2"><Badge>{event.entity_type}</Badge></span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ))

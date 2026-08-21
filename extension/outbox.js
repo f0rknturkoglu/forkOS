@@ -8,7 +8,16 @@
 import { API_BASE } from "./config.js";
 
 const KEY = "outbox";
+const FAILED_KEY = "failedCaptures";
 const LAST_RESULT_KEY = "lastResult";
+let storageOperation = Promise.resolve();
+let activeFlush = null;
+
+function withStorageLock(operation) {
+  const run = storageOperation.then(operation, operation);
+  storageOperation = run.then(() => undefined, () => undefined);
+  return run;
+}
 
 async function readQueue() {
   const { [KEY]: queue = [] } = await chrome.storage.local.get(KEY);
@@ -21,15 +30,48 @@ async function writeQueue(queue) {
   await chrome.action.setBadgeText({ text: queue.length ? String(queue.length) : "" });
 }
 
+function rejection(url, status, message) {
+  return { url, status, message };
+}
+
+function invalidUrlMessage(url) {
+  try {
+    const protocol = new URL(url).protocol;
+    return protocol === "http:" || protocol === "https:"
+      ? null
+      : "Yalnızca http(s) sayfaları destekleniyor";
+  } catch {
+    return "Geçerli bir http(s) adresi gerekli";
+  }
+}
+
+async function saveLastResult(result) {
+  await chrome.storage.local.set({ [LAST_RESULT_KEY]: { ...result, at: Date.now() } });
+}
+
 export async function enqueue(item) {
-  const queue = await readQueue();
-  queue.push({ client_uuid: crypto.randomUUID(), collection: "inbox", ...item });
-  await writeQueue(queue);
+  const urlError = invalidUrlMessage(item.url);
+  if (urlError) {
+    const result = {
+      sent: 0,
+      pending: await pendingCount(),
+      duplicates: [],
+      rejected: [rejection(item.url, null, urlError)],
+    };
+    await saveLastResult(result);
+    return result;
+  }
+
+  await withStorageLock(async () => {
+    const queue = await readQueue();
+    queue.push({ client_uuid: crypto.randomUUID(), collection: "inbox", ...item });
+    await writeQueue(queue);
+  });
   return flush();
 }
 
 export async function pendingCount() {
-  return (await readQueue()).length;
+  return withStorageLock(async () => (await readQueue()).length);
 }
 
 export async function lastResult() {
@@ -39,14 +81,25 @@ export async function lastResult() {
 
 /**
  * Kuyrugu bosaltmayi dener.
- * Doner: { sent, pending, duplicates: [{ url, existing_id }] }
+ * Doner: { sent, pending, duplicates, rejected }
  */
-export async function flush() {
-  const queue = await readQueue();
-  if (queue.length === 0) return { sent: 0, pending: 0, duplicates: [] };
+export function flush() {
+  if (!activeFlush) {
+    activeFlush = flushQueue().finally(() => { activeFlush = null; });
+  }
+  return activeFlush;
+}
 
-  const remaining = [];
+async function flushQueue() {
+  const queue = await withStorageLock(readQueue);
+  if (queue.length === 0) {
+    return { sent: 0, pending: 0, duplicates: [], rejected: [] };
+  }
+
+  const finalizedIds = new Set();
+  const failed = [];
   const duplicates = [];
+  const rejected = [];
   let sent = 0;
 
   for (const item of queue) {
@@ -59,23 +112,38 @@ export async function flush() {
 
       if (res.ok) {
         sent++;
+        finalizedIds.add(item.client_uuid);
         const body = await res.json().catch(() => null);
         if (body?.duplicate) duplicates.push({ url: item.url, existing_id: body.existing_id });
       } else if (res.status >= 400 && res.status < 500) {
-        // Kalici hata (gecersiz URL vb.) -- tekrar denemenin anlami yok, dusur.
-        sent++;
-        console.warn("forkOS: kayit reddedildi", res.status, item.url);
-      } else {
-        remaining.push(item);
+        const responseText = await res.text().catch(() => "");
+        const message = responseText.trim().slice(0, 300) || `HTTP ${res.status}`;
+        const entry = rejection(item.url, res.status, message);
+        rejected.push(entry);
+        failed.push({ ...item, ...entry, failed_at: Date.now() });
+        finalizedIds.add(item.client_uuid);
+        console.warn("forkOS: kayit reddedildi", res.status, item.url, message);
       }
     } catch {
-      remaining.push(item);   // backend kapali -- kuyrukta kalsin
+      // Backend kapali -- client_uuid kuyrukta kalir.
     }
   }
 
-  await writeQueue(remaining);
-  const result = { sent, pending: remaining.length, duplicates };
-  await chrome.storage.local.set({ [LAST_RESULT_KEY]: { ...result, at: Date.now() } });
+  const pending = await withStorageLock(async () => {
+    const currentQueue = await readQueue();
+    const remaining = currentQueue.filter((item) => !finalizedIds.has(item.client_uuid));
+    const values = { [KEY]: remaining };
+    if (failed.length > 0) {
+      const { [FAILED_KEY]: priorFailed = [] } = await chrome.storage.local.get(FAILED_KEY);
+      values[FAILED_KEY] = [...priorFailed, ...failed];
+    }
+    await chrome.storage.local.set(values);
+    await writeQueue(remaining);
+    return remaining.length;
+  });
+
+  const result = { sent, pending, duplicates, rejected };
+  await saveLastResult(result);
   return result;
 }
 

@@ -35,6 +35,8 @@ class Opportunity(EntityBacked, Base):
     external_id: Mapped[str | None] = mapped_column(Text)
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     notes: Mapped[str | None] = mapped_column(Text)
+    trashed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trashed_from_status: Mapped[str | None] = mapped_column(Text)
 
 
 class OpportunityRequirement(Base):

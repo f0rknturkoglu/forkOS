@@ -21,6 +21,13 @@ $("save").addEventListener("click", async () => {
     collection: $("collection").value,
   });
 
+  const rejected = result.rejected.find((entry) => entry.url === $("url").value);
+  if (rejected) {
+    $("status").textContent = `Kaydedilemedi: ${rejected.message}`;
+    $("save").disabled = false;
+    return;
+  }
+
   const duplicate = result.duplicates.find((d) => d.url === $("url").value);
   if (duplicate) {
     // Hata degil: ayni sayfayi ikinci kez kaydetmek serbest, sadece haber veriyoruz.

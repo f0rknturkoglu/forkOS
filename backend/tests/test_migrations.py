@@ -102,6 +102,8 @@ def test_module_tables_reference_entity():
         "milestone",
         "github_activity",
         "setting",
+        # Manuel scraper batch'i, source_run gibi operasyonel destek kaydidir.
+        "source_sync_batch",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

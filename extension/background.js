@@ -28,7 +28,8 @@ chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.url) return;
   const result = await enqueue({ url: tab.url, title: tab.title ?? "" });
-  await flash(result.pending ? "⏳" : "✓", result.pending ? "#b45309" : "#166534");
+  const rejected = result.rejected.length > 0;
+  await flash(rejected ? "!" : result.pending ? "⏳" : "✓", rejected ? "#b91c1c" : result.pending ? "#b45309" : "#166534");
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -39,5 +40,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     title: tab?.title ?? "",
     selection: info.selectionText ?? null,
   });
-  await flash(result.pending ? "⏳" : "✓", result.pending ? "#b45309" : "#166534");
+  const rejected = result.rejected.length > 0;
+  await flash(rejected ? "!" : result.pending ? "⏳" : "✓", rejected ? "#b91c1c" : result.pending ? "#b45309" : "#166534");
 });

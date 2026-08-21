@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class OpportunityIn(BaseModel):
@@ -26,6 +26,13 @@ class OpportunityPatch(BaseModel):
     deadline_at: datetime | None = None
     notes: str | None = None
 
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str | None) -> str | None:
+        if value == "trashed":
+            raise ValueError("Çöp durumu için trash endpoint'ini kullanın")
+        return value
+
 
 class OpportunityOut(BaseModel):
     id: UUID
@@ -44,7 +51,13 @@ class OpportunityOut(BaseModel):
     source: str
     external_id: str | None
     raw: dict[str, Any]
+    #: forkjob uyum puani (0-100). -1 = kill kelimesi yakalandi, eleme.
+    score: float | None = None
+    #: Puanin bilesenleri. Yalnizca detay ucunda dolu -- liste hafif kalsin.
+    score_reasons: dict[str, Any] | None = None
     notes: str | None
+    trashed_at: datetime | None = None
+    trashed_from_status: str | None = None
 
 
 class RequirementIn(BaseModel):
@@ -60,6 +73,8 @@ class NotificationOut(BaseModel):
     title: str
     body: str | None
     entity_id: UUID | None
+    #: Bildirime tiklayinca nereye gidilecegini arayuz bundan cozer.
+    entity_type: str | None = None
     importance: int
     created_at: datetime
     read_at: datetime | None

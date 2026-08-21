@@ -1,9 +1,12 @@
+import asyncio
+from contextlib import suppress
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
@@ -11,6 +14,7 @@ from app.core.links import link
 from app.core.models import Entity, Link, SourceRun
 from app.db import get_session
 from app.modules.opportunity import service
+from app.modules.opportunity import sync as sync_service
 from app.modules.opportunity.models import Notification, Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
     DeadlineOut,
@@ -34,14 +38,36 @@ class RequirementDocumentIn(BaseModel):
     document_entity_id: UUID | None
 
 
+class SourceRefreshIn(BaseModel):
+    """Bos govde = katalogun tamami."""
+
+    source_ids: list[str] | None = None
+    kind: Literal["job", "announcement"] | None = None
+
+
+async def _refresh_many(source_ids: list[str], batch_id: UUID) -> None:
+    """Arka plan cekimi. Hata poll_source icinde source_run'a yazilir."""
+    semaphore = asyncio.Semaphore(4)
+
+    async def one(source_id: str) -> None:
+        async with semaphore:
+            with suppress(KeyError):
+                await poll_named_source(source_id, batch_id=batch_id)
+
+    await asyncio.gather(*(one(source_id) for source_id in source_ids))
+
+
 @router.get("/opportunities", response_model=list[OpportunityOut])
 async def opportunities(
     status: str | None = None,
     kind: str | None = None,
     limit: int = 200,
+    trashed_only: bool = False,
     session: AsyncSession = Depends(get_session),
 ):
-    return await service.list_opportunities(session, status, kind, min(limit, 500))
+    return await service.list_opportunities(
+        session, status, kind, min(limit, 2000), trashed_only=trashed_only
+    )
 
 
 @router.get("/opportunities/{item_id}", response_model=OpportunityOut)
@@ -71,6 +97,33 @@ async def patch(
     if result is None:
         raise HTTPException(404)
     return result
+
+
+@router.post("/opportunities/{item_id}/trash", response_model=OpportunityOut)
+async def trash(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await service.trash_opportunity(session, item_id)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.post("/opportunities/{item_id}/restore", response_model=OpportunityOut)
+async def restore(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await service.restore_opportunity(session, item_id)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.delete("/opportunities/{item_id}", status_code=204)
+async def delete(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    item = await session.get(Opportunity, item_id)
+    if item is None:
+        raise HTTPException(404)
+    if item.trashed_at is None:
+        raise HTTPException(409, "Fırsat kalıcı silinmeden önce çöpe taşınmalı")
+    if not await service.delete_opportunity(session, item_id):
+        raise HTTPException(404)
 
 
 @router.get("/opportunities/{item_id}/requirements")
@@ -163,16 +216,30 @@ async def deadlines(session: AsyncSession = Depends(get_session)):
 
 @router.get("/notifications", response_model=list[NotificationOut])
 async def notifications(session: AsyncSession = Depends(get_session)):
-    return list(
-        (
-            await session.execute(
-                select(Notification)
-                .where(Notification.dismissed_at.is_(None))
-                .order_by(Notification.created_at.desc())
-                .limit(100)
-            )
-        ).scalars()
-    )
+    # entity ile outer join: bildirimin hedef turu arayuzde rota secimine gider.
+    rows = (
+        await session.execute(
+            select(Notification, Entity.type)
+            .outerjoin(Entity, Entity.id == Notification.entity_id)
+            .where(Notification.dismissed_at.is_(None))
+            .order_by(Notification.created_at.desc())
+            .limit(100)
+        )
+    ).all()
+    return [
+        NotificationOut(
+            id=item.id,
+            kind=item.kind,
+            title=item.title,
+            body=item.body,
+            entity_id=item.entity_id,
+            entity_type=entity_type,
+            importance=item.importance,
+            created_at=item.created_at,
+            read_at=item.read_at,
+        )
+        for item, entity_type in rows
+    ]
 
 
 @router.post("/notifications/{notification_id}/read")
@@ -183,6 +250,45 @@ async def read_notification(notification_id: int, session: AsyncSession = Depend
     item.read_at = datetime.now(UTC)
     await session.commit()
     return {"ok": True}
+
+
+@router.post("/notifications/read-all")
+async def read_all_notifications(session: AsyncSession = Depends(get_session)):
+    """Panelin 'tumunu okundu isaretle' dugmesi. Kayitlar durur, yalnizca okundu olur."""
+    now = datetime.now(UTC)
+    result = await session.execute(
+        update(Notification)
+        .where(Notification.read_at.is_(None), Notification.dismissed_at.is_(None))
+        .values(read_at=now)
+    )
+    await session.commit()
+    return {"read": result.rowcount or 0}
+
+
+@router.post("/notifications/{notification_id}/dismiss")
+async def dismiss_notification(notification_id: int, session: AsyncSession = Depends(get_session)):
+    """Bildirimi panelden kaldirir. Silmez -- event gecmisi append-only kalir."""
+    item = await session.get(Notification, notification_id)
+    if item is None:
+        raise HTTPException(404)
+    now = datetime.now(UTC)
+    item.dismissed_at = now
+    if item.read_at is None:
+        item.read_at = now
+    await session.commit()
+    return {"ok": True}
+
+
+@router.post("/notifications/dismiss-all")
+async def dismiss_all_notifications(session: AsyncSession = Depends(get_session)):
+    now = datetime.now(UTC)
+    result = await session.execute(
+        update(Notification)
+        .where(Notification.dismissed_at.is_(None))
+        .values(dismissed_at=now, read_at=func.coalesce(Notification.read_at, now))
+    )
+    await session.commit()
+    return {"dismissed": result.rowcount or 0}
 
 
 @router.get("/sources/runs")
@@ -208,10 +314,70 @@ async def source_catalog():
     ]
 
 
+@router.get("/sources/sync")
+async def sync_status(session: AsyncSession = Depends(get_session)):
+    """Aktif manuel batch ve kaynak bazli kesin ilerleme."""
+    return await sync_service.current_status(session)
+
+
+@router.get("/sources/sync/history")
+async def sync_history(limit: int = 10, session: AsyncSession = Depends(get_session)):
+    return await sync_service.history(session, min(limit, 50))
+
+
+@router.post("/sources/refresh")
+async def refresh_sources(
+    body: SourceRefreshIn, session: AsyncSession = Depends(get_session)
+):
+    """Secmeli ya da toplu cekim.
+
+    source_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi
+    de bossa katalogun hepsi. Cekim arka planda kosar cunku 80 kaynak tek
+    istekte beklenemez -- ilerleme /sources/sync'ten izlenir.
+    """
+    catalog = {source.id: source for source in [*forkjob_sources(), *ANNOUNCEMENT_SOURCES]}
+    announcement_ids = {source.id for source in ANNOUNCEMENT_SOURCES}
+
+    if body.source_ids:
+        unknown = [item for item in body.source_ids if item not in catalog]
+        if unknown:
+            raise HTTPException(404, f"kaynak bulunamadı: {', '.join(unknown[:5])}")
+        ids = list(dict.fromkeys(body.source_ids))
+    elif body.kind:
+        ids = [
+            source_id
+            for source_id in catalog
+            if ("announcement" if source_id in announcement_ids else "job") == body.kind
+        ]
+    else:
+        ids = list(catalog)
+
+    if not ids:
+        return {"batch_id": None, "queued": 0, "total_sources": 0}
+
+    batch, newly_queued = await sync_service.create_or_extend_batch(session, ids)
+    await session.commit()
+    # Tek seferde dort kaynak: worker'in otomatik turuyla ayni sinir.
+    if newly_queued:
+        asyncio.create_task(_refresh_many(newly_queued, batch.id))
+    return {
+        "batch_id": str(batch.id),
+        "queued": len(newly_queued),
+        "total_sources": batch.total_sources,
+    }
+
+
 @router.post("/sources/{source_id:path}/refresh")
-async def refresh_source(source_id: str):
+async def refresh_source(source_id: str, session: AsyncSession = Depends(get_session)):
     try:
-        added = await poll_named_source(source_id)
+        catalog = {source.id for source in [*forkjob_sources(), *ANNOUNCEMENT_SOURCES]}
+        if source_id not in catalog:
+            raise KeyError(source_id)
+        batch, newly_queued = await sync_service.create_or_extend_batch(session, [source_id])
+        await session.commit()
+        if not newly_queued:
+            return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
+        added = await poll_named_source(source_id, batch_id=batch.id)
     except KeyError as exc:
         raise HTTPException(404, "kaynak bulunamadı") from exc
-    return {"source": source_id, "added": added}
+    return {"source": source_id, "added": added, "batch_id": str(batch.id)}
