@@ -7,7 +7,7 @@ Compose icinde calistir:  make test
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -296,6 +296,72 @@ async def test_project_timeline_includes_pomodoro_for_linked_todo(client: AsyncC
     await client.delete(f"/api/pomodoro/{pomo['id']}")
     await client.delete(f"/api/todos/{todo['id']}")
     await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_project_timeline_excludes_pomodoro_for_linked_non_todo(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post(
+        "/api/projects", json={"title": f"Non-todo focus {suffix}"}
+    )).json()
+    area = (await client.post(
+        "/api/study/areas", json={"title": f"Non-todo area {suffix}"}
+    )).json()
+    topic = (await client.post("/api/study/topics", json={
+        "title": f"Non-todo topic {suffix}", "area_id": area["id"],
+    })).json()
+    linked = await client.post(
+        f"/api/projects/{project['id']}/todos", json={"todo_id": topic["id"]}
+    )
+    assert linked.status_code == 201
+    pomo = (await client.post("/api/pomodoro/start", json={
+        "planned_min": 1, "context_entity_id": topic["id"],
+    })).json()
+    await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={"interrupted": False})
+    timeline = (await client.get(f"/api/projects/{project['id']}/timeline")).json()
+    assert not any(item["entity_id"] == pomo["id"] for item in timeline)
+    await client.delete(f"/api/pomodoro/{pomo['id']}")
+    await client.delete(f"/api/study/topics/{topic['id']}")
+    await client.delete(f"/api/study/areas/{area['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_interrupted_pomodoro_event_includes_context(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    todo = (await client.post(
+        "/api/todos", json={"title": f"Interrupted context {suffix}"}
+    )).json()
+    pomo = (await client.post("/api/pomodoro/start", json={
+        "planned_min": 1, "context_entity_id": todo["id"],
+    })).json()
+    await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={"interrupted": True})
+    activity = (await client.get("/api/activity", params={"limit": 50})).json()
+    event = next(item for item in activity
+                 if item["entity_id"] == pomo["id"]
+                 and item["verb"] == "pomodoro.interrupted")
+    assert event["payload"]["context_entity_id"] == todo["id"]
+    assert event["payload"]["context_type"] == "todo"
+    await client.delete(f"/api/pomodoro/{pomo['id']}")
+    await client.delete(f"/api/todos/{todo['id']}")
+
+
+async def test_manual_pomodoro_event_includes_context(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    todo = (await client.post(
+        "/api/todos", json={"title": f"Manual context {suffix}"}
+    )).json()
+    pomo = (await client.post("/api/pomodoro", json={
+        "started_at": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+        "minutes": 1,
+        "context_entity_id": todo["id"],
+    })).json()
+    activity = (await client.get("/api/activity", params={"limit": 50})).json()
+    event = next(item for item in activity
+                 if item["entity_id"] == pomo["id"]
+                 and item["verb"] == "pomodoro.completed")
+    assert event["payload"]["context_entity_id"] == todo["id"]
+    assert event["payload"]["context_type"] == "todo"
+    await client.delete(f"/api/pomodoro/{pomo['id']}")
+    await client.delete(f"/api/todos/{todo['id']}")
 
 
 async def test_phase2_productivity_flow(client: AsyncClient):

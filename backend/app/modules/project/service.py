@@ -278,12 +278,16 @@ async def timeline(session: AsyncSession, project_id: uuid.UUID, limit: int = 60
     if project is None:
         return []
 
-    todo_ids = select(Link.from_id).where(
-        Link.to_id == project_id, Link.relation == "belongs_to"
+    todo_ids = (
+        select(Link.from_id)
+        .join(Todo, Todo.id == Link.from_id)
+        .where(Link.to_id == project_id, Link.relation == "belongs_to")
     )
     conditions = [Event.entity_id == project_id, Event.entity_id.in_(todo_ids)]
-    todo_ids_text = select(cast(Link.from_id, Text)).where(
-        Link.to_id == project_id, Link.relation == "belongs_to"
+    todo_ids_text = (
+        select(cast(Link.from_id, Text))
+        .join(Todo, Todo.id == Link.from_id)
+        .where(Link.to_id == project_id, Link.relation == "belongs_to")
     )
     conditions.append(
         Event.verb.in_(("pomodoro.completed", "pomodoro.interrupted"))
