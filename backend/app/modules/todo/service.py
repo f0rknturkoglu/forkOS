@@ -131,12 +131,15 @@ async def _resolve_context(
         parent = await session.get(Todo, parent_id)
         if parent is None:
             raise ValueError("ust gorev bulunamadi")
-        inherited_project = (await session.execute(
+        inherited_projects = (await session.execute(
             select(Link.to_id).join(Entity, Entity.id == Link.to_id).where(
                 Link.from_id == parent_id, Link.relation == "belongs_to",
                 Entity.type == "project",
             )
-        )).scalar_one_or_none()
+        )).scalars().all()
+        if len(inherited_projects) > 1:
+            raise ValueError("ust gorev birden fazla projeye bagli")
+        inherited_project = inherited_projects[0] if inherited_projects else None
         inherited_milestone = parent.milestone_id
     if project_id and inherited_project and project_id != inherited_project:
         raise ValueError("alt gorev farkli projeye baglanamaz")

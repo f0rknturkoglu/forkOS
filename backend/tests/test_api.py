@@ -166,6 +166,26 @@ async def test_todo_rejects_cross_project_milestone_without_a_record(client: Asy
     await client.delete(f"/api/projects/{second['id']}")
 
 
+async def test_todo_rejects_child_of_multi_project_parent_without_a_record(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    first = (await client.post("/api/projects", json={"title": f"First {suffix}"})).json()
+    second = (await client.post("/api/projects", json={"title": f"Second {suffix}"})).json()
+    parent = (await client.post("/api/todos", json={"title": f"Parent {suffix}"})).json()
+    for project in (first, second):
+        linked = await client.post(
+            f"/api/projects/{project['id']}/todos", json={"todo_id": parent["id"]}
+        )
+        assert linked.status_code == 201
+    title = f"Multi-project child {suffix}"
+    response = await client.post("/api/todos", json={"title": title, "parent_id": parent["id"]})
+    assert response.status_code == 400
+    todos = (await client.get("/api/todos", params={"limit": 500})).json()
+    assert title not in {item["title"] for item in todos}
+    await client.delete(f"/api/todos/{parent['id']}")
+    await client.delete(f"/api/projects/{first['id']}")
+    await client.delete(f"/api/projects/{second['id']}")
+
+
 async def test_phase2_productivity_flow(client: AsyncClient):
     """Todo -> plan -> pomodoro -> habit -> review dikey dilimi."""
     suffix = uuid.uuid4().hex[:8]
