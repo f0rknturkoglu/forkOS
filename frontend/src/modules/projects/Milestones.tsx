@@ -5,13 +5,14 @@ import { api } from "@/core/api";
 import { Button, Empty, IconButton, Input, RowList, Section, cx } from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { Project } from "@/core/types";
+import { PROJECT_REFRESH_KEYS } from "./ProjectTodos";
 
 /** Kilometre taslari -- projenin buyuk adimlari, gorevlerden bir tik yukarisi. */
 export function Milestones({ project }: { project: Project }) {
   const [title, setTitle] = useState("");
   const online = useOnline();
   const invalidate = useInvalidate();
-  const refresh = () => invalidate("projects");
+  const refresh = () => invalidate(...PROJECT_REFRESH_KEYS);
 
   const add = useMutation({
     mutationFn: () => api.post(`/projects/${project.id}/milestones`, { title: title.trim() }),

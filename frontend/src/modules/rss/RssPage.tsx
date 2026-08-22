@@ -9,6 +9,10 @@ import { navigate } from "@/app/router";
 import { COLLECTIONS, COLLECTION_LABELS } from "@/core/types";
 import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
 
+export const RSS_SAVE_REFRESH_KEYS = [
+  "rss-item", "items", "feeds", "rss-stats", "bookmarks", "bookmark-stats", "activity",
+] as const;
+
 type SmartView = "unread" | "today" | "saved" | "all";
 
 const SMART_LABELS: Record<SmartView, string> = {
@@ -452,7 +456,7 @@ export function RssPage() {
     mutationFn: ({ id, collection }: { id: string; collection: string }) =>
       api.post<Bookmark>(`/rss/items/${id}/save`, { collection }),
     onSuccess: (bookmark) => {
-      invalidate("rss-item", "items", "feeds", "rss-stats", "bookmarks", "activity");
+      invalidate(...RSS_SAVE_REFRESH_KEYS);
       toast.push(`"${(bookmark.title || "").slice(0, 40)}" yer imlerine kaydedildi`, {
         tone: "ok",
         action: { label: "Yer iminde aç", run: () => navigate(`/bookmarks?focus=${bookmark.id}`) },

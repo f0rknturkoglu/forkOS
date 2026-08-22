@@ -7,6 +7,18 @@ import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { Project, Todo } from "@/core/types";
 import { TodoRow } from "@/modules/todo/TodoRow";
 
+export const PROJECT_REFRESH_KEYS = [
+  "projects", "project-todos", "project-timeline", "todos", "activity",
+] as const;
+
+export function createProjectTodo(projectId: string, title: string, milestoneId: string) {
+  return api.post<Todo>("/todos", {
+    title: title.trim(),
+    project_id: projectId,
+    milestone_id: milestoneId || undefined,
+  });
+}
+
 /**
  * Projenin gorevleri. Ayni `TodoRow` kullanilir -- tamamlama, silme,
  * baslik duzenleme her yerde ayni davranir.
@@ -23,16 +35,10 @@ export function ProjectTodos({ project }: { project: Project }) {
     queryFn: () => api.get<Todo[]>(`/projects/${project.id}/todos`),
   });
 
-  const refresh = () => invalidate("project-todos", "todos", "activity");
+  const refresh = () => invalidate(...PROJECT_REFRESH_KEYS);
 
   const add = useMutation({
-    mutationFn: async () => {
-      const todo = await api.post<Todo>("/todos", {
-        title: title.trim(),
-        milestone_id: milestone || undefined,
-      });
-      await api.post(`/projects/${project.id}/todos`, { todo_id: todo.id });
-    },
+    mutationFn: () => createProjectTodo(project.id, title, milestone),
     onSuccess: () => { setTitle(""); refresh(); },
     onError: () => toast.push("Görev eklenemedi.", { tone: "danger" }),
   });
