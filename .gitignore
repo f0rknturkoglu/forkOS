@@ -17,3 +17,4 @@ dev-dist/
 .vite/
 backend/backups/
 output/
+.worktrees/
