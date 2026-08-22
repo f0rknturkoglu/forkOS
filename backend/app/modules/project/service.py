@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import tags as tag_svc
@@ -17,7 +17,12 @@ from app.modules.todo.models import Todo
 from app.modules.todo.service import _todo_out
 
 
-async def project_out(session: AsyncSession, project: Project) -> dict:
+async def project_out(
+    session: AsyncSession,
+    project: Project,
+    entity_activity_at: datetime,
+    todo_activity_at: datetime | None = None,
+) -> dict:
     title = (
         await session.execute(select(Entity.title).where(Entity.id == project.id))
     ).scalar_one()
@@ -38,19 +43,40 @@ async def project_out(session: AsyncSession, project: Project) -> dict:
         "url": project.url,
         "stack": project.stack or [],
         "next_action": project.next_action,
-        "last_activity_at": project.last_activity_at,
+        "last_activity_at": max(
+            changed_at
+            for changed_at in (entity_activity_at, project.last_activity_at, todo_activity_at)
+            if changed_at is not None
+        ),
         "notes": project.notes,
         "position": project.position,
         "milestones": milestones,
     }
 
 
+async def _todo_activity_by_project(
+    session: AsyncSession, project_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    rows = (await session.execute(
+        select(Link.to_id, func.max(Entity.updated_at))
+        .join(Entity, Entity.id == Link.from_id)
+        .where(Link.to_id.in_(project_ids), Link.relation == "belongs_to",
+               Entity.type == "todo")
+        .group_by(Link.to_id)
+    )).all()
+    return {project_id: changed_at for project_id, changed_at in rows}
+
+
 async def list_projects(session: AsyncSession, status: str | None = None) -> list[dict]:
-    stmt = select(Project).join(Entity).where(Entity.archived_at.is_(None))
+    stmt = select(Project, Entity.updated_at).join(Entity).where(Entity.archived_at.is_(None))
     if status:
         stmt = stmt.where(Project.status == status)
-    projects = list((await session.execute(stmt.order_by(Project.position))).scalars())
-    return [await project_out(session, item) for item in projects]
+    rows = (await session.execute(stmt.order_by(Project.position))).all()
+    activity = await _todo_activity_by_project(session, [project.id for project, _ in rows])
+    return [
+        await project_out(session, project, entity_activity_at, activity.get(project.id))
+        for project, entity_activity_at in rows
+    ]
 
 
 async def create(session: AsyncSession, data: ProjectIn) -> dict:
@@ -68,7 +94,7 @@ async def create(session: AsyncSession, data: ProjectIn) -> dict:
         session, verb="project.created", entity_id=project.id, entity_type="project", payload={}
     )
     await session.commit()
-    return await project_out(session, project)
+    return await project_out(session, project, entity.updated_at)
 
 
 async def patch(session: AsyncSession, project_id: uuid.UUID, data: ProjectPatch) -> dict | None:
@@ -93,7 +119,10 @@ async def patch(session: AsyncSession, project_id: uuid.UUID, data: ProjectPatch
         payload={"fields": list(values)},
     )
     await session.commit()
-    return await project_out(session, project)
+    entity_activity_at = (
+        await session.execute(select(Entity.updated_at).where(Entity.id == project.id))
+    ).scalar_one()
+    return await project_out(session, project, entity_activity_at)
 
 
 async def add_milestone(
@@ -103,6 +132,14 @@ async def add_milestone(
         return None
     item = Milestone(project_id=project_id, **data.model_dump())
     session.add(item)
+    await session.flush()
+    await log_event(
+        session,
+        verb="project.milestone_added",
+        entity_id=item.project_id,
+        entity_type="project",
+        payload={"milestone_id": str(item.id), "title": item.title},
+    )
     await session.commit()
     return item
 
@@ -114,13 +151,41 @@ async def patch_milestone(
     if item is None:
         return None
     values = data.model_dump(exclude_unset=True)
+    changed_fields = list(values)
     completed = values.pop("completed", None)
     for key, value in values.items():
         setattr(item, key, value)
     if completed is not None:
         item.completed_at = datetime.now(UTC) if completed else None
+    await log_event(
+        session,
+        verb="project.milestone_updated",
+        entity_id=item.project_id,
+        entity_type="project",
+        payload={
+            "milestone_id": str(item.id),
+            "title": item.title,
+            "fields": changed_fields,
+        },
+    )
     await session.commit()
     return item
+
+
+async def delete_milestone(session: AsyncSession, milestone_id: uuid.UUID) -> bool:
+    item = await session.get(Milestone, milestone_id)
+    if item is None:
+        return False
+    await log_event(
+        session,
+        verb="project.milestone_deleted",
+        entity_id=item.project_id,
+        entity_type="project",
+        payload={"milestone_id": str(item.id), "title": item.title},
+    )
+    await session.delete(item)
+    await session.commit()
+    return True
 
 
 async def project_todos(session: AsyncSession, project_id: uuid.UUID) -> list[dict]:
@@ -217,6 +282,13 @@ async def timeline(session: AsyncSession, project_id: uuid.UUID, limit: int = 60
         Link.to_id == project_id, Link.relation == "belongs_to"
     )
     conditions = [Event.entity_id == project_id, Event.entity_id.in_(todo_ids)]
+    todo_ids_text = select(cast(Link.from_id, Text)).where(
+        Link.to_id == project_id, Link.relation == "belongs_to"
+    )
+    conditions.append(
+        Event.verb.in_(("pomodoro.completed", "pomodoro.interrupted"))
+        & Event.payload["context_entity_id"].astext.in_(todo_ids_text)
+    )
     if project.github_repo:
         conditions.append(
             (Event.verb == "github.commit")

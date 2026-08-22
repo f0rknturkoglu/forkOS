@@ -7,7 +7,7 @@ Compose icinde calistir:  make test
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -242,6 +242,59 @@ async def test_recurring_todo_keeps_project_and_milestone(client: AsyncClient):
     assert generated["milestone_id"] == milestone["id"]
     await client.delete(f"/api/todos/{generated['id']}")
     await client.delete(f"/api/todos/{original['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_project_last_activity_follows_linked_todo_updates(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post("/api/projects", json={"title": f"Active {suffix}"})).json()
+    todo = (await client.post("/api/todos", json={
+        "title": f"Work {suffix}", "project_id": project["id"],
+    })).json()
+    current = next(item for item in (await client.get("/api/projects")).json()
+                   if item["id"] == project["id"])
+    assert current["last_activity_at"] is not None
+    before = datetime.fromisoformat(current["last_activity_at"])
+    await client.patch(f"/api/todos/{todo['id']}", json={"title": f"Updated {suffix}"})
+    refreshed = next(item for item in (await client.get("/api/projects")).json()
+                     if item["id"] == project["id"])
+    assert datetime.fromisoformat(refreshed["last_activity_at"]) > before
+    await client.delete(f"/api/todos/{todo['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_project_timeline_records_milestone_actions(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post("/api/projects", json={"title": f"Milestone {suffix}"})).json()
+    milestone = (await client.post(
+        f"/api/projects/{project['id']}/milestones", json={"title": "Visible event"}
+    )).json()
+    await client.patch(f"/api/milestones/{milestone['id']}", json={"completed": True})
+    await client.delete(f"/api/milestones/{milestone['id']}")
+    timeline = (await client.get(f"/api/projects/{project['id']}/timeline")).json()
+    verbs = {item["verb"] for item in timeline}
+    assert {
+        "project.milestone_added", "project.milestone_updated", "project.milestone_deleted",
+    } <= verbs
+    await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_project_timeline_includes_pomodoro_for_linked_todo(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post("/api/projects", json={"title": f"Focus {suffix}"})).json()
+    todo = (await client.post("/api/todos", json={
+        "title": f"Focus todo {suffix}", "project_id": project["id"],
+    })).json()
+    pomo = (await client.post("/api/pomodoro/start", json={
+        "planned_min": 1, "context_entity_id": todo["id"],
+    })).json()
+    await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={"interrupted": False})
+    timeline = (await client.get(f"/api/projects/{project['id']}/timeline")).json()
+    focus = [item for item in timeline if item["verb"] == "pomodoro.completed"]
+    assert focus
+    assert focus[0]["payload"]["context_entity_id"] == todo["id"]
+    await client.delete(f"/api/pomodoro/{pomo['id']}")
+    await client.delete(f"/api/todos/{todo['id']}")
     await client.delete(f"/api/projects/{project['id']}")
 
 

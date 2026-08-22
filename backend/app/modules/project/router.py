@@ -11,7 +11,7 @@ from app.core.links import link
 from app.db import get_session
 from app.integrations.models import OAuthToken
 from app.modules.project import github, github_repo, service
-from app.modules.project.models import GithubActivity, Milestone, Project
+from app.modules.project.models import GithubActivity, Project
 from app.modules.project.schemas import (
     GithubCredentialsIn,
     IssueToTodoIn,
@@ -80,11 +80,8 @@ async def patch_milestone(
 
 @router.delete("/milestones/{milestone_id}", status_code=204)
 async def delete_milestone(milestone_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    item = await session.get(Milestone, milestone_id)
-    if item is None:
+    if not await service.delete_milestone(session, milestone_id):
         raise HTTPException(404)
-    await session.delete(item)
-    await session.commit()
 
 
 @router.get("/projects/{project_id}/todos")

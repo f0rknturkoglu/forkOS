@@ -103,11 +103,21 @@ async def stop(session: AsyncSession, pomo_id: uuid.UUID, interrupted: bool) -> 
         )
         verb = "pomodoro.interrupted" if interrupted else "pomodoro.completed"
         payload = (
-            {"minutes": pomo.actual_min, "planned": pomo.planned_min}
+            {
+                "minutes": pomo.actual_min,
+                "planned": pomo.planned_min,
+                "context_entity_id": (
+                    str(pomo.context_entity_id) if pomo.context_entity_id else None
+                ),
+                "context_type": context.type if context else None,
+            }
             if interrupted
             else {
                 "minutes": pomo.actual_min,
                 "topic": pomo.topic or (context.title if context else None),
+                "context_entity_id": (
+                    str(pomo.context_entity_id) if pomo.context_entity_id else None
+                ),
                 "context_type": context.type if context else None,
             }
         )
@@ -220,7 +230,15 @@ async def add_manual(session: AsyncSession, data: PomodoroManual) -> PomodoroOut
         verb="pomodoro.completed",
         entity_id=entity.id,
         entity_type=PomodoroSession.ENTITY_TYPE,
-        payload={"minutes": data.minutes, "topic": data.topic, "manual": True},
+        payload={
+            "minutes": data.minutes,
+            "topic": data.topic,
+            "manual": True,
+            "context_entity_id": (
+                str(pomo.context_entity_id) if pomo.context_entity_id else None
+            ),
+            "context_type": context.type if context else None,
+        },
     )
     await session.commit()
     await session.refresh(pomo)
