@@ -21,6 +21,7 @@ class TodoIn(BaseModel):
     position: int = 0
     tags: list[str] = []
     recur: RECUR | None = None
+    project_id: uuid.UUID | None = None
     milestone_id: uuid.UUID | None = None
 
 

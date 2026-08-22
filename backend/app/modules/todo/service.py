@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import tags as tag_svc
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
+from app.core.links import link
 from app.core.models import Entity, Link
 from app.modules.todo.models import PlanSlot, Todo
 from app.modules.todo.schemas import (
@@ -120,16 +121,63 @@ def _next_due(current: datetime, recur: str) -> datetime:
     return current + timedelta(days=1)
 
 
+async def _resolve_context(
+    session: AsyncSession, *, parent_id: uuid.UUID | None,
+    project_id: uuid.UUID | None, milestone_id: uuid.UUID | None,
+) -> tuple[uuid.UUID | None, uuid.UUID | None]:
+    inherited_project = None
+    inherited_milestone = None
+    if parent_id:
+        parent = await session.get(Todo, parent_id)
+        if parent is None:
+            raise ValueError("ust gorev bulunamadi")
+        inherited_project = (await session.execute(
+            select(Link.to_id).join(Entity, Entity.id == Link.to_id).where(
+                Link.from_id == parent_id, Link.relation == "belongs_to",
+                Entity.type == "project",
+            )
+        )).scalar_one_or_none()
+        inherited_milestone = parent.milestone_id
+    if project_id and inherited_project and project_id != inherited_project:
+        raise ValueError("alt gorev farkli projeye baglanamaz")
+    if milestone_id and inherited_milestone and milestone_id != inherited_milestone:
+        raise ValueError("alt gorev farkli kilometre tasina baglanamaz")
+    resolved_project = project_id or inherited_project
+    resolved_milestone = milestone_id or inherited_milestone
+    if resolved_project:
+        entity = await session.get(Entity, resolved_project)
+        if entity is None or entity.type != "project":
+            raise ValueError("proje bulunamadi")
+    if resolved_milestone:
+        from app.modules.project.models import Milestone
+
+        milestone = await session.get(Milestone, resolved_milestone)
+        if milestone is None:
+            raise ValueError("kilometre tasi bulunamadi")
+        if resolved_project and milestone.project_id != resolved_project:
+            raise ValueError("kilometre tasi bu projeye ait degil")
+        resolved_project = resolved_project or milestone.project_id
+    return resolved_project, resolved_milestone
+
+
 async def create(session: AsyncSession, data: TodoIn, *, commit: bool = True) -> TodoOut:
     if data.status not in STATUSES:
         raise ValueError("gecersiz todo durumu")
+    project_id, milestone_id = await _resolve_context(
+        session,
+        parent_id=data.parent_id,
+        project_id=data.project_id,
+        milestone_id=data.milestone_id,
+    )
     entity = await create_entity(session, type=Todo.ENTITY_TYPE, title=data.title.strip(),
                                  search_text=data.description or "")
     todo = Todo(id=entity.id, description=data.description, priority=data.priority,
                 status=data.status, due_at=data.due_at, reminder_at=data.reminder_at,
                 parent_id=data.parent_id, position=data.position, recur=data.recur,
-                milestone_id=data.milestone_id)
+                milestone_id=milestone_id)
     session.add(todo)
+    if project_id:
+        await link(session, todo.id, project_id, "belongs_to")
     if data.tags:
         await tag_svc.add_tags(session, entity.id, data.tags)
     await log_event(session, verb="todo.created", entity_id=entity.id, entity_type="todo",
@@ -139,7 +187,8 @@ async def create(session: AsyncSession, data: TodoIn, *, commit: bool = True) ->
         await session.commit()
     else:
         await session.flush()
-    return _todo_out(todo, entity.title, data.tags)
+    context = await _context_for(session, [todo])
+    return _todo_out(todo, entity.title, data.tags, context.get(todo.id))
 
 
 async def list_todos(session: AsyncSession, *, status: str | None = None,

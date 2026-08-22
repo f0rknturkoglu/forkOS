@@ -128,6 +128,44 @@ async def test_health_lists_modules():
     assert {"bookmark", "rss"} <= set(body["modules"])
 
 
+async def test_todo_creation_atomically_links_project_and_milestone(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post("/api/projects", json={"title": f"Atomic {suffix}"})).json()
+    milestone = (await client.post(
+        f"/api/projects/{project['id']}/milestones", json={"title": "Release"}
+    )).json()
+    response = await client.post("/api/todos", json={
+        "title": f"Ship {suffix}", "project_id": project["id"],
+        "milestone_id": milestone["id"],
+    })
+    assert response.status_code == 201
+    todo = response.json()
+    assert todo["project_id"] == project["id"]
+    assert todo["milestone_id"] == milestone["id"]
+    linked = (await client.get(f"/api/projects/{project['id']}/todos")).json()
+    assert todo["id"] in {item["id"] for item in linked}
+    await client.delete(f"/api/todos/{todo['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_todo_rejects_cross_project_milestone_without_a_record(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    first = (await client.post("/api/projects", json={"title": f"First {suffix}"})).json()
+    second = (await client.post("/api/projects", json={"title": f"Second {suffix}"})).json()
+    milestone = (await client.post(
+        f"/api/projects/{first['id']}/milestones", json={"title": "First only"}
+    )).json()
+    title = f"Rollback {suffix}"
+    response = await client.post("/api/todos", json={
+        "title": title, "project_id": second["id"], "milestone_id": milestone["id"],
+    })
+    assert response.status_code == 400
+    todos = (await client.get("/api/todos", params={"limit": 500})).json()
+    assert title not in {item["title"] for item in todos}
+    await client.delete(f"/api/projects/{first['id']}")
+    await client.delete(f"/api/projects/{second['id']}")
+
+
 async def test_phase2_productivity_flow(client: AsyncClient):
     """Todo -> plan -> pomodoro -> habit -> review dikey dilimi."""
     suffix = uuid.uuid4().hex[:8]
