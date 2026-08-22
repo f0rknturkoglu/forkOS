@@ -186,6 +186,65 @@ async def test_todo_rejects_child_of_multi_project_parent_without_a_record(clien
     await client.delete(f"/api/projects/{second['id']}")
 
 
+async def test_subtask_inherits_parent_project_and_milestone(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post("/api/projects", json={"title": f"Parent {suffix}"})).json()
+    milestone = (await client.post(
+        f"/api/projects/{project['id']}/milestones", json={"title": "Inherited"}
+    )).json()
+    parent = (await client.post("/api/todos", json={
+        "title": f"Parent todo {suffix}", "project_id": project["id"],
+        "milestone_id": milestone["id"],
+    })).json()
+    child = (await client.post("/api/todos", json={
+        "title": f"Child {suffix}", "parent_id": parent["id"],
+    })).json()
+    assert child["project_id"] == project["id"]
+    assert child["milestone_id"] == milestone["id"]
+    linked = (await client.get(f"/api/projects/{project['id']}/todos")).json()
+    assert child["id"] in {item["id"] for item in linked}
+    await client.delete(f"/api/todos/{parent['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_subtask_rejects_conflicting_project_context(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    first = (await client.post("/api/projects", json={"title": f"Parent {suffix}"})).json()
+    second = (await client.post("/api/projects", json={"title": f"Other {suffix}"})).json()
+    parent = (await client.post("/api/todos", json={
+        "title": f"Parent {suffix}", "project_id": first["id"],
+    })).json()
+    response = await client.post("/api/todos", json={
+        "title": f"Conflicting child {suffix}", "parent_id": parent["id"],
+        "project_id": second["id"],
+    })
+    assert response.status_code == 400
+    await client.delete(f"/api/todos/{parent['id']}")
+    await client.delete(f"/api/projects/{first['id']}")
+    await client.delete(f"/api/projects/{second['id']}")
+
+
+async def test_recurring_todo_keeps_project_and_milestone(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post("/api/projects", json={"title": f"Routine {suffix}"})).json()
+    milestone = (await client.post(
+        f"/api/projects/{project['id']}/milestones", json={"title": "Routine target"}
+    )).json()
+    title = f"Recurring {suffix}"
+    original = (await client.post("/api/todos", json={
+        "title": title, "project_id": project["id"], "milestone_id": milestone["id"],
+        "recur": "daily", "due_at": "2026-08-23T09:00:00Z",
+    })).json()
+    await client.post(f"/api/todos/{original['id']}/complete")
+    open_todos = (await client.get("/api/todos", params={"status": "open", "limit": 500})).json()
+    generated = next(item for item in open_todos if item["title"] == title)
+    assert generated["project_id"] == project["id"]
+    assert generated["milestone_id"] == milestone["id"]
+    await client.delete(f"/api/todos/{generated['id']}")
+    await client.delete(f"/api/todos/{original['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
 async def test_phase2_productivity_flow(client: AsyncClient):
     """Todo -> plan -> pomodoro -> habit -> review dikey dilimi."""
     suffix = uuid.uuid4().hex[:8]

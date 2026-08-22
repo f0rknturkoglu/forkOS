@@ -163,6 +163,20 @@ async def _resolve_context(
     return resolved_project, resolved_milestone
 
 
+async def _copy_project_links(
+    session: AsyncSession, source_id: uuid.UUID, target_id: uuid.UUID
+) -> list[uuid.UUID]:
+    project_ids = list((await session.execute(
+        select(Link.to_id).join(Entity, Entity.id == Link.to_id).where(
+            Link.from_id == source_id, Link.relation == "belongs_to",
+            Entity.type == "project",
+        )
+    )).scalars())
+    for project_id in project_ids:
+        await link(session, target_id, project_id, "belongs_to")
+    return project_ids
+
+
 async def create(session: AsyncSession, data: TodoIn, *, commit: bool = True) -> TodoOut:
     if data.status not in STATUSES:
         raise ValueError("gecersiz todo durumu")
@@ -432,8 +446,10 @@ async def _spawn_next_occurrence(session: AsyncSession, done: Todo) -> None:
             position=done.position,
             recur=done.recur,
             recur_origin_id=origin,
+            milestone_id=done.milestone_id,
         )
     )
+    await _copy_project_links(session, done.id, new_entity.id)
     tag_map = await tag_svc.tags_for(session, [done.id])
     if tag_map.get(done.id):
         await tag_svc.add_tags(session, new_entity.id, tag_map[done.id])
