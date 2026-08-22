@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity, touch_entity
+from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.modules.study.models import StudyArea, StudyTopic
@@ -145,3 +145,33 @@ async def stale(session: AsyncSession, days: int):
         )
     ).all()
     return [await topic_out(session, topic) for topic, _ in rows]
+
+
+async def delete_topic(session: AsyncSession, topic_id: UUID) -> bool:
+    """Konuyu (ve alt konularini) siler. `event` kalir -- append-only."""
+    topic = await session.get(StudyTopic, topic_id)
+    if topic is None:
+        return False
+    entity = await session.get(Entity, topic_id)
+    title = entity.title if entity else ""
+    if not await delete_entity(session, topic_id):
+        return False
+    await log_event(session, verb="study.topic_deleted", entity_type="study_topic",
+                    payload={"title": title})
+    await session.commit()
+    return True
+
+
+async def delete_area(session: AsyncSession, area_id: UUID) -> bool:
+    """Alani ve altindaki tum konulari siler."""
+    area = await session.get(StudyArea, area_id)
+    if area is None:
+        return False
+    entity = await session.get(Entity, area_id)
+    title = entity.title if entity else ""
+    if not await delete_entity(session, area_id):
+        return False
+    await log_event(session, verb="study.area_deleted", entity_type="study_area",
+                    payload={"title": title})
+    await session.commit()
+    return True

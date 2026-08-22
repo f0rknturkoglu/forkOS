@@ -8,7 +8,7 @@ registerModule({
   id: "bookmarks",
   title: "Yer İmleri", icon: Bookmark, group: "capture",
   routes: [{ path: "/bookmarks", element: BookmarksPage }],
-  todayWidgets: [{ component: ReadingQueueWidget, zone: "pending" }],
+  todayWidgets: [{ component: ReadingQueueWidget, zone: "pending", slot: "right", order: 50 }],
   commands: [
     { id: "bookmarks.open", label: "Yer İmleri’ni aç", run: () => navigate("/bookmarks") },
   ],

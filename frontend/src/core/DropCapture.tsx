@@ -1,0 +1,149 @@
+import { useEffect, useRef, useState } from "react";
+import { Download, Link2, ListChecks } from "lucide-react";
+import { api } from "./api";
+import { useToast } from "./ui";
+import { useInvalidate, useOnline } from "@/lib/hooks";
+
+/**
+ * Pencereye birakilan seyi yakalar.
+ *
+ * Ayrimi birakilan icerik yapar, kullaniciya soru sorulmaz:
+ *   bagalanti -> gelen kutusuna yer imi (/capture, client_uuid ile idempotent)
+ *   duz metin  -> gorev (/todos)
+ *   dosya      -> desteklenmiyor; bookmark bir URL bekliyor ve dosya
+ *                 icerigi local-only mimaride bir yere kopyalanmiyor.
+ *
+ * Offline'da yazma kapali (plan bolum 7), o yuzden katman hic acilmaz.
+ */
+
+const URL_PATTERN = /https?:\/\/[^\s<>"']+/i;
+
+type Kind = "link" | "text" | "file";
+
+function readDrop(transfer: DataTransfer): { kind: Kind; value: string } | null {
+  if (transfer.files.length > 0) return { kind: "file", value: transfer.files[0].name };
+
+  const uri = transfer.getData("text/uri-list").trim();
+  if (uri) {
+    // uri-list yorum satiri icerebilir (# ile baslar).
+    const first = uri.split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith("#"));
+    if (first) return { kind: "link", value: first };
+  }
+
+  const text = transfer.getData("text/plain").trim();
+  if (!text) return null;
+  const match = text.match(URL_PATTERN);
+  return match ? { kind: "link", value: match[0] } : { kind: "text", value: text };
+}
+
+export function DropCapture() {
+  const [active, setActive] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // dragenter/dragleave ic elemanlarda da tetikleniyor; sayac olmadan
+  // katman her cocuk gecisinde titriyor.
+  const depth = useRef(0);
+  const toast = useToast();
+  const invalidate = useInvalidate();
+  const online = useOnline();
+
+  useEffect(() => {
+    if (!online) return;
+
+    const hasPayload = (event: DragEvent) =>
+      Array.from(event.dataTransfer?.types ?? []).some((type) =>
+        type === "Files" || type === "text/uri-list" || type === "text/plain",
+      );
+
+    const onEnter = (event: DragEvent) => {
+      if (!hasPayload(event)) return;
+      depth.current += 1;
+      setActive(true);
+    };
+    const onOver = (event: DragEvent) => {
+      if (!hasPayload(event)) return;
+      event.preventDefault();  // olmazsa tarayici dosyayi kendi acar
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    };
+    const onLeave = () => {
+      depth.current = Math.max(0, depth.current - 1);
+      if (depth.current === 0) setActive(false);
+    };
+    const onDrop = async (event: DragEvent) => {
+      if (!event.dataTransfer) return;
+      event.preventDefault();
+      depth.current = 0;
+      setActive(false);
+
+      const dropped = readDrop(event.dataTransfer);
+      if (!dropped) return;
+
+      if (dropped.kind === "file") {
+        toast.push(`"${dropped.value}" — dosya yakalanamıyor, bağlantı ya da metin bırak.`, { tone: "warn" });
+        return;
+      }
+
+      setBusy(true);
+      try {
+        if (dropped.kind === "link") {
+          const result = await api.post<{ duplicate: boolean }>("/capture", {
+            url: dropped.value,
+            collection: "inbox",
+            source: "drop",
+            client_uuid: crypto.randomUUID(),
+          });
+          invalidate("bookmarks", "bookmark-stats", "activity");
+          toast.push(
+            result.duplicate ? "Zaten kayıtlıydı — yine de gelen kutusunda." : "Gelen kutusuna eklendi",
+            { tone: result.duplicate ? "warn" : "ok", action: { label: "aç", run: () => { location.hash = "/inbox"; } } },
+          );
+        } else {
+          await api.post("/todos", { title: dropped.value.slice(0, 500) });
+          invalidate("todos", "activity");
+          toast.push("Görev olarak eklendi", {
+            tone: "ok",
+            action: { label: "aç", run: () => { location.hash = "/todos"; } },
+          });
+        }
+      } catch {
+        toast.push("Yakalanamadı — yerel sunucuya ulaşılamıyor olabilir.", { tone: "danger" });
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [online, toast, invalidate]);
+
+  if (!active && !busy) return null;
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-canvas/80 p-6 backdrop-blur-sm"
+    >
+      <div className="rounded-overlay border-2 border-dashed border-accent bg-surface px-8 py-7 text-center shadow-overlay">
+        <Download size={26} className="mx-auto text-accent" />
+        <p className="mt-3 font-serif text-title text-primary">
+          {busy ? "Kaydediliyor…" : "Bırak, yakalayayım"}
+        </p>
+        <ul className="mt-3 space-y-1 text-meta text-secondary">
+          <li className="flex items-center justify-center gap-1.5">
+            <Link2 size={13} className="text-icon" /> Bağlantı → gelen kutusu
+          </li>
+          <li className="flex items-center justify-center gap-1.5">
+            <ListChecks size={13} className="text-icon" /> Metin → görev
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}

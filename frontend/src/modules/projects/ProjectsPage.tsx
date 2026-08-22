@@ -1,23 +1,306 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
-import type { GithubActivity, Project, Todo } from "@/core/types";
-import { Badge, Button, Empty, Panel } from "@/core/ui";
-import { useInvalidate } from "@/lib/hooks";
+import {
+  Badge, Button, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select,
+  Textarea, cx, relativeTime, useToast,
+} from "@/core/ui";
+import { confirmDialog } from "@/core/dialog";
+import { useInvalidate, useOnline } from "@/lib/hooks";
+import type { Project } from "@/core/types";
+import { GithubPanel } from "./GithubPanel";
+import { ProjectTodos } from "./ProjectTodos";
+import { Milestones } from "./Milestones";
+import { ProjectTimeline } from "./ProjectTimeline";
 
-const statuses = ["idea", "active", "maintenance", "paused", "done", "archived"];
+const STATUSES = [
+  { value: "active", label: "aktif", tone: "ok", dot: "bg-ok" },
+  { value: "paused", label: "beklemede", tone: "warn", dot: "bg-warn" },
+  { value: "done", label: "bitti", tone: "neutral", dot: "bg-icon" },
+  { value: "idea", label: "fikir", tone: "accent", dot: "bg-accent" },
+] as const;
+
+const statusOf = (value: string) =>
+  STATUSES.find((item) => item.value === value) ?? STATUSES[0];
+
+/**
+ * Proje yonetimi: solda liste, sagda secili projenin her seyi.
+ *
+ * Tek ekranda kalmasinin sebebi projeler arasi gecisin ucuz olmasi --
+ * her proje icin ayri sayfaya gidip geri gelmek is akisini kesiyordu.
+ */
 export function ProjectsPage() {
-  const [title, setTitle] = useState(""); const [selected, setSelected] = useState<Project | null>(null); const invalidate = useInvalidate();
-  const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => api.get<Project[]>("/projects") });
-  const { data: activity = [] } = useQuery({ queryKey: ["github-activity"], queryFn: () => api.get<GithubActivity[]>("/github/activity") });
-  const create = useMutation({ mutationFn: () => api.post("/projects", { title, status: "active" }), onSuccess: () => { setTitle(""); invalidate("projects"); } });
-  const patch = useMutation({ mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api.patch(`/projects/${id}`, body), onSuccess: () => invalidate("projects", "activity") });
-  const sync = useMutation({ mutationFn: () => api.post("/github/sync"), onSuccess: () => invalidate("projects", "github-activity", "activity") });
-  return <div className="space-y-4 p-6"><header className="flex items-end justify-between"><div><p className="text-meta text-muted">Bir projeye 10 dakikan olsa ne yapardın?</p></div><Button onClick={() => sync.mutate()} disabled={sync.isPending}>GitHub yenile</Button></header>
-    <Panel><form className="flex gap-2" onSubmit={e => { e.preventDefault(); if (title.trim()) create.mutate(); }}><input value={title} onChange={e => setTitle(e.target.value)} className="flex-1 rounded border border-subtle bg-canvas px-3 py-2 text-body" placeholder="Yeni proje"/><Button type="submit" variant="primary">ekle</Button></form></Panel>
-    <Heatmap activity={activity}/><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{projects.map(project => <Panel key={project.id} title={<button onClick={() => setSelected(project)} className="hover:text-accent">{project.title}</button>} action={<Badge tone={project.status === "active" ? "ok" : "neutral"}>{project.status}</Badge>}><p className="text-[10.5px] uppercase tracking-wider text-muted">Next action</p><textarea defaultValue={project.next_action ?? ""} onBlur={e => patch.mutate({ id: project.id, body: { next_action: e.target.value } })} className="mt-1 w-full resize-none rounded border border-subtle bg-canvas p-2 text-body font-medium" placeholder="Sonraki tek hareket…"/><div className="mt-3 flex flex-wrap gap-1">{project.stack.map(x => <Badge key={x}>{x}</Badge>)}</div>{project.last_activity_at && <p className="mt-3 text-meta text-muted">Son aktivite {new Date(project.last_activity_at).toLocaleString("tr-TR")}</p>}</Panel>)}</div>{projects.length === 0 && <Empty>Henüz proje yok.</Empty>}{selected && <ProjectDrawer project={selected} close={() => setSelected(null)} patch={body => patch.mutate({ id: selected.id, body })}/>}</div>;
+  const [selected, setSelected] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const online = useOnline();
+  const invalidate = useInvalidate();
+
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => api.get<Project[]>("/projects"),
+  });
+
+  // Ilk yuklemede ilk projeyi ac; secili proje silinirse listeye don.
+  useEffect(() => {
+    if (projects.length === 0) return;
+    if (!selected || !projects.some((project) => project.id === selected)) {
+      setSelected(projects[0].id);
+    }
+  }, [projects, selected]);
+
+  const current = projects.find((project) => project.id === selected) ?? null;
+
+  return (
+    <PageFrame className="space-y-5">
+      <PageHeader
+        eyebrow="Planlama"
+        title="Projeler"
+        action={
+          <Button variant="primary" size="sm" onClick={() => setAdding((v) => !v)} disabled={!online}>
+            <Plus size={14} /> {adding ? "vazgeç" : "Yeni proje"}
+          </Button>
+        }
+      />
+
+      {adding && (
+        <NewProject
+          onDone={(id) => { setAdding(false); invalidate("projects"); setSelected(id); }}
+        />
+      )}
+
+      {isLoading ? (
+        <p className="text-body text-muted">Yükleniyor…</p>
+      ) : projects.length === 0 ? (
+        <Empty variant="page" title="Henüz proje yok">
+          Bir proje aç, GitHub deposunu bağla; issue'ları buradan göreve çevirirsin.
+        </Empty>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
+          <Section title="Projeler" hint={`${projects.length}`} bodyClassName="p-0">
+            <ul className="divide-y divide-subtle">
+              {projects.map((project) => {
+                const status = statusOf(project.status);
+                const active = project.id === selected;
+                return (
+                  <li key={project.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelected(project.id)}
+                      aria-current={active ? "true" : undefined}
+                      className={cx(
+                        "flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition",
+                        active ? "bg-accent-surface" : "hover:bg-surface-hover",
+                      )}
+                    >
+                      <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", status.dot)} />
+                      <span className="min-w-0 flex-1">
+                        <span className={cx("block truncate text-body",
+                          active ? "font-medium text-primary" : "text-secondary")}>
+                          {project.title}
+                        </span>
+                        <span className="block truncate text-meta text-muted">
+                          {project.github_repo ?? status.label}
+                          {project.last_activity_at && ` · ${relativeTime(project.last_activity_at)}`}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+
+          {current && <ProjectDetail key={current.id} project={current} />}
+        </div>
+      )}
+    </PageFrame>
+  );
 }
 
-function Heatmap({ activity }: { activity: GithubActivity[] }) { const counts = new Map(activity.map(x => [x.day, x.commit_count])); const days = Array.from({ length: 365 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (364 - i)); return d.toISOString().slice(0,10); }); return <Panel title="GitHub · son 365 gün"><div className="grid grid-flow-col grid-rows-7 gap-1 overflow-x-auto">{days.map(day => { const n = counts.get(day) ?? 0; const tone = n === 0 ? "bg-surface" : n < 3 ? "bg-ok-surface" : n < 7 ? "bg-ok" : "bg-ok"; return <div key={day} title={`${day}: ${n}`} className={`h-2.5 w-2.5 rounded-sm ${tone}`}/>; })}</div></Panel>; }
+function ProjectDetail({ project }: { project: Project }) {
+  const online = useOnline();
+  const invalidate = useInvalidate();
+  const toast = useToast();
 
-function ProjectDrawer({ project, close, patch }: { project: Project; close: () => void; patch: (body: Record<string, unknown>) => void }) { const [milestone, setMilestone] = useState(""); const [todoId, setTodoId] = useState(""); const invalidate = useInvalidate(); const { data: todos = [] } = useQuery({ queryKey: ["todos", "project-link"], queryFn: () => api.get<Todo[]>("/todos?status=open&limit=100") }); const { data: linked = [] } = useQuery({ queryKey: ["project-todos", project.id], queryFn: () => api.get<Todo[]>(`/projects/${project.id}/todos`) }); const add = useMutation({ mutationFn: () => api.post(`/projects/${project.id}/milestones`, { title: milestone }), onSuccess: () => { setMilestone(""); invalidate("projects"); } }); const linkTodo = useMutation({ mutationFn: () => api.post(`/projects/${project.id}/todos`, { todo_id: todoId }), onSuccess: () => { setTodoId(""); invalidate("project-todos"); } }); return <div className="fixed inset-0 z-40 flex justify-end bg-[rgb(26_24_21/0.28)]" onClick={close}><aside className="h-full w-full max-w-lg overflow-y-auto border-l border-subtle bg-canvas p-5" onClick={e => e.stopPropagation()}><div className="flex justify-between"><h2 className="text-lg font-semibold">{project.title}</h2><Button onClick={close}>kapat</Button></div><label className="mt-5 block text-meta text-muted">Durum<select defaultValue={project.status} onChange={e => patch({ status: e.target.value })} className="mt-1 w-full rounded border border-subtle bg-surface p-2">{statuses.map(x => <option key={x}>{x}</option>)}</select></label><label className="mt-3 block text-meta text-muted">GitHub repo<input defaultValue={project.github_repo ?? ""} onBlur={e => patch({ github_repo: e.target.value })} placeholder="owner/repo" className="mt-1 w-full rounded border border-subtle bg-surface p-2"/></label><Panel title="Milestones" className="mt-5"><div className="space-y-2 text-meta">{project.milestones.map(m => <div key={m.id}>{m.completed_at ? "✓" : "○"} {m.title}</div>)}</div><form className="mt-3 flex gap-2" onSubmit={e => { e.preventDefault(); if (milestone.trim()) add.mutate(); }}><input value={milestone} onChange={e => setMilestone(e.target.value)} className="flex-1 rounded border border-subtle bg-canvas px-2" placeholder="Milestone"/><Button type="submit">ekle</Button></form></Panel><Panel title="Bağlı görevler" className="mt-4"><div className="space-y-1 text-meta">{linked.map(todo => <div key={todo.id}>{todo.status === "done" ? "✓" : "○"} {todo.title}</div>)}</div><div className="mt-3 flex gap-2"><select value={todoId} onChange={e => setTodoId(e.target.value)} className="min-w-0 flex-1 rounded border border-subtle bg-canvas p-1 text-meta"><option value="">Görev seç…</option>{todos.filter(todo => !linked.some(item => item.id === todo.id)).map(todo => <option key={todo.id} value={todo.id}>{todo.title}</option>)}</select><Button disabled={!todoId} onClick={() => linkTodo.mutate()}>bağla</Button></div></Panel></aside></div>; }
+  const patch = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.patch(`/projects/${project.id}`, body),
+    onSuccess: () => invalidate("projects", "project-github"),
+    onError: () => toast.push("Kaydedilemedi.", { tone: "danger" }),
+  });
+  const remove = useMutation({
+    mutationFn: () => api.del(`/projects/${project.id}`),
+    onSuccess: () => {
+      invalidate("projects");
+      toast.push("Proje silindi — bağlı görevler durmaya devam ediyor.", { tone: "ok" });
+    },
+  });
+
+  const status = statusOf(project.status);
+
+  return (
+    <div className="min-w-0 space-y-5">
+      <Section
+        title={project.title}
+        hint={<Badge tone={status.tone}>{status.label}</Badge>}
+        action={
+          <span className="flex items-center gap-2">
+            {project.url && (
+              <a href={project.url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1 text-meta text-accent hover:underline">
+                <ExternalLink size={12} /> aç
+              </a>
+            )}
+            <IconButton title="Projeyi sil" tone="danger" disabled={!online || remove.isPending}
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: `"${project.title}" silinsin mi?`,
+                  body: "Kilometre taşları da gider. Projeye bağlı görevler kalır.",
+                  confirmLabel: "Sil",
+                  tone: "danger",
+                });
+                if (ok) remove.mutate();
+              }}>
+              <Trash2 size={14} />
+            </IconButton>
+          </span>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Durum">
+            <Select value={project.status} onChange={(value) => patch.mutate({ status: value })}
+              disabled={!online} className="w-full" ariaLabel="Proje durumu">
+              {STATUSES.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="GitHub deposu" hint="sahip/depo">
+            <SavedInput value={project.github_repo ?? ""} disabled={!online}
+              ariaLabel="GitHub deposu" placeholder="sahip/depo"
+              onSave={(value) => patch.mutate({ github_repo: value || null })} />
+          </Field>
+        </div>
+
+        <div className="mt-3">
+          <Field label="Proje bağlantısı" hint="site, doküman, board…">
+            <SavedInput value={project.url ?? ""} disabled={!online}
+              ariaLabel="Proje bağlantısı" placeholder="https://…"
+              onSave={(value) => patch.mutate({ url: value || null })} />
+          </Field>
+        </div>
+      </Section>
+
+      <GithubPanel project={project} />
+      <Milestones project={project} />
+      <ProjectTodos project={project} />
+
+      <Section title="Notlar" hint="alandan çıkınca kaydedilir">
+        <SavedTextarea
+          value={project.notes ?? ""}
+          disabled={!online}
+          onSave={(value) => patch.mutate({ notes: value || null })}
+        />
+      </Section>
+
+      <ProjectTimeline projectId={project.id} />
+    </div>
+  );
+}
+
+function NewProject({ onDone }: { onDone: (id: string) => void }) {
+  const [title, setTitle] = useState("");
+  const [repo, setRepo] = useState("");
+  const online = useOnline();
+  const toast = useToast();
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.post<Project>("/projects", {
+        title: title.trim(),
+        github_repo: repo.trim() || undefined,
+      }),
+    onSuccess: (project) => onDone(project.id),
+    onError: () => toast.push("Proje açılamadı.", { tone: "danger" }),
+  });
+
+  return (
+    <Section title="Yeni proje">
+      <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
+        onSubmit={(event) => { event.preventDefault(); if (title.trim()) create.mutate(); }}>
+        <Field label="Ad">
+          <Input value={title} onChange={setTitle} placeholder="Proje adı" className="w-full" />
+        </Field>
+        <Field label="GitHub deposu" hint="isteğe bağlı">
+          <Input value={repo} onChange={setRepo} placeholder="sahip/depo" className="w-full" />
+        </Field>
+        <Button type="submit" variant="primary" disabled={!online || !title.trim() || create.isPending}>
+          Oluştur
+        </Button>
+      </form>
+    </Section>
+  );
+}
+
+
+/**
+ * Yazarken serbest, alandan cikinca kaydeden alan.
+ *
+ * Her tusa basista PATCH atmak local API'de bile gereksiz gurultu; ayri bir
+ * "kaydet" dugmesi ise akisi kesiyor. Deger disaridan degisirse (baska proje
+ * secilince) tazelenir.
+ */
+function SavedInput({
+  value, onSave, disabled, ariaLabel, placeholder,
+}: {
+  value: string;
+  onSave: (value: string) => void;
+  disabled?: boolean;
+  ariaLabel: string;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  return (
+    <Input
+      value={draft}
+      onChange={setDraft}
+      onBlur={(next) => { if (next.trim() !== value) onSave(next.trim()); }}
+      onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+      disabled={disabled}
+      placeholder={placeholder}
+      ariaLabel={ariaLabel}
+      className="w-full"
+    />
+  );
+}
+
+function SavedTextarea({
+  value, onSave, disabled,
+}: {
+  value: string;
+  onSave: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+  const dirty = draft.trim() !== value.trim();
+
+  return (
+    <>
+      <Textarea
+        value={draft}
+        onChange={setDraft}
+        onBlur={(next) => { if (next.trim() !== value) onSave(next.trim()); }}
+        rows={8}
+        placeholder={"Karar kayıtları, açık sorular, bağlantılar…\n\n"
+          + "Ne olduğu Günlük'te zaten duruyor; burası NEDEN'in yeri."}
+        className={cx("font-mono text-[12.5px] leading-6", disabled && "opacity-60")}
+      />
+      <p className="mt-1 text-meta text-muted">
+        {dirty ? "kaydedilmedi — alandan çıkınca kaydedilir" : `${draft.length} karakter`}
+      </p>
+    </>
+  );
+}

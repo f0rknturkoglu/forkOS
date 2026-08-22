@@ -50,7 +50,11 @@ async def documents(category: str | None = None, session: AsyncSession = Depends
 
 @router.post("/documents/sync")
 async def sync(body: SyncIn, session: AsyncSession = Depends(get_session)):
-    return {"synced": await service.sync_folder(session, body.folder_id, body.category)}
+    try:
+        count = await service.sync_folder(session, body.folder_id, body.category)
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return {"synced": count}
 
 
 @router.get("/documents/{id}/open")

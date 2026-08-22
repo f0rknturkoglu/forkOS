@@ -48,7 +48,13 @@ async def sync_folder(session: AsyncSession, folder_id: str, category: str):
             params=params,
             headers={"Authorization": f"Bearer {token}"},
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # Sessiz olum istemiyoruz: Drive 403/404'te kullanici ne oldugunu gormeli
+            raise RuntimeError(
+                f"Drive hatası ({response.status_code}): {response.text[:300]}"
+            ) from exc
         files = response.json().get("files", [])
     seen = set()
     now = datetime.now(UTC)

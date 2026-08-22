@@ -6,6 +6,9 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://lifeos:lifeos@db:5432/lifeos"
     extension_id: str = ""
+    #: Gun siniri (emek haritasi, gunluk ozet) bu bolgeye gore hesaplanir.
+    #: Container UTC kosuyor -- burasi kullanicinin yasadigi bolge olmali.
+    timezone: str = "Europe/Istanbul"
     rss_default_interval_minutes: int = 30
     rss_retention_days: int = 90
     google_client_id: str = ""

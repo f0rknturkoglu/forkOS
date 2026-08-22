@@ -11,7 +11,7 @@ import { WeeklyPlannerPage } from "./WeeklyPlannerPage";
 registerModule({
   id: "todo", title: "Görevler", icon: ListChecks, group: "do",
   routes: [{ path: "/todos", element: TodoPage }, { path: "/planner", element: WeeklyPlannerPage }],
-  todayWidgets: [{ component: TodoWidget, zone: "now" }, { component: PlannerWidget, zone: "rhythm" }],
+  todayWidgets: [{ component: TodoWidget, zone: "now", slot: "left", order: 20 }, { component: PlannerWidget, zone: "rhythm", slot: "left", order: 40 }],
   commands: [
     { id: "todo.open", label: "Görevleri aç", run: () => navigate("/todos") },
     { id: "planner.open", label: "Haftalık planı aç", run: () => navigate("/planner") },

@@ -3,12 +3,14 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import tags as tag_svc
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
-from app.core.models import Entity, Link
+from app.core.links import link
+from app.core.models import Entity, Event, Link
 from app.modules.project.models import Milestone, Project
 from app.modules.project.schemas import MilestoneIn, MilestonePatch, ProjectIn, ProjectPatch
 from app.modules.todo.models import Todo
@@ -132,3 +134,125 @@ async def project_todos(session: AsyncSession, project_id: uuid.UUID) -> list[di
         )
     ).all()
     return [_todo_out(todo, title) for todo, title in rows]
+
+
+#: Issue'dan uretilen gorevlerin etiketi -- listede kaynagi belli olsun.
+ISSUE_TAG = "github"
+
+
+async def todo_from_issue(session: AsyncSession, project: Project, issue: dict) -> dict:
+    """GitHub issue'sunu gorev yapar ve projeye baglar.
+
+    Ayni issue ikinci kez gelirse YENI gorev acilmaz: eslesme entity.title
+    icindeki "repo#numara" onekinden kurulur -- ayri bir eslestirme tablosu
+    acmaya deger bir kazanc yok.
+    """
+    marker = f"{project.github_repo}#{issue['number']}"
+    title = f"{marker} {issue['title']}"
+
+    existing = (
+        await session.execute(
+            select(Todo, Entity.title)
+            .join(Entity, Entity.id == Todo.id)
+            .where(Entity.type == Todo.ENTITY_TYPE, Entity.title.startswith(f"{marker} "))
+        )
+    ).first()
+    if existing is not None:
+        return {**_todo_out(existing[0], existing[1]).model_dump(), "duplicate": True}
+
+    body = (issue.get("body") or "").strip()
+    entity = await create_entity(
+        session, type=Todo.ENTITY_TYPE, title=title, search_text=body[:2000]
+    )
+    todo = Todo(
+        id=entity.id,
+        description=issue["url"],
+        priority=2,
+        status="open",
+    )
+    session.add(todo)
+    await tag_svc.add_tags(session, entity.id, [ISSUE_TAG, *issue.get("labels", [])[:3]])
+    await link(session, entity.id, project.id, "belongs_to")
+    await log_event(
+        session,
+        verb="todo.created",
+        entity_id=entity.id,
+        entity_type="todo",
+        payload={"source": "github_issue", "repo": project.github_repo,
+                 "issue": issue["number"], "url": issue["url"]},
+    )
+    await session.commit()
+    return {**_todo_out(todo, title, [ISSUE_TAG, *issue.get("labels", [])[:3]]).model_dump(),
+            "duplicate": False}
+
+
+async def delete(session: AsyncSession, project_id: uuid.UUID) -> bool:
+    """entity satirini siler -- project, milestone ve link cascade ile gider.
+
+    Gorevler kalir: `link` silinince gorev sahipsiz kalir ama listede durur.
+    """
+    entity = await session.get(Entity, project_id)
+    if entity is None:
+        return False
+    title = entity.title
+    await session.delete(entity)
+    await log_event(session, verb="project.deleted", entity_type="project",
+                    payload={"title": title})
+    await session.commit()
+    return True
+
+
+async def timeline(session: AsyncSession, project_id: uuid.UUID, limit: int = 60) -> list[dict]:
+    """Projenin gunlugu: kendi olaylari + bagli gorevlerin olaylari + commit'ler.
+
+    Uc kaynak tek listede birlesiyor cunku "bu projede ne oldu" sorusunun
+    cevabi ucune de dagilmis durumda: proje kaydinin kendisi, ona bagli
+    gorevler ve deponun commit'leri.
+    """
+    project = await session.get(Project, project_id)
+    if project is None:
+        return []
+
+    todo_ids = select(Link.from_id).where(
+        Link.to_id == project_id, Link.relation == "belongs_to"
+    )
+    conditions = [Event.entity_id == project_id, Event.entity_id.in_(todo_ids)]
+    if project.github_repo:
+        conditions.append(
+            (Event.verb == "github.commit")
+            & (Event.payload["repo"].astext == project.github_repo)
+        )
+
+    rows = (
+        (
+            await session.execute(
+                select(Event)
+                .where(or_(*conditions))
+                .order_by(Event.occurred_at.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    titles = dict(
+        (
+            await session.execute(
+                select(Entity.id, Entity.title).where(
+                    Entity.id.in_([e.entity_id for e in rows if e.entity_id])
+                )
+            )
+        ).all()
+    )
+    return [
+        {
+            "id": event.id,
+            "verb": event.verb,
+            "entity_id": event.entity_id,
+            "entity_type": event.entity_type,
+            "title": titles.get(event.entity_id),
+            "payload": event.payload,
+            "occurred_at": event.occurred_at,
+        }
+        for event in rows
+    ]

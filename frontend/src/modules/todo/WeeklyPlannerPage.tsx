@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Button, Empty, Panel, cx } from "@/core/ui";
+import { Button, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
 import type { PlanSlot, Todo } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 
@@ -16,7 +16,7 @@ function DraggableCard({ id, title, muted = false }: { id: string; title: string
   const drag = useDraggable({ id });
   return <button ref={drag.setNodeRef} {...drag.listeners} {...drag.attributes}
     style={{ transform: drag.transform ? `translate(${drag.transform.x}px,${drag.transform.y}px)` : undefined }}
-    className={cx("w-full cursor-grab rounded border border-strong bg-surface p-2 text-left text-meta shadow",
+    className={cx("w-full cursor-grab border-l-2 border-strong bg-surface px-2 py-2 text-left text-meta",
       muted && "border-subtle text-muted", drag.isDragging && "z-20 opacity-70")}>
     {title}
   </button>;
@@ -24,7 +24,7 @@ function DraggableCard({ id, title, muted = false }: { id: string; title: string
 
 function DayColumn({ day, slots }: { day: Date; slots: PlanSlot[] }) {
   const drop = useDroppable({ id: `day:${isoDay(day)}` });
-  return <div ref={drop.setNodeRef} className={cx("min-h-72 rounded border border-subtle p-2",
+  return <div ref={drop.setNodeRef} className={cx("min-h-72 border-r border-subtle p-2 last:border-r-0",
     drop.isOver && "border-accent-border bg-accent-surface")}>
     <div className="mb-2 text-meta font-medium"><span>{day.toLocaleDateString("tr-TR", { weekday: "short" })}</span>
       <span className="ml-1 text-muted">{day.getDate()}</span></div>
@@ -55,22 +55,22 @@ export function WeeklyPlannerPage() {
   function shift(days: number) { const next = new Date(week); next.setDate(next.getDate() + days); setWeek(next); }
   const planned = new Set(slots.map((slot) => slot.entity_id));
   return <DndContext onDragEnd={onDragEnd}>
-    <div className="space-y-4 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3"><div>
-        <p className="text-meta text-muted">Kartları haftaya sürükle; plan slotları tüm entity türlerini destekler.</p>
-      </div><div className="flex gap-1"><Button onClick={() => shift(-7)}>←</Button>
-        <Button onClick={() => setWeek(monday())}>bu hafta</Button><Button onClick={() => shift(7)}>→</Button></div></header>
-      <div className="grid gap-2 overflow-x-auto sm:grid-cols-2 lg:grid-cols-7">
+    <PageFrame className="space-y-5">
+      <PageHeader eyebrow="Planlama" title="Haftalık Plan" />
+      <p className="text-meta text-muted">Görevleri haftaya sürükle; plan blokları bütün kayıt türlerini destekler.</p>
+      <Toolbar><Button onClick={() => shift(-7)}>← Önceki</Button>
+        <Button onClick={() => setWeek(monday())}>Bu hafta</Button><Button onClick={() => shift(7)}>Sonraki →</Button></Toolbar>
+      <div className="overflow-x-auto"><div className="grid min-w-[760px] grid-cols-7 border-y border-subtle">
         {days.map((day) => <DayColumn key={isoDay(day)} day={day}
           slots={slots.filter((slot) => slot.day === isoDay(day))} />)}
-      </div>
-      <Panel title="Planlanmamış görevler">
+      </div></div>
+      <Section title="Planlanmamış görevler">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {todos.filter((todo) => !planned.has(todo.id)).map((todo) =>
             <DraggableCard key={todo.id} id={`todo:${todo.id}`} title={todo.title} muted />)}
         </div>
         {todos.every((todo) => planned.has(todo.id)) && <Empty>Açık görevlerin hepsi planlandı.</Empty>}
-      </Panel>
-    </div>
+      </Section>
+    </PageFrame>
   </DndContext>;
 }

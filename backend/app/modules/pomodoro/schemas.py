@@ -7,7 +7,8 @@ from pydantic import BaseModel, Field
 
 
 class PomodoroStart(BaseModel):
-    planned_min: int = Field(default=25, ge=1, le=240)
+    # Varsayilan blok 50 dk odak / 10 dk mola (bkz. system DEFAULTS).
+    planned_min: int = Field(default=50, ge=1, le=240)
     context_entity_id: uuid.UUID | None = None
     topic: str | None = None
     kind: str = "focus"
@@ -15,6 +16,16 @@ class PomodoroStart(BaseModel):
 
 class PomodoroStop(BaseModel):
     interrupted: bool = False
+
+
+class PomodoroManual(BaseModel):
+    """Gecmise elle islenen seans -- sayac calistirilmadan yapilan is."""
+
+    started_at: datetime
+    minutes: int = Field(ge=1, le=600)
+    kind: str = "focus"
+    topic: str | None = None
+    context_entity_id: uuid.UUID | None = None
 
 
 class PomodoroOut(BaseModel):
@@ -28,6 +39,10 @@ class PomodoroOut(BaseModel):
     context_title: str | None = None
     topic: str | None
     interrupted: bool
+    #: Dolu ise seans duraklatilmis; kalan sure bu ana gore donuyor.
+    paused_at: datetime | None = None
+    #: Duraklamada gecen toplam saniye.
+    paused_s: int = 0
 
 
 class PomodoroStats(BaseModel):

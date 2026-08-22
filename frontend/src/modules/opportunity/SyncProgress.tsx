@@ -23,7 +23,7 @@ export function SyncProgress({ compact = false }: { compact?: boolean }) {
 
   if (!batch && recent) {
     return (
-      <section className="flex flex-wrap items-center gap-3 rounded-card border border-subtle bg-surface px-4 py-3">
+      <section className="flex flex-wrap items-center gap-3 border-y border-subtle px-1 py-2.5">
         {recent.error_sources > 0
           ? <AlertTriangle size={15} className="text-danger" />
           : <CheckCircle2 size={15} className="text-ok" />}
@@ -43,8 +43,8 @@ export function SyncProgress({ compact = false }: { compact?: boolean }) {
   const running = data?.running.length ?? 0;
   return (
     <section className={cx(
-      "overflow-hidden rounded-card border border-accent-border bg-accent-surface/40",
-      compact ? "px-4 py-3" : "p-5",
+      "overflow-hidden border-y border-accent-border bg-accent-surface/30",
+      compact ? "px-3 py-2.5" : "px-4 py-4",
     )} aria-label="Kaynak senkronizasyonu">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="flex items-center gap-2 text-body font-medium text-primary">

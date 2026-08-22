@@ -7,6 +7,6 @@ import { StudyWidget } from "./StudyWidget";
 registerModule({
   id: "study", title: "Çalışma", icon: BookOpen, group: "track",
   routes: [{ path: "/study", element: StudyPage }],
-  todayWidgets: [{ component: StudyWidget, zone: "rhythm" }],
+  todayWidgets: [{ component: StudyWidget, zone: "rhythm", slot: "left", order: 60 }],
   commands: [{ id: "study.open", label: "Çalışma ağacını aç", run: () => navigate("/study") }],
 });

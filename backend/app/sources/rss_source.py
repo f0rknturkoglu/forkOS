@@ -31,6 +31,7 @@ class FetchResult:
     etag: str | None = None
     last_modified: str | None = None
     error: str | None = None
+    feed_image: str | None = None          # channel logosu (favicon yedegi)
 
 
 def item_guid(entry_id: str | None, url: str | None, title: str) -> str:
@@ -59,6 +60,17 @@ def _summary(entry) -> str | None:
     return text[:4000] or None
 
 
+def _content(entry) -> str | None:
+    """Okuma bolmesi icin tam metin. content:encoded yoksa ozet yeterli."""
+    text = ""
+    if entry.get("content"):
+        text = entry["content"][0].get("value", "")
+    if not text:
+        text = entry.get("summary") or ""
+    text = text.strip()
+    return text[:200_000] or None
+
+
 def parse_entries(raw: bytes) -> list[RawItem]:
     """Bytes -> RawItem. Ag'dan bagimsiz oldugu icin dogrudan test edilebilir."""
     parsed = feedparser.parse(raw)
@@ -72,16 +84,34 @@ def parse_entries(raw: bytes) -> list[RawItem]:
             url=url,
             summary=_summary(entry),
             published_at=_published(entry),
-            extra={"author": (entry.get("author") or "").strip() or None},
+            extra={
+                "author": (entry.get("author") or "").strip() or None,
+                "content": _content(entry),
+            },
         ))
     return items
 
 
-def feed_title(raw: bytes, fallback: str) -> tuple[str, str | None]:
-    """(baslik, site_url) -- feed ekleme sirasinda entity.title icin."""
+def feed_title(raw: bytes, fallback: str) -> tuple[str, str | None, str | None]:
+    """(baslik, site_url, logo) -- feed ekleme sirasinda entity.title ve avatar icin."""
     parsed = feedparser.parse(raw)
     title = (parsed.feed.get("title") or "").strip() or fallback
-    return title, parsed.feed.get("link")
+    image = None
+    if parsed.feed.get("image"):
+        image = parsed.feed["image"].get("href")
+    if not image:
+        image = parsed.feed.get("logo")
+    return title, parsed.feed.get("link"), image
+
+
+def feed_image(raw: bytes) -> str | None:
+    """Channel logosu. Avatari olmayan feed'lerde None -- onyuz harf avatarina duser."""
+    parsed = feedparser.parse(raw)
+    if parsed.feed.get("image"):
+        href = parsed.feed["image"].get("href")
+        if href:
+            return href
+    return parsed.feed.get("logo") or None
 
 
 def http_date(value: datetime | None) -> str | None:
@@ -136,6 +166,7 @@ class RssSource:
                 items=items,
                 etag=response.headers.get("ETag"),
                 last_modified=response.headers.get("Last-Modified"),
+                feed_image=feed_image(response.content),
             )
         except httpx.HTTPError as exc:
             return FetchResult(status=ERROR, error=f"{type(exc).__name__}: {exc}")

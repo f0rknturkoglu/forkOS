@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
-import { Stat } from "@/core/ui";
+import { Metric } from "@/core/ui";
 import type { BookmarkStats } from "@/core/types";
 
 /** Today ust seridi. Modul kendi sayilarini kendi verir. */
@@ -11,8 +11,8 @@ export function InboxStats() {
   });
   return (
     <>
-      <Stat label="Gelen kutusu" value={data?.inbox ?? "–"} hint="işlenmeyi bekliyor" />
-      <Stat label="Bugün kaydedilen" value={data?.saved_today ?? "–"} hint={`toplam ${data?.total ?? 0}`} />
+      <Metric label="Gelen kutusu" value={data?.inbox ?? "–"} href="#/inbox" />
+      <Metric label="Bugün kaydedilen" value={data?.saved_today ?? "–"} hint={`toplam ${data?.total ?? 0}`} href="#/bookmarks" />
     </>
   );
 }

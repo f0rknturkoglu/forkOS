@@ -14,6 +14,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.config import settings
 from app.db import SessionLocal
 from app.modules.opportunity.service import deadline_ladder
+from app.worker.digest import morning_digest
 from app.worker.jobs import (
     catch_up,
     nightly_backup,
@@ -64,6 +65,8 @@ async def main() -> None:
             await deadline_ladder(session)
 
     scheduler.add_job(deadlines, "cron", hour=8, id="deadline_ladder")
+    # Son tarih merdiveninden HEMEN SONRA: ozet o turun bildirimlerini de sayar.
+    scheduler.add_job(morning_digest, "cron", hour=8, minute=5, id="morning_digest")
     scheduler.add_job(
         sync_calendar,
         "interval",
@@ -82,6 +85,7 @@ async def main() -> None:
     try:
         await catch_up()
         await deadlines()
+        await morning_digest()
         await sync_calendar()
         await sync_github()
         await nightly_backup()

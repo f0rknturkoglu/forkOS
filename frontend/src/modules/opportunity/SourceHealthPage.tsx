@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Check, Loader2, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Empty, Input, SectionHeader, Stat, cx, relativeTime, useToast } from "@/core/ui";
+import { Badge, Button, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Toolbar, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import type { SourceHealth, SourceSyncBatch, SourceSyncStatus } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
@@ -135,20 +135,21 @@ export function SourceHealthPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <PageFrame className="space-y-5">
+      <PageHeader eyebrow="Sistem" title="Kaynak Durumu" />
 
       <SyncProgress />
 
       {/* ── Özet ── */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Kaynak" value={catalog.length} hint={`${counts.new} hiç çalışmadı`} />
-        <Stat label="Sağlıklı" value={counts.ok} hint="son koşumu başarılı" />
-        <Stat label="Boş döndü" value={counts.empty} hint="üst üste 3 → bildirim" />
-        <Stat label="Hata" value={counts.error} hint="son koşumda hata" />
-      </div>
+      <MetricStrip className="grid-cols-2 md:grid-cols-4">
+        <Metric label="Kaynak" value={catalog.length} hint={`${counts.new} hiç çalışmadı`} />
+        <Metric label="Sağlıklı" value={counts.ok} hint="son koşumu başarılı" />
+        <Metric label="Boş döndü" value={counts.empty} hint="üst üste 3 → bildirim" />
+        <Metric label="Hata" value={counts.error} hint="son koşumda hata" />
+      </MetricStrip>
 
       {/* ── Eylemler ── */}
-      <div className="flex flex-wrap items-center gap-3">
+      <Toolbar>
         <div className="relative min-w-[240px] flex-1">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon" />
           <Input
@@ -167,7 +168,7 @@ export function SourceHealthPage() {
           <RefreshCw size={15} className={refreshMany.isPending ? "animate-spin" : undefined} />
           Tümünü çek
         </Button>
-      </div>
+      </Toolbar>
 
       {/* ── Tür süzgeci ── */}
       <div className="flex flex-wrap gap-2">
@@ -194,13 +195,12 @@ export function SourceHealthPage() {
       </div>
 
       {/* ── Seçim şeridi ── */}
-      <section>
-        <SectionHeader
-          label="Kaynaklar"
+      <Section
+          title="Kaynaklar"
           hint={running.size > 0 ? `${running.size} kaynak çekiliyor` : `${visible.length} kaynak`}
-        />
+        >
 
-        <div className="overflow-hidden rounded-card border border-subtle bg-surface">
+        <div className="overflow-hidden border-y border-subtle">
           <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-4 py-2.5">
             <label className="flex cursor-pointer items-center gap-2.5 text-meta text-secondary">
               <input
@@ -307,14 +307,13 @@ export function SourceHealthPage() {
           Otomatik turlar en bayat dört kaynağı çeker; tam tarama bilinçli bir eylemdir.
           Her koşu <code className="font-mono text-[11.5px]">source_run</code>’a yazılır — üst üste üç boş koşu bildirim üretir.
         </p>
-      </section>
+      </Section>
 
-      <section>
-        <SectionHeader label="Son senkronizasyonlar" hint={`${history.length} koşum`} />
+      <Section title="Son senkronizasyonlar" hint={`${history.length} koşum`}>
         {history.length === 0 ? (
           <Empty>Henüz tamamlanmış manuel çekim yok.</Empty>
         ) : (
-          <div className="overflow-hidden rounded-card border border-subtle bg-surface">
+          <RowList>
             {history.map((batch) => {
               const duration = batch.started_at && batch.finished_at
                 ? Math.max(0, Math.round((new Date(batch.finished_at).getTime() - new Date(batch.started_at).getTime()) / 1000))
@@ -334,9 +333,9 @@ export function SourceHealthPage() {
                 </div>
               );
             })}
-          </div>
+          </RowList>
         )}
-      </section>
-    </div>
+      </Section>
+    </PageFrame>
   );
 }

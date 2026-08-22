@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import select
 
 from app.core import tags as tag_svc
-from app.core.entity import create_entity, touch_entity
+from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.modules.bookmark.models import Bookmark
@@ -90,3 +90,17 @@ async def queue(session, kind=None):
     rows = (await session.execute(stmt)).all()
     tags = await tag_svc.tags_for(session, [b.id for b, _ in rows])
     return [_to_out(b, t, tags.get(b.id, [])) for b, t in rows]
+
+
+async def delete_item(session, model, item_id) -> bool:
+    """Kitabi/kursu siler. `event` kalir -- append-only (kural 3)."""
+    if await session.get(model, item_id) is None:
+        return False
+    entity = await session.get(Entity, item_id)
+    title = entity.title if entity else ""
+    if not await delete_entity(session, item_id):
+        return False
+    await log_event(session, verb=f"{model.ENTITY_TYPE}.deleted",
+                    entity_type=model.ENTITY_TYPE, payload={"title": title})
+    await session.commit()
+    return True

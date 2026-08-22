@@ -24,6 +24,11 @@ async def _logs_by_habit(session: AsyncSession, ids: list[uuid.UUID], start: dat
 
 
 def _streak(days: set[date]) -> int:
+    """Bugunden (ya da dunden) geriye kesintisiz gun sayisi.
+
+    Bugun henuz isaretlenmemis olabilir -- gun bitmedi; o yuzden seri dunden
+    sayilir. Yoksa her sabah "seri bozuldu" gorunurdu.
+    """
     cursor, count = date.today(), 0
     if cursor not in days:
         cursor -= timedelta(days=1)
@@ -31,6 +36,25 @@ def _streak(days: set[date]) -> int:
         count += 1
         cursor -= timedelta(days=1)
     return count
+
+
+def _best_streak(days: set[date]) -> int:
+    """En uzun kesintisiz seri -- gecmisin tamami taranir."""
+    if not days:
+        return 0
+    best = current = 1
+    ordered = sorted(days)
+    for previous, day in zip(ordered, ordered[1:], strict=False):
+        current = current + 1 if (day - previous).days == 1 else 1
+        best = max(best, current)
+    return best
+
+
+def _week_done(days: set[date]) -> int:
+    """Bu haftanin (pazartesiden bugune) isaretli gun sayisi."""
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    return sum(1 for day in days if monday <= day <= today)
 
 
 async def list_habits(session: AsyncSession, active: bool | None = True) -> list[HabitOut]:
@@ -43,7 +67,8 @@ async def list_habits(session: AsyncSession, active: bool | None = True) -> list
     return [HabitOut(id=h.id, title=title, cadence=h.cadence,
                      target_per_week=h.target_per_week, color=h.color, active=h.active,
                      position=h.position, done_today=date.today() in logs[h.id],
-                     streak=_streak(logs[h.id])) for h, title in rows]
+                     streak=_streak(logs[h.id]), best_streak=_best_streak(logs[h.id]),
+                     week_done=_week_done(logs[h.id])) for h, title in rows]
 
 
 async def create(session: AsyncSession, data: HabitIn) -> HabitOut:
@@ -100,3 +125,16 @@ async def grid(session: AsyncSession, weeks: int) -> list[HabitGridEntry]:
     )).all()
     return [HabitGridEntry(habit_id=log.habit_id, title=title, day=log.day,
                            done=log.done, note=log.note) for log, title in rows]
+
+
+async def delete(session: AsyncSession, habit_id: uuid.UUID) -> bool:
+    """entity satirini siler -- habit ve habit_log cascade ile gider."""
+    entity = await session.get(Entity, habit_id)
+    if entity is None:
+        return False
+    title = entity.title
+    await session.delete(entity)
+    await log_event(session, verb="habit.deleted", entity_type="habit",
+                    payload={"title": title})
+    await session.commit()
+    return True

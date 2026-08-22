@@ -5,7 +5,6 @@ import { api } from "@/core/api";
 import { invalidate } from "@/core/queryClient";
 import { confirmDialog } from "@/core/dialog";
 import { RssPage } from "./RssPage";
-import { RssWidget } from "./RssWidget";
 import { RssStats } from "./RssStats";
 
 registerModule({
@@ -13,7 +12,6 @@ registerModule({
   title: "RSS", icon: Rss, group: "capture",
   routes: [{ path: "/rss", element: RssPage }],
   todayStats: [RssStats],
-  todayWidgets: [{ component: RssWidget, zone: "pending" }],
   commands: [
     { id: "rss.open", label: "RSS’i aç", run: () => navigate("/rss") },
     {
@@ -27,7 +25,7 @@ registerModule({
         });
         if (!ok) return;
         await api.post("/rss/read-all");
-        invalidate("rss-items", "rss-stats", "feeds", "activity");
+        invalidate("items", "rss-stats", "feeds", "activity");
       },
     },
   ],

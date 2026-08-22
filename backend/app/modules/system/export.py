@@ -16,6 +16,8 @@ from app.db import Base
 
 MODULE_TABLES = [
     "bookmark",
+    "tag",
+    "entity_tag",
     "feed",
     "feed_item",
     "todo",
@@ -31,6 +33,7 @@ MODULE_TABLES = [
     "course",
     "book",
     "document",
+    "media_item",
     "external_event",
     "project",
     "milestone",

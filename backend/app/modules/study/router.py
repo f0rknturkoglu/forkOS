@@ -48,3 +48,15 @@ async def stats(topic_id: UUID, session: AsyncSession = Depends(get_session)):
 @router.get("/study/stale")
 async def stale(days: int = 21, session: AsyncSession = Depends(get_session)):
     return await service.stale(session, days)
+
+
+@router.delete("/study/topics/{topic_id}", status_code=204)
+async def delete_topic(topic_id: UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_topic(session, topic_id):
+        raise HTTPException(404, "konu bulunamadi")
+
+
+@router.delete("/study/areas/{area_id}", status_code=204)
+async def delete_area(area_id: UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_area(session, area_id):
+        raise HTTPException(404, "alan bulunamadi")

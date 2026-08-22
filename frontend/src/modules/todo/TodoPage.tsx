@@ -1,118 +1,140 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, Panel, cx } from "@/core/ui";
-import type { Todo } from "@/core/types";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {
+  Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx,
+} from "@/core/ui";
+import type { TagCount, Todo } from "@/core/types";
+import { TodoComposer } from "./TodoComposer";
+import { TodoRow } from "./TodoRow";
+import { dueLabel } from "./priority";
 
-const priorityLabel = ["yok", "dusuk", "orta", "yuksek"];
+const FILTERS = [
+  { value: "open", label: "açık" },
+  { value: "doing", label: "devam" },
+  { value: "done", label: "tamam" },
+  { value: "dropped", label: "bırakılan" },
+  { value: "", label: "tümü" },
+] as const;
+
+/** Acik gorevleri zamana gore bolumler -- duz bir liste onceligi gizliyor. */
+function bucketOf(todo: Todo): "overdue" | "today" | "soon" | "someday" {
+  const due = dueLabel(todo.due_at);
+  if (!due) return "someday";
+  if (due.tone === "danger") return "overdue";
+  if (due.tone === "accent") return "today";
+  return "soon";
+}
+
+const BUCKETS = [
+  { id: "overdue", label: "Gecikmiş" },
+  { id: "today", label: "Bugün" },
+  { id: "soon", label: "Yaklaşan" },
+  { id: "someday", label: "Tarihsiz" },
+] as const;
 
 export function TodoPage() {
   const [status, setStatus] = useState<string>("open");
-  const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState(2);
-  /** Satir ici duzenlenen gorevin id'si. */
-  const [editing, setEditing] = useState<string | null>(null);
-  const online = useOnline();
-  const invalidate = useInvalidate();
+  const [tag, setTag] = useState<string>("");
+
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ["todos", status],
-    queryFn: () => api.get<Todo[]>(`/todos${qs({ status: status || undefined })}`),
+    queryFn: () => api.get<Todo[]>(`/todos${qs({ status: status || undefined, limit: 300 })}`),
   });
-  const refresh = () => invalidate("todos", "activity", "review-preview");
-  const create = useMutation({
-    mutationFn: () => api.post<Todo>("/todos", { title, priority }),
-    onSuccess: () => { setTitle(""); refresh(); },
-  });
-  const patch = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: object }) =>
-      api.patch<Todo>(`/todos/${id}`, body),
-    onSuccess: refresh,
-  });
-  const complete = useMutation({
-    mutationFn: (id: string) => api.post<Todo>(`/todos/${id}/complete`),
-    onSuccess: refresh,
+  const { data: tags = [] } = useQuery({
+    queryKey: ["tags"],
+    queryFn: () => api.get<TagCount[]>("/tags"),
   });
 
-  function rename(todo: Todo, next: string) {
-    const value = next.trim();
-    setEditing(null);
-    if (value && value !== todo.title) patch.mutate({ id: todo.id, body: { title: value } });
-  }
+  const filtered = tag ? todos.filter((todo) => todo.tags.includes(tag)) : todos;
+  // Alt gorevler kendi satirlarinda degil, ustlerinin altinda gorunur.
+  const childrenOf = filtered.reduce<Record<string, Todo[]>>((acc, todo) => {
+    if (todo.parent_id) (acc[todo.parent_id] ??= []).push(todo);
+    return acc;
+  }, {});
+  const parentIds = new Set(filtered.map((todo) => todo.id));
+  const visible = filtered.filter(
+    (todo) => !todo.parent_id || !parentIds.has(todo.parent_id),
+  );
+  const grouped = status === "open"
+    ? BUCKETS.map((bucket) => ({
+        ...bucket,
+        items: visible.filter((todo) => bucketOf(todo) === bucket.id),
+      })).filter((bucket) => bucket.items.length > 0)
+    : [{ id: "all", label: "", items: visible }];
 
   return (
-    <div className="space-y-4 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-meta text-muted">Yapılacaklar, alt görevler ve öncelikler.</p></div>
-        <a href="#/planner" className="text-meta text-accent hover:underline">Haftalık plan →</a>
-      </header>
-      <Panel title="Hızlı ekle">
-        <form className="flex flex-wrap gap-2" onSubmit={(event) => {
-          event.preventDefault();
-          if (title.trim()) create.mutate();
-        }}>
-          <input value={title} onChange={(event) => setTitle(event.target.value)}
-            placeholder="Ne yapilacak?" autoFocus
-            className="min-w-64 flex-1 rounded border border-strong bg-canvas px-3 py-2 text-body outline-none focus:border-accent" />
-          <select value={priority} onChange={(event) => setPriority(Number(event.target.value))}
-            className="rounded border border-strong bg-canvas px-2 text-body">
-            {priorityLabel.map((label, value) => <option key={value} value={value}>{label}</option>)}
-          </select>
-          <Button type="submit" variant="primary" disabled={!online || !title.trim()}>ekle</Button>
-        </form>
-      </Panel>
-      <div className="flex gap-1">
-        {["open", "doing", "done", "dropped", ""].map((value) => (
-          <Button key={value || "all"} variant={status === value ? "primary" : "ghost"}
-            onClick={() => setStatus(value)}>{value || "tümü"}</Button>
-        ))}
-      </div>
-      <Panel>
-        {isLoading ? <p className="text-body text-muted">Yükleniyor…</p> : todos.length === 0 ?
-          <Empty>Bu filtrede görev yok.</Empty> : (
-          <ul className="divide-y divide-subtle">
-            {todos.map((todo) => (
-              <li key={todo.id} className={cx("flex items-start gap-3 py-3", todo.parent_id && "ml-6")}>
-                <button disabled={!online || todo.status === "done"}
-                  onClick={() => complete.mutate(todo.id)}
-                  className={cx("mt-0.5 h-4 w-4 rounded border", todo.status === "done"
-                    ? "border-ok-border bg-ok" : "border-strong")}
-                  aria-label="tamamla" />
-                <div className="min-w-0 flex-1">
-                  {editing === todo.id ? (
-                    <form className="flex gap-2" onSubmit={(event) => {
-                      event.preventDefault();
-                      rename(todo, (new FormData(event.currentTarget).get("title") as string) ?? "");
-                    }}>
-                      <input name="title" autoFocus defaultValue={todo.title}
-                        aria-label="Görev başlığı"
-                        onKeyDown={(event) => { if (event.key === "Escape") setEditing(null); }}
-                        className="h-8 min-w-0 flex-1 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
-                      <Button type="submit" variant="primary" size="sm">Kaydet</Button>
-                      <Button size="sm" onClick={() => setEditing(null)}>Vazgeç</Button>
-                    </form>
-                  ) : (
-                    <button disabled={!online} onClick={() => setEditing(todo.id)}
-                      title="Başlığı düzenle"
-                      className={cx("text-left text-body hover:text-accent",
-                        todo.status === "done" && "text-muted line-through")}>{todo.title}</button>
-                  )}
-                  <div className="mt-1 flex flex-wrap gap-2 text-meta text-muted">
-                    <span>p{todo.priority} · {priorityLabel[todo.priority]}</span>
-                    {todo.due_at && <span>{new Date(todo.due_at).toLocaleString("tr-TR")}</span>}
-                    {todo.parent_id && <Badge>alt görev</Badge>}
-                  </div>
-                </div>
-                {todo.status === "open" && <Button disabled={!online}
-                  onClick={() => patch.mutate({ id: todo.id, body: { status: "doing" } })}>basla</Button>}
-                {!['done', 'dropped'].includes(todo.status) && <Button disabled={!online}
-                  onClick={() => patch.mutate({ id: todo.id, body: { status: "dropped" } })}>birak</Button>}
-              </li>
+    <PageFrame className="space-y-5">
+      <PageHeader
+        eyebrow="Planlama"
+        title="Görevler"
+        action={<a href="#/planner" className="text-meta text-accent hover:underline">Haftalık plan →</a>}
+      />
+
+      <TodoComposer />
+
+      <Toolbar>
+        <div className="flex gap-1 overflow-x-auto">
+          {FILTERS.map((item) => (
+            <button
+              key={item.value || "all"}
+              type="button"
+              onClick={() => setStatus(item.value)}
+              aria-pressed={status === item.value}
+              className={cx(
+                "shrink-0 rounded-control border px-3 py-1.5 text-meta transition",
+                status === item.value
+                  ? "border-strong bg-surface-sunken text-primary"
+                  : "border-transparent text-muted hover:text-primary",
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <span className="min-w-2 flex-1" />
+
+        {tags.length > 0 && (
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {tag && (
+              <button type="button" onClick={() => setTag("")}
+                className="shrink-0 rounded-control border border-accent-border bg-accent-surface px-2.5 py-1 text-meta text-accent">
+                #{tag} ✕
+              </button>
+            )}
+            {!tag && tags.slice(0, 6).map((item) => (
+              <button key={item.name} type="button" onClick={() => setTag(item.name)}
+                className="shrink-0 rounded-control border border-subtle px-2.5 py-1 text-meta text-muted transition hover:border-strong hover:text-primary">
+                #{item.name}
+              </button>
             ))}
-          </ul>
+          </div>
         )}
-      </Panel>
-    </div>
+      </Toolbar>
+
+      {isLoading ? (
+        <p className="text-body text-muted">Yükleniyor…</p>
+      ) : visible.length === 0 ? (
+        <Empty variant="page" title="Liste boş">
+          {tag ? `#${tag} etiketli görev yok.` : "Bu filtrede görev yok. Yukarıdan ekleyebilirsin."}
+        </Empty>
+      ) : (
+        grouped.map((bucket) => (
+          <Section key={bucket.id} title={bucket.label || undefined}
+            hint={`${bucket.items.length} görev`}>
+            <RowList as="ul">
+              {bucket.items.map((todo) => (
+                <TodoRow key={todo.id} todo={todo}>
+                  {(childrenOf[todo.id] ?? []).map((child) => (
+                    <TodoRow key={child.id} todo={child} nested compact />
+                  ))}
+                </TodoRow>
+              ))}
+            </RowList>
+          </Section>
+        ))
+      )}
+    </PageFrame>
   );
 }

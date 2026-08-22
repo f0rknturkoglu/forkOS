@@ -16,3 +16,4 @@ dev-dist/
 *.egg-info/
 .vite/
 backend/backups/
+output/

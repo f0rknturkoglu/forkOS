@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Empty, Panel, relativeTime } from "@/core/ui";
+import { Empty, RowList, Section, relativeTime } from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { Bookmark, BookmarkStats } from "@/core/types";
 
@@ -15,7 +15,7 @@ export function InboxWidget() {
   });
 
   return (
-    <Panel
+    <Section
       title="Gelen Kutusu"
       action={
         <button
@@ -29,24 +29,24 @@ export function InboxWidget() {
       {latest.length === 0 ? (
         <Empty>Gelen kutusu temiz.</Empty>
       ) : (
-        <ul className="space-y-2">
+        <RowList>
           {latest.map((bookmark) => (
-            <li key={bookmark.id} className="truncate text-body text-secondary">
-              <a href={bookmark.url} target="_blank" rel="noreferrer" className="hover:underline">
+            <a key={bookmark.id} href={bookmark.url} target="_blank" rel="noreferrer" className="flex items-baseline justify-between gap-3 py-2 hover:text-accent">
+              <span className="truncate text-body text-secondary">
                 {bookmark.title || bookmark.url}
-              </a>
-              <span className="ml-2 text-meta text-muted">
+              </span>
+              <span className="shrink-0 text-meta text-muted">
                 {relativeTime(bookmark.saved_at)}
               </span>
-            </li>
+            </a>
           ))}
-        </ul>
+        </RowList>
       )}
       {stats && (
         <p className="mt-3 text-meta text-muted">
           Bugün {stats.saved_today} kayıt · toplam {stats.total}
         </p>
       )}
-    </Panel>
+    </Section>
   );
 }

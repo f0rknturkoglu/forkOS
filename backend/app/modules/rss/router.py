@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from datetime import datetime
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
@@ -68,7 +70,9 @@ async def refresh_feed(feed_id: uuid.UUID, session: AsyncSession = Depends(get_s
 
 @router.post("/rss/import", response_model=ImportResult)
 async def import_opml(
-    file: UploadFile = File(...), session: AsyncSession = Depends(get_session),
+    background: BackgroundTasks,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
 ):
     """OPML disa aktarimi (Feedly/Inoreader/NetNewsWire) -> feed'ler.
 
@@ -79,6 +83,10 @@ async def import_opml(
         added, skipped, names = await service.import_opml(session, content)
     except Exception as exc:
         raise HTTPException(422, f"OPML okunamadi: {exc}") from exc
+    if added:
+        # Sorunun cozumu: import sonrasi yazilar aninda cekilsin diye
+        # arka plan tazelemesi kuyruklanir (worker'i 30 dk beklemene gerek yok).
+        background.add_task(service.refresh_all)
     return ImportResult(added=added, skipped=skipped, feeds=names[:50])
 
 
@@ -87,6 +95,8 @@ async def list_items(
     feed_id: uuid.UUID | None = None,
     category: str | None = None,
     unread_only: bool = False,
+    saved_only: bool = False,
+    since: datetime | None = None,
     q: str | None = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
@@ -94,8 +104,17 @@ async def list_items(
 ):
     return await service.list_items(
         session, feed_id=feed_id, category=category, unread_only=unread_only,
-        q=q, limit=limit, offset=offset,
+        saved_only=saved_only, since=since, q=q, limit=limit, offset=offset,
     )
+
+
+@router.get("/rss/items/{item_id}", response_model=FeedItemOut)
+async def get_item(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Okuma bolmesi detayi -- content burada dolu gelir (liste hafif kalir)."""
+    item = await service.get_item(session, item_id)
+    if item is None:
+        raise HTTPException(404)
+    return item
 
 
 @router.post("/rss/items/{item_id}/read", response_model=FeedItemOut)
@@ -114,9 +133,11 @@ async def mark_read(
 
 @router.post("/rss/read-all")
 async def mark_all_read(
-    feed_id: uuid.UUID | None = None, session: AsyncSession = Depends(get_session),
+    feed_id: uuid.UUID | None = None,
+    category: str | None = None,
+    session: AsyncSession = Depends(get_session),
 ):
-    return {"marked": await service.mark_all_read(session, feed_id=feed_id)}
+    return {"marked": await service.mark_all_read(session, feed_id=feed_id, category=category)}
 
 
 @router.post("/rss/items/{item_id}/save", response_model=BookmarkOut, status_code=201)
@@ -135,3 +156,16 @@ async def save_item(
 @router.get("/rss/stats", response_model=RssStats)
 async def rss_stats(session: AsyncSession = Depends(get_session)):
     return await service.stats(session)
+
+
+@router.post("/rss/refresh-all")
+async def refresh_all(
+    background: BackgroundTasks, session: AsyncSession = Depends(get_session),
+):
+    """Suresi gelmis tum feed'leri arka planda ceker; yanit hemen doner.
+
+    Cekim bir kez kuyruklanir; tekrar tiklamak suresi gelmemis feed bulamaz.
+    """
+    due = await service.due_feeds(session, interval_minutes=None)
+    background.add_task(service.refresh_all)
+    return {"started": len(due)}

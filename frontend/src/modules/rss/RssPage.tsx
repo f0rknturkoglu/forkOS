@@ -1,15 +1,39 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ChevronDown, ExternalLink, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, Panel, cx, hostOf, relativeTime, useToast } from "@/core/ui";
+import { Badge, Button, Empty, PageFrame, PageHeader, Surface, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
-import { useHashRoute } from "@/app/router";
-import type { Feed, FeedItem } from "@/core/types";
+import { navigate } from "@/app/router";
+import { COLLECTIONS, COLLECTION_LABELS } from "@/core/types";
+import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+type SmartView = "unread" | "today" | "saved" | "all";
+
+const SMART_LABELS: Record<SmartView, string> = {
+  unread: "Tüm Okunmamışlar",
+  today: "Bugün",
+  saved: "Kaydedilenler",
+  all: "Tümü",
+};
+
+const SMART_ORDER: SmartView[] = ["unread", "today", "saved", "all"];
+
+/** Feed HTML'ini okuma bolmesi icin temizler: script/style/iframe/olay ozellikleri. */
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<(script|style|iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 }
+
+function todayIso(): string {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  return start.toISOString();
+}
+
+/* ── Besleme ekle / OPML ─────────────────────────────────────────────── */
 
 function AddFeed() {
   const [url, setUrl] = useState("");
@@ -33,8 +57,14 @@ function AddFeed() {
     mutationFn: (file: File) =>
       api.upload<{ added: number; skipped: number }>("/rss/import", file),
     onSuccess: (result) => {
-      invalidate("feeds", "rss-stats", "activity");
-      toast.push(`${result.added} besleme eklendi, ${result.skipped} zaten vardı.`, { tone: "ok" });
+      invalidate("feeds", "rss-stats", "items", "activity");
+      // import sonrasi arka plan cekimi worker'i beklemeden yazilari getirir
+      toast.push(
+        result.added > 0
+          ? `${result.added} besleme eklendi, ${result.skipped} zaten vardı. Yazılar çekiliyor…`
+          : `${result.skipped} besleme zaten vardı.`,
+        { tone: result.added > 0 ? "ok" : "neutral" },
+      );
     },
   });
 
@@ -82,167 +112,461 @@ function AddFeed() {
   );
 }
 
+/* ── Kenar çubuğu satırları ──────────────────────────────────────────── */
+
+/**
+ * Feed avatari: feed logosu varsa imaj, yoksa ya da hata verirse bas harf kutusu.
+ * Imaj istekleri host tarafinda; harf avatari her durumda calisir.
+ */
+function FeedAvatar({ feed, size = 16 }: { feed?: Feed | null; size?: number }) {
+  // Imaj adaylari: (1) feed logosu, (2) sitenin /favicon.ico'su, (3) harf avatari.
+  const [failed, setFailed] = useState<Set<string>>(new Set());
+  let host: string | null = null;
+  if (feed?.url) {
+    try {
+      host = new URL(feed.url).hostname;
+    } catch {
+      host = null;
+    }
+  }
+  const candidates = [
+    feed?.favicon_url,
+    host ? `https://${host}/favicon.ico` : null,
+  ].filter((v): v is string => Boolean(v));
+  const src = candidates.find((c) => !failed.has(c));
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        loading="lazy"
+        onError={() => setFailed((prev) => new Set(prev).add(src as string))}
+        className="shrink-0 rounded-sm bg-surface-sunken"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  const initial = ((feed?.title ?? "?").trim().charAt(0) || "?").toUpperCase();
+  return (
+    <span
+      className="flex shrink-0 select-none items-center justify-center rounded-sm bg-surface-sunken text-secondary"
+      style={{ width: size, height: size }}
+    >
+      <span style={{ fontSize: Math.max(9, Math.round(size * 0.62)) }}>{initial}</span>
+    </span>
+  );
+}
+
 function FeedRow({
-  feed, selected, onSelect,
+  feed, selected, onSelect, onRefresh, onRemove,
 }: {
   feed: Feed;
   selected: boolean;
   onSelect: () => void;
+  onRefresh: () => void;
+  onRemove: () => void;
 }) {
   const online = useOnline();
-  const invalidate = useInvalidate();
-  const refresh = useMutation({
-    mutationFn: () => api.post(`/rss/feeds/${feed.id}/refresh`),
-    onSuccess: () => invalidate("feeds", "items", "rss-stats", "activity"),
-  });
-  const remove = useMutation({
-    mutationFn: () => api.del(`/rss/feeds/${feed.id}`),
-    onSuccess: () => invalidate("feeds", "items", "rss-stats"),
-  });
-
+  const broken = feed.error_count > 0 || !feed.active;
   return (
     <li className="group flex items-center gap-1">
       <button
         onClick={onSelect}
+        title={feed.url}
         className={cx(
-          "min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-body",
+          "flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1 text-left text-body transition",
           selected ? "bg-surface-sunken text-primary" : "text-secondary hover:bg-surface-hover",
         )}
       >
-        {feed.title}
-        {feed.unread > 0 && <span className="ml-1 text-meta text-accent">{feed.unread}</span>}
-        {!feed.active && <span className="ml-1 text-meta text-danger">kapali</span>}
+        <FeedAvatar feed={feed} />
+        <span className="truncate">{feed.title}</span>
+        {feed.unread > 0 && (
+          <span className="numeral ml-auto shrink-0 text-[12px] text-accent">{feed.unread}</span>
+        )}
+        <span
+          className={cx("ml-auto h-1.5 w-1.5 shrink-0 rounded-full",
+            broken ? "bg-danger" : feed.last_status ? "bg-ok" : "bg-icon")}
+          title={broken ? "hata" : feed.last_status ? "sağlıklı" : "henüz çekilmedi"}
+        />
       </button>
-      <span className="hidden gap-1 group-hover:flex">
-        <Button disabled={!online} title="Simdi cek" onClick={() => refresh.mutate()}>
-          ⟳
-        </Button>
-        <Button
-          variant="danger"
+      {/* Hover aksiyonlari — fareyle gelince gorunur */}
+      <span className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+        <button
+          type="button"
           disabled={!online}
-          onClick={async () => {
-            const ok = await confirmDialog({
-              title: "Besleme silinsin mi?",
-              body: <><strong className="font-medium text-primary">{feed.title}</strong> ve ona bağlı okunmamış yazılar listeden kalkar. Bu işlem geri alınamaz.</>,
-              confirmLabel: "Sil",
-              tone: "danger",
-            });
-            if (ok) remove.mutate();
-          }}
+          title="Şimdi çek"
+          onClick={onRefresh}
+          className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
-          ✕
-        </Button>
+          <RefreshCw size={13} />
+        </button>
+        <button
+          type="button"
+          disabled={!online}
+          title="Beslemeyi sil"
+          onClick={onRemove}
+          className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-danger-surface hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Trash2 size={13} />
+        </button>
       </span>
     </li>
   );
 }
 
-function ItemRow({ item }: { item: FeedItem }) {
-  const online = useOnline();
-  const invalidate = useInvalidate();
-  const [expanded, setExpanded] = useState(false);
-  const refresh = () => invalidate("items", "feeds", "rss-stats", "bookmarks", "activity");
+/* ── Liste satırı ────────────────────────────────────────────────────── */
 
-  const read = useMutation({
-    mutationFn: (value: boolean) => api.post(`/rss/items/${item.id}/read${qs({ read: value })}`),
-    onSuccess: refresh,
-  });
-  const save = useMutation({
-    mutationFn: (collection: string) =>
-      api.post(`/rss/items/${item.id}/save`, { collection }),
-    onSuccess: refresh,
-  });
-
+function ItemRow({
+  item, feed, selected, onOpen,
+}: {
+  item: FeedItem;
+  feed?: Feed;
+  selected: boolean;
+  onOpen: () => void;
+}) {
   return (
-    <li
-      className={cx(
-        "rounded border p-3",
-        item.read_at ? "border-subtle bg-transparent" : "border-subtle bg-surface",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className={cx(
-              "block w-full truncate text-left text-body",
-              item.read_at ? "text-muted" : "text-primary",
-            )}
-          >
-            {item.title}
-          </button>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
-            <span>{item.feed_title}</span>
-            {item.url && <span>· {hostOf(item.url)}</span>}
-            {item.published_at && <span>· {relativeTime(item.published_at)}</span>}
-            {item.author && <span>· {item.author}</span>}
-            {item.saved_bookmark_id && <Badge tone="ok">kaydedildi</Badge>}
-          </div>
-          {expanded && item.summary && (
-            <p className="mt-2 text-meta leading-relaxed text-secondary">
-              {stripHtml(item.summary).slice(0, 900)}
-            </p>
-          )}
-          {expanded && item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block text-meta text-accent hover:underline"
-              onClick={() => !item.read_at && read.mutate(true)}
-            >
-              Yaziyi ac →
-            </a>
-          )}
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={cx(
+          "w-full px-3 py-2 text-left transition",
+          selected ? "bg-accent-surface" : "hover:bg-surface-hover",
+        )}
+      >
+        <div className={cx(
+          "truncate text-body",
+          item.read_at ? "font-normal text-muted" : "font-medium text-primary",
+        )}>
+          {item.title}
         </div>
-
-        <div className="flex flex-wrap justify-end gap-1">
-          <Button disabled={!online} onClick={() => read.mutate(!item.read_at)}>
-            {item.read_at ? "okunmadi" : "okundu"}
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!online || !!item.saved_bookmark_id}
-            title="Okuma listesine kaydet"
-            onClick={() => save.mutate("read_later")}
-          >
-            → Read Later
-          </Button>
-          <Button
-            disabled={!online || !!item.saved_bookmark_id}
-            title="Öğrenme’ye kaydet"
-            onClick={() => save.mutate("learning")}
-          >
-            → Learning
-          </Button>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-meta text-muted">
+          <FeedAvatar feed={feed} size={14} />
+          <span className="max-w-[180px] truncate">{item.feed_title}</span>
+          {item.published_at && <span>· {relativeTime(item.published_at)}</span>}
+          {item.saved_bookmark_id && <Badge tone="ok">kayıtlı</Badge>}
         </div>
-      </div>
+      </button>
     </li>
   );
 }
 
+/* ── Okuma bölmesi ───────────────────────────────────────────────────── */
+
+function ReadingPane({
+  detail, online, saveCollection, onSaveCollection,
+  onToggleRead, onSave, onOpenBookmark, onPrev, onNext, hasPrev, hasNext,
+}: {
+  detail: FeedItem | undefined;
+  online: boolean;
+  saveCollection: Collection;
+  onSaveCollection: (c: Collection) => void;
+  onToggleRead: () => void;
+  onSave: () => void;
+  onOpenBookmark: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
+}) {
+  if (!detail) {
+    return (
+      <Empty variant="page" title="Bir yazı seç">
+        Soldaki listeden bir yazıya tıkla — içeriği burada okursun.
+        <span className="mt-2 block text-meta text-muted">
+          Kısayollar: <KbdInline>j</KbdInline> <KbdInline>k</KbdInline> gezin ·
+          <KbdInline>u</KbdInline> okundu · <KbdInline>s</KbdInline> kaydet · <KbdInline>⇧ J</KbdInline> sonraki okunmamış
+        </span>
+      </Empty>
+    );
+  }
+
+  const hasBody = Boolean((detail.content || detail.summary || "").trim());
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 border-b border-subtle px-6 py-2.5">
+        <Button size="sm" disabled={!online} onClick={onToggleRead}>
+          {detail.read_at ? "Okunmadı" : "Okundu"}
+        </Button>
+        <select
+          disabled={!online || Boolean(detail.saved_bookmark_id)}
+          value={saveCollection}
+          onChange={(e) => onSaveCollection(e.target.value as Collection)}
+          title="Koleksiyon"
+          className="h-8 rounded-control border border-strong bg-surface px-2 text-meta text-secondary outline-none focus:border-accent"
+        >
+          {COLLECTIONS.map((c) => (
+            <option key={c} value={c}>{COLLECTION_LABELS[c]}</option>
+          ))}
+        </select>
+        {detail.saved_bookmark_id ? (
+          <Button size="sm" variant="primary" onClick={onOpenBookmark} title="Yer iminde aç">
+            Kaydedildi · aç →
+          </Button>
+        ) : (
+          <Button size="sm" variant="primary" disabled={!online} onClick={onSave}>
+            Yer imine kaydet
+          </Button>
+        )}
+        {detail.url && (
+          <Button
+            size="sm"
+            onClick={() => window.open(detail.url as string, "_blank", "noopener")}
+            title="Orijinal sayfada aç"
+          >
+            <ExternalLink size={13} /> Orijinalini aç
+          </Button>
+        )}
+        <span className="flex-1" />
+        <Button size="sm" disabled={!hasPrev} onClick={onPrev} title="Önceki">
+          ‹ Önceki
+        </Button>
+        <Button size="sm" disabled={!hasNext} onClick={onNext} title="Sonraki">
+          Sonraki ›
+        </Button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <h1 className="font-serif text-title leading-snug text-primary">{detail.title}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
+          <span className="text-secondary">{detail.feed_title}</span>
+          {detail.author && <span>· {detail.author}</span>}
+          {detail.published_at && <span>· {relativeTime(detail.published_at)}</span>}
+          {detail.url && (
+            <a
+              href={detail.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-accent hover:underline"
+            >
+              <ExternalLink size={12} /> orijinali
+            </a>
+          )}
+        </div>
+
+        {hasBody ? (
+          detail.content ? (
+            <div
+              className="article-content mt-5 text-secondary"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(detail.content) }}
+            />
+          ) : (
+            <p className="mt-5 whitespace-pre-wrap text-body leading-relaxed text-secondary">
+              {stripHtml(detail.summary ?? "")}
+            </p>
+          )
+        ) : (
+          <p className="mt-5 text-body text-muted">
+            Bu yazının özeti veya içeriği yok.{" "}
+            {detail.url && (
+              <a href={detail.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                Orijinal sayfasında aç →
+              </a>
+            )}
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
+function KbdInline({ children }: { children: React.ReactNode }) {
+  return <kbd className="mx-1 rounded border border-strong bg-surface px-1 py-0.5 font-sans text-[10.5px] text-muted">{children}</kbd>;
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/* ── Sayfa ───────────────────────────────────────────────────────────── */
+
 export function RssPage() {
-  const { params } = useHashRoute();
   const online = useOnline();
   const invalidate = useInvalidate();
-  const [feedId, setFeedId] = useState<string | null>(params.get("besleme"));
-  const [unreadOnly, setUnreadOnly] = useState(true);
+  const toast = useToast();
+
+  const [smart, setSmart] = useState<SmartView>("unread");
+  const [feedId, setFeedId] = useState<string | null>(null);
+  const [categorySel, setCategorySel] = useState<string | null>(null);
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [saveCollection, setSaveCollection] = useState<Collection>("read_later");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showAdd, setShowAdd] = useState(false);
 
   const { data: feeds = [] } = useQuery({
     queryKey: ["feeds"],
     queryFn: () => api.get<Feed[]>("/rss/feeds"),
   });
 
-  const itemQuery = { feed_id: feedId ?? undefined, unread_only: unreadOnly, limit: 100 };
+  const { data: stats } = useQuery({
+    queryKey: ["rss-stats"],
+    queryFn: () => api.get<RssStats>("/rss/stats"),
+  });
+
+  const itemParams: Record<string, string | number | boolean | undefined | null> = { limit: 100 };
+  if (feedId) {
+    itemParams.feed_id = feedId;
+    if (unreadOnly) itemParams.unread_only = true;
+  } else if (categorySel) {
+    itemParams.category = categorySel;
+    if (unreadOnly) itemParams.unread_only = true;
+  } else if (smart === "unread") {
+    itemParams.unread_only = true;
+  } else if (smart === "all" && unreadOnly) {
+    // "Tümü" gorunumunde okunmamis/açık filtre butonu ise yarar
+    itemParams.unread_only = true;
+  } else if (smart === "today") {
+    itemParams.since = todayIso();
+  } else if (smart === "saved") {
+    itemParams.saved_only = true;
+  }
+
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ["items", itemQuery],
-    queryFn: () => api.get<FeedItem[]>(`/rss/items${qs(itemQuery)}`),
+    queryKey: ["items", itemParams],
+    queryFn: () => api.get<FeedItem[]>(`/rss/items${qs(itemParams)}`),
+  });
+
+  const { data: detail } = useQuery({
+    queryKey: ["rss-item", selectedId],
+    queryFn: () => api.get<FeedItem>(`/rss/items/${selectedId}`),
+    enabled: Boolean(selectedId),
+  });
+
+  const refreshAll = () => invalidate("items", "feeds", "rss-stats", "activity");
+
+  const markRead = useMutation({
+    mutationFn: ({ id, read }: { id: string; read: boolean }) =>
+      api.post(`/rss/items/${id}/read${qs({ read })}`),
+    onSuccess: () => {
+      refreshAll();
+      invalidate("rss-item"); // okuma bolmesi de guncelsin
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: ({ id, collection }: { id: string; collection: string }) =>
+      api.post<Bookmark>(`/rss/items/${id}/save`, { collection }),
+    onSuccess: (bookmark) => {
+      invalidate("rss-item", "items", "feeds", "rss-stats", "bookmarks", "activity");
+      toast.push(`"${(bookmark.title || "").slice(0, 40)}" yer imlerine kaydedildi`, {
+        tone: "ok",
+        action: { label: "Yer iminde aç", run: () => navigate(`/bookmarks?focus=${bookmark.id}`) },
+      });
+    },
   });
 
   const readAll = useMutation({
-    mutationFn: () => api.post(`/rss/read-all${qs({ feed_id: feedId ?? undefined })}`),
-    onSuccess: () => invalidate("items", "feeds", "rss-stats", "activity"),
+    mutationFn: () =>
+      api.post(`/rss/read-all${qs({
+        feed_id: feedId ?? undefined,
+        category: categorySel ?? undefined,
+      })}`),
+    onSuccess: refreshAll,
   });
+
+  const refreshAllFeed = useMutation({
+    mutationFn: () => api.post("/rss/refresh-all"),
+    onSuccess: (result) => {
+      invalidate("feeds", "rss-stats");
+      toast.push(
+        (result as { started: number }).started > 0
+          ? `${(result as { started: number }).started} besleme çekiliyor…`
+          : "Süresi gelen besleme yok — hepsi taze.",
+        { tone: (result as { started: number }).started > 0 ? "neutral" : "ok" },
+      );
+    },
+  });
+
+  const refreshFeed = useMutation({
+    mutationFn: (id: string) => api.post(`/rss/feeds/${id}/refresh`),
+    onSuccess: refreshAll,
+  });
+
+  const removeFeed = useMutation({
+    mutationFn: (id: string) => api.del(`/rss/feeds/${id}`),
+    onSuccess: () => {
+      if (feedId) setFeedId(null);
+      invalidate("feeds", "items", "rss-stats", "activity");
+    },
+  });
+
+  function openItem(item: FeedItem) {
+    setSelectedId(item.id);
+    setSaveCollection("read_later");
+    if (!item.read_at) markRead.mutate({ id: item.id, read: true });
+  }
+
+  function selectView(nextSmart: SmartView) {
+    setSmart(nextSmart);
+    setFeedId(null);
+    setCategorySel(null);
+    setSelectedId(null);
+  }
+
+  function selectFeed(id: string | null) {
+    setFeedId(id);
+    setCategorySel(null);
+    setSelectedId(null);
+    setUnreadOnly(false);
+  }
+
+  /** Klasor (kategori) secimi: o kategorideki TUM feed'lerin yazilari gelir. */
+  function selectCategory(name: string) {
+    setCategorySel(name);
+    setFeedId(null);
+    setSelectedId(null);
+  }
+
+  const index = items.findIndex((i) => i.id === selectedId);
+  const hasPrev = index > 0;
+  const hasNext = index >= 0 && index < items.length - 1;
+
+  function step(delta: number) {
+    const target = items[index + delta];
+    if (target) openItem(target);
+  }
+
+  function onListKeyDown(e: React.KeyboardEvent) {
+    if (items.length === 0) return;
+    if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); step(1); return; }
+    if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); step(-1); return; }
+    if (e.key === "u" || e.key === "Enter") {
+      e.preventDefault();
+      const it = items[index >= 0 ? index : 0];
+      if (it) markRead.mutate({ id: it.id, read: !it.read_at });
+      return;
+    }
+    if (e.key === "s" || e.key === "S") {
+      e.preventDefault();
+      const it = items[index >= 0 ? index : 0];
+      if (it && !it.saved_bookmark_id) save.mutate({ id: it.id, collection: "read_later" });
+      return;
+    }
+    if (e.key === "J") {
+      e.preventDefault();
+      const next = items.find((i, idx) => idx > index && !i.read_at)
+        ?? items.find((i) => !i.read_at);
+      if (next) openItem(next);
+      return;
+    }
+    if (e.key === "Escape") { setSelectedId(null); return; }
+  }
+
+  const selectedFeed = feeds.find((f) => f.id === feedId);
+  const title = feedId ? (selectedFeed?.title ?? "RSS") : categorySel ?? SMART_LABELS[smart];
+
+  function toggleCategory(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   const grouped = feeds.reduce<Record<string, Feed[]>>((acc, feed) => {
     const key = feed.category || "Kategorisiz";
@@ -250,78 +574,224 @@ export function RssPage() {
     return acc;
   }, {});
 
-  return (
-    <div className="grid gap-4 p-6 lg:grid-cols-[240px_1fr]">
-      <aside className="space-y-4">
-        <Panel title="Beslemeler">
-          <ul className="mb-3 space-y-1">
-            <li>
-              <button
-                onClick={() => setFeedId(null)}
-                className={cx(
-                  "w-full rounded px-2 py-1 text-left text-body",
-                  !feedId ? "bg-surface-sunken text-primary" : "text-secondary hover:bg-surface-hover",
-                )}
-              >
-                Tümü
-              </button>
-            </li>
-          </ul>
-          {Object.entries(grouped).map(([category, group]) => (
-            <div key={category} className="mb-3">
-              <div className="mb-1 text-meta uppercase tracking-wide text-muted">
-                {category}
-              </div>
-              <ul className="space-y-0.5">
-                {group.map((feed) => (
-                  <FeedRow
-                    key={feed.id}
-                    feed={feed}
-                    selected={feedId === feed.id}
-                    onSelect={() => setFeedId(feed.id)}
-                  />
-                ))}
-              </ul>
-            </div>
-          ))}
-          {feeds.length === 0 && <Empty>Henüz besleme yok. Yukarıdan URL ekle ya da OPML dosyanı içeri aktar.</Empty>}
-        </Panel>
+  const folderKeys = Object.keys(grouped);
+  const allClosed = folderKeys.length > 0 && folderKeys.every((k) => collapsed.has(k));
 
-        <Panel title="Ekle">
-          <AddFeed />
-        </Panel>
+  /** Tek buton: hepsi acikken hepsini daralt, degilse hepsini genislet. */
+  function toggleAllFolders() {
+    setCollapsed(allClosed ? new Set() : new Set(folderKeys));
+  }
+
+  async function confirmRemove(feed: Feed) {
+    const ok = await confirmDialog({
+      title: "Besleme silinsin mi?",
+      body: <><strong className="font-medium text-primary">{feed.title}</strong> ve ona bağlı okunmamış yazılar listeden kalkar. Bu işlem geri alınamaz.</>,
+      confirmLabel: "Sil",
+      tone: "danger",
+    });
+    if (ok) removeFeed.mutate(feed.id);
+  }
+
+  return (
+    <PageFrame className="flex min-h-[calc(100dvh-84px)] flex-col gap-5">
+      <PageHeader eyebrow="Kaynaklar" title="RSS Okuyucu" />
+      <Surface className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[260px_340px_minmax(0,1fr)]">
+      {/* ── Sol: akıllı görünümler + beslemeler ── */}
+      <aside className="flex max-h-[380px] min-w-0 flex-col overflow-y-auto border-b border-subtle p-3 md:max-h-[560px] md:border-b-0 md:border-r xl:max-h-none">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <span className="label-caps">Görünümler</span>
+          <button
+            type="button"
+            disabled={!online}
+            onClick={() => refreshAllFeed.mutate()}
+            title="Süresi gelen tüm beslemeleri çek"
+            className="flex h-6 items-center gap-1 rounded px-1.5 text-meta text-muted hover:bg-surface-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <RefreshCw size={12} /> Tümünü tazele
+          </button>
+        </div>
+        <ul className="space-y-0.5">
+          {SMART_ORDER.map((v) => {
+            const count = v === "unread" ? stats?.unread : v === "today" ? stats?.today : v === "saved" ? stats?.saved : undefined;
+            return (
+              <li key={v}>
+                <button
+                  type="button"
+                  onClick={() => selectView(v)}
+                  className={cx(
+                    "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-body transition",
+                    !feedId && !categorySel && smart === v ? "bg-surface-sunken font-medium text-primary" : "text-secondary hover:bg-surface-hover",
+                  )}
+                >
+                  <span className="truncate">{SMART_LABELS[v]}</span>
+                  {count !== undefined && (
+                    <span className={cx("numeral ml-auto text-[12px]", !feedId && !categorySel && smart === v ? "text-accent" : "text-muted")}>{count}</span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mt-3 mb-1 flex items-center justify-between border-b border-subtle pb-2">
+          <span className="label-caps">Klasörler</span>
+          {folderKeys.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleAllFolders}
+              title={allClosed ? "Tüm klasörleri aç" : "Tüm klasörleri daralt"}
+              className="text-meta text-muted transition hover:text-primary"
+            >
+              {allClosed ? "Tümünü genişlet" : "Tümünü daralt"}
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {Object.entries(grouped).map(([category, group]) => {
+            const unreadSum = group.reduce((acc, f) => acc + f.unread, 0);
+            const key = category;
+            const isClosed = collapsed.has(key);
+            return (
+              <div key={key}>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(key)}
+                    title={isClosed ? "Klasörü aç" : "Klasörü kapat"}
+                    aria-expanded={!isClosed}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-secondary hover:bg-surface-hover hover:text-primary"
+                  >
+                    <ChevronDown size={16} className={cx("transition-transform duration-150", isClosed && "-rotate-90")} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selectCategory(key)}
+                    title="Klasördeki tüm yazıları göster"
+                    className={cx(
+                      "flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-meta uppercase tracking-wide transition",
+                      categorySel === key
+                        ? "bg-surface-sunken font-medium text-primary"
+                        : "text-muted hover:text-primary",
+                    )}
+                  >
+                    <span className="truncate">{category}</span>
+                    {unreadSum > 0 && (
+                      <span className="numeral ml-auto text-[12px] text-accent">{unreadSum}</span>
+                    )}
+                  </button>
+                </div>
+                {!isClosed && (
+                  <ul className="mt-0.5 space-y-0.5">
+                    {group.map((feed) => (
+                      <FeedRow
+                        key={feed.id}
+                        feed={feed}
+                        selected={feedId === feed.id}
+                        onSelect={() => selectFeed(feed.id)}
+                        onRefresh={() => refreshFeed.mutate(feed.id)}
+                        onRemove={() => confirmRemove(feed)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {feeds.length === 0 && (
+          <Empty>Henüz besleme yok. Aşağıdan URL ekle ya da OPML dosyanı içeri aktar.</Empty>
+        )}
+
+        <div className="mt-4 border-t border-subtle pt-3">
+          <button
+            type="button"
+            onClick={() => setShowAdd((v) => !v)}
+            aria-expanded={showAdd}
+            className="flex h-8 w-full items-center justify-center gap-2 rounded-control border border-subtle bg-surface text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+          >
+            <Settings2 size={14} />
+            {showAdd ? "Ekleme formunu kapat" : "Besleme ekle / OPML"}
+          </button>
+          {showAdd && (
+            <div className="mt-2">
+              <AddFeed />
+            </div>
+          )}
+        </div>
       </aside>
 
-      <div>
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <h2 className="font-serif text-title text-primary">
-              {feedId ? feeds.find((f) => f.id === feedId)?.title ?? "RSS" : "Tüm beslemeler"}
-            </h2>
-            <Button
-              variant={unreadOnly ? "primary" : "ghost"}
-              onClick={() => setUnreadOnly((v) => !v)}
-            >
-              {unreadOnly ? "sadece okunmamış" : "hepsi"}
-            </Button>
-            <Button disabled={!online || items.length === 0} onClick={() => readAll.mutate()}>
-              tümünü okundu işaretle
+      {/* ── Orta: yazı listesi ── */}
+      <section className="flex min-h-[420px] min-w-0 flex-col border-b border-subtle md:border-b-0 xl:border-r">
+        <div className="border-b border-subtle px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <h2 className="min-w-0 flex-1 truncate font-serif text-heading text-primary">{title}</h2>
+            {(feedId || categorySel || smart === "all") && (
+              <Button size="sm" variant={unreadOnly ? "primary" : "ghost"} onClick={() => setUnreadOnly((v) => !v)} title="Sadece okunmamışlar">
+                {unreadOnly ? "okunmamış" : "hepsi"}
+              </Button>
+            )}
+            <Button size="sm" disabled={!online || items.length === 0} onClick={() => readAll.mutate()} title="Listedekileri okundu işaretle">
+              okundu
             </Button>
           </div>
-        </header>
+          {feedId && selectedFeed?.last_fetched_at == null && (
+            <p className="mt-1.5 text-meta text-warn">
+              Bu besleme henüz çekilmedi — satırdaki ⟳ veya "Tümünü tazele" ile getir.
+            </p>
+          )}
+          <p className="mt-1 text-meta text-muted">{items.length} yazı</p>
+        </div>
 
-        {isLoading ? (
-          <p className="text-body text-muted">Yükleniyor…</p>
-        ) : items.length === 0 ? (
-          <Empty>Okunacak yeni bir sey yok.</Empty>
-        ) : (
-          <ul className="space-y-2">
-            {items.map((item) => (
-              <ItemRow key={item.id} item={item} />
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+          {isLoading ? (
+            <p className="py-6 text-center text-meta text-muted">Yükleniyor…</p>
+          ) : items.length === 0 ? (
+            <Empty>
+              {smart === "unread" && !feedId
+                ? "Okunacak yazı yok — hepsi yakalandı."
+                : "Bu görünümde yazı yok."}
+            </Empty>
+          ) : (
+            <ul className="divide-y divide-subtle outline-none" onKeyDown={onListKeyDown} tabIndex={0}>
+              {items.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  feed={feeds.find((x) => x.id === item.feed_id)}
+                  selected={selectedId === item.id}
+                  onOpen={() => openItem(item)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {/* ── Sağ: okuma bölmesi ── */}
+      <section className="flex min-h-[520px] min-w-0 flex-col border-t border-subtle md:col-span-2 xl:col-span-1 xl:border-t-0">
+        <ReadingPane
+          detail={detail}
+          online={online}
+          saveCollection={saveCollection}
+          onSaveCollection={setSaveCollection}
+          onToggleRead={() => {
+            if (detail?.id) markRead.mutate({ id: detail.id, read: !detail.read_at });
+          }}
+          onSave={() => {
+            if (detail?.id) save.mutate({ id: detail.id, collection: saveCollection });
+          }}
+          onOpenBookmark={() => {
+            if (detail?.saved_bookmark_id) navigate(`/bookmarks?focus=${detail.saved_bookmark_id}`);
+          }}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+        />
+      </section>
+      </Surface>
+    </PageFrame>
   );
 }

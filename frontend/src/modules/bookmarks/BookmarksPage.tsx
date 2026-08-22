@@ -1,21 +1,58 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Star, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, Panel, cx, hostOf, relativeTime } from "@/core/ui";
+import { Badge, Button, Empty, IconButton, PageFrame, PageHeader, RowList, Section, Toolbar, cx, hostOf, relativeTime } from "@/core/ui";
 import { useDebounced, useInvalidate, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
-import type { Bookmark, Collection, SavedView, TagCount } from "@/core/types";
+import type { Bookmark, BookmarkStats, Collection, TagCount } from "@/core/types";
 
 interface Filter {
   collection?: Collection | "";
   read_status?: string;
   favorite?: boolean;
+  source?: string;
   tag?: string;
   q?: string;
 }
 
-const MODULE = "bookmark";
+/** Okuma durumu chipleri — degerler /bookmarks filtresiyle birebir. */
+const READ_STATUSES = ["unread", "reading", "read"] as const;
+const READ_STATUS_LABELS: Record<(typeof READ_STATUSES)[number], string> = {
+  unread: "Okunmadı",
+  reading: "Okuyor",
+  read: "Okundu",
+};
+
+/** Basit tek secimli filtre cipi. Sayi verilirse saga yazar (sayaçsız da olur). */
+function FilterChip({
+  label, count, active, onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        "flex h-8 items-center gap-2 rounded-control border px-3 text-meta transition",
+        active
+          ? "border-accent bg-accent-surface font-medium text-accent"
+          : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
+      )}
+    >
+      <span>{label}</span>
+      {count !== undefined && (
+        <span className={cx("numeral text-[13px]", active ? "text-accent" : "text-muted")}>{count}</span>
+      )}
+    </button>
+  );
+}
 
 function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boolean }) {
   const online = useOnline();
@@ -35,8 +72,8 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
     <li
       id={bookmark.id}
       className={cx(
-        "rounded border p-3",
-        focused ? "border-accent-border bg-accent-surface" : "border-subtle bg-surface",
+        "group min-w-0 px-1 py-3 transition hover:bg-surface-hover",
+        focused ? "bg-accent-surface ring-1 ring-inset ring-accent" : "",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -67,28 +104,31 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
           )}
         </div>
 
-        <div className="flex flex-wrap justify-end items-center gap-1">
-          <Button
+        {/* Aksiyonlar tek boyutta: ikon butonlar 32px, metin buton ve select de 32px. */}
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          <IconButton
+            title={bookmark.favorite ? "Favoriden çıkar" : "Favori yap"}
             disabled={!online}
-            title="Favori"
             onClick={() => patch.mutate({ favorite: !bookmark.favorite })}
           >
-            {bookmark.favorite ? "★" : "☆"}
-          </Button>
+            <Star size={15} className={bookmark.favorite ? "fill-current text-accent" : ""} />
+          </IconButton>
           <Button
+            size="sm"
             disabled={!online}
-            title="Okundu işaretle"
+            title={bookmark.read_status === "read" ? "Okunmadı işaretle" : "Okundu işaretle"}
             onClick={() =>
               patch.mutate({ read_status: bookmark.read_status === "read" ? "unread" : "read" })
             }
           >
-            {bookmark.read_status === "read" ? "okunmadi" : "okundu"}
+            {bookmark.read_status === "read" ? "Okunmadı" : "Okundu"}
           </Button>
           <select
             disabled={!online}
+            title="Koleksiyona taşı"
             value={bookmark.collection}
             onChange={(e) => patch.mutate({ collection: e.target.value })}
-            className="rounded border border-strong bg-surface px-1 py-1 text-meta text-secondary"
+            className="h-8 rounded-control border border-strong bg-surface px-2 text-meta text-secondary outline-none focus:border-accent"
           >
             {COLLECTIONS.map((c) => (
               <option key={c} value={c}>
@@ -96,9 +136,9 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
               </option>
             ))}
           </select>
-          <Button variant="danger" disabled={!online} onClick={() => remove.mutate()}>
-            sil
-          </Button>
+          <IconButton title="Sil" tone="danger" disabled={!online} onClick={() => remove.mutate()}>
+            <Trash2 size={15} />
+          </IconButton>
         </div>
       </div>
     </li>
@@ -108,13 +148,9 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
 export function BookmarksPage() {
   const { params } = useHashRoute();
   const focus = params.get("focus");
-  const online = useOnline();
-  const invalidate = useInvalidate();
 
   const [filter, setFilter] = useState<Filter>({ collection: "" });
   const [search, setSearch] = useState("");
-  /** "+ kaydet" satir ici ad formu acik mi. */
-  const [namingView, setNamingView] = useState(false);
   const q = useDebounced(search, 250);
 
   useEffect(() => {
@@ -127,159 +163,105 @@ export function BookmarksPage() {
     queryFn: () => api.get<Bookmark[]>(`/bookmarks${qs(query)}`),
   });
 
+  /** Chip sayilari Inbox ile ayni query key'i paylasir — tek istek, paylasilan cache. */
+  const { data: stats } = useQuery({
+    queryKey: ["bookmark-stats"],
+    queryFn: () => api.get<BookmarkStats>("/bookmarks/stats"),
+  });
+
   const { data: tags = [] } = useQuery({
     queryKey: ["tags"],
     queryFn: () => api.get<TagCount[]>("/tags"),
   });
 
-  const { data: views = [] } = useQuery({
-    queryKey: ["views", MODULE],
-    queryFn: () => api.get<SavedView[]>(`/views${qs({ module: MODULE })}`),
-  });
-
-  const saveView = useMutation({
-    mutationFn: (name: string) =>
-      api.post("/views", { name, module: MODULE, filter: { ...filter, q }, pinned: true }),
-    onSuccess: () => invalidate("views"),
-  });
-  const deleteView = useMutation({
-    mutationFn: (id: string) => api.del(`/views/${id}`),
-    onSuccess: () => invalidate("views"),
-  });
-
-  const applyView = (view: SavedView) => {
-    const stored = view.filter as Filter;
-    setFilter({
-      collection: stored.collection ?? "",
-      read_status: stored.read_status,
-      favorite: stored.favorite,
-      tag: stored.tag,
-    });
-    setSearch(stored.q ?? "");
-  };
-
   return (
-    <div className="grid gap-4 p-6 lg:grid-cols-[1fr_260px]">
-      <div>
-        <header className="mb-4 flex items-baseline justify-between">
-          <span className="text-meta text-muted">{data.length} sonuc</span>
-        </header>
+    <PageFrame className="space-y-5">
+      <PageHeader eyebrow="Kaynaklar" title="Yer İmleri" />
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="min-w-0">
 
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ara (başlık, not, seçim)…"
-            className="min-w-48 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
-          />
-          <select
-            value={filter.collection ?? ""}
-            onChange={(e) => setFilter({ ...filter, collection: e.target.value as Collection })}
-            className="rounded border border-subtle bg-surface px-2 py-1.5 text-body"
-          >
-            <option value="">Tüm koleksiyonlar</option>
+        {/* ── Filtre sırası: arama + chip'ler ── */}
+        <Toolbar className="mb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Ara (başlık, not, seçim)…"
+              className="min-w-48 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
+            />
+            <FilterChip
+              label="★ Favoriler"
+              active={Boolean(filter.favorite)}
+              onClick={() => setFilter({ ...filter, favorite: filter.favorite ? undefined : true })}
+            />
+            <FilterChip
+              label="RSS"
+              active={filter.source === "rss"}
+              onClick={() => setFilter({ ...filter, source: filter.source === "rss" ? undefined : "rss" })}
+            />
+            {filter.tag && (
+              <FilterChip
+                label={`#${filter.tag} ✕`}
+                active
+                onClick={() => setFilter({ ...filter, tag: undefined })}
+              />
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Koleksiyona göre filtrele">
+            <FilterChip
+              label="Tümü"
+              count={stats?.total}
+              active={!filter.collection}
+              onClick={() => setFilter({ ...filter, collection: "" })}
+            />
             {COLLECTIONS.map((c) => (
-              <option key={c} value={c}>
-                {COLLECTION_LABELS[c]}
-              </option>
+              <FilterChip
+                key={c}
+                label={COLLECTION_LABELS[c]}
+                count={stats?.collections.find((x) => x.collection === c)?.count}
+                active={filter.collection === c}
+                onClick={() =>
+                  setFilter({ ...filter, collection: filter.collection === c ? "" : c })
+                }
+              />
             ))}
-          </select>
-          <select
-            value={filter.read_status ?? ""}
-            onChange={(e) =>
-              setFilter({ ...filter, read_status: e.target.value || undefined })
-            }
-            className="rounded border border-subtle bg-surface px-2 py-1.5 text-body"
-          >
-            <option value="">Okuma durumu</option>
-            <option value="unread">Okunmadi</option>
-            <option value="reading">Okuyor</option>
-            <option value="read">Okundu</option>
-          </select>
-          <Button
-            variant={filter.favorite ? "primary" : "ghost"}
-            onClick={() =>
-              setFilter({ ...filter, favorite: filter.favorite ? undefined : true })
-            }
-          >
-            ★ favoriler
-          </Button>
-          {filter.tag && (
-            <Button onClick={() => setFilter({ ...filter, tag: undefined })}>
-              #{filter.tag} ✕
-            </Button>
-          )}
-        </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Okuma durumuna göre filtrele">
+            <FilterChip
+              label="Hepsi"
+              active={!filter.read_status}
+              onClick={() => setFilter({ ...filter, read_status: undefined })}
+            />
+            {READ_STATUSES.map((s) => (
+              <FilterChip
+                key={s}
+                label={READ_STATUS_LABELS[s]}
+                active={filter.read_status === s}
+                onClick={() =>
+                  setFilter({ ...filter, read_status: filter.read_status === s ? undefined : s })
+                }
+              />
+            ))}
+          </div>
+        </Toolbar>
 
         {isLoading ? (
           <p className="text-body text-muted">Yükleniyor…</p>
         ) : data.length === 0 ? (
           <Empty>Bu filtreye uyan kayıt yok.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <RowList as="ul">
             {data.map((bookmark) => (
               <BookmarkRow key={bookmark.id} bookmark={bookmark} focused={focus === bookmark.id} />
             ))}
-          </ul>
+          </RowList>
         )}
       </div>
 
       <aside className="space-y-4">
-        <Panel
-          title="Kayıtlı görünümler"
-          action={
-            <Button
-              disabled={!online}
-              onClick={() => setNamingView((v) => !v)}
-            >
-              + kaydet
-            </Button>
-          }
-        >
-          {namingView && (
-            <form
-              className="mb-3 flex gap-2 border-b border-subtle pb-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const name = (new FormData(event.currentTarget).get("name") as string ?? "").trim();
-                if (!name) return;
-                saveView.mutate(name);
-                setNamingView(false);
-              }}
-            >
-              <input name="name" autoFocus placeholder="Görünüm adı"
-                aria-label="Görünüm adı"
-                onKeyDown={(event) => { if (event.key === "Escape") setNamingView(false); }}
-                className="h-8 min-w-0 flex-1 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
-              <Button type="submit" variant="primary" size="sm">Kaydet</Button>
-            </form>
-          )}
-          {views.length === 0 ? (
-            <Empty>Henüz görünüm yok.</Empty>
-          ) : (
-            <ul className="space-y-1">
-              {views.map((view) => (
-                <li key={view.id} className="flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => applyView(view)}
-                    className="truncate text-left text-body text-secondary hover:text-primary"
-                  >
-                    {view.name}
-                  </button>
-                  <button
-                    onClick={() => deleteView.mutate(view.id)}
-                    disabled={!online}
-                    className="text-meta text-muted hover:text-danger"
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel title="Etiketler">
+        <Section title="Etiketler">
           {tags.length === 0 ? (
             <Empty>Etiket yok.</Empty>
           ) : (
@@ -295,8 +277,9 @@ export function BookmarksPage() {
               ))}
             </div>
           )}
-        </Panel>
+        </Section>
       </aside>
-    </div>
+      </div>
+    </PageFrame>
   );
 }

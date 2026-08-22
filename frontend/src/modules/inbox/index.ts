@@ -12,7 +12,7 @@ registerModule({
   title: "Gelen Kutusu", icon: Inbox, group: "capture",
   routes: [{ path: "/inbox", element: InboxPage }],
   todayStats: [InboxStats],
-  todayWidgets: [{ component: InboxWidget, zone: "pending" }],
+  todayWidgets: [{ component: InboxWidget, zone: "pending", slot: "right", order: 40 }],
   commands: [
     { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/inbox") },
     {

@@ -26,6 +26,17 @@ class Todo(EntityBacked, Base):
         PgUUID(as_uuid=True), ForeignKey("todo.id", ondelete="CASCADE")
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: Rutin: daily | weekdays | weekly | monthly. Bos ise tek seferlik.
+    recur: Mapped[str | None] = mapped_column(Text)
+    #: Rutinin urettigi kayit, hangi gorevden dogdugunu tutar.
+    recur_origin_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("todo.id", ondelete="SET NULL")
+    )
+    #: Kilometre tasi. Proje bagi `link` uzerinden; milestone ayri tablo
+    #: oldugu (entity'ye FK'si yok) icin dogrudan kolon.
+    milestone_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("milestone.id", ondelete="SET NULL")
+    )
 
 
 class PlanSlot(Base):

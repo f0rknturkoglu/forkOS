@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
-import { Panel } from "@/core/ui";
+import { RowList, Section } from "@/core/ui";
 import type { Deadline, Notification } from "@/core/types";
 
 export function DeadlineWidget() {
   const { data = [] } = useQuery({ queryKey: ["deadlines"], queryFn: () => api.get<Deadline[]>("/deadlines") });
-  return <Panel title="Yaklaşan son tarihler"><div className="space-y-2">{data.slice(0, 5).map(x => <a key={x.entity_id} href={x.module === "opportunity" ? "#/opportunities" : "#/todos"} className="flex justify-between text-meta"><span>{x.title}</span><span className="text-warn">{new Date(x.due_at).toLocaleDateString("tr-TR")}</span></a>)}{!data.length && <p className="text-meta text-muted">Yaklaşan son tarih yok.</p>}</div></Panel>;
+  return <Section title="Yaklaşan son tarihler">{data.length === 0 ? <p className="text-meta text-muted">Yaklaşan son tarih yok.</p> : <RowList>{data.slice(0, 5).map(x => <a key={x.entity_id} href={x.module === "opportunity" ? "#/opportunities" : "#/todos"} className="flex justify-between gap-3 py-2 text-meta hover:text-accent"><span className="truncate">{x.title}</span><span className="shrink-0 text-warn">{new Date(x.due_at).toLocaleDateString("tr-TR")}</span></a>)}</RowList>}</Section>;
 }
 
 export function NotificationWidget() {
   const { data = [] } = useQuery({ queryKey: ["notifications"], queryFn: () => api.get<Notification[]>("/notifications") });
-  return <Panel title={`Bildirimler · ${data.filter(x => !x.read_at).length}`}><div className="space-y-2">{data.slice(0, 4).map(x => <div key={x.id} className="text-meta"><p>{x.title}</p>{x.body && <p className="text-muted">{x.body}</p>}</div>)}</div></Panel>;
+  return <Section title="Bildirimler" hint={`${data.filter(x => !x.read_at).length} okunmamış`}>{data.length === 0 ? <p className="text-meta text-muted">Yeni bildirim yok.</p> : <RowList>{data.slice(0, 4).map(x => <div key={x.id} className="py-2 text-meta"><p className="text-secondary">{x.title}</p>{x.body && <p className="mt-0.5 line-clamp-2 text-muted">{x.body}</p>}</div>)}</RowList>}</Section>;
 }

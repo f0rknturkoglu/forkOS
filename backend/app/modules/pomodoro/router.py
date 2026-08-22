@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.modules.pomodoro import service
-from app.modules.pomodoro.schemas import PomodoroOut, PomodoroStart, PomodoroStats, PomodoroStop
+from app.modules.pomodoro.schemas import (
+    PomodoroManual,
+    PomodoroOut,
+    PomodoroStart,
+    PomodoroStats,
+    PomodoroStop,
+)
 
 router = APIRouter(tags=["pomodoro"])
 
@@ -40,3 +46,40 @@ async def active(session: AsyncSession = Depends(get_session)):
 async def stats(range: str = Query("week", pattern="^(day|week|month)$"),
                 session: AsyncSession = Depends(get_session)):
     return await service.stats(session, range)
+
+
+@router.post("/pomodoro/{pomo_id}/pause", response_model=PomodoroOut)
+async def pause(pomo_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    result = await service.pause(session, pomo_id)
+    if result is None:
+        raise HTTPException(404, "pomodoro bulunamadi")
+    return result
+
+
+@router.post("/pomodoro/{pomo_id}/resume", response_model=PomodoroOut)
+async def resume(pomo_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    result = await service.resume(session, pomo_id)
+    if result is None:
+        raise HTTPException(404, "pomodoro bulunamadi")
+    return result
+
+
+@router.post("/pomodoro", response_model=PomodoroOut, status_code=201)
+async def add_manual(body: PomodoroManual, session: AsyncSession = Depends(get_session)):
+    """Sayac calistirilmadan yapilan isi gecmise isler."""
+    try:
+        return await service.add_manual(session, body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.delete("/pomodoro/{pomo_id}", status_code=204)
+async def delete(pomo_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete(session, pomo_id):
+        raise HTTPException(404, "pomodoro bulunamadi")
+
+
+@router.get("/pomodoro/sessions", response_model=list[PomodoroOut])
+async def sessions(limit: int = Query(20, ge=1, le=200),
+                   session: AsyncSession = Depends(get_session)):
+    return await service.recent(session, limit=limit)

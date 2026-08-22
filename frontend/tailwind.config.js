@@ -40,6 +40,21 @@ export default {
           surface: "var(--danger-surface)",
           border: "var(--danger-border)",
         },
+        // Okuma akisindaki kaynak renkleri -- semantik degil, marka.
+        feed: {
+          rss: "var(--feed-rss)",
+          hn: "var(--feed-hn)",
+          reddit: "var(--feed-reddit)",
+          gh: "var(--feed-gh)",
+        },
+        // Emek haritasi basamaklari.
+        heat: {
+          0: "var(--heat-0)",
+          1: "var(--heat-1)",
+          2: "var(--heat-2)",
+          3: "var(--heat-3)",
+          4: "var(--heat-4)",
+        },
       },
       borderColor: { DEFAULT: "var(--border)" },
       fontFamily: {
@@ -59,8 +74,10 @@ export default {
       borderRadius: { control: "4px", card: "5px", overlay: "6px" },
       spacing: { control: "34px", touch: "44px" },
       boxShadow: {
-        // Tek golge: katman yuzeyleri (komut paleti, popover). Kartlar duz.
-        overlay: "0 24px 60px -20px rgb(26 24 21 / 0.35)",
+        // Katman yuzeyleri (komut paleti, popover).
+        overlay: "0 24px 60px -20px rgb(9 11 15 / 0.30)",
+        // Kutular: kenarligi destekleyen, anca secilen bir kabartma.
+        card: "0 1px 2px 0 rgb(9 11 15 / 0.04)",
       },
     },
   },

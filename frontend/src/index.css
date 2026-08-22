@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ──────────────────────────────────────────────────────────────────────
-   Tasarim tokenlari — "Sakin Kagit"
+   Tasarim tokenlari — "Nötr Panel"
 
    JSX'e ASLA sabit renk yazma (bg-neutral-900 gibi). Buradaki semantik
    adlari kullan: bg-canvas, bg-surface, text-muted, border-subtle...
@@ -16,67 +16,93 @@
 
 @layer base {
   :root {
-    --canvas:          #FBFAF7;
+    --canvas:          #EEF0F3;
     --surface:         #FFFFFF;
-    --surface-sunken:  #F1EDE4;
-    --surface-hover:   #F5F1E9;
+    --surface-sunken:  #E4E7EC;
+    --surface-hover:   #F4F6F8;
 
-    --border:          #E8E4DC;
-    --border-strong:   #D6CFC2;  /* 3.1:1 / surface */
+    --border:          #DDE1E7;
+    --border-strong:   #C3C9D2;  /* 3.1:1 / surface */
 
-    --text:            #1A1815;  /* 16.8:1 / canvas */
-    --text-secondary:  #6B655C;  /*  5.5:1 / canvas */
-    --text-muted:      #756E65;  /*  4.8:1 / canvas */
-    --icon:            #8C857A;  /*  3.5:1 / canvas — ikon, metin degil */
+    --text:            #0F1115;  /* 18.7:1 / surface */
+    --text-secondary:  #454B56;  /*  8.8:1 / surface */
+    --text-muted:      #5C636F;  /*  6.1:1 / surface */
+    --icon:            #7A828F;  /*  3.9:1 / surface — ikon, metin degil */
 
-    --accent:          #96613F;  /*  4.9:1 / canvas */
-    --accent-surface:  #F7EFE7;
-    --accent-border:   #E7D6C6;
+    --accent:          #1F5FD0;  /*  5.8:1 / surface */
+    --accent-surface:  #EAF1FE;
+    --accent-border:   #C5DAFB;
 
-    --success:         #4F6342;
-    --success-surface: #F1F5EF;
-    --success-border:  #DCE6D7;
+    --success:         #1E6B45;
+    --success-surface: #E8F6EE;
+    --success-border:  #BFE3CE;
 
-    --warning:         #7A5B28;
-    --warning-surface: #FCF7EC;
-    --warning-border:  #EDE2CE;
+    --warning:         #8A5A00;
+    --warning-surface: #FDF3E0;
+    --warning-border:  #F0DBB0;
 
-    --danger:          #98342A;
-    --danger-surface:  #FDF3F1;
-    --danger-border:   #F0DAD5;
+    --danger:          #B3261E;
+    --danger-surface:  #FDECEA;
+    --danger-border:   #F6C9C4;
+
+    /* Okuma akisindaki kaynak renkleri. Markanin saf tonu (HN #FF6600,
+       Reddit #FF4500) beyaz uzerinde 3:1'in altinda kaliyor; metin olarak
+       kullanilabilsin diye koyulastirildi. */
+    --feed-rss:        #1E7A4C;
+    --feed-hn:         #C25708;
+    --feed-reddit:     #C7300B;
+    --feed-gh:         #3B4048;
+
+    /* Emek haritasi basamaklari (0 = bos gun). */
+    --heat-0:          #E4E7EC;
+    --heat-1:          #C8DCF8;
+    --heat-2:          #8FB6EE;
+    --heat-3:          #4E86DF;
+    --heat-4:          #1F5FD0;
 
     color-scheme: light;
   }
 
   [data-theme="dark"] {
-    --canvas:          #141310;
-    --surface:         #1C1B17;
-    --surface-sunken:  #24221D;
-    --surface-hover:   #26241F;
+    --canvas:          #0E0F12;
+    --surface:         #17191D;
+    --surface-sunken:  #1E2126;
+    --surface-hover:   #23262C;
 
-    --border:          #33302A;
-    --border-strong:   #443F37;
+    --border:          #2A2E35;
+    --border-strong:   #3C424C;
 
-    --text:            #F5F2EC;  /* 16.6:1 / canvas */
-    --text-secondary:  #B3AC9F;  /*  8.4:1 / canvas */
-    --text-muted:      #8F887B;  /*  5.3:1 / canvas */
-    --icon:            #8F887B;
+    --text:            #F2F4F7;  /* 17.1:1 / canvas */
+    --text-secondary:  #AEB6C2;  /*  8.5:1 / canvas */
+    --text-muted:      #8B94A1;  /*  5.5:1 / canvas */
+    --icon:            #7E8794;
 
-    --accent:          #C99368;  /*  7.0:1 / canvas */
-    --accent-surface:  #2A211A;
-    --accent-border:   #3D3126;
+    --accent:          #6FA8FF;
+    --accent-surface:  #14213A;
+    --accent-border:   #26406B;
 
-    --success:         #8FB07C;
-    --success-surface: #1D241A;
-    --success-border:  #2C3527;
+    --success:         #6FCF97;
+    --success-surface: #13251B;
+    --success-border:  #24402F;
 
-    --warning:         #D3AC63;
-    --warning-surface: #2A2317;
-    --warning-border:  #3D3320;
+    --warning:         #E0B060;
+    --warning-surface: #2A2113;
+    --warning-border:  #45351C;
 
-    --danger:          #D98878;
-    --danger-surface:  #2A1B18;
-    --danger-border:   #3D2622;
+    --danger:          #F08A7C;
+    --danger-surface:  #2B1815;
+    --danger-border:   #472521;
+
+    --feed-rss:        #5FD39A;
+    --feed-hn:         #FF9A57;
+    --feed-reddit:     #FF7A52;
+    --feed-gh:         #AFB6C0;
+
+    --heat-0:          #1E2126;
+    --heat-1:          #1E3A63;
+    --heat-2:          #2E5896;
+    --heat-3:          #4A7FCB;
+    --heat-4:          #6FA8FF;
 
     color-scheme: dark;
   }
@@ -111,6 +137,32 @@
   ::selection { background: var(--accent-surface); color: var(--text); }
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-areas: "main" "left" "right";
+  gap: 1.25rem;
+}
+
+.dashboard-main { grid-area: main; min-width: 0; }
+.dashboard-left { grid-area: left; min-width: 0; }
+.dashboard-right { grid-area: right; min-width: 0; }
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-areas: "main left" "main right";
+    align-items: start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .dashboard-grid {
+    grid-template-columns: 300px minmax(0, 1fr) 300px;
+    grid-template-areas: "left main right";
+    align-items: start;
+  }
+}
+
 @layer components {
   /* Bolum basligi: "BEKLEYENLER" gibi kucuk kapitaller. */
   .label-caps {
@@ -122,4 +174,47 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
+  /* RSS okuma bolmesi icerik tipografisi — feed HTML'i icin. */
+  .article-content {
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .article-content h1,
+  .article-content h2,
+  .article-content h3 {
+    font-family: "Newsreader Variable", Newsreader, Georgia, serif;
+    color: var(--text);
+    line-height: 1.3;
+    margin: 1.4em 0 0.5em;
+  }
+  .article-content h1 { font-size: 1.5em; }
+  .article-content h2 { font-size: 1.25em; }
+  .article-content h3 { font-size: 1.1em; }
+  .article-content p { margin: 0.8em 0; }
+  .article-content a { color: var(--accent); text-decoration: underline; }
+  .article-content img { max-width: 100%; height: auto; border-radius: 5px; }
+  .article-content pre {
+    overflow-x: auto;
+    padding: 0.8em 1em;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface-sunken);
+    font-size: 12.5px;
+  }
+  .article-content code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+  }
+  .article-content pre code { background: transparent; padding: 0; }
+  .article-content blockquote {
+    margin: 1em 0;
+    padding-left: 1em;
+    border-left: 2px solid var(--border-strong);
+    color: var(--text-secondary);
+  }
+  .article-content ul,
+  .article-content ol { margin: 0.8em 0; padding-left: 1.6em; }
+  .article-content table { border-collapse: collapse; margin: 1em 0; }
+  .article-content th,
+  .article-content td { border: 1px solid var(--border); padding: 0.4em 0.7em; }
 }

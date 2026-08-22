@@ -26,3 +26,8 @@ class PomodoroSession(EntityBacked, Base):
         PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="SET NULL"))
     topic: Mapped[str | None] = mapped_column(Text)
     interrupted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    #: Duraklatildiysa duraklama ani; devam edilince tekrar NULL olur.
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: Bu seansta duraklamada gecen TOPLAM saniye. Kalan sure bundan cikarilir.
+    paused_s: Mapped[int] = mapped_column(Integer, nullable=False, default=0,
+                                          server_default="0")

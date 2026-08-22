@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, cx, relativeTime } from "@/core/ui";
+import { Badge, Button, Empty, PageFrame, PageHeader, Section, Toolbar, cx, relativeTime } from "@/core/ui";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
+import { Heatmap } from "./Heatmap";
 import { ALERT_VERBS, describe } from "./verbs";
 
 function dayKey(iso: string): string {
@@ -33,12 +34,15 @@ export function ActivityPage() {
   const problems = health.filter((s) => s.status !== "ok");
 
   return (
-    <div className="p-6">
-      <header className="mb-4 flex items-center justify-between">
+    <PageFrame className="space-y-5">
+      <PageHeader eyebrow="Sistem" title="Etkinlik" />
+      <Heatmap />
+      <Toolbar>
         <Button variant={onlyAlerts ? "primary" : "ghost"} onClick={() => setOnlyAlerts((v) => !v)}>
-          sadece uyarilar
+          Sadece uyarılar
         </Button>
-      </header>
+        <span className="ml-auto text-meta text-muted">{events.length} hareket</span>
+      </Toolbar>
 
       {problems.length > 0 && (
         <div className="mb-4 rounded border border-warn-border bg-warn-surface p-3">
@@ -60,31 +64,22 @@ export function ActivityPage() {
         <Empty>Henüz kayıt yok.</Empty>
       ) : (
         Object.entries(days).map(([day, dayEvents]) => (
-          <section key={day} className="mb-6">
-            <h2 className="mb-2 text-meta uppercase tracking-wide text-muted">{day}</h2>
-            <ul>
-              {dayEvents.map((event, index) => {
-                const first = index === 0;
-                const last = index === dayEvents.length - 1;
+          <Section key={day} title={day}>
+            <ul className="relative ml-1 border-l border-strong">
+              {dayEvents.map((event) => {
                 const alert = ALERT_VERBS.has(event.verb)
                   || (event.verb === "source_sync.completed" && Number(event.payload.errors ?? 0) > 0);
                 return (
-                  <li key={event.id} className="flex min-h-10 text-body">
-                    <span className="relative w-7 shrink-0" aria-hidden>
-                      {!first && (
-                        <span className="absolute left-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-strong" />
-                      )}
-                      {!last && (
-                        <span className="absolute bottom-0 left-1/2 h-1/2 w-px -translate-x-1/2 bg-strong" />
-                      )}
+                  <li key={event.id} className="relative min-h-10 py-2 pl-5 text-body">
+                    <span className="absolute -left-[5px] top-[15px]" aria-hidden>
                       <span
                         className={cx(
-                          "absolute left-1/2 top-1/2 z-[1] h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-[3px] ring-canvas",
+                          "block h-2.5 w-2.5 rounded-full ring-[3px] ring-canvas",
                           alert ? "bg-warn" : "bg-strong",
                         )}
                       />
                     </span>
-                    <div className="min-w-0 flex-1 py-2 pl-2">
+                    <div className="min-w-0">
                       <span className={cx(alert ? "text-warn" : "text-secondary")}>
                         {describe(event.verb, event.payload)}
                       </span>
@@ -99,9 +94,9 @@ export function ActivityPage() {
                 );
               })}
             </ul>
-          </section>
+          </Section>
         ))
       )}
-    </div>
+    </PageFrame>
   );
 }

@@ -4,7 +4,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Tag, Trash2 } from "lucide-react";
-import { Badge, Button, Empty, IconButton, Input, Kbd, Panel, cx, hostOf, relativeTime, useToast } from "@/core/ui";
+import { Badge, Button, Empty, IconButton, Input, Kbd, PageFrame, PageHeader, RowList, Section, Toolbar, cx, hostOf, relativeTime, useToast } from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";
@@ -54,8 +54,8 @@ function InboxCard({
       onFocus={onSelect}
       onClick={onSelect}
       className={cx(
-        "rounded-card border bg-surface p-3 transition",
-        selected ? "border-strong ring-1 ring-accent" : "border-subtle",
+        "group min-w-0 px-1 py-3 transition hover:bg-surface-hover",
+        selected ? "bg-accent-surface ring-1 ring-inset ring-accent" : "",
         isDragging && "opacity-40",
       )}
     >
@@ -205,7 +205,7 @@ function QuickCapture() {
 
   return (
     <form
-      className="mb-4 flex gap-2"
+      className="flex w-full flex-wrap gap-2"
       onSubmit={(e) => {
         e.preventDefault();
         if (url.trim()) capture.mutate();
@@ -215,13 +215,13 @@ function QuickCapture() {
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="https://..."
-        className="flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
+        className="min-w-48 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
       />
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Başlık (isteğe bağlı)"
-        className="w-56 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
+        className="min-w-44 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none sm:max-w-64 focus:border-accent"
       />
       <Button type="submit" variant="primary" disabled={!online || capture.isPending}>
         Kaydet
@@ -308,7 +308,7 @@ export function InboxPage() {
   }
 
   /** Liste uzerindeki kisayollar. Kart odaktayken calisir. */
-  function onListKeyDown(event: React.KeyboardEvent<HTMLUListElement>) {
+  function onListKeyDown(event: React.KeyboardEvent<HTMLElement>) {
     if (!selectedId) return;
     const index = data.findIndex((b) => b.id === selectedId);
     const key = event.key;
@@ -324,12 +324,9 @@ export function InboxPage() {
   }
 
   return (
-    <div className="p-6">
-      <header className="mb-4 flex items-baseline justify-between">
-        <span className="text-meta text-muted">{data.length} kayıt</span>
-      </header>
-
-      <QuickCapture />
+    <PageFrame className="space-y-5">
+      <PageHeader eyebrow="Kaynaklar" title="Gelen Kutusu" />
+      <Toolbar><QuickCapture /></Toolbar>
 
       <DndContext
         sensors={sensors}
@@ -337,14 +334,15 @@ export function InboxPage() {
         onDragCancel={() => setDragging(null)}
         onDragEnd={onDragEnd}
       >
-        <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
-          <div>
+        <div className="grid min-w-0 divide-y divide-subtle border-y border-subtle lg:grid-cols-[minmax(0,1fr)_240px] lg:divide-x lg:divide-y-0">
+          <div className="min-w-0 py-3 lg:pr-4">
+            <div className="mb-2 flex items-center justify-between"><span className="label-caps">Bekleyenler</span><span className="text-meta text-muted">{data.length} kayıt</span></div>
             {isLoading ? (
               <p className="text-body text-muted">Yükleniyor…</p>
             ) : data.length === 0 ? (
               <Empty>Gelen kutusu boş. Tarayıcıdan Ctrl+Shift+S ile kaydet.</Empty>
             ) : (
-              <ul className="space-y-2" onKeyDown={onListKeyDown}>
+              <RowList as="ul" onKeyDown={onListKeyDown}>
                 {data.map((bookmark) => (
                   <InboxCard
                     key={bookmark.id}
@@ -358,14 +356,14 @@ export function InboxPage() {
                     }}
                   />
                 ))}
-              </ul>
+              </RowList>
             )}
           </div>
 
-          <Panel
+          <Section
             title="Taşı"
             action={<span className="text-meta text-muted">{selectedId ? "1 kart seçili" : "önce kart seç"}</span>}
-            className="h-fit"
+            className="h-fit py-3 lg:pl-4"
           >
             <div className="space-y-2">
               {TARGETS.map((collection, index) => (
@@ -393,7 +391,7 @@ export function InboxPage() {
             <p className="mt-3 text-meta text-muted">
               Taşıma tek UPDATE’tir; link ve event kayıtları kopmaz.
             </p>
-          </Panel>
+          </Section>
         </div>
 
         <DragOverlay>
@@ -404,6 +402,6 @@ export function InboxPage() {
           )}
         </DragOverlay>
       </DndContext>
-    </div>
+    </PageFrame>
   );
 }

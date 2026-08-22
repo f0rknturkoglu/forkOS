@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink, MapPin, RotateCcw, Search, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, Input, SectionHeader, cx, useToast } from "@/core/ui";
+import { Badge, Button, Empty, Input, PageFrame, PageHeader, RowList, Section, Toolbar, cx, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { navigate } from "@/app/router";
 import type { Opportunity } from "@/core/types";
@@ -68,50 +68,33 @@ function OpportunityCard({
 
   return (
     <article className={cx(
-      "flex flex-col gap-2.5 rounded-card border bg-surface p-3.5 transition hover:border-strong",
-      band === "killed" ? "border-subtle opacity-60" : "border-subtle",
+      "group grid min-w-0 grid-cols-[52px_minmax(0,1fr)] gap-3 px-1 py-3 transition hover:bg-surface-hover sm:grid-cols-[58px_minmax(0,1fr)_auto]",
+      band === "killed" && "opacity-60",
     )}>
-      <div className="flex items-start gap-2">
-        <Badge tone="neutral">{kindLabel(item.kind)}</Badge>
-        {band && (
-          <Badge tone={SCORE_TONE[band]}>
-            {band === "killed" ? SCORE_LABEL.killed : `${Math.round(item.score as number)} · ${SCORE_LABEL[band]}`}
-          </Badge>
-        )}
-        <span className="flex-1" />
-        {item.remote && <span className="shrink-0 text-meta text-muted">{item.remote}</span>}
+      <div className="text-center">
+        <div className={cx(
+          "numeral text-[24px] leading-none",
+          band === "strong" ? "text-ok" : band === "fair" ? "text-accent" : band === "killed" ? "text-danger" : "text-muted",
+        )}>
+          {item.score === null ? "—" : Math.round(item.score)}
+        </div>
+        <span className="text-[10px] uppercase tracking-wide text-muted">skor</span>
       </div>
-
-      <button
-        type="button"
-        onClick={onOpen}
-        className="text-left text-heading leading-snug text-primary transition hover:text-accent"
-      >
-        <span className="line-clamp-2">{item.title}</span>
-      </button>
-
-      <div className="flex flex-col gap-1 text-meta text-muted">
-        {item.organization && <span className="truncate text-secondary">{item.organization}</span>}
-        {item.location && (
-          <span className="flex items-center gap-1.5 truncate">
-            <MapPin size={12} className="shrink-0 text-icon" />
-            {item.location}
-          </span>
-        )}
-        <span className="truncate">{sourceLabel(item.source)}</span>
+      <div className="min-w-0">
+        <button type="button" onClick={onOpen} className="block max-w-full text-left text-heading leading-snug text-primary transition hover:text-accent">
+          <span className="line-clamp-2">{item.title}</span>
+        </button>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
+          {item.organization && <span className="truncate text-secondary">{item.organization}</span>}
+          {item.location && <span className="inline-flex items-center gap-1"><MapPin size={12} />{item.location}</span>}
+          <Badge>{kindLabel(item.kind)}</Badge>
+          <span>{sourceLabel(item.source)}</span>
+          {item.remote && <span>{item.remote}</span>}
+          {band && <Badge tone={SCORE_TONE[band]}>{SCORE_LABEL[band]}</Badge>}
+          {left !== null && <span className={urgent ? "text-warn" : "text-secondary"}>{left < 0 ? `${Math.abs(left)} gün geçti` : left === 0 ? "Son gün" : `${left} gün kaldı`}</span>}
+        </div>
       </div>
-
-      {left !== null && (
-        <p className={cx("text-meta", urgent ? "text-warn" : "text-secondary")}>
-          {left < 0
-            ? `Son tarih ${Math.abs(left)} gün önce geçti`
-            : left === 0
-              ? "Son gün bugün"
-              : `Son tarihe ${left} gün`}
-        </p>
-      )}
-
-      <div className="mt-auto flex items-center gap-2 border-t border-subtle pt-2.5">
+      <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1 sm:justify-end">
         {isTrash ? (
           <>
             <Button size="sm" onClick={onRestore} disabled={disabled}>
@@ -273,10 +256,11 @@ export function OpportunityPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <PageFrame className="space-y-5">
+      <PageHeader eyebrow="Takip" title="Fırsatlar" />
 
       {/* ── Arama ve eylemler ── */}
-      <div className="flex flex-wrap items-center gap-3">
+      <Toolbar className="sticky top-0 z-10 bg-canvas/95 backdrop-blur">
         <div className="relative min-w-[260px] flex-1">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon" />
           <Input
@@ -287,10 +271,10 @@ export function OpportunityPage() {
             className="w-full pl-9"
           />
         </div>
+        <span className="min-w-2 flex-1" />
         <SourcePicker />
-      </div>
-
-      <SyncProgress compact />
+        <SyncProgress compact />
+      </Toolbar>
 
       {/* ── Ana fırsat sekmeleri ── */}
       <nav className="flex flex-wrap gap-2" aria-label="Fırsat türleri">
@@ -317,8 +301,7 @@ export function OpportunityPage() {
       </nav>
 
       {/* ── Durum süzgeci ── */}
-      <section>
-        <SectionHeader label="Durum" />
+      <Section title="Durum">
         <div className="flex flex-wrap gap-2">
           <FilterChip
             label="Hepsi" count={data.length}
@@ -334,11 +317,10 @@ export function OpportunityPage() {
             />
           ))}
         </div>
-      </section>
+      </Section>
 
       {/* ── Sıralama ── */}
-      <section>
-        <SectionHeader label="Sıralama" />
+      <Section title="Sıralama">
         <div className="flex flex-wrap items-center gap-2">
           {([
             ["score", "En uygun"],
@@ -374,16 +356,15 @@ export function OpportunityPage() {
             </label>
           )}
         </div>
-      </section>
+      </Section>
 
       {/* ── Kartlar ── */}
-      <section>
-        <SectionHeader
-          label="Fırsatlar"
+      <Section
+          title="Fırsatlar"
           hint={filtered.length === data.length
             ? `${data.length} kayıt`
             : `${filtered.length} / ${data.length} kayıt`}
-        />
+        >
 
         {isLoading ? (
           <p className="py-8 text-center text-meta text-muted">Yükleniyor…</p>
@@ -401,7 +382,7 @@ export function OpportunityPage() {
           </Empty>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <RowList>
               {visible.map((item) => (
                 <OpportunityCard
                   key={item.id}
@@ -415,7 +396,7 @@ export function OpportunityPage() {
                   onDelete={() => permanentlyDelete(item)}
                 />
               ))}
-            </div>
+            </RowList>
 
             {filtered.length > visible.length && (
               <div className="mt-5 flex items-center justify-center gap-3">
@@ -429,9 +410,9 @@ export function OpportunityPage() {
             )}
           </>
         )}
-      </section>
+      </Section>
 
       {selected && <OpportunityDetail id={selected} close={() => setSelected(null)} />}
-    </div>
+    </PageFrame>
   );
 }

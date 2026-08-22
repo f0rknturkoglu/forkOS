@@ -1,83 +1,88 @@
-import type { ComponentType } from "react";
-import { allTodayStats, todayWidgetsIn } from "@/core/registry";
-import { Empty, SectionHeader } from "@/core/ui";
+import type { ReactNode } from "react";
+import { allTodayStats, allTodayWidgetsIn } from "@/core/registry";
+import { Empty, PageFrame } from "@/core/ui";
+import { TodayHero } from "./TodayHero";
 
 /**
- * Today hicbir modulu bilmez. Widget'lar registry'den gelir; hangi bolgeye
- * dusecekleri modulun kendi kaydinda yazar (todayWidgets: [{ component, zone }]).
+ * Bugun = panel + gunluk gorevler. Uc sutun, her birinin tek bir isi var:
  *
- * Uc bolge -- sayfanin agirligi yukaridan asagi azalir:
- *   Su an       tek satirda suren is, siradaki blok, bugunun gorevleri
- *   Bekleyenler islenmeyi bekleyen yiginlar; once sayilar, sonra detay
- *   Ritim       alistirmalar, degerlendirme, gecmis
+ *   sol  "Plan"  — bugun ne yapacaksin: takvim, gorevler, odak, alistirma
+ *   orta "Akış"  — ne oluyor: Hacker News, Reddit, RSS, GitHub
+ *   sag  "Durum" — bekleyen ve olculen: hava, son tarih, gelen kutusu, sunucu
+ *
+ * Saat, hava ve gunun sayilari tek ust kutuda (TodayHero) -- yerleri modul
+ * eklendikce kaymasin ve panelin ustunde ust uste bant olusmasin diye. Sutunlar registry'den beslenir: modul `slot` der, burasi
+ * hicbir modulun adini bilmez.
  */
 
-function Zone({
-  label, hint, widgets, columns, children,
-}: {
-  label: string;
-  hint?: string;
-  widgets: ComponentType[];
-  columns: string;
-  children?: React.ReactNode;
-}) {
-  if (widgets.length === 0 && !children) return null;
-  return (
-    <section>
-      <SectionHeader label={label} hint={hint} />
-      {children}
-      {widgets.length > 0 && (
-        <div className={`grid gap-4 ${columns}`}>
-          {widgets.map((Widget, i) => <Widget key={i} />)}
-        </div>
-      )}
-    </section>
-  );
-}
+const COLUMN_LABELS = { left: "Plan", center: "Akış", right: "Durum" } as const;
 
 export function TodayPage() {
   const stats = allTodayStats();
-  const now = todayWidgetsIn("now");
-  const pending = todayWidgetsIn("pending");
-  const rhythm = todayWidgetsIn("rhythm");
-  const empty = stats.length + now.length + pending.length + rhythm.length === 0;
+  const left = allTodayWidgetsIn("left");
+  const center = allTodayWidgetsIn("center");
+  const right = allTodayWidgetsIn("right");
+  const empty = stats.length + left.length + center.length + right.length === 0;
 
   if (empty) {
     return (
-      <div className="p-8">
-        <Empty variant="page" title="Bugün ekranı boş">
-          Hiçbir modül Today’e widget vermiyor. Ayarlar’dan modülleri açabilir,
-          ya da bir modülün kaydına <code className="font-mono text-meta">todayWidgets</code> ekleyebilirsin.
+      <PageFrame>
+        <TodayHero />
+        <Empty variant="page" title="Panel boş">
+          Hiçbir modül widget vermiyor. Ayarlar'dan modülleri açabilirsin.
         </Empty>
-      </div>
+      </PageFrame>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8 p-8">
-      <Zone
-        label="Şu an"
-        widgets={now}
-        columns="md:grid-cols-2 xl:grid-cols-3"
-      />
+    <DashboardLayout
+      hero={<TodayHero metrics={stats.map((Tile, index) => <Tile key={index} />)} />}
+      center={center.map((Widget, index) => <Widget key={index} />)}
+      left={left.map((Widget, index) => <Widget key={index} />)}
+      right={right.map((Widget, index) => <Widget key={index} />)}
+      labelled
+    />
+  );
+}
 
-      <Zone
-        label="Bekleyenler"
-        widgets={pending}
-        columns="md:grid-cols-2 xl:grid-cols-3"
-      >
-        {stats.length > 0 && (
-          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {stats.map((Tile, i) => <Tile key={i} />)}
-          </div>
-        )}
-      </Zone>
+/** Sutun basligi -- sadece sutunlarin ayristigi genislikte gorunur. */
+function ColumnLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="label-caps hidden border-b border-subtle pb-1.5 md:block">{children}</p>
+  );
+}
 
-      <Zone
-        label="Ritim"
-        widgets={rhythm}
-        columns="md:grid-cols-2 xl:grid-cols-3"
-      />
-    </div>
+export function DashboardLayout({
+  hero,
+  center,
+  left,
+  right,
+  labelled = false,
+}: {
+  hero?: ReactNode;
+  center: ReactNode[];
+  left: ReactNode[];
+  right: ReactNode[];
+  labelled?: boolean;
+}) {
+  return (
+    <PageFrame>
+      {hero}
+      <div className="dashboard-grid">
+        <main className="dashboard-main space-y-5">
+          {labelled && center.length > 0 && <ColumnLabel>{COLUMN_LABELS.center}</ColumnLabel>}
+          {center}
+        </main>
+        <aside className="dashboard-left space-y-5">
+          {labelled && left.length > 0 && <ColumnLabel>{COLUMN_LABELS.left}</ColumnLabel>}
+          {left}
+        </aside>
+        <aside className="dashboard-right space-y-5">
+          {labelled && right.length > 0 && <ColumnLabel>{COLUMN_LABELS.right}</ColumnLabel>}
+          {right}
+        </aside>
+      </div>
+    </PageFrame>
   );
 }

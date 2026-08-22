@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.links import link
 from app.db import get_session
 from app.integrations.models import OAuthToken
-from app.modules.project import github, service
+from app.modules.project import github, github_repo, service
 from app.modules.project.models import GithubActivity, Milestone, Project
 from app.modules.project.schemas import (
     GithubCredentialsIn,
+    IssueToTodoIn,
     MilestoneIn,
     MilestonePatch,
     ProjectIn,
@@ -41,6 +43,17 @@ async def patch_project(
     if result is None:
         raise HTTPException(404)
     return result
+
+
+@router.delete("/projects/{project_id}", status_code=204)
+async def delete_project(project_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Projeyi siler.
+
+    Kilometre taslari ve link'ler cascade ile gider; PROJEYE BAGLI GOREVLER
+    KALIR -- is bitmedigi icin projenin kapanmasi gorevleri yok etmemeli.
+    """
+    if not await service.delete(session, project_id):
+        raise HTTPException(404)
 
 
 @router.post("/projects/{project_id}/milestones", status_code=201)
@@ -77,6 +90,18 @@ async def delete_milestone(milestone_id: uuid.UUID, session: AsyncSession = Depe
 @router.get("/projects/{project_id}/todos")
 async def project_todos(project_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
     return await service.project_todos(session, project_id)
+
+
+@router.get("/projects/{project_id}/timeline")
+async def project_timeline(
+    project_id: uuid.UUID,
+    limit: int = 60,
+    session: AsyncSession = Depends(get_session),
+):
+    """Projede ne olduysa -- kendi olaylari, gorev olaylari, commit'ler."""
+    if await session.get(Project, project_id) is None:
+        raise HTTPException(404)
+    return await service.timeline(session, project_id, limit)
 
 
 @router.post("/projects/{project_id}/todos", status_code=201)
@@ -127,3 +152,69 @@ async def github_activity(session: AsyncSession = Depends(get_session)):
             )
         ).scalars()
     )
+
+
+def _github_error(exc: httpx.HTTPStatusError) -> str:
+    """GitHub'in kendi aciklamasini yuzeye cikar (404 mu, limit mi, yetki mi)."""
+    try:
+        detail = exc.response.json().get("message", "")
+    except ValueError:
+        detail = exc.response.text[:200]
+    if exc.response.status_code == 403 and "rate limit" in detail.lower():
+        detail += (" — Ayarlar'dan GitHub kişisel token'ı bağlarsan"
+                   " limit 60/saatten 5000/saate çıkar.")
+    return f"GitHub {exc.response.status_code}: {detail}"
+
+
+async def _github_token(session: AsyncSession) -> str | None:
+    row = await session.get(OAuthToken, "github")
+    return row.access_token if row else None
+
+
+@router.get("/projects/{project_id}/github")
+async def project_github(
+    project_id: uuid.UUID,
+    refresh: bool = False,
+    session: AsyncSession = Depends(get_session),
+):
+    """Projeye bagli deponun paneli: ozet, acik issue/PR, son commit'ler."""
+    project = await session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(404)
+    if not project.github_repo:
+        raise HTTPException(400, "Bu projeye bagli bir GitHub deposu yok")
+    try:
+        return await github_repo.overview(
+            project.github_repo, await _github_token(session), refresh=refresh
+        )
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(502, _github_error(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, f"GitHub'a ulasilamadi: {exc}") from exc
+
+
+@router.post("/projects/{project_id}/github/issues", status_code=201)
+async def issue_to_todo(
+    project_id: uuid.UUID,
+    body: IssueToTodoIn,
+    session: AsyncSession = Depends(get_session),
+):
+    """GitHub issue'sunu gorev yapar ve projeye baglar.
+
+    Ayni issue ikinci kez gonderilirse yeni gorev acilmaz -- mevcut gorev
+    doner. Boylece "gorev olustur" dugmesine iki kez basmak sorun degil.
+    """
+    project = await session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(404)
+    if not project.github_repo:
+        raise HTTPException(400, "Bu projeye bagli bir GitHub deposu yok")
+
+    try:
+        detail = await github_repo.issue(
+            project.github_repo, body.number, await _github_token(session)
+        )
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(502, _github_error(exc)) from exc
+
+    return await service.todo_from_issue(session, project, detail)

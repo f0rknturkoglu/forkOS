@@ -3,14 +3,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+import httpx
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.modules.system import backup, export
+from app.modules.system import backup, export, news, restore, stats
 from app.modules.system.models import Setting
 
 router = APIRouter(tags=["system"])
@@ -18,11 +19,12 @@ router = APIRouter(tags=["system"])
 DEFAULTS: dict[str, Any] = {
     "modules.disabled": [],
     "today.widget_order": [],
-    "pomodoro.defaults": {"focus": 25, "short": 5, "long": 15},
+    "pomodoro.defaults": {"focus": 50, "short": 10, "long": 20},
     "notifications.thresholds": {},
     "sources.intervals": {},
     "rss.retention_days": 90,
     "media.links": [],
+    "news.subreddits": news.DEFAULT_SUBREDDITS,
     "theme": "dark",
 }
 
@@ -98,3 +100,106 @@ async def export_ics(session: AsyncSession = Depends(get_session)):
 async def run_backup(session: AsyncSession = Depends(get_session)):
     path = await backup.create_backup(session)
     return {"path": str(path), "size": path.stat().st_size}
+
+
+@router.get("/system/stats")
+async def system_stats():
+    """Panel icin sunucu sagligi: CPU, RAM, disk, uptime.
+
+    Harici bagimliliksiz -- /proc okunur. forkOS'un uzerinde kostugu
+    makineyi (Linux VM ya da host) yansitir, tek bir container'i degil.
+
+    CPU yuzdesi /proc/stat farkindan hesaplanir. Onceden `loadavg[0]/cekirdek`
+    gosteriliyordu; o bir kuyruk uzunlugu orani, kullanim yuzdesi degil --
+    bos bir makinede bile yuksek, tam dolu bir makinede bile dusuk cikabilir.
+    """
+    import os
+
+    load: list[float] = []
+    try:
+        load = [float(x) for x in open("/proc/loadavg").read().split()[:3]]
+    except OSError:
+        pass
+
+    mem: dict[str, int] = {}
+    try:
+        with open("/proc/meminfo") as handle:
+            for line in handle:
+                key, _, rest = line.partition(":")
+                if key in ("MemTotal", "MemAvailable"):
+                    mem[key] = int(rest.strip().split()[0])  # kB
+    except OSError:
+        pass
+
+    disk: dict = {}
+    disk_path = os.getenv("STATS_DISK_PATH", "/app")
+    try:
+        stat = os.statvfs(disk_path)
+        disk = {"total": stat.f_blocks * stat.f_frsize,
+                "free": stat.f_bavail * stat.f_frsize,
+                "path": disk_path}
+    except OSError:
+        pass
+
+    uptime_s = 0.0
+    try:
+        uptime_s = float(open("/proc/uptime").read().split()[0])
+    except OSError:
+        pass
+
+    return {
+        "cpu_pct": stats.cpu_percent(),
+        "load": load,
+        "cpu_count": os.cpu_count() or 1,
+        "mem_total_kb": mem.get("MemTotal"),
+        "mem_available_kb": mem.get("MemAvailable"),
+        "disk": disk,
+        "uptime_s": uptime_s,
+    }
+
+
+@router.get("/backup/status")
+async def backup_status(session: AsyncSession = Depends(get_session)):
+    """Son yedek, Drive yukleme durumu ve yedek kapsami -- tek bakisla."""
+    return await backup.backup_status(session)
+
+
+@router.post("/backup/restore")
+async def restore_backup(
+    file: UploadFile = File(...), session: AsyncSession = Depends(get_session),
+):
+    """JSON yedegini geri yukler.
+
+    Idempotent + cakismasiz: var olan kayitlara dokunulmaz, eksikler eklenir.
+    Ayni yedek defalarca yuklenebilir. (Opsiyonel: Yerel dosyayla cagirilir.)
+    """
+    content = await file.read()
+    try:
+        payload = restore.parse_backup(content)
+    except (ValueError, json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(422, f"yedek okunamadi: {exc}") from exc
+    try:
+        summary = await restore.restore(session, payload)
+    except Exception as exc:
+        raise HTTPException(500, f"geri yukleme hatasi: {type(exc).__name__}: {exc}") from exc
+    restored = sum(entry.get("inserted", 0) for entry in summary.values())
+    return {"restored": restored, "tables": summary}
+
+
+@router.get("/news/reddit")
+async def reddit_news(
+    limit: int = Query(12, ge=1, le=40),
+    session: AsyncSession = Depends(get_session),
+):
+    """Bugun panelindeki reddit akisi -- tech/CS subredditleri.
+
+    Sunucudan cekilir: reddit tarayiciya 403 doner (bkz. news.py).
+    Kaynak listesi "news.subreddits" ayarindan; yoksa varsayilanlar.
+    """
+    setting = await session.get(Setting, "news.subreddits")
+    value = setting.value if setting and isinstance(setting.value, list) else None
+    subs = [str(s) for s in (value or news.DEFAULT_SUBREDDITS)]
+    try:
+        return await news.reddit_posts(subs, limit)
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, f"reddit okunamadi: {exc}") from exc

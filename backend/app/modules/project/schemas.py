@@ -45,6 +45,10 @@ class TodoLinkIn(BaseModel):
     todo_id: uuid.UUID
 
 
+class IssueToTodoIn(BaseModel):
+    number: int = Field(ge=1)
+
+
 class GithubCredentialsIn(BaseModel):
     login: str = Field(min_length=1)
     token: str = Field(min_length=1)

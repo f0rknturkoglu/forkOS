@@ -7,7 +7,7 @@ from datetime import date
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity, touch_entity
+from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity
@@ -130,3 +130,18 @@ async def pay_recurring(session: AsyncSession, item_id: uuid.UUID) -> dict | Non
     )
     await session.commit()
     return {"expense": await out(session, expense), "next_due_at": payment.next_due_at}
+
+
+async def delete_item(session: AsyncSession, model, item_id: uuid.UUID) -> bool:
+    """Kaydi siler. `event` kalir -- append-only (kural 3)."""
+    item = await session.get(model, item_id)
+    if item is None:
+        return False
+    entity = await session.get(Entity, item_id)
+    title = entity.title if entity else ""
+    if not await delete_entity(session, item_id):
+        return False
+    await log_event(session, verb=f"{model.ENTITY_TYPE}.deleted",
+                    entity_type=model.ENTITY_TYPE, payload={"title": title})
+    await session.commit()
+    return True

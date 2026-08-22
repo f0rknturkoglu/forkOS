@@ -71,3 +71,15 @@ async def pay(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
     if result is None:
         raise HTTPException(404)
     return result
+
+
+@router.delete("/expenses/{item_id}", status_code=204)
+async def delete_expense(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_item(session, Expense, item_id):
+        raise HTTPException(404)
+
+
+@router.delete("/recurring-payments/{item_id}", status_code=204)
+async def delete_recurring(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_item(session, RecurringPayment, item_id):
+        raise HTTPException(404)

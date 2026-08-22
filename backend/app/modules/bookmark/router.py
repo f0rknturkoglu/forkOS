@@ -47,6 +47,7 @@ async def list_bookmarks(
     collection: str | None = None,
     read_status: str | None = None,
     favorite: bool | None = None,
+    source: str | None = None,
     q: str | None = None,
     tag: str | None = None,
     limit: int = Query(50, le=200),
@@ -55,7 +56,7 @@ async def list_bookmarks(
 ):
     return await service.list_bookmarks(
         session, collection=collection, read_status=read_status, favorite=favorite,
-        q=q, tag=tag, limit=limit, offset=offset,
+        source=source, q=q, tag=tag, limit=limit, offset=offset,
     )
 
 

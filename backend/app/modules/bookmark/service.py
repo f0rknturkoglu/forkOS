@@ -226,6 +226,7 @@ async def list_bookmarks(
     collection: str | None = None,
     read_status: str | None = None,
     favorite: bool | None = None,
+    source: str | None = None,
     q: str | None = None,
     tag: str | None = None,
     limit: int = 50,
@@ -242,6 +243,8 @@ async def list_bookmarks(
         stmt = stmt.where(Bookmark.collection == collection)
     if read_status:
         stmt = stmt.where(Bookmark.read_status == read_status)
+    if source:
+        stmt = stmt.where(Bookmark.source == source)
     if favorite is not None:
         stmt = stmt.where(Bookmark.favorite.is_(favorite))
     if q and q.strip():

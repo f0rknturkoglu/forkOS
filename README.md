@@ -119,7 +119,14 @@ kolon eklemeyi unutursan burada patlar.
   bilgisiyle contribution ve son commitler cekilir.
 - `make backup` PostgreSQL dump'i alir. `POST /api/backup` ise
   `backend/backups/` altinda 14 gun saklanan, export edilebilir gzip JSON yedegi uretir.
-  `backup.drive_folder_id` ayarlanirsa ayni dosya Drive'a da yuklenir.
+  `backup.drive_folder_id` ayarlanirsa ayni dosya Drive'a da yuklenir (gece 03:00'te
+  otomatik; durum `GET /api/backup/status` ile izlenir).
+- Makine tasima (macOS -> Windows): Drive'daki `lifeos-*.json.gz` dosyasini indir,
+  yeni makinede `git clone` -> `.env` kopyala -> `make up && make migrate` ->
+  **`POST /api/backup/restore`** (Ayarlar veya Saglik panelindeki "Geri yukle").
+  Restore idempotent ve cakismasizdir: eksik kayitlar eklenir, var olanlara
+  dokunulmaz; entity/link/event + tum modul tablolari + ayarlar + etiketler geri gelir.
+  Google token yedekte bulunmadigi icin yeni makinede "bagla" ile yeniden alinir.
 
 ## Podman notlari
 

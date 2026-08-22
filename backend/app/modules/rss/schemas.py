@@ -33,6 +33,7 @@ class FeedOut(BaseModel):
     title: str
     url: str
     site_url: str | None = None
+    favicon_url: str | None = None
     category: str | None = None
     active: bool
     error_count: int
@@ -51,6 +52,7 @@ class FeedItemOut(BaseModel):
     url: str | None = None
     author: str | None = None
     summary: str | None = None
+    content: str | None = None               # yalnizca detay ucunda dolu
     published_at: datetime | None = None
     fetched_at: datetime
     read_at: datetime | None = None
@@ -72,3 +74,5 @@ class RssStats(BaseModel):
     active_feeds: int
     failing_feeds: int
     unread: int
+    today: int = 0
+    saved: int = 0

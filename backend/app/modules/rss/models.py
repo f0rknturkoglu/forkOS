@@ -28,6 +28,7 @@ class Feed(EntityBacked, Base):
         PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True)
     url: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     site_url: Mapped[str | None] = mapped_column(Text)
+    favicon_url: Mapped[str | None] = mapped_column(Text)     # feed/channel logosu
     category: Mapped[str | None] = mapped_column(String(64))
     etag: Mapped[str | None] = mapped_column(Text)              # conditional GET
     last_modified: Mapped[str | None] = mapped_column(Text)
@@ -50,6 +51,7 @@ class FeedItem(EntityBacked, Base):
     url: Mapped[str | None] = mapped_column(Text)
     author: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
+    content: Mapped[str | None] = mapped_column(Text)          # content:encoded (okuma bolmesi)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now())

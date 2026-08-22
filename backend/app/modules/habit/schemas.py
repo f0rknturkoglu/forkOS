@@ -39,6 +39,10 @@ class HabitOut(BaseModel):
     position: int
     done_today: bool = False
     streak: int = 0
+    #: Bu hafta (pazartesiden bugune) kac gun isaretlendi.
+    week_done: int = 0
+    #: En uzun kesintisiz seri -- "rekorun neydi" sorusu.
+    best_streak: int = 0
 
 
 class HabitGridEntry(BaseModel):

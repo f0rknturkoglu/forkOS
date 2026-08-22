@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Empty, Panel, hostOf } from "@/core/ui";
+import { Empty, RowList, Section, hostOf } from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { Bookmark } from "@/core/types";
 
@@ -12,7 +12,7 @@ export function ReadingQueueWidget() {
   });
 
   return (
-    <Panel
+    <Section
       title="Okuma sırası"
       action={
         <button
@@ -26,17 +26,21 @@ export function ReadingQueueWidget() {
       {data.length === 0 ? (
         <Empty>Okuma listesi boş.</Empty>
       ) : (
-        <ul className="space-y-2">
+        <RowList>
           {data.map((bookmark) => (
-            <li key={bookmark.id} className="truncate text-body text-secondary">
-              <a href={bookmark.url} target="_blank" rel="noreferrer" className="hover:underline">
-                {bookmark.title || bookmark.url}
-              </a>
-              <span className="ml-2 text-meta text-muted">{hostOf(bookmark.url)}</span>
-            </li>
+            <a
+              key={bookmark.id}
+              href={bookmark.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block min-w-0 py-2 hover:text-accent"
+            >
+              <span className="block truncate text-body text-secondary">{bookmark.title || bookmark.url}</span>
+              <span className="block truncate text-meta text-muted">{hostOf(bookmark.url)}</span>
+            </a>
           ))}
-        </ul>
+        </RowList>
       )}
-    </Panel>
+    </Section>
   );
 }

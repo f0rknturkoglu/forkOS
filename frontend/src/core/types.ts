@@ -34,6 +34,40 @@ export interface ActivityEvent {
   occurred_at: string;
 }
 
+/** Emek haritasinin bir gunu. */
+export interface HeatmapDay {
+  day: string;
+  total: number;
+  /** Kategori -> o gunku sayi. Bos gunde bos nesne. */
+  kinds: Record<string, number>;
+}
+
+/** Gun sayfasindaki hareket; `kind` doluysa emek haritasinda sayilmis demektir. */
+export interface DayEvent extends ActivityEvent {
+  kind: string | null;
+}
+
+export interface DayDetail {
+  day: string;
+  events: DayEvent[];
+  kinds: Record<string, number>;
+  labels: Record<string, string>;
+  total: number;
+  /** Sayilmayan (worker gurultusu) hareket sayisi. */
+  other: number;
+}
+
+export interface Heatmap {
+  days: HeatmapDay[];
+  /** Kategori kodu -> Turkce etiket; backend'den gelir. */
+  labels: Record<string, string>;
+  totals: Record<string, number>;
+  total: number;
+  active_days: number;
+  best_day: HeatmapDay | null;
+  streak: number;
+}
+
 export interface Bookmark {
   id: string;
   title: string;
@@ -63,6 +97,7 @@ export interface Feed {
   title: string;
   url: string;
   site_url: string | null;
+  favicon_url: string | null;
   category: string | null;
   active: boolean;
   error_count: number;
@@ -79,10 +114,24 @@ export interface FeedItem {
   url: string | null;
   author: string | null;
   summary: string | null;
+  /** Okuma bolmesi detayinda dolu (liste hafif kalir). */
+  content: string | null;
   published_at: string | null;
   fetched_at: string;
   read_at: string | null;
   saved_bookmark_id: string | null;
+}
+
+/** Bugun panelindeki reddit akisi -- /api/news/reddit'ten gelir. */
+export interface RedditPost {
+  id: string;
+  title: string;
+  /** Gonderi bir baglantiysa hedef URL, self-post ise comments_url ile ayni. */
+  url: string;
+  comments_url: string;
+  subreddit: string | null;
+  author: string;
+  published_at: string | null;
 }
 
 export interface RssStats {
@@ -90,6 +139,8 @@ export interface RssStats {
   active_feeds: number;
   failing_feeds: number;
   unread: number;
+  today: number;
+  saved: number;
 }
 
 export interface Todo {
@@ -103,6 +154,16 @@ export interface Todo {
   completed_at: string | null;
   parent_id: string | null;
   position: number;
+  tags: string[];
+  /** daily | weekdays | weekly | monthly; bos ise tek seferlik. */
+  recur: string | null;
+  /** Gorev bir projeye bagliysa dolu -- listede rozet olarak gorunur. */
+  project_id: string | null;
+  project_title: string | null;
+  milestone_id: string | null;
+  milestone_title: string | null;
+  subtask_total: number;
+  subtask_done: number;
 }
 
 export interface PlanSlot {
@@ -165,6 +226,59 @@ export interface Project {
   milestones: Milestone[];
 }
 
+/** Proje detayindaki GitHub paneli -- /api/projects/{id}/github. */
+export interface GithubIssue {
+  number: number;
+  title: string;
+  url: string;
+  state: string;
+  labels: string[];
+  assignee: string | null;
+  comments: number;
+  created_at: string | null;
+  updated_at: string | null;
+  author: string | null;
+  draft: boolean;
+}
+
+export interface GithubCommit {
+  sha: string;
+  message: string;
+  url: string;
+  author: string | null;
+  committed_at: string | null;
+}
+
+export interface GithubRepoPanel {
+  repo: string;
+  url: string;
+  description: string | null;
+  stars: number;
+  forks: number;
+  watchers: number;
+  language: string | null;
+  open_issues: number;
+  default_branch: string | null;
+  pushed_at: string | null;
+  private: boolean;
+  issues: GithubIssue[];
+  pulls: GithubIssue[];
+  commits: GithubCommit[];
+  /** Token ile mi okundu -- limitin 60/saat mi 5000/saat mi oldugunu soyler. */
+  authenticated: boolean;
+}
+
+/** Proje gunlugu -- /api/projects/{id}/timeline. */
+export interface ProjectEvent {
+  id: number;
+  verb: string;
+  entity_id: string | null;
+  entity_type: string | null;
+  title: string | null;
+  payload: Record<string, unknown>;
+  occurred_at: string;
+}
+
 export interface GithubActivity { day: string; repo: string; commit_count: number }
 
 export interface Expense {
@@ -197,6 +311,10 @@ export interface PomodoroSession {
   context_title: string | null;
   topic: string | null;
   interrupted: boolean;
+  /** Dolu ise seans duraklatilmis -- kalan sure bu ana gore hesaplanir. */
+  paused_at: string | null;
+  /** Duraklamada gecen toplam saniye. */
+  paused_s: number;
 }
 
 export interface PomodoroStats {
@@ -215,6 +333,10 @@ export interface Habit {
   position: number;
   done_today: boolean;
   streak: number;
+  /** Bu hafta (pazartesiden bugune) isaretli gun sayisi. */
+  week_done: number;
+  /** En uzun kesintisiz seri. */
+  best_streak: number;
 }
 
 export interface HabitGridEntry {
@@ -261,6 +383,22 @@ export interface SourceHealth {
   error: string | null;
   started_at: string;
   finished_at: string | null;
+}
+
+export interface BackupStatus {
+  drive_folder_id: string | null;
+  last_backup: {
+    file: string;
+    size: number;
+    at: string;
+    counts: { entities: number; events: number; modules: Record<string, number> };
+  } | null;
+  last_drive_upload: { file: string; at: string } | null;
+  last_drive_error: { message: string; at: string } | null;
+  next_backup_scheduled: string;
+  retention_days: number;
+  backup_dir: string;
+  includes: string[];
 }
 
 export interface SourceSyncBatch {
@@ -310,6 +448,37 @@ export interface Opportunity {
   trashed_from_status: string | null;
 }
 
+export interface MediaItem {
+  id: string;
+  title: string;
+  kind: string;
+  status: string;
+  progress: number | null;
+  total: number | null;
+  score: number | null;
+  notes: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  meta: Record<string, unknown>;
+  created_at: string | null;
+}
+
+export interface MediaStats {
+  total: number;
+  in_progress: number;
+  completed: number;
+  planned: number;
+  by_kind: Record<string, number>;
+}
+
+export interface MetadataResult {
+  title: string;
+  subtitle: string | null;
+  cover_url: string | null;
+  year: number | null;
+  metadata: Record<string, unknown>;
+}
+
 export interface Deadline {
   entity_id: string; type: string; title: string; due_at: string;
   module: string; sub_kind: string | null; priority: number;
@@ -337,9 +506,17 @@ export interface Command {
 /** Sol menudeki gruplar. "pinned" gruplarin ustunde tek basina durur. */
 export type ModuleGroup = "pinned" | "capture" | "do" | "track" | "system";
 
+/**
+ * Ust seritteki gruplar. Adlar emir kipi degil ISIM: "Yakala/Yap" gibi GTD
+ * fiilleri neyin nerede oldugunu soylemiyordu.
+ *   Kaynaklar — disaridan gelen malzeme (gelen kutusu, yer imleri, RSS, belge)
+ *   Planlama  — zamana bagli is (takvim, gorevler, pomodoro, projeler)
+ *   Takip     — duzenli bakilan alanlar (alistirma, finans, firsat, ogrenme)
+ *   Sistem    — uygulamanin kendisi (etkinlik, saglik, ayarlar)
+ */
 export const MODULE_GROUPS: { id: ModuleGroup; label: string }[] = [
-  { id: "capture", label: "Yakala" },
-  { id: "do", label: "Yap" },
+  { id: "capture", label: "Kaynaklar" },
+  { id: "do", label: "Planlama" },
   { id: "track", label: "Takip" },
   { id: "system", label: "Sistem" },
 ];
@@ -355,6 +532,17 @@ export type TodayZone = "now" | "pending" | "rhythm";
 export interface TodayWidget {
   component: ComponentType;
   zone: TodayZone;
+  /**
+   * Panel sutunu: "left" (plan), "center" (akis), "right" (durum).
+   * Verilmezse center.
+   */
+  slot?: "left" | "center" | "right";
+  /**
+   * Sutun icindeki sira; kucuk once. Verilmezse 50.
+   * Bunsuz sira modules/index.ts'teki import sirasina kalirdi -- yani
+   * sidebar sirasini degistirmek panelin duzenini de bozardi.
+   */
+  order?: number;
 }
 
 export interface ModuleSpec {

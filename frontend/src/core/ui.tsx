@@ -49,10 +49,10 @@ export function useTheme(): [Theme, (next: Theme) => void] {
    Yuzeyler
    ══════════════════════════════════════════════════════════════════════ */
 
-/** Duz kart. Bu tasarimda derinlik golge ile degil 1px kenarlikla kurulur. */
+/** Kutu. Derinlik 1px kenarlik + cok hafif kabartmayla kurulur, agir golgeyle degil. */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cx("rounded-card border border-subtle bg-surface", className)}>
+    <div className={cx("rounded-card border border-subtle bg-surface shadow-card", className)}>
       {children}
     </div>
   );
@@ -68,7 +68,7 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cx("rounded-card border border-subtle bg-surface", className)}>
+    <section className={cx("rounded-card border border-subtle bg-surface shadow-card", className)}>
       {(title || action) && (
         <header className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-2.5">
           <h2 className="text-heading text-primary">{title}</h2>
@@ -108,9 +108,16 @@ export function PageHeader({
   );
 }
 
-/** Basligi kart disinda kalan Glance tipi duz icerik bolumu. */
+/**
+ * Icerik bolumu. Varsayilani KUTU: 1px kenarlik + beyaz yuzey + cok hafif
+ * kabartma. Duz yatay ayraclarla kurulan onceki duzende bolumler birbirine
+ * karisiyordu; kutu sinirlari "anca secilen" ama net bir cerceve verir.
+ *
+ * `flat` yalnizca zaten bir kutunun (Surface/Panel/popover) icindeyken --
+ * ic ice kutu cizmemek icin.
+ */
 export function Section({
-  title, hint, action, children, className, bodyClassName,
+  title, hint, action, children, className, bodyClassName, flat = false,
 }: {
   title?: ReactNode;
   hint?: ReactNode;
@@ -118,39 +125,79 @@ export function Section({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  flat?: boolean;
 }) {
+  const head = title || hint || action;
   return (
-    <section className={className}>
-      {(title || hint || action) && (
-        <header className="mb-2.5 flex min-h-5 items-center gap-3">
+    <section
+      className={cx(
+        !flat && "rounded-card border border-subtle bg-surface shadow-card",
+        className,
+      )}
+    >
+      {head && (
+        <header
+          className={cx(
+            "flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 border-b border-subtle",
+            flat ? "mb-2.5 px-0 pb-2" : "px-3.5 py-2",
+          )}
+        >
           {title && <h2 className="label-caps shrink-0 text-secondary">{title}</h2>}
-          <span className="h-px min-w-4 flex-1 bg-subtle" />
+          <span className="min-w-2 flex-1" />
           {hint && <span className="text-meta text-muted">{hint}</span>}
           {action}
         </header>
       )}
-      <div className={bodyClassName}>{children}</div>
+      <div className={cx(!flat && "px-3.5 py-3", bodyClassName)}>{children}</div>
     </section>
   );
 }
 
 /** Yalniz gercek gruplama gerektiren form, pane ve katman yuzeyi. */
 export function Surface({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("rounded-card border border-subtle bg-surface", className)}>{children}</div>;
+  return <div className={cx("rounded-card border border-subtle bg-surface shadow-card", className)}>{children}</div>;
 }
 
 /** Tek tek kart kullanmadan sayisal ozeti yatay ayiraclarla verir. */
 export function MetricStrip({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("grid divide-x divide-subtle border-y border-subtle", className)}>{children}</div>;
+  return (
+    <div
+      className={cx(
+        "grid divide-x divide-subtle overflow-hidden rounded-card border border-subtle bg-surface shadow-card",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
-export function Metric({ label, value, hint }: { label: ReactNode; value: ReactNode; hint?: ReactNode }) {
-  return (
-    <div className="min-w-0 px-3 py-2.5 first:pl-0 last:pr-0 sm:px-4">
-      <div className="numeral truncate text-[24px] leading-none text-primary">{value}</div>
-      <div className="mt-1 truncate text-meta text-secondary">{label}</div>
+export function Metric({
+  label, value, hint, href,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  hint?: ReactNode;
+  /** Verilirse sayi kutusu o sayfaya giden bir baglantiya donusur. */
+  href?: string;
+}) {
+  const body = (
+    <>
+      <div className="numeral truncate text-[24px] leading-none text-primary transition-colors group-hover:text-accent">
+        {value}
+      </div>
+      <div className="mt-1 truncate text-meta text-secondary transition-colors group-hover:text-accent">
+        {label}
+      </div>
       {hint && <div className="truncate text-meta text-muted">{hint}</div>}
-    </div>
+    </>
+  );
+  const shell = "min-w-0 px-3.5 py-3 sm:px-4";
+
+  return href ? (
+    <a href={href} className={cx(shell, "group block")}>{body}</a>
+  ) : (
+    <div className={shell}>{body}</div>
   );
 }
 
@@ -163,9 +210,23 @@ export function Toolbar({ children, className }: { children: ReactNode; classNam
   );
 }
 
-/** Kart yiginlari yerine ince ayiracli veri satirlari. */
-export function RowList({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("divide-y divide-subtle border-y border-subtle", className)}>{children}</div>;
+/** Ince ayiracli veri satirlari. Cerceveyi saran kutu (Section) verir. */
+export function RowList({
+  children, className, as: Component = "div", onKeyDown,
+}: {
+  children: ReactNode;
+  className?: string;
+  as?: "div" | "ul" | "ol";
+  onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
+}) {
+  return (
+    <Component
+      className={cx("divide-y divide-subtle", className)}
+      onKeyDown={onKeyDown}
+    >
+      {children}
+    </Component>
+  );
 }
 
 /**
@@ -271,7 +332,8 @@ export function IconButton({
 }
 
 export function Input({
-  value, onChange, placeholder, disabled, type = "text", className, autoFocus, onKeyDown, ariaLabel,
+  value, onChange, placeholder, disabled, type = "text", className, autoFocus, onKeyDown,
+  onBlur, ariaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -281,6 +343,8 @@ export function Input({
   className?: string;
   autoFocus?: boolean;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  /** Alandan cikinca kaydeden formlar icin -- ayri bir "kaydet" dugmesi gerekmesin. */
+  onBlur?: (value: string) => void;
   ariaLabel?: string;
 }) {
   return (
@@ -290,6 +354,7 @@ export function Input({
       disabled={disabled}
       autoFocus={autoFocus}
       onKeyDown={onKeyDown}
+      onBlur={(e) => onBlur?.(e.target.value)}
       aria-label={ariaLabel ?? placeholder}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
@@ -303,20 +368,70 @@ export function Input({
   );
 }
 
+export function Select({
+  value, onChange, children, disabled, className, ariaLabel, id,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+  disabled?: boolean;
+  className?: string;
+  ariaLabel?: string;
+  id?: string;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange(e.target.value)}
+      className={cx(
+        "h-9 rounded-control border border-subtle bg-surface px-2.5 text-body text-primary",
+        "outline-none focus:border-accent focus:ring-1 focus:ring-accent",
+        disabled && "cursor-not-allowed opacity-50",
+        className,
+      )}
+    >
+      {children}
+    </select>
+  );
+}
+
+/** Form alani + etiketi. Etiket her zaman gorunur; placeholder etiket degildir. */
+export function Field({
+  label, children, hint, className,
+}: {
+  label: string;
+  children: ReactNode;
+  hint?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <label className={cx("block", className)}>
+      <span className="mb-1 block text-meta text-secondary">{label}</span>
+      {children}
+      {hint && <span className="mt-1 block text-meta text-muted">{hint}</span>}
+    </label>
+  );
+}
+
 export function Textarea({
-  value, onChange, placeholder, rows = 3, className,
+  value, onChange, placeholder, rows = 3, className, onBlur,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
   className?: string;
+  onBlur?: (value: string) => void;
 }) {
   return (
     <textarea
       value={value}
       rows={rows}
       placeholder={placeholder}
+      onBlur={(e) => onBlur?.(e.target.value)}
       onChange={(e) => onChange(e.target.value)}
       className={cx(
         "w-full resize-y rounded-control border border-subtle bg-surface px-3 py-2 text-body text-primary",

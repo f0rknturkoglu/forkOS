@@ -48,3 +48,14 @@ async def check_habit(habit_id: uuid.UUID, body: HabitCheck,
 async def habit_grid(weeks: int = Query(8, ge=1, le=52),
                      session: AsyncSession = Depends(get_session)):
     return await service.grid(session, weeks)
+
+
+@router.delete("/habits/{habit_id}", status_code=204)
+async def delete_habit(habit_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Aliskanligi ve gunlugunu siler.
+
+    Birakmak icin `active=false` yeter (gecmis kalir); bu uc kaydi tamamen
+    kaldirir -- yanlis eklenmis bir aliskanlik icin.
+    """
+    if not await service.delete(session, habit_id):
+        raise HTTPException(404, "habit bulunamadi")

@@ -50,3 +50,15 @@ async def patch_book(id: UUID, b: BookPatch, s: AsyncSession = Depends(get_sessi
 @router.get("/learning/queue")
 async def queue(kind: str | None = None, s: AsyncSession = Depends(get_session)):
     return await service.queue(s, kind)
+
+
+@router.delete("/courses/{id}", status_code=204)
+async def delete_course(id: UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_item(session, Course, id):
+        raise HTTPException(404)
+
+
+@router.delete("/books/{id}", status_code=204)
+async def delete_book(id: UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_item(session, Book, id):
+        raise HTTPException(404)

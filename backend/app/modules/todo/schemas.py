@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+#: Rutin araliklari. None = tek seferlik.
+RECUR = Literal["daily", "weekdays", "weekly", "monthly"]
 
 
 class TodoIn(BaseModel):
@@ -15,6 +19,9 @@ class TodoIn(BaseModel):
     reminder_at: datetime | None = None
     parent_id: uuid.UUID | None = None
     position: int = 0
+    tags: list[str] = []
+    recur: RECUR | None = None
+    milestone_id: uuid.UUID | None = None
 
 
 class TodoUpdate(BaseModel):
@@ -26,6 +33,10 @@ class TodoUpdate(BaseModel):
     reminder_at: datetime | None = None
     parent_id: uuid.UUID | None = None
     position: int | None = None
+    tags: list[str] | None = None
+    #: "" (bos metin) rutini KALDIRIR; None alani hic degistirmez.
+    recur: RECUR | Literal[""] | None = None
+    milestone_id: uuid.UUID | None = None
 
 
 class TodoOut(BaseModel):
@@ -40,6 +51,16 @@ class TodoOut(BaseModel):
     completed_at: datetime | None
     parent_id: uuid.UUID | None
     position: int
+    tags: list[str] = []
+    recur: str | None = None
+    #: Gorev bir projeye bagliysa dolu -- arayuzde rozet olarak gosterilir.
+    project_id: uuid.UUID | None = None
+    project_title: str | None = None
+    milestone_id: uuid.UUID | None = None
+    milestone_title: str | None = None
+    #: Alt gorev sayilari (parent_id ile baglananlar).
+    subtask_total: int = 0
+    subtask_done: int = 0
 
 
 class PlanSlotIn(BaseModel):

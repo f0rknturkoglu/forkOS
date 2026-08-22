@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Empty, Panel, relativeTime } from "@/core/ui";
+import { Empty, RowList, Section, relativeTime } from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { FeedItem, RssStats } from "@/core/types";
 
@@ -15,7 +15,7 @@ export function RssWidget() {
   });
 
   return (
-    <Panel
+    <Section
       title="RSS"
       action={
         <button
@@ -29,29 +29,29 @@ export function RssWidget() {
       {items.length === 0 ? (
         <Empty>Yeni yazı yok.</Empty>
       ) : (
-        <ul className="space-y-2">
+        <RowList>
           {items.map((item) => (
-            <li key={item.id} className="truncate text-body text-secondary">
+            <div key={item.id} className="min-w-0 py-2 text-body text-secondary">
               {item.url ? (
-                <a href={item.url} target="_blank" rel="noreferrer" className="hover:underline">
+                <a href={item.url} target="_blank" rel="noreferrer" className="block truncate hover:text-accent">
                   {item.title}
                 </a>
               ) : (
                 item.title
               )}
-              <span className="ml-2 text-meta text-muted">
+              <span className="block truncate text-meta text-muted">
                 {item.feed_title}
                 {item.published_at && ` · ${relativeTime(item.published_at)}`}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </RowList>
       )}
       {stats && stats.failing_feeds > 0 && (
         <p className="mt-3 text-meta text-warn">
           {stats.failing_feeds} feed hata veriyor veya kapali.
         </p>
       )}
-    </Panel>
+    </Section>
   );
 }
