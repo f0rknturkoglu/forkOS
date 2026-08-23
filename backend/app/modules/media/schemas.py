@@ -308,6 +308,7 @@ class MediaConsumptionIn(BaseModel):
     occurred_at: datetime | None = None
     duration_min: int | None = None
     note: str | None = None
+    meta: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("action")
     @classmethod

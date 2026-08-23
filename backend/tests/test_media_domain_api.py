@@ -731,6 +731,153 @@ async def test_client_uuid_replay_requires_compatible_command_and_media(
         assert replay.status_code == 409, (overrides, replay.text)
 
 
+async def test_exact_set_retry_uses_canonical_request_not_processed_result(
+    client: AsyncClient,
+):
+    item = await _create(client, progress=1, total=100)
+    command_id = str(uuid.uuid4())
+    occurred_at = datetime.now(UTC) - timedelta(days=3)
+    command = {
+        "client_uuid": command_id,
+        "action": "set",
+        "measure": "page",
+        "amount": 99,
+        "progress_after": 7,
+        "occurred_at": occurred_at.isoformat(),
+        "duration_min": 17,
+        "note": "imported checkpoint",
+    }
+    first = await client.post(
+        f"/api/media/{item['id']}/consumptions", json=command
+    )
+    retry = await client.post(
+        f"/api/media/{item['id']}/consumptions", json=command
+    )
+    assert first.status_code == retry.status_code == 201, (first.text, retry.text)
+    assert retry.json()["id"] == first.json()["id"]
+    assert first.json()["amount"] == 6
+    expected_fingerprint = media_schemas.MediaConsumptionIn.model_validate(
+        command
+    ).model_dump(mode="json", exclude_none=False)
+    assert first.json()["meta"]["_request_fingerprint"] == expected_fingerprint
+
+
+async def test_client_uuid_rejects_change_to_every_canonical_body_field(
+    client: AsyncClient,
+):
+    item = await _create(client, progress=0, total=100)
+    command_id = str(uuid.uuid4())
+    occurred_at = datetime.now(UTC) - timedelta(hours=1)
+    command = {
+        "client_uuid": command_id,
+        "action": "set",
+        "unit_id": None,
+        "measure": "page",
+        "amount": 10,
+        "progress_after": 4,
+        "occurred_at": occurred_at.isoformat(),
+        "duration_min": 12,
+        "note": "original",
+    }
+    first = await client.post(
+        f"/api/media/{item['id']}/consumptions", json=command
+    )
+    assert first.status_code == 201, first.text
+
+    changes = (
+        {"action": "quick"},
+        {"unit_id": str(uuid.uuid4())},
+        {"measure": "chapter"},
+        {"amount": 11},
+        {"progress_after": 5},
+        {"occurred_at": (occurred_at + timedelta(seconds=1)).isoformat()},
+        {"duration_min": 13},
+        {"note": "changed"},
+        {"meta": {"source": "sync"}},
+    )
+    for changed in changes:
+        response = await client.post(
+            f"/api/media/{item['id']}/consumptions",
+            json={**command, **changed},
+        )
+        assert response.status_code == 409, (changed, response.text)
+
+
+async def test_concurrent_replay_uses_exact_canonical_fingerprint(
+    client: AsyncClient,
+):
+    item = await _create(client, progress=0, total=100)
+    item_id = uuid.UUID(item["id"])
+    command_id = uuid.uuid4()
+    occurred_at = datetime.now(UTC) - timedelta(days=1)
+
+    def command(note: str = "same") -> media_schemas.MediaConsumptionIn:
+        return media_schemas.MediaConsumptionIn(
+            client_uuid=command_id,
+            action="set",
+            measure="page",
+            amount=999,
+            progress_after=3,
+            occurred_at=occurred_at,
+            duration_min=22,
+            note=note,
+        )
+
+    async def consume_once(body: media_schemas.MediaConsumptionIn):
+        async with SessionLocal() as session:
+            try:
+                return await service.consume(session, item_id, body)
+            except service.MediaConflictError:
+                return "conflict"
+
+    exact = await asyncio.gather(consume_once(command()), consume_once(command()))
+    assert exact[0].id == exact[1].id
+
+    second_item = await _create(client, progress=0, total=100)
+    second_item_id = uuid.UUID(second_item["id"])
+    changed_uuid = uuid.uuid4()
+
+    async def changed_once(note: str):
+        async with SessionLocal() as session:
+            try:
+                return await service.consume(
+                    session,
+                    second_item_id,
+                    media_schemas.MediaConsumptionIn(
+                        client_uuid=changed_uuid,
+                        action="set",
+                        progress_after=2,
+                        occurred_at=occurred_at,
+                        duration_min=5,
+                        note=note,
+                    ),
+                )
+            except service.MediaConflictError:
+                return "conflict"
+
+    changed = await asyncio.gather(changed_once("winner-a"), changed_once("winner-b"))
+    assert sum(result == "conflict" for result in changed) == 1
+    assert sum(result != "conflict" for result in changed) == 1
+
+
+async def test_consumption_request_meta_is_preserved_next_to_fingerprint(
+    client: AsyncClient,
+):
+    item = await _create(client, progress=0, total=100)
+    response = await client.post(
+        f"/api/media/{item['id']}/consumptions",
+        json={
+            "client_uuid": str(uuid.uuid4()),
+            "action": "quick",
+            "meta": {"source": "import", "nested": {"batch": 2}},
+        },
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["meta"]["source"] == "import"
+    assert response.json()["meta"]["nested"] == {"batch": 2}
+    assert "_request_fingerprint" in response.json()["meta"]
+
+
 async def test_concurrent_cross_item_client_uuid_has_one_winner_and_one_conflict(
     client: AsyncClient,
 ):

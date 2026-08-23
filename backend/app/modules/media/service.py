@@ -68,6 +68,7 @@ DEFAULT_MEASURE = {
     "music": "track",
     "game": "hour",
 }
+REQUEST_FINGERPRINT_KEY = "_request_fingerprint"
 ANILIST_QUERY = """
 query ($q: String, $t: MediaType) {
   Page(page: 1, perPage: 6) {
@@ -188,6 +189,10 @@ def _to_collection_out(collection: MediaCollection, title: str) -> MediaCollecti
         created_at=collection.created_at,
         updated_at=collection.updated_at,
     )
+
+
+def _canonical_consumption_request(data: MediaConsumptionIn) -> dict[str, object]:
+    return data.model_dump(mode="json", exclude_none=False)
 
 
 def _search_text(data: MediaItemIn | MediaItemUpdate) -> str:
@@ -988,7 +993,10 @@ async def _consume_locked(
         occurred_at=now,
         duration_min=data.duration_min,
         note=data.note,
-        meta={},
+        meta={
+            **data.meta,
+            REQUEST_FINGERPRINT_KEY: _canonical_consumption_request(data),
+        },
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -1046,6 +1054,15 @@ def _compatible_replay(
         or replay.action != data.action
         or replay.unit_id != data.unit_id
     ):
+        return False
+    fingerprint = (replay.meta or {}).get(REQUEST_FINGERPRINT_KEY)
+    if fingerprint is not None:
+        return fingerprint == _canonical_consumption_request(data)
+    if replay.duration_min != data.duration_min or replay.note != data.note:
+        return False
+    if "occurred_at" in data.model_fields_set and replay.occurred_at != data.occurred_at:
+        return False
+    if data.meta:
         return False
     if "measure" in data.model_fields_set and replay.measure != data.measure:
         return False
