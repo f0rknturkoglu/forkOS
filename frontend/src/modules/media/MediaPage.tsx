@@ -1,12 +1,35 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Plus, Search, Star, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
+import { useHashRoute } from "@/app/router";
 import { Badge, Button, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Surface, Toolbar, cx, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
-import type { MediaItem, MediaStats, MetadataResult } from "@/core/types";
+import type { MediaDetail, MediaItem, MediaPage as MediaPageResponse, MediaStats, MetadataResult } from "@/core/types";
 import { SyncProgress } from "@/modules/opportunity/SyncProgress";
+
+type MediaFocusTarget = { focus?: () => void };
+
+type MediaFocusElement = {
+  querySelector: (selector: string) => MediaFocusTarget | null;
+  scrollIntoView: (options: ScrollIntoViewOptions) => void;
+};
+
+type MediaFocusRoot = {
+  getElementById: (id: string) => MediaFocusElement | null;
+};
+
+export function receiveMediaFocus(
+  itemId: string,
+  root: MediaFocusRoot = document as unknown as MediaFocusRoot,
+): boolean {
+  const row = root.getElementById(`media-item-${itemId}`);
+  if (!row) return false;
+  row.scrollIntoView({ block: "center" });
+  row.querySelector('[data-media-focus="true"]')?.focus?.();
+  return true;
+}
 
 export const MEDIA_REFRESH_KEYS = [
   "media",
@@ -73,6 +96,8 @@ const QUICK_SITES: [string, string][] = [
 ];
 
 export function MediaPage() {
+  const route = useHashRoute();
+  const focusId = route.params.get("focus");
   const online = useOnline();
   const invalidate = useInvalidate();
   const toast = useToast();
@@ -81,15 +106,25 @@ export function MediaPage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [searchKind, setSearchKind] = useState("movie");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(() => focusId);
 
   const query: Record<string, string> = {};
   if (kind) query.kind = kind;
   if (status) query.status = status;
-  const { data: items = [] } = useQuery({
+  const { data: page } = useQuery({
     queryKey: ["media", query],
-    queryFn: () => api.get<MediaItem[]>("/media?" + new URLSearchParams(query)),
+    queryFn: () => api.get<MediaPageResponse>("/media?" + new URLSearchParams(query)),
   });
+  const { data: focusedDetail } = useQuery({
+    queryKey: ["media-detail", focusId],
+    queryFn: () => api.get<MediaDetail>(`/media/${encodeURIComponent(focusId ?? "")}`),
+    enabled: Boolean(focusId),
+  });
+  const listedItems = page?.items ?? [];
+  const focusedItem = focusedDetail?.item;
+  const items = focusedItem && !listedItems.some((item) => item.id === focusedItem.id)
+    ? [focusedItem, ...listedItems]
+    : listedItems;
   const { data: stats } = useQuery({
     queryKey: ["media-stats"],
     queryFn: () => api.get<MediaStats>("/media/stats"),
@@ -108,6 +143,12 @@ export function MediaPage() {
   });
 
   const refresh = () => invalidate(...MEDIA_REFRESH_KEYS);
+
+  useEffect(() => {
+    if (!focusId) return;
+    setExpanded(focusId);
+    receiveMediaFocus(focusId);
+  }, [focusId, focusedItem?.id]);
 
   const addFromSearch = useMutation({
     mutationFn: (hit: MetadataResult) =>
@@ -203,7 +244,7 @@ export function MediaPage() {
               <RowList as="ul">
                 {results.map((hit) => (
                   <li key={hit.title} className="flex items-center gap-3 py-2">
-                    <Cover url={hit.cover_url} title={hit.title} size="h-16 w-11" />
+                    <Cover url={hit.cover_url ?? null} title={hit.title} size="h-16 w-11" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-body text-primary">{hit.title}</p>
                       <p className="truncate text-meta text-muted">{(hit.subtitle ?? "") + (hit.year ? " · " + hit.year : "")}</p>
@@ -229,16 +270,16 @@ export function MediaPage() {
             const open = expanded === item.id;
             const progressPct = item.total ? Math.min(100, Math.round(((item.progress ?? 0) / item.total) * 100)) : null;
             return (
-              <li key={item.id} className="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] gap-3 py-3 sm:grid-cols-[64px_minmax(0,1fr)_auto]">
+              <li id={`media-item-${item.id}`} key={item.id} className="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] gap-3 py-3 sm:grid-cols-[64px_minmax(0,1fr)_auto]">
                   <Cover url={String(item.meta?.cover_url ?? "") || null} title={item.title} size="h-20 w-12 sm:h-24 sm:w-16" />
                   <div className="min-w-0 flex-1">
-                    <button type="button" onClick={() => setExpanded(open ? null : item.id)} className="block w-full text-left">
+                    <button data-media-focus="true" type="button" onClick={() => setExpanded(open ? null : item.id)} className="block w-full text-left">
                       <span className="block truncate text-body font-medium text-primary">{item.title}</span>
                     </button>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
                       <Badge>{KIND_LABELS[item.kind] ?? item.kind}</Badge>
                       <Badge tone={item.status === "completed" ? "ok" : item.status === "dropped" ? "neutral" : "warn"}>{STATUS_LABELS[item.status] ?? item.status}</Badge>
-                      {item.score !== null && (<span className="flex items-center gap-0.5 text-meta text-primary"><Star size={11} className="fill-current text-warn" /> {item.score}/10</span>)}
+                      {item.score != null && (<span className="flex items-center gap-0.5 text-meta text-primary"><Star size={11} className="fill-current text-warn" /> {item.score}/10</span>)}
                       {progressPct !== null && (<span className="numeral text-[12px]">{item.progress}/{item.total}</span>)}
                     </div>
                     {progressPct !== null && (

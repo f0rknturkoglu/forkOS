@@ -8,7 +8,8 @@
               {
                 "enum": [
                   "complete_todo",
-                  "mark_rss_read"
+                  "mark_rss_read",
+                  "log_media"
                 ],
                 "type": "string"
               },
@@ -34,6 +35,17 @@
             "default": false,
             "title": "Context Only",
             "type": "boolean"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
           },
           "duration_min": {
             "anyOf": [
@@ -66,10 +78,33 @@
             "enum": [
               "calendar",
               "todo",
-              "rss"
+              "rss",
+              "media"
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "media_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Kind"
+          },
+          "media_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Status"
           },
           "parent_id": {
             "anyOf": [
@@ -82,6 +117,17 @@
               }
             ],
             "title": "Parent Id"
+          },
+          "progress_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Label"
           },
           "project_title": {
             "anyOf": [
@@ -178,6 +224,13 @@
       },
       "AgendaSuggestions": {
         "properties": {
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/AgendaRow"
+            },
+            "title": "Media",
+            "type": "array"
+          },
           "rss": {
             "items": {
               "$ref": "#/components/schemas/AgendaRow"
@@ -1823,8 +1876,670 @@
         "title": "LinkIn",
         "type": "object"
       },
-      "MediaItemIn": {
+      "MediaCollectionIn": {
+        "additionalProperties": false,
         "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "MediaCollectionIn",
+        "type": "object"
+      },
+      "MediaCollectionOut": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "position"
+        ],
+        "title": "MediaCollectionOut",
+        "type": "object"
+      },
+      "MediaCollectionUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "MediaCollectionUpdate",
+        "type": "object"
+      },
+      "MediaConsumptionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "client_uuid": {
+            "format": "uuid",
+            "title": "Client Uuid",
+            "type": "string"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measure"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "title": "Meta",
+            "type": "object"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "progress_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress After"
+          },
+          "unit_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Id"
+          }
+        },
+        "required": [
+          "client_uuid",
+          "action"
+        ],
+        "title": "MediaConsumptionIn",
+        "type": "object"
+      },
+      "MediaConsumptionOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "client_uuid": {
+            "format": "uuid",
+            "title": "Client Uuid",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "cycle_id": {
+            "format": "uuid",
+            "title": "Cycle Id",
+            "type": "string"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measure"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "title": "Meta",
+            "type": "object"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "progress_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress After"
+          },
+          "unit_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Id"
+          }
+        },
+        "required": [
+          "id",
+          "media_id",
+          "cycle_id",
+          "client_uuid",
+          "action",
+          "occurred_at"
+        ],
+        "title": "MediaConsumptionOut",
+        "type": "object"
+      },
+      "MediaCycleOut": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_caught_up_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Caught Up At"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "ordinal": {
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "media_id",
+          "ordinal",
+          "status",
+          "started_at"
+        ],
+        "title": "MediaCycleOut",
+        "type": "object"
+      },
+      "MediaCycleStart": {
+        "additionalProperties": false,
+        "properties": {
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          }
+        },
+        "title": "MediaCycleStart",
+        "type": "object"
+      },
+      "MediaDashboardOut": {
+        "properties": {
+          "continue_items": {
+            "items": {
+              "$ref": "#/components/schemas/MediaItemOut"
+            },
+            "title": "Continue Items",
+            "type": "array"
+          },
+          "recent_consumptions": {
+            "items": {
+              "$ref": "#/components/schemas/MediaConsumptionOut"
+            },
+            "title": "Recent Consumptions",
+            "type": "array"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/MediaStats"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/MediaUnitOut"
+            },
+            "title": "Upcoming",
+            "type": "array"
+          }
+        },
+        "required": [
+          "continue_items",
+          "upcoming",
+          "recent_consumptions",
+          "stats"
+        ],
+        "title": "MediaDashboardOut",
+        "type": "object"
+      },
+      "MediaDetailOut": {
+        "properties": {
+          "collections": {
+            "items": {
+              "$ref": "#/components/schemas/MediaCollectionOut"
+            },
+            "title": "Collections",
+            "type": "array"
+          },
+          "consumptions": {
+            "items": {
+              "$ref": "#/components/schemas/MediaConsumptionOut"
+            },
+            "title": "Consumptions",
+            "type": "array"
+          },
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/MediaCycleOut"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "item": {
+            "$ref": "#/components/schemas/MediaItemOut"
+          },
+          "units": {
+            "items": {
+              "$ref": "#/components/schemas/MediaUnitOut"
+            },
+            "title": "Units",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item",
+          "units",
+          "cycles",
+          "consumptions",
+          "collections"
+        ],
+        "title": "MediaDetailOut",
+        "type": "object"
+      },
+      "MediaItemIn": {
+        "additionalProperties": false,
+        "properties": {
+          "backdrop_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop Path"
+          },
+          "backdrop_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop Url"
+          },
+          "cover_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Path"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "favorite": {
+            "default": false,
+            "title": "Favorite",
+            "type": "boolean"
+          },
           "finished_at": {
             "anyOf": [
               {
@@ -1841,11 +2556,27 @@
             "title": "Kind",
             "type": "string"
           },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
           "meta": {
             "additionalProperties": true,
-            "default": {},
             "title": "Meta",
             "type": "object"
+          },
+          "monitored": {
+            "default": false,
+            "title": "Monitored",
+            "type": "boolean"
           },
           "notes": {
             "anyOf": [
@@ -1858,16 +2589,87 @@
             ],
             "title": "Notes"
           },
+          "owned": {
+            "default": false,
+            "title": "Owned",
+            "type": "boolean"
+          },
+          "ownership": {
+            "additionalProperties": true,
+            "title": "Ownership",
+            "type": "object"
+          },
           "progress": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Progress"
+          },
+          "progress_measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Measure"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "provider_ids": {
+            "additionalProperties": true,
+            "title": "Provider Ids",
+            "type": "object"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review"
           },
           "score": {
             "anyOf": [
@@ -1879,6 +2681,15 @@
               }
             ],
             "title": "Score"
+          },
+          "source": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "provider"
+            ],
+            "title": "Source",
+            "type": "string"
           },
           "started_at": {
             "anyOf": [
@@ -1897,14 +2708,26 @@
             "title": "Status",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "title": {
+            "minLength": 1,
             "title": "Title",
             "type": "string"
           },
           "total": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -1922,6 +2745,62 @@
       },
       "MediaItemOut": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "backdrop_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop Path"
+          },
+          "backdrop_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop Url"
+          },
+          "cover_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Path"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -1933,6 +2812,11 @@
               }
             ],
             "title": "Created At"
+          },
+          "favorite": {
+            "default": false,
+            "title": "Favorite",
+            "type": "boolean"
           },
           "finished_at": {
             "anyOf": [
@@ -1955,11 +2839,27 @@
             "title": "Kind",
             "type": "string"
           },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
           "meta": {
             "additionalProperties": true,
-            "default": {},
             "title": "Meta",
             "type": "object"
+          },
+          "monitored": {
+            "default": false,
+            "title": "Monitored",
+            "type": "boolean"
           },
           "notes": {
             "anyOf": [
@@ -1972,16 +2872,87 @@
             ],
             "title": "Notes"
           },
+          "owned": {
+            "default": false,
+            "title": "Owned",
+            "type": "boolean"
+          },
+          "ownership": {
+            "additionalProperties": true,
+            "title": "Ownership",
+            "type": "object"
+          },
           "progress": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Progress"
+          },
+          "progress_measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Measure"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "provider_ids": {
+            "additionalProperties": true,
+            "title": "Provider Ids",
+            "type": "object"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review"
           },
           "score": {
             "anyOf": [
@@ -2010,6 +2981,17 @@
             "title": "Status",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -2017,13 +2999,25 @@
           "total": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Total"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
@@ -2036,8 +3030,63 @@
         "type": "object"
       },
       "MediaItemUpdate": {
-        "description": "Kismi guncelleme. Verilmeyen alana dokunulmaz.",
+        "additionalProperties": false,
         "properties": {
+          "backdrop_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop Path"
+          },
+          "backdrop_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop Url"
+          },
+          "cover_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Path"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "favorite": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite"
+          },
           "finished_at": {
             "anyOf": [
               {
@@ -2049,6 +3098,29 @@
               }
             ],
             "title": "Finished At"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
           },
           "meta": {
             "anyOf": [
@@ -2062,6 +3134,17 @@
             ],
             "title": "Meta"
           },
+          "monitored": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monitored"
+          },
           "notes": {
             "anyOf": [
               {
@@ -2073,16 +3156,107 @@
             ],
             "title": "Notes"
           },
+          "owned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owned"
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ownership"
+          },
           "progress": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Progress"
+          },
+          "progress_measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Measure"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "provider_ids": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Ids"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review"
           },
           "score": {
             "anyOf": [
@@ -2118,6 +3292,17 @@
             ],
             "title": "Status"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "title": {
             "anyOf": [
               {
@@ -2132,7 +3317,7 @@
           "total": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -2144,8 +3329,164 @@
         "title": "MediaItemUpdate",
         "type": "object"
       },
+      "MediaPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MediaItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "MediaPageOut",
+        "type": "object"
+      },
+      "MediaProviderCapabilitiesOut": {
+        "properties": {
+          "cache_artwork": {
+            "title": "Cache Artwork",
+            "type": "boolean"
+          },
+          "details": {
+            "title": "Details",
+            "type": "boolean"
+          },
+          "requires_settings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Requires Settings",
+            "type": "array"
+          },
+          "search": {
+            "title": "Search",
+            "type": "boolean"
+          },
+          "units": {
+            "title": "Units",
+            "type": "boolean"
+          },
+          "upcoming": {
+            "title": "Upcoming",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "search",
+          "details",
+          "units",
+          "upcoming",
+          "cache_artwork",
+          "requires_settings"
+        ],
+        "title": "MediaProviderCapabilitiesOut",
+        "type": "object"
+      },
+      "MediaProviderStatusOut": {
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/MediaProviderCapabilitiesOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status"
+          },
+          "missing_settings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Settings",
+            "type": "array"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "kinds",
+          "capabilities",
+          "ready",
+          "missing_settings"
+        ],
+        "title": "MediaProviderStatusOut",
+        "type": "object"
+      },
       "MediaStats": {
         "properties": {
+          "average_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Score"
+          },
           "by_kind": {
             "additionalProperties": {
               "type": "integer"
@@ -2165,8 +3506,18 @@
             "title": "Planned",
             "type": "integer"
           },
+          "scored_count": {
+            "default": 0,
+            "title": "Scored Count",
+            "type": "integer"
+          },
           "total": {
             "title": "Total",
+            "type": "integer"
+          },
+          "total_duration_min": {
+            "default": 0,
+            "title": "Total Duration Min",
             "type": "integer"
           }
         },
@@ -2180,9 +3531,164 @@
         "title": "MediaStats",
         "type": "object"
       },
-      "MetadataResult": {
-        "description": "OpenLibrary/AniList/TMDB -> normalize sonuc.",
+      "MediaSyncBatchOut": {
         "properties": {
+          "completed_sources": {
+            "title": "Completed Sources",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "empty_sources": {
+            "title": "Empty Sources",
+            "type": "integer"
+          },
+          "error_sources": {
+            "title": "Error Sources",
+            "type": "integer"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items_found": {
+            "title": "Items Found",
+            "type": "integer"
+          },
+          "ok_sources": {
+            "title": "Ok Sources",
+            "type": "integer"
+          },
+          "progress_pct": {
+            "title": "Progress Pct",
+            "type": "integer"
+          },
+          "scope": {
+            "const": "media",
+            "title": "Scope",
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "completed_with_errors"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total_sources": {
+            "title": "Total Sources",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "status",
+          "source_ids",
+          "total_sources",
+          "completed_sources",
+          "ok_sources",
+          "empty_sources",
+          "error_sources",
+          "items_found",
+          "progress_pct",
+          "created_at"
+        ],
+        "title": "MediaSyncBatchOut",
+        "type": "object"
+      },
+      "MediaSyncIdleOut": {
+        "properties": {
+          "scope": {
+            "const": "media",
+            "title": "Scope",
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
+          "status": {
+            "const": "idle",
+            "title": "Status",
+            "type": "string"
+          },
+          "total_sources": {
+            "const": 0,
+            "title": "Total Sources",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scope",
+          "status",
+          "source_ids",
+          "total_sources"
+        ],
+        "title": "MediaSyncIdleOut",
+        "type": "object"
+      },
+      "MediaUnitOut": {
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/MediaUnitOut"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "cover_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Path"
+          },
           "cover_url": {
             "anyOf": [
               {
@@ -2194,10 +3700,237 @@
             ],
             "title": "Cover Url"
           },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "title": "Meta",
+            "type": "object"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "progress_measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Measure"
+          },
+          "progress_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Total"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "provider_ids": {
+            "additionalProperties": true,
+            "title": "Provider Ids",
+            "type": "object"
+          },
+          "release_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit_type": {
+            "title": "Unit Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "media_id",
+          "title",
+          "unit_type"
+        ],
+        "title": "MediaUnitOut",
+        "type": "object"
+      },
+      "MetadataResult": {
+        "description": "Provider arama sonucunun ortak, kayda dönüştürülebilir biçimi.",
+        "properties": {
+          "backdrop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop"
+          },
+          "backdrop_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backdrop Url"
+          },
+          "cover": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "title": "Meta",
+            "type": "object"
+          },
           "metadata": {
             "additionalProperties": true,
-            "default": {},
             "title": "Metadata",
+            "type": "object"
+          },
+          "progress_measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Measure"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "provider_ids": {
+            "additionalProperties": true,
+            "title": "Provider Ids",
             "type": "object"
           },
           "subtitle": {
@@ -2211,9 +3944,31 @@
             ],
             "title": "Subtitle"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           },
           "year": {
             "anyOf": [
@@ -2228,6 +3983,8 @@
           }
         },
         "required": [
+          "provider",
+          "provider_id",
           "title"
         ],
         "title": "MetadataResult",
@@ -4146,6 +5903,15 @@
           "progress_pct": {
             "title": "Progress Pct",
             "type": "integer"
+          },
+          "scope": {
+            "default": "opportunity",
+            "enum": [
+              "opportunity",
+              "media"
+            ],
+            "title": "Scope",
+            "type": "string"
           },
           "source_ids": {
             "items": {
@@ -7317,6 +9083,126 @@
               ],
               "title": "Q"
             }
+          },
+          {
+            "in": "query",
+            "name": "collection_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owned",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owned"
+            }
+          },
+          {
+            "in": "query",
+            "name": "monitored",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Monitored"
+            }
+          },
+          {
+            "in": "query",
+            "name": "trashed",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Trashed",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "updated",
+              "enum": [
+                "updated",
+                "created",
+                "title",
+                "score",
+                "progress"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -7324,11 +9210,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MediaItemOut"
-                  },
-                  "title": "Response List Media Api Media Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/MediaPageOut"
                 }
               }
             },
@@ -7390,9 +9272,335 @@
         ]
       }
     },
+    "/api/media/assets/{asset_name}": {
+      "get": {
+        "operationId": "media_asset_api_media_assets__asset_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_name",
+            "required": true,
+            "schema": {
+              "title": "Asset Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Media Asset",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/collections": {
+      "get": {
+        "operationId": "collections_api_media_collections_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaCollectionOut"
+                  },
+                  "title": "Response Collections Api Media Collections Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Collections",
+        "tags": [
+          "media"
+        ]
+      },
+      "post": {
+        "operationId": "create_collection_api_media_collections_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaCollectionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaCollectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Collection",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/collections/{collection_id}": {
+      "delete": {
+        "operationId": "delete_collection_api_media_collections__collection_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Collection",
+        "tags": [
+          "media"
+        ]
+      },
+      "patch": {
+        "operationId": "update_collection_api_media_collections__collection_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaCollectionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaCollectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Collection",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/collections/{collection_id}/items/{item_id}": {
+      "delete": {
+        "operationId": "remove_collection_item_api_media_collections__collection_id__items__item_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Collection Item",
+        "tags": [
+          "media"
+        ]
+      },
+      "post": {
+        "operationId": "add_collection_item_api_media_collections__collection_id__items__item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Collection Item",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/dashboard": {
+      "get": {
+        "operationId": "media_dashboard_api_media_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaDashboardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Media Dashboard",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/providers": {
+      "get": {
+        "operationId": "media_providers_api_media_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaProviderStatusOut"
+                  },
+                  "title": "Response Media Providers Api Media Providers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Media Providers",
+        "tags": [
+          "media"
+        ]
+      }
+    },
     "/api/media/search": {
       "get": {
-        "description": "Metadata hizmetlerinde ara (OpenLibrary / AniList / TMDB). Yalnizca OKUMA.",
         "operationId": "search_metadata_api_media_search_get",
         "parameters": [
           {
@@ -7412,6 +9620,22 @@
             "schema": {
               "title": "Kind",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
             }
           }
         ],
@@ -7468,23 +9692,61 @@
         ]
       }
     },
-    "/api/media/{item_id}": {
-      "delete": {
-        "operationId": "delete_media_api_media__item_id__delete",
+    "/api/media/sync": {
+      "post": {
+        "operationId": "queue_media_sync_api_media_sync_post",
         "parameters": [
           {
-            "in": "path",
-            "name": "item_id",
-            "required": true,
+            "in": "query",
+            "name": "provider",
+            "required": false,
             "schema": {
-              "format": "uuid",
-              "title": "Item Id",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "item_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Item Id"
             }
           }
         ],
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MediaSyncBatchOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MediaSyncIdleOut"
+                    }
+                  ],
+                  "title": "Response Queue Media Sync Api Media Sync Post"
+                }
+              }
+            },
             "description": "Successful Response"
           },
           "422": {
@@ -7498,7 +9760,140 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Delete Media",
+        "summary": "Queue Media Sync",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/upcoming": {
+      "get": {
+        "operationId": "media_upcoming_api_media_upcoming_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaUnitOut"
+                  },
+                  "title": "Response Media Upcoming Api Media Upcoming Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Media Upcoming",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/{item_id}": {
+      "delete": {
+        "operationId": "trash_media_api_media__item_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trash Media",
+        "tags": [
+          "media"
+        ]
+      },
+      "get": {
+        "operationId": "media_detail_api_media__item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Media Detail",
         "tags": [
           "media"
         ]
@@ -7550,6 +9945,281 @@
           }
         },
         "summary": "Update Media",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/{item_id}/consumptions": {
+      "get": {
+        "operationId": "media_consumptions_api_media__item_id__consumptions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaConsumptionOut"
+                  },
+                  "title": "Response Media Consumptions Api Media  Item Id  Consumptions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Media Consumptions",
+        "tags": [
+          "media"
+        ]
+      },
+      "post": {
+        "operationId": "consume_media_api_media__item_id__consumptions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaConsumptionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaConsumptionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Consume Media",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/{item_id}/cycles": {
+      "get": {
+        "operationId": "media_cycles_api_media__item_id__cycles_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaCycleOut"
+                  },
+                  "title": "Response Media Cycles Api Media  Item Id  Cycles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Media Cycles",
+        "tags": [
+          "media"
+        ]
+      },
+      "post": {
+        "operationId": "start_media_cycle_api_media__item_id__cycles_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaCycleStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaCycleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Media Cycle",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/{item_id}/permanent": {
+      "delete": {
+        "operationId": "permanent_delete_media_api_media__item_id__permanent_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Permanent Delete Media",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/{item_id}/restore": {
+      "post": {
+        "operationId": "restore_media_api_media__item_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Media",
         "tags": [
           "media"
         ]
@@ -7791,7 +10461,7 @@
         },
         "summary": "Notifications",
         "tags": [
-          "opportunities"
+          "core"
         ]
       }
     },
@@ -7810,13 +10480,12 @@
         },
         "summary": "Dismiss All Notifications",
         "tags": [
-          "opportunities"
+          "core"
         ]
       }
     },
     "/api/notifications/read-all": {
       "post": {
-        "description": "Panelin 'tumunu okundu isaretle' dugmesi. Kayitlar durur, yalnizca okundu olur.",
         "operationId": "read_all_notifications_api_notifications_read_all_post",
         "responses": {
           "200": {
@@ -7830,13 +10499,12 @@
         },
         "summary": "Read All Notifications",
         "tags": [
-          "opportunities"
+          "core"
         ]
       }
     },
     "/api/notifications/{notification_id}/dismiss": {
       "post": {
-        "description": "Bildirimi panelden kaldirir. Silmez -- event gecmisi append-only kalir.",
         "operationId": "dismiss_notification_api_notifications__notification_id__dismiss_post",
         "parameters": [
           {
@@ -7871,7 +10539,7 @@
         },
         "summary": "Dismiss Notification",
         "tags": [
-          "opportunities"
+          "core"
         ]
       }
     },
@@ -7911,7 +10579,7 @@
         },
         "summary": "Read Notification",
         "tags": [
-          "opportunities"
+          "core"
         ]
       }
     },
@@ -10841,6 +13509,22 @@
       "get": {
         "description": "Aktif manuel batch ve kaynak bazli kesin ilerleme.",
         "operationId": "sync_status_api_sources_sync_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "opportunity",
+              "enum": [
+                "opportunity",
+                "media"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -10851,6 +13535,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Sync Status",
@@ -10871,6 +13565,20 @@
               "default": 10,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "opportunity",
+              "enum": [
+                "opportunity",
+                "media"
+              ],
+              "title": "Scope",
+              "type": "string"
             }
           }
         ],

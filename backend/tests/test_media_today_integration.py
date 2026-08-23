@@ -124,6 +124,67 @@ async def test_today_agenda_keeps_completed_media_and_excludes_archived_media(
     assert archived["id"] not in all_ids
 
 
+@pytest.mark.parametrize(
+    ("status", "completed", "read_only", "action"),
+    [
+        ("planned", False, False, "log_media"),
+        ("in_progress", False, False, "log_media"),
+        ("paused", False, False, "log_media"),
+        ("completed", True, True, None),
+        ("dropped", False, True, None),
+    ],
+)
+async def test_planned_media_action_semantics_follow_media_status(
+    client: AsyncClient,
+    status: str,
+    completed: bool,
+    read_only: bool,
+    action: str | None,
+):
+    day = date.today()
+    item = await _create_media(
+        client,
+        status=status,
+        progress=0 if status == "planned" else 12,
+    )
+    await client.post(
+        "/api/plan", json={"entity_id": item["id"], "day": day.isoformat()}
+    )
+
+    agenda = (
+        await client.get("/api/today/agenda", params={"day": day.isoformat()})
+    ).json()
+    rows = agenda["timed"] + agenda["checklist"] + agenda["completed"]
+    row = next(row for row in rows if row["id"] == item["id"])
+
+    assert row["media_status"] == status
+    assert row["completed"] is completed
+    assert row["read_only"] is read_only
+    assert row["action"] == action
+
+
+async def test_media_progress_label_preserves_decimal_without_float_rounding(
+    client: AsyncClient,
+):
+    day = date.today()
+    item = await _create_media(
+        client,
+        progress="1234567890.12",
+        total="9999999999.99",
+    )
+    await client.post(
+        "/api/plan", json={"entity_id": item["id"], "day": day.isoformat()}
+    )
+
+    agenda = (
+        await client.get("/api/today/agenda", params={"day": day.isoformat()})
+    ).json()
+    rows = agenda["timed"] + agenda["checklist"] + agenda["completed"]
+    row = next(row for row in rows if row["id"] == item["id"])
+
+    assert row["progress_label"] == "1234567890.12 / 9999999999.99 sayfa"
+
+
 async def test_today_exposes_four_recent_active_media_without_persisting_suggestions(
     client: AsyncClient,
 ):
@@ -171,6 +232,30 @@ async def test_today_exposes_four_recent_active_media_without_persisting_suggest
     assert before_slots == after_slots
 
 
+async def test_continue_media_is_returned_when_auto_suggestions_are_disabled(
+    client: AsyncClient,
+):
+    item = await _create_media(client, title="Current media state")
+    response = await client.put(
+        "/api/settings/today.auto_suggestions", json={"value": False}
+    )
+    assert response.status_code == 200, response.text
+    try:
+        agenda_response = await client.get(
+            "/api/today/agenda", params={"day": date.today().isoformat()}
+        )
+        assert agenda_response.status_code == 200, agenda_response.text
+        agenda = agenda_response.json()
+        assert agenda["auto_suggestions"] is False
+        assert any(row["id"] == item["id"] for row in agenda["suggestions"]["media"])
+        assert agenda["suggestions"]["todos"] == []
+        assert agenda["suggestions"]["rss"] == []
+    finally:
+        await client.put(
+            "/api/settings/today.auto_suggestions", json={"value": True}
+        )
+
+
 async def test_media_contributions_only_count_positive_consumption_in_local_day(
     client: AsyncClient,
 ):
@@ -179,9 +264,16 @@ async def test_media_contributions_only_count_positive_consumption_in_local_day(
         day, time(hour=0, minute=30), tzinfo=ZoneInfo("Europe/Istanbul")
     ).astimezone(UTC)
     events = [
-        ("media.consumed", {"amount": 2}),
-        ("media.consumed", {"amount": 0}),
-        ("media.progress_corrected", {"amount": -1}),
+        ("media.consumed", {"case": "positive_integer", "amount": 2}),
+        ("media.consumed", {"case": "positive_decimal", "amount": 0.25}),
+        ("media.consumed", {"case": "zero", "amount": 0}),
+        ("media.consumed", {"case": "negative", "amount": -1}),
+        ("media.consumed", {"case": "numeric_string", "amount": "3"}),
+        ("media.consumed", {"case": "boolean", "amount": True}),
+        ("media.consumed", {"case": "null", "amount": None}),
+        ("media.consumed", {"case": "nan_string", "amount": "NaN"}),
+        ("media.consumed", ["non-object"]),
+        ("media.progress_corrected", {"amount": 4}),
         ("media.release_discovered", {}),
         ("media.sync_completed", {}),
         ("media.cycle_reopened", {}),
@@ -204,18 +296,22 @@ async def test_media_contributions_only_count_positive_consumption_in_local_day(
     ).json()
 
     today = next(entry for entry in heatmap["days"] if entry["day"] == day.isoformat())
-    assert today["kinds"] == {"media": 1}
+    assert today["kinds"] == {"media": 2}
     assert heatmap["labels"]["media"] == "medya"
-    assert detail["kinds"] == {"media": 1}
-    positive = next(
-        event
-        for event in detail["events"]
-        if event["verb"] == "media.consumed" and event["payload"]["amount"] == 2
-    )
-    assert positive["kind"] == "media"
+    assert detail["kinds"] == today["kinds"]
+    media_events = [
+        event for event in detail["events"] if event["verb"] == "media.consumed"
+    ]
+    counted_cases = {
+        event["payload"]["case"]
+        for event in media_events
+        if event["kind"] == "media"
+    }
+    assert counted_cases == {"positive_integer", "positive_decimal"}
     assert all(
         event["kind"] is None
-        for event in detail["events"]
-        if event["verb"] != "media.consumed" or event["payload"]["amount"] == 0
+        for event in media_events
+        if not isinstance(event["payload"], dict)
+        or event["payload"].get("case") not in counted_cases
     )
-    assert detail["other"] == len(events) - 1
+    assert detail["other"] == len(events) - 2

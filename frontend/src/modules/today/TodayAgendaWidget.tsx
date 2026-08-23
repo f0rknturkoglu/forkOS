@@ -38,7 +38,7 @@ function startMinute(value: string): number | null {
   return hour * 60 + minute;
 }
 
-function clockLabel(value: string | null): string | null {
+function clockLabel(value: string | null | undefined): string | null {
   if (!value) return null;
   return new Date(value).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }

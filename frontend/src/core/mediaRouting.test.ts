@@ -36,7 +36,7 @@ function notification(overrides: Partial<Notification>): Notification {
 describe("media integration routing", () => {
   it("routes searchable media entities to media focus targets", () => {
     expect(entityRoute(entity("media_item"))).toBe("#/media?focus=media-1");
-    expect(entityRoute(entity("media_unit", "unit-1"))).toBe("#/media?unit=unit-1");
+    expect(entityRoute(entity("media_unit", "unit-1"))).toBe("#/media");
   });
 
   it("routes media notifications by entity or kind", () => {
@@ -45,7 +45,7 @@ describe("media integration routing", () => {
     }))).toBe("/media?focus=media-1");
     expect(notificationRoute(notification({
       entity_type: "media_unit", entity_id: "unit-1",
-    }))).toBe("/media?unit=unit-1");
+    }))).toBe("/media");
     expect(notificationRoute(notification({ kind: "media_release" }))).toBe("/media");
     expect(notificationRoute(notification({ kind: "media_sync" }))).toBe("/media");
   });

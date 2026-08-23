@@ -41,17 +41,23 @@ VERB_KIND: dict[str, str] = {
     verb: kind for kind, verbs in KINDS.items() for verb in verbs
 }
 
+_POSITIVE_MEDIA_CONSUMPTION_SQL = """
+jsonb_typeof(e.payload) = 'object'
+and jsonb_typeof(e.payload->'amount') = 'number'
+and (e.payload->>'amount')::numeric > 0
+""".strip()
 
-def _kind_for(verb: str, routine: bool = False, payload: dict | None = None) -> str | None:
+
+def _kind_for(
+    verb: str,
+    routine: bool = False,
+    *,
+    positive_media_consumption: bool = False,
+) -> str | None:
     if verb == "todo.completed" and routine:
         return "routine"
     if verb == "media.consumed":
-        if payload is None:
-            return "media"
-        try:
-            return "media" if float(payload.get("amount", 0)) > 0 else None
-        except (TypeError, ValueError):
-            return None
+        return "media" if positive_media_consumption else None
     return VERB_KIND.get(verb)
 
 
@@ -79,8 +85,7 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
                     "from event e left join todo t on t.id = e.entity_id "
                     "where e.verb = any(:verbs) "
                     "  and (e.verb <> 'media.consumed' or ("
-                    "    jsonb_typeof(e.payload->'amount') = 'number' "
-                    "    and (e.payload->>'amount')::numeric > 0"
+                    f"    {_POSITIVE_MEDIA_CONSUMPTION_SQL}"
                     "  )) "
                     "  and (e.occurred_at at time zone :tz)::date >= :start "
                     "group by 1, 2, 3"
@@ -96,7 +101,11 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
     for row in rows:
         day = row["day"].isoformat()
         entry = by_day.setdefault(day, {"day": day, "total": 0, "kinds": {}})
-        kind = _kind_for(row["verb"], bool(row["routine"]))
+        kind = _kind_for(
+            row["verb"],
+            bool(row["routine"]),
+            positive_media_consumption=row["verb"] == "media.consumed",
+        )
         if kind is None:
             continue
         entry["total"] += row["n"]
@@ -155,7 +164,10 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
                     "select e.id, e.entity_id, e.entity_type, e.verb, e.payload, e.occurred_at,"
                     "       (e.verb = 'habit.checked' or (e.verb = 'todo.completed' and ("
                     "         nullif(e.payload->>'recur', '') is not null or t.recur is not null"
-                    "       ))) as routine "
+                    "       ))) as routine, "
+                    "       (e.verb = 'media.consumed' and ("
+                    f"         {_POSITIVE_MEDIA_CONSUMPTION_SQL}"
+                    "       )) as positive_media_consumption "
                     "from event e left join todo t on t.id = e.entity_id "
                     "where (e.occurred_at at time zone :tz)::date = :day "
                     "order by e.occurred_at desc "
@@ -172,7 +184,13 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
     kinds: dict[str, int] = {}
     for row in rows:
         event = dict(row)
-        kind = _kind_for(event["verb"], bool(event.pop("routine")), event["payload"])
+        kind = _kind_for(
+            event["verb"],
+            bool(event.pop("routine")),
+            positive_media_consumption=bool(
+                event.pop("positive_media_consumption")
+            ),
+        )
         event["kind"] = kind
         events.append(event)
         if kind:

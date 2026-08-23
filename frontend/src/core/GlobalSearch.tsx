@@ -19,7 +19,7 @@ const ROUTE_FOR: Record<string, (id: string) => string> = {
   expense: () => "#/finance",
   recurring_payment: () => "#/finance",
   media_item: (id) => `#/media?focus=${id}`,
-  media_unit: (id) => `#/media?unit=${id}`,
+  media_unit: () => "#/media",
 };
 
 export function entityRoute(entity: Entity): string {

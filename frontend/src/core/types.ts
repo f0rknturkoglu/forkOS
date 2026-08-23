@@ -184,22 +184,8 @@ export interface PlanSlot {
 
 type ApiAgendaRow = ApiSchemas["AgendaRow"];
 
-export type AgendaRow = Omit<ApiAgendaRow, "children" | "kind" | "action"> & {
+export type AgendaRow = Omit<ApiAgendaRow, "children"> & {
   children: AgendaRow[];
-  kind: "calendar" | "todo" | "rss" | "media";
-  slot_id: string | null;
-  action: "complete_todo" | "mark_rss_read" | "log_media" | null;
-  starts_at: string | null;
-  duration_min: number | null;
-  parent_id: string | null;
-  project_title: string | null;
-  feed_title: string | null;
-  url: string | null;
-  media_kind: string | null;
-  media_status: string | null;
-  progress_label: string | null;
-  cover_url: string | null;
-  recur: "daily" | "weekdays" | "weekly" | "monthly" | null;
 };
 
 export type TodayAgenda = Omit<
@@ -438,36 +424,11 @@ export interface Opportunity {
   trashed_from_status: string | null;
 }
 
-export interface MediaItem {
-  id: string;
-  title: string;
-  kind: string;
-  status: string;
-  progress: number | null;
-  total: number | null;
-  score: number | null;
-  notes: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  meta: Record<string, unknown>;
-  created_at: string | null;
-}
-
-export interface MediaStats {
-  total: number;
-  in_progress: number;
-  completed: number;
-  planned: number;
-  by_kind: Record<string, number>;
-}
-
-export interface MetadataResult {
-  title: string;
-  subtitle: string | null;
-  cover_url: string | null;
-  year: number | null;
-  metadata: Record<string, unknown>;
-}
+export type MediaItem = ApiSchemas["MediaItemOut"];
+export type MediaPage = ApiSchemas["MediaPageOut"];
+export type MediaDetail = ApiSchemas["MediaDetailOut"];
+export type MediaStats = ApiSchemas["MediaStats"];
+export type MetadataResult = ApiSchemas["MetadataResult"];
 
 export interface Deadline {
   entity_id: string; type: string; title: string; due_at: string;

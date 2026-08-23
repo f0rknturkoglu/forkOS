@@ -38,7 +38,7 @@ export function notificationRoute(item: Notification): string {
     return item.entity_id ? `/media?focus=${item.entity_id}` : "/media";
   }
   if (item.entity_type === "media_unit") {
-    return item.entity_id ? `/media?unit=${item.entity_id}` : "/media";
+    return "/media";
   }
   if (item.entity_type && ROUTE_FOR_TYPE[item.entity_type]) return ROUTE_FOR_TYPE[item.entity_type];
   const match = ROUTE_FOR_KIND.find(([prefix]) => item.kind.startsWith(prefix));

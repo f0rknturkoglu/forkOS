@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, func, or_, select
@@ -148,7 +149,9 @@ _MEASURE_LABELS = {
 
 
 def _display_number(value) -> str:
-    return f"{float(value):g}"
+    decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
+    rendered = format(decimal_value, "f")
+    return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
 
 
 def _media_progress_label(item: MediaItem) -> str:
@@ -186,6 +189,7 @@ def _media_row(
     source: str = "suggestion",
 ) -> AgendaRow:
     completed = item.status == "completed"
+    interactive = item.status in {"planned", "in_progress", "paused"}
     return AgendaRow(
         kind="media",
         source=source,
@@ -193,8 +197,8 @@ def _media_row(
         slot_id=slot.id if slot else None,
         title=title,
         completed=completed,
-        action=None if completed else "log_media",
-        read_only=completed,
+        action="log_media" if interactive else None,
+        read_only=not interactive,
         starts_at=(
             _planned_start(slot.day, slot.start_min)
             if slot is not None and slot.start_min is not None
@@ -374,6 +378,8 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     auto_suggestions = True if auto_setting is None else bool(auto_setting.value)
     todo_suggestions: list[AgendaRow] = []
     rss_suggestions: list[AgendaRow] = []
+    # Bu liste bir tavsiye degil, devam eden mevcut medya durumudur. Additive
+    # sozlesme icin suggestions altinda kalir ama otomatik tavsiye ayarindan etkilenmez.
     continue_media = (await session.execute(
         select(MediaItem, Entity.title)
         .join(Entity, Entity.id == MediaItem.id)
