@@ -1,18 +1,77 @@
-import { describe, expect, it } from "vitest";
-import { TODAY_CALENDAR_KEY } from "@/modules/calendar/TodayScheduleWidget";
-import { RECURRING_WIDGET_KEY } from "@/modules/finance/RecurringWidget";
-import { RSS_SAVE_REFRESH_KEYS } from "@/modules/rss/RssPage";
-import { PROJECT_REFRESH_KEYS } from "@/modules/projects/ProjectTodos";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TodayScheduleWidget } from "@/modules/calendar/TodayScheduleWidget";
+import { RecurringWidget } from "@/modules/finance/RecurringWidget";
+import { RssPage } from "@/modules/rss/RssPage";
+
+type QueryOptions = { queryKey: readonly unknown[] };
+type MutationOptions = {
+  mutationFn?: (variables?: { id: string; collection: string }) => unknown;
+  onSuccess?: (bookmark: { id: string; title: string }) => void;
+};
+
+const harness = vi.hoisted(() => ({
+  apiPost: vi.fn(),
+  apiDel: vi.fn(),
+  invalidate: vi.fn(),
+  queries: [] as QueryOptions[],
+  mutations: [] as MutationOptions[],
+}));
+
+vi.mock("@/core/api", () => ({
+  api: { del: harness.apiDel, get: vi.fn(), post: harness.apiPost },
+  qs: vi.fn(() => ""),
+}));
+vi.mock("@/lib/hooks", () => ({
+  useInvalidate: () => harness.invalidate,
+  useOnline: () => true,
+}));
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: vi.fn((options: MutationOptions) => {
+    harness.mutations.push(options);
+    return { mutate: vi.fn(), isPending: false };
+  }),
+  useQuery: vi.fn((options: QueryOptions) => {
+    harness.queries.push(options);
+    return { data: [] };
+  }),
+}));
 
 describe("cross-page query integration", () => {
-  it("uses detail-page prefixes in Today widgets", () => {
-    expect(TODAY_CALENDAR_KEY[0]).toBe("calendar-events");
-    expect(RECURRING_WIDGET_KEY[0]).toBe("recurring");
+  beforeEach(() => {
+    harness.apiDel.mockReset();
+    harness.apiPost.mockReset();
+    harness.invalidate.mockReset();
+    harness.queries.length = 0;
+    harness.mutations.length = 0;
   });
 
-  it("refreshes every linked consumer", () => {
-    expect(RSS_SAVE_REFRESH_KEYS).toContain("bookmark-stats");
-    expect(PROJECT_REFRESH_KEYS).toContain("project-timeline");
-    expect(PROJECT_REFRESH_KEYS).toContain("projects");
+  it("registers Today widget queries under their detail-page prefixes", () => {
+    renderToStaticMarkup(createElement(TodayScheduleWidget));
+    renderToStaticMarkup(createElement(RecurringWidget));
+
+    expect(harness.queries.map((query) => query.queryKey)).toEqual([
+      ["calendar-events", "today"],
+      ["recurring", "widget"],
+    ]);
+  });
+
+  it("runs the RSS save success callback with every linked refresh prefix", () => {
+    renderToStaticMarkup(createElement(RssPage));
+
+    const save = harness.mutations.find((mutation) => {
+      harness.apiPost.mockClear();
+      mutation.mutationFn?.({ id: "rss-1", collection: "read_later" });
+      return harness.apiPost.mock.calls.some(([url]) => url === "/rss/items/rss-1/save");
+    });
+
+    expect(save).toBeDefined();
+    harness.apiPost.mockClear();
+    save?.onSuccess?.({ id: "bookmark-1", title: "Kaydedilen yazı" });
+
+    expect(harness.invalidate).toHaveBeenCalledWith(
+      "rss-item", "items", "feeds", "rss-stats", "bookmarks", "bookmark-stats", "activity",
+    );
   });
 });

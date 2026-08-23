@@ -15,7 +15,7 @@ export function createProjectTodo(projectId: string, title: string, milestoneId:
   return api.post<Todo>("/todos", {
     title: title.trim(),
     project_id: projectId,
-    milestone_id: milestoneId || undefined,
+    ...(milestoneId ? { milestone_id: milestoneId } : {}),
   });
 }
 
