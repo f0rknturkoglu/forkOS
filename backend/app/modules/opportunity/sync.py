@@ -229,10 +229,17 @@ async def current_status(session: AsyncSession) -> dict:
     latest: dict[str, SourceRun] = {}
     for row in rows:
         latest.setdefault(row.source, row)
+
+    def visible_status(source_id: str) -> str:
+        row = latest.get(source_id)
+        # "abandoned" kalici bir son durum degil: worker bu kaynagi yeniden
+        # sahiplenecek. API/UI tarafinda bu araligi tekrar kuyrukta goster.
+        return "queued" if row is None or row.status == "abandoned" else row.status
+
     sources = [
         {
             "source": source_id,
-            "status": latest[source_id].status if source_id in latest else "queued",
+            "status": visible_status(source_id),
             "started_at": latest[source_id].started_at if source_id in latest else None,
             "finished_at": latest[source_id].finished_at if source_id in latest else None,
             "items_found": latest[source_id].items_found if source_id in latest else 0,

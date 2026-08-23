@@ -102,6 +102,7 @@ async def test_stale_running_source_is_abandoned_and_requeued():
     from app.core.models import SourceRun
     from app.modules.opportunity.sync import (
         create_or_extend_batch,
+        current_status,
         pending_source_ids,
         reconcile_stale_runs,
     )
@@ -129,6 +130,8 @@ async def test_stale_running_source_is_abandoned_and_requeued():
         assert await pending_source_ids(session, batch) == ["osym"]
         run = (await session.execute(text("select status from source_run"))).scalar_one()
         assert run == "abandoned"
+        status = await current_status(session)
+        assert status["sources"][0]["status"] == "queued"
 
 
 async def test_worker_consumes_a_persistent_batch(monkeypatch: pytest.MonkeyPatch):
