@@ -19,6 +19,7 @@ router = APIRouter(tags=["system"])
 DEFAULTS: dict[str, Any] = {
     "modules.disabled": [],
     "today.widget_order": [],
+    "today.auto_suggestions": True,
     "pomodoro.defaults": {"focus": 50, "short": 10, "long": 20},
     "notifications.thresholds": {},
     "sources.intervals": {},

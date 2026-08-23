@@ -20,6 +20,8 @@ export const VERB_LABELS: Record<string, string> = {
   "todo.dropped": "Görev bırakıldı",
   "todo.rescheduled": "Görev yeniden planlandı",
   "plan.scheduled": "Haftalık plana eklendi",
+  "plan.rescheduled": "Plan yeniden zamanlandı",
+  "plan.unscheduled": "Plandan çıkarıldı",
   "pomodoro.completed": "Odak tamamlandi",
   "pomodoro.interrupted": "Odak yarıda kesildi",
   "pomodoro.deleted": "Odak seansı silindi",

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -24,6 +25,67 @@ async def _database_ready() -> bool:
         return True
     except Exception:
         return False
+
+
+async def _seed_external_event(title: str, starts_at: datetime, ends_at: datetime) -> uuid.UUID:
+    entity_id = uuid.uuid4()
+    async with engine.begin() as connection:
+        await connection.execute(text(
+            "insert into entity (id, type, title, search_text) "
+            "values (:id, 'external_event', :title, '')"
+        ), {"id": entity_id, "title": title})
+        await connection.execute(text(
+            "insert into external_event "
+            "(id, provider, external_id, starts_at, ends_at, all_day, synced_at) "
+            "values (:id, 'google', :external_id, :starts_at, :ends_at, false, now())"
+        ), {
+            "id": entity_id,
+            "external_id": f"test-{entity_id}",
+            "starts_at": starts_at,
+            "ends_at": ends_at,
+        })
+    return entity_id
+
+
+async def _delete_entities(*entity_ids: uuid.UUID) -> None:
+    async with engine.begin() as connection:
+        for entity_id in entity_ids:
+            await connection.execute(
+                text("delete from entity where id = :id"), {"id": entity_id}
+            )
+
+
+async def _seed_feed_items(hours_old: list[int]) -> tuple[uuid.UUID, list[uuid.UUID]]:
+    feed_id = uuid.uuid4()
+    item_ids = [uuid.uuid4() for _ in hours_old]
+    async with engine.begin() as connection:
+        await connection.execute(text(
+            "insert into entity (id, type, title, search_text) "
+            "values (:id, 'feed', 'Agenda feed', '')"
+        ), {"id": feed_id})
+        await connection.execute(text(
+            "insert into feed (id, url, active, error_count) "
+            "values (:id, :url, true, 0)"
+        ), {"id": feed_id, "url": f"https://example.com/feed/{feed_id}"})
+        for index, (item_id, age) in enumerate(zip(item_ids, hours_old, strict=True)):
+            published_at = datetime.now(UTC) - timedelta(hours=age)
+            await connection.execute(text(
+                "insert into entity (id, type, title, search_text) "
+                "values (:id, 'feed_item', :title, '')"
+            ), {"id": item_id, "title": f"Agenda article {index}"})
+            await connection.execute(text(
+                "insert into feed_item "
+                "(id, feed_id, guid, url, published_at, fetched_at) "
+                "values (:id, :feed_id, :guid, :url, :published_at, :fetched_at)"
+            ), {
+                "id": item_id,
+                "feed_id": feed_id,
+                "guid": f"agenda-{item_id}",
+                "url": f"https://example.com/article/{item_id}",
+                "published_at": published_at,
+                "fetched_at": published_at,
+            })
+    return feed_id, item_ids
 
 
 @pytest.fixture
@@ -328,6 +390,202 @@ async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncC
     await client.delete(f"/api/todos/{normal['id']}")
     await client.delete(f"/api/todos/{routine['id']}")
     await client.delete(f"/api/habits/{habit['id']}")
+
+
+async def test_today_agenda_deduplicates_planned_due_todo(client: AsyncClient):
+    day = date.today()
+    todo = (await client.post("/api/todos", json={
+        "title": f"Agenda dedupe {uuid.uuid4().hex[:8]}",
+        "due_at": f"{day.isoformat()}T09:00:00+03:00",
+    })).json()
+    slot = (await client.post("/api/plan", json={
+        "entity_id": todo["id"], "day": day.isoformat(),
+    })).json()
+
+    response = await client.get("/api/today/agenda", params={"day": day.isoformat()})
+    assert response.status_code == 200
+    agenda = response.json()
+    rows = agenda["timed"] + agenda["checklist"] + agenda["completed"]
+    matches = [row for row in rows if row["id"] == todo["id"]]
+    assert len(matches) == 1
+    assert matches[0]["source"] == "planned"
+    assert matches[0]["slot_id"] == slot["id"]
+
+    await client.delete(f"/api/todos/{todo['id']}")
+
+
+async def test_today_agenda_nests_due_child_under_context_parent(client: AsyncClient):
+    day = date.today()
+    parent = (await client.post("/api/todos", json={
+        "title": f"Agenda parent {uuid.uuid4().hex[:8]}",
+    })).json()
+    child = (await client.post("/api/todos", json={
+        "title": f"Agenda child {uuid.uuid4().hex[:8]}",
+        "parent_id": parent["id"],
+        "due_at": f"{day.isoformat()}T10:00:00+03:00",
+    })).json()
+
+    agenda = (await client.get(
+        "/api/today/agenda", params={"day": day.isoformat()}
+    )).json()
+    parent_row = next(row for row in agenda["checklist"] if row["id"] == parent["id"])
+    assert parent_row["context_only"] is True
+    assert parent_row["action"] is None
+    assert [row["id"] for row in parent_row["children"]] == [child["id"]]
+    assert all(row["id"] != child["id"] for row in agenda["checklist"])
+
+    await client.delete(f"/api/todos/{parent['id']}")
+
+
+async def test_today_agenda_uses_istanbul_day_boundaries(client: AsyncClient):
+    day = date.today()
+    zone = ZoneInfo("Europe/Istanbul")
+    midnight = datetime.combine(day, datetime.min.time(), tzinfo=zone)
+    previous = await _seed_external_event(
+        "Previous local day", midnight - timedelta(minutes=30), midnight - timedelta(minutes=10)
+    )
+    inside = await _seed_external_event(
+        "Inside local day", midnight + timedelta(minutes=30), midnight + timedelta(minutes=50)
+    )
+    following = await _seed_external_event(
+        "Following local day",
+        midnight + timedelta(days=1, minutes=30),
+        midnight + timedelta(days=1, minutes=50),
+    )
+
+    agenda = (await client.get(
+        "/api/today/agenda", params={"day": day.isoformat()}
+    )).json()
+    seeded = {str(previous), str(inside), str(following)}
+    visible = {row["id"] for row in agenda["timed"]} & seeded
+    assert visible == {str(inside)}
+
+    await _delete_entities(previous, inside, following)
+
+
+async def test_today_agenda_returns_bounded_project_and_recent_rss_suggestions(
+    client: AsyncClient,
+):
+    day = date.today()
+    projects = []
+    todos = []
+    for index in range(5):
+        project = (await client.post(
+            "/api/projects", json={"title": f"Suggested project {index} {uuid.uuid4().hex[:6]}"}
+        )).json()
+        projects.append(project)
+        todo = (await client.post("/api/todos", json={
+            "title": f"Suggested task {index}",
+            "project_id": project["id"],
+            "priority": 3 - (index % 4),
+        })).json()
+        todos.append(todo)
+    feed_id, item_ids = await _seed_feed_items([1, 2, 3, 4, 5, 25])
+    before_slots = (await client.get("/api/plan", params={"week": day.isoformat()})).json()
+
+    agenda = (await client.get(
+        "/api/today/agenda", params={"day": day.isoformat()}
+    )).json()
+    assert agenda["auto_suggestions"] is True
+    assert len(agenda["suggestions"]["todos"]) == 4
+    assert all(row["project_title"] for row in agenda["suggestions"]["todos"])
+    assert len({row["project_title"] for row in agenda["suggestions"]["todos"]}) == 4
+    assert [row["id"] for row in agenda["suggestions"]["rss"]] == [
+        str(item_id) for item_id in item_ids[:4]
+    ]
+    after_slots = (await client.get("/api/plan", params={"week": day.isoformat()})).json()
+    assert after_slots == before_slots
+
+    for todo in todos:
+        await client.delete(f"/api/todos/{todo['id']}")
+    for project in projects:
+        await client.delete(f"/api/projects/{project['id']}")
+    await _delete_entities(*item_ids, feed_id)
+
+
+async def test_today_agenda_keeps_read_planned_rss_in_completed(client: AsyncClient):
+    day = date.today()
+    feed_id, item_ids = await _seed_feed_items([1])
+    item_id = item_ids[0]
+    slot = (await client.post("/api/plan", json={
+        "entity_id": str(item_id), "day": day.isoformat(), "duration_min": 20,
+    })).json()
+    marked = await client.post(f"/api/rss/items/{item_id}/read")
+    assert marked.status_code == 200
+
+    agenda = (await client.get(
+        "/api/today/agenda", params={"day": day.isoformat()}
+    )).json()
+    row = next(item for item in agenda["completed"] if item["id"] == str(item_id))
+    assert row["kind"] == "rss"
+    assert row["source"] == "planned"
+    assert row["slot_id"] == slot["id"]
+    assert row["completed"] is True
+    assert row["action"] is None
+
+    await _delete_entities(item_id, feed_id)
+
+
+async def test_todos_recur_only_filters_normal_tasks(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    normal = (await client.post("/api/todos", json={"title": f"Normal filter {suffix}"})).json()
+    routine = (await client.post("/api/todos", json={
+        "title": f"Routine filter {suffix}", "recur": "weekdays",
+    })).json()
+
+    rows = (await client.get(
+        "/api/todos", params={"status": "open", "recur_only": True, "limit": 500}
+    )).json()
+    returned = {row["id"] for row in rows}
+    assert routine["id"] in returned
+    assert normal["id"] not in returned
+
+    await client.delete(f"/api/todos/{normal['id']}")
+    await client.delete(f"/api/todos/{routine['id']}")
+
+
+async def test_plan_reschedule_and_unschedule_append_events(client: AsyncClient):
+    day = date.today()
+    next_day = day + timedelta(days=1)
+    todo = (await client.post("/api/todos", json={
+        "title": f"Plan events {uuid.uuid4().hex[:8]}"
+    })).json()
+    slot = (await client.post("/api/plan", json={
+        "entity_id": todo["id"], "day": day.isoformat(),
+    })).json()
+
+    moved = await client.patch(
+        f"/api/plan/{slot['id']}", json={"day": next_day.isoformat(), "start_min": 600}
+    )
+    assert moved.status_code == 200
+    removed = await client.delete(f"/api/plan/{slot['id']}")
+    assert removed.status_code == 204
+
+    events = (await client.get("/api/activity", params={"limit": 500})).json()
+    related = [item for item in events if item["entity_id"] == todo["id"]]
+    rescheduled = next(item for item in related if item["verb"] == "plan.rescheduled")
+    assert rescheduled["payload"]["from"] == day.isoformat()
+    assert rescheduled["payload"]["to"] == next_day.isoformat()
+    unscheduled = next(item for item in related if item["verb"] == "plan.unscheduled")
+    assert unscheduled["payload"]["day"] == next_day.isoformat()
+
+    await client.delete(f"/api/todos/{todo['id']}")
+
+
+async def test_today_agenda_hides_suggestions_when_auto_mode_is_disabled(client: AsyncClient):
+    todo = (await client.post("/api/todos", json={
+        "title": f"Hidden suggestion {uuid.uuid4().hex[:8]}"
+    })).json()
+    await client.put("/api/settings/today.auto_suggestions", json={"value": False})
+    try:
+        agenda = (await client.get(
+            "/api/today/agenda", params={"day": date.today().isoformat()}
+        )).json()
+        assert agenda["auto_suggestions"] is False
+        assert agenda["suggestions"] == {"todos": [], "rss": []}
+    finally:
+        await client.put("/api/settings/today.auto_suggestions", json={"value": True})
+        await client.delete(f"/api/todos/{todo['id']}")
 
 
 async def test_project_last_activity_follows_linked_todo_updates(client: AsyncClient):

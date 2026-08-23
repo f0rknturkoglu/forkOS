@@ -6,7 +6,8 @@ def _spec():
     return ModuleSpec(id="todo", title="Todo & Planner", router=router,
                       entity_types=["todo"], event_verbs=[
                           "todo.created", "todo.completed", "todo.dropped",
-                          "todo.rescheduled", "plan.scheduled"])
+                          "todo.rescheduled", "plan.scheduled",
+                          "plan.rescheduled", "plan.unscheduled"])
 
 
 MODULE = _spec()

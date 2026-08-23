@@ -211,7 +211,7 @@ async def create(session: AsyncSession, data: TodoIn, *, commit: bool = True) ->
 async def list_todos(session: AsyncSession, *, status: str | None = None,
                      due_before: datetime | None = None, priority: int | None = None,
                      include_undated: bool = False, completed_after: datetime | None = None,
-                     limit: int = 100) -> list[TodoOut]:
+                     recur_only: bool = False, limit: int = 100) -> list[TodoOut]:
     """`include_undated`: due_before verildiginde tarihsiz gorevleri de al.
 
     Bugun paneli bunu ister -- tarih girmeden eklenen bir gorev aksi halde
@@ -238,6 +238,8 @@ async def list_todos(session: AsyncSession, *, status: str | None = None,
         stmt = stmt.where(Todo.completed_at >= completed_after)
     if priority is not None:
         stmt = stmt.where(Todo.priority == priority)
+    if recur_only:
+        stmt = stmt.where(Todo.recur.is_not(None))
     rows = (await session.execute(stmt)).all()
     todos = [todo for todo, _ in rows]
     tag_map = await tag_svc.tags_for(session, [todo.id for todo in todos])
@@ -380,9 +382,31 @@ async def update_slot(session: AsyncSession, slot_id: uuid.UUID,
     slot = await session.get(PlanSlot, slot_id)
     if slot is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    previous = {
+        "day": slot.day,
+        "start_min": slot.start_min,
+        "duration_min": slot.duration_min,
+        "note": slot.note,
+        "position": slot.position,
+    }
+    values = data.model_dump(exclude_unset=True)
+    for key, value in values.items():
         setattr(slot, key, value)
     entity = await session.get(Entity, slot.entity_id)
+    if any(previous[key] != getattr(slot, key) for key in values):
+        await log_event(
+            session,
+            verb="plan.rescheduled",
+            entity_id=slot.entity_id,
+            entity_type=entity.type if entity else None,
+            payload={
+                "slot_id": str(slot.id),
+                "from": previous["day"].isoformat(),
+                "to": slot.day.isoformat(),
+                "start_min": slot.start_min,
+                "duration_min": slot.duration_min,
+            },
+        )
     await session.commit()
     return PlanSlotOut(id=slot.id, entity_id=slot.entity_id,
                        entity_type=entity.type if entity else "unknown",
@@ -395,6 +419,14 @@ async def delete_slot(session: AsyncSession, slot_id: uuid.UUID) -> bool:
     slot = await session.get(PlanSlot, slot_id)
     if slot is None:
         return False
+    entity = await session.get(Entity, slot.entity_id)
+    await log_event(
+        session,
+        verb="plan.unscheduled",
+        entity_id=slot.entity_id,
+        entity_type=entity.type if entity else None,
+        payload={"slot_id": str(slot.id), "day": slot.day.isoformat()},
+    )
     await session.delete(slot)
     await session.commit()
     return True

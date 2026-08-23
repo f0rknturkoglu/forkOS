@@ -24,11 +24,13 @@ router = APIRouter(tags=["todo"])
 async def list_todos(status: str | None = None, due_before: datetime | None = None,
                      priority: int | None = None, include_undated: bool = False,
                      completed_after: datetime | None = None,
+                     recur_only: bool = False,
                      limit: int = Query(100, ge=1, le=500),
                      session: AsyncSession = Depends(get_session)):
     return await service.list_todos(session, status=status, due_before=due_before,
                                     priority=priority, include_undated=include_undated,
-                                    completed_after=completed_after, limit=limit)
+                                    completed_after=completed_after,
+                                    recur_only=recur_only, limit=limit)
 
 
 @router.post("/todos", response_model=TodoOut, status_code=201)

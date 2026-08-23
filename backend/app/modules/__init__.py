@@ -35,11 +35,13 @@ from app.modules.rss import MODULE as rss_module  # noqa: E402
 from app.modules.study import MODULE as study_module  # noqa: E402
 from app.modules.system import MODULE as system_module  # noqa: E402
 from app.modules.todo import MODULE as todo_module  # noqa: E402
+from app.modules.today import MODULE as today_module  # noqa: E402
 
 MODULES: list[ModuleSpec] = [
     bookmark_module,
     rss_module,
     todo_module,
+    today_module,
     pomodoro_module,
     habit_module,
     review_module,
