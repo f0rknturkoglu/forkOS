@@ -219,3 +219,25 @@ async def reddit_news(
         return await news.reddit_posts(subs, limit)
     except httpx.HTTPError as exc:
         raise HTTPException(502, f"reddit okunamadi: {exc}") from exc
+
+
+@router.get("/news/hacker-news")
+async def hacker_news(
+    limit: int = Query(15, ge=1, le=40),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await news.hacker_news(session, limit)
+    except (httpx.HTTPError, RuntimeError) as exc:
+        raise HTTPException(502, f"Hacker News okunamadı: {exc}") from exc
+
+
+@router.get("/news/github-trending")
+async def github_trending(
+    limit: int = Query(10, ge=1, le=40),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await news.github_trending(session, limit)
+    except (httpx.HTTPError, RuntimeError) as exc:
+        raise HTTPException(502, f"GitHub okunamadı: {exc}") from exc

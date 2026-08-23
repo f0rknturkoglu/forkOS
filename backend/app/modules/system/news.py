@@ -16,6 +16,15 @@ from datetime import UTC, datetime
 
 import feedparser
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import runs
+from app.sources.news import (
+    GitHubTrendingSource,
+    HackerNewsSource,
+    cached_items,
+    store_cached_items,
+)
 
 USER_AGENT = "forkOS/0.1 (+local-only personal reader)"
 TIMEOUT = httpx.Timeout(15.0, connect=8.0)
@@ -115,3 +124,33 @@ async def reddit_posts(subreddits: list[str], limit: int) -> list[dict]:
 
     _cache[key] = _CacheEntry(at=now, items=items)
     return items[:limit]
+
+
+async def fetch_news_source(session: AsyncSession, source, limit: int) -> list[dict]:
+    cached = cached_items(source.id)
+    if cached is not None:
+        return [item.extra for item in cached[:limit]]
+
+    run = await runs.start_run(session, source.id)
+    try:
+        items = await source.fetch()
+        store_cached_items(source.id, items)
+        status = runs.OK if items else runs.EMPTY
+        await runs.finish_run(session, run, status=status, items_found=len(items))
+        await session.commit()
+        if status == runs.EMPTY:
+            await runs.check_stalled(session, source.id)
+            await session.commit()
+    except Exception as exc:
+        await runs.finish_run(session, run, status=runs.ERROR, error=str(exc))
+        await session.commit()
+        raise
+    return [item.extra for item in items[:limit]]
+
+
+async def hacker_news(session: AsyncSession, limit: int) -> list[dict]:
+    return await fetch_news_source(session, HackerNewsSource(), limit)
+
+
+async def github_trending(session: AsyncSession, limit: int) -> list[dict]:
+    return await fetch_news_source(session, GitHubTrendingSource(), limit)

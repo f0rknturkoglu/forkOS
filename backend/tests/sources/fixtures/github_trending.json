@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "id": 99,
+      "full_name": "acme/local-first",
+      "html_url": "https://github.com/acme/local-first",
+      "description": "Local-first toolkit",
+      "stargazers_count": 812,
+      "language": "TypeScript",
+      "created_at": "2026-08-22T10:00:00Z"
+    }
+  ]
+}

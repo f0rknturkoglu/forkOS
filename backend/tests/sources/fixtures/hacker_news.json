@@ -1,0 +1,12 @@
+{
+  "hits": [
+    {
+      "objectID": "123",
+      "title": "SQLite on the edge",
+      "url": "https://example.com/sqlite-edge",
+      "points": 321,
+      "num_comments": 44,
+      "created_at": "2026-08-23T08:00:00Z"
+    }
+  ]
+}

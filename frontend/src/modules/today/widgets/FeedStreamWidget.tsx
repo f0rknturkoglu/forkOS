@@ -70,9 +70,8 @@ const FILTERS: { id: "all" | Origin; label: string }[] = [
  * cevapliyor -- "bugun okunacak ne var?" -- o yuzden ayri kutular degil tek
  * akis; hepsi zamana gore siralaniyor.
  *
- * Reddit backend'den gecer (tarayiciya 403 doner, bkz. system/news.py);
- * HN Algolia ve GitHub Search CORS'a acik oldugu icin dogrudan; RSS zaten
- * yereldeki okuyucudan.
+ * Dış haber kaynaklarının tamamı backend'den geçer; böylece source_run sağlık
+ * kaydı, timeout ve çevrimdışı PWA önbelleği tek yerde uygulanır.
  */
 export function FeedStreamWidget() {
   const [filter, setFilter] = useState<"all" | Origin>("all");
@@ -92,25 +91,15 @@ export function FeedStreamWidget() {
     staleTime: 10 * 60_000,
     retry: 1,
   });
-  const { data: hn = [] } = useQuery({
+  const { data: hn = [], isError: hnFailed } = useQuery({
     queryKey: ["hacker-news"],
-    queryFn: () =>
-      fetch("https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=15")
-        .then((r) => r.json())
-        .then((d) => (d.hits ?? []) as HnStory[]),
+    queryFn: () => api.get<HnStory[]>("/news/hacker-news?limit=15"),
     refetchInterval: 15 * 60_000,
     staleTime: 10 * 60_000,
   });
-  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 10);
-  const { data: repos = [] } = useQuery({
-    queryKey: ["github-trending", weekAgo],
-    queryFn: () =>
-      fetch(
-        `https://api.github.com/search/repositories?q=created:>${weekAgo}&sort=stars&order=desc&per_page=10`,
-        { headers: { Accept: "application/vnd.github+json" } },
-      )
-        .then((r) => r.json())
-        .then((d) => (d.items ?? []) as Repo[]),
+  const { data: repos = [], isError: githubFailed } = useQuery({
+    queryKey: ["github-trending"],
+    queryFn: () => api.get<Repo[]>("/news/github-trending?limit=10"),
     refetchInterval: 6 * 3600_000,
     staleTime: 3 * 3600_000,
   });
@@ -224,7 +213,13 @@ export function FeedStreamWidget() {
     >
       {items.length === 0 ? (
         <p className="px-2 py-4 text-center text-meta text-muted">
-          {redditFailed && filter === "reddit" ? "Reddit'e ulaşılamadı." : "Yeni bir şey yok."}
+          {redditFailed && filter === "reddit"
+            ? "Reddit'e ulaşılamadı."
+            : hnFailed && filter === "hn"
+              ? "Hacker News'e ulaşılamadı."
+              : githubFailed && filter === "gh"
+                ? "GitHub'a ulaşılamadı."
+                : "Yeni bir şey yok."}
         </p>
       ) : (
         <RowList>

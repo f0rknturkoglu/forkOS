@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DashboardLayout } from "./TodayPage";
 
@@ -20,5 +21,17 @@ describe("responsive Today layout", () => {
     expect(html).toContain("dashboard-right");
     expect(html.indexOf("merkez")).toBeLessThan(html.indexOf("sol"));
     expect(html.indexOf("sol")).toBeLessThan(html.indexOf("sağ"));
+  });
+
+  it("routes Hacker News and GitHub reads through the local API", () => {
+    const source = readFileSync(
+      new URL("./widgets/FeedStreamWidget.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain('/news/hacker-news');
+    expect(source).toContain('/news/github-trending');
+    expect(source).not.toContain('fetch("https://hn.algolia.com');
+    expect(source).not.toContain('fetch(\n        `https://api.github.com');
   });
 });
