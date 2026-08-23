@@ -25,6 +25,7 @@ async def list_documents(session: AsyncSession, category=None):
             "id": d.id,
             "title": t,
             "drive_file_id": d.drive_file_id,
+            "folder_id": d.folder_id,
             "mime": d.mime,
             "category": d.category,
             "web_view_link": d.web_view_link,
@@ -70,25 +71,35 @@ async def sync_folder(session: AsyncSession, folder_id: str, category: str):
                 title=raw["name"],
                 search_text=f"{category} {raw.get('mimeType', '')}",
             )
-            doc = Document(id=entity.id, drive_file_id=raw["id"])
+            doc = Document(id=entity.id, drive_file_id=raw["id"], folder_id=folder_id)
             session.add(doc)
         else:
             await touch_entity(session, doc.id, title=raw["name"])
         doc.mime = raw.get("mimeType")
+        doc.folder_id = folder_id
         doc.category = category
         doc.web_view_link = raw.get("webViewLink")
         doc.size_bytes = int(raw["size"]) if raw.get("size") else None
         doc.drive_modified_at = datetime.fromisoformat(raw["modifiedTime"].replace("Z", "+00:00"))
         doc.synced_at = now
     existing = list(
-        (await session.execute(select(Document).where(Document.category == category))).scalars()
+        (
+            await session.execute(
+                select(Document).where(
+                    Document.category == category,
+                    Document.folder_id == folder_id,
+                )
+            )
+        ).scalars()
     )
     for doc in existing:
         if doc.drive_file_id not in seen:
             entity = await session.get(Entity, doc.id)
             entity.archived_at = now
     await log_event(
-        session, verb="document.synced", payload={"count": len(files), "category": category}
+        session,
+        verb="document.synced",
+        payload={"count": len(files), "category": category, "folder_id": folder_id},
     )
     await session.commit()
     return len(files)

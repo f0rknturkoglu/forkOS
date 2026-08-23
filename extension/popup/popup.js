@@ -1,4 +1,12 @@
-import { enqueue, moveTo, pendingCount, ping } from "../outbox.js";
+import {
+  clearFailed,
+  enqueue,
+  failedCount,
+  moveTo,
+  pendingCount,
+  ping,
+  retryFailed,
+} from "../outbox.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -6,10 +14,35 @@ const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 $("title").value = tab?.title ?? "";
 $("url").value = tab?.url ?? "";
 
-const pending = await pendingCount();
+async function refreshCounts() {
+  const [pending, failed] = await Promise.all([pendingCount(), failedCount()]);
+  $("pending-count").textContent = `${pending} bekleyen`;
+  $("failed-count").textContent = `${failed} başarısız`;
+  $("failed-actions").hidden = failed === 0;
+  return { failed, pending };
+}
+
+const { pending } = await refreshCounts();
 const online = await ping();
 if (pending > 0) $("status").textContent = `${pending} kayit gonderilmeyi bekliyor`;
 else if (!online) $("status").textContent = "forkOS kapali -- kayitlar kuyruga alinir";
+
+$("retry-failed").addEventListener("click", async () => {
+  $("status").textContent = "Yeniden deneniyor…";
+  const result = await retryFailed();
+  await refreshCounts();
+  $("status").textContent = result.pending
+    ? `${result.pending} kayıt hâlâ bekliyor`
+    : "Başarısız kayıtlar yeniden gönderildi";
+});
+
+$("clear-failed").addEventListener("click", async () => {
+  await clearFailed();
+  await refreshCounts();
+  $("status").textContent = "Başarısız kayıtlar temizlendi";
+});
+
+$("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
 $("save").addEventListener("click", async () => {
   $("save").disabled = true;

@@ -20,6 +20,9 @@ function installChrome(initial = {}) {
       async setBadgeBackgroundColor() {},
       async setBadgeText() {},
     },
+    permissions: {
+      async request() { return true; },
+    },
   };
   return state;
 }
@@ -102,4 +105,33 @@ test("moves backend 4xx responses to failed captures", { concurrency: false }, a
   assert.equal(state.outbox.length, 0);
   assert.equal(state.failedCaptures.length, 1);
   assert.equal(state.failedCaptures[0].url, "https://rejected.example");
+});
+
+test("lists, retries and clears failed captures", { concurrency: false }, async () => {
+  const failed = {
+    client_uuid: "failed-1",
+    collection: "inbox",
+    url: "https://retry.example",
+    title: "Retry",
+    status: 422,
+    message: "bad",
+  };
+  const state = installChrome({ failedCaptures: [failed] });
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 201,
+    async json() { return {}; },
+  });
+
+  const { clearFailed, failedCaptures, retryFailed } = await loadOutbox();
+  assert.deepEqual(await failedCaptures(), [failed]);
+
+  const result = await retryFailed();
+  assert.equal(result.sent, 1);
+  assert.deepEqual(state.failedCaptures, []);
+  assert.deepEqual(state.outbox, []);
+
+  state.failedCaptures = [failed];
+  await clearFailed();
+  assert.deepEqual(state.failedCaptures, []);
 });

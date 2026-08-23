@@ -18,6 +18,7 @@ class Document(EntityBacked, Base):
         PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
     drive_file_id: Mapped[str] = mapped_column(Text, unique=True)
+    folder_id: Mapped[str | None] = mapped_column(Text)
     mime: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(Text)
     web_view_link: Mapped[str | None] = mapped_column(Text)

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>forkOS Capture ayarları</title>
+    <style>
+      body { max-width: 640px; margin: 48px auto; padding: 0 20px; font: 14px system-ui; color: #222; }
+      form { display: grid; gap: 12px; }
+      label { font-weight: 600; }
+      input, button { box-sizing: border-box; width: 100%; padding: 10px; font: inherit; }
+      button { width: auto; cursor: pointer; }
+      #status { min-height: 1.5em; color: #555; }
+    </style>
+  </head>
+  <body>
+    <h1>forkOS sunucusu</h1>
+    <p>OrbStack, Podman VM veya başka bir yerel adres kullanıyorsan buraya yaz.</p>
+    <form id="server-form">
+      <label for="api-base">API adresi</label>
+      <input id="api-base" type="url" required placeholder="http://127.0.0.1:8787/api" />
+      <button type="submit">Kaydet ve izin ver</button>
+      <p id="status" role="status"></p>
+    </form>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

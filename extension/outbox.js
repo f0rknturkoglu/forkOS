@@ -5,7 +5,7 @@
  * Kaydetme her zaman once kuyruga yazar, sonra gonderilmeye calisilir.
  * client_uuid sayesinde retry'de cift kayit olusmaz (backend idempotent).
  */
-import { API_BASE } from "./config.js";
+import { getApiBase } from "./config.js";
 
 const KEY = "outbox";
 const FAILED_KEY = "failedCaptures";
@@ -101,10 +101,11 @@ async function flushQueue() {
   const duplicates = [];
   const rejected = [];
   let sent = 0;
+  const apiBase = await getApiBase();
 
   for (const item of queue) {
     try {
-      const res = await fetch(`${API_BASE}/capture`, {
+      const res = await fetch(`${apiBase}/capture`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(item),
@@ -150,7 +151,8 @@ async function flushQueue() {
 /** Backend ayakta mi? Popup "kuyruga alindi" mesajini buna gore gosterir. */
 export async function ping() {
   try {
-    const res = await fetch(`${API_BASE.replace(/\/api$/, "")}/health`, { method: "GET" });
+    const apiBase = await getApiBase();
+    const res = await fetch(`${apiBase.replace(/\/api$/, "")}/health`, { method: "GET" });
     return res.ok;
   } catch {
     return false;
@@ -159,9 +161,34 @@ export async function ping() {
 
 /** Duplicate uyarisindaki "Learning'e tasi" butonu. */
 export async function moveTo(bookmarkId, collection) {
+  const apiBase = await getApiBase();
   const res = await fetch(
-    `${API_BASE}/bookmarks/${bookmarkId}/collection?collection=${encodeURIComponent(collection)}`,
+    `${apiBase}/bookmarks/${bookmarkId}/collection?collection=${encodeURIComponent(collection)}`,
     { method: "PATCH" },
   );
   return res.ok;
+}
+
+export async function failedCaptures() {
+  const { [FAILED_KEY]: failed = [] } = await chrome.storage.local.get(FAILED_KEY);
+  return failed;
+}
+
+export async function failedCount() {
+  return (await failedCaptures()).length;
+}
+
+export async function clearFailed() {
+  await chrome.storage.local.set({ [FAILED_KEY]: [] });
+}
+
+export async function retryFailed() {
+  await withStorageLock(async () => {
+    const failed = await failedCaptures();
+    const queue = await readQueue();
+    const retried = failed.map(({ status: _status, message: _message, failed_at: _at, ...item }) => item);
+    await chrome.storage.local.set({ [FAILED_KEY]: [] });
+    await writeQueue([...queue, ...retried]);
+  });
+  return flush();
 }

@@ -18,6 +18,15 @@
     </select>
     <button id="save">Kaydet</button>
     <p id="status"></p>
+    <div id="queue-status">
+      <span id="pending-count">0 bekleyen</span>
+      <span id="failed-count">0 başarısız</span>
+    </div>
+    <div id="failed-actions" hidden>
+      <button id="retry-failed">Başarısızları yeniden dene</button>
+      <button id="clear-failed">Başarısızları temizle</button>
+    </div>
+    <button id="open-options" class="secondary">Sunucu adresi</button>
     <div id="duplicate" hidden>
       <p>Bu sayfa zaten kayitli.</p>
       <button id="move-learning">Learning'e tasi</button>
