@@ -269,3 +269,43 @@
 
 - Canlı third-party credential/rate-limit davranışı mock test kapsamı dışında;
   bilinen backend/test bloklayıcısı yoktur.
+
+## Same-key concurrent cache test adequacy — 2026-08-23
+
+### RED kanıtı
+
+- Güçlendirilmiş test iki eşzamanlı task'ta aynı provider instance, aynı
+  `GET /3/tv/42` cache key'i ve task-local olarak farklı mocked response kullandı.
+- Bilinçli shared mutable cache kontrolünde doğru isolation beklentisiyle ilk
+  koşu RED verdi: `shared_seasons == [2, 2]`, beklenen task-distinct değer
+  `[1, 2]` idi. Böylece testin shared-cache implementasyonunu gerçekten
+  yakaladığı doğrulandı.
+
+### Uygulama özeti
+
+- Test, iki details çağrısını barrier ile overlap ettiriyor ve details/units
+  arasına kontrollü scheduling noktası koyuyor. Production `ContextVar` cache
+  task A/B için aynı key'de kendi payload'ını koruyor ve base endpoint toplam
+  iki kez çağrılıyor.
+- Aynı senaryo test içindeki shared mutable slot kontrolüyle de çalıştırılıyor;
+  kontrolün `[2, 2]` sızıntısı kalıcı assertion olarak test sensitivity'sini
+  belgeliyor. Production değişikliği gerekmedi.
+
+### GREEN ve final doğrulama
+
+- Same-key cache + TMDB/Podcast request-count odak paketi: `3 passed in 0.03s`.
+- Geniş media/source odak paketi: `95 passed in 5.00s`.
+- Fresh tam backend: `178 passed in 20.22s`.
+- `ruff check app tests scripts`: `All checks passed!`.
+- `python -m compileall -q app tests scripts`: exit 0.
+- `git diff --check`: exit 0.
+- `backend/uv.lock` yok; Task 4/5 değiştirilmedi.
+
+### Test adequacy commit'i
+
+- `a1d4a4c` — `Strengthen concurrent provider cache regression`
+
+### Kalan concern
+
+- Canlı third-party credential/rate-limit davranışı mock test kapsamı dışında;
+  bilinen backend/test bloklayıcısı yoktur.
