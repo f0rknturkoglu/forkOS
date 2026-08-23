@@ -179,3 +179,50 @@
 
 - Canlı upstream davranışı halen bilinçli olarak mock HTTP testleriyle izole;
   bilinen backend/test bloklayıcısı yoktur.
+
+## Final cleanup — 2026-08-23
+
+### RED kanıtı
+
+- Dört odak test ilk koşuda `4 failed` verdi. MusicBrainz disc/fallback testi
+  edition track ID'lerini (`track:a`, `track:b`) döndürdü; release-group'a yeni
+  küçük ID'li edition eklendiğinde aynı logical track'ler farklı provider ID
+  üretti.
+- TMDB adapter'ı iki snapshot için `/3/tv/42` endpoint'ini beklenen 2 yerine 4
+  kez çağırdı. Podcast adapter testi de lookup tekrarını çalıştırırken kurulu
+  feedparser API'sinde bulunmayan `loads` çağrısını görünür kıldı.
+
+### Uygulama özeti
+
+- MusicBrainz unit identity artık edition track ID'sine bağlı değil: recording
+  ID varsa canonical identity odur; yoksa release-group + medium position +
+  track position + title hash fallback'i kullanılır. Edition track ID yalnız
+  provider metadata'sında tutulur. Release-group membership büyüse ve seçilen
+  edition değişse bile logical unit provider ID'leri sabit kalır.
+- HTTP provider tabanı adapter snapshot kapsamına özel, `ContextVar` tabanlı GET
+  response reuse ekledi. Cache her `MediaSourceAdapter.fetch()` çıkışında reset
+  edilir; concurrent task'lar state paylaşmaz ve sonraki poll upstream'i yeniden
+  çağırır.
+- TMDB details/units aynı `/tv/{id}` yanıtını snapshot içinde paylaşır. Podcast
+  details/units aynı iTunes lookup yanıtını paylaşır; RSS feed yine snapshot
+  başına bir kez alınır. Publisher feed parsing kurulu feedparser sözleşmesine
+  uygun olarak `parse()` kullanır.
+
+### GREEN ve final doğrulama
+
+- Yeni odak regresyonları: `4 passed in 0.02s`.
+- Geniş media/source odak paketi: `93 passed in 4.95s`.
+- Fresh tam backend: `176 passed in 19.73s`.
+- `ruff check app tests scripts`: `All checks passed!`.
+- `python -m compileall -q app tests scripts`: exit 0.
+- `git diff --check`: exit 0.
+- `backend/uv.lock` yok; Task 4/5 değiştirilmedi.
+
+### Final cleanup commit'i
+
+- `0347d7b` — `Stabilize provider snapshots and MusicBrainz units`
+
+### Kalan concern
+
+- Canlı third-party credential/rate-limit davranışı mock test kapsamı dışında;
+  bilinen backend/test bloklayıcısı yoktur.
