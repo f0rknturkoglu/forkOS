@@ -8,6 +8,7 @@ import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./PomodoroPage";
 import { FocusMode } from "./FocusMode";
+import { POMODORO_REFRESH_KEYS, POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 
 /**
  * Bugun panelinden pomodoro'nun TAM kontrolu: baslat, duraklat, tamamla,
@@ -40,8 +41,8 @@ export function PomodoroWidget() {
     queryFn: () => api.get<PomodoroSession[]>("/pomodoro/sessions?limit=4"),
   });
 
-  const refresh = () =>
-    invalidate("pomodoro-active", "pomodoro-stats", "pomodoro-sessions", "activity", "review-preview");
+  const refresh = () => invalidate(...POMODORO_REFRESH_KEYS);
+  const refreshTimeline = () => invalidate(...POMODORO_TIMELINE_REFRESH_KEYS);
 
   const start = useMutation({
     mutationFn: (kind: "focus" | "short_break") =>
@@ -54,7 +55,7 @@ export function PomodoroWidget() {
   });
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),
-    onSuccess: refresh,
+    onSuccess: refreshTimeline,
   });
   const togglePause = useMutation({
     mutationFn: () => api.post(`/pomodoro/${active?.id}/${active?.paused_at ? "resume" : "pause"}`),

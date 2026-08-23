@@ -9,6 +9,7 @@ import {
 import type { PomodoroSession, PomodoroStats, Todo } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { FocusMode } from "./FocusMode";
+import { POMODORO_REFRESH_KEYS, POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 
 /** Varsayilan blok: 50 dk odak / 10 dk mola. */
 export const FOCUS_MIN = 50;
@@ -65,8 +66,8 @@ export function PomodoroPage() {
     queryFn: () => api.get<Todo[]>("/todos?status=open&limit=100"),
   });
 
-  const refresh = () =>
-    invalidate("pomodoro-active", "pomodoro-stats", "pomodoro-sessions", "activity", "review-preview");
+  const refresh = () => invalidate(...POMODORO_REFRESH_KEYS);
+  const refreshTimeline = () => invalidate(...POMODORO_TIMELINE_REFRESH_KEYS);
 
   const start = useMutation({
     mutationFn: (kind: "focus" | "short_break") =>
@@ -81,7 +82,7 @@ export function PomodoroPage() {
   });
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),
-    onSuccess: refresh,
+    onSuccess: refreshTimeline,
   });
   const togglePause = useMutation({
     mutationFn: () => api.post(`/pomodoro/${active?.id}/${active?.paused_at ? "resume" : "pause"}`),
@@ -175,7 +176,7 @@ export function PomodoroPage() {
           </MetricStrip>
         </Section>
 
-        <SessionHistory todos={todos} onChange={refresh} />
+        <SessionHistory todos={todos} onChange={refresh} onManualDone={refreshTimeline} />
       </PageFrame>
 
       {focusMode && active && <FocusMode onClose={() => setFocusMode(false)} />}
@@ -184,7 +185,11 @@ export function PomodoroPage() {
 }
 
 /** Gecmis seanslar: elle ekleme + silme. Sayac calismadan yapilan is de sayilir. */
-function SessionHistory({ todos, onChange }: { todos: Todo[]; onChange: () => void }) {
+function SessionHistory({ todos, onChange, onManualDone }: {
+  todos: Todo[];
+  onChange: () => void;
+  onManualDone: () => void;
+}) {
   const [adding, setAdding] = useState(false);
   const online = useOnline();
   const toast = useToast();
@@ -209,7 +214,7 @@ function SessionHistory({ todos, onChange }: { todos: Todo[]; onChange: () => vo
         </button>
       }
     >
-      {adding && <ManualForm todos={todos} onDone={() => { setAdding(false); onChange(); }} />}
+      {adding && <ManualForm todos={todos} onDone={() => { setAdding(false); onManualDone(); }} />}
 
       {sessions.length === 0 ? (
         <Empty>Henüz kayıtlı seans yok.</Empty>

@@ -6,6 +6,7 @@ import { Button, cx } from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { PomodoroSession } from "@/core/types";
 import { clock, remaining } from "./PomodoroPage";
+import { POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 
 /**
  * Odak modu: sayac disinda hicbir sey yok.
@@ -35,7 +36,7 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),
     onSuccess: () => {
-      invalidate("pomodoro-active", "pomodoro-stats", "pomodoro-sessions", "activity", "review-preview");
+      invalidate(...POMODORO_TIMELINE_REFRESH_KEYS);
       onClose();
     },
   });
