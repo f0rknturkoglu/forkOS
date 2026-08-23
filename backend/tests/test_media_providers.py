@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -13,6 +15,7 @@ from app.modules.media.providers.openlibrary import GoogleBooksProvider, OpenLib
 from app.modules.media.providers.podcast import PodcastProvider
 from app.modules.media.providers.registry import ProviderRegistry
 from app.modules.media.providers.tmdb import TMDBProvider
+from app.modules.media.sync import MediaSourceAdapter
 
 
 @pytest.mark.no_database
@@ -214,7 +217,10 @@ async def test_musicbrainz_track_identity_includes_disc_position():
 
     provider._get = fake_get
     units = await provider.units("group")
-    assert [unit.provider_id for unit in units] == ["track:a", "track:b"]
+    assert [unit.provider_id for unit in units] == [
+        "fallback:group:d1:t1:24601bcaae6e",
+        "fallback:group:d2:t1:24601bcaae6e",
+    ]
 
 
 @pytest.mark.no_database
@@ -255,6 +261,122 @@ async def test_musicbrainz_release_order_does_not_change_track_identity():
     assert [unit.provider_id for unit in second] == [
         unit.provider_id for unit in first
     ]
+
+
+@pytest.mark.no_database
+async def test_musicbrainz_membership_growth_keeps_logical_track_identity():
+    provider = MusicBrainzProvider()
+    release_sets = [
+        [{"id": "release-b"}],
+        [{"id": "release-a"}, {"id": "release-b"}],
+    ]
+
+    async def fake_get(path: str, **params):
+        if path == "release-group/group":
+            return {"releases": release_sets.pop(0)}
+        edition = path.removeprefix("release/")
+        return {
+            "media": [
+                {
+                    "position": 1,
+                    "tracks": [
+                        {
+                            "id": f"track-{edition}",
+                            "position": 1,
+                            "title": "Logical track",
+                            "recording": {"id": "recording-stable"},
+                        },
+                        {
+                            "id": f"bonus-{edition}",
+                            "position": 2,
+                            "title": "No recording identity",
+                        },
+                    ],
+                }
+            ]
+        }
+
+    provider._get = fake_get
+    before = await provider.units("group")
+    after = await provider.units("group")
+    assert [unit.provider_id for unit in before] == [
+        "recording:recording-stable",
+        "fallback:group:d1:t2:b705b28a5736",
+    ]
+    assert [unit.provider_id for unit in after] == [
+        unit.provider_id for unit in before
+    ]
+
+
+@pytest.mark.no_database
+async def test_tmdb_adapter_reuses_show_details_request_only_within_snapshot():
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path == "/3/tv/42":
+            return httpx.Response(
+                200,
+                json={
+                    "id": 42,
+                    "name": "Show",
+                    "number_of_episodes": 1,
+                    "seasons": [{"season_number": 1}],
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "episodes": [
+                    {"episode_number": 1, "name": "Pilot", "air_date": "2026-01-01"}
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = TMDBProvider("show", api_key="key", client=client)
+        item = SimpleNamespace(id=uuid.uuid4(), provider_id="tv:42")
+        adapter = MediaSourceAdapter(provider, item, upcoming_days=30)
+        await adapter.fetch()
+        await adapter.fetch()
+
+    assert paths.count("/3/tv/42") == 2
+    assert paths.count("/3/tv/42/season/1") == 2
+
+
+@pytest.mark.no_database
+async def test_podcast_adapter_reuses_itunes_lookup_only_within_snapshot():
+    paths: list[str] = []
+    feed = b"""<?xml version="1.0"?><rss version="2.0"><channel>
+    <title>Show</title><item><guid>episode-1</guid><title>Episode</title></item>
+    </channel></rss>"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.host == "itunes.apple.com":
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "collectionId": 7,
+                            "collectionName": "Show",
+                            "feedUrl": "https://publisher.test/feed.xml",
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, content=feed)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = PodcastProvider(client=client)
+        item = SimpleNamespace(id=uuid.uuid4(), provider_id="7")
+        adapter = MediaSourceAdapter(provider, item, upcoming_days=30)
+        await adapter.fetch()
+        await adapter.fetch()
+
+    assert paths.count("/lookup") == 2
+    assert paths.count("/feed.xml") == 2
 
 
 @pytest.mark.no_database

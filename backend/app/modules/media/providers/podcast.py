@@ -81,7 +81,7 @@ class PodcastProvider(HTTPProvider):
             if exc.response.status_code in {404, 410}:
                 raise ProviderExpectedEmpty("Podcast feed artık mevcut değil") from exc
             raise
-        parsed = feedparser.loads(response.content)
+        parsed = feedparser.parse(response.content)
         publisher_art = (parsed.feed.get("image") or {}).get("href")
         units = []
         for index, entry in enumerate(parsed.entries):

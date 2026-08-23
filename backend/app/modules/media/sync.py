@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -38,26 +39,28 @@ class MediaSourceAdapter:
         self.id = f"media:{provider.id}:{item.id}"
 
     async def fetch(self) -> list[RawItem]:
-        try:
-            details = await self.provider.details(str(self.item.provider_id))
-            if details is None:
-                return []
-            units = (
-                await self.provider.units(str(self.item.provider_id))
-                if self.provider.capabilities.units
-                else []
-            )
-            upcoming = (
-                await self.provider.upcoming(
-                    str(self.item.provider_id),
-                    days=self.upcoming_days,
-                    units=units,
+        snapshot = getattr(self.provider, "snapshot", None)
+        async with snapshot() if snapshot is not None else nullcontext():
+            try:
+                details = await self.provider.details(str(self.item.provider_id))
+                if details is None:
+                    return []
+                units = (
+                    await self.provider.units(str(self.item.provider_id))
+                    if self.provider.capabilities.units
+                    else []
                 )
-                if self.provider.capabilities.upcoming
-                else []
-            )
-        except ProviderExpectedEmpty:
-            return []
+                upcoming = (
+                    await self.provider.upcoming(
+                        str(self.item.provider_id),
+                        days=self.upcoming_days,
+                        units=units,
+                    )
+                    if self.provider.capabilities.upcoming
+                    else []
+                )
+            except ProviderExpectedEmpty:
+                return []
         normalized: dict[tuple[str, str], ProviderUnit] = {}
         for unit in [*units, *upcoming]:
             normalized[(unit.unit_type, unit.provider_id)] = unit

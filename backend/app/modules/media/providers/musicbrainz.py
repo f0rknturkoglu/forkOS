@@ -86,9 +86,7 @@ class MusicBrainzProvider(HTTPProvider):
                 position = track.get("position")
                 recording_id = (track.get("recording") or {}).get("id")
                 track_id = track.get("id")
-                if track_id:
-                    unit_provider_id = f"track:{track_id}"
-                elif recording_id:
+                if recording_id:
                     unit_provider_id = f"recording:{recording_id}"
                 else:
                     title_hash = hashlib.sha256(
