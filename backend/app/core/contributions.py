@@ -22,7 +22,7 @@ KINDS: dict[str, list[str]] = {
     "read":  ["rss.item_read", "rss.item_saved", "bookmark.saved", "bookmark.read"],
     "task":  ["todo.completed"],
     "focus": ["pomodoro.completed"],
-    "habit": ["habit.checked"],
+    "routine": ["habit.checked"],
     "study": ["study.topic_completed", "review.completed",
               "book.finished", "course.completed"],
 }
@@ -31,13 +31,19 @@ KIND_LABELS: dict[str, str] = {
     "read":  "okuma",
     "task":  "görev",
     "focus": "odak",
-    "habit": "alışkanlık",
+    "routine": "rutin",
     "study": "çalışma",
 }
 
 VERB_KIND: dict[str, str] = {
     verb: kind for kind, verbs in KINDS.items() for verb in verbs
 }
+
+
+def _kind_for(verb: str, routine: bool = False) -> str | None:
+    if verb == "todo.completed" and routine:
+        return "routine"
+    return VERB_KIND.get(verb)
 
 
 def _today() -> date:
@@ -56,12 +62,15 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
         (
             await session.execute(
                 text(
-                    "select (occurred_at at time zone :tz)::date as day,"
-                    "       verb, count(*) as n "
-                    "from event "
-                    "where verb = any(:verbs) "
-                    "  and (occurred_at at time zone :tz)::date >= :start "
-                    "group by 1, 2"
+                    "select (e.occurred_at at time zone :tz)::date as day,"
+                    "       e.verb,"
+                    "       (e.verb = 'habit.checked' or (e.verb = 'todo.completed' and ("
+                    "         nullif(e.payload->>'recur', '') is not null or t.recur is not null"
+                    "       ))) as routine, count(*) as n "
+                    "from event e left join todo t on t.id = e.entity_id "
+                    "where e.verb = any(:verbs) "
+                    "  and (e.occurred_at at time zone :tz)::date >= :start "
+                    "group by 1, 2, 3"
                 ),
                 {"verbs": list(VERB_KIND), "start": start, "tz": settings.timezone},
             )
@@ -74,7 +83,9 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
     for row in rows:
         day = row["day"].isoformat()
         entry = by_day.setdefault(day, {"day": day, "total": 0, "kinds": {}})
-        kind = VERB_KIND[row["verb"]]
+        kind = _kind_for(row["verb"], bool(row["routine"]))
+        if kind is None:
+            continue
         entry["total"] += row["n"]
         entry["kinds"][kind] = entry["kinds"].get(kind, 0) + row["n"]
 
@@ -128,10 +139,13 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
         (
             await session.execute(
                 text(
-                    "select id, entity_id, entity_type, verb, payload, occurred_at "
-                    "from event "
-                    "where (occurred_at at time zone :tz)::date = :day "
-                    "order by occurred_at desc "
+                    "select e.id, e.entity_id, e.entity_type, e.verb, e.payload, e.occurred_at,"
+                    "       (e.verb = 'habit.checked' or (e.verb = 'todo.completed' and ("
+                    "         nullif(e.payload->>'recur', '') is not null or t.recur is not null"
+                    "       ))) as routine "
+                    "from event e left join todo t on t.id = e.entity_id "
+                    "where (e.occurred_at at time zone :tz)::date = :day "
+                    "order by e.occurred_at desc "
                     "limit 500"
                 ),
                 {"day": day, "tz": settings.timezone},
@@ -145,7 +159,7 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
     kinds: dict[str, int] = {}
     for row in rows:
         event = dict(row)
-        kind = VERB_KIND.get(event["verb"])
+        kind = _kind_for(event["verb"], bool(event.pop("routine")))
         event["kind"] = kind
         events.append(event)
         if kind:

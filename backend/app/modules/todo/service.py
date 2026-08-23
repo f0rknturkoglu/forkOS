@@ -289,7 +289,7 @@ async def update(session: AsyncSession, todo_id: uuid.UUID, data: TodoUpdate, *,
         await tag_svc.set_tags(session, todo_id, new_tags)
     if todo.status == "done" and previous_status != "done":
         todo.completed_at = datetime.now(UTC)
-        await _log_completed(session, todo)
+        await _log_completed(session, todo, entity.title)
         await _spawn_next_occurrence(session, todo)
     elif todo.status == "dropped" and previous_status != "dropped":
         await log_event(session, verb="todo.dropped", entity_id=todo_id,
@@ -301,11 +301,12 @@ async def update(session: AsyncSession, todo_id: uuid.UUID, data: TodoUpdate, *,
     return _todo_out(todo, entity.title if title is None else title.strip())
 
 
-async def _log_completed(session: AsyncSession, todo: Todo) -> None:
+async def _log_completed(session: AsyncSession, todo: Todo, title: str) -> None:
     now = datetime.now(UTC)
     overdue = bool(todo.due_at and todo.due_at < now)
     await log_event(session, verb="todo.completed", entity_id=todo.id, entity_type="todo",
-                    payload={"priority": todo.priority, "was_overdue": overdue})
+                    payload={"title": title, "priority": todo.priority,
+                             "was_overdue": overdue, "recur": todo.recur})
 
 
 async def complete(session: AsyncSession, todo_id: uuid.UUID) -> TodoOut | None:
@@ -317,7 +318,7 @@ async def complete(session: AsyncSession, todo_id: uuid.UUID) -> TodoOut | None:
         todo.status = "done"
         todo.completed_at = datetime.now(UTC)
         await touch_entity(session, todo_id)
-        await _log_completed(session, todo)
+        await _log_completed(session, todo, entity.title)
         await _spawn_next_occurrence(session, todo)
         await session.commit()
     tag_map = await tag_svc.tags_for(session, [todo.id])
@@ -418,6 +419,9 @@ async def _spawn_next_occurrence(session: AsyncSession, done: Todo) -> None:
     origin = done.recur_origin_id or done.id
     base = done.due_at or datetime.now(UTC)
     next_due = _next_due(base, done.recur)
+    now = datetime.now(UTC)
+    while next_due <= now:
+        next_due = _next_due(next_due, done.recur)
 
     already = (
         await session.execute(

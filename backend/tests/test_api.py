@@ -245,6 +245,91 @@ async def test_recurring_todo_keeps_project_and_milestone(client: AsyncClient):
     await client.delete(f"/api/projects/{project['id']}")
 
 
+async def test_overdue_recurring_todo_advances_to_future_and_keeps_context(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    project = (await client.post("/api/projects", json={"title": f"Future {suffix}"})).json()
+    milestone = (await client.post(
+        f"/api/projects/{project['id']}/milestones", json={"title": "Future target"}
+    )).json()
+    parent = (await client.post("/api/todos", json={
+        "title": f"Routine parent {suffix}", "project_id": project["id"],
+        "milestone_id": milestone["id"],
+    })).json()
+    title = f"Overdue routine {suffix}"
+    original = (await client.post("/api/todos", json={
+        "title": title,
+        "parent_id": parent["id"],
+        "recur": "daily",
+        "due_at": (datetime.now(UTC) - timedelta(days=10)).isoformat(),
+        "tags": ["routine-test"],
+    })).json()
+
+    completed = await client.post(f"/api/todos/{original['id']}/complete")
+    assert completed.status_code == 200
+    open_todos = (await client.get("/api/todos", params={"status": "open", "limit": 500})).json()
+    generated = next(item for item in open_todos if item["title"] == title)
+    assert datetime.fromisoformat(generated["due_at"]) > datetime.now(UTC)
+    assert generated["parent_id"] == parent["id"]
+    assert generated["project_id"] == project["id"]
+    assert generated["milestone_id"] == milestone["id"]
+    assert generated["tags"] == ["routine-test"]
+
+    events = (await client.get("/api/activity", params={"limit": 500})).json()
+    event = next(
+        item for item in events
+        if item["verb"] == "todo.completed" and item["entity_id"] == original["id"]
+    )
+    assert event["payload"]["title"] == title
+    assert event["payload"]["recur"] == "daily"
+
+    await client.delete(f"/api/todos/{generated['id']}")
+    await client.delete(f"/api/todos/{parent['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
+async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncClient):
+    suffix = uuid.uuid4().hex[:8]
+    before = (await client.get("/api/activity/heatmap", params={"days": 7})).json()
+    before_today = before["days"][-1]["kinds"]
+
+    normal = (await client.post("/api/todos", json={"title": f"Normal {suffix}"})).json()
+    routine = (await client.post("/api/todos", json={
+        "title": f"Routine {suffix}", "recur": "daily",
+    })).json()
+    habit = (await client.post("/api/habits", json={"title": f"Legacy {suffix}"})).json()
+
+    await client.post(f"/api/todos/{normal['id']}/complete")
+    await client.post(f"/api/todos/{routine['id']}/complete")
+    await client.post(f"/api/habits/{habit['id']}/check", json={"day": date.today().isoformat()})
+
+    after = (await client.get("/api/activity/heatmap", params={"days": 7})).json()
+    after_today = after["days"][-1]["kinds"]
+    assert after_today.get("task", 0) - before_today.get("task", 0) == 1
+    assert after_today.get("routine", 0) - before_today.get("routine", 0) == 2
+    assert after["labels"]["routine"] == "rutin"
+
+    detail = (await client.get(
+        "/api/activity/day", params={"day": date.today().isoformat()}
+    )).json()
+    routine_event = next(
+        item for item in detail["events"]
+        if item["verb"] == "todo.completed" and item["entity_id"] == routine["id"]
+    )
+    assert routine_event["kind"] == "routine"
+    assert routine_event["payload"]["title"] == f"Routine {suffix}"
+
+    generated = next(
+        item for item in (await client.get(
+            "/api/todos", params={"status": "open", "limit": 500}
+        )).json()
+        if item["title"] == f"Routine {suffix}"
+    )
+    await client.delete(f"/api/todos/{generated['id']}")
+    await client.delete(f"/api/todos/{normal['id']}")
+    await client.delete(f"/api/todos/{routine['id']}")
+    await client.delete(f"/api/habits/{habit['id']}")
+
+
 async def test_project_last_activity_follows_linked_todo_updates(client: AsyncClient):
     suffix = uuid.uuid4().hex[:8]
     project = (await client.post("/api/projects", json={"title": f"Active {suffix}"})).json()
