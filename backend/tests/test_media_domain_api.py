@@ -300,6 +300,28 @@ async def test_concurrent_same_client_uuid_replays_single_winner():
         assert float(item_row.progress) == 1
 
 
+async def test_backdated_quick_uses_arrival_order_for_progress_reconstruction(
+    client: AsyncClient,
+):
+    item = await _create(client, kind="book", progress=0, total=100)
+    item_id = uuid.UUID(item["id"])
+    now = datetime.now(UTC)
+    for occurred_at in (now, now - timedelta(days=7)):
+        response = await client.post(
+            f"/api/media/{item_id}/consumptions",
+            json={
+                "client_uuid": str(uuid.uuid4()),
+                "action": "quick",
+                "occurred_at": occurred_at.isoformat(),
+            },
+        )
+        assert response.status_code == 201, response.text
+    async with SessionLocal() as session:
+        validation = await service.validate_progress(session, item_id)
+    assert validation.valid is True
+    assert validation.actual == validation.expected == 2
+
+
 async def test_movie_quick_uses_item_measure_and_finishes_the_cycle(client: AsyncClient):
     item = await _create(client, kind="movie", total=None, progress_measure=None)
     response = await client.post(
@@ -407,6 +429,48 @@ async def test_unit_completion_state_is_scoped_to_each_repeat_cycle(client: Asyn
     assert cycle_two.json()["cycle_id"] != cycle_one.json()["cycle_id"]
 
 
+async def test_backdated_complete_and_uncomplete_use_command_arrival_order(
+    client: AsyncClient,
+):
+    item = await _create(client, kind="show", total=10, progress=0)
+    item_id = uuid.UUID(item["id"])
+    async with SessionLocal() as session:
+        unit = await service.upsert_unit(
+            session,
+            item_id,
+            media_schemas.MediaUnitUpsert(
+                title="Arrival ordered episode",
+                unit_type="episode",
+                release_at=datetime.now(UTC) - timedelta(days=30),
+            ),
+        )
+
+    now = datetime.now(UTC)
+    commands = (
+        ("complete_unit", now),
+        ("uncomplete_unit", now - timedelta(days=1)),
+        ("complete_unit", now - timedelta(days=2)),
+    )
+    results = []
+    for action, occurred_at in commands:
+        response = await client.post(
+            f"/api/media/{item_id}/consumptions",
+            json={
+                "client_uuid": str(uuid.uuid4()),
+                "action": action,
+                "unit_id": str(unit.id),
+                "occurred_at": occurred_at.isoformat(),
+            },
+        )
+        assert response.status_code == 201, response.text
+        results.append(response.json()["progress_after"])
+    assert results == [1, 0, 1]
+    async with SessionLocal() as session:
+        validation = await service.validate_progress(session, item_id)
+    assert validation.valid is True
+    assert validation.expected == 1
+
+
 @pytest.mark.parametrize(
     ("kind", "measure"),
     [
@@ -482,6 +546,38 @@ async def test_cycles_repeat_finish_and_released_unit_reopens_same_cycle(client:
         assert media.status == "in_progress"
 
 
+async def test_concurrent_explicit_cycle_start_has_one_winner_and_one_conflict(
+    client: AsyncClient,
+):
+    item = await _create(client, progress=0)
+    item_id = uuid.UUID(item["id"])
+
+    async def start_once():
+        async with SessionLocal() as session:
+            try:
+                result = await service.start_cycle(
+                    session, item_id, media_schemas.MediaCycleStart()
+                )
+                return result
+            except service.MediaConflictError:
+                return "conflict"
+
+    results = await asyncio.gather(start_once(), start_once())
+    assert sum(result == "conflict" for result in results) == 1
+    winners = [result for result in results if result != "conflict"]
+    assert len(winners) == 1
+    assert winners[0].ordinal == 1
+    async with SessionLocal() as session:
+        cycles = list(
+            (
+                await session.execute(
+                    select(MediaCycle).where(MediaCycle.media_id == item_id)
+                )
+            ).scalars()
+        )
+    assert len(cycles) == 1
+
+
 async def test_collection_crud_membership_detail_dashboard_and_rebuild(client: AsyncClient):
     item = await _create(client, title="Collection title", kind="game", progress=0)
     item_id = item["id"]
@@ -551,6 +647,127 @@ async def test_nonzero_create_builds_matching_initial_cycle_and_consumption(
                 session, uuid.UUID(item["id"])
             )
             assert validation.valid is True
+
+
+@pytest.mark.parametrize(
+    ("status", "progress", "total", "cycle_status", "history_actions", "expected"),
+    [
+        ("in_progress", None, 10, "active", [], 0),
+        ("paused", 2, 10, "paused", ["set"], 2),
+        ("dropped", 0, 10, "dropped", [], 0),
+        ("completed", 2, 5, "completed", ["set", "finish"], 5),
+    ],
+)
+async def test_create_nonplanned_statuses_build_consistent_cycle_and_history(
+    client: AsyncClient,
+    status: str,
+    progress: float | None,
+    total: float | None,
+    cycle_status: str,
+    history_actions: list[str],
+    expected: float,
+):
+    item = await _create(
+        client, status=status, progress=progress, total=total, progress_measure="page"
+    )
+    detail = (await client.get(f"/api/media/{item['id']}")).json()
+    assert detail["item"]["status"] == status
+    assert detail["item"]["progress"] == expected
+    assert len(detail["cycles"]) == 1
+    assert detail["cycles"][0]["status"] == cycle_status
+    if status in {"dropped", "completed"}:
+        assert detail["cycles"][0]["completed_at"] is not None
+    assert [row["action"] for row in reversed(detail["consumptions"])] == history_actions
+    async with SessionLocal() as session:
+        validation = await service.validate_progress(
+            session, uuid.UUID(item["id"])
+        )
+    assert validation.valid is True
+    assert validation.expected == expected
+
+
+async def test_completed_create_without_total_uses_finish_history(client: AsyncClient):
+    item = await _create(
+        client, status="completed", progress=None, total=None, progress_measure=None
+    )
+    detail = (await client.get(f"/api/media/{item['id']}")).json()
+    assert detail["item"]["progress"] == detail["item"]["total"] == 1
+    assert detail["cycles"][0]["status"] == "completed"
+    assert [row["action"] for row in detail["consumptions"]] == ["finish"]
+
+
+async def test_client_uuid_replay_requires_compatible_command_and_media(
+    client: AsyncClient,
+):
+    first = await _create(client, progress=0, total=100)
+    second = await _create(client, progress=0, total=100)
+    command_id = str(uuid.uuid4())
+    command = {
+        "client_uuid": command_id,
+        "action": "quick",
+        "measure": "page",
+        "amount": 2,
+    }
+    winner = await client.post(
+        f"/api/media/{first['id']}/consumptions", json=command
+    )
+    assert winner.status_code == 201, winner.text
+
+    compatible = await client.post(
+        f"/api/media/{first['id']}/consumptions", json=command
+    )
+    assert compatible.status_code == 201
+    assert compatible.json()["id"] == winner.json()["id"]
+
+    for item_id, overrides in (
+        (first["id"], {"amount": 3}),
+        (first["id"], {"action": "set", "progress_after": 2}),
+        (second["id"], {}),
+    ):
+        replay = await client.post(
+            f"/api/media/{item_id}/consumptions",
+            json={**command, **overrides},
+        )
+        assert replay.status_code == 409, (overrides, replay.text)
+
+
+async def test_concurrent_cross_item_client_uuid_has_one_winner_and_one_conflict(
+    client: AsyncClient,
+):
+    first = await _create(client, progress=0, total=100)
+    second = await _create(client, progress=0, total=100)
+    item_ids = [uuid.UUID(first["id"]), uuid.UUID(second["id"])]
+    command_id = uuid.uuid4()
+
+    async def consume_once(item_id: uuid.UUID):
+        async with SessionLocal() as session:
+            try:
+                return await service.consume(
+                    session,
+                    item_id,
+                    media_schemas.MediaConsumptionIn(
+                        client_uuid=command_id, action="quick", amount=1
+                    ),
+                )
+            except service.MediaConflictError:
+                return "conflict"
+
+    results = await asyncio.gather(*(consume_once(item_id) for item_id in item_ids))
+    assert sum(result == "conflict" for result in results) == 1
+    assert sum(result != "conflict" for result in results) == 1
+    async with SessionLocal() as session:
+        items = [await session.get(MediaItem, item_id) for item_id in item_ids]
+        consumptions = list(
+            (
+                await session.execute(
+                    select(MediaConsumption).where(
+                        MediaConsumption.client_uuid == command_id
+                    )
+                )
+            ).scalars()
+        )
+    assert sum(float(item.progress or 0) for item in items) == 1
+    assert len(consumptions) == 1
 
 
 async def test_patch_rejects_progress_completed_status_nulls_and_unknown_fields(

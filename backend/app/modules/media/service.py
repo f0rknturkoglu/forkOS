@@ -520,6 +520,7 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
     if data.provider and data.provider_id:
         provider_ids[data.provider] = data.provider_id
     title = data.title.strip()
+    requested_status = data.status
     entity = await create_entity(
         session,
         type=MediaItem.ENTITY_TYPE,
@@ -529,13 +530,17 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
     item = MediaItem(
         id=entity.id,
         kind=data.kind,
-        status=data.status,
-        progress=0 if data.progress and data.progress > 0 else data.progress,
+        status="planned",
+        progress=(
+            0
+            if requested_status != "planned" or (data.progress and data.progress > 0)
+            else data.progress
+        ),
         total=data.total,
         score=data.score,
         notes=data.notes,
         started_at=data.started_at,
-        finished_at=data.finished_at,
+        finished_at=data.finished_at if requested_status == "planned" else None,
         meta=data.meta,
         summary=data.summary,
         release_date=data.release_date,
@@ -565,10 +570,9 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
         verb="media.item_added",
         entity_id=item.id,
         entity_type="media_item",
-        payload={"kind": item.kind, "status": item.status, "title": title},
+        payload={"kind": item.kind, "status": requested_status, "title": title},
     )
     if data.progress and data.progress > 0:
-        desired_status = data.status
         await _consume_locked(
             session,
             item,
@@ -580,9 +584,21 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
                 occurred_at=data.started_at,
                 note="initial progress",
             ),
+            complete_when_total=requested_status == "planned",
         )
-        if desired_status in {"paused", "dropped", "completed"}:
-            await _synchronize_status(session, item, desired_status)
+    if requested_status == "completed":
+        await _consume_locked(
+            session,
+            item,
+            MediaConsumptionIn(
+                client_uuid=uuid.uuid4(),
+                action="finish",
+                occurred_at=data.finished_at,
+                note="initial completion",
+            ),
+        )
+    elif requested_status != "planned":
+        await _synchronize_status(session, item, requested_status)
     try:
         await session.commit()
     except IntegrityError as exc:
@@ -805,11 +821,19 @@ async def _start_cycle(
 async def start_cycle(
     session: AsyncSession, item_id: uuid.UUID, data: MediaCycleStart
 ) -> MediaCycleOut | None:
-    item = await session.get(MediaItem, item_id)
+    item = (
+        await session.execute(
+            select(MediaItem).where(MediaItem.id == item_id).with_for_update()
+        )
+    ).scalar_one_or_none()
     if item is None:
         return None
-    cycle = await _start_cycle(session, item, data, commit=True)
-    return MediaCycleOut.model_validate(cycle)
+    try:
+        cycle = await _start_cycle(session, item, data, commit=True)
+        return MediaCycleOut.model_validate(cycle)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise MediaConflictError("Medya icin acik bir tur zaten var") from exc
 
 
 async def _unit_completed(
@@ -823,7 +847,7 @@ async def _unit_completed(
                 MediaConsumption.unit_id == unit_id,
                 MediaConsumption.action.in_(("complete_unit", "uncomplete_unit")),
             )
-            .order_by(MediaConsumption.occurred_at.desc(), MediaConsumption.created_at.desc())
+            .order_by(MediaConsumption.created_at.desc(), MediaConsumption.id.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
@@ -883,7 +907,11 @@ async def _synchronize_status(
 
 
 async def _consume_locked(
-    session: AsyncSession, item: MediaItem, data: MediaConsumptionIn
+    session: AsyncSession,
+    item: MediaItem,
+    data: MediaConsumptionIn,
+    *,
+    complete_when_total: bool = True,
 ) -> MediaConsumption:
     item_id = item.id
     unit = None
@@ -961,10 +989,14 @@ async def _consume_locked(
         duration_min=data.duration_min,
         note=data.note,
         meta={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     session.add(consumption)
     completed = data.action == "finish" or (
-        item.total is not None and progress_after >= float(item.total)
+        complete_when_total
+        and item.total is not None
+        and progress_after >= float(item.total)
     )
     if completed:
         await _complete_cycle(session, item, cycle, now)
@@ -1000,6 +1032,39 @@ async def _consume_locked(
     return consumption
 
 
+def _same_optional_number(stored: Decimal | None, requested: float | None) -> bool:
+    if stored is None or requested is None:
+        return stored is None and requested is None
+    return abs(float(stored) - requested) < 0.001
+
+
+def _compatible_replay(
+    replay: MediaConsumption, item_id: uuid.UUID, data: MediaConsumptionIn
+) -> bool:
+    if (
+        replay.media_id != item_id
+        or replay.action != data.action
+        or replay.unit_id != data.unit_id
+    ):
+        return False
+    if "measure" in data.model_fields_set and replay.measure != data.measure:
+        return False
+    for field in ("amount", "progress_after"):
+        if field in data.model_fields_set and not _same_optional_number(
+            getattr(replay, field), getattr(data, field)
+        ):
+            return False
+    return True
+
+
+def _replay_or_conflict(
+    replay: MediaConsumption, item_id: uuid.UUID, data: MediaConsumptionIn
+) -> MediaConsumptionOut:
+    if not _compatible_replay(replay, item_id, data):
+        raise MediaConflictError("client_uuid farkli bir media veya komut icin kullanilmis")
+    return _to_consumption_out(replay)
+
+
 async def consume(
     session: AsyncSession, item_id: uuid.UUID, data: MediaConsumptionIn
 ) -> MediaConsumptionOut | None:
@@ -1016,7 +1081,7 @@ async def consume(
         )
     ).scalar_one_or_none()
     if replay is not None:
-        return _to_consumption_out(replay)
+        return _replay_or_conflict(replay, item_id, data)
     try:
         consumption = await _consume_locked(session, item, data)
         await session.commit()
@@ -1031,7 +1096,7 @@ async def consume(
             )
         ).scalar_one_or_none()
         if replay is not None:
-            return _to_consumption_out(replay)
+            return _replay_or_conflict(replay, item_id, data)
         raise
 
 
@@ -1374,7 +1439,7 @@ async def validate_progress(
                 select(MediaConsumption.progress_after)
                 .where(MediaConsumption.cycle_id == latest_cycle_id)
                 .order_by(
-                    MediaConsumption.occurred_at.desc(), MediaConsumption.created_at.desc()
+                    MediaConsumption.created_at.desc(), MediaConsumption.id.desc()
                 )
                 .limit(1)
             )
