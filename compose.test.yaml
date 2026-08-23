@@ -1,0 +1,25 @@
+services:
+  db-test:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_USER: lifeos
+      POSTGRES_PASSWORD: lifeos
+      POSTGRES_DB: forkos_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lifeos -d forkos_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  backend-test:
+    build: ./backend
+    command: sh -c "alembic upgrade head && pytest -q"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://lifeos:lifeos@db-test:5432/forkos_test
+    volumes:
+      - ./backend:/app:z
+    depends_on:
+      db-test:
+        condition: service_healthy

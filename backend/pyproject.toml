@@ -31,6 +31,9 @@ include = ["app*"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+markers = [
+  "no_database: test does not need a database connection",
+]
 
 [tool.ruff]
 line-length = 100
