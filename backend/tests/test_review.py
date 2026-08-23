@@ -35,3 +35,14 @@ async def test_review_combines_legacy_habits_and_recurring_todos(client: AsyncCl
 
     assert response.status_code == 200
     assert response.json()["stats"]["habits"] == {"Eski yürüyüş": 1, "Su iç": 1}
+
+    created = await client.post(
+        "/api/reviews",
+        json={
+            "kind": "daily",
+            "period_start": date.today().isoformat(),
+            "decisions": {},
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["stats"]["habits"] == {"Eski yürüyüş": 1, "Su iç": 1}

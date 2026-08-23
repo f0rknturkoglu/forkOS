@@ -204,7 +204,7 @@ async def create(session: AsyncSession, data: ReviewIn) -> ReviewOut:
         kind=data.kind,
         period_start=snap.period_start,
         period_end=snap.period_end,
-        stats=snap.stats,
+        stats=snap.stats.model_dump(mode="json"),
         decisions=data.decisions,
         note=data.note,
     )
