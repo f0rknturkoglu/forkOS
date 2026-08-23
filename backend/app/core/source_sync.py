@@ -100,6 +100,41 @@ async def claim_pending_batch(session: AsyncSession) -> SourceSyncBatch | None:
     return batch
 
 
+async def claim_pending_sources(
+    session: AsyncSession, *, limit: int
+) -> tuple[SourceSyncBatch | None, list[str]]:
+    """En eski batch satırını kilitleyip source_run rezervasyonlarını atomik yaz."""
+    batch = (
+        await session.execute(
+            select(SourceSyncBatch)
+            .where(SourceSyncBatch.status.in_(ACTIVE_STATUSES))
+            .order_by(SourceSyncBatch.created_at)
+            .limit(1)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if batch is None:
+        await session.commit()
+        return None, []
+    if batch.status == "queued":
+        batch.status = "running"
+        batch.started_at = datetime.now(UTC)
+        await log_event(
+            session,
+            verb="source_sync.started",
+            entity_type="source_sync",
+            payload={"batch_id": str(batch.id), "scope": batch.scope},
+        )
+    pending = await pending_source_ids(session, batch)
+    reserved = pending[:limit]
+    for source_id in reserved:
+        session.add(
+            SourceRun(source=source_id, status="running", batch_id=batch.id)
+        )
+    await session.commit()
+    return batch, reserved
+
+
 async def pending_source_ids(session: AsyncSession, batch: SourceSyncBatch) -> list[str]:
     rows = list(
         (

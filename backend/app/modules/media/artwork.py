@@ -44,11 +44,11 @@ class ArtworkStore:
     @asynccontextmanager
     async def _stream(self, url: str):
         if self.client is not None:
-            async with self.client.stream("GET", url) as response:
+            async with self.client.stream("GET", url, follow_redirects=True) as response:
                 yield response
             return
         async with (
-            httpx.AsyncClient(timeout=20.0) as client,
+            httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client,
             client.stream("GET", url) as response,
         ):
             yield response

@@ -70,7 +70,7 @@ class MediaProvider(Protocol):
 
     async def search(self, query: str) -> list[ProviderResult]: ...
 
-    async def details(self, provider_id: str) -> ProviderDetails: ...
+    async def details(self, provider_id: str) -> ProviderDetails | None: ...
 
     async def units(self, provider_id: str) -> list[ProviderUnit]: ...
 
@@ -86,3 +86,28 @@ def deduplicate(results: list[ProviderResult]) -> list[ProviderResult]:
             seen.add(key)
             unique.append(result)
     return unique
+
+
+class ProviderExpectedEmpty(RuntimeError):
+    """Kaynak yanıtladı fakat beklenen kayıt/feed artık mevcut değil."""
+
+
+def canonical_provider_id(provider: str | None, kind: str, provider_id: str | None) -> str | None:
+    if not provider_id or provider != "tmdb":
+        return provider_id
+    prefix = "movie" if kind == "movie" else "tv" if kind == "show" else None
+    if prefix is None:
+        return provider_id
+    head, separator, tail = provider_id.partition(":")
+    raw = tail if separator and head in {"movie", "tv"} else provider_id
+    return f"{prefix}:{raw}"
+
+
+def provider_identity_candidates(
+    provider: str | None, kind: str, provider_id: str
+) -> tuple[str, ...]:
+    canonical = canonical_provider_id(provider, kind, provider_id) or provider_id
+    if provider != "tmdb":
+        return (canonical,)
+    _, separator, raw = canonical.partition(":")
+    return (canonical, raw) if separator else (canonical,)

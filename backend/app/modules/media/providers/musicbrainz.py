@@ -74,18 +74,25 @@ class MusicBrainzProvider(HTTPProvider):
         release_id = releases[0]["id"]
         release = await self._get(f"release/{release_id}", inc="recordings")
         units = []
-        for medium in release.get("media", []):
+        for medium_index, medium in enumerate(release.get("media", []), start=1):
+            disc = medium.get("position") or medium_index
             for track in medium.get("tracks", []):
                 length = track.get("length")
+                position = track.get("position")
+                recording_id = (track.get("recording") or {}).get("id")
                 units.append(
                     ProviderUnit(
-                        provider_id=track.get("recording", {}).get("id") or track["id"],
+                        provider_id=f"{release_id}:d{disc}:t{position}",
                         title=track.get("title") or "(başlıksız)",
                         unit_type="track",
-                        number=float(track["position"]) if track.get("position") else None,
+                        number=float(position) if position else None,
                         duration_min=round(length / 60000) if length else None,
                         progress_total=1,
                         progress_measure="track",
+                        provider_ids={
+                            "musicbrainz_recording": recording_id or track.get("id")
+                        },
+                        meta={"disc": disc},
                     )
                 )
         return units

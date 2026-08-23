@@ -31,6 +31,10 @@ from app.modules.media.models import (
     MediaItem,
     MediaUnit,
 )
+from app.modules.media.providers.base import (
+    canonical_provider_id,
+    provider_identity_candidates,
+)
 from app.modules.media.providers.registry import ProviderRegistry
 from app.modules.media.schemas import (
     MediaCollectionIn,
@@ -56,6 +60,7 @@ from app.modules.media.schemas import (
 from app.modules.system.models import Setting
 
 SERIAL_KINDS = {"show", "anime", "manga", "podcast", "music"}
+RELEASE_PENDING_META_KEY = "_forkos_release_pending"
 DEFAULT_MEASURE = {
     "movie": "item",
     "show": "episode",
@@ -431,22 +436,32 @@ async def list_consumptions(session: AsyncSession, item_id: uuid.UUID) -> list[M
 async def _provider_duplicate(session: AsyncSession, data: MediaItemIn) -> bool:
     if data.source != "provider" or not data.provider or not data.provider_id:
         return False
+    filters = [
+        MediaItem.provider == data.provider,
+        MediaItem.provider_id.in_(
+            provider_identity_candidates(data.provider, data.kind, data.provider_id)
+        ),
+    ]
+    if data.provider == "tmdb":
+        filters.append(MediaItem.kind == data.kind)
     return (
         await session.execute(
-            select(MediaItem.id).where(
-                MediaItem.provider == data.provider,
-                MediaItem.provider_id == data.provider_id,
-            )
+            select(MediaItem.id).where(*filters)
         )
     ).scalar_one_or_none() is not None
 
 
 async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
+    normalized_provider_id = canonical_provider_id(data.provider, data.kind, data.provider_id)
+    if normalized_provider_id != data.provider_id:
+        data = data.model_copy(update={"provider_id": normalized_provider_id})
     if await _provider_duplicate(session, data):
         raise MediaConflictError("Bu provider kaydi kutuphanede zaten var")
     provider_ids = dict(data.provider_ids)
     if data.provider and data.provider_id:
-        provider_ids[data.provider] = data.provider_id
+        provider_ids[data.provider] = provider_identity_candidates(
+            data.provider, data.kind, data.provider_id
+        )[-1]
     title = data.title.strip()
     requested_status = data.status
     entity = await create_entity(
@@ -552,16 +567,29 @@ async def update_item(
     status = changes.pop("status", None)
     target_provider = changes.get("provider", item.provider)
     target_provider_id = changes.get("provider_id", item.provider_id)
+    target_kind = changes.get("kind", item.kind)
+    target_provider_id = canonical_provider_id(
+        target_provider, target_kind, target_provider_id
+    )
+    if target_provider_id is not None:
+        changes["provider_id"] = target_provider_id
     if bool(target_provider) != bool(target_provider_id):
         raise MediaCommandError("Provider kimligi provider ve provider_id birlikte gerektirir")
     if target_provider and target_provider_id:
+        duplicate_filters = [
+            MediaItem.provider == target_provider,
+            MediaItem.provider_id.in_(
+                provider_identity_candidates(
+                    target_provider, target_kind, target_provider_id
+                )
+            ),
+            MediaItem.id != item_id,
+        ]
+        if target_provider == "tmdb":
+            duplicate_filters.append(MediaItem.kind == target_kind)
         duplicate = (
             await session.execute(
-                select(MediaItem.id).where(
-                    MediaItem.provider == target_provider,
-                    MediaItem.provider_id == target_provider_id,
-                    MediaItem.id != item_id,
-                )
+                select(MediaItem.id).where(*duplicate_filters)
             )
         ).scalar_one_or_none()
         if duplicate is not None:
@@ -570,7 +598,9 @@ async def update_item(
         setattr(item, key, value)
     if target_provider and target_provider_id:
         provider_ids = dict(item.provider_ids or {})
-        provider_ids[target_provider] = target_provider_id
+        provider_ids[target_provider] = provider_identity_candidates(
+            target_provider, target_kind, target_provider_id
+        )[-1]
         item.provider_ids = provider_ids
     if status is not None:
         await _synchronize_status(session, item, status)
@@ -1023,10 +1053,61 @@ async def consume(
         raise
 
 
-async def upsert_unit(
+async def _reopen_for_release_transition(
+    session: AsyncSession,
+    item: MediaItem,
+    unit: MediaUnit,
+) -> bool:
+    now = datetime.now(UTC)
+    pending = bool((unit.meta or {}).get(RELEASE_PENDING_META_KEY))
+    if not pending or unit.release_at is None or unit.release_at > now:
+        return False
+    # A release is consumed once even when there is no completed cycle to reopen.
+    unit.meta = {**(unit.meta or {}), RELEASE_PENDING_META_KEY: False}
+    if (
+        item.kind not in SERIAL_KINDS
+        or not item.monitored
+        or item.status != "completed"
+    ):
+        return False
+    latest = (
+        await session.execute(
+            select(MediaCycle)
+            .where(MediaCycle.media_id == item.id)
+            .order_by(MediaCycle.ordinal.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if latest is None or latest.status != "completed":
+        return False
+    latest.last_caught_up_at = latest.completed_at or now
+    latest.completed_at = None
+    latest.status = "active"
+    item.status = "in_progress"
+    item.finished_at = None
+    await log_event(
+        session,
+        verb="media.cycle_reopened",
+        entity_id=item.id,
+        entity_type="media_item",
+        payload={
+            "cycle_id": str(latest.id),
+            "unit_id": str(unit.id),
+            "checkpoint": _number(item.progress),
+            "kind": item.kind,
+        },
+    )
+    return True
+
+
+async def upsert_unit_in_transaction(
     session: AsyncSession, item_id: uuid.UUID, data: MediaUnitUpsert
 ) -> UnitUpsertResult:
-    item = await session.get(MediaItem, item_id)
+    item = (
+        await session.execute(
+            select(MediaItem).where(MediaItem.id == item_id).with_for_update()
+        )
+    ).scalar_one_or_none()
     if item is None:
         raise MediaCommandError("Medya bulunamadi")
     existing = None
@@ -1040,25 +1121,60 @@ async def upsert_unit(
                 )
             )
         ).scalar_one_or_none()
-    if existing is None and data.number is not None:
+    if (
+        existing is None
+        and not (data.provider and data.provider_id)
+        and data.number is not None
+    ):
         existing = (
             await session.execute(
                 select(MediaUnit).where(
                     MediaUnit.media_id == item_id,
                     MediaUnit.unit_type == data.unit_type,
                     MediaUnit.number == data.number,
+                    MediaUnit.parent_id == data.parent_id,
                 )
             )
         ).scalar_one_or_none()
     if existing is not None:
+        previous_release_at = existing.release_at
+        entity = await session.get(Entity, existing.id)
+        changed = entity is not None and entity.title != data.title
         values = data.model_dump(exclude={"title"}, exclude_unset=True)
+        if "meta" in values and RELEASE_PENDING_META_KEY in (existing.meta or {}):
+            values["meta"] = {
+                **values["meta"],
+                RELEASE_PENDING_META_KEY: existing.meta[RELEASE_PENDING_META_KEY],
+            }
         for key, value in values.items():
             if key == "cover_path" and value is None and existing.cover_path:
                 continue
+            changed = changed or getattr(existing, key) != value
             setattr(existing, key, value)
+        now = datetime.now(UTC)
+        if (
+            existing.release_at is not None
+            and existing.release_at > now
+            and (previous_release_at is None or previous_release_at <= now)
+        ):
+            existing.meta = {
+                **(existing.meta or {}),
+                RELEASE_PENDING_META_KEY: True,
+            }
+            changed = True
         await touch_entity(session, existing.id, title=data.title)
-        await session.commit()
-        return UnitUpsertResult(id=existing.id, created=False)
+        await session.flush()
+        pending_before = bool((existing.meta or {}).get(RELEASE_PENDING_META_KEY))
+        reopened = await _reopen_for_release_transition(session, item, existing)
+        release_processed = pending_before and not bool(
+            (existing.meta or {}).get(RELEASE_PENDING_META_KEY)
+        )
+        return UnitUpsertResult(
+            id=existing.id,
+            created=False,
+            changed=changed or release_processed,
+            cycle_reopened=reopened,
+        )
     if data.parent_id:
         parent = await session.get(MediaUnit, data.parent_id)
         if parent is None or parent.media_id != item_id:
@@ -1069,47 +1185,28 @@ async def upsert_unit(
         title=data.title.strip(),
         search_text=json.dumps(data.meta, ensure_ascii=False),
     )
-    unit = MediaUnit(id=entity.id, media_id=item_id, **data.model_dump(exclude={"title"}))
+    values = data.model_dump(exclude={"title"})
+    if data.release_at is not None and data.release_at > datetime.now(UTC):
+        values["meta"] = {
+            **values["meta"],
+            RELEASE_PENDING_META_KEY: True,
+        }
+    unit = MediaUnit(id=entity.id, media_id=item_id, **values)
     session.add(unit)
     await session.flush()
-    reopened = False
-    now = datetime.now(UTC)
-    if (
-        item.kind in SERIAL_KINDS
-        and item.monitored
-        and item.status == "completed"
-        and unit.release_at is not None
-        and unit.release_at <= now
-    ):
-        latest = (
-            await session.execute(
-                select(MediaCycle)
-                .where(MediaCycle.media_id == item_id)
-                .order_by(MediaCycle.ordinal.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        if latest and latest.status == "completed":
-            latest.last_caught_up_at = latest.completed_at or now
-            latest.completed_at = None
-            latest.status = "active"
-            item.status = "in_progress"
-            item.finished_at = None
-            reopened = True
-            await log_event(
-                session,
-                verb="media.cycle_reopened",
-                entity_id=item.id,
-                entity_type="media_item",
-                payload={
-                    "cycle_id": str(latest.id),
-                    "unit_id": str(unit.id),
-                    "checkpoint": _number(item.progress),
-                    "kind": item.kind,
-                },
-            )
-    await session.commit()
-    return UnitUpsertResult(id=unit.id, created=True, cycle_reopened=reopened)
+    return UnitUpsertResult(id=unit.id, created=True, changed=True)
+
+
+async def upsert_unit(
+    session: AsyncSession, item_id: uuid.UUID, data: MediaUnitUpsert
+) -> UnitUpsertResult:
+    try:
+        result = await upsert_unit_in_transaction(session, item_id, data)
+        await session.commit()
+        return result
+    except Exception:
+        await session.rollback()
+        raise
 
 
 async def list_collections(session: AsyncSession) -> list[MediaCollectionOut]:

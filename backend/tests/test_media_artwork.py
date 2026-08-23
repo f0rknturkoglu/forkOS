@@ -54,3 +54,19 @@ def test_artwork_resolve_blocks_path_traversal(tmp_path: Path):
     assert store.resolve("../secret") is None
     assert store.resolve("nested/file.jpg") is None
     assert store.resolve("missing.jpg") is None
+
+
+@pytest.mark.no_database
+async def test_artwork_cache_follows_cover_art_redirect(tmp_path: Path):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/front-500":
+            return httpx.Response(302, headers={"location": "/image.jpg"})
+        return httpx.Response(
+            200, content=b"jpeg", headers={"content-type": "image/jpeg"}
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        asset = await ArtworkStore(tmp_path, client=client).cache(
+            "https://cover.test/front-500", previous=None
+        )
+    assert (tmp_path / asset).read_bytes() == b"jpeg"

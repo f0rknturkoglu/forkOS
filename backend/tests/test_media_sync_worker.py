@@ -4,10 +4,11 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 
-from app.core.models import Event, Notification, SourceRun
+from app.core.models import Entity, Event, Notification, SourceRun
+from app.core.source_sync import create_or_extend_batch, current_status
 from app.db import SessionLocal
 from app.modules.media import service
-from app.modules.media.models import MediaUnit
+from app.modules.media.models import MediaItem, MediaUnit
 from app.modules.media.providers.base import (
     ProviderCapabilities,
     ProviderDetails,
@@ -41,11 +42,14 @@ class FakeProvider:
                 title="Hello, Ms. Cobel",
                 unit_type="episode",
                 number=2,
-                release_at=datetime.now(UTC) + timedelta(days=2),
+                release_at=datetime(2030, 1, 2, tzinfo=UTC),
                 progress_total=1,
                 progress_measure="episode",
             )
         ]
+
+    async def upcoming(self, provider_id: str, *, days: int):
+        return []
 
 
 class FakeRegistry:
@@ -71,6 +75,34 @@ class EmptyProvider(FakeProvider):
 class EmptyRegistry:
     def by_id(self, provider_id: str, *, kind: str | None = None):
         return EmptyProvider()
+
+
+class UpcomingProvider(FakeProvider):
+    requested_days: list[int] = []
+
+    async def units(self, provider_id: str):
+        return []
+
+    async def upcoming(self, provider_id: str, *, days: int):
+        self.requested_days.append(days)
+        return [
+            ProviderUnit(
+                provider_id=f"{provider_id}:upcoming",
+                title="Future episode",
+                unit_type="episode",
+                number=3,
+                release_at=datetime.now(UTC) + timedelta(days=5),
+                progress_total=1,
+                progress_measure="episode",
+            )
+        ]
+
+
+class UpcomingRegistry:
+    provider = UpcomingProvider()
+
+    def by_id(self, provider_id: str, *, kind: str | None = None):
+        return self.provider
 
 
 async def test_automatic_poll_with_no_monitored_items_writes_no_source_run(monkeypatch):
@@ -199,6 +231,147 @@ async def test_three_unexpected_empty_snapshots_log_empty_health_event(monkeypat
         )
         assert "media.sync_empty" in verbs
         assert "media.sync_failed" not in verbs
+
+
+async def test_poll_uses_upcoming_setting_persists_unit_and_dedups_notification(monkeypatch):
+    from app.modules.media import sync as media_sync
+    from app.modules.system.models import Setting
+
+    registry = UpcomingRegistry()
+    registry.provider.requested_days.clear()
+    monkeypatch.setattr(media_sync, "provider_registry", lambda session: _async(registry))
+    async with SessionLocal() as session:
+        session.add(Setting(key="media.upcoming_days", value=14))
+        item = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Severance",
+                kind="show",
+                provider="tmdb",
+                provider_id="tv:95396",
+                monitored=True,
+            ),
+        )
+
+    source = f"media:tmdb:{item.id}"
+    await poll_media_source(source)
+    await poll_media_source(source)
+
+    async with SessionLocal() as session:
+        assert await session.scalar(
+            select(func.count()).select_from(MediaUnit).where(MediaUnit.media_id == item.id)
+        ) == 1
+        assert await session.scalar(
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.dedup_key.like(f"media-release:{item.id}:%"))
+        ) == 1
+    assert registry.provider.requested_days == [14, 14]
+
+
+async def test_automatic_due_selection_is_per_item(monkeypatch):
+    from app.modules.media import sync as media_sync
+
+    async with SessionLocal() as session:
+        due = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Due",
+                kind="show",
+                provider="tmdb",
+                provider_id="tv:1",
+                monitored=True,
+            ),
+        )
+        fresh = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Fresh",
+                kind="show",
+                provider="tmdb",
+                provider_id="tv:2",
+                monitored=True,
+            ),
+        )
+        due_row = await session.get(MediaItem, due.id)
+        fresh_row = await session.get(MediaItem, fresh.id)
+        due_row.last_synced_at = datetime.now(UTC) - timedelta(days=2)
+        fresh_row.last_synced_at = datetime.now(UTC)
+        await session.commit()
+
+    called: list[str] = []
+
+    async def fake_poll(source_id: str, *, batch_id=None):
+        called.append(source_id)
+        return 0
+
+    monkeypatch.setattr(media_sync, "poll_media_source", fake_poll)
+    await poll_media_sources()
+    assert called == [f"media:tmdb:{due.id}"]
+
+
+async def test_provider_batch_finishes_empty_when_items_disappear():
+    async with SessionLocal() as session:
+        batch, _ = await create_or_extend_batch(
+            session, ["media:tmdb"], scope="media"
+        )
+        batch.status = "running"
+        batch_id = batch.id
+        await session.commit()
+
+    assert await poll_media_source("media:tmdb", batch_id=batch_id) == 0
+    async with SessionLocal() as session:
+        status = await current_status(session, scope="media")
+        runs = list(
+            (
+                await session.execute(
+                    select(SourceRun).where(SourceRun.batch_id == batch_id)
+                )
+            ).scalars()
+        )
+    assert status["active"] is None
+    assert status["last_completed"]["id"] == str(batch_id)
+    assert [run.status for run in runs] == ["empty"]
+
+
+async def test_snapshot_unit_and_release_event_roll_back_together(monkeypatch):
+    from app.modules.media import sync as media_sync
+
+    monkeypatch.setattr(media_sync, "provider_registry", lambda session: _async(FakeRegistry()))
+    async with SessionLocal() as session:
+        item = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Atomic",
+                kind="show",
+                provider="tmdb",
+                provider_id="tv:9",
+                monitored=True,
+            ),
+        )
+
+    original_log_event = media_sync.log_event
+
+    async def fail_release_event(session, *, verb, **kwargs):
+        if verb == "media.release_discovered":
+            raise RuntimeError("crash between unit and event")
+        return await original_log_event(session, verb=verb, **kwargs)
+
+    monkeypatch.setattr(media_sync, "log_event", fail_release_event)
+    await poll_media_source(f"media:tmdb:{item.id}")
+
+    async with SessionLocal() as session:
+        assert await session.scalar(
+            select(func.count()).select_from(MediaUnit).where(MediaUnit.media_id == item.id)
+        ) == 0
+        item_row = await session.get(MediaItem, item.id)
+        entity = await session.get(Entity, item.id)
+        assert item_row.last_synced_at is None
+        assert entity.title == "Atomic"
 
 
 async def _async(value):

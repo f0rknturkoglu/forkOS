@@ -105,12 +105,9 @@ async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
             session, older_than=datetime.now(UTC) - timedelta(minutes=15)
         )
         await session.commit()
-        batch = await source_sync.claim_pending_batch(session)
-        if batch is None:
-            return 0
-        pending = (await source_sync.pending_source_ids(session, batch))[:limit]
+        batch, pending = await source_sync.claim_pending_sources(session, limit=limit)
 
-    if not pending:
+    if batch is None or not pending:
         return 0
     semaphore = asyncio.Semaphore(CONCURRENCY)
 

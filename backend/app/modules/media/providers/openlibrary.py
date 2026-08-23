@@ -14,6 +14,17 @@ from app.modules.media.providers.base import (
 )
 
 
+def _partial_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    for candidate in (value, f"{value}-01", f"{value}-01-01"):
+        try:
+            return date.fromisoformat(candidate)
+        except ValueError:
+            continue
+    return None
+
+
 class OpenLibraryProvider(HTTPProvider):
     id = "openlibrary"
     kinds = ("book", "audiobook")
@@ -85,9 +96,7 @@ class OpenLibraryProvider(HTTPProvider):
             provider_id=provider_id,
             title=row.get("title") or "(başlıksız)",
             summary=description,
-            release_date=date.fromisoformat(row["first_publish_date"])
-            if row.get("first_publish_date")
-            else None,
+            release_date=_partial_date(row.get("first_publish_date")),
             progress_measure="minute" if self.kind == "audiobook" else "page",
             cover_url=(
                 f"https://covers.openlibrary.org/b/id/{covers[0]}-L.jpg" if covers else None

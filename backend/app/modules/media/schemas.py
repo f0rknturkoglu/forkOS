@@ -273,6 +273,7 @@ class MediaUnitOut(BaseModel):
 class UnitUpsertResult(BaseModel):
     id: uuid.UUID
     created: bool
+    changed: bool = False
     cycle_reopened: bool = False
 
 
@@ -423,3 +424,47 @@ class MetadataResult(BaseModel):
     provider_ids: dict[str, Any] = Field(default_factory=dict)
     meta: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MediaProviderCapabilitiesOut(BaseModel):
+    search: bool
+    details: bool
+    units: bool
+    upcoming: bool
+    cache_artwork: bool
+    requires_settings: list[str]
+
+
+class MediaProviderStatusOut(BaseModel):
+    id: str
+    kinds: list[str]
+    capabilities: MediaProviderCapabilitiesOut
+    ready: bool
+    missing_settings: list[str]
+    last_run_at: datetime | None = None
+    last_status: str | None = None
+    last_error: str | None = None
+
+
+class MediaSyncBatchOut(BaseModel):
+    id: uuid.UUID
+    scope: Literal["media"]
+    status: Literal["queued", "running", "completed", "completed_with_errors"]
+    source_ids: list[str]
+    total_sources: int
+    completed_sources: int
+    ok_sources: int
+    empty_sources: int
+    error_sources: int
+    items_found: int
+    progress_pct: int
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class MediaSyncIdleOut(BaseModel):
+    scope: Literal["media"]
+    status: Literal["idle"]
+    source_ids: list[str]
+    total_sources: Literal[0]

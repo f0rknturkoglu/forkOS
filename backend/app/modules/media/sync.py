@@ -16,7 +16,11 @@ from app.db import SessionLocal
 from app.modules.media import service
 from app.modules.media.artwork import ArtworkError, ArtworkStore
 from app.modules.media.models import MediaItem
-from app.modules.media.providers.base import ProviderDetails, ProviderUnit
+from app.modules.media.providers.base import (
+    ProviderDetails,
+    ProviderExpectedEmpty,
+    ProviderUnit,
+)
 from app.modules.media.schemas import MediaUnitUpsert
 from app.modules.media.service import provider_registry
 from app.modules.system.models import Setting
@@ -28,22 +32,40 @@ class MediaSourceAdapter:
 
     interval_minutes = 60
 
-    def __init__(self, provider, item: MediaItem) -> None:
+    def __init__(self, provider, item: MediaItem, *, upcoming_days: int) -> None:
         self.provider = provider
         self.item = item
+        self.upcoming_days = upcoming_days
         self.id = f"media:{provider.id}:{item.id}"
 
     async def fetch(self) -> list[RawItem]:
-        details = await self.provider.details(str(self.item.provider_id))
-        if details is None:
+        try:
+            details = await self.provider.details(str(self.item.provider_id))
+            if details is None:
+                return []
+            units = (
+                await self.provider.units(str(self.item.provider_id))
+                if self.provider.capabilities.units
+                else []
+            )
+            upcoming = (
+                await self.provider.upcoming(
+                    str(self.item.provider_id), days=self.upcoming_days
+                )
+                if self.provider.capabilities.upcoming
+                else []
+            )
+        except ProviderExpectedEmpty:
             return []
-        units = await self.provider.units(str(self.item.provider_id))
+        normalized: dict[tuple[str, str], ProviderUnit] = {}
+        for unit in [*units, *upcoming]:
+            normalized[(unit.unit_type, unit.provider_id)] = unit
         return [
             RawItem(
                 external_id=str(self.item.provider_id),
                 title=details.title,
                 summary=details.summary,
-                extra={"details": details, "units": units},
+                extra={"details": details, "units": list(normalized.values())},
             )
         ]
 
@@ -120,6 +142,29 @@ async def queue_sync(
             .distinct()
         )
         rows = (await session.execute(stmt)).all()
+        applicable = [
+            (selected, kind)
+            for selected, kind in rows
+            if not provider_id or selected == provider_id
+        ]
+        if provider_id and applicable:
+            readiness = [registry.by_id(provider_id, kind=kind) for _, kind in applicable]
+            not_ready = [
+                provider
+                for provider in readiness
+                if provider is None or not provider.ready
+            ]
+            if not_ready:
+                missing = sorted(
+                    {
+                        key
+                        for provider in not_ready
+                        if provider is not None
+                        for key in provider.missing_settings
+                    }
+                )
+                suffix = f": {', '.join(missing)}" if missing else ""
+                raise ValueError(f"Provider hazır değil{suffix}")
         source_ids = []
         for selected, kind in rows:
             if provider_id and selected != provider_id:
@@ -160,9 +205,11 @@ async def _apply_snapshot(
     units: list[ProviderUnit],
     *,
     cache_artwork: bool,
+    upcoming_days: int,
 ) -> int:
     store = ArtworkStore()
     before = (
+        item.provider_id,
         item.summary,
         item.release_date,
         item.total,
@@ -180,6 +227,7 @@ async def _apply_snapshot(
     item.backdrop_url = details.backdrop_url
     item.provider_ids = {**(item.provider_ids or {}), **details.provider_ids}
     item.meta = {**(item.meta or {}), **details.meta}
+    item.provider_id = details.provider_id
     item.cover_path = await _cache_artwork(
         store, details.cover_url, item.cover_path, allowed=cache_artwork
     )
@@ -187,6 +235,7 @@ async def _apply_snapshot(
         store, details.backdrop_url, item.backdrop_path, allowed=cache_artwork
     )
     after = (
+        item.provider_id,
         item.summary,
         item.release_date,
         item.total,
@@ -199,9 +248,9 @@ async def _apply_snapshot(
     metadata_changed = before != after
     item.last_synced_at = datetime.now(UTC)
     await touch_entity(session, item.id, title=details.title, search_text=details.summary or "")
-    await session.commit()
 
     discovered = 0
+    changed_units = 0
     for unit in units:
         publisher_art = bool(unit.meta.get("publisher_artwork"))
         cover_path = await _cache_artwork(
@@ -210,7 +259,7 @@ async def _apply_snapshot(
             None,
             allowed=cache_artwork or publisher_art,
         )
-        result = await service.upsert_unit(
+        result = await service.upsert_unit_in_transaction(
             session,
             item.id,
             MediaUnitUpsert(
@@ -229,6 +278,7 @@ async def _apply_snapshot(
                 meta=unit.meta,
             ),
         )
+        changed_units += int(result.changed)
         if result.created:
             discovered += 1
             await log_event(
@@ -244,8 +294,19 @@ async def _apply_snapshot(
                     "provider_id": unit.provider_id,
                 },
             )
-            await session.commit()
-    return discovered or int(metadata_changed)
+            now = datetime.now(UTC)
+            if unit.release_at and now < unit.release_at <= now + timedelta(days=upcoming_days):
+                await notify(
+                    session,
+                    kind="media_release",
+                    title=f"Yaklaşan yayın: {unit.title}",
+                    body=unit.release_at.isoformat(),
+                    dedup_key=(
+                        f"media-release:{item.id}:{details.provider}:{unit.provider_id}"
+                    ),
+                    entity_id=item.id,
+                )
+    return changed_units or discovered or int(metadata_changed)
 
 
 async def _record_failure_health(
@@ -301,34 +362,55 @@ async def poll_media_source(source_id: str, *, batch_id: uuid.UUID | None = None
         if item_id:
             stmt = stmt.where(MediaItem.id == item_id)
         rows = (await session.execute(stmt)).all()
-        if not rows:
-            if item_id and batch_id:
-                run = SourceRun(
-                    source=source_id,
-                    status="empty",
-                    items_found=0,
-                    batch_id=batch_id,
-                    finished_at=datetime.now(UTC),
+        run = None
+        if batch_id:
+            run = (
+                await session.execute(
+                    select(SourceRun)
+                    .where(
+                        SourceRun.batch_id == batch_id,
+                        SourceRun.source == source_id,
+                        SourceRun.status == "running",
+                    )
+                    .order_by(SourceRun.id.desc())
+                    .limit(1)
                 )
-                session.add(run)
+            ).scalar_one_or_none()
+        if not rows:
+            if batch_id:
+                if run is None:
+                    run = SourceRun(source=source_id, status="running", batch_id=batch_id)
+                    session.add(run)
                 await session.flush()
+                run.status = "empty"
+                run.finished_at = datetime.now(UTC)
                 await finish_batch_source(session, batch_id, status="empty")
                 await session.commit()
             return 0
-        run = SourceRun(source=source_id, status="running", batch_id=batch_id)
-        session.add(run)
+        if run is None:
+            run = SourceRun(source=source_id, status="running", batch_id=batch_id)
+            session.add(run)
         await session.commit()
+        run_id = run.id
         changed = 0
         snapshots_found = 0
         status = "empty"
         error = None
         try:
             registry = await provider_registry(session)
+            upcoming_setting = await session.get(Setting, "media.upcoming_days")
+            upcoming_days = (
+                int(upcoming_setting.value)
+                if upcoming_setting and upcoming_setting.value is not None
+                else 30
+            )
             for item, _ in rows:
                 provider = registry.by_id(provider_id, kind=item.kind)
                 if provider is None or not provider.ready:
                     raise RuntimeError(f"Provider hazır değil: {provider_id}")
-                snapshots = await MediaSourceAdapter(provider, item).fetch()
+                snapshots = await MediaSourceAdapter(
+                    provider, item, upcoming_days=upcoming_days
+                ).fetch()
                 snapshots_found += len(snapshots)
                 for snapshot in snapshots:
                     changed += await _apply_snapshot(
@@ -337,6 +419,7 @@ async def poll_media_source(source_id: str, *, batch_id: uuid.UUID | None = None
                         snapshot.extra["details"],
                         snapshot.extra["units"],
                         cache_artwork=provider.capabilities.cache_artwork,
+                        upcoming_days=upcoming_days,
                     )
             status = "ok" if snapshots_found else "empty"
             if changed:
@@ -348,8 +431,13 @@ async def poll_media_source(source_id: str, *, batch_id: uuid.UUID | None = None
                     payload={"source": source_id, "count": changed},
                 )
         except Exception as exc:
+            await session.rollback()
             status = "error"
             error = f"{type(exc).__name__}: {exc}"[:2000]
+            changed = 0
+        run = await session.get(SourceRun, run_id)
+        if run is None:
+            raise RuntimeError("Source run kaydı kayboldu")
         run.status = status
         run.items_found = changed
         run.error = error
@@ -369,7 +457,7 @@ async def poll_media_sources(*, ignore_interval: bool = False) -> int:
         hours = int(interval.value) if interval and interval.value is not None else 24
         cutoff = datetime.now(UTC) - timedelta(hours=hours)
         stmt = (
-            select(MediaItem.provider)
+            select(MediaItem.id, MediaItem.provider)
             .join(Entity, Entity.id == MediaItem.id)
             .where(
                 MediaItem.monitored.is_(True),
@@ -381,8 +469,8 @@ async def poll_media_sources(*, ignore_interval: bool = False) -> int:
             stmt = stmt.where(
                 (MediaItem.last_synced_at.is_(None)) | (MediaItem.last_synced_at <= cutoff)
             )
-        providers = list(dict.fromkeys((await session.execute(stmt)).scalars()))
+        due_items = (await session.execute(stmt.order_by(MediaItem.last_synced_at))).all()
     total = 0
-    for provider_id in providers:
-        total += await poll_media_source(f"media:{provider_id}")
+    for item_id, provider_id in due_items:
+        total += await poll_media_source(f"media:{provider_id}:{item_id}")
     return total

@@ -26,7 +26,10 @@ from app.modules.media.schemas import (
     MediaItemOut,
     MediaItemUpdate,
     MediaPageOut,
+    MediaProviderStatusOut,
     MediaStats,
+    MediaSyncBatchOut,
+    MediaSyncIdleOut,
     MediaUnitOut,
     MetadataResult,
 )
@@ -119,12 +122,12 @@ async def search_metadata(
         raise HTTPException(400, str(exc)) from exc
 
 
-@router.get("/media/providers")
+@router.get("/media/providers", response_model=list[MediaProviderStatusOut])
 async def media_providers(session: AsyncSession = Depends(get_session)):
     return await media_sync.provider_statuses(session)
 
 
-@router.post("/media/sync")
+@router.post("/media/sync", response_model=MediaSyncBatchOut | MediaSyncIdleOut)
 async def queue_media_sync(
     provider: str | None = None,
     item_id: uuid.UUID | None = None,

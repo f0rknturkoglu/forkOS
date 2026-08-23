@@ -19,7 +19,7 @@ class IGDBProvider(HTTPProvider):
     kinds = ("game",)
     capabilities = ProviderCapabilities(
         units=False,
-        upcoming=True,
+        upcoming=False,
         requires_settings=("media.igdb_client_id", "media.igdb_client_secret"),
     )
 

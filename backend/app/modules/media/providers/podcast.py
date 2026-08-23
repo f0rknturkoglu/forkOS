@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 import feedparser
+import httpx
 
 from app.modules.media.providers._http import HTTPProvider
 from app.modules.media.providers.base import (
     ProviderCapabilities,
     ProviderDetails,
+    ProviderExpectedEmpty,
     ProviderResult,
     ProviderUnit,
     deduplicate,
@@ -54,8 +56,10 @@ class PodcastProvider(HTTPProvider):
         rows = response.json().get("results", [])
         return rows[0] if rows else {}
 
-    async def details(self, provider_id: str) -> ProviderDetails:
+    async def details(self, provider_id: str) -> ProviderDetails | None:
         row = await self._lookup(provider_id)
+        if not row or not row.get("feedUrl"):
+            return None
         return ProviderDetails(
             provider=self.id,
             provider_id=provider_id,
@@ -70,8 +74,13 @@ class PodcastProvider(HTTPProvider):
         row = await self._lookup(provider_id)
         feed_url = row.get("feedUrl")
         if not feed_url:
-            return []
-        response = await self.request("GET", feed_url)
+            raise ProviderExpectedEmpty("Podcast feed artık mevcut değil")
+        try:
+            response = await self.request("GET", feed_url)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in {404, 410}:
+                raise ProviderExpectedEmpty("Podcast feed artık mevcut değil") from exc
+            raise
         parsed = feedparser.loads(response.content)
         publisher_art = (parsed.feed.get("image") or {}).get("href")
         units = []
@@ -98,8 +107,9 @@ class PodcastProvider(HTTPProvider):
 
     async def upcoming(self, provider_id: str, *, days: int) -> list[ProviderUnit]:
         now = datetime.now(UTC)
+        until = now + timedelta(days=days)
         return [
             unit
             for unit in await self.units(provider_id)
-            if unit.release_at and 0 <= (unit.release_at - now).days <= days
+            if unit.release_at and now <= unit.release_at <= until
         ]

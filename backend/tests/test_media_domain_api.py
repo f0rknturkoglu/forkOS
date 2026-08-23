@@ -519,6 +519,19 @@ async def test_cycles_repeat_finish_and_released_unit_reopens_same_cycle(client:
         json={"client_uuid": str(uuid.uuid4()), "action": "finish"},
     )
     async with SessionLocal() as session:
+        future = await service.upsert_unit(
+            session,
+            item_id,
+            media_schemas.MediaUnitUpsert(
+                title="Newly released episode",
+                unit_type="episode",
+                provider="tmdb",
+                provider_id="new-episode",
+                release_at=datetime.now(UTC) + timedelta(days=1),
+            ),
+        )
+        assert future.created is True
+        assert future.cycle_reopened is False
         reopened = await service.upsert_unit(
             session,
             item_id,
@@ -530,7 +543,7 @@ async def test_cycles_repeat_finish_and_released_unit_reopens_same_cycle(client:
                 release_at=datetime.now(UTC) - timedelta(minutes=1),
             ),
         )
-        assert reopened.created is True
+        assert reopened.created is False
         assert reopened.cycle_reopened is True
         latest = (
             await session.execute(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 
@@ -109,4 +109,10 @@ class AniListProvider(HTTPProvider):
         ]
 
     async def upcoming(self, provider_id: str, *, days: int) -> list[ProviderUnit]:
-        return await self.units(provider_id)
+        now = datetime.now(UTC)
+        until = now + timedelta(days=days)
+        return [
+            unit
+            for unit in await self.units(provider_id)
+            if unit.release_at and now <= unit.release_at <= until
+        ]
