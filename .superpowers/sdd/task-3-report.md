@@ -125,3 +125,57 @@
 - Yeni provider davranışlarının tüm HTTP testleri mock'ludur; canlı upstream
   credential/rate-limit davranışı test sırasında çağrılmamıştır. Bilinen kod
   veya test bloklayıcısı yoktur.
+
+## İkinci review düzeltmeleri — 2026-08-23
+
+### RED kanıtı
+
+- Yedi odak testin ilk koşusu `6 failed, 1 passed` verdi: existing unit upcoming
+  bildirimi `0 != 1`, missed release cycle reopen `False`, TMDB aggregate
+  capability `False`, concurrent batch'lerde iki ayrı UUID, MusicBrainz eski
+  position identity ve release sıra bağımlılığı.
+- Fetch-count fixture'ı provider'ın gerçek filter davranışıyla sıkılaştırılınca
+  ilk koşuda `unit_calls=4 != 2` verdi; adapter aynı snapshot için units'i iki
+  kere çekiyordu.
+
+### Uygulama özeti
+
+- Upcoming bildirimi yalnız `result.created` dalından çıkarıldı. Her snapshot'ta
+  window değerlendirilirken notification dedup key'i tam bir kez kalıcılık
+  sağlıyor; far-future unit sonradan pencereye girdiğinde bildirim oluşuyor.
+- Yeni keşfedilmiş ve zaten yayınlanmış unit, yalnız release timestamp'i latest
+  completed cycle'ın completion timestamp'inden kesin sonra ise aynı cycle'ı
+  açıyor. Pre-completion historical backfill açmıyor ve pending checkpoint bir
+  kez tüketiliyor.
+- Provider status registry variant'larını provider ID bazında grupluyor;
+  capabilities kind adapter'ları üzerinde union, kinds ise configured adapter
+  sırasıyla aggregate ediliyor. TMDB movie/show satırı show units/upcoming
+  desteğini artık kaybetmiyor.
+- `create_or_extend_batch()` empty-row yarışı scope-bazlı PostgreSQL transaction
+  advisory lock ile serialize edildi; iki session tek active batch ve source
+  union'ı üretiyor.
+- `upcoming()` contract'ı önceden çekilmiş units snapshot'ını kabul ediyor;
+  adapter bu snapshot'ı geçirerek upstream'i poll başına bir kez çağırıyor ve
+  aynı gün filtresini koruyor.
+- MusicBrainz deterministik release seçiyor; track ID, sonra recording ID,
+  sonunda group/disc/position/title hash fallback'i stabil unit identity olarak
+  kullanılıyor.
+
+### GREEN ve final doğrulama
+
+- Yeni odak review testleri: `7 passed in 0.48s`.
+- Geniş media/source odak paketi: `90 passed in 5.10s`.
+- Fresh tam backend: `173 passed in 20.02s`.
+- `ruff check app tests scripts`: `All checks passed!`.
+- `python -m compileall -q app tests scripts`: exit 0.
+- `git diff --check`: exit 0.
+- Worktree dependency policy kontrolü: `backend/uv.lock` yok.
+
+### İkinci review commit'i
+
+- `7edc24e` — `Close remaining media sync review gaps`
+
+### Kalan concern
+
+- Canlı upstream davranışı halen bilinçli olarak mock HTTP testleriyle izole;
+  bilinen backend/test bloklayıcısı yoktur.
