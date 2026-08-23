@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import contributions as contribution_svc
@@ -15,11 +15,12 @@ from app.core import links as link_svc
 from app.core import runs as run_svc
 from app.core import search as search_svc
 from app.core import tags as tag_svc
-from app.core.models import SavedView
+from app.core.models import Entity, Notification, SavedView
 from app.core.schemas import (
     EntityOut,
     EventOut,
     LinkIn,
+    NotificationOut,
     SavedViewIn,
     SavedViewOut,
     SourceRunOut,
@@ -28,6 +29,80 @@ from app.core.schemas import (
 from app.db import get_session
 
 router = APIRouter(tags=["core"])
+
+
+@router.get("/notifications", response_model=list[NotificationOut])
+async def notifications(session: AsyncSession = Depends(get_session)):
+    rows = (
+        await session.execute(
+            select(Notification, Entity.type)
+            .outerjoin(Entity, Entity.id == Notification.entity_id)
+            .where(Notification.dismissed_at.is_(None))
+            .order_by(Notification.created_at.desc())
+            .limit(100)
+        )
+    ).all()
+    return [
+        NotificationOut(
+            id=item.id,
+            kind=item.kind,
+            title=item.title,
+            body=item.body,
+            entity_id=item.entity_id,
+            entity_type=entity_type,
+            importance=item.importance,
+            created_at=item.created_at,
+            read_at=item.read_at,
+        )
+        for item, entity_type in rows
+    ]
+
+
+@router.post("/notifications/{notification_id}/read")
+async def read_notification(notification_id: int, session: AsyncSession = Depends(get_session)):
+    item = await session.get(Notification, notification_id)
+    if item is None:
+        raise HTTPException(404)
+    item.read_at = datetime.now(UTC)
+    await session.commit()
+    return {"ok": True}
+
+
+@router.post("/notifications/read-all")
+async def read_all_notifications(session: AsyncSession = Depends(get_session)):
+    now = datetime.now(UTC)
+    result = await session.execute(
+        update(Notification)
+        .where(Notification.read_at.is_(None), Notification.dismissed_at.is_(None))
+        .values(read_at=now)
+    )
+    await session.commit()
+    return {"read": result.rowcount or 0}
+
+
+@router.post("/notifications/{notification_id}/dismiss")
+async def dismiss_notification(notification_id: int, session: AsyncSession = Depends(get_session)):
+    item = await session.get(Notification, notification_id)
+    if item is None:
+        raise HTTPException(404)
+    now = datetime.now(UTC)
+    item.dismissed_at = now
+    if item.read_at is None:
+        item.read_at = now
+    await session.commit()
+    return {"ok": True}
+
+
+@router.post("/notifications/dismiss-all")
+async def dismiss_all_notifications(session: AsyncSession = Depends(get_session)):
+    now = datetime.now(UTC)
+    result = await session.execute(
+        update(Notification)
+        .where(Notification.dismissed_at.is_(None))
+        .values(dismissed_at=now, read_at=func.coalesce(Notification.read_at, now))
+    )
+    await session.commit()
+    return {"dismissed": result.rowcount or 0}
 
 
 @router.get("/search")

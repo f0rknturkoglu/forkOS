@@ -59,3 +59,15 @@ class SourceRunOut(BaseModel):
     error: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
+
+
+class NotificationOut(BaseModel):
+    id: int
+    kind: str
+    title: str
+    body: str | None
+    entity_id: uuid.UUID | None
+    entity_type: str | None = None
+    importance: int
+    created_at: datetime
+    read_at: datetime | None

@@ -14,9 +14,9 @@ import logging
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.notifications import notify
 from app.core.time import local_day_bounds, local_today
 from app.db import SessionLocal
-from app.modules.opportunity.service import notify
 
 log = logging.getLogger("worker.digest")
 

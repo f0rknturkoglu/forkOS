@@ -7,7 +7,13 @@ def _spec():
         id="media",
         title="Medya",
         router=router,
-        entity_types=["media_item"],
+        entity_types=[
+            "media_item",
+            "media_unit",
+            "media_cycle",
+            "media_consumption",
+            "media_collection",
+        ],
         event_verbs=["media.item_added", "media.status_changed", "media.item_deleted"],
     )
 

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, SmallInteger, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -53,19 +53,3 @@ class OpportunityRequirement(Base):
     )
     note: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, default=0)
-
-
-class Notification(Base):
-    __tablename__ = "notification"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    kind: Mapped[str] = mapped_column(Text)
-    title: Mapped[str] = mapped_column(Text)
-    body: Mapped[str | None] = mapped_column(Text)
-    entity_id: Mapped[uuid.UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE")
-    )
-    importance: Mapped[int] = mapped_column(SmallInteger, default=1)
-    dedup_key: Mapped[str] = mapped_column(Text, unique=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
