@@ -1,8 +1,10 @@
+import { lazy } from "react";
 import { Bookmark } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
-import { BookmarksPage } from "./BookmarksPage";
 import { ReadingQueueWidget } from "./ReadingQueueWidget";
+
+const BookmarksPage = lazy(() => import("./BookmarksPage").then((module) => ({ default: module.BookmarksPage })));
 
 registerModule({
   id: "bookmarks",

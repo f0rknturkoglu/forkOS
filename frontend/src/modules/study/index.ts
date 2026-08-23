@@ -1,8 +1,10 @@
+import { lazy } from "react";
 import { BookOpen } from "lucide-react";
 import { navigate } from "@/app/router";
 import { registerModule } from "@/core/registry";
-import { StudyPage } from "./StudyPage";
 import { StudyWidget } from "./StudyWidget";
+
+const StudyPage = lazy(() => import("./StudyPage").then((module) => ({ default: module.StudyPage })));
 
 registerModule({
   id: "study", title: "Çalışma", icon: BookOpen, group: "track",

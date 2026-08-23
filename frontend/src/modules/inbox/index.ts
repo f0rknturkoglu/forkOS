@@ -1,11 +1,13 @@
+import { lazy } from "react";
 import { Inbox } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { invalidate } from "@/core/queryClient";
-import { InboxPage } from "./InboxPage";
 import { InboxWidget } from "./InboxWidget";
 import { InboxStats } from "./InboxStats";
+
+const InboxPage = lazy(() => import("./InboxPage").then((module) => ({ default: module.InboxPage })));
 
 registerModule({
   id: "inbox",

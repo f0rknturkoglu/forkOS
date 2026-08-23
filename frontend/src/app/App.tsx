@@ -1,5 +1,5 @@
 import "@/modules";                 // registry yi doldurur -- ILK import olmali
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, WifiOff, X } from "lucide-react";
 import { AppHeader } from "@/core/AppHeader";
@@ -20,6 +20,14 @@ function NotFound() {
       <p className="mt-1 text-body text-secondary">
         Adres yanlış olabilir. <Kbd>Ctrl</Kbd> <Kbd>K</Kbd> ile aramayı dene.
       </p>
+    </div>
+  );
+}
+
+function PageLoading() {
+  return (
+    <div className="px-8 py-10 text-body text-muted" role="status">
+      Sayfa yükleniyor…
     </div>
   );
 }
@@ -103,7 +111,9 @@ export default function App() {
             </Banner>
           )}
           <SourceAlert />
-          <Page />
+          <Suspense fallback={<PageLoading />}>
+            <Page />
+          </Suspense>
         </main>
 
         <CommandPalette />

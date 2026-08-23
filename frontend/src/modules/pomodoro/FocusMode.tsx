@@ -5,7 +5,7 @@ import { api } from "@/core/api";
 import { Button, cx } from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { PomodoroSession } from "@/core/types";
-import { clock, remaining } from "./PomodoroPage";
+import { clock, remaining } from "./time";
 import { POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 
 /**

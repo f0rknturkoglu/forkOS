@@ -1,11 +1,13 @@
+import { lazy } from "react";
 import { Rss } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { invalidate } from "@/core/queryClient";
 import { confirmDialog } from "@/core/dialog";
-import { RssPage } from "./RssPage";
 import { RssStats } from "./RssStats";
+
+const RssPage = lazy(() => import("./RssPage").then((module) => ({ default: module.RssPage })));
 
 registerModule({
   id: "rss",

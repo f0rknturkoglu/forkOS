@@ -1,7 +1,9 @@
+import { lazy } from "react";
 import { HeartPulse } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
-import { HealthPage } from "./HealthPage";
+
+const HealthPage = lazy(() => import("./HealthPage").then((module) => ({ default: module.HealthPage })));
 
 registerModule({
   id: "health",

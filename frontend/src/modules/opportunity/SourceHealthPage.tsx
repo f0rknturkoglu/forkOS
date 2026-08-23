@@ -4,14 +4,14 @@ import { AlertTriangle, Check, Loader2, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
 import { Badge, Button, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Toolbar, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import type { SourceHealth, SourceSyncBatch, SourceSyncStatus } from "@/core/types";
+import type {
+  SourceHealth, SourceRefreshResult, SourceSyncBatch, SourceSyncStatus,
+} from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { sourceLabel } from "./labels";
 import { SyncProgress } from "./SyncProgress";
 
 type Catalog = { id: string; interval_minutes: number; kind: string };
-type RefreshResult = { batch_id: string | null; queued: number; total_sources: number };
-
 const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: "Duyuru" };
 
 /** Kosum durumu -> rozet tonu. "new" = hic calismamis. */
@@ -76,7 +76,7 @@ export function SourceHealthPage() {
 
   const refreshMany = useMutation({
     mutationFn: (body: { source_ids?: string[]; kind?: string }) =>
-      api.post<RefreshResult>("/sources/refresh", body),
+      api.post<SourceRefreshResult>("/sources/refresh", body),
     onSuccess: (result) => {
       setPicked(new Set());
       invalidate("source-runs", "source-sync", "source-sync-history");

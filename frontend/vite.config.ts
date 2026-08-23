@@ -37,6 +37,10 @@ export default defineConfig({
     // Vite'in kendi cozumleyicisi icin burada da tanimli olmali.
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
+  build: {
+    manifest: true,
+    chunkSizeWarningLimit: 500,
+  },
   server: {
     // Compose icinde API_TARGET=http://api:8787 gelir; disarida npm run dev
     // ile calistirinca 127.0.0.1'e duser.

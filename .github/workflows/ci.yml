@@ -36,7 +36,9 @@ jobs:
       - run: pip install -c requirements.lock -e ".[dev]"
       - run: alembic upgrade head
       - run: pytest -q
-      - run: ruff check app tests
+      - run: ruff check app tests scripts
+      - run: python scripts/export_openapi.py
+      - run: git diff --exit-code openapi.json
 
   frontend:
     runs-on: ubuntu-latest
@@ -52,6 +54,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm audit --audit-level=moderate
+      - run: npm run api:check
       - run: npm test
       - run: npm run build
 

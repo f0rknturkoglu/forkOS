@@ -1,8 +1,11 @@
+import { lazy } from "react";
 import { ClipboardCheck } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
-import { DailyReviewPage, WeeklyReviewPage } from "./ReviewPage";
 import { ReviewWidget } from "./ReviewWidget";
+
+const DailyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.DailyReviewPage })));
+const WeeklyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.WeeklyReviewPage })));
 
 registerModule({ id: "review", title: "Değerlendirme", icon: ClipboardCheck, group: "track", routes: [
   { path: "/review/weekly", element: WeeklyReviewPage },

@@ -6,7 +6,7 @@ import { api } from "@/core/api";
 import { Button, IconButton, Input, RowList, Section, cx, useToast } from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
-import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./PomodoroPage";
+import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./time";
 import { FocusMode } from "./FocusMode";
 import { POMODORO_REFRESH_KEYS, POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 

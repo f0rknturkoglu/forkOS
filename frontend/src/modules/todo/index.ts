@@ -1,10 +1,12 @@
+import { lazy } from "react";
 import { ListChecks } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { invalidate } from "@/core/queryClient";
-import { TodoPage } from "./TodoPage";
-import { WeeklyPlannerPage } from "./WeeklyPlannerPage";
+
+const TodoPage = lazy(() => import("./TodoPage").then((module) => ({ default: module.TodoPage })));
+const WeeklyPlannerPage = lazy(() => import("./WeeklyPlannerPage").then((module) => ({ default: module.WeeklyPlannerPage })));
 
 registerModule({
   id: "todo", title: "Görevler", icon: ListChecks, group: "do",

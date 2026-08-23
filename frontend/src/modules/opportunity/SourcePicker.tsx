@@ -4,13 +4,11 @@ import { ArrowUpRight, Check, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
 import { navigate } from "@/app/router";
 import { Button, Input, cx, relativeTime, useToast } from "@/core/ui";
-import type { SourceHealth, SourceSyncStatus } from "@/core/types";
+import type { SourceHealth, SourceRefreshResult, SourceSyncStatus } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { sourceLabel } from "./labels";
 
 type Catalog = { id: string; interval_minutes: number; kind: string };
-type RefreshResult = { batch_id: string | null; queued: number; total_sources: number };
-
 const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: "Duyuru" };
 
 /**
@@ -54,7 +52,7 @@ export function SourcePicker() {
 
   const refresh = useMutation({
     mutationFn: (source_ids: string[]) =>
-      api.post<RefreshResult>("/sources/refresh", { source_ids }),
+      api.post<SourceRefreshResult>("/sources/refresh", { source_ids }),
     onSuccess: (result) => {
       setPicked(new Set());
       setOpen(false);

@@ -1,13 +1,13 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, ExternalLink, RefreshCw, Settings2, Trash2 } from "lucide-react";
+import { ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { Badge, Button, Empty, PageFrame, PageHeader, Surface, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { navigate } from "@/app/router";
-import { COLLECTIONS, COLLECTION_LABELS } from "@/core/types";
 import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
+import { RssReadingPane } from "./RssReadingPane";
 
 export const RSS_SAVE_REFRESH_KEYS = [
   "rss-item", "items", "feeds", "rss-stats", "bookmarks", "bookmark-stats", "activity",
@@ -23,13 +23,6 @@ const SMART_LABELS: Record<SmartView, string> = {
 };
 
 const SMART_ORDER: SmartView[] = ["unread", "today", "saved", "all"];
-
-/** Feed HTML'ini okuma bolmesi icin temizler: script/style/iframe/olay ozellikleri. */
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<(script|style|iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-}
 
 function todayIso(): string {
   const start = new Date();
@@ -256,134 +249,6 @@ function ItemRow({
       </button>
     </li>
   );
-}
-
-/* ── Okuma bölmesi ───────────────────────────────────────────────────── */
-
-function ReadingPane({
-  detail, online, saveCollection, onSaveCollection,
-  onToggleRead, onSave, onOpenBookmark, onPrev, onNext, hasPrev, hasNext,
-}: {
-  detail: FeedItem | undefined;
-  online: boolean;
-  saveCollection: Collection;
-  onSaveCollection: (c: Collection) => void;
-  onToggleRead: () => void;
-  onSave: () => void;
-  onOpenBookmark: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  hasPrev: boolean;
-  hasNext: boolean;
-}) {
-  if (!detail) {
-    return (
-      <Empty variant="page" title="Bir yazı seç">
-        Soldaki listeden bir yazıya tıkla — içeriği burada okursun.
-        <span className="mt-2 block text-meta text-muted">
-          Kısayollar: <KbdInline>j</KbdInline> <KbdInline>k</KbdInline> gezin ·
-          <KbdInline>u</KbdInline> okundu · <KbdInline>s</KbdInline> kaydet · <KbdInline>⇧ J</KbdInline> sonraki okunmamış
-        </span>
-      </Empty>
-    );
-  }
-
-  const hasBody = Boolean((detail.content || detail.summary || "").trim());
-
-  return (
-    <>
-      <div className="flex flex-wrap items-center gap-2 border-b border-subtle px-6 py-2.5">
-        <Button size="sm" disabled={!online} onClick={onToggleRead}>
-          {detail.read_at ? "Okunmadı" : "Okundu"}
-        </Button>
-        <select
-          disabled={!online || Boolean(detail.saved_bookmark_id)}
-          value={saveCollection}
-          onChange={(e) => onSaveCollection(e.target.value as Collection)}
-          title="Koleksiyon"
-          className="h-8 rounded-control border border-strong bg-surface px-2 text-meta text-secondary outline-none focus:border-accent"
-        >
-          {COLLECTIONS.map((c) => (
-            <option key={c} value={c}>{COLLECTION_LABELS[c]}</option>
-          ))}
-        </select>
-        {detail.saved_bookmark_id ? (
-          <Button size="sm" variant="primary" onClick={onOpenBookmark} title="Yer iminde aç">
-            Kaydedildi · aç →
-          </Button>
-        ) : (
-          <Button size="sm" variant="primary" disabled={!online} onClick={onSave}>
-            Yer imine kaydet
-          </Button>
-        )}
-        {detail.url && (
-          <Button
-            size="sm"
-            onClick={() => window.open(detail.url as string, "_blank", "noopener")}
-            title="Orijinal sayfada aç"
-          >
-            <ExternalLink size={13} /> Orijinalini aç
-          </Button>
-        )}
-        <span className="flex-1" />
-        <Button size="sm" disabled={!hasPrev} onClick={onPrev} title="Önceki">
-          ‹ Önceki
-        </Button>
-        <Button size="sm" disabled={!hasNext} onClick={onNext} title="Sonraki">
-          Sonraki ›
-        </Button>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        <h1 className="font-serif text-title leading-snug text-primary">{detail.title}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
-          <span className="text-secondary">{detail.feed_title}</span>
-          {detail.author && <span>· {detail.author}</span>}
-          {detail.published_at && <span>· {relativeTime(detail.published_at)}</span>}
-          {detail.url && (
-            <a
-              href={detail.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-accent hover:underline"
-            >
-              <ExternalLink size={12} /> orijinali
-            </a>
-          )}
-        </div>
-
-        {hasBody ? (
-          detail.content ? (
-            <div
-              className="article-content mt-5 text-secondary"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(detail.content) }}
-            />
-          ) : (
-            <p className="mt-5 whitespace-pre-wrap text-body leading-relaxed text-secondary">
-              {stripHtml(detail.summary ?? "")}
-            </p>
-          )
-        ) : (
-          <p className="mt-5 text-body text-muted">
-            Bu yazının özeti veya içeriği yok.{" "}
-            {detail.url && (
-              <a href={detail.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                Orijinal sayfasında aç →
-              </a>
-            )}
-          </p>
-        )}
-      </div>
-    </>
-  );
-}
-
-function KbdInline({ children }: { children: React.ReactNode }) {
-  return <kbd className="mx-1 rounded border border-strong bg-surface px-1 py-0.5 font-sans text-[10.5px] text-muted">{children}</kbd>;
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /* ── Sayfa ───────────────────────────────────────────────────────────── */
@@ -775,7 +640,7 @@ export function RssPage() {
 
       {/* ── Sağ: okuma bölmesi ── */}
       <section className="flex min-h-[520px] min-w-0 flex-col border-t border-subtle md:col-span-2 xl:col-span-1 xl:border-t-0">
-        <ReadingPane
+        <RssReadingPane
           detail={detail}
           online={online}
           saveCollection={saveCollection}

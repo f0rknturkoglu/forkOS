@@ -21,6 +21,9 @@ from app.modules.opportunity.schemas import (
     OpportunityOut,
     OpportunityPatch,
     RequirementIn,
+    SourceRefreshOut,
+    SourceSyncBatchOut,
+    SourceSyncStatusOut,
 )
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
@@ -299,18 +302,18 @@ async def source_catalog():
     ]
 
 
-@router.get("/sources/sync")
+@router.get("/sources/sync", response_model=SourceSyncStatusOut)
 async def sync_status(session: AsyncSession = Depends(get_session)):
     """Aktif manuel batch ve kaynak bazli kesin ilerleme."""
     return await sync_service.current_status(session)
 
 
-@router.get("/sources/sync/history")
+@router.get("/sources/sync/history", response_model=list[SourceSyncBatchOut])
 async def sync_history(limit: int = 10, session: AsyncSession = Depends(get_session)):
     return await sync_service.history(session, min(limit, 50))
 
 
-@router.post("/sources/refresh")
+@router.post("/sources/refresh", response_model=SourceRefreshOut)
 async def refresh_sources(
     body: SourceRefreshIn, session: AsyncSession = Depends(get_session)
 ):

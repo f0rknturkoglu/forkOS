@@ -1,9 +1,11 @@
+import { lazy } from "react";
 import { Sun } from "lucide-react";
 import { registerModule } from "@/core/registry";
-import { TodayPage } from "./TodayPage";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
 import { FeedStreamWidget } from "./widgets/FeedStreamWidget";
 import { QuickLinksWidget } from "./widgets/QuickLinksWidget";
+
+const TodayPage = lazy(() => import("./TodayPage").then((module) => ({ default: module.TodayPage })));
 
 registerModule({
   id: "today",

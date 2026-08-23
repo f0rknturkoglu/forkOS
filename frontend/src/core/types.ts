@@ -1,5 +1,8 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
+import type { components } from "@/generated/api-schema";
+
+type ApiSchemas = components["schemas"];
 
 export type Collection =
   | "inbox" | "read_later" | "learning" | "reference" | "projects" | "archive";
@@ -179,16 +182,12 @@ export interface PlanSlot {
   google_event_id?: string | null;
 }
 
-export interface AgendaRow {
-  kind: "calendar" | "todo" | "rss";
-  source: "calendar" | "planned" | "due" | "routine" | "suggestion";
-  id: string;
+type ApiAgendaRow = ApiSchemas["AgendaRow"];
+
+export type AgendaRow = Omit<ApiAgendaRow, "children"> & {
+  children: AgendaRow[];
   slot_id: string | null;
-  title: string;
-  completed: boolean;
   action: "complete_todo" | "mark_rss_read" | null;
-  read_only: boolean;
-  context_only: boolean;
   starts_at: string | null;
   duration_min: number | null;
   parent_id: string | null;
@@ -196,17 +195,17 @@ export interface AgendaRow {
   feed_title: string | null;
   url: string | null;
   recur: "daily" | "weekdays" | "weekly" | "monthly" | null;
-  children: AgendaRow[];
-}
+};
 
-export interface TodayAgenda {
-  day: string;
-  auto_suggestions: boolean;
+export type TodayAgenda = Omit<
+  ApiSchemas["TodayAgendaOut"],
+  "timed" | "checklist" | "completed" | "suggestions"
+> & {
   timed: AgendaRow[];
   checklist: AgendaRow[];
   completed: AgendaRow[];
   suggestions: { todos: AgendaRow[]; rss: AgendaRow[] };
-}
+};
 
 export interface StudyArea {
   id: string; title: string; color: string | null; active: boolean; position: number;
@@ -376,19 +375,7 @@ export interface HabitGridEntry {
   note: string | null;
 }
 
-export interface ReviewPreview {
-  kind: "daily" | "weekly";
-  period_start: string;
-  period_end: string;
-  stats: {
-    todos: { completed: number; created: number; dropped: number; overdue_now: number };
-    focus: { minutes: number; sessions: number; interrupted: number };
-    topics: { topic: string; minutes: number }[];
-    habits: Record<string, number>;
-    capture: { bookmarks: number; rss_read: number };
-  };
-  unfinished_todos: { id: string; title: string; priority: number; due_at: string | null }[];
-}
+export type ReviewPreview = ApiSchemas["ReviewPreview"];
 
 export interface SavedView {
   id: string;
@@ -405,14 +392,10 @@ export interface TagCount {
   count: number;
 }
 
-export interface SourceHealth {
-  source: string;
-  status: string;
-  items_found: number;
+export type SourceHealth = ApiSchemas["SourceRunOut"] & {
   error: string | null;
-  started_at: string;
   finished_at: string | null;
-}
+};
 
 export interface BackupStatus {
   drive_folder_id: string | null;
@@ -430,37 +413,10 @@ export interface BackupStatus {
   includes: string[];
 }
 
-export interface SourceSyncBatch {
-  id: string;
-  status: "queued" | "running" | "completed" | "completed_with_errors";
-  source_ids: string[];
-  total_sources: number;
-  completed_sources: number;
-  ok_sources: number;
-  empty_sources: number;
-  error_sources: number;
-  items_found: number;
-  progress_pct: number;
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-}
-
-export interface SourceSyncItem {
-  source: string;
-  status: "queued" | "running" | "ok" | "empty" | "error";
-  started_at: string | null;
-  finished_at: string | null;
-  items_found: number;
-  error: string | null;
-}
-
-export interface SourceSyncStatus {
-  active: SourceSyncBatch | null;
-  last_completed: SourceSyncBatch | null;
-  sources: SourceSyncItem[];
-  running: SourceSyncItem[];
-}
+export type SourceSyncBatch = ApiSchemas["SourceSyncBatchOut"];
+export type SourceSyncItem = ApiSchemas["SourceSyncItemOut"];
+export type SourceSyncStatus = ApiSchemas["SourceSyncStatusOut"];
+export type SourceRefreshResult = ApiSchemas["SourceRefreshOut"];
 
 export interface Opportunity {
   id: string; title: string; kind: string; organization: string | null;

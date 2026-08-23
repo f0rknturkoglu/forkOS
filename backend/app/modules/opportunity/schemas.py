@@ -88,3 +88,41 @@ class DeadlineOut(BaseModel):
     module: str
     sub_kind: str | None
     priority: int
+
+
+class SourceSyncBatchOut(BaseModel):
+    id: UUID
+    status: Literal["queued", "running", "completed", "completed_with_errors"]
+    source_ids: list[str]
+    total_sources: int
+    completed_sources: int
+    ok_sources: int
+    empty_sources: int
+    error_sources: int
+    items_found: int
+    progress_pct: int
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class SourceSyncItemOut(BaseModel):
+    source: str
+    status: Literal["queued", "running", "ok", "empty", "error"]
+    started_at: datetime | None
+    finished_at: datetime | None
+    items_found: int
+    error: str | None
+
+
+class SourceSyncStatusOut(BaseModel):
+    active: SourceSyncBatchOut | None
+    last_completed: SourceSyncBatchOut | None
+    sources: list[SourceSyncItemOut]
+    running: list[SourceSyncItemOut]
+
+
+class SourceRefreshOut(BaseModel):
+    batch_id: UUID | None
+    queued: int
+    total_sources: int

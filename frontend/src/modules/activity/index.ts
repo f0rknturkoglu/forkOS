@@ -1,10 +1,12 @@
+import { lazy } from "react";
 import { Activity } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
-import { ActivityPage } from "./ActivityPage";
-import { DayPage } from "./DayPage";
 import { ActivityWidget } from "./ActivityWidget";
 import { Heatmap } from "./Heatmap";
+
+const ActivityPage = lazy(() => import("./ActivityPage").then((module) => ({ default: module.ActivityPage })));
+const DayPage = lazy(() => import("./DayPage").then((module) => ({ default: module.DayPage })));
 
 registerModule({
   id: "activity",

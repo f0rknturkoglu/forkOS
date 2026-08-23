@@ -1,9 +1,11 @@
+import { lazy } from "react";
 import { Target } from "lucide-react";
 import { navigate } from "@/app/router";
 import { registerModule } from "@/core/registry";
-import { OpportunityPage } from "./OpportunityPage";
 import { DeadlineWidget, NotificationWidget } from "./OpportunityWidget";
-import { SourceHealthPage } from "./SourceHealthPage";
+
+const OpportunityPage = lazy(() => import("./OpportunityPage").then((module) => ({ default: module.OpportunityPage })));
+const SourceHealthPage = lazy(() => import("./SourceHealthPage").then((module) => ({ default: module.SourceHealthPage })));
 
 registerModule({ id: "opportunity", title: "Fırsatlar", icon: Target, group: "track",
   routes: [
