@@ -226,3 +226,46 @@
 
 - Canlı third-party credential/rate-limit davranışı mock test kapsamı dışında;
   bilinen backend/test bloklayıcısı yoktur.
+
+## Duplicate occurrence ve concurrent cache edge — 2026-08-23
+
+### RED kanıtı
+
+- İki yeni odak testin ilk koşusu `1 failed, 1 passed` verdi. Aynı MusicBrainz
+  recording'i iki track occurrence'ında kullanıldığında iki unit de
+  `recording:recording-same` kimliğine collapse oldu. Aynı provider instance'ını
+  paylaşan eşzamanlı iki adapter snapshot cache isolation testi mevcut
+  `ContextVar` tasarımıyla ilk koşuda geçti.
+
+### Uygulama özeti
+
+- MusicBrainz media ve track listeleri explicit position, yoksa kaynak ordinal
+  ile normalize ediliyor. Recording occurrence sayacı bu stabil logical sırada
+  ilerliyor; ilk occurrence migration-compatible `recording:<id>`, sonraki
+  occurrence'lar `recording:<id>:oN` kimliği alıyor.
+- Recording ID bulunmayan unit'ler önceki release-group/disc/track/title-hash
+  fallback'ini koruyor. Release-group membership growth ve edition reorder
+  testleri değişmeden geçerken aynı recording'in tekrarları ayrı unit kalıyor.
+- Eşzamanlı cache regresyonu iki farklı provider ID ile aynı provider instance'ı
+  üzerinde gerçek `asyncio.gather` overlap oluşturuyor; title/unit payload'ları
+  task'lar arasında sızmıyor ve her base endpoint snapshot başına bir kez
+  çağrılıyor.
+
+### GREEN ve final doğrulama
+
+- MusicBrainz + concurrent cache odak paketi: `5 passed in 0.02s`.
+- Geniş media/source odak paketi: `95 passed in 4.86s`.
+- Fresh tam backend: `178 passed in 19.58s`.
+- `ruff check app tests scripts`: `All checks passed!`.
+- `python -m compileall -q app tests scripts`: exit 0.
+- `git diff --check`: exit 0.
+- `backend/uv.lock` yok; Task 4/5 değiştirilmedi.
+
+### Edge cleanup commit'i
+
+- `2a9bb55` — `Distinguish repeated MusicBrainz recordings`
+
+### Kalan concern
+
+- Canlı third-party credential/rate-limit davranışı mock test kapsamı dışında;
+  bilinen backend/test bloklayıcısı yoktur.
