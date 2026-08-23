@@ -4,9 +4,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Button, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
 import type { PlanSlot, Todo } from "@/core/types";
+import { localDateKey } from "@/lib/date";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 
-function isoDay(date: Date) { return date.toISOString().slice(0, 10); }
+const isoDay = localDateKey;
 function monday(value = new Date()) {
   const copy = new Date(value); copy.setHours(12, 0, 0, 0);
   copy.setDate(copy.getDate() - ((copy.getDay() + 6) % 7)); return copy;

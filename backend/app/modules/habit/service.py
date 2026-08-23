@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
+from app.core.time import local_today
 from app.modules.habit.models import Habit, HabitLog
 from app.modules.habit.schemas import HabitCheck, HabitGridEntry, HabitIn, HabitOut, HabitUpdate
 
@@ -29,7 +30,7 @@ def _streak(days: set[date]) -> int:
     Bugun henuz isaretlenmemis olabilir -- gun bitmedi; o yuzden seri dunden
     sayilir. Yoksa her sabah "seri bozuldu" gorunurdu.
     """
-    cursor, count = date.today(), 0
+    cursor, count = local_today(), 0
     if cursor not in days:
         cursor -= timedelta(days=1)
     while cursor in days:
@@ -52,7 +53,7 @@ def _best_streak(days: set[date]) -> int:
 
 def _week_done(days: set[date]) -> int:
     """Bu haftanin (pazartesiden bugune) isaretli gun sayisi."""
-    today = date.today()
+    today = local_today()
     monday = today - timedelta(days=today.weekday())
     return sum(1 for day in days if monday <= day <= today)
 
@@ -63,10 +64,10 @@ async def list_habits(session: AsyncSession, active: bool | None = True) -> list
         stmt = stmt.where(Habit.active.is_(active))
     rows = (await session.execute(stmt)).all()
     logs = await _logs_by_habit(
-        session, [h.id for h, _ in rows], date.today() - timedelta(days=365))
+        session, [h.id for h, _ in rows], local_today() - timedelta(days=365))
     return [HabitOut(id=h.id, title=title, cadence=h.cadence,
                      target_per_week=h.target_per_week, color=h.color, active=h.active,
-                     position=h.position, done_today=date.today() in logs[h.id],
+                     position=h.position, done_today=local_today() in logs[h.id],
                      streak=_streak(logs[h.id]), best_streak=_best_streak(logs[h.id]),
                      week_done=_week_done(logs[h.id])) for h, title in rows]
 
@@ -118,7 +119,7 @@ async def check(session: AsyncSession, habit_id: uuid.UUID, data: HabitCheck) ->
 
 
 async def grid(session: AsyncSession, weeks: int) -> list[HabitGridEntry]:
-    start = date.today() - timedelta(days=weeks * 7 - 1)
+    start = local_today() - timedelta(days=weeks * 7 - 1)
     rows = (await session.execute(
         select(HabitLog, Entity.title).join(Entity, Entity.id == HabitLog.habit_id)
         .where(HabitLog.day >= start).order_by(HabitLog.day)

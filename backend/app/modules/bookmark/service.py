@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import UTC, date, datetime, time
 from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy import func, select
@@ -20,6 +19,7 @@ from app.core import tags as tag_svc
 from app.core.entity import archive_entity, create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
+from app.core.time import local_day_bounds, local_today
 from app.modules.bookmark.models import COLLECTIONS, Bookmark
 from app.modules.bookmark.schemas import BookmarkOut, BookmarkUpdate, CaptureIn
 
@@ -306,10 +306,13 @@ async def stats(session: AsyncSession) -> dict:
             select(func.count()).select_from(Bookmark).where(Bookmark.read_status == "unread")
         )
     ).scalar_one()
-    midnight = datetime.combine(date.today(), time.min, tzinfo=UTC)
+    midnight, tomorrow = local_day_bounds(local_today())
     saved_today = (
         await session.execute(
-            select(func.count()).select_from(Bookmark).where(Bookmark.saved_at >= midnight)
+            select(func.count()).select_from(Bookmark).where(
+                Bookmark.saved_at >= midnight,
+                Bookmark.saved_at < tomorrow,
+            )
         )
     ).scalar_one()
     return {

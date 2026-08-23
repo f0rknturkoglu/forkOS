@@ -12,6 +12,7 @@ from uuid import UUID
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import local_datetime
 from app.db import Base
 
 MODULE_TABLES = [
@@ -194,8 +195,7 @@ async def ics(session: AsyncSession) -> str:
         )
     for row in slots:
         minute = row["start_min"] or 0
-        start = datetime.combine(row["day"], datetime.min.time(), tzinfo=UTC)
-        start = start.replace(hour=minute // 60, minute=minute % 60)
+        start = local_datetime(row["day"], minute)
         end = start + timedelta(minutes=row["duration_min"] or 30)
         lines.extend(
             [

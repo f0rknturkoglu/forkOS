@@ -1,11 +1,10 @@
-from datetime import date
-
 from sqlalchemy import select
 
 from app.core import tags as tag_svc
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
+from app.core.time import local_today
 from app.modules.bookmark.models import Bookmark
 from app.modules.bookmark.service import _to_out
 from app.modules.learning.models import Book, Course
@@ -61,12 +60,12 @@ async def patch_item(session, model, item_id, data):
             payload={"from_pct": old_progress, "to_pct": item.progress_pct},
         )
     if model is Course and item.status == "done" and old_status != "done":
-        item.completed_at = date.today()
+        item.completed_at = local_today()
         await log_event(
             session, verb="course.completed", entity_id=item.id, entity_type="course", payload={}
         )
     if model is Book and item.status == "done" and old_status != "done":
-        item.finished_at = date.today()
+        item.finished_at = local_today()
         await log_event(
             session,
             verb="book.finished",

@@ -3,12 +3,14 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Badge, Button, Empty, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Surface } from "@/core/ui";
 import type { ReviewPreview } from "@/core/types";
+import { localDateKey } from "@/lib/date";
 import { useInvalidate, useOnline } from "@/lib/hooks";
+import { reviewMetricRows } from "./reviewMetrics";
 
 function startOf(kind: "daily" | "weekly") {
   const day = new Date(); day.setHours(12, 0, 0, 0);
   if (kind === "weekly") day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
-  return day.toISOString().slice(0, 10);
+  return localDateKey(day);
 }
 
 function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
@@ -30,9 +32,7 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
     <div className="flex gap-1">{[1, 2, 3].map((value) => <span key={value}
       className={`h-1 w-8 ${step >= value ? "bg-accent" : "bg-surface-sunken"}`} />)}</div></div><p className="text-meta text-muted">{data.period_start} → {data.period_end}</p>
     {step === 1 && <><MetricStrip className="grid-cols-2 md:grid-cols-4">
-      {[ ["Tamamlanan", stats.todos.completed], ["Odak", `${stats.focus.minutes} dk`],
-        ["Alışkanlık kontrolü", Object.values(stats.habits).reduce((a, b) => a + b, 0)],
-        ["Yakalanan", stats.capture.bookmarks] ].map(([label, value]) => <Metric key={String(label)} label={label} value={value} />)}</MetricStrip>
+      {reviewMetricRows(stats).map(([label, value]) => <Metric key={label} label={label} value={value} />)}</MetricStrip>
       <Section title="Odak dağılımı">{stats.topics.length === 0 ? <Empty>Bu dönemde odak seansı yok.</Empty> :
         <RowList as="ul">{stats.topics.map((topic) => <li key={topic.topic} className="flex py-2 text-body">
           <span>{topic.topic}</span><span className="ml-auto text-muted">{topic.minutes} dk</span></li>)}</RowList>}</Section>

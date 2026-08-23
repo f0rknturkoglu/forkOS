@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import Integer, func, select
+from sqlalchemy import Integer, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity
 from app.core.events import log_event
 from app.core.models import Entity, Event
+from app.core.time import local_datetime, local_day_bounds
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
 from app.modules.review.schemas import ReviewIn, ReviewOut, ReviewPreview
@@ -27,10 +28,6 @@ def period_bounds(kind: str, start: date) -> tuple[date, date]:
     return monday, monday + timedelta(days=7)
 
 
-def _dt(value: date) -> datetime:
-    return datetime.combine(value, time.min, tzinfo=UTC)
-
-
 async def _event_count(session: AsyncSession, verb: str, start: datetime, end: datetime) -> int:
     return int(
         (
@@ -45,10 +42,13 @@ async def _event_count(session: AsyncSession, verb: str, start: datetime, end: d
 
 async def preview(session: AsyncSession, kind: str, period_start: date) -> ReviewPreview:
     start, end = period_bounds(kind, period_start)
-    start_dt, end_dt = _dt(start), _dt(end)
+    start_dt, end_dt = local_day_bounds(start)[0], local_day_bounds(end)[0]
     minutes_expr = Event.payload["minutes"].astext.cast(Integer)
     topic_expr = Event.payload["topic"].astext
-    habit_expr = Event.payload["habit"].astext
+    routine_title_expr = case(
+        (Event.verb == "habit.checked", Event.payload["habit"].astext),
+        else_=Event.payload["title"].astext,
+    )
     focus = (
         await session.execute(
             select(
@@ -77,15 +77,23 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             .order_by(func.sum(minutes_expr).desc())
         )
     ).all()
-    habit_rows = (
+    routine_rows = (
         await session.execute(
-            select(habit_expr, func.count())
+            select(routine_title_expr, func.count())
+            .select_from(Event)
+            .outerjoin(Todo, Todo.id == Event.entity_id)
             .where(
-                Event.verb == "habit.checked",
+                or_(
+                    Event.verb == "habit.checked",
+                    and_(
+                        Event.verb == "todo.completed",
+                        or_(Event.payload["recur"].astext.is_not(None), Todo.recur.is_not(None)),
+                    ),
+                ),
                 Event.occurred_at >= start_dt,
                 Event.occurred_at < end_dt,
             )
-            .group_by(habit_expr)
+            .group_by(routine_title_expr)
         )
     ).all()
     study_rows = (
@@ -146,7 +154,7 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             {"topic": topic or "Genel", "minutes": int(minutes or 0)}
             for topic, minutes in topic_rows
         ],
-        "habits": {habit: int(count) for habit, count in habit_rows if habit},
+        "habits": {title: int(count) for title, count in routine_rows if title},
         "capture": {
             "bookmarks": await _event_count(session, "bookmark.saved", start_dt, end_dt),
             "rss_read": await _event_count(session, "rss.item_read", start_dt, end_dt),
@@ -228,7 +236,7 @@ async def _apply_decisions(session: AsyncSession, decisions: dict, next_start: d
         await todo_service.update(
             session,
             todo_id,
-            TodoUpdate(due_at=datetime.combine(day, time(hour=17), tzinfo=UTC)),
+            TodoUpdate(due_at=local_datetime(day, 17 * 60)),
             commit=False,
         )
         await todo_service.schedule(session, PlanSlotIn(entity_id=todo_id, day=day), commit=False)

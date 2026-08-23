@@ -5,6 +5,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import local_today
 from app.db import get_session
 from app.modules.review import service
 from app.modules.review.schemas import ReviewIn, ReviewOut, ReviewPreview
@@ -13,7 +14,7 @@ router = APIRouter(tags=["review"])
 
 
 @router.get("/reviews/preview", response_model=ReviewPreview)
-async def preview(kind: str = "weekly", period_start: date = Query(default_factory=date.today),
+async def preview(kind: str = "weekly", period_start: date = Query(default_factory=local_today),
                   session: AsyncSession = Depends(get_session)):
     try:
         return await service.preview(session, kind, period_start)

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import local_today
 from app.db import get_session
 from app.modules.finance import service
 from app.modules.finance.models import Expense, RecurringPayment
@@ -36,11 +36,12 @@ async def patch_expense(
 
 @router.get("/expenses/summary")
 async def summary(
-    year: int = date.today().year,
-    month: int = date.today().month,
+    year: int | None = None,
+    month: int | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    return await service.monthly_summary(session, year, month)
+    today = local_today()
+    return await service.monthly_summary(session, year or today.year, month or today.month)
 
 
 @router.get("/recurring-payments")

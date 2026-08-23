@@ -10,11 +10,11 @@ Sayilar okunur; hicbir sey yazilmaz (bildirimin kendisi disinda).
 from __future__ import annotations
 
 import logging
-from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import local_day_bounds, local_today
 from app.db import SessionLocal
 from app.modules.opportunity.service import notify
 
@@ -27,8 +27,8 @@ async def _scalar(session: AsyncSession, sql: str, **params) -> int:
 
 async def collect(session: AsyncSession) -> dict[str, int]:
     """Ozetin satirlari. Her biri tek sayi -- bildirim govdesi kisa kalmali."""
-    start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=1)
+    today = local_today()
+    start, end = local_day_bounds(today)
 
     return {
         "due_today": await _scalar(
@@ -45,7 +45,7 @@ async def collect(session: AsyncSession) -> dict[str, int]:
         "planned": await _scalar(
             session,
             "select count(*) from plan_slot where day = :today",
-            today=date.today(),
+            today=today,
         ),
         "deadlines": await _scalar(
             session,
@@ -94,7 +94,7 @@ async def morning_digest() -> None:
             title=title,
             body=body,
             # Gunde bir: ayni gun ikinci kez calissa da yeni bildirim dusmez.
-            dedup_key=f"digest:morning:{date.today().isoformat()}",
+            dedup_key=f"digest:morning:{local_today().isoformat()}",
             importance=2 if stats["overdue"] or stats["deadlines"] else 1,
         )
         await session.commit()

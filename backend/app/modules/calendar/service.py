@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import select
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.entity import archive_entity, create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
+from app.core.time import local_datetime, local_today
 from app.integrations.gcal import list_events, parse_google_time, upsert_event
 from app.integrations.google_auth import access_token
 from app.integrations.models import OAuthToken
@@ -34,7 +35,7 @@ async def events(session: AsyncSession, from_at: datetime, to_at: datetime) -> l
         await session.execute(
             select(PlanSlot, Entity.title, Entity.type)
             .join(Entity, Entity.id == PlanSlot.entity_id)
-            .where(PlanSlot.day >= from_at.date(), PlanSlot.day <= to_at.date())
+            .where(PlanSlot.day >= local_today(from_at), PlanSlot.day <= local_today(to_at))
             .order_by(PlanSlot.day, PlanSlot.start_min.nulls_last(), PlanSlot.position)
         )
     ).all()
@@ -54,9 +55,7 @@ async def events(session: AsyncSession, from_at: datetime, to_at: datetime) -> l
     ]
     for slot, title, entity_type in slot_rows:
         minute = slot.start_min or 0
-        starts_at = datetime.combine(
-            slot.day, time(hour=minute // 60, minute=minute % 60), tzinfo=UTC
-        )
+        starts_at = local_datetime(slot.day, minute)
         result.append(
             {
                 "id": str(slot.id),
@@ -157,7 +156,7 @@ async def push_slot(session: AsyncSession, slot_id: uuid.UUID) -> dict | None:
     slot, title = row
     token = await access_token(session)
     minute = slot.start_min or 9 * 60
-    starts_at = datetime.combine(slot.day, time(hour=minute // 60, minute=minute % 60), tzinfo=UTC)
+    starts_at = local_datetime(slot.day, minute)
     payload = {
         "summary": title,
         "description": slot.note or "forkOS plan slot",

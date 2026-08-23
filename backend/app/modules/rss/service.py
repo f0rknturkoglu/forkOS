@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import delete as sa_delete
@@ -23,6 +23,7 @@ from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
+from app.core.time import local_day_bounds, local_today
 from app.modules.bookmark.models import Bookmark
 from app.modules.bookmark.schemas import CaptureIn
 from app.modules.bookmark.service import capture as capture_bookmark
@@ -325,9 +326,12 @@ async def stats(session: AsyncSession) -> dict:
     unread = (await session.execute(
         select(func.count()).select_from(FeedItem).where(FeedItem.read_at.is_(None))
     )).scalar_one()
-    today_start = datetime.combine(date.today(), time.min, tzinfo=UTC)
+    today_start, tomorrow_start = local_day_bounds(local_today())
     today = (await session.execute(
-        select(func.count()).select_from(FeedItem).where(FeedItem.published_at >= today_start)
+        select(func.count()).select_from(FeedItem).where(
+            FeedItem.published_at >= today_start,
+            FeedItem.published_at < tomorrow_start,
+        )
     )).scalar_one()
     saved = (await session.execute(
         select(func.count()).select_from(FeedItem).where(

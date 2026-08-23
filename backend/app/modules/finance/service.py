@@ -11,6 +11,7 @@ from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity
+from app.core.time import local_today
 from app.modules.finance.models import Expense, RecurringPayment
 
 
@@ -103,7 +104,7 @@ async def pay_recurring(session: AsyncSession, item_id: uuid.UUID) -> dict | Non
     if payment is None:
         return None
     entity = await session.get(Entity, payment.id)
-    paid_on = payment.next_due_at or date.today()
+    paid_on = payment.next_due_at or local_today()
     expense_entity = await create_entity(
         session,
         type="expense",

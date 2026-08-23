@@ -5,6 +5,8 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from app.core.time import local_today
+
 
 class HabitIn(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -24,7 +26,7 @@ class HabitUpdate(BaseModel):
 
 
 class HabitCheck(BaseModel):
-    day: date = Field(default_factory=date.today)
+    day: date = Field(default_factory=local_today)
     done: bool = True
     note: str | None = None
 

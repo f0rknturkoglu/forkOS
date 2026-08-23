@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import httpx
+
+from app.core.time import local_datetime
 
 BASE_URL = "https://www.googleapis.com/calendar/v3"
 
@@ -11,7 +13,7 @@ BASE_URL = "https://www.googleapis.com/calendar/v3"
 def parse_google_time(value: dict[str, str]) -> tuple[datetime, bool]:
     if "dateTime" in value:
         return datetime.fromisoformat(value["dateTime"].replace("Z", "+00:00")), False
-    return datetime.combine(date.fromisoformat(value["date"]), time.min, tzinfo=UTC), True
+    return local_datetime(date.fromisoformat(value["date"])).astimezone(UTC), True
 
 
 async def list_events(

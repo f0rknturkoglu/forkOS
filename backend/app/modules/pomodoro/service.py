@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.entity import create_entity
 from app.core.events import log_event
 from app.core.models import Entity
+from app.core.time import local_day_bounds, local_today
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.pomodoro.schemas import (
     PomodoroManual,
@@ -137,14 +138,14 @@ async def stop(session: AsyncSession, pomo_id: uuid.UUID, interrupted: bool) -> 
 
 
 def _range_start(value: str) -> datetime:
-    today = date.today()
+    today = local_today()
     if value == "day":
         start = today
     elif value == "month":
         start = today.replace(day=1)
     else:
         start = today - timedelta(days=today.weekday())
-    return datetime.combine(start, time.min, tzinfo=UTC)
+    return local_day_bounds(start)[0]
 
 
 async def stats(session: AsyncSession, value: str = "week") -> PomodoroStats:

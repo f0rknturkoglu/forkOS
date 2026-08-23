@@ -6,7 +6,6 @@ from app.config import settings
 from app.core.test_guard import assert_safe_test_database
 from app.db import Base, engine
 
-
 # pytest hiçbir koşulda kişisel `lifeos` veritabanına bağlanmamalı. Bu kontrol
 # fixture'lardan önce çalışır; dolayısıyla yanlış URL tek sorgu bile atamaz.
 assert_safe_test_database(settings.database_url)

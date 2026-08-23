@@ -7,26 +7,16 @@ import {
 } from "@/core/ui";
 import { useHashRoute } from "@/app/router";
 import type { DayDetail } from "@/core/types";
+import { localDateKey } from "@/lib/date";
 import { ALERT_VERBS, VERB_LABELS, describe } from "./verbs";
-
-/**
- * YEREL gunun ISO tarihi. Duz `toISOString()` UTC verir; TR'de (UTC+3)
- * gece 00:00-03:00 arasi "dun" gorunuyordu -- backend de gun sinirini
- * `settings.timezone`'a gore atiyor, ikisi ayni gunu gostermeli.
- */
-function localDay(date = new Date()): string {
-  const copy = new Date(date);
-  copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset());
-  return copy.toISOString().slice(0, 10);
-}
 
 function shift(day: string, delta: number): string {
   const date = new Date(`${day}T12:00:00`);   // ogle: yaz saati kaymasindan etkilenmez
   date.setDate(date.getDate() + delta);
-  return localDay(date);
+  return localDateKey(date);
 }
 
-const today = () => localDay();
+const today = () => localDateKey(new Date());
 
 /**
  * Tek gunun sayfasi. Emek haritasindaki bir kareye tiklayinca buraya gelinir.

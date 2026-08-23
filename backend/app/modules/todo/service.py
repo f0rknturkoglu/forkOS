@@ -11,6 +11,7 @@ from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
+from app.core.time import local_day_bounds, local_today
 from app.modules.todo.models import PlanSlot, Todo
 from app.modules.todo.schemas import (
     PlanSlotIn,
@@ -433,9 +434,11 @@ async def delete_slot(session: AsyncSession, slot_id: uuid.UUID) -> bool:
 
 
 async def today_count(session: AsyncSession) -> int:
+    start, end = local_day_bounds(local_today())
     return int((await session.execute(select(func.count()).select_from(Todo).where(
         Todo.status.in_(("open", "doing")),
-        func.date(Todo.due_at) == date.today()))).scalar_one())
+        Todo.due_at >= start,
+        Todo.due_at < end))).scalar_one())
 
 
 async def _spawn_next_occurrence(session: AsyncSession, done: Todo) -> None:
