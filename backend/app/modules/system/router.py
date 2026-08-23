@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from contextlib import suppress
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -104,7 +106,7 @@ async def run_backup(session: AsyncSession = Depends(get_session)):
 
 
 @router.get("/system/stats")
-async def system_stats():
+async def system_stats(session: AsyncSession = Depends(get_session)):
     """Panel icin sunucu sagligi: CPU, RAM, disk, uptime.
 
     Harici bagimliliksiz -- /proc okunur. forkOS'un uzerinde kostugu
@@ -117,10 +119,8 @@ async def system_stats():
     import os
 
     load: list[float] = []
-    try:
-        load = [float(x) for x in open("/proc/loadavg").read().split()[:3]]
-    except OSError:
-        pass
+    with suppress(OSError), open("/proc/loadavg") as handle:
+        load = [float(x) for x in handle.read().split()[:3]]
 
     mem: dict[str, int] = {}
     try:
@@ -143,10 +143,24 @@ async def system_stats():
         pass
 
     uptime_s = 0.0
-    try:
-        uptime_s = float(open("/proc/uptime").read().split()[0])
-    except OSError:
-        pass
+    with suppress(OSError), open("/proc/uptime") as handle:
+        uptime_s = float(handle.read().split()[0])
+
+    heartbeat = await session.get(Setting, "worker.heartbeat")
+    heartbeat_at = None
+    if heartbeat and isinstance(heartbeat.value, dict):
+        heartbeat_at = heartbeat.value.get("at")
+    worker_status = "unknown"
+    if isinstance(heartbeat_at, str):
+        try:
+            observed = datetime.fromisoformat(heartbeat_at)
+            worker_status = (
+                "healthy"
+                if observed >= datetime.now(UTC) - timedelta(minutes=3)
+                else "stale"
+            )
+        except ValueError:
+            worker_status = "unknown"
 
     return {
         "cpu_pct": stats.cpu_percent(),
@@ -156,6 +170,7 @@ async def system_stats():
         "mem_available_kb": mem.get("MemAvailable"),
         "disk": disk,
         "uptime_s": uptime_s,
+        "worker": {"status": worker_status, "heartbeat_at": heartbeat_at},
     }
 
 

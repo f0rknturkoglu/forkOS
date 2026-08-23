@@ -9,18 +9,37 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 
 from app.db import SessionLocal
 from app.modules.calendar.service import sync_google
-from app.modules.opportunity.worker import poll_opportunities as _poll_opportunities
+from app.modules.opportunity import sync as source_sync
+from app.modules.opportunity.worker import (
+    poll_named_source,
+)
+from app.modules.opportunity.worker import (
+    poll_opportunities as _poll_opportunities,
+)
 from app.modules.project.github import sync as sync_github_service
 from app.modules.rss import service as rss
 from app.modules.system.backup import backup_if_stale
+from app.modules.system.models import Setting
 
 log = logging.getLogger("worker.jobs")
 
 # Ayni anda kac feed cekilsin. Local makinede agresif olmaya gerek yok.
 CONCURRENCY = 4
+
+
+async def record_worker_heartbeat() -> None:
+    async with SessionLocal() as session:
+        heartbeat = await session.get(Setting, "worker.heartbeat")
+        value = {"at": datetime.now(UTC).isoformat()}
+        if heartbeat is None:
+            session.add(Setting(key="worker.heartbeat", value=value))
+        else:
+            heartbeat.value = value
+        await session.commit()
 
 
 async def poll_feeds(*, ignore_interval: bool = False) -> int:
@@ -75,6 +94,35 @@ async def prune_old_items() -> int:
 async def poll_opportunities(*, limit: int = 4) -> int:
     total = await _poll_opportunities(limit=limit)
     log.info("poll_opportunities: %d yeni firsat", total)
+    return total
+
+
+async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
+    """API'nin kalıcı kuyruğunu worker sürecinde, sınırlı eşzamanlılıkla tüket."""
+    async with SessionLocal() as session:
+        await source_sync.reconcile_stale_runs(
+            session, older_than=datetime.now(UTC) - timedelta(minutes=15)
+        )
+        await session.commit()
+        batch = await source_sync.claim_pending_batch(session)
+        if batch is None:
+            return 0
+        pending = (await source_sync.pending_source_ids(session, batch))[:limit]
+
+    if not pending:
+        return 0
+    semaphore = asyncio.Semaphore(CONCURRENCY)
+
+    async def one(source_id: str) -> int:
+        async with semaphore:
+            return await poll_named_source(source_id, batch_id=batch.id)
+
+    total = sum(await asyncio.gather(*(one(source_id) for source_id in pending)))
+    log.info(
+        "consume_source_sync_batches: %d kaynak, %d yeni fırsat",
+        len(pending),
+        total,
+    )
     return total
 
 

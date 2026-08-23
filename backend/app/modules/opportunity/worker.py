@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -74,7 +76,7 @@ async def poll_source(source, *, batch_id=None) -> int:
 
 
 async def poll_opportunities(*, limit: int = 4) -> int:
-    """Only poll the stalest slice; complete syncs must be explicit."""
+    """Her adapter'ın kendi aralığına göre yalnızca süresi gelenleri çek."""
     sources = [*forkjob_sources(), *SOURCES]
     async with SessionLocal() as session:
         latest = dict(
@@ -86,12 +88,36 @@ async def poll_opportunities(*, limit: int = 4) -> int:
                 )
             ).all()
         )
-    sources.sort(key=lambda source: (latest.get(source.id) is not None, latest.get(source.id)))
-    return sum([await poll_source(source) for source in sources[:limit]])
+    due = select_due_sources(sources, latest)[:limit]
+    return sum(await asyncio.gather(*(poll_source(source) for source in due)))
+
+
+def select_due_sources(
+    sources, latest: dict[str, datetime], *, now: datetime | None = None
+):
+    current = now or datetime.now(UTC)
+
+    def due_at(source):
+        last_run = latest.get(source.id)
+        if last_run is None:
+            return datetime.min.replace(tzinfo=UTC)
+        return last_run + timedelta(minutes=source.interval_minutes)
+
+    return sorted(
+        (source for source in sources if due_at(source) <= current),
+        key=due_at,
+    )
 
 
 async def poll_named_source(source_id: str, *, batch_id=None) -> int:
-    source = next((item for item in [*forkjob_sources(), *SOURCES] if item.id == source_id), None)
+    source = next(
+        (
+            item
+            for item in [*forkjob_sources(include_opt_in=True), *SOURCES]
+            if item.id == source_id
+        ),
+        None,
+    )
     if source is None:
         raise KeyError(source_id)
     return await poll_source(source, batch_id=batch_id)

@@ -87,12 +87,12 @@ class PortalSource:
         return [job_to_raw(job) for job in jobs]
 
 
-def forkjob_sources() -> list[AtsBoardSource | PortalSource]:
+def forkjob_sources(*, include_opt_in: bool = False) -> list[AtsBoardSource | PortalSource]:
     ats = [AtsBoardSource(company) for company in Registry.load().enabled()]
     portals = load_registry_b().sources
-    # LinkedIn is opt-in in the original bulk run. In forkOS it is an explicit
-    # isolated source, so include it while preserving its own proxy/direct config.
     layer_b = [
-        PortalSource(source) for source in portals if source.enabled or source.key == "linkedin"
+        PortalSource(source)
+        for source in portals
+        if source.enabled or (include_opt_in and source.key == "linkedin")
     ]
     return [*ats, *layer_b]

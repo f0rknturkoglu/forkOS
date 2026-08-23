@@ -17,10 +17,12 @@ from app.modules.opportunity.service import deadline_ladder
 from app.worker.digest import morning_digest
 from app.worker.jobs import (
     catch_up,
+    consume_source_sync_batches,
     nightly_backup,
     poll_feeds,
     poll_opportunities,
     prune_old_items,
+    record_worker_heartbeat,
     sync_calendar,
     sync_github,
 )
@@ -53,9 +55,25 @@ async def main() -> None:
     scheduler.add_job(
         poll_opportunities,
         "interval",
-        hours=2,
-        jitter=600,
+        minutes=15,
+        jitter=60,
         id="poll_opportunities",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        consume_source_sync_batches,
+        "interval",
+        minutes=1,
+        id="source_sync_queue",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        record_worker_heartbeat,
+        "interval",
+        minutes=1,
+        id="worker_heartbeat",
         max_instances=1,
         coalesce=True,
     )
@@ -83,6 +101,7 @@ async def main() -> None:
     )
 
     try:
+        await record_worker_heartbeat()
         await catch_up()
         await deadlines()
         await morning_digest()

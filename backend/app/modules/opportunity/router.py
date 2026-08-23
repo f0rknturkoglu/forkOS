@@ -1,5 +1,3 @@
-import asyncio
-from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
@@ -24,7 +22,6 @@ from app.modules.opportunity.schemas import (
     OpportunityPatch,
     RequirementIn,
 )
-from app.modules.opportunity.worker import poll_named_source
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
 from app.modules.todo.schemas import TodoIn, TodoOut
@@ -43,18 +40,6 @@ class SourceRefreshIn(BaseModel):
 
     source_ids: list[str] | None = None
     kind: Literal["job", "announcement"] | None = None
-
-
-async def _refresh_many(source_ids: list[str], batch_id: UUID) -> None:
-    """Arka plan cekimi. Hata poll_source icinde source_run'a yazilir."""
-    semaphore = asyncio.Semaphore(4)
-
-    async def one(source_id: str) -> None:
-        async with semaphore:
-            with suppress(KeyError):
-                await poll_named_source(source_id, batch_id=batch_id)
-
-    await asyncio.gather(*(one(source_id) for source_id in source_ids))
 
 
 @router.get("/opportunities", response_model=list[OpportunityOut])
@@ -310,7 +295,7 @@ async def source_catalog():
             "interval_minutes": source.interval_minutes,
             "kind": "announcement" if source in ANNOUNCEMENT_SOURCES else "job",
         }
-        for source in [*forkjob_sources(), *ANNOUNCEMENT_SOURCES]
+        for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
     ]
 
 
@@ -332,10 +317,13 @@ async def refresh_sources(
     """Secmeli ya da toplu cekim.
 
     source_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi
-    de bossa katalogun hepsi. Cekim arka planda kosar cunku 80 kaynak tek
-    istekte beklenemez -- ilerleme /sources/sync'ten izlenir.
+    de bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi
+    worker yapar ve ilerleme /sources/sync'ten izlenir.
     """
-    catalog = {source.id: source for source in [*forkjob_sources(), *ANNOUNCEMENT_SOURCES]}
+    catalog = {
+        source.id: source
+        for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+    }
     announcement_ids = {source.id for source in ANNOUNCEMENT_SOURCES}
 
     if body.source_ids:
@@ -357,9 +345,6 @@ async def refresh_sources(
 
     batch, newly_queued = await sync_service.create_or_extend_batch(session, ids)
     await session.commit()
-    # Tek seferde dort kaynak: worker'in otomatik turuyla ayni sinir.
-    if newly_queued:
-        asyncio.create_task(_refresh_many(newly_queued, batch.id))
     return {
         "batch_id": str(batch.id),
         "queued": len(newly_queued),
@@ -370,14 +355,16 @@ async def refresh_sources(
 @router.post("/sources/{source_id:path}/refresh")
 async def refresh_source(source_id: str, session: AsyncSession = Depends(get_session)):
     try:
-        catalog = {source.id for source in [*forkjob_sources(), *ANNOUNCEMENT_SOURCES]}
+        catalog = {
+            source.id
+            for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+        }
         if source_id not in catalog:
             raise KeyError(source_id)
         batch, newly_queued = await sync_service.create_or_extend_batch(session, [source_id])
         await session.commit()
         if not newly_queued:
             return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
-        added = await poll_named_source(source_id, batch_id=batch.id)
     except KeyError as exc:
         raise HTTPException(404, "kaynak bulunamadı") from exc
-    return {"source": source_id, "added": added, "batch_id": str(batch.id)}
+    return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
