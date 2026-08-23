@@ -61,14 +61,6 @@ def _quoted(values: list[str]) -> str:
 
 class MediaItem(EntityBacked, Base):
     __tablename__ = "media_item"
-    __table_args__ = (
-        CheckConstraint(f"kind in ({_quoted(KINDS)})", name="media_item_kind_check"),
-        CheckConstraint(f"status in ({_quoted(STATUSES)})", name="media_item_status_check"),
-        CheckConstraint(
-            f"progress_measure is null or progress_measure in ({_quoted(MEASURES)})",
-            name="media_item_progress_measure_check",
-        ),
-    )
     ENTITY_TYPE = "media_item"
 
     id: Mapped[uuid.UUID] = EntityBacked._entity_pk()
@@ -90,12 +82,29 @@ class MediaItem(EntityBacked, Base):
     ownership: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     monitored: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     provider: Mapped[str | None] = mapped_column(Text)
+    provider_id: Mapped[str | None] = mapped_column(Text)
     provider_ids: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     cover_url: Mapped[str | None] = mapped_column(Text)
     cover_path: Mapped[str | None] = mapped_column(Text)
     backdrop_url: Mapped[str | None] = mapped_column(Text)
     backdrop_path: Mapped[str | None] = mapped_column(Text)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(f"kind in ({_quoted(KINDS)})", name="media_item_kind_check"),
+        CheckConstraint(f"status in ({_quoted(STATUSES)})", name="media_item_status_check"),
+        CheckConstraint(
+            f"progress_measure is null or progress_measure in ({_quoted(MEASURES)})",
+            name="media_item_progress_measure_check",
+        ),
+        Index(
+            "media_item_provider_ref_uniq",
+            "provider",
+            "provider_id",
+            unique=True,
+            postgresql_where=text("provider is not null and provider_id is not null"),
+        ),
+    )
 
 
 class MediaUnit(EntityBacked, Base):

@@ -77,7 +77,7 @@ def test_populated_legacy_media_row_survives_upgrade_and_downgrade():
             _execute(
                 """select progress::text, total::text, score, notes, started_at,
                           finished_at, meta, favorite, owned, ownership, monitored,
-                          provider_ids
+                          provider_id, provider_ids
                    from media_item where id=:id""",
                 {"id": entity_id},
             )
@@ -91,6 +91,7 @@ def test_populated_legacy_media_row_survives_upgrade_and_downgrade():
         assert not upgraded["owned"]
         assert upgraded["ownership"] == {}
         assert not upgraded["monitored"]
+        assert upgraded["provider_id"] is None
         assert upgraded["provider_ids"] == {}
         batch = asyncio.run(
             _execute("select scope from source_sync_batch where id=:id", {"id": batch_id})
@@ -127,6 +128,40 @@ def test_populated_legacy_media_row_survives_upgrade_and_downgrade():
         assert scope_column["count"] == 0
     finally:
         _alembic(MIGRATION_REVISION)
+
+
+def test_media_item_provider_identity_has_database_unique_partial_index():
+    first_id = uuid.uuid4()
+    second_id = uuid.uuid4()
+    _alembic(MIGRATION_REVISION)
+    try:
+        asyncio.run(
+            _execute(
+                "insert into entity (id,type,title) values "
+                "(:first_id,'media_item','First'),(:second_id,'media_item','Second')",
+                {"first_id": first_id, "second_id": second_id},
+            )
+        )
+        asyncio.run(
+            _execute(
+                "insert into media_item (id,kind,provider,provider_id) "
+                "values (:id,'book','openlibrary','same')",
+                {"id": first_id},
+            )
+        )
+        with pytest.raises(IntegrityError):
+            asyncio.run(
+                _execute(
+                    "insert into media_item (id,kind,provider,provider_id) "
+                    "values (:id,'book','openlibrary','same')",
+                    {"id": second_id},
+                )
+            )
+    finally:
+        asyncio.run(_execute("delete from entity where id in (:first_id,:second_id)", {
+            "first_id": first_id,
+            "second_id": second_id,
+        }))
 
 
 def test_raw_media_parent_deletion_requires_explicit_child_entity_deletion():

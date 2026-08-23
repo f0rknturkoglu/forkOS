@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -9,6 +10,7 @@ from decimal import Decimal
 
 import httpx
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import (
@@ -96,12 +98,7 @@ def _number(value: Decimal | int | float | None) -> float | None:
 
 
 def _provider_id(item: MediaItem) -> str | None:
-    if not item.provider:
-        return None
-    value = (item.provider_ids or {}).get(item.provider)
-    if value is None:
-        value = (item.provider_ids or {}).get("provider_id")
-    return str(value) if value is not None else None
+    return item.provider_id
 
 
 def _to_item_out(item: MediaItem, entity: Entity) -> MediaItemOut:
@@ -227,7 +224,14 @@ def _decode_cursor(cursor: str | None) -> int:
         if offset < 0:
             raise ValueError
         return offset
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+    except (
+        binascii.Error,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        UnicodeDecodeError,
+        ValueError,
+    ) as exc:
         raise MediaCommandError("Gecersiz media cursor") from exc
 
 
@@ -384,8 +388,16 @@ async def list_items(
         "updated": (Entity.updated_at.desc(), MediaItem.id.desc()),
         "created": (Entity.created_at.desc(), MediaItem.id.desc()),
         "title": (func.lower(Entity.title).asc(), MediaItem.id.asc()),
-        "score": (MediaItem.score.desc().nulls_last(), Entity.updated_at.desc()),
-        "progress": (MediaItem.progress.desc().nulls_last(), Entity.updated_at.desc()),
+        "score": (
+            MediaItem.score.desc().nulls_last(),
+            Entity.updated_at.desc(),
+            Entity.id.desc(),
+        ),
+        "progress": (
+            MediaItem.progress.desc().nulls_last(),
+            Entity.updated_at.desc(),
+            Entity.id.desc(),
+        ),
     }
     if sort not in orders:
         raise MediaCommandError("Gecersiz media siralamasi")
@@ -469,15 +481,36 @@ async def get_detail(session: AsyncSession, item_id: uuid.UUID) -> MediaDetailOu
     )
 
 
+async def list_consumptions(
+    session: AsyncSession, item_id: uuid.UUID
+) -> list[MediaConsumptionOut]:
+    rows = list(
+        (
+            await session.execute(
+                select(MediaConsumption)
+                .where(MediaConsumption.media_id == item_id)
+                .order_by(
+                    MediaConsumption.occurred_at.desc(),
+                    MediaConsumption.created_at.desc(),
+                    MediaConsumption.id.desc(),
+                )
+            )
+        ).scalars()
+    )
+    return [_to_consumption_out(row) for row in rows]
+
+
 async def _provider_duplicate(session: AsyncSession, data: MediaItemIn) -> bool:
     if data.source != "provider" or not data.provider or not data.provider_id:
         return False
-    rows = list(
-        (
-            await session.execute(select(MediaItem).where(MediaItem.provider == data.provider))
-        ).scalars()
-    )
-    return any(_provider_id(row) == data.provider_id for row in rows)
+    return (
+        await session.execute(
+            select(MediaItem.id).where(
+                MediaItem.provider == data.provider,
+                MediaItem.provider_id == data.provider_id,
+            )
+        )
+    ).scalar_one_or_none() is not None
 
 
 async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
@@ -497,7 +530,7 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
         id=entity.id,
         kind=data.kind,
         status=data.status,
-        progress=data.progress,
+        progress=0 if data.progress and data.progress > 0 else data.progress,
         total=data.total,
         score=data.score,
         notes=data.notes,
@@ -513,6 +546,7 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
         ownership=data.ownership,
         monitored=data.monitored,
         provider=data.provider,
+        provider_id=data.provider_id,
         provider_ids=provider_ids,
         cover_url=data.cover_url,
         cover_path=data.cover_path,
@@ -521,6 +555,11 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
         last_synced_at=data.last_synced_at,
     )
     session.add(item)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise MediaConflictError("Bu provider kaydi kutuphanede zaten var") from exc
     await log_event(
         session,
         verb="media.item_added",
@@ -528,25 +567,71 @@ async def create_item(session: AsyncSession, data: MediaItemIn) -> MediaItemOut:
         entity_type="media_item",
         payload={"kind": item.kind, "status": item.status, "title": title},
     )
-    await session.commit()
-    return _to_item_out(item, entity)
+    if data.progress and data.progress > 0:
+        desired_status = data.status
+        await _consume_locked(
+            session,
+            item,
+            MediaConsumptionIn(
+                client_uuid=uuid.uuid4(),
+                action="set",
+                measure=data.progress_measure or DEFAULT_MEASURE[data.kind],
+                progress_after=data.progress,
+                occurred_at=data.started_at,
+                note="initial progress",
+            ),
+        )
+        if desired_status in {"paused", "dropped", "completed"}:
+            await _synchronize_status(session, item, desired_status)
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise MediaConflictError("Bu provider kaydi kutuphanede zaten var") from exc
+    result = await get_item(session, item.id)
+    if result is None:
+        raise RuntimeError("Olusturulan medya kaydi okunamadi")
+    return result
 
 
 async def update_item(
     session: AsyncSession, item_id: uuid.UUID, data: MediaItemUpdate
 ) -> MediaItemOut | None:
-    item = await session.get(MediaItem, item_id)
+    item = (
+        await session.execute(
+            select(MediaItem).where(MediaItem.id == item_id).with_for_update()
+        )
+    ).scalar_one_or_none()
     entity = await session.get(Entity, item_id)
     if item is None or entity is None:
         return None
     changes = data.model_dump(exclude_unset=True)
     title = changes.pop("title", None)
+    status = changes.pop("status", None)
+    target_provider = changes.get("provider", item.provider)
+    target_provider_id = changes.get("provider_id", item.provider_id)
+    if bool(target_provider) != bool(target_provider_id):
+        raise MediaCommandError("Provider kimligi provider ve provider_id birlikte gerektirir")
+    if target_provider and target_provider_id:
+        duplicate = (
+            await session.execute(
+                select(MediaItem.id).where(
+                    MediaItem.provider == target_provider,
+                    MediaItem.provider_id == target_provider_id,
+                    MediaItem.id != item_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if duplicate is not None:
+            raise MediaConflictError("Bu provider kaydi kutuphanede zaten var")
     for key, value in changes.items():
         setattr(item, key, value)
-    if item.status == "completed" and item.finished_at is None:
-        item.finished_at = datetime.now(UTC)
-    if item.status != "completed" and "status" in changes:
-        item.finished_at = None
+    if target_provider and target_provider_id:
+        provider_ids = dict(item.provider_ids or {})
+        provider_ids[target_provider] = target_provider_id
+        item.provider_ids = provider_ids
+    if status is not None:
+        await _synchronize_status(session, item, status)
     await touch_entity(
         session,
         item.id,
@@ -558,9 +643,17 @@ async def update_item(
         verb="media.item_updated",
         entity_id=item.id,
         entity_type="media_item",
-        payload={"title": title or entity.title, "kind": item.kind, "changes": list(changes)},
+        payload={
+            "title": title or entity.title,
+            "kind": item.kind,
+            "changes": [*changes, *(["status"] if status is not None else [])],
+        },
     )
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise MediaConflictError("Bu provider kaydi kutuphanede zaten var") from exc
     return await get_item(session, item.id)
 
 
@@ -720,13 +813,13 @@ async def start_cycle(
 
 
 async def _unit_completed(
-    session: AsyncSession, item_id: uuid.UUID, unit_id: uuid.UUID
+    session: AsyncSession, cycle_id: uuid.UUID, unit_id: uuid.UUID
 ) -> bool:
     action = (
         await session.execute(
             select(MediaConsumption.action)
             .where(
-                MediaConsumption.media_id == item_id,
+                MediaConsumption.cycle_id == cycle_id,
                 MediaConsumption.unit_id == unit_id,
                 MediaConsumption.action.in_(("complete_unit", "uncomplete_unit")),
             )
@@ -754,19 +847,45 @@ async def _complete_cycle(
         )
 
 
-async def consume(
-    session: AsyncSession, item_id: uuid.UUID, data: MediaConsumptionIn
-) -> MediaConsumptionOut | None:
-    replay = (
-        await session.execute(
-            select(MediaConsumption).where(MediaConsumption.client_uuid == data.client_uuid)
-        )
-    ).scalar_one_or_none()
-    if replay is not None:
-        return _to_consumption_out(replay)
-    item = await session.get(MediaItem, item_id)
-    if item is None:
-        return None
+async def _synchronize_status(
+    session: AsyncSession, item: MediaItem, status: str
+) -> None:
+    cycle = await _open_cycle(session, item.id)
+    now = datetime.now(UTC)
+    if status == "completed" and item.status == "completed" and cycle is None:
+        return
+    if status == "planned":
+        if cycle is not None:
+            raise MediaConflictError("Acik tur varken medya planned durumuna alinamaz")
+        item.status = status
+        item.finished_at = None
+        return
+    if status in {"in_progress", "paused", "dropped"} and cycle is None:
+        cycle = await _start_cycle(session, item, MediaCycleStart(), commit=False)
+    if status == "completed":
+        if cycle is None:
+            cycle = await _start_cycle(session, item, MediaCycleStart(), commit=False)
+        await _complete_cycle(session, item, cycle, now)
+        return
+    if status == "in_progress":
+        cycle.status = "active"
+        cycle.completed_at = None
+        item.finished_at = None
+    elif status == "paused":
+        cycle.status = "paused"
+        cycle.completed_at = None
+        item.finished_at = None
+    elif status == "dropped":
+        cycle.status = "dropped"
+        cycle.completed_at = now
+        item.finished_at = None
+    item.status = status
+
+
+async def _consume_locked(
+    session: AsyncSession, item: MediaItem, data: MediaConsumptionIn
+) -> MediaConsumption:
+    item_id = item.id
     unit = None
     if data.unit_id:
         unit = await session.get(MediaUnit, data.unit_id)
@@ -806,11 +925,11 @@ async def consume(
         progress_after = data.progress_after
         amount = progress_after - current
     elif data.action == "complete_unit":
-        already_completed = await _unit_completed(session, item_id, unit.id)
+        already_completed = await _unit_completed(session, cycle.id, unit.id)
         amount = 0.0 if already_completed else float(unit.progress_total or 1)
         progress_after = current + amount
     elif data.action == "uncomplete_unit":
-        already_completed = await _unit_completed(session, item_id, unit.id)
+        already_completed = await _unit_completed(session, cycle.id, unit.id)
         amount = -float(unit.progress_total or 1) if already_completed else 0.0
         progress_after = max(0.0, current + amount)
     elif data.action == "finish":
@@ -877,8 +996,43 @@ async def consume(
             },
         )
     await touch_entity(session, item.id)
-    await session.commit()
-    return _to_consumption_out(consumption)
+    await session.flush()
+    return consumption
+
+
+async def consume(
+    session: AsyncSession, item_id: uuid.UUID, data: MediaConsumptionIn
+) -> MediaConsumptionOut | None:
+    item = (
+        await session.execute(
+            select(MediaItem).where(MediaItem.id == item_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if item is None:
+        return None
+    replay = (
+        await session.execute(
+            select(MediaConsumption).where(MediaConsumption.client_uuid == data.client_uuid)
+        )
+    ).scalar_one_or_none()
+    if replay is not None:
+        return _to_consumption_out(replay)
+    try:
+        consumption = await _consume_locked(session, item, data)
+        await session.commit()
+        return _to_consumption_out(consumption)
+    except IntegrityError:
+        await session.rollback()
+        replay = (
+            await session.execute(
+                select(MediaConsumption).where(
+                    MediaConsumption.client_uuid == data.client_uuid
+                )
+            )
+        ).scalar_one_or_none()
+        if replay is not None:
+            return _to_consumption_out(replay)
+        raise
 
 
 async def upsert_unit(
@@ -1114,6 +1268,7 @@ async def remove_collection_item(
 
 async def upcoming_units(session: AsyncSession, days: int = 30) -> list[MediaUnitOut]:
     now = datetime.now(UTC)
+    live_media_ids = select(Entity.id).where(Entity.archived_at.is_(None))
     rows = (
         await session.execute(
             select(MediaUnit, Entity.title)
@@ -1121,6 +1276,7 @@ async def upcoming_units(session: AsyncSession, days: int = 30) -> list[MediaUni
             .where(
                 MediaUnit.release_at >= now,
                 MediaUnit.release_at <= now + timedelta(days=days),
+                MediaUnit.media_id.in_(live_media_ids),
             )
             .order_by(MediaUnit.release_at)
         )
@@ -1178,10 +1334,12 @@ async def stats(session: AsyncSession) -> MediaStats:
 
 async def dashboard(session: AsyncSession) -> MediaDashboardOut:
     continue_page = await list_items(session, status="in_progress", limit=4)
+    live_media_ids = select(Entity.id).where(Entity.archived_at.is_(None))
     recent = list(
         (
             await session.execute(
                 select(MediaConsumption)
+                .where(MediaConsumption.media_id.in_(live_media_ids))
                 .order_by(MediaConsumption.occurred_at.desc())
                 .limit(12)
             )

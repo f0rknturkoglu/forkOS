@@ -28,6 +28,7 @@ def upgrade() -> None:
     )
     op.execute("alter table media_item add column monitored boolean not null default false")
     op.execute("alter table media_item add column provider text")
+    op.execute("alter table media_item add column provider_id text")
     op.execute(
         "alter table media_item add column provider_ids jsonb not null default '{}'::jsonb"
     )
@@ -48,6 +49,11 @@ def upgrade() -> None:
         "alter table media_item add constraint media_item_progress_measure_check "
         "check (progress_measure is null or progress_measure in "
         "('item','episode','chapter','page','minute','hour','track'))"
+    )
+    op.execute(
+        "create unique index media_item_provider_ref_uniq "
+        "on media_item (provider,provider_id) "
+        "where provider is not null and provider_id is not null"
     )
 
     op.execute(
@@ -191,6 +197,7 @@ def downgrade() -> None:
     op.execute("drop index if exists media_unit_provider_ref_uniq")
     op.execute("drop index if exists media_unit_media_idx")
     op.execute("drop table if exists media_unit")
+    op.execute("drop index if exists media_item_provider_ref_uniq")
     op.execute(
         "alter table media_item drop constraint if exists media_item_progress_measure_check"
     )
@@ -202,6 +209,7 @@ def downgrade() -> None:
     op.execute("alter table media_item drop column if exists cover_path")
     op.execute("alter table media_item drop column if exists cover_url")
     op.execute("alter table media_item drop column if exists provider_ids")
+    op.execute("alter table media_item drop column if exists provider_id")
     op.execute("alter table media_item drop column if exists provider")
     op.execute("alter table media_item drop column if exists monitored")
     op.execute("alter table media_item drop column if exists ownership")

@@ -4,7 +4,14 @@ import uuid
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.modules.media.models import (
     CONSUMPTION_ACTIONS,
@@ -22,6 +29,7 @@ def _known(value: str | None, values: list[str], label: str) -> str | None:
 
 
 class MediaItemIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     source: Literal["manual", "provider"] = "manual"
     title: str = Field(min_length=1)
     kind: str
@@ -81,8 +89,15 @@ class MediaItemIn(BaseModel):
             raise ValueError("score 0-10 olmali")
         return value
 
+    @model_validator(mode="after")
+    def provider_source_has_identity(self):
+        if self.source == "provider" and (not self.provider or not self.provider_id):
+            raise ValueError("Provider kaynak icin provider ve provider_id gerekli")
+        return self
+
 
 class MediaItemUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     title: str | None = None
     kind: str | None = None
     status: str | None = None
@@ -104,6 +119,7 @@ class MediaItemUpdate(BaseModel):
     ownership: dict[str, Any] | None = None
     monitored: bool | None = None
     provider: str | None = None
+    provider_id: str | None = None
     provider_ids: dict[str, Any] | None = None
     cover_url: str | None = None
     cover_path: str | None = None
@@ -139,6 +155,28 @@ class MediaItemUpdate(BaseModel):
         if value is not None and not 0 <= value <= 10:
             raise ValueError("score 0-10 olmali")
         return value
+
+    @model_validator(mode="after")
+    def mutation_invariants(self):
+        forbidden_nulls = {
+            "title",
+            "kind",
+            "status",
+            "meta",
+            "favorite",
+            "owned",
+            "ownership",
+            "monitored",
+            "provider_ids",
+        }
+        for field in forbidden_nulls & self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} null olamaz")
+        if "progress" in self.model_fields_set:
+            raise ValueError("Ilerleme PATCH ile degistirilemez; consumption set kullanin")
+        if self.status == "completed":
+            raise ValueError("Tamamlama icin consumption finish kullanin")
+        return self
 
 
 class MediaItemOut(BaseModel):
@@ -182,6 +220,7 @@ class MediaPageOut(BaseModel):
 
 
 class MediaUnitUpsert(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     title: str = Field(min_length=1)
     unit_type: str
     parent_id: uuid.UUID | None = None
@@ -238,6 +277,7 @@ class UnitUpsertResult(BaseModel):
 
 
 class MediaCycleStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     started_at: datetime | None = None
     notes: str | None = None
 
@@ -258,6 +298,7 @@ class MediaCycleOut(BaseModel):
 
 
 class MediaConsumptionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     client_uuid: uuid.UUID
     action: str
     unit_id: uuid.UUID | None = None
@@ -298,6 +339,7 @@ class MediaConsumptionOut(BaseModel):
 
 
 class MediaCollectionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     title: str = Field(min_length=1)
     description: str | None = None
     color: str | None = Field(default=None, max_length=16)
@@ -305,10 +347,18 @@ class MediaCollectionIn(BaseModel):
 
 
 class MediaCollectionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     title: str | None = None
     description: str | None = None
     color: str | None = Field(default=None, max_length=16)
     position: int | None = None
+
+    @model_validator(mode="after")
+    def non_null_required_fields(self):
+        for field in {"title", "position"} & self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} null olamaz")
+        return self
 
 
 class MediaCollectionOut(BaseModel):

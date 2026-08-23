@@ -53,6 +53,7 @@ def test_media_item_exposes_provider_and_cached_summary_fields():
         "ownership",
         "monitored",
         "provider",
+        "provider_id",
         "provider_ids",
         "cover_url",
         "cover_path",
@@ -160,10 +161,17 @@ def test_media_domain_models_are_entity_backed_with_expected_relationships():
 
 
 def test_media_domain_constraints_and_partial_indexes_are_declared():
+    MediaItem = media_models.MediaItem
     MediaUnit = getattr(media_models, "MediaUnit", None)
     MediaCycle = getattr(media_models, "MediaCycle", None)
     MediaConsumption = getattr(media_models, "MediaConsumption", None)
     assert all((MediaUnit, MediaCycle, MediaConsumption))
+    item_indexes = {index.name: index for index in MediaItem.__table__.indexes}
+    assert item_indexes["media_item_provider_ref_uniq"].unique
+    item_where = item_indexes["media_item_provider_ref_uniq"].dialect_options[
+        "postgresql"
+    ]["where"]
+    assert item_where is not None
     unit_indexes = {index.name: index for index in MediaUnit.__table__.indexes}
     assert "media_unit_media_idx" in unit_indexes
     assert "media_unit_provider_ref_uniq" in unit_indexes

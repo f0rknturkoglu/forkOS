@@ -198,7 +198,10 @@ async def update_media(
     body: MediaItemUpdate,
     session: AsyncSession = Depends(get_session),
 ):
-    result = await service.update_item(session, item_id, body)
+    try:
+        result = await service.update_item(session, item_id, body)
+    except (service.MediaConflictError, service.MediaCommandError) as exc:
+        raise _command_error(exc) from exc
     if result is None:
         raise HTTPException(404)
     return result
@@ -273,3 +276,14 @@ async def consume_media(
     if result is None:
         raise HTTPException(404)
     return result
+
+
+@router.get(
+    "/media/{item_id}/consumptions", response_model=list[MediaConsumptionOut]
+)
+async def media_consumptions(
+    item_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+):
+    if await service.get_item(session, item_id) is None:
+        raise HTTPException(404)
+    return await service.list_consumptions(session, item_id)
