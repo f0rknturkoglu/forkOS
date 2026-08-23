@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -423,57 +424,102 @@ async def test_podcast_adapter_reuses_itunes_lookup_only_within_snapshot():
 
 @pytest.mark.no_database
 async def test_concurrent_adapter_snapshots_isolate_shared_provider_cache():
-    paths: list[str] = []
-    first_requests: set[str] = set()
-    both_started = asyncio.Event()
+    class SharedSlot:
+        def __init__(self):
+            self.value = None
 
-    async def handler(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        paths.append(path)
-        if path in {"/3/tv/1", "/3/tv/2"}:
-            if path not in first_requests:
-                first_requests.add(path)
+        def get(self):
+            return self.value
+
+        def set(self, value):
+            token, self.value = self.value, value
+            return token
+
+        def reset(self, token):
+            self.value = token
+
+    async def run(*, shared_cache: bool) -> tuple[list[int], list[str]]:
+        variant: ContextVar[str] = ContextVar("response_variant")
+        paths: list[str] = []
+        first_requests: set[str] = set()
+        both_requested = asyncio.Event()
+        a_cached = asyncio.Event()
+        both_details = asyncio.Event()
+        a_units_started = asyncio.Event()
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            label = variant.get()
+            path = request.url.path
+            paths.append(path)
+            if path == "/3/tv/42":
+                first_requests.add(label)
                 if len(first_requests) == 2:
-                    both_started.set()
-                await asyncio.wait_for(both_started.wait(), timeout=1)
-            raw_id = path.rsplit("/", 1)[-1]
+                    both_requested.set()
+                await asyncio.wait_for(both_requested.wait(), timeout=1)
+                if label == "B":
+                    await asyncio.wait_for(a_cached.wait(), timeout=1)
+                season = 1 if label == "A" else 2
+                return httpx.Response(
+                    200,
+                    json={
+                        "id": 42,
+                        "name": f"Show {label}",
+                        "seasons": [{"season_number": season}],
+                    },
+                )
             return httpx.Response(
                 200,
                 json={
-                    "id": int(raw_id),
-                    "name": f"Show {raw_id}",
-                    "seasons": [{"season_number": 1}],
+                    "episodes": [
+                        {"episode_number": 1, "name": f"Episode {label}"}
+                    ]
                 },
             )
-        raw_id = path.split("/")[3]
-        return httpx.Response(
-            200,
-            json={
-                "episodes": [
-                    {"episode_number": 1, "name": f"Episode {raw_id}"}
-                ]
-            },
-        )
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        provider = TMDBProvider("show", api_key="key", client=client)
-        adapters = [
-            MediaSourceAdapter(
+        class CoordinatedTMDB(TMDBProvider):
+            async def details(self, provider_id: str):
+                details = await super().details(provider_id)
+                label = variant.get()
+                if label == "A":
+                    a_cached.set()
+                    await asyncio.wait_for(both_details.wait(), timeout=1)
+                else:
+                    both_details.set()
+                    await asyncio.wait_for(a_units_started.wait(), timeout=1)
+                return details
+
+            async def units(self, provider_id: str):
+                if variant.get() == "A":
+                    a_units_started.set()
+                return await super().units(provider_id)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            provider = CoordinatedTMDB("show", api_key="key", client=client)
+            if shared_cache:
+                provider._snapshot_responses = SharedSlot()
+            adapter = MediaSourceAdapter(
                 provider,
-                SimpleNamespace(id=uuid.uuid4(), provider_id=f"tv:{raw_id}"),
+                SimpleNamespace(id=uuid.uuid4(), provider_id="tv:42"),
                 upcoming_days=30,
             )
-            for raw_id in (1, 2)
-        ]
-        snapshots = await asyncio.gather(*(adapter.fetch() for adapter in adapters))
 
-    assert [rows[0].title for rows in snapshots] == ["Show 1", "Show 2"]
-    assert [rows[0].extra["units"][0].title for rows in snapshots] == [
-        "Episode 1",
-        "Episode 2",
-    ]
-    assert paths.count("/3/tv/1") == 1
-    assert paths.count("/3/tv/2") == 1
+            async def fetch(label: str):
+                token = variant.set(label)
+                try:
+                    return await adapter.fetch()
+                finally:
+                    variant.reset(token)
+
+            snapshots = await asyncio.gather(fetch("A"), fetch("B"))
+        seasons = [rows[0].extra["units"][0].meta["season"] for rows in snapshots]
+        return seasons, paths
+
+    isolated_seasons, isolated_paths = await run(shared_cache=False)
+    shared_seasons, _ = await run(shared_cache=True)
+    assert isolated_seasons == [1, 2]
+    assert isolated_paths.count("/3/tv/42") == 2
+    # Control: a shared mutable slot leaks B's identical-key payload into task A.
+    assert shared_seasons == [2, 2]
 
 
 @pytest.mark.no_database
