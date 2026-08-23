@@ -14,7 +14,7 @@ import { useInvalidate, useOnline } from "@/lib/hooks";
 
 const REFRESH_KEYS = [
   "today-agenda", "todos", "plan", "calendar-events", "items", "rss-stats",
-  "activity", "review-preview",
+  "media", "media-dashboard", "activity", "review-preview",
 ] as const;
 
 const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
@@ -62,6 +62,10 @@ function pickerRow(item: Todo | FeedItem, kind: "todo" | "rss"): AgendaRow {
     project_title: todo?.project_title ?? null,
     feed_title: rss?.feed_title ?? null,
     url: rss?.url ?? null,
+    media_kind: null,
+    media_status: null,
+    progress_label: null,
+    cover_url: null,
     recur: (todo?.recur as AgendaRow["recur"]) ?? null,
     children: [],
   };
@@ -283,8 +287,14 @@ function AgendaLine({ row, online, complete, remove, suggestionAction, nested = 
   nested?: boolean;
 }) {
   const time = clockLabel(row.starts_at);
-  const meta = row.project_title ?? row.feed_title;
-  const interactive = Boolean(row.action && !row.context_only && !row.completed);
+  const meta = row.kind === "media"
+    ? row.progress_label
+    : row.project_title ?? row.feed_title;
+  const interactive = Boolean(
+    (row.action === "complete_todo" || row.action === "mark_rss_read")
+    && !row.context_only
+    && !row.completed,
+  );
   return (
     <div data-agenda-id={row.id} className={cx("py-2", nested && "ml-5 border-l border-subtle pl-3")}>
       <div className="flex min-w-0 items-start gap-2">
@@ -292,6 +302,15 @@ function AgendaLine({ row, online, complete, remove, suggestionAction, nested = 
           <ChevronRight size={15} className="mt-0.5 shrink-0 text-muted" />
         ) : row.completed ? (
           <Check size={15} className="mt-0.5 shrink-0 text-ok" />
+        ) : row.action === "log_media" ? (
+          <a
+            href={`#/media?focus=${row.id}`}
+            title="İlerleme kaydet"
+            aria-label={`${row.title} ilerleme kaydet`}
+            className="mt-0.5 shrink-0 text-muted transition hover:text-accent"
+          >
+            <Circle size={15} />
+          </a>
         ) : interactive ? (
           <button type="button" title="Tamamla" aria-label={`${row.title} tamamla`}
             disabled={!online} onClick={() => complete(row)}

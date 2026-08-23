@@ -5,16 +5,45 @@ import { api } from "@/core/api";
 import type { SourceSyncStatus } from "@/core/types";
 import { Badge, cx } from "@/core/ui";
 
-export function useSourceSync() {
+export type SourceSyncScope = "opportunity" | "media";
+
+export function sourceSyncApiPath(scope: SourceSyncScope): string {
+  return scope === "media" ? "/sources/sync?scope=media" : "/sources/sync";
+}
+
+export function sourceSyncHistoryApiPath(scope: SourceSyncScope): string {
+  return scope === "media"
+    ? "/sources/sync/history?scope=media"
+    : "/sources/sync/history";
+}
+
+export function sourceSyncRoute(scope: SourceSyncScope): string {
+  return scope === "media" ? "/sources?scope=media" : "/sources";
+}
+
+export function sourceSyncQueryKey(scope: SourceSyncScope): readonly string[] {
+  return scope === "media" ? ["source-sync", "media"] : ["source-sync"];
+}
+
+export function sourceSyncHistoryQueryKey(scope: SourceSyncScope): readonly string[] {
+  return scope === "media"
+    ? ["source-sync-history", "media"]
+    : ["source-sync-history"];
+}
+
+export function useSourceSync(scope: SourceSyncScope = "opportunity") {
   return useQuery({
-    queryKey: ["source-sync"],
-    queryFn: () => api.get<SourceSyncStatus>("/sources/sync"),
+    queryKey: sourceSyncQueryKey(scope),
+    queryFn: () => api.get<SourceSyncStatus>(sourceSyncApiPath(scope)),
     refetchInterval: (query) => query.state.data?.active ? 2_000 : 15_000,
   });
 }
 
-export function SyncProgress({ compact = false }: { compact?: boolean }) {
-  const { data } = useSourceSync();
+export function SyncProgress({ compact = false, scope = "opportunity" }: {
+  compact?: boolean;
+  scope?: SourceSyncScope;
+}) {
+  const { data } = useSourceSync(scope);
   const batch = data?.active;
   const recent = data?.last_completed;
   const showRecent = recent?.finished_at
@@ -31,7 +60,7 @@ export function SyncProgress({ compact = false }: { compact?: boolean }) {
         <span className="text-meta text-secondary">{recent.total_sources} kaynak</span>
         <span className="text-meta text-secondary">+{recent.items_found} yeni kayıt</span>
         {recent.error_sources > 0 && (
-          <button type="button" onClick={() => navigate("/sources")} className="text-meta text-danger hover:underline">
+          <button type="button" onClick={() => navigate(sourceSyncRoute(scope))} className="text-meta text-danger hover:underline">
             {recent.error_sources} hata
           </button>
         )}
@@ -60,7 +89,7 @@ export function SyncProgress({ compact = false }: { compact?: boolean }) {
         {batch.error_sources > 0 && (
           <button
             type="button"
-            onClick={() => navigate("/sources")}
+            onClick={() => navigate(sourceSyncRoute(scope))}
             className="flex items-center gap-1.5 text-meta text-danger hover:underline"
           >
             <AlertTriangle size={13} /> {batch.error_sources} hata

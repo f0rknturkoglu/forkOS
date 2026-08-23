@@ -612,7 +612,7 @@ async def test_today_agenda_hides_suggestions_when_auto_mode_is_disabled(client:
             "/api/today/agenda", params={"day": date.today().isoformat()}
         )).json()
         assert agenda["auto_suggestions"] is False
-        assert agenda["suggestions"] == {"todos": [], "rss": []}
+        assert agenda["suggestions"] == {"todos": [], "rss": [], "media": []}
     finally:
         await client.put("/api/settings/today.auto_suggestions", json={"value": True})
         await client.delete(f"/api/todos/{todo['id']}")

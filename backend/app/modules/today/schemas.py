@@ -6,9 +6,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-AgendaKind = Literal["calendar", "todo", "rss"]
+AgendaKind = Literal["calendar", "todo", "rss", "media"]
 AgendaSource = Literal["calendar", "planned", "due", "routine", "suggestion"]
-AgendaAction = Literal["complete_todo", "mark_rss_read"]
+AgendaAction = Literal["complete_todo", "mark_rss_read", "log_media"]
 
 
 class AgendaRow(BaseModel):
@@ -27,6 +27,10 @@ class AgendaRow(BaseModel):
     project_title: str | None = None
     feed_title: str | None = None
     url: str | None = None
+    media_kind: str | None = None
+    media_status: str | None = None
+    progress_label: str | None = None
+    cover_url: str | None = None
     recur: Literal["daily", "weekdays", "weekly", "monthly"] | None = None
     children: list[AgendaRow] = Field(default_factory=list)
 
@@ -34,6 +38,7 @@ class AgendaRow(BaseModel):
 class AgendaSuggestions(BaseModel):
     todos: list[AgendaRow] = Field(default_factory=list)
     rss: list[AgendaRow] = Field(default_factory=list)
+    media: list[AgendaRow] = Field(default_factory=list)
 
 
 class TodayAgendaOut(BaseModel):

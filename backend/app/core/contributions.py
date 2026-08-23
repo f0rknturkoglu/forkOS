@@ -25,6 +25,7 @@ KINDS: dict[str, list[str]] = {
     "routine": ["habit.checked"],
     "study": ["study.topic_completed", "review.completed",
               "book.finished", "course.completed"],
+    "media": ["media.consumed"],
 }
 
 KIND_LABELS: dict[str, str] = {
@@ -33,6 +34,7 @@ KIND_LABELS: dict[str, str] = {
     "focus": "odak",
     "routine": "rutin",
     "study": "çalışma",
+    "media": "medya",
 }
 
 VERB_KIND: dict[str, str] = {
@@ -40,9 +42,16 @@ VERB_KIND: dict[str, str] = {
 }
 
 
-def _kind_for(verb: str, routine: bool = False) -> str | None:
+def _kind_for(verb: str, routine: bool = False, payload: dict | None = None) -> str | None:
     if verb == "todo.completed" and routine:
         return "routine"
+    if verb == "media.consumed":
+        if payload is None:
+            return "media"
+        try:
+            return "media" if float(payload.get("amount", 0)) > 0 else None
+        except (TypeError, ValueError):
+            return None
     return VERB_KIND.get(verb)
 
 
@@ -69,6 +78,10 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
                     "       ))) as routine, count(*) as n "
                     "from event e left join todo t on t.id = e.entity_id "
                     "where e.verb = any(:verbs) "
+                    "  and (e.verb <> 'media.consumed' or ("
+                    "    jsonb_typeof(e.payload->'amount') = 'number' "
+                    "    and (e.payload->>'amount')::numeric > 0"
+                    "  )) "
                     "  and (e.occurred_at at time zone :tz)::date >= :start "
                     "group by 1, 2, 3"
                 ),
@@ -159,7 +172,7 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
     kinds: dict[str, int] = {}
     for row in rows:
         event = dict(row)
-        kind = _kind_for(event["verb"], bool(event.pop("routine")))
+        kind = _kind_for(event["verb"], bool(event.pop("routine")), event["payload"])
         event["kind"] = kind
         events.append(event)
         if kind:

@@ -6,6 +6,15 @@ import { Badge, Button, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { MediaItem, MediaStats, MetadataResult } from "@/core/types";
+import { SyncProgress } from "@/modules/opportunity/SyncProgress";
+
+export const MEDIA_REFRESH_KEYS = [
+  "media",
+  "media-stats",
+  "media-dashboard",
+  "today-agenda",
+  "activity",
+] as const;
 
 const KINDS = ["movie", "show", "anime", "manga", "book", "audiobook", "podcast", "music", "game"] as const;
 const KIND_LABELS: Record<string, string> = {
@@ -98,7 +107,7 @@ export function MediaPage() {
     enabled: activeTerm.length >= 2,
   });
 
-  const refresh = () => invalidate("media", "media-stats", "activity");
+  const refresh = () => invalidate(...MEDIA_REFRESH_KEYS);
 
   const addFromSearch = useMutation({
     mutationFn: (hit: MetadataResult) =>
@@ -133,6 +142,7 @@ export function MediaPage() {
     <PageFrame className="space-y-5">
       {/* ── Özet ── */}
       <PageHeader eyebrow="Takip" title="Medya" />
+      <SyncProgress scope="media" compact />
       <MetricStrip className="grid-cols-2 sm:grid-cols-4">
         <Metric label="Toplam" value={stats?.total ?? 0} />
         <Metric label="Devam ediyor" value={stats?.in_progress ?? 0} />

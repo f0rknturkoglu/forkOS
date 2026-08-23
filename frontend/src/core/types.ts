@@ -184,16 +184,21 @@ export interface PlanSlot {
 
 type ApiAgendaRow = ApiSchemas["AgendaRow"];
 
-export type AgendaRow = Omit<ApiAgendaRow, "children"> & {
+export type AgendaRow = Omit<ApiAgendaRow, "children" | "kind" | "action"> & {
   children: AgendaRow[];
+  kind: "calendar" | "todo" | "rss" | "media";
   slot_id: string | null;
-  action: "complete_todo" | "mark_rss_read" | null;
+  action: "complete_todo" | "mark_rss_read" | "log_media" | null;
   starts_at: string | null;
   duration_min: number | null;
   parent_id: string | null;
   project_title: string | null;
   feed_title: string | null;
   url: string | null;
+  media_kind: string | null;
+  media_status: string | null;
+  progress_label: string | null;
+  cover_url: string | null;
   recur: "daily" | "weekdays" | "weekly" | "monthly" | null;
 };
 
@@ -204,7 +209,7 @@ export type TodayAgenda = Omit<
   timed: AgendaRow[];
   checklist: AgendaRow[];
   completed: AgendaRow[];
-  suggestions: { todos: AgendaRow[]; rss: AgendaRow[] };
+  suggestions: { todos: AgendaRow[]; rss: AgendaRow[]; media: AgendaRow[] };
 };
 
 export interface StudyArea {

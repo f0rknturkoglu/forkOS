@@ -15,11 +15,13 @@ const parent: AgendaRow = {
   title: "Ana görev", completed: false, action: null, read_only: false,
   context_only: true, starts_at: null, duration_min: null, parent_id: null,
   project_title: "forkOS", feed_title: null, url: null, recur: null,
+  media_kind: null, media_status: null, progress_label: null, cover_url: null,
   children: [{
     kind: "todo", source: "due", id: "child-1", slot_id: null,
     title: "Alt görev", completed: false, action: "complete_todo", read_only: false,
     context_only: false, starts_at: null, duration_min: null, parent_id: "parent-1",
     project_title: "forkOS", feed_title: null, url: null, recur: null, children: [],
+    media_kind: null, media_status: null, progress_label: null, cover_url: null,
   }],
 };
 
@@ -32,6 +34,20 @@ const rssRow: AgendaRow = {
   title: "Yazıyı oku", action: "mark_rss_read", feed_title: "Yerel akış",
   project_title: null,
 };
+const mediaRow: AgendaRow = {
+  ...todoRow,
+  kind: "media",
+  source: "planned",
+  id: "media-1",
+  slot_id: "slot-media",
+  title: "Dune",
+  action: "log_media",
+  media_kind: "book",
+  media_status: "in_progress",
+  progress_label: "120 / 400 sayfa",
+  cover_url: "/api/media/assets/dune.webp",
+  project_title: null,
+};
 
 const agenda: TodayAgenda = {
   day: "2026-08-23",
@@ -41,9 +57,13 @@ const agenda: TodayAgenda = {
     title: "Toplantı", action: null, read_only: true,
     starts_at: "2026-08-23T09:30:00+03:00",
   }],
-  checklist: [parent, todoRow, rssRow],
+  checklist: [parent, todoRow, rssRow, mediaRow],
   completed: [],
-  suggestions: { todos: [{ ...todoRow, id: "suggested-1", source: "suggestion" }], rss: [] },
+  suggestions: {
+    todos: [{ ...todoRow, id: "suggested-1", source: "suggestion" }],
+    rss: [],
+    media: [],
+  },
 };
 
 const harness = vi.hoisted(() => ({
@@ -127,7 +147,15 @@ describe("unified Today agenda", () => {
     complete?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith(
       "today-agenda", "todos", "plan", "calendar-events", "items", "rss-stats",
-      "activity", "review-preview",
+      "media", "media-dashboard", "activity", "review-preview",
     );
+  });
+
+  it("links planned media to its logging target without treating it as a todo", () => {
+    const markup = renderToStaticMarkup(<TodayAgendaWidget />);
+
+    expect(markup).toContain('href="#/media?focus=media-1"');
+    expect(markup).toContain("120 / 400 sayfa");
+    expect(markup).not.toContain("Dune tamamla");
   });
 });
