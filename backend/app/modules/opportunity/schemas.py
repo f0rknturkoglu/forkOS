@@ -79,6 +79,7 @@ class DeadlineOut(BaseModel):
 
 class SourceSyncBatchOut(BaseModel):
     id: UUID
+    scope: Literal["opportunity", "media"] = "opportunity"
     status: Literal["queued", "running", "completed", "completed_with_errors"]
     source_ids: list[str]
     total_sources: int

@@ -27,6 +27,12 @@ DEFAULTS: dict[str, Any] = {
     "sources.intervals": {},
     "rss.retention_days": 90,
     "media.links": [],
+    "media.sync_interval_hours": 24,
+    "media.upcoming_days": 30,
+    "media.tmdb_key": "",
+    "media.google_books_key": "",
+    "media.igdb_client_id": "",
+    "media.igdb_client_secret": "",
     "news.subreddits": news.DEFAULT_SUBREDDITS,
     "theme": "dark",
 }

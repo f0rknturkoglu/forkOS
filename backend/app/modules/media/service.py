@@ -1,4 +1,5 @@
 """Medya domain is mantigi ve aggregate ilerleme kurallari."""
+
 from __future__ import annotations
 
 import base64
@@ -8,7 +9,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-import httpx
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,7 @@ from app.modules.media.models import (
     MediaItem,
     MediaUnit,
 )
+from app.modules.media.providers.registry import ProviderRegistry
 from app.modules.media.schemas import (
     MediaCollectionIn,
     MediaCollectionOut,
@@ -54,8 +55,6 @@ from app.modules.media.schemas import (
 )
 from app.modules.system.models import Setting
 
-TIMEOUT = httpx.Timeout(20.0)
-POLL_MAX = 6
 SERIAL_KINDS = {"show", "anime", "manga", "podcast", "music"}
 DEFAULT_MEASURE = {
     "movie": "item",
@@ -69,21 +68,6 @@ DEFAULT_MEASURE = {
     "game": "hour",
 }
 REQUEST_FINGERPRINT_KEY = "_request_fingerprint"
-ANILIST_QUERY = """
-query ($q: String, $t: MediaType) {
-  Page(page: 1, perPage: 6) {
-    media(search: $q, type: $t) {
-      id
-      title { romaji }
-      coverImage { large }
-      episodes
-      chapters
-      startDate { year }
-    }
-  }
-}
-"""
-TMDB_IMAGE = "https://image.tmdb.org/t/p/w200"
 
 
 class MediaConflictError(ValueError):
@@ -240,107 +224,52 @@ def _decode_cursor(cursor: str | None) -> int:
         raise MediaCommandError("Gecersiz media cursor") from exc
 
 
-async def _tmdb_key(session: AsyncSession) -> str | None:
-    row = await session.get(Setting, "media.tmdb_key")
-    return row.value if row and row.value else None
+async def provider_registry(session: AsyncSession) -> ProviderRegistry:
+    keys = (
+        "media.tmdb_key",
+        "media.google_books_key",
+        "media.igdb_client_id",
+        "media.igdb_client_secret",
+    )
+    rows = list((await session.execute(select(Setting).where(Setting.key.in_(keys)))).scalars())
+    return ProviderRegistry.from_settings({row.key: row.value for row in rows})
 
 
-async def _search_openlibrary(q: str) -> list[MetadataResult]:
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        response = await client.get(
-            "https://openlibrary.org/search.json",
-            params={
-                "q": q,
-                "limit": POLL_MAX,
-                "fields": "key,title,author_name,first_publish_year,cover_i",
-            },
-        )
-        response.raise_for_status()
-    results = []
-    for doc in response.json().get("docs", []):
-        cover = doc.get("cover_i")
-        results.append(
-            MetadataResult(
-                title=doc.get("title") or "(basliksiz)",
-                subtitle=", ".join(doc.get("author_name", []) or []) or None,
-                cover_url=(
-                    f"https://covers.openlibrary.org/b/id/{cover}-M.jpg" if cover else None
-                ),
-                year=doc.get("first_publish_year"),
-                metadata={"source": "openlibrary", "ol_key": doc.get("key")},
-            )
-        )
-    return results
-
-
-async def _search_anilist(q: str, kind: str) -> list[MetadataResult]:
-    payload = {
-        "query": ANILIST_QUERY,
-        "variables": {"q": q, "t": "ANIME" if kind == "anime" else "MANGA"},
-    }
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        response = await client.post("https://graphql.anilist.co", json=payload)
-        if response.status_code == 404:
-            return []
-        response.raise_for_status()
-    entries = (response.json().get("data") or {}).get("Page", {}).get("media", [])
+async def search_metadata(
+    session: AsyncSession, q: str, kind: str, *, provider_id: str | None = None
+) -> list[MetadataResult]:
+    registry = await provider_registry(session)
+    provider = registry.by_id(provider_id, kind=kind) if provider_id else registry.for_kind(kind)
+    if provider is None or not provider.ready:
+        missing = provider.missing_settings if provider else ()
+        suffix = f": {', '.join(missing)}" if missing else ""
+        raise RuntimeError(f"{kind} için hazır provider yok{suffix}")
+    results = await provider.search(q)
     return [
         MetadataResult(
-            title=(entry.get("title") or {}).get("romaji") or "(basliksiz)",
-            subtitle=(
-                f"{entry.get('episodes') or entry.get('chapters')} bolum"
-                if entry.get("episodes") or entry.get("chapters")
-                else None
-            ),
-            cover_url=(entry.get("coverImage") or {}).get("large"),
-            year=(entry.get("startDate") or {}).get("year"),
-            metadata={"source": "anilist", "anilist_id": entry.get("id")},
+            provider=row.provider,
+            provider_id=row.provider_id,
+            title=row.title,
+            subtitle=row.subtitle,
+            year=row.year,
+            summary=row.summary,
+            total=row.total,
+            progress_measure=row.progress_measure,
+            cover=row.cover_url,
+            backdrop=row.backdrop_url,
+            cover_url=row.cover_url,
+            backdrop_url=row.backdrop_url,
+            provider_ids=row.provider_ids,
+            meta=row.meta,
+            metadata={
+                **row.meta,
+                "provider": row.provider,
+                "provider_id": row.provider_id,
+                "provider_ids": row.provider_ids,
+            },
         )
-        for entry in entries
+        for row in results
     ]
-
-
-async def _search_tmdb(q: str, key: str, kind: str) -> list[MetadataResult]:
-    results = []
-    for table, media_kind in (("movie", "movie"), ("tv", "show")):
-        if kind == "movie" and media_kind != "movie":
-            continue
-        if kind in ("show", "anime") and media_kind != "show":
-            continue
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            response = await client.get(
-                f"https://api.themoviedb.org/3/search/{table}",
-                params={"api_key": key, "query": q, "language": "tr-TR"},
-            )
-            response.raise_for_status()
-        for row in response.json().get("results", [])[:3]:
-            poster = row.get("poster_path")
-            results.append(
-                MetadataResult(
-                    title=row.get("title") or row.get("name") or "(basliksiz)",
-                    subtitle=row.get("release_date") or row.get("first_air_date"),
-                    cover_url=TMDB_IMAGE + poster if poster else None,
-                    metadata={
-                        "source": "tmdb",
-                        "tmdb_id": row.get("id"),
-                        "tmdb_type": media_kind,
-                    },
-                )
-            )
-    return results[:POLL_MAX]
-
-
-async def search_metadata(session: AsyncSession, q: str, kind: str) -> list[MetadataResult]:
-    if kind == "book":
-        return await _search_openlibrary(q)
-    if kind in ("anime", "manga"):
-        return await _search_anilist(q, kind)
-    if kind in ("movie", "show"):
-        key = await _tmdb_key(session)
-        if not key:
-            raise RuntimeError("TMDB API key yok -- Ayarlardan media.tmdb_key ekle")
-        return await _search_tmdb(q, key, kind)
-    return []
 
 
 async def list_items(
@@ -359,9 +288,7 @@ async def list_items(
     limit: int = 48,
 ) -> MediaPageOut:
     stmt = select(MediaItem, Entity).join(Entity, Entity.id == MediaItem.id)
-    stmt = stmt.where(
-        Entity.archived_at.is_not(None) if trashed else Entity.archived_at.is_(None)
-    )
+    stmt = stmt.where(Entity.archived_at.is_not(None) if trashed else Entity.archived_at.is_(None))
     if kind:
         stmt = stmt.where(MediaItem.kind == kind)
     if status:
@@ -369,9 +296,7 @@ async def list_items(
     if q:
         for token in q.split():
             pattern = f"%{token}%"
-            stmt = stmt.where(
-                or_(Entity.title.ilike(pattern), Entity.search_text.ilike(pattern))
-            )
+            stmt = stmt.where(or_(Entity.title.ilike(pattern), Entity.search_text.ilike(pattern)))
     if collection_id:
         stmt = stmt.join(
             Link,
@@ -486,9 +411,7 @@ async def get_detail(session: AsyncSession, item_id: uuid.UUID) -> MediaDetailOu
     )
 
 
-async def list_consumptions(
-    session: AsyncSession, item_id: uuid.UUID
-) -> list[MediaConsumptionOut]:
+async def list_consumptions(session: AsyncSession, item_id: uuid.UUID) -> list[MediaConsumptionOut]:
     rows = list(
         (
             await session.execute(
@@ -619,9 +542,7 @@ async def update_item(
     session: AsyncSession, item_id: uuid.UUID, data: MediaItemUpdate
 ) -> MediaItemOut | None:
     item = (
-        await session.execute(
-            select(MediaItem).where(MediaItem.id == item_id).with_for_update()
-        )
+        await session.execute(select(MediaItem).where(MediaItem.id == item_id).with_for_update())
     ).scalar_one_or_none()
     entity = await session.get(Entity, item_id)
     if item is None or entity is None:
@@ -732,9 +653,7 @@ async def permanent_delete_item(session: AsyncSession, item_id: uuid.UUID) -> bo
     await session.flush()
     for model in (MediaConsumption, MediaCycle, MediaUnit):
         child_ids = list(
-            (
-                await session.execute(select(model.id).where(model.media_id == item_id))
-            ).scalars()
+            (await session.execute(select(model.id).where(model.media_id == item_id))).scalars()
         )
         for child_id in child_ids:
             await delete_entity(session, child_id)
@@ -778,15 +697,18 @@ async def _start_cycle(
 ) -> MediaCycle:
     if await _open_cycle(session, item.id):
         raise MediaConflictError("Medya icin acik bir tur zaten var")
-    ordinal = int(
-        (
-            await session.execute(
-                select(func.coalesce(func.max(MediaCycle.ordinal), 0)).where(
-                    MediaCycle.media_id == item.id
+    ordinal = (
+        int(
+            (
+                await session.execute(
+                    select(func.coalesce(func.max(MediaCycle.ordinal), 0)).where(
+                        MediaCycle.media_id == item.id
+                    )
                 )
-            )
-        ).scalar_one()
-    ) + 1
+            ).scalar_one()
+        )
+        + 1
+    )
     started_at = data.started_at or datetime.now(UTC)
     entity = await create_entity(
         session,
@@ -827,9 +749,7 @@ async def start_cycle(
     session: AsyncSession, item_id: uuid.UUID, data: MediaCycleStart
 ) -> MediaCycleOut | None:
     item = (
-        await session.execute(
-            select(MediaItem).where(MediaItem.id == item_id).with_for_update()
-        )
+        await session.execute(select(MediaItem).where(MediaItem.id == item_id).with_for_update())
     ).scalar_one_or_none()
     if item is None:
         return None
@@ -841,9 +761,7 @@ async def start_cycle(
         raise MediaConflictError("Medya icin acik bir tur zaten var") from exc
 
 
-async def _unit_completed(
-    session: AsyncSession, cycle_id: uuid.UUID, unit_id: uuid.UUID
-) -> bool:
+async def _unit_completed(session: AsyncSession, cycle_id: uuid.UUID, unit_id: uuid.UUID) -> bool:
     action = (
         await session.execute(
             select(MediaConsumption.action)
@@ -876,9 +794,7 @@ async def _complete_cycle(
         )
 
 
-async def _synchronize_status(
-    session: AsyncSession, item: MediaItem, status: str
-) -> None:
+async def _synchronize_status(session: AsyncSession, item: MediaItem, status: str) -> None:
     cycle = await _open_cycle(session, item.id)
     now = datetime.now(UTC)
     if status == "completed" and item.status == "completed" and cycle is None:
@@ -1002,9 +918,7 @@ async def _consume_locked(
     )
     session.add(consumption)
     completed = data.action == "finish" or (
-        complete_when_total
-        and item.total is not None
-        and progress_after >= float(item.total)
+        complete_when_total and item.total is not None and progress_after >= float(item.total)
     )
     if completed:
         await _complete_cycle(session, item, cycle, now)
@@ -1049,11 +963,7 @@ def _same_optional_number(stored: Decimal | None, requested: float | None) -> bo
 def _compatible_replay(
     replay: MediaConsumption, item_id: uuid.UUID, data: MediaConsumptionIn
 ) -> bool:
-    if (
-        replay.media_id != item_id
-        or replay.action != data.action
-        or replay.unit_id != data.unit_id
-    ):
+    if replay.media_id != item_id or replay.action != data.action or replay.unit_id != data.unit_id:
         return False
     fingerprint = (replay.meta or {}).get(REQUEST_FINGERPRINT_KEY)
     if fingerprint is not None:
@@ -1086,9 +996,7 @@ async def consume(
     session: AsyncSession, item_id: uuid.UUID, data: MediaConsumptionIn
 ) -> MediaConsumptionOut | None:
     item = (
-        await session.execute(
-            select(MediaItem).where(MediaItem.id == item_id).with_for_update()
-        )
+        await session.execute(select(MediaItem).where(MediaItem.id == item_id).with_for_update())
     ).scalar_one_or_none()
     if item is None:
         return None
@@ -1107,9 +1015,7 @@ async def consume(
         await session.rollback()
         replay = (
             await session.execute(
-                select(MediaConsumption).where(
-                    MediaConsumption.client_uuid == data.client_uuid
-                )
+                select(MediaConsumption).where(MediaConsumption.client_uuid == data.client_uuid)
             )
         ).scalar_one_or_none()
         if replay is not None:
@@ -1147,6 +1053,8 @@ async def upsert_unit(
     if existing is not None:
         values = data.model_dump(exclude={"title"}, exclude_unset=True)
         for key, value in values.items():
+            if key == "cover_path" and value is None and existing.cover_path:
+                continue
             setattr(existing, key, value)
         await touch_entity(session, existing.id, title=data.title)
         await session.commit()
@@ -1215,9 +1123,7 @@ async def list_collections(session: AsyncSession) -> list[MediaCollectionOut]:
     return [_to_collection_out(*row) for row in rows]
 
 
-async def create_collection(
-    session: AsyncSession, data: MediaCollectionIn
-) -> MediaCollectionOut:
+async def create_collection(session: AsyncSession, data: MediaCollectionIn) -> MediaCollectionOut:
     entity = await create_entity(
         session,
         type=MediaCollection.ENTITY_TYPE,
@@ -1455,9 +1361,7 @@ async def validate_progress(
             await session.execute(
                 select(MediaConsumption.progress_after)
                 .where(MediaConsumption.cycle_id == latest_cycle_id)
-                .order_by(
-                    MediaConsumption.created_at.desc(), MediaConsumption.id.desc()
-                )
+                .order_by(MediaConsumption.created_at.desc(), MediaConsumption.id.desc())
                 .limit(1)
             )
         ).scalar_one_or_none()

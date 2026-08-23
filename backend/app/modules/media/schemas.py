@@ -406,9 +406,20 @@ class ProgressValidationOut(BaseModel):
 
 
 class MetadataResult(BaseModel):
-    """OpenLibrary/AniList/TMDB -> normalize sonucu."""
+    """Provider arama sonucunun ortak, kayda dönüştürülebilir biçimi."""
+
+    provider: str
+    provider_id: str
     title: str
     subtitle: str | None = None
+    summary: str | None = None
+    total: float | None = None
+    progress_measure: str | None = None
+    cover: str | None = None
+    backdrop: str | None = None
     cover_url: str | None = None
+    backdrop_url: str | None = None
     year: int | None = None
+    provider_ids: dict[str, Any] = Field(default_factory=dict)
+    meta: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)

@@ -1104,6 +1104,10 @@ def test_media_registers_complete_event_contract_and_restoration_helper():
         "media.collection_deleted",
         "media.collection_item_added",
         "media.collection_item_removed",
+        "media.release_discovered",
+        "media.sync_completed",
+        "media.sync_failed",
+        "media.sync_empty",
     }
     from app.core import entity
 

@@ -224,14 +224,21 @@ async def source_catalog():
 
 
 @router.get("/sources/sync", response_model=SourceSyncStatusOut)
-async def sync_status(session: AsyncSession = Depends(get_session)):
+async def sync_status(
+    scope: Literal["opportunity", "media"] = "opportunity",
+    session: AsyncSession = Depends(get_session),
+):
     """Aktif manuel batch ve kaynak bazli kesin ilerleme."""
-    return await sync_service.current_status(session)
+    return await sync_service.current_status(session, scope=scope)
 
 
 @router.get("/sources/sync/history", response_model=list[SourceSyncBatchOut])
-async def sync_history(limit: int = 10, session: AsyncSession = Depends(get_session)):
-    return await sync_service.history(session, min(limit, 50))
+async def sync_history(
+    limit: int = 10,
+    scope: Literal["opportunity", "media"] = "opportunity",
+    session: AsyncSession = Depends(get_session),
+):
+    return await sync_service.history(session, min(limit, 50), scope=scope)
 
 
 @router.post("/sources/refresh", response_model=SourceRefreshOut)
