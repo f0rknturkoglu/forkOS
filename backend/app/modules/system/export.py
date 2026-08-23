@@ -15,34 +15,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.time import local_datetime
 from app.db import Base
 
-MODULE_TABLES = [
-    "bookmark",
-    "tag",
-    "entity_tag",
-    "feed",
-    "feed_item",
-    "todo",
-    "plan_slot",
-    "pomodoro_session",
-    "habit",
-    "habit_log",
-    "review",
-    "opportunity",
-    "opportunity_requirement",
-    "study_area",
-    "study_topic",
-    "course",
-    "book",
-    "document",
-    "media_item",
-    "external_event",
-    "project",
-    "milestone",
-    "github_activity",
-    "expense",
-    "recurring_payment",
-    "setting",
-]
+ROOT_TABLES = ("entity", "link", "event")
+BACKUP_EXCLUDED_TABLES = {"oauth_token"}  # erişim/yenileme tokenları yedeğe girmez
+
+
+def backup_table_names() -> list[str]:
+    """Metadata'daki her tabloyu açık bir secret denylist'i dışında kapsa."""
+    available = set(Base.metadata.tables) - BACKUP_EXCLUDED_TABLES
+    ordered = [table.name for table in Base.metadata.sorted_tables if table.name in available]
+    return [*ROOT_TABLES, *(name for name in ordered if name not in ROOT_TABLES)]
+
+
+def module_table_names() -> list[str]:
+    return [name for name in backup_table_names() if name not in ROOT_TABLES]
 
 
 def json_value(value: Any) -> Any:
@@ -70,14 +55,13 @@ async def full_json(session: AsyncSession) -> dict:
         "events": await rows(session, "event"),
         "modules": {
             name: await rows(session, name)
-            for name in MODULE_TABLES
-            if name in Base.metadata.tables
+            for name in module_table_names()
         },
     }
 
 
 async def csv_export(session: AsyncSession, module: str) -> str:
-    if module not in MODULE_TABLES or module not in Base.metadata.tables:
+    if module not in module_table_names():
         raise ValueError("desteklenmeyen export modülü")
     values = await rows(session, module)
     output = io.StringIO()

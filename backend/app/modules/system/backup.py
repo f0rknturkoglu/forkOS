@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import events as event_svc
 from app.core.events import log_event
 from app.integrations.google_auth import access_token
-from app.modules.system.export import MODULE_TABLES, full_json
+from app.modules.system.export import backup_table_names, full_json
 from app.modules.system.models import Setting
 
 BACKUP_DIR = Path("/app/backups")
@@ -24,10 +24,6 @@ VERB_DRIVE_OK = "backup.drive_uploaded"
 VERB_DRIVE_FAIL = "backup.drive_upload_failed"
 
 FOLDER_SETTING = "backup.drive_folder_id"
-
-# Yedekteki kapsam: cekirdek tablolar + tum modul tablolari
-INCLUDED = ["entity", "link", "event", "setting"] + MODULE_TABLES
-
 
 def _counts(payload: dict) -> dict:
     modules = payload.get("modules", {})
@@ -126,7 +122,7 @@ async def backup_status(session: AsyncSession) -> dict:
         "next_backup_scheduled": SCHEDULED_AT,
         "retention_days": RETENTION_DAYS,
         "backup_dir": str(BACKUP_DIR),
-        "includes": INCLUDED,
+        "includes": backup_table_names(),
     }
 
 

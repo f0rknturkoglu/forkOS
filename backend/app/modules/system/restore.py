@@ -31,39 +31,13 @@ from sqlalchemy.types import TypeEngine
 
 from app.core.events import log_event
 from app.db import Base
+from app.modules.system.export import backup_table_names
 
-# FK guvenli ekleme sirasi: once entity (herkesin FK hedefi), sonra modul
-# ebeveynleri, sonra cocuklar, en son link/event.
-INSERT_ORDER: list[str] = [
-    "entity",
-    "tag",
-    "bookmark",
-    "feed",
-    "opportunity",
-    "study_area",
-    "project",
-    "habit",
-    "course",
-    "book",
-    "review",
-    "external_event",
-    "pomodoro_session",
-    "document",
-    "expense",
-    "recurring_payment",
-    "setting",
-    "plan_slot",
-    "habit_log",
-    "todo",
-    "study_topic",
-    "feed_item",
-    "opportunity_requirement",
-    "milestone",
-    "github_activity",
-    "entity_tag",
-    "link",
-    "event",
-]
+
+def insert_order() -> list[str]:
+    """SQLAlchemy FK grafiğinden restore sırasını üret; yeni tablo unutulmasın."""
+    allowed = set(backup_table_names())
+    return [table.name for table in Base.metadata.sorted_tables if table.name in allowed]
 
 # Self-referencing FK: parent_id ayni batch'te onceden eklenmis olmayabilir.
 # Once parent_id=NULL ile insert, ardindan geri bagla (FK db'de dogrulanir).
@@ -127,7 +101,9 @@ def _coerce(value: Any, col_type: TypeEngine) -> Any:
     return value
 
 
-async def _insert_batch(session: AsyncSession, table_name: str, rows: list[dict]) -> tuple[int, int]:
+async def _insert_batch(
+    session: AsyncSession, table_name: str, rows: list[dict]
+) -> tuple[int, int]:
     """ON CONFLICT DO NOTHING ile parcali insert. Doner: (eklenen, atlanan)."""
     table = Base.metadata.tables[table_name]
     columns = _insertable(table_name)
@@ -153,7 +129,7 @@ async def restore(session: AsyncSession, payload: dict) -> dict:
     summary: dict[str, dict[str, int]] = {}
 
     # 1. Asama: FK sirasiyla, cakisma olursa yok sayarak ekle.
-    for table_name in INSERT_ORDER:
+    for table_name in insert_order():
         rows = _rows(payload, table_name)
         if not rows:
             continue
@@ -182,7 +158,7 @@ async def restore(session: AsyncSession, payload: dict) -> dict:
     # 3. Asama: bigserial PK'lerin sequence'ini son id'ye ilerlet.
     # Explicit id ile insert edilen satirlar sequence'i ilerletmez; sonraki
     # insert (event gibi) id cakismasina duser. setval ile onune geceriz.
-    for table_name in INSERT_ORDER:
+    for table_name in insert_order():
         table = Base.metadata.tables[table_name]
         pk = next(iter(table.primary_key.columns))
         if not isinstance(pk.type, (Integer, BigInteger)):
