@@ -108,6 +108,7 @@ class MediaUnit(EntityBacked, Base):
             f"progress_measure is null or progress_measure in ({_quoted(MEASURES)})",
             name="media_unit_progress_measure_check",
         ),
+        Index("media_unit_media_idx", "media_id", "unit_type", "number"),
         Index(
             "media_unit_provider_ref_uniq",
             "media_id",
@@ -121,10 +122,10 @@ class MediaUnit(EntityBacked, Base):
 
     id: Mapped[uuid.UUID] = EntityBacked._entity_pk()
     media_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("media_item.id", ondelete="CASCADE"), nullable=False
+        PgUUID(as_uuid=True), ForeignKey("media_item.id", ondelete="RESTRICT"), nullable=False
     )
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("media_unit.id", ondelete="CASCADE")
+        PgUUID(as_uuid=True), ForeignKey("media_unit.id", ondelete="SET NULL")
     )
     unit_type: Mapped[str] = mapped_column(Text, nullable=False)
     number: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
@@ -166,7 +167,7 @@ class MediaCycle(EntityBacked, Base):
 
     id: Mapped[uuid.UUID] = EntityBacked._entity_pk()
     media_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("media_item.id", ondelete="CASCADE"), nullable=False
+        PgUUID(as_uuid=True), ForeignKey("media_item.id", ondelete="RESTRICT"), nullable=False
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
@@ -195,15 +196,17 @@ class MediaConsumption(EntityBacked, Base):
             f"measure is null or measure in ({_quoted(MEASURES)})",
             name="media_consumption_measure_check",
         ),
+        Index("media_consumption_media_time_idx", "media_id", text("occurred_at desc")),
+        Index("media_consumption_cycle_time_idx", "cycle_id", text("occurred_at desc")),
     )
     ENTITY_TYPE = "media_consumption"
 
     id: Mapped[uuid.UUID] = EntityBacked._entity_pk()
     media_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("media_item.id", ondelete="CASCADE"), nullable=False
+        PgUUID(as_uuid=True), ForeignKey("media_item.id", ondelete="RESTRICT"), nullable=False
     )
     cycle_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("media_cycle.id", ondelete="CASCADE"), nullable=False
+        PgUUID(as_uuid=True), ForeignKey("media_cycle.id", ondelete="RESTRICT"), nullable=False
     )
     unit_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("media_unit.id", ondelete="SET NULL")

@@ -88,10 +88,15 @@ def test_media_domain_models_are_entity_backed_with_expected_relationships():
         assert _foreign_key(model, "id").ondelete == "CASCADE"
 
     assert _foreign_key(MediaUnit, "media_id").target_fullname == "media_item.id"
+    assert _foreign_key(MediaUnit, "media_id").ondelete == "RESTRICT"
     assert _foreign_key(MediaUnit, "parent_id").target_fullname == "media_unit.id"
+    assert _foreign_key(MediaUnit, "parent_id").ondelete == "SET NULL"
     assert _foreign_key(MediaCycle, "media_id").target_fullname == "media_item.id"
+    assert _foreign_key(MediaCycle, "media_id").ondelete == "RESTRICT"
     assert _foreign_key(MediaConsumption, "media_id").target_fullname == "media_item.id"
+    assert _foreign_key(MediaConsumption, "media_id").ondelete == "RESTRICT"
     assert _foreign_key(MediaConsumption, "cycle_id").target_fullname == "media_cycle.id"
+    assert _foreign_key(MediaConsumption, "cycle_id").ondelete == "RESTRICT"
     assert _foreign_key(MediaConsumption, "unit_id").target_fullname == "media_unit.id"
     assert _foreign_key(MediaConsumption, "unit_id").ondelete == "SET NULL"
 
@@ -160,6 +165,7 @@ def test_media_domain_constraints_and_partial_indexes_are_declared():
     MediaConsumption = getattr(media_models, "MediaConsumption", None)
     assert all((MediaUnit, MediaCycle, MediaConsumption))
     unit_indexes = {index.name: index for index in MediaUnit.__table__.indexes}
+    assert "media_unit_media_idx" in unit_indexes
     assert "media_unit_provider_ref_uniq" in unit_indexes
     assert unit_indexes["media_unit_provider_ref_uniq"].unique
     unit_where = unit_indexes["media_unit_provider_ref_uniq"].dialect_options["postgresql"][
@@ -180,6 +186,11 @@ def test_media_domain_constraints_and_partial_indexes_are_declared():
         constraint.name for constraint in MediaConsumption.__table__.constraints
     }
     assert "media_consumption_client_uuid_uniq" in consumption_constraints
+    consumption_indexes = {
+        index.name: index for index in MediaConsumption.__table__.indexes
+    }
+    assert "media_consumption_media_time_idx" in consumption_indexes
+    assert "media_consumption_cycle_time_idx" in consumption_indexes
 
     assert "unit_type" in _check_sql(MediaUnit)
     assert "status" in _check_sql(MediaCycle)
@@ -188,6 +199,10 @@ def test_media_domain_constraints_and_partial_indexes_are_declared():
 
     link_indexes = {index.name for index in core_models.Link.__table__.indexes}
     assert "media_collection_item_link_idx" in link_indexes
+    source_sync_indexes = {
+        index.name for index in core_models.SourceSyncBatch.__table__.indexes
+    }
+    assert "source_sync_batch_scope_time_idx" in source_sync_indexes
 
 
 def test_media_module_registers_all_searchable_entity_types():

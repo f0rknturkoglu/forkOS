@@ -162,6 +162,9 @@ class SourceRun(Base):
 class SourceSyncBatch(Base):
     """Manuel kaynak cekimlerinin kalici operasyonel ilerleme kaydi."""
     __tablename__ = "source_sync_batch"
+    __table_args__ = (
+        Index("source_sync_batch_scope_time_idx", "scope", text("created_at desc")),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()

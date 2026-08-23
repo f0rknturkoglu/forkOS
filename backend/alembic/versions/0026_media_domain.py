@@ -53,8 +53,8 @@ def upgrade() -> None:
     op.execute(
         """create table media_unit (
           id uuid primary key references entity(id) on delete cascade,
-          media_id uuid not null references media_item(id) on delete cascade,
-          parent_id uuid references media_unit(id) on delete cascade,
+          media_id uuid not null references media_item(id) on delete restrict,
+          parent_id uuid references media_unit(id) on delete set null,
           unit_type text not null,
           number numeric(10,3),
           duration_min int,
@@ -88,7 +88,7 @@ def upgrade() -> None:
     op.execute(
         """create table media_cycle (
           id uuid primary key references entity(id) on delete cascade,
-          media_id uuid not null references media_item(id) on delete cascade,
+          media_id uuid not null references media_item(id) on delete restrict,
           ordinal int not null,
           status text not null default 'active',
           started_at timestamptz not null,
@@ -112,8 +112,8 @@ def upgrade() -> None:
     op.execute(
         """create table media_consumption (
           id uuid primary key references entity(id) on delete cascade,
-          media_id uuid not null references media_item(id) on delete cascade,
-          cycle_id uuid not null references media_cycle(id) on delete cascade,
+          media_id uuid not null references media_item(id) on delete restrict,
+          cycle_id uuid not null references media_cycle(id) on delete restrict,
           unit_id uuid references media_unit(id) on delete set null,
           client_uuid uuid not null,
           action text not null,
@@ -177,6 +177,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("drop index if exists source_sync_batch_scope_time_idx")
     op.execute("alter table source_sync_batch drop column if exists scope")
+    op.execute("delete from entity where type = 'media_consumption'")
+    op.execute("delete from entity where type = 'media_cycle'")
+    op.execute("delete from entity where type = 'media_unit'")
+    op.execute("delete from entity where type = 'media_collection'")
     op.execute("drop index if exists media_collection_item_link_idx")
     op.execute("drop table if exists media_collection")
     op.execute("drop index if exists media_consumption_cycle_time_idx")
