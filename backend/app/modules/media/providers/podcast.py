@@ -105,11 +105,19 @@ class PodcastProvider(HTTPProvider):
             )
         return units
 
-    async def upcoming(self, provider_id: str, *, days: int) -> list[ProviderUnit]:
+    async def upcoming(
+        self,
+        provider_id: str,
+        *,
+        days: int,
+        units: list[ProviderUnit] | None = None,
+    ) -> list[ProviderUnit]:
         now = datetime.now(UTC)
         until = now + timedelta(days=days)
         return [
             unit
-            for unit in await self.units(provider_id)
+            for unit in (
+                units if units is not None else await self.units(provider_id)
+            )
             if unit.release_at and now <= unit.release_at <= until
         ]

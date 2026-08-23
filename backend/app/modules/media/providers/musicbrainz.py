@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from app.modules.media.providers._http import HTTPProvider
 from app.modules.media.providers.base import (
     ProviderCapabilities,
@@ -68,10 +70,13 @@ class MusicBrainzProvider(HTTPProvider):
 
     async def units(self, provider_id: str) -> list[ProviderUnit]:
         group = await self._get(f"release-group/{provider_id}", inc="releases")
-        releases = group.get("releases") or []
+        releases = sorted(
+            (row for row in (group.get("releases") or []) if row.get("id")),
+            key=lambda row: str(row["id"]),
+        )
         if not releases:
             return []
-        release_id = releases[0]["id"]
+        release_id = str(releases[0]["id"])
         release = await self._get(f"release/{release_id}", inc="recordings")
         units = []
         for medium_index, medium in enumerate(release.get("media", []), start=1):
@@ -80,9 +85,21 @@ class MusicBrainzProvider(HTTPProvider):
                 length = track.get("length")
                 position = track.get("position")
                 recording_id = (track.get("recording") or {}).get("id")
+                track_id = track.get("id")
+                if track_id:
+                    unit_provider_id = f"track:{track_id}"
+                elif recording_id:
+                    unit_provider_id = f"recording:{recording_id}"
+                else:
+                    title_hash = hashlib.sha256(
+                        (track.get("title") or "").encode()
+                    ).hexdigest()[:12]
+                    unit_provider_id = (
+                        f"fallback:{provider_id}:d{disc}:t{position}:{title_hash}"
+                    )
                 units.append(
                     ProviderUnit(
-                        provider_id=f"{release_id}:d{disc}:t{position}",
+                        provider_id=unit_provider_id,
                         title=track.get("title") or "(başlıksız)",
                         unit_type="track",
                         number=float(position) if position else None,
@@ -90,12 +107,23 @@ class MusicBrainzProvider(HTTPProvider):
                         progress_total=1,
                         progress_measure="track",
                         provider_ids={
-                            "musicbrainz_recording": recording_id or track.get("id")
+                            key: value
+                            for key, value in {
+                                "musicbrainz_track": track_id,
+                                "musicbrainz_recording": recording_id,
+                            }.items()
+                            if value
                         },
-                        meta={"disc": disc},
+                        meta={"disc": disc, "release_id": release_id},
                     )
                 )
         return units
 
-    async def upcoming(self, provider_id: str, *, days: int) -> list[ProviderUnit]:
+    async def upcoming(
+        self,
+        provider_id: str,
+        *,
+        days: int,
+        units: list[ProviderUnit] | None = None,
+    ) -> list[ProviderUnit]:
         return []

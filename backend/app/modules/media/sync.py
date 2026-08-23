@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -50,7 +49,9 @@ class MediaSourceAdapter:
             )
             upcoming = (
                 await self.provider.upcoming(
-                    str(self.item.provider_id), days=self.upcoming_days
+                    str(self.item.provider_id),
+                    days=self.upcoming_days,
+                    units=units,
                 )
                 if self.provider.capabilities.upcoming
                 else []
@@ -86,15 +87,38 @@ async def provider_statuses(session: AsyncSession) -> list[dict]:
         provider_id = row.source.split(":", 2)[1]
         latest.setdefault(provider_id, row)
     output = []
-    for provider in registry.providers():
-        row = latest.get(provider.id)
+    for provider_id, variants in registry.provider_groups().items():
+        providers = [provider for _, provider in variants]
+        capabilities = [provider.capabilities for provider in providers]
+        row = latest.get(provider_id)
         output.append(
             {
-                "id": provider.id,
-                "kinds": list(provider.kinds),
-                "capabilities": asdict(provider.capabilities),
-                "ready": provider.ready,
-                "missing_settings": list(provider.missing_settings),
+                "id": provider_id,
+                "kinds": list(dict.fromkeys(kind for kind, _ in variants)),
+                "capabilities": {
+                    "search": any(value.search for value in capabilities),
+                    "details": any(value.details for value in capabilities),
+                    "units": any(value.units for value in capabilities),
+                    "upcoming": any(value.upcoming for value in capabilities),
+                    "cache_artwork": any(
+                        value.cache_artwork for value in capabilities
+                    ),
+                    "requires_settings": list(
+                        dict.fromkeys(
+                            setting
+                            for value in capabilities
+                            for setting in value.requires_settings
+                        )
+                    ),
+                },
+                "ready": any(provider.ready for provider in providers),
+                "missing_settings": list(
+                    dict.fromkeys(
+                        setting
+                        for provider in providers
+                        for setting in provider.missing_settings
+                    )
+                ),
                 "last_run_at": row.finished_at if row else None,
                 "last_status": row.status if row else None,
                 "last_error": row.error if row else None,
@@ -294,18 +318,18 @@ async def _apply_snapshot(
                     "provider_id": unit.provider_id,
                 },
             )
-            now = datetime.now(UTC)
-            if unit.release_at and now < unit.release_at <= now + timedelta(days=upcoming_days):
-                await notify(
-                    session,
-                    kind="media_release",
-                    title=f"Yaklaşan yayın: {unit.title}",
-                    body=unit.release_at.isoformat(),
-                    dedup_key=(
-                        f"media-release:{item.id}:{details.provider}:{unit.provider_id}"
-                    ),
-                    entity_id=item.id,
-                )
+        now = datetime.now(UTC)
+        if unit.release_at and now < unit.release_at <= now + timedelta(days=upcoming_days):
+            await notify(
+                session,
+                kind="media_release",
+                title=f"Yaklaşan yayın: {unit.title}",
+                body=unit.release_at.isoformat(),
+                dedup_key=(
+                    f"media-release:{item.id}:{details.provider}:{unit.provider_id}"
+                ),
+                entity_id=item.id,
+            )
     return changed_units or discovered or int(metadata_changed)
 
 

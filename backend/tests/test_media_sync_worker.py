@@ -48,7 +48,7 @@ class FakeProvider:
             )
         ]
 
-    async def upcoming(self, provider_id: str, *, days: int):
+    async def upcoming(self, provider_id: str, *, days: int, units=None):
         return []
 
 
@@ -79,12 +79,10 @@ class EmptyRegistry:
 
 class UpcomingProvider(FakeProvider):
     requested_days: list[int] = []
+    unit_calls = 0
 
     async def units(self, provider_id: str):
-        return []
-
-    async def upcoming(self, provider_id: str, *, days: int):
-        self.requested_days.append(days)
+        self.unit_calls += 1
         return [
             ProviderUnit(
                 provider_id=f"{provider_id}:upcoming",
@@ -95,6 +93,18 @@ class UpcomingProvider(FakeProvider):
                 progress_total=1,
                 progress_measure="episode",
             )
+        ]
+
+    async def upcoming(self, provider_id: str, *, days: int, units=None):
+        self.requested_days.append(days)
+        source_units = units if units is not None else await self.units(provider_id)
+        return [
+            unit
+            for unit in source_units
+            if unit.release_at
+            and datetime.now(UTC)
+            <= unit.release_at
+            <= datetime.now(UTC) + timedelta(days=days)
         ]
 
 
@@ -239,6 +249,7 @@ async def test_poll_uses_upcoming_setting_persists_unit_and_dedups_notification(
 
     registry = UpcomingRegistry()
     registry.provider.requested_days.clear()
+    registry.provider.unit_calls = 0
     monkeypatch.setattr(media_sync, "provider_registry", lambda session: _async(registry))
     async with SessionLocal() as session:
         session.add(Setting(key="media.upcoming_days", value=14))
@@ -268,6 +279,67 @@ async def test_poll_uses_upcoming_setting_persists_unit_and_dedups_notification(
             .where(Notification.dedup_key.like(f"media-release:{item.id}:%"))
         ) == 1
     assert registry.provider.requested_days == [14, 14]
+    assert registry.provider.unit_calls == 2
+
+
+async def test_existing_unit_notifies_once_when_it_enters_upcoming_window(monkeypatch):
+    from app.modules.media import sync as media_sync
+    from app.modules.system.models import Setting
+
+    class FarFutureProvider(UpcomingProvider):
+        async def units(self, provider_id: str):
+            self.unit_calls += 1
+            return [
+                ProviderUnit(
+                    provider_id=f"{provider_id}:far",
+                    title="Far future episode",
+                    unit_type="episode",
+                    number=9,
+                    release_at=datetime.now(UTC) + timedelta(days=60),
+                )
+            ]
+
+    provider = FarFutureProvider()
+
+    class Registry:
+        def by_id(self, provider_id: str, *, kind: str | None = None):
+            return provider
+
+    monkeypatch.setattr(media_sync, "provider_registry", lambda session: _async(Registry()))
+    async with SessionLocal() as session:
+        session.add(Setting(key="media.upcoming_days", value=30))
+        item = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Long wait",
+                kind="show",
+                provider="tmdb",
+                provider_id="tv:60",
+                monitored=True,
+            ),
+        )
+
+    source = f"media:tmdb:{item.id}"
+    await poll_media_source(source)
+    async with SessionLocal() as session:
+        assert await session.scalar(
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.dedup_key.like(f"media-release:{item.id}:%"))
+        ) == 0
+        setting = await session.get(Setting, "media.upcoming_days")
+        setting.value = 90
+        await session.commit()
+
+    await poll_media_source(source)
+    await poll_media_source(source)
+    async with SessionLocal() as session:
+        assert await session.scalar(
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.dedup_key.like(f"media-release:{item.id}:%"))
+        ) == 1
 
 
 async def test_automatic_due_selection_is_per_item(monkeypatch):

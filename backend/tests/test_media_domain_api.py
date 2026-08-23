@@ -532,6 +532,15 @@ async def test_cycles_repeat_finish_and_released_unit_reopens_same_cycle(client:
         )
         assert future.created is True
         assert future.cycle_reopened is False
+        latest = (
+            await session.execute(
+                select(MediaCycle)
+                .where(MediaCycle.media_id == item_id)
+                .order_by(MediaCycle.ordinal.desc())
+            )
+        ).scalars().first()
+        latest.completed_at = datetime.now(UTC) - timedelta(days=2)
+        await session.commit()
         reopened = await service.upsert_unit(
             session,
             item_id,

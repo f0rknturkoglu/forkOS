@@ -1080,6 +1080,8 @@ async def _reopen_for_release_transition(
     ).scalar_one_or_none()
     if latest is None or latest.status != "completed":
         return False
+    if latest.completed_at is None or unit.release_at <= latest.completed_at:
+        return False
     latest.last_caught_up_at = latest.completed_at or now
     latest.completed_at = None
     latest.status = "active"
@@ -1194,7 +1196,15 @@ async def upsert_unit_in_transaction(
     unit = MediaUnit(id=entity.id, media_id=item_id, **values)
     session.add(unit)
     await session.flush()
-    return UnitUpsertResult(id=unit.id, created=True, changed=True)
+    if unit.release_at is not None:
+        unit.meta = {**(unit.meta or {}), RELEASE_PENDING_META_KEY: True}
+    reopened = await _reopen_for_release_transition(session, item, unit)
+    return UnitUpsertResult(
+        id=unit.id,
+        created=True,
+        changed=True,
+        cycle_reopened=reopened,
+    )
 
 
 async def upsert_unit(

@@ -121,5 +121,11 @@ class IGDBProvider(HTTPProvider):
     async def units(self, provider_id: str) -> list[ProviderUnit]:
         return []
 
-    async def upcoming(self, provider_id: str, *, days: int) -> list[ProviderUnit]:
+    async def upcoming(
+        self,
+        provider_id: str,
+        *,
+        days: int,
+        units: list[ProviderUnit] | None = None,
+    ) -> list[ProviderUnit]:
         return []

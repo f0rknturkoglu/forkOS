@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
@@ -36,6 +36,15 @@ async def create_or_extend_batch(
     session: AsyncSession, source_ids: list[str], *, scope: str = "opportunity"
 ) -> tuple[SourceSyncBatch, list[str]]:
     ids = list(dict.fromkeys(source_ids))
+    # A row lock cannot serialize the empty-table case. Scope-level transaction
+    # advisory locking keeps creation and extension in one PostgreSQL critical section.
+    await session.execute(
+        text(
+            "select pg_advisory_xact_lock("
+            "hashtext('forkos.source_sync_batch'), hashtext(:scope))"
+        ),
+        {"scope": scope},
+    )
     batch = (
         await session.execute(
             select(SourceSyncBatch)

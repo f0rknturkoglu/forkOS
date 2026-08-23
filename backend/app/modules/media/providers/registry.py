@@ -65,6 +65,16 @@ class ProviderRegistry:
             unique.setdefault(provider.id, provider)
         return list(unique.values())
 
+    def provider_groups(self) -> dict[str, list[tuple[str, MediaProvider]]]:
+        groups: dict[str, list[tuple[str, MediaProvider]]] = {}
+        for kind, provider in self._providers.items():
+            groups.setdefault(provider.id, []).append((kind, provider))
+        for (provider_id, kind), provider in self._fallbacks.items():
+            variants = groups.setdefault(provider_id, [])
+            if not any(existing_kind == kind for existing_kind, _ in variants):
+                variants.append((kind, provider))
+        return groups
+
     def by_id(self, provider_id: str, *, kind: str | None = None) -> MediaProvider | None:
         candidates = self._providers.items()
         for provider_kind, provider in candidates:

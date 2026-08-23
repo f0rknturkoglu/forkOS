@@ -7,7 +7,7 @@ from importlib import import_module
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.db import SessionLocal, engine
 from app.main import app
@@ -233,6 +233,35 @@ async def test_two_workers_atomically_reserve_distinct_batch_sources():
             ).scalars()
         )
     assert running == ["alpha", "beta"]
+
+
+async def test_concurrent_batch_creation_serializes_per_scope_and_unions_sources():
+    from app.core.models import SourceSyncBatch
+    from app.core.source_sync import ACTIVE_STATUSES, create_or_extend_batch
+
+    async def queue(source_id: str):
+        async with SessionLocal() as session:
+            batch, _ = await create_or_extend_batch(
+                session, [source_id], scope="media"
+            )
+            await session.commit()
+            return batch.id
+
+    first, second = await asyncio.gather(queue("media:tmdb"), queue("media:anilist"))
+    assert first == second
+    async with SessionLocal() as session:
+        batches = list(
+            (
+                await session.execute(
+                    select(SourceSyncBatch).where(
+                        SourceSyncBatch.scope == "media",
+                        SourceSyncBatch.status.in_(ACTIVE_STATUSES),
+                    )
+                )
+            ).scalars()
+        )
+    assert len(batches) == 1
+    assert set(batches[0].source_ids) == {"media:tmdb", "media:anilist"}
 
 
 async def test_system_status_exposes_worker_heartbeat(client: AsyncClient):

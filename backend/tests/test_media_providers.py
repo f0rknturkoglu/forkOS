@@ -214,7 +214,47 @@ async def test_musicbrainz_track_identity_includes_disc_position():
 
     provider._get = fake_get
     units = await provider.units("group")
-    assert [unit.provider_id for unit in units] == ["release:d1:t1", "release:d2:t1"]
+    assert [unit.provider_id for unit in units] == ["track:a", "track:b"]
+
+
+@pytest.mark.no_database
+async def test_musicbrainz_release_order_does_not_change_track_identity():
+    provider = MusicBrainzProvider()
+    release_orders = [
+        [{"id": "release-b"}, {"id": "release-a"}],
+        [{"id": "release-a"}, {"id": "release-b"}],
+    ]
+
+    async def fake_get(path: str, **params):
+        if path == "release-group/group":
+            return {"releases": release_orders.pop(0)}
+        assert path == "release/release-a"
+        return {
+            "media": [
+                {
+                    "position": 1,
+                    "tracks": [
+                        {
+                            "position": 1,
+                            "title": "Stable",
+                            "recording": {"id": "recording-1"},
+                        },
+                        {"position": 2, "title": "No IDs"},
+                    ],
+                }
+            ]
+        }
+
+    provider._get = fake_get
+    first = await provider.units("group")
+    second = await provider.units("group")
+    assert [unit.provider_id for unit in first] == [
+        "recording:recording-1",
+        "fallback:group:d1:t2:3a6e1ae822b9",
+    ]
+    assert [unit.provider_id for unit in second] == [
+        unit.provider_id for unit in first
+    ]
 
 
 @pytest.mark.no_database
