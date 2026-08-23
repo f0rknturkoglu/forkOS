@@ -14,7 +14,23 @@ def _spec():
             "media_consumption",
             "media_collection",
         ],
-        event_verbs=["media.item_added", "media.status_changed", "media.item_deleted"],
+        event_verbs=[
+            "media.item_added",
+            "media.item_updated",
+            "media.item_trashed",
+            "media.item_restored",
+            "media.item_deleted",
+            "media.cycle_started",
+            "media.cycle_completed",
+            "media.cycle_reopened",
+            "media.consumed",
+            "media.progress_corrected",
+            "media.collection_created",
+            "media.collection_updated",
+            "media.collection_deleted",
+            "media.collection_item_added",
+            "media.collection_item_removed",
+        ],
     )
 
 

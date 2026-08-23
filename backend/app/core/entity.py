@@ -39,6 +39,14 @@ async def archive_entity(session: AsyncSession, entity_id: uuid.UUID) -> None:
         entity.archived_at = func.now()
 
 
+async def restore_entity(session: AsyncSession, entity_id: uuid.UUID) -> None:
+    """Arsivlenmis entity'yi tekrar aktif gorunume al."""
+    entity = await session.get(Entity, entity_id)
+    if entity is not None:
+        entity.archived_at = None
+        entity.updated_at = func.now()
+
+
 async def delete_entity(session: AsyncSession, entity_id: uuid.UUID) -> bool:
     """Entity-backed bir nesneyi cascade kurallarini kullanarak kalici sil."""
     entity = await session.get(Entity, entity_id)
