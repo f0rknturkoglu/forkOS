@@ -278,7 +278,9 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     todo_suggestions: list[AgendaRow] = []
     rss_suggestions: list[AgendaRow] = []
     if auto_suggestions:
-        excluded = handled_ids | {todo.id for todo, _ in rows}
+        # Yalniz cocugu bugune dusen ust gorev de akista context basligi olarak
+        # bulunur; ayni ust gorevi onerilerde ikinci kez gostermeyelim.
+        excluded = handled_ids | {todo.id for todo, _ in rows} | parent_ids
         candidates = [row for row in candidate_rows if row[0].id not in excluded]
         candidates.sort(key=lambda row: (
             -row[0].priority,

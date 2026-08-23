@@ -179,6 +179,35 @@ export interface PlanSlot {
   google_event_id?: string | null;
 }
 
+export interface AgendaRow {
+  kind: "calendar" | "todo" | "rss";
+  source: "calendar" | "planned" | "due" | "routine" | "suggestion";
+  id: string;
+  slot_id: string | null;
+  title: string;
+  completed: boolean;
+  action: "complete_todo" | "mark_rss_read" | null;
+  read_only: boolean;
+  context_only: boolean;
+  starts_at: string | null;
+  duration_min: number | null;
+  parent_id: string | null;
+  project_title: string | null;
+  feed_title: string | null;
+  url: string | null;
+  recur: "daily" | "weekdays" | "weekly" | "monthly" | null;
+  children: AgendaRow[];
+}
+
+export interface TodayAgenda {
+  day: string;
+  auto_suggestions: boolean;
+  timed: AgendaRow[];
+  checklist: AgendaRow[];
+  completed: AgendaRow[];
+  suggestions: { todos: AgendaRow[]; rss: AgendaRow[] };
+}
+
 export interface StudyArea {
   id: string; title: string; color: string | null; active: boolean; position: number;
 }

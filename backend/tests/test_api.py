@@ -437,6 +437,36 @@ async def test_today_agenda_nests_due_child_under_context_parent(client: AsyncCl
     await client.delete(f"/api/todos/{parent['id']}")
 
 
+async def test_today_agenda_does_not_suggest_a_context_parent(client: AsyncClient):
+    day = date.today()
+    project = (await client.post("/api/projects", json={
+        "title": f"Context project {uuid.uuid4().hex[:8]}"
+    })).json()
+    parent = (await client.post("/api/todos", json={
+        "title": f"Context parent {uuid.uuid4().hex[:8]}",
+        "project_id": project["id"],
+        "priority": 3,
+        "due_at": f"{(day + timedelta(days=7)).isoformat()}T10:00:00+03:00",
+    })).json()
+    child = (await client.post("/api/todos", json={
+        "title": f"Context child {uuid.uuid4().hex[:8]}",
+        "parent_id": parent["id"],
+        "due_at": f"{day.isoformat()}T10:00:00+03:00",
+    })).json()
+
+    agenda = (await client.get(
+        "/api/today/agenda", params={"day": day.isoformat()}
+    )).json()
+    context = next(row for row in agenda["checklist"] if row["id"] == parent["id"])
+    suggested_ids = {row["id"] for row in agenda["suggestions"]["todos"]}
+    assert context["context_only"] is True
+    assert parent["id"] not in suggested_ids
+    assert child["id"] not in suggested_ids
+
+    await client.delete(f"/api/todos/{parent['id']}")
+    await client.delete(f"/api/projects/{project['id']}")
+
+
 async def test_today_agenda_uses_istanbul_day_boundaries(client: AsyncClient):
     day = date.today()
     zone = ZoneInfo("Europe/Istanbul")

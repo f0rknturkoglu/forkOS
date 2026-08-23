@@ -6,7 +6,6 @@ import "./rss";
 import "./activity";
 import "./todo";
 import "./pomodoro";
-import "./habit";
 import "./review";
 import "./opportunity";
 import "./study";

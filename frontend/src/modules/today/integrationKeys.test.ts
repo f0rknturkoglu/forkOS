@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { TodayScheduleWidget } from "@/modules/calendar/TodayScheduleWidget";
 import { RecurringWidget } from "@/modules/finance/RecurringWidget";
 import { RssPage } from "@/modules/rss/RssPage";
+import { TodayAgendaWidget } from "./TodayAgendaWidget";
 
 type QueryOptions = { queryKey: readonly unknown[] };
 type MutationOptions = {
@@ -34,7 +34,9 @@ vi.mock("@tanstack/react-query", () => ({
   }),
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
-    return { data: [] };
+    return options.queryKey[0] === "today-agenda"
+      ? { data: undefined, isLoading: false, isError: true, refetch: vi.fn() }
+      : { data: [] };
   }),
 }));
 
@@ -48,13 +50,13 @@ describe("cross-page query integration", () => {
   });
 
   it("registers Today widget queries under their detail-page prefixes", () => {
-    renderToStaticMarkup(createElement(TodayScheduleWidget));
+    renderToStaticMarkup(createElement(TodayAgendaWidget));
     renderToStaticMarkup(createElement(RecurringWidget));
 
-    expect(harness.queries.map((query) => query.queryKey)).toEqual([
-      ["calendar-events", "today"],
-      ["recurring", "widget"],
-    ]);
+    expect(harness.queries.map((query) => query.queryKey)).toContainEqual(
+      ["today-agenda", expect.any(String)],
+    );
+    expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["recurring", "widget"]);
   });
 
   it("runs the RSS save success callback with every linked refresh prefix", () => {

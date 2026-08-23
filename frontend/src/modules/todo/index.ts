@@ -3,17 +3,19 @@ import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { invalidate } from "@/core/queryClient";
-import { PlannerWidget } from "./PlannerWidget";
 import { TodoPage } from "./TodoPage";
-import { TodoWidget } from "./TodoWidget";
 import { WeeklyPlannerPage } from "./WeeklyPlannerPage";
 
 registerModule({
   id: "todo", title: "Görevler", icon: ListChecks, group: "do",
-  routes: [{ path: "/todos", element: TodoPage }, { path: "/planner", element: WeeklyPlannerPage }],
-  todayWidgets: [{ component: TodoWidget, zone: "now", slot: "left", order: 20 }, { component: PlannerWidget, zone: "rhythm", slot: "left", order: 40 }],
+  routes: [
+    { path: "/todos", element: TodoPage },
+    { path: "/habits", element: TodoPage, title: "Rutin görevler" },
+    { path: "/planner", element: WeeklyPlannerPage },
+  ],
   commands: [
     { id: "todo.open", label: "Görevleri aç", run: () => navigate("/todos") },
+    { id: "todo.routines", label: "Rutin görevleri aç", run: () => navigate("/habits") },
     { id: "planner.open", label: "Haftalık planı aç", run: () => navigate("/planner") },
     { id: "todo.quick", label: "Hızlı görev ekle",
       ask: { label: "Görev başlığı", placeholder: "Ne yapılacak?" },

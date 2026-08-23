@@ -1,6 +1,7 @@
 import { Sun } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { TodayPage } from "./TodayPage";
+import { TodayAgendaWidget } from "./TodayAgendaWidget";
 import { FeedStreamWidget } from "./widgets/FeedStreamWidget";
 import { QuickLinksWidget } from "./widgets/QuickLinksWidget";
 
@@ -12,6 +13,7 @@ registerModule({
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.
   // orta = akis, sag = durum. Sira icin bkz. TodayWidget.order.
   todayWidgets: [
+    { component: TodayAgendaWidget, zone: "now", slot: "left", order: 10 },
     { component: FeedStreamWidget, zone: "rhythm", slot: "center", order: 10 },
     { component: QuickLinksWidget, zone: "rhythm", slot: "right", order: 80 },
   ],

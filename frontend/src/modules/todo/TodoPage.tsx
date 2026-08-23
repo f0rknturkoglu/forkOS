@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Repeat } from "lucide-react";
+import { useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import {
   Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx,
@@ -34,12 +36,18 @@ const BUCKETS = [
 ] as const;
 
 export function TodoPage() {
+  const { path } = useHashRoute();
   const [status, setStatus] = useState<string>("open");
   const [tag, setTag] = useState<string>("");
+  const [routineOnly, setRoutineOnly] = useState(path === "/habits");
 
   const { data: todos = [], isLoading } = useQuery({
-    queryKey: ["todos", status],
-    queryFn: () => api.get<Todo[]>(`/todos${qs({ status: status || undefined, limit: 300 })}`),
+    queryKey: ["todos", status, routineOnly ? "routines" : "all"],
+    queryFn: () => api.get<Todo[]>(`/todos${qs({
+      status: status || undefined,
+      limit: 300,
+      recur_only: routineOnly || undefined,
+    })}`),
   });
   const { data: tags = [] } = useQuery({
     queryKey: ["tags"],
@@ -91,6 +99,19 @@ export function TodoPage() {
               {item.label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setRoutineOnly((value) => !value)}
+            aria-pressed={routineOnly}
+            className={cx(
+              "ml-1 flex shrink-0 items-center gap-1.5 rounded-control border px-3 py-1.5 text-meta transition",
+              routineOnly
+                ? "border-accent-border bg-accent-surface text-accent"
+                : "border-subtle text-muted hover:border-strong hover:text-primary",
+            )}
+          >
+            <Repeat size={12} /> Rutinler
+          </button>
         </div>
 
         <span className="min-w-2 flex-1" />
@@ -117,7 +138,11 @@ export function TodoPage() {
         <p className="text-body text-muted">Yükleniyor…</p>
       ) : visible.length === 0 ? (
         <Empty variant="page" title="Liste boş">
-          {tag ? `#${tag} etiketli görev yok.` : "Bu filtrede görev yok. Yukarıdan ekleyebilirsin."}
+          {tag
+            ? `#${tag} etiketli görev yok.`
+            : routineOnly
+              ? "Bu filtrede rutin görev yok. Bir göreve tekrar kuralı ekleyebilirsin."
+              : "Bu filtrede görev yok. Yukarıdan ekleyebilirsin."}
         </Empty>
       ) : (
         grouped.map((bucket) => (
