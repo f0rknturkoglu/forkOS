@@ -33,7 +33,7 @@ make migrate
 | Frontend | Today (modullerden beslenen widget'lar), Inbox (dnd-kit surukle-birak), Bookmarks, RSS Reader, Activity, `Ctrl+K` command palette + global arama |
 | Extension | MV3 popup, `Ctrl+Shift+S`, context menu, offline outbox + retry |
 | Offline | PWA precache + `GET /api/**` StaleWhileRevalidate; yazma offline'da kapali (UI banner + disable) |
-| Productivity | Todo/subtask, 7 gunluk planner, sunucu tabanli Pomodoro, habit grid, event tabanli review |
+| Productivity | Todo/subtask, tekrarli rutinler, birlesik Gun akisi, 7 gunluk planner, sunucu tabanli Pomodoro, event tabanli review |
 | Firsatlar | forkjob altyapisi ve LinkedIn scraper, OSYM duyurulari, YLSY burs ilanlari, gereksinim/todo/bildirim/deadline akisi |
 | Ogrenme | Calisma oturumlari, konu/kurs/kitap takibi, alan bazli istatistikler |
 | Dokuman ve takvim | Yerel dokumanlar, Google Drive metadata senkronu, Google Calendar salt-okunur ayna ve plan slotu gonderme |
@@ -56,27 +56,30 @@ GET  /api/search?q=                           global arama
 GET  /api/activity                            append-only event akisi
 GET  /api/sources/health                      her kaynagin son kosumu
 GET  /api/todos                               gorevler ve filtreler
+GET  /api/today/agenda?day=2026-08-23        takvim + plan + gorev + RSS tek gun akisi
 GET  /api/plan?week=2026-08-17                haftalik plan slotlari
 GET  /api/pomodoro/active                     sekme kapansa da suren aktif session
-GET  /api/habits/grid?weeks=8                 habit isi haritasi
 GET  /api/reviews/preview?kind=weekly         event tabanli canli review ozeti
 GET  /api/opportunities?kind=exam             OSYM sinav/duyurulari
 GET  /api/opportunities?kind=scholarship      YLSY burs ilanlari
-POST /api/opportunities/sources/osym/refresh  sadece OSYM kaynagini yenile
-POST /api/opportunities/sources/ylsy/refresh  sadece YLSY kaynagini yenile
+POST /api/sources/refresh                     secilen kaynaklari kalici worker kuyruguna al
+GET  /api/sources/sync                        aktif batch, kaynaklar ve kesin ilerleme
 GET  /api/search?q=&grouped=true              turune gore gruplanmis global arama
 POST /api/backup                              yerel gzip yedek olustur
 ```
 
 ## Extension
 
-`chrome://extensions` → Developer mode → **Load unpacked** → `extension/`
-Cikan ID'yi `.env` icindeki `EXTENSION_ID`'ye yaz, `make down && make up`
-(CORS origin'i oradan uretilir).
+`chrome://extensions` → Developer mode → **Load unpacked** → `extension/`.
+Eklentinin **Ayrintilar → Uzanti secenekleri** ekranindan sunucu adresini ayarla;
+varsayilan `http://127.0.0.1:8787/api`. Farkli Podman machine adresi girildiginde
+yalnizca o origin icin Chromium izni istenir. Cikan extension ID'yi `.env` icindeki
+`EXTENSION_ID`'ye yaz, `make down && make up` (CORS origin'i oradan uretilir).
 
 Backend kapaliyken kaydedebilirsin: kayit `chrome.storage` outbox'ina yazilir,
 rozet bekleyen sayisini gosterir, `chrome.alarms` her dakika + tarayici acilisinda
-kuyrugu bosaltmayi dener. `client_uuid` sayesinde retry cift kayit uretmez.
+kuyrugu bosaltmayi dener. Kalici hatalar ayri listede gorulur; yeniden denebilir veya
+temizlenebilir. `client_uuid` sayesinde retry cift kayit uretmez.
 
 ## Worker
 
@@ -87,6 +90,11 @@ kuyrugu bosaltmayi dener. `client_uuid` sayesinde retry cift kayit uretmez.
 - 5 ardisik hata → feed `active=false` + `rss.feed_disabled` event'i
 - Her gece 04:00: okunmamis + kaydedilmemis item'lari `RSS_RETENTION_DAYS` sonrasi siler
 - OSYM/YLSY ve is kaynaklari artimli dilimler halinde taranir; baslangicta tam forkjob senkronu yapilmaz
+- Manuel toplu cekimler API prosesi icinde calismaz; kalici batch'e yazilir ve worker
+  kaynaklari tek tek sahiplenir. Worker kapanirsa yarim kalan kosular zaman asimindan
+  sonra yeniden denenir; ilerleme `/api/sources/sync`, heartbeat `/api/system/stats` ile izlenir.
+- Kaynaklar kendi `interval_minutes` degerine gore calisir. LinkedIn otomatik turlara
+  dahil edilmez; yalnizca acik secimle manuel calistirilir.
 - Google Calendar 30 dakikada, GitHub 3 saatte bir yenilenir; yedek geceleri alinir
 
 Uzun surecek tum is kaynagi senkronu yerine yukaridaki tek-kaynak refresh endpoint'lerini
@@ -103,12 +111,19 @@ Sabah `make up` → catch-up turu kacirilan her seyi tek seferde toplar.
 ## Test
 
 ```bash
-make test                    # compose icinde: Postgres'li uctan uca testler dahil
+make test                    # gecici forkos-test projesi + forkos_test DB
+make verify                  # backend + frontend + extension + audit + build
 ```
 
-DB'siz de calisir; `tests/test_api.py` Postgres yoksa kendini atlar.
+Testler kisisel `lifeos` veritabanina baglanmayi reddeder; yalnizca adi `_test` ile
+biten gecici veritabaninda calisir ve test bitince volume kaldirilir.
 `tests/test_migrations.py` elle yazilan migration'lar ile modelleri karsilastirir --
 kolon eklemeyi unutursan burada patlar.
+
+Frontend API tipleri `backend/openapi.json` dosyasindan uretilir. Backend semasi
+degisince `python scripts/export_openapi.py` ve `frontend/` icinde
+`npm run api:generate` calistirilir; CI `npm run api:check` ile drift'i reddeder.
+Sayfa rotalari lazy chunk'tir ve production build giris chunk'ini 500 KB ile sinirlar.
 
 ## Harici entegrasyonlar ve yedek
 
@@ -126,7 +141,15 @@ kolon eklemeyi unutursan burada patlar.
   **`POST /api/backup/restore`** (Ayarlar veya Saglik panelindeki "Geri yukle").
   Restore idempotent ve cakismasizdir: eksik kayitlar eklenir, var olanlara
   dokunulmaz; entity/link/event + tum modul tablolari + ayarlar + etiketler geri gelir.
-  Google token yedekte bulunmadigi icin yeni makinede "bagla" ile yeniden alinir.
+  Yedek kapsami metadata'dan denetlenir ve round-trip test edilir. OAuth tokenlari
+  bilerek yedeklenmez; yeni makinede "bagla" ile yeniden alinir.
+
+## Saat dilimi ve offline yazma
+
+Gun, review, takvim, rutin ve son-24-saat sinirlari backend'de yapilandirilmis
+`Europe/Istanbul` saat diliminde hesaplanir. Tarayicinin UTC tarih kesmesi gun
+secimlerinde kullanilmaz. PWA offline cache'i yalnizca okumadir: ortak API katmani
+buton unutulsa bile mutation istegini fetch'ten once durdurur ve Turkce hata gosterir.
 
 ## Podman notlari
 

@@ -1,9 +1,8 @@
 # forkOS — Faz 0 + Faz 1 Teknik Plan
 
-> **Durum (Faz 0 + Faz 1 tamamlandı):** çekirdek şema, capture API'si, RSS worker'ı,
-> React arayüzü ve MV3 eklentisi çalışır durumda. Kurulum ve endpoint listesi için
-> `README.md`. Bu dosya planın kendisidir; tamamlanan işler aşağıdaki iki haftalık
-> tabloda tarif edildiği gibi uygulandı, sonraki fazlar (2–5) hâlâ açık.
+> **Durum (Faz 0–5 tamamlandı):** Bu dosyanın alt bölümü ilk iki haftalık tarihsel
+> uygulama planını korur. Güncel çalışma biçimi, endpoint'ler ve kurulum için
+> `README.md`; değişmez geliştirme kuralları için `AGENTS.md` esas alınır.
 
 **Kapsam:** Çekirdek altyapı (entity / link / event / saved view) + Capture dikey dilimi
 (Browser Extension → Universal Inbox → Bookmark Library → RSS Reader)
@@ -16,6 +15,22 @@
 | Offline | Read-only cache | PWA + Workbox; yazma offline'da kapalı, capture'ı extension outbox çözer |
 | İlk dilim | Capture | Extension + Inbox + Bookmark + RSS |
 | Auth | Yok (127.0.0.1 bind) | Drive/Calendar OAuth'u Faz 4'te loopback redirect ile eklenecek |
+
+### Güncel sağlamlık tabanı
+
+- Testler ayrı `forkos_test` veritabanında çalışır; kişisel DB adı test sürecinde
+  açıkça reddedilir ve Compose projesi her turdan sonra volume ile kaldırılır.
+- Gün sınırları ve rutin ilerletme `Europe/Istanbul` saat diliminde hesaplanır.
+- Kaynak senkronu kalıcı batch kuyruğudur: API kuyruğa yazar, worker sahiplenir,
+  heartbeat ve stale-run uzlaştırması çökme sonrası devamlılığı sağlar.
+- Her scraper `SourceAdapter` sözleşmesine ve yerel fixture testlerine tabidir;
+  her gerçek çekim `source_run` üretir.
+- Gzip JSON yedek, entity/link/event ve modül tablolarını metadata kontrollü taşır;
+  OAuth sırları kapsam dışıdır ve restore round-trip test edilir.
+- Frontend mutation'ları ortak offline guard'dan geçer. API sözleşmeleri FastAPI
+  OpenAPI snapshot'ından üretilir; sayfalar lazy chunk, giriş bütçesi 500 KB'dır.
+- Python ve npm bağımlılıkları lock'lanır; CI migration, test, Ruff, audit, build,
+  API şema drift'i ve extension testlerini ayrı işler halinde doğrular.
 
 ---
 
@@ -279,7 +294,8 @@ POST http://127.0.0.1:8787/api/capture
              chrome.alarms her 60sn + onStartup + onInstalled → flush
 ```
 
-- `manifest.json` → `"host_permissions": ["http://127.0.0.1:8787/*"]`
+- `manifest.json` varsayılan localhost iznini taşır; farklı yerel sunucu adresi
+  Options ekranından seçildiğinde ilgili origin izni ayrıca istenir.
 - Backend `CORSMiddleware` ile `chrome-extension://<id>` origin'ine izin verir
 - Popup, backend'e ping atıp offline'sa "kuyruğa alındı (3 bekliyor)" gösterir
 - Hızlı kayıt her zaman `collection='inbox'` — kategorizasyon Life OS içinde
@@ -308,6 +324,9 @@ POST http://127.0.0.1:8787/api/capture
 | App shell (js/css/html) | precache |
 | `GET /api/**` | StaleWhileRevalidate, 200 entry / 7 gün |
 | Mutation'lar | offline'da UI disable + banner |
+
+UI disable görünürlüğü iyileştirir; asıl garanti ortak API katmanındadır. Offline
+mutation fetch'e ulaşmadan `OfflineWriteError` ile durur.
 
 macOS ve Windows'ta Chrome/Edge → "Install app" ile ayrı pencere.
 `localhost` secure context sayıldığı için PWA kurulumu HTTPS olmadan çalışır.
@@ -350,10 +369,10 @@ Activity'de `bookmark.saved` event'i duruyor.
 
 | Faz | İçerik | Neden bu sırada |
 |---|---|---|
-| 2 | Todo + Pomodoro + Habits + Daily/Weekly Review | Review tamamen `event` tablosundan beslenir, altyapı hazır |
-| 3 | Opportunity modeli + Job Hunter `SourceAdapter` + Deadline + Notification | VPS kararının verilmesi gereken nokta |
-| 4 | Study Tracker + Courses + Google Calendar + Drive/Documents | OAuth burada giriyor |
-| 5 | Projects + GitHub, Expenses, Books, Media linkleri | En düşük günlük değer |
+| 2 | Todo + Pomodoro + tekrarli rutinler + Daily/Weekly Review | Tamamlandi; ayri Habit UI yerine Todo rutinleri kullanilir |
+| 3 | Opportunity modeli + Job Hunter `SourceAdapter` + Deadline + Notification | Tamamlandi; durable worker batch'i ile calisir |
+| 4 | Study Tracker + Courses + Google Calendar + Drive/Documents | Tamamlandi; OAuth yerel loopback'tir |
+| 5 | Projects + GitHub, Expenses, Books, Media linkleri | Temel moduller tamamlandi; Media urun gelistirmesi suruyor |
 
 ---
 

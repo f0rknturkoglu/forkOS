@@ -22,10 +22,10 @@ reset:     ; $(CO) down -v && $(CO) up -d && sleep 5 && $(MAKE) migrate
 
 backend-lint:
 	$(CO) -p $(TEST_PROJECT) -f compose.yaml -f compose.test.yaml \
-		run --rm --no-deps backend-test ruff check app tests
+		run --rm --no-deps backend-test ruff check app tests scripts
 
 frontend-verify:
-	cd frontend && npm ci && npm audit --audit-level=moderate && npm test && npm run build
+	cd frontend && npm ci && npm audit --audit-level=moderate && npm run api:check && npm test && npm run build
 
 extension-verify:
 	cd extension && npm ci && npm test
