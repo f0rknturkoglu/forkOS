@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 import httpx
 from sqlalchemy import func, select
@@ -49,9 +48,14 @@ async def _tmdb_key(session: AsyncSession) -> str | None:
 async def _search_openlibrary(q: str) -> list[MetadataResult]:
     # Kitap: OpenLibrary (anahtarsiz).
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        response = await client.get("https://openlibrary.org/search.json",
-                                   params={"q": q, "limit": POLL_MAX,
-                                           "fields": "key,title,author_name,first_publish_year,cover_i"})
+        response = await client.get(
+            "https://openlibrary.org/search.json",
+            params={
+                "q": q,
+                "limit": POLL_MAX,
+                "fields": "key,title,author_name,first_publish_year,cover_i",
+            },
+        )
         response.raise_for_status()
     results: list[MetadataResult] = []
     for doc in response.json().get("docs", []):

@@ -19,3 +19,15 @@ test:
 	exit $$status
 backup:    ; mkdir -p backend/backups && $(CO) exec -T db sh -c 'pg_dump -U lifeos -d lifeos -Fc > /tmp/forkos.dump' && $(CO) cp db:/tmp/forkos.dump ./backend/backups/forkos.dump
 reset:     ; $(CO) down -v && $(CO) up -d && sleep 5 && $(MAKE) migrate
+
+backend-lint:
+	$(CO) -p $(TEST_PROJECT) -f compose.yaml -f compose.test.yaml \
+		run --rm --no-deps backend-test ruff check app tests
+
+frontend-verify:
+	cd frontend && npm ci && npm audit --audit-level=moderate && npm test && npm run build
+
+extension-verify:
+	cd extension && npm ci && npm test
+
+verify: test backend-lint frontend-verify extension-verify
