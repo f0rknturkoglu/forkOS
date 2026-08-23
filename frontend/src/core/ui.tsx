@@ -531,6 +531,24 @@ interface ToastApi {
   push: (message: string, options?: { tone?: Toast["tone"]; action?: Toast["action"] }) => void;
 }
 
+type GlobalToastInput = {
+  message: string;
+  options?: { tone?: Toast["tone"]; action?: Toast["action"] };
+};
+
+const globalToastListeners = new Set<(toast: GlobalToastInput) => void>();
+
+export function emitGlobalToast(toast: GlobalToastInput): void {
+  globalToastListeners.forEach((listener) => listener(toast));
+}
+
+export function subscribeGlobalToast(
+  listener: (toast: GlobalToastInput) => void,
+): () => void {
+  globalToastListeners.add(listener);
+  return () => globalToastListeners.delete(listener);
+}
+
 const ToastContext = createContext<ToastApi>({ push: () => {} });
 
 export const useToast = () => useContext(ToastContext);
@@ -552,6 +570,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const api = useMemo(() => ({ push }), [push]);
+
+  useEffect(
+    () => subscribeGlobalToast(({ message, options }) => push(message, options)),
+    [push],
+  );
 
   return (
     <ToastContext.Provider value={api}>

@@ -6,7 +6,7 @@ import type { CalendarEvent } from "@/core/types";
 import {
   Badge, Button, Empty, PageFrame, PageHeader, Section, Toolbar, cx,
 } from "@/core/ui";
-import { useInvalidate } from "@/lib/hooks";
+import { useInvalidate, useOnline } from "@/lib/hooks";
 
 type View = "week" | "month";
 
@@ -74,6 +74,7 @@ export function CalendarPage() {
   const [view, setView] = useState<View>("month");
   const [anchor, setAnchor] = useState(() => new Date());
   const invalidate = useInvalidate();
+  const online = useOnline();
 
   const days = rangeDays(anchor, view);
   const start = useMemo(() => rangeStart(anchor, view), [anchor, view]);
@@ -138,7 +139,7 @@ export function CalendarPage() {
             </Button>
           ))}
         </div>
-        <Button size="sm" variant="secondary" onClick={() => sync.mutate()} disabled={sync.isPending}>
+        <Button size="sm" variant="secondary" onClick={() => sync.mutate()} disabled={!online || sync.isPending}>
           <RefreshCw size={13} className={sync.isPending ? "animate-spin" : undefined} />
           Google'dan çek
         </Button>
@@ -207,6 +208,7 @@ export function CalendarPage() {
                         </p>
                         {view === "week" && !event.read_only && !event.google_event_id && (
                           <Button size="sm" className="mt-1 h-6 px-2 text-[10.5px]"
+                            disabled={!online || push.isPending}
                             onClick={() => push.mutate(event.id)}>
                             Google'a gönder
                           </Button>

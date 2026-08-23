@@ -1,4 +1,20 @@
-import { QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryClient } from "@tanstack/react-query";
+import { emitGlobalToast } from "./ui";
+
+type MutationLike = { meta?: Record<string, unknown> };
+
+export function mutationErrorHandler(
+  _error: unknown,
+  _variables: unknown,
+  _context: unknown,
+  mutation: MutationLike,
+): void {
+  if (mutation.meta?.silentError) return;
+  emitGlobalToast({
+    message: "İşlem tamamlanamadı. Bağlantıyı kontrol edip tekrar deneyebilirsin.",
+    options: { tone: "danger" },
+  });
+}
 
 /**
  * Tek QueryClient. main.tsx bunu Provider'a verir.
@@ -9,6 +25,7 @@ import { QueryClient } from "@tanstack/react-query";
  * tazeler -- location.reload() yerine.
  */
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({ onError: mutationErrorHandler }),
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
 

@@ -6,7 +6,21 @@ export class ApiError extends Error {
   }
 }
 
+export class OfflineWriteError extends Error {
+  constructor() {
+    super("Çevrimdışıyken değişiklik yapılamaz; bağlantı gelince tekrar dene.");
+    this.name = "OfflineWriteError";
+  }
+}
+
+export const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
+
+export function assertOnlineWrite(): void {
+  if (!isOnline()) throw new OfflineWriteError();
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (init?.method && init.method !== "GET") assertOnlineWrite();
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
@@ -28,13 +42,13 @@ export const api = {
     request<T>(p, { method: "PUT", body: JSON.stringify(body ?? {}) }),
   del: (p: string) => request<void>(p, { method: "DELETE" }),
   /** multipart -- Content-Type'i tarayici koysun, elle yazma. */
-  upload: <T>(p: string, file: File, field = "file") => {
+  upload: async <T>(p: string, file: File, field = "file") => {
+    assertOnlineWrite();
     const form = new FormData();
     form.append(field, file);
-    return fetch(`${BASE}${p}`, { method: "POST", body: form }).then((res) => {
-      if (!res.ok) throw new ApiError(res.status, res.statusText);
-      return res.json() as Promise<T>;
-    });
+    const res = await fetch(`${BASE}${p}`, { method: "POST", body: form });
+    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    return res.json() as Promise<T>;
   },
 };
 
@@ -45,6 +59,3 @@ export function qs(params: Record<string, string | number | boolean | undefined 
   );
   return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)]))}` : "";
 }
-
-/** Offline'da yazma kapali -- read-only cache stratejisi (plan bolum 7). */
-export const isOnline = () => navigator.onLine;

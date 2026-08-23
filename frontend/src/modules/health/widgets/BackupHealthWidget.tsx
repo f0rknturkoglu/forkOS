@@ -4,7 +4,7 @@ import { CloudUpload, Database, HardDriveDownload, UploadCloud } from "lucide-re
 import { api } from "@/core/api";
 import { Badge, Button, Section as Panel, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import { useInvalidate } from "@/lib/hooks";
+import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { BackupStatus } from "@/core/types";
 
 function formatBytes(bytes: number): string {
@@ -23,6 +23,7 @@ function topModules(counts: Record<string, number>, n: number): [string, number]
 export function BackupHealthWidget() {
   const invalidate = useInvalidate();
   const toast = useToast();
+  const online = useOnline();
 
   const { data } = useQuery({
     queryKey: ["backup-status"],
@@ -82,11 +83,11 @@ export function BackupHealthWidget() {
       title="Yedekleme"
       action={
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => restoreRef.current?.click()} disabled={restoreBackup.isPending}>
+          <Button size="sm" onClick={() => restoreRef.current?.click()} disabled={!online || restoreBackup.isPending}>
             <UploadCloud size={13} />
             {restoreBackup.isPending ? "Yükleniyor…" : "Geri yükle"}
           </Button>
-          <Button size="sm" disabled={runNow.isPending} onClick={() => runNow.mutate()}>
+          <Button size="sm" disabled={!online || runNow.isPending} onClick={() => runNow.mutate()}>
             <HardDriveDownload size={13} className={runNow.isPending ? "animate-pulse" : undefined} />
             Şimdi yedekle
           </Button>
