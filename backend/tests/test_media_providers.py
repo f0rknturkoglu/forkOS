@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -309,6 +310,47 @@ async def test_musicbrainz_membership_growth_keeps_logical_track_identity():
 
 
 @pytest.mark.no_database
+async def test_musicbrainz_repeated_recording_occurrences_are_distinct_and_stable():
+    provider = MusicBrainzProvider()
+
+    async def fake_get(path: str, **params):
+        if path == "release-group/group":
+            return {"releases": [{"id": "release"}]}
+        return {
+            "media": [
+                {
+                    "position": 1,
+                    "tracks": [
+                        {
+                            "id": "track-a",
+                            "position": 1,
+                            "title": "Theme",
+                            "recording": {"id": "recording-same"},
+                        },
+                        {
+                            "id": "track-b",
+                            "position": 2,
+                            "title": "Theme reprise",
+                            "recording": {"id": "recording-same"},
+                        },
+                    ],
+                }
+            ]
+        }
+
+    provider._get = fake_get
+    first = await provider.units("group")
+    second = await provider.units("group")
+    assert [unit.provider_id for unit in first] == [
+        "recording:recording-same",
+        "recording:recording-same:o2",
+    ]
+    assert [unit.provider_id for unit in second] == [
+        unit.provider_id for unit in first
+    ]
+
+
+@pytest.mark.no_database
 async def test_tmdb_adapter_reuses_show_details_request_only_within_snapshot():
     paths: list[str] = []
 
@@ -377,6 +419,61 @@ async def test_podcast_adapter_reuses_itunes_lookup_only_within_snapshot():
 
     assert paths.count("/lookup") == 2
     assert paths.count("/feed.xml") == 2
+
+
+@pytest.mark.no_database
+async def test_concurrent_adapter_snapshots_isolate_shared_provider_cache():
+    paths: list[str] = []
+    first_requests: set[str] = set()
+    both_started = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        paths.append(path)
+        if path in {"/3/tv/1", "/3/tv/2"}:
+            if path not in first_requests:
+                first_requests.add(path)
+                if len(first_requests) == 2:
+                    both_started.set()
+                await asyncio.wait_for(both_started.wait(), timeout=1)
+            raw_id = path.rsplit("/", 1)[-1]
+            return httpx.Response(
+                200,
+                json={
+                    "id": int(raw_id),
+                    "name": f"Show {raw_id}",
+                    "seasons": [{"season_number": 1}],
+                },
+            )
+        raw_id = path.split("/")[3]
+        return httpx.Response(
+            200,
+            json={
+                "episodes": [
+                    {"episode_number": 1, "name": f"Episode {raw_id}"}
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = TMDBProvider("show", api_key="key", client=client)
+        adapters = [
+            MediaSourceAdapter(
+                provider,
+                SimpleNamespace(id=uuid.uuid4(), provider_id=f"tv:{raw_id}"),
+                upcoming_days=30,
+            )
+            for raw_id in (1, 2)
+        ]
+        snapshots = await asyncio.gather(*(adapter.fetch() for adapter in adapters))
+
+    assert [rows[0].title for rows in snapshots] == ["Show 1", "Show 2"]
+    assert [rows[0].extra["units"][0].title for rows in snapshots] == [
+        "Episode 1",
+        "Episode 2",
+    ]
+    assert paths.count("/3/tv/1") == 1
+    assert paths.count("/3/tv/2") == 1
 
 
 @pytest.mark.no_database

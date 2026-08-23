@@ -79,15 +79,27 @@ class MusicBrainzProvider(HTTPProvider):
         release_id = str(releases[0]["id"])
         release = await self._get(f"release/{release_id}", inc="recordings")
         units = []
-        for medium_index, medium in enumerate(release.get("media", []), start=1):
+        recording_occurrences: dict[str, int] = {}
+        media = sorted(
+            enumerate(release.get("media", []), start=1),
+            key=lambda value: value[1].get("position") or value[0],
+        )
+        for medium_index, medium in media:
             disc = medium.get("position") or medium_index
-            for track in medium.get("tracks", []):
+            tracks = sorted(
+                enumerate(medium.get("tracks", []), start=1),
+                key=lambda value: value[1].get("position") or value[0],
+            )
+            for track_index, track in tracks:
                 length = track.get("length")
-                position = track.get("position")
+                position = track.get("position") or track_index
                 recording_id = (track.get("recording") or {}).get("id")
                 track_id = track.get("id")
                 if recording_id:
-                    unit_provider_id = f"recording:{recording_id}"
+                    occurrence = recording_occurrences.get(recording_id, 0) + 1
+                    recording_occurrences[recording_id] = occurrence
+                    suffix = f":o{occurrence}" if occurrence > 1 else ""
+                    unit_provider_id = f"recording:{recording_id}{suffix}"
                 else:
                     title_hash = hashlib.sha256(
                         (track.get("title") or "").encode()
