@@ -22,7 +22,7 @@ Verified 2026-08-09: 692 junior postings across 7 pages.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
@@ -238,5 +238,5 @@ class NoFluffJobsScraper(ScraperBase):
     def _timestamp(value: Any) -> datetime | None:
         """Milliseconds since epoch, which is what `posted` and `renewed` are."""
         if isinstance(value, (int, float)) and value > 1_000_000_000_000:
-            return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+            return datetime.fromtimestamp(value / 1000, tz=UTC)
         return None

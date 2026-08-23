@@ -9,14 +9,13 @@ derived from the company name, and the probe actually hits the endpoint.
 
 from __future__ import annotations
 
-import asyncio
 import re
 import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-from .models import Company, Region, utcnow
-from .registry import KNOWN_ATS, UNDISCOVERABLE_ATS, Registry
+from .models import Region, utcnow
+from .registry import UNDISCOVERABLE_ATS, Registry
 from .sources.base import HttpClient, HttpConfig, PermanentError, TransientError
 
 
@@ -189,8 +188,13 @@ async def verify_entries(
             if company.ats == "workday":
                 # Workday probe needs a POST; skip for now, always mark unverified.
                 results.append(
-                    ProbeResult(ats="workday", token=company.token or company.extra.get("tenant", ""),
-                                url="", hit=False, error="workday probe not implemented")
+                    ProbeResult(
+                        ats="workday",
+                        token=company.token or company.extra.get("tenant", ""),
+                        url="",
+                        hit=False,
+                        error="workday probe not implemented",
+                    )
                 )
                 continue
 
@@ -198,8 +202,13 @@ async def verify_entries(
             key = _key_for_ats(company.ats)
             if url_template is None:
                 results.append(
-                    ProbeResult(ats=company.ats, token=company.token, url="",
-                                hit=False, error=f"no probe URL for {company.ats}")
+                    ProbeResult(
+                        ats=company.ats,
+                        token=company.token,
+                        url="",
+                        hit=False,
+                        error=f"no probe URL for {company.ats}",
+                    )
                 )
                 continue
 

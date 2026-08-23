@@ -13,11 +13,17 @@ deliberately manual by default — the user reviews candidates and confirms.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from .identity import cities_compatible, title_similarity
-from .models import Job, JobCluster, Status, USER_OWNED_STATUSES, dt_to_str, new_cluster_id, norm_text, utcnow
+from .models import (
+    USER_OWNED_STATUSES,
+    Status,
+    dt_to_str,
+    norm_text,
+    utcnow,
+)
 
 
 @dataclass(slots=True)
@@ -61,7 +67,7 @@ def find_duplicates(conn: sqlite3.Connection, *, threshold: float = 0.85) -> lis
 
     candidates: list[MergeCandidate] = []
 
-    for company_key, clusters in by_company.items():
+    for _company_key, clusters in by_company.items():
         if len(clusters) < 2:
             continue
 
@@ -80,7 +86,8 @@ def find_duplicates(conn: sqlite3.Connection, *, threshold: float = 0.85) -> lis
                 if not cities_compatible(city_a, city_b):
                     continue
 
-                candidates.append(MergeCandidate(
+                candidates.append(
+                    MergeCandidate(
                         cluster_a=clusters[i]["cluster_id"],
                         cluster_b=clusters[j]["cluster_id"],
                         title_a=clusters[i]["title"],
@@ -88,7 +95,8 @@ def find_duplicates(conn: sqlite3.Connection, *, threshold: float = 0.85) -> lis
                         company=clusters[i]["company"],
                         similarity=round(sim, 3),
                         reason=f"title similarity {sim:.0%}",
-                    ))
+                    )
+                )
 
     # Sort by similarity descending so the best matches are reviewed first.
     candidates.sort(key=lambda c: c.similarity, reverse=True)
@@ -118,9 +126,7 @@ def merge_clusters(
     }
 
     # Validate both clusters exist.
-    keep = conn.execute(
-        "SELECT * FROM job_clusters WHERE cluster_id = ?", (keep_id,)
-    ).fetchone()
+    keep = conn.execute("SELECT * FROM job_clusters WHERE cluster_id = ?", (keep_id,)).fetchone()
     discard = conn.execute(
         "SELECT * FROM job_clusters WHERE cluster_id = ?", (discard_id,)
     ).fetchone()
@@ -152,7 +158,9 @@ def merge_clusters(
         merged_notes = (keep["notes"] or "").strip()
         discard_notes = (discard["notes"] or "").strip()
         if discard_notes and discard_notes not in merged_notes:
-            merged_notes = f"{merged_notes}\n[merged from {discard_id[:8]}]: {discard_notes}".strip()
+            merged_notes = (
+                f"{merged_notes}\n[merged from {discard_id[:8]}]: {discard_notes}".strip()
+            )
 
         # Best applied_at: earliest non-null.
         applied_at = keep["applied_at"]

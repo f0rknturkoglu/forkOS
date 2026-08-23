@@ -101,9 +101,7 @@ class Feed:
         selectors = {}
         if isinstance(raw, dict):
             selectors = {
-                k: str(v).strip()
-                for k, v in raw.items()
-                if k in SELECTOR_FIELDS and str(v).strip()
+                k: str(v).strip() for k, v in raw.items() if k in SELECTOR_FIELDS and str(v).strip()
             }
         return cls(
             url=str(data.get("url", "")).strip(),

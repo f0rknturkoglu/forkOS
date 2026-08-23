@@ -1,0 +1,15 @@
+{
+  "jobs": [
+    {
+      "id": 42,
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/42",
+      "title": "Backend Engineer",
+      "company_name": "Acme",
+      "content": "&lt;p&gt;Python and PostgreSQL&lt;/p&gt;",
+      "location": {"name": "Madrid, Spain"},
+      "departments": [{"name": "Engineering"}],
+      "first_published": "2026-08-20T09:30:00Z",
+      "metadata": [{"name": "Seniority", "value": "Associate"}]
+    }
+  ]
+}

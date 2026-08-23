@@ -23,7 +23,7 @@ from .base import (
     ScraperPermanentError,
     ScraperTransientError,
 )
-from .registry import LayerBSource, LayerBRegistry, load_registry_b
+from .registry import LayerBRegistry, LayerBSource, load_registry_b
 
 __all__ = [
     "CacheMode",

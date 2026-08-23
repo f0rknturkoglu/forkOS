@@ -30,17 +30,12 @@ from .models import norm_company
 
 #: Known GOV.UK URL stem — the date segment changes with each release, so we
 #: fetch the landing page first.
-_LANDING_URL = (
-    "https://www.gov.uk/government/publications/"
-    "register-of-licensed-sponsors-workers"
-)
+_LANDING_URL = "https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers"
 _CACHE_PATH = Path("data/cache/uk-sponsors.csv")
 _USER_AGENT = "forkjob/0.1 (personal job search bot; +https://github.com/f0rkjob)"
 
 #: CSV column name patterns that hold the organisation name.
-_ORG_COLUMNS = re.compile(
-    r"(?i)^(organisation|company|sponsor|employer)\s*(name)?$"
-)
+_ORG_COLUMNS = re.compile(r"(?i)^(organisation|company|sponsor|employer)\s*(name)?$")
 
 
 class SponsorRegister:
@@ -117,7 +112,6 @@ class SponsorRegister:
         text = path.read_text(encoding="utf-8", errors="replace")
         # The CSV may have a BOM or preamble rows — skip until we find the header.
         reader = csv.reader(io.StringIO(text))
-        header: list[str] = []
         org_col: int | None = None
 
         names: set[str] = set()
@@ -133,7 +127,7 @@ class SponsorRegister:
                         org_col = i
                         break
                 if org_col is not None:
-                    header = [v.strip() for v in row]
+                    [v.strip() for v in row]
                     continue
                 continue
 

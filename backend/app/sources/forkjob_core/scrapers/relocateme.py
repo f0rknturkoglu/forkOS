@@ -103,8 +103,10 @@ class RelocateMeScraper(ScraperBase):
         remote = place.lower() == "remote" or country_slug == "remote"
 
         country = None if remote else country_from_name(place or country_slug)
-        location = "Remote" if remote else ", ".join(
-            part for part in (self._titleise(city_slug), place) if part
+        location = (
+            "Remote"
+            if remote
+            else ", ".join(part for part in (self._titleise(city_slug), place) if part)
         )
 
         preview = card.css_first(".job__preview")

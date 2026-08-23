@@ -21,12 +21,12 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urljoin
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
 from ..geo import country_from_name, region_for
+from ..models import DateSource, Job, Layer, Region, WorkMode
 from ..normalize import html_to_text, parse_datetime
 from .base import ScraperBase, ScraperConfig, ScraperHttpClient
 from .schemaorg import find_type, ld_blocks, organisation_name, place, text
@@ -77,9 +77,7 @@ class GulfTalentScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
-        cutoff = datetime.now(timezone.utc).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        cutoff = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
         for keyword in self.keywords:
             cards = await self._fetch_listing(client, keyword)
@@ -146,10 +144,12 @@ class GulfTalentScraper(ScraperBase):
             # ID is the trailing number before the closing quote.
             job_id = href.rsplit("-", 1)[-1]
             if job_id.isdigit():
-                cards.append(_Card(
-                    url=urljoin(base_url, href),
-                    job_id=job_id,
-                ))
+                cards.append(
+                    _Card(
+                        url=urljoin(base_url, href),
+                        job_id=job_id,
+                    )
+                )
         return cards
 
     # -- detail ----------------------------------------------------------------
@@ -162,9 +162,7 @@ class GulfTalentScraper(ScraperBase):
         job = self._build_job(posting, url, cutoff)
         return [job] if job is not None else []
 
-    def _build_job(
-        self, posting: dict[str, Any], url: str, cutoff: datetime
-    ) -> Job | None:
+    def _build_job(self, posting: dict[str, Any], url: str, cutoff: datetime) -> Job | None:
         title = text(posting.get("title"))
         if not title:
             return None

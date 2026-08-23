@@ -29,10 +29,10 @@ Field notes from the live response:
 from __future__ import annotations
 
 import re
+from datetime import UTC
 from typing import Any
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text
+from ..models import DateSource, Job, Layer, WorkMode
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 LISTING_URL = "https://arc.dev/remote-jobs"
@@ -119,9 +119,7 @@ class ArcDevScraper(ScraperBase):
             description_parts.append("Open to candidates worldwide")
         categories = entry.get("categories")
         if isinstance(categories, list) and categories:
-            description_parts.append(
-                "Skills: " + ", ".join(str(c) for c in categories)
-            )
+            description_parts.append("Skills: " + ", ".join(str(c) for c in categories))
         description = "\n".join(description_parts)
 
         posted_at = _epoch(entry.get("postedAt"))
@@ -152,10 +150,10 @@ def _hourly(entry: dict[str, Any]) -> str | None:
 
 
 def _epoch(value: Any) -> Any:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value, tz=timezone.utc)
+        return datetime.fromtimestamp(value, tz=UTC)
     return None
 
 

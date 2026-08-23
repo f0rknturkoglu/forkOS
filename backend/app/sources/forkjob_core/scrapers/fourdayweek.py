@@ -23,8 +23,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..models import DateSource, Job, Layer, WorkMode
+from ..normalize import parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://4dayweek.io/api/v2/jobs"
@@ -48,9 +48,7 @@ class FourDayWeekScraper(ScraperBase):
         seen: set[str] = set()
         for page in range(1, self.max_pages + 1):
             try:
-                payload = await client.get_json(
-                    f"{API_URL}?page={page}&limit={PAGE_SIZE}"
-                )
+                payload = await client.get_json(f"{API_URL}?page={page}&limit={PAGE_SIZE}")
             except ScraperPermanentError:
                 break
             if not isinstance(payload, dict):

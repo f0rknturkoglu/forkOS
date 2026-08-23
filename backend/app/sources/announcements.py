@@ -31,14 +31,18 @@ class AnnouncementSource:
         ) as client:
             response = await client.get(self.url, headers={"Accept": "text/html"})
             response.raise_for_status()
+        return self.parse_html(response.text, base_url=str(response.url))
+
+    def parse_html(self, body: str, *, base_url: str) -> list[RawItem]:
+        """Ağdan bağımsız parser; fixture testleri gerçek fetch ile aynı yolu kullanır."""
         items: list[RawItem] = []
-        for anchor in HTMLParser(response.text).css("a"):
+        for anchor in HTMLParser(body).css("a"):
             title = " ".join(anchor.text(deep=True).split())
             href = anchor.attributes.get("href")
             normalized = _norm(title)
             if not href or len(title) < 8 or not any(_norm(k) in normalized for k in self.keywords):
                 continue
-            url = urljoin(str(response.url), href)
+            url = urljoin(base_url, href)
             items.append(
                 RawItem(
                     external_id=hashlib.sha256(url.encode()).hexdigest(),

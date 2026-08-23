@@ -10,9 +10,8 @@ indistinguishable from one that found nothing.
 from __future__ import annotations
 
 import importlib
-from typing import Any
-
 from dataclasses import fields, replace
+from typing import Any
 
 from .base import ScraperBase, ScraperConfig
 from .registry import LayerBSource
@@ -42,7 +41,11 @@ _MODULES = [
     ("app.sources.forkjob_core.scrapers.justjoinit", "JustJoinItScraper", "justjoinit"),
     ("app.sources.forkjob_core.scrapers.pending", "RemoteRocketshipScraper", "remoterocketship"),
     ("app.sources.forkjob_core.scrapers.eurotechjobs", "EuroTechJobsScraper", "eurotechjobs"),
-    ("app.sources.forkjob_core.scrapers.wearedevelopers", "WeAreDevelopersScraper", "wearedevelopers"),
+    (
+        "app.sources.forkjob_core.scrapers.wearedevelopers",
+        "WeAreDevelopersScraper",
+        "wearedevelopers",
+    ),
     ("app.sources.forkjob_core.scrapers.weworkremotely", "WeWorkRemotelyScraper", "weworkremotely"),
     ("app.sources.forkjob_core.scrapers.wellfound", "WellfoundScraper", "wellfound"),
     ("app.sources.forkjob_core.scrapers.devitjobs", "DevITJobsScraper", "devitjobs"),
@@ -65,7 +68,11 @@ _MODULES = [
     ("app.sources.forkjob_core.scrapers.arcdev", "ArcDevScraper", "arcdev"),
     ("app.sources.forkjob_core.scrapers.freelancermap", "FreelancermapScraper", "freelancermap"),
     ("app.sources.forkjob_core.scrapers.web3career", "Web3CareerScraper", "web3career"),
-    ("app.sources.forkjob_core.scrapers.realworkfromanywhere", "RealWorkFromAnywhereScraper", "realworkfromanywhere"),
+    (
+        "app.sources.forkjob_core.scrapers.realworkfromanywhere",
+        "RealWorkFromAnywhereScraper",
+        "realworkfromanywhere",
+    ),
     ("app.sources.forkjob_core.scrapers.dailyremote", "DailyRemoteScraper", "dailyremote"),
     ("app.sources.forkjob_core.scrapers.javascriptjobs", "JavascriptJobsScraper", "javascriptjobs"),
     ("app.sources.forkjob_core.scrapers.dynamitejobs", "DynamiteJobsScraper", "dynamitejobs"),

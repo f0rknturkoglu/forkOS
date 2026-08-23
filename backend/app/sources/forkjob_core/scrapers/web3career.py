@@ -109,9 +109,7 @@ class Web3CareerScraper(ScraperBase):
         salary = salary_node.text(strip=True) if salary_node else None
 
         work_mode = WorkMode.UNKNOWN
-        if location and "remote" in location.lower():
-            work_mode = WorkMode.REMOTE
-        elif "remote" in (title or "").lower():
+        if location and "remote" in location.lower() or "remote" in (title or "").lower():
             work_mode = WorkMode.REMOTE
 
         return Job.build(

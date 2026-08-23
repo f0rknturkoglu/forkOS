@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..normalize import parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://solid.jobs/public-api/offers/IT"
@@ -111,10 +111,7 @@ class SolidJobsScraper(ScraperBase):
             description_parts.append(f"Salary (secondary): {secondary}")
         skills = entry.get("skills") or []
         if isinstance(skills, list) and skills:
-            names = [
-                s.get("name") if isinstance(s, dict) else str(s)
-                for s in skills
-            ]
+            names = [s.get("name") if isinstance(s, dict) else str(s) for s in skills]
             names = [n for n in names if n]
             if names:
                 description_parts.append("Skills: " + ", ".join(names))

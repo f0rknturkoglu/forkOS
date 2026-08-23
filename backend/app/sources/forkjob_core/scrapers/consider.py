@@ -6,8 +6,8 @@ The board calls::
 
     POST https://jobs.sequoiacap.com/api-boards/search-jobs
 
-with a JSON body ``{"meta":{"size":50},"board":{"id":"sequoia-capital","isParent":true},"query":{},"grouped":true}``
-and returns jobs grouped by company.
+with a JSON body that selects the parent ``sequoia-capital`` board, requests
+50 results and groups jobs by company.
 
 Two fields nothing else in this project carries: ``minYearsExp`` (a number, not
 a prose guess) and a structured salary range (``minValue``/``maxValue``/``currency``).
@@ -122,9 +122,7 @@ class ConsiderScraper(ScraperBase):
             return []
         return [g for g in groups if isinstance(g, dict)]
 
-    def _build_job(
-        self, entry: dict[str, Any], company_info: dict[str, Any]
-    ) -> Job | None:
+    def _build_job(self, entry: dict[str, Any], company_info: dict[str, Any]) -> Job | None:
         title = (entry.get("title") or "").strip()
         url = (entry.get("applyUrl") or entry.get("url") or "").strip()
         if not title or not url:
@@ -226,11 +224,9 @@ class ConsiderScraper(ScraperBase):
         functions = entry.get("jobFunctions")
         if isinstance(functions, list):
             func_labels = [
-                str(f.get("label", f.get("value", "")))
-                for f in functions
-                if isinstance(f, dict)
+                str(f.get("label", f.get("value", ""))) for f in functions if isinstance(f, dict)
             ]
-            func_labels = [l for l in func_labels if l]
+            func_labels = [label for label in func_labels if label]
             if func_labels:
                 description_parts.append(f"Functions: {', '.join(func_labels)}")
 

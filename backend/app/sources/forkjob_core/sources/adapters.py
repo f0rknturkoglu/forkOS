@@ -25,13 +25,13 @@ see.
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any, ClassVar
 
 from ..geo import country_from_name, region_for
 from ..models import Company, DateSource, Job, Layer, WorkMode
 from ..normalize import detect_language, html_to_text, parse_datetime, parse_location
 from .base import ATSAdapter, HttpClient, PermanentError
-
 
 # ---------------------------------------------------------------------------
 # Greenhouse — verified
@@ -276,8 +276,17 @@ def _prepend_metadata(entry: dict[str, Any], description: str | None) -> str | N
 #: has filled its board in wrong. Peak Games' entire board reports its location
 #: as "Full-time"; treating that as a place would invent a country.
 _LEVER_NON_LOCATIONS = {
-    "full-time", "part-time", "fulltime", "parttime", "full time", "part time",
-    "contract", "internship", "temporary", "freelance", "permanent",
+    "full-time",
+    "part-time",
+    "fulltime",
+    "parttime",
+    "full time",
+    "part time",
+    "contract",
+    "internship",
+    "temporary",
+    "freelance",
+    "permanent",
 }
 
 
@@ -285,10 +294,7 @@ def _lever_location(categories: dict[str, Any]) -> str | None:
     """Best location string from a Lever posting, or None if it is junk."""
     candidates = categories.get("allLocations") or []
     if isinstance(candidates, list) and candidates:
-        usable = [
-            str(c) for c in candidates
-            if str(c).strip().lower() not in _LEVER_NON_LOCATIONS
-        ]
+        usable = [str(c) for c in candidates if str(c).strip().lower() not in _LEVER_NON_LOCATIONS]
         if usable:
             return "; ".join(usable)
 
@@ -301,8 +307,9 @@ def _lever_location(categories: dict[str, Any]) -> str | None:
 def _lever_ts(value: Any) -> str | None:
     """Lever timestamps are millisecond epoch integers."""
     if isinstance(value, (int, float)) and value > 0:
-        from datetime import datetime, timezone
-        return datetime.fromtimestamp(value / 1000, tz=timezone.utc).isoformat()
+        from datetime import datetime
+
+        return datetime.fromtimestamp(value / 1000, tz=UTC).isoformat()
     return str(value) if value else None
 
 
@@ -466,9 +473,10 @@ class WorkableAdapter(ATSAdapter):
         if isinstance(loc, dict):
             city = loc.get("city")
             country = loc.get("country")
-            location_name = ", ".join(
-                v for v in (loc.get("city"), loc.get("region"), loc.get("country")) if v
-            ) or None
+            location_name = (
+                ", ".join(v for v in (loc.get("city"), loc.get("region"), loc.get("country")) if v)
+                or None
+            )
         else:
             city = None
             country = None
@@ -600,9 +608,10 @@ class SmartRecruitersAdapter(ATSAdapter):
 
         loc = entry.get("location") or {}
         if isinstance(loc, dict):
-            location_name = ", ".join(
-                v for v in (loc.get("city"), loc.get("region"), loc.get("country")) if v
-            ) or None
+            location_name = (
+                ", ".join(v for v in (loc.get("city"), loc.get("region"), loc.get("country")) if v)
+                or None
+            )
         else:
             location_name = str(loc) if loc else None
 
@@ -1086,9 +1095,13 @@ def _extract_workday_jobs(data: dict[str, Any]) -> list[dict[str, Any]]:
 def _find_job_list(node: Any, depth: int = 0) -> list[dict[str, Any]]:
     if depth > 6 or not isinstance(node, (dict, list)):
         return []
-    if isinstance(node, list) and len(node) > 0 and isinstance(node[0], dict):
-        if any("title" in (item or {}) for item in node if isinstance(item, dict)):
-            return [item for item in node if isinstance(item, dict)]
+    if (
+        isinstance(node, list)
+        and len(node) > 0
+        and isinstance(node[0], dict)
+        and any("title" in (item or {}) for item in node if isinstance(item, dict))
+    ):
+        return [item for item in node if isinstance(item, dict)]
     if isinstance(node, dict):
         for value in node.values():
             result = _find_job_list(value, depth + 1)

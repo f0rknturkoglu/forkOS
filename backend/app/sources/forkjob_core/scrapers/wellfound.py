@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
@@ -110,12 +110,7 @@ class WellfoundScraper(ScraperBase):
         except (json.JSONDecodeError, ValueError) as exc:
             raise ScraperPermanentError(f"wellfound: __NEXT_DATA__ is not JSON: {exc}") from exc
 
-        data = (
-            payload.get("props", {})
-            .get("pageProps", {})
-            .get("apolloState", {})
-            .get("data")
-        )
+        data = payload.get("props", {}).get("pageProps", {}).get("apolloState", {}).get("data")
         if not isinstance(data, dict):
             return []
 
@@ -220,5 +215,5 @@ def _single_country(locations: Any) -> str | None:
 
 def _epoch(value: Any) -> datetime | None:
     if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value, tz=timezone.utc)
+        return datetime.fromtimestamp(value, tz=UTC)
     return None

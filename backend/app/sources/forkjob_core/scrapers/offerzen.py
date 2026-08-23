@@ -1,7 +1,9 @@
 """OfferZen — developer marketplace for Europe / UK."""
 
 from __future__ import annotations
+
 from typing import Any
+
 from ..geo import country_from_name, region_for
 from ..models import DateSource, Job, Layer, Region, WorkMode
 from ..normalize import html_to_text, parse_datetime
@@ -71,14 +73,19 @@ class OfferZenScraper(ScraperBase):
             salary = f"{int(salary_from):,} - {int(salary_to):,} {entry.get('currency', 'EUR')}"
 
         return Job.build(
-            url=url, source=self.source, layer=Layer.B,
-            company=company, title=title,
+            url=url,
+            source=self.source,
+            layer=Layer.B,
+            company=company,
+            title=title,
             external_id=str(entry.get("id")) if entry.get("id") else None,
-            location=location, country=country,
+            location=location,
+            country=country,
             region=region_for(country) if country else Region.EU,
             work_mode=(WorkMode.REMOTE if entry.get("remote") else WorkMode.UNKNOWN),
             remote=True if entry.get("remote") else None,
-            description=description, salary=salary,
+            description=description,
+            salary=salary,
             posted_at=posted_at,
             date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
         )

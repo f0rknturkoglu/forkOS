@@ -7,7 +7,8 @@ Public API, no key. Software and data roles focused.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import contextlib
+from datetime import datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
@@ -63,10 +64,8 @@ class WorkingNomadsScraper(ScraperBase):
         posted_str = entry.get("pub_date") or entry.get("date") or entry.get("published_at")
         posted_at = None
         if isinstance(posted_str, str):
-            try:
+            with contextlib.suppress(ValueError):
                 posted_at = datetime.fromisoformat(posted_str.replace("Z", "+00:00"))
-            except ValueError:
-                pass
 
         return Job.build(
             url=url,

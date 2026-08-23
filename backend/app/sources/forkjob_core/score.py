@@ -26,7 +26,7 @@ from typing import Any
 
 from .config import Config, ScoringConfig
 from .match import Signals, detect
-from .models import DateSource, Job, Region, WorkMode, norm_text
+from .models import Job, Region, WorkMode, norm_text
 
 
 def score_job(job: Job, config: Config) -> None:
@@ -158,9 +158,7 @@ def _apply_seniority(signals: Signals, sc: ScoringConfig, reasons: dict[str, Any
     return -tier.penalty
 
 
-def _apply_visa(
-    job: Job, signals: Signals, sc: ScoringConfig, reasons: dict[str, Any]
-) -> float:
+def _apply_visa(job: Job, signals: Signals, sc: ScoringConfig, reasons: dict[str, Any]) -> float:
     if signals.visa == 0:
         return 0.0
 

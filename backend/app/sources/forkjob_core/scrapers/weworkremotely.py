@@ -145,7 +145,7 @@ class WeWorkRemotelyScraper(ScraperBase):
 
 
 def split_title(raw: str) -> tuple[str, str]:
-    """"Gusto, Inc.: Retirement Specialist" -> ("Gusto, Inc.", "Retirement…").
+    """ "Gusto, Inc.: Retirement Specialist" -> ("Gusto, Inc.", "Retirement…").
 
     Only the first ": " separates them; role titles contain colons too
     ("Engineer: Platform"), so splitting on the last one would take the company

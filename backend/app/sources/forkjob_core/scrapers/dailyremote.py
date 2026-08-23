@@ -19,11 +19,10 @@ Field notes:
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import DateSource, Job, Layer, WorkMode
 from ..normalize import html_to_text, parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import find_type, ld_blocks, organisation_name, text

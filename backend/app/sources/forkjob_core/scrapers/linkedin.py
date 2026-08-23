@@ -7,11 +7,11 @@ import importlib
 import math
 import os
 import re
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from pathlib import Path
-from collections.abc import Callable
-from typing import Any, Mapping, Sequence
+from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from ..linkedin_profiles import LinkedInProfiles
@@ -99,9 +99,7 @@ class LinkedInScraper(ScraperBase):
                             jobs.append(job)
                 succeeded += 1
             except Exception as exc:
-                detail = redact_proxy_secrets(
-                    f"{type(exc).__name__}: {exc}", proxies
-                )
+                detail = redact_proxy_secrets(f"{type(exc).__name__}: {exc}", proxies)
                 errors.append(f"{name}: {detail}")
 
         return ScrapeBatch(
@@ -111,9 +109,7 @@ class LinkedInScraper(ScraperBase):
             succeeded=succeeded,
         )
 
-    def _runner_kwargs(
-        self, profile: Mapping[str, Any], proxies: list[str]
-    ) -> dict[str, Any]:
+    def _runner_kwargs(self, profile: Mapping[str, Any], proxies: list[str]) -> dict[str, Any]:
         term = _text(profile.get("term"))
         if not term:
             raise ValueError("search term is required")
@@ -123,9 +119,7 @@ class LinkedInScraper(ScraperBase):
             "location": _text(profile.get("location")),
             "results_wanted": int(profile.get("results_wanted") or 50),
             "proxies": proxies or None,
-            "linkedin_fetch_description": bool(
-                profile.get("fetch_description", False)
-            ),
+            "linkedin_fetch_description": bool(profile.get("fetch_description", False)),
         }
         for key in ("hours_old", "is_remote"):
             if profile.get(key) is not None:
@@ -169,17 +163,13 @@ def _deduplicate(jobs: Sequence[Job]) -> list[Job]:
     return unique
 
 
-def load_proxies(
-    config: LinkedInConfig, environ: Mapping[str, str]
-) -> list[str]:
+def load_proxies(config: LinkedInConfig, environ: Mapping[str, str]) -> list[str]:
     """Load one proxy per line without ever echoing proxy credentials."""
     configured_path = (environ.get(config.proxy_file_env) or "").strip()
     if not configured_path:
         if config.allow_direct:
             return []
-        raise ScraperPermanentError(
-            f"LinkedIn proxy file is required; set {config.proxy_file_env}"
-        )
+        raise ScraperPermanentError(f"LinkedIn proxy file is required; set {config.proxy_file_env}")
 
     path = Path(configured_path).expanduser()
     if not path.is_file():
@@ -218,19 +208,13 @@ def _validate_proxy(value: str, line_number: int) -> None:
         parsed = urlsplit(candidate)
         port = parsed.port
     except ValueError:
-        raise ScraperPermanentError(
-            f"Invalid LinkedIn proxy on line {line_number}"
-        ) from None
+        raise ScraperPermanentError(f"Invalid LinkedIn proxy on line {line_number}") from None
 
     if parsed.scheme.lower() not in _ALLOWED_PROXY_SCHEMES:
-        raise ScraperPermanentError(
-            f"Unsupported LinkedIn proxy scheme on line {line_number}"
-        )
+        raise ScraperPermanentError(f"Unsupported LinkedIn proxy scheme on line {line_number}")
     host = (parsed.hostname or "").lower()
     if not host or port is None:
-        raise ScraperPermanentError(
-            f"Invalid LinkedIn proxy on line {line_number}"
-        )
+        raise ScraperPermanentError(f"Invalid LinkedIn proxy on line {line_number}")
     if host in _LOCAL_PROXY_HOSTS:
         raise ScraperPermanentError(
             f"LinkedIn proxy host {host} is not allowed (line {line_number})"
@@ -283,14 +267,17 @@ def job_from_row(row: Mapping[str, Any]) -> Job | None:
 
     posted_at = _datetime(row.get("date_posted"))
     external_id = _text(row.get("id")) or _linkedin_id(linkedin_url)
-    department = " | ".join(
-        value
-        for value in (
-            _text(row.get("job_function")),
-            _text(row.get("job_level")),
+    department = (
+        " | ".join(
+            value
+            for value in (
+                _text(row.get("job_function")),
+                _text(row.get("job_level")),
+            )
+            if value
         )
-        if value
-    ) or None
+        or None
+    )
 
     return Job.build(
         url=url,
@@ -349,9 +336,9 @@ def _boolean(value: Any) -> bool | None:
 def _datetime(value: Any) -> datetime | None:
     cleaned = _clean(value)
     if isinstance(cleaned, datetime):
-        return cleaned if cleaned.tzinfo else cleaned.replace(tzinfo=timezone.utc)
+        return cleaned if cleaned.tzinfo else cleaned.replace(tzinfo=UTC)
     if isinstance(cleaned, date):
-        return datetime.combine(cleaned, time.min, tzinfo=timezone.utc)
+        return datetime.combine(cleaned, time.min, tzinfo=UTC)
     if isinstance(cleaned, str):
         return parse_datetime(cleaned)
     return None

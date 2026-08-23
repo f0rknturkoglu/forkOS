@@ -10,7 +10,7 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from selectolax.parser import HTMLParser
 
@@ -26,9 +26,20 @@ _BLANKS_RE = re.compile(r"\n{3,}")
 
 #: Location fragments that mean "not tied to an office".
 _REMOTE_WORDS = {
-    "remote", "remoto", "remota", "en remoto", "teletrabajo", "uzaktan",
-    "anywhere", "distributed", "work from home", "wfh", "home office",
-    "fully remote", "remote first", "remote friendly",
+    "remote",
+    "remoto",
+    "remota",
+    "en remoto",
+    "teletrabajo",
+    "uzaktan",
+    "anywhere",
+    "distributed",
+    "work from home",
+    "wfh",
+    "home office",
+    "fully remote",
+    "remote first",
+    "remote friendly",
 }
 
 _HYBRID_WORDS = {"hybrid", "hibrido", "híbrido", "hibrit", "semipresencial"}
@@ -119,7 +130,7 @@ def parse_datetime(value: str | None) -> datetime | None:
                 continue
         else:
             return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 # --------------------------------------------------------------------------
@@ -243,11 +254,52 @@ def detect_language(text: str | None, *, declared: str | None = None) -> str | N
 
 
 _ES_STOPWORDS = {
-    "de", "la", "el", "en", "y", "los", "las", "para", "con", "por", "que",
-    "una", "un", "del", "al", "se", "su", "como", "más", "mas", "nuestro",
-    "nuestra", "experiencia", "trabajo", "equipo", "empresa",
+    "de",
+    "la",
+    "el",
+    "en",
+    "y",
+    "los",
+    "las",
+    "para",
+    "con",
+    "por",
+    "que",
+    "una",
+    "un",
+    "del",
+    "al",
+    "se",
+    "su",
+    "como",
+    "más",
+    "mas",
+    "nuestro",
+    "nuestra",
+    "experiencia",
+    "trabajo",
+    "equipo",
+    "empresa",
 }
 _EN_STOPWORDS = {
-    "the", "and", "of", "to", "in", "for", "with", "you", "we", "our", "your",
-    "are", "is", "will", "have", "as", "on", "that", "experience", "team",
+    "the",
+    "and",
+    "of",
+    "to",
+    "in",
+    "for",
+    "with",
+    "you",
+    "we",
+    "our",
+    "your",
+    "are",
+    "is",
+    "will",
+    "have",
+    "as",
+    "on",
+    "that",
+    "experience",
+    "team",
 }

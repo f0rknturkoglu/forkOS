@@ -27,14 +27,16 @@ from __future__ import annotations
 
 import html
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import CA_PROVINCE_CODES, US_STATE_CODES, country_from_name, region_for
 from ..models import DateSource, Job, Layer, Region, WorkMode
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
-STORY_URL = "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=12"
+STORY_URL = (
+    "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=12"
+)
 COMMENTS_URL = "https://hn.algolia.com/api/v1/search?tags=comment,story_{story_id}"
 ITEM_URL = "https://news.ycombinator.com/item?id={item_id}"
 
@@ -196,8 +198,11 @@ class HackerNewsScraper(ScraperBase):
             # though neither is a single word, so strip the punctuation and ask
             # whether anything is left that is not a descriptor.
             residue = re.sub(
-                r"[,/&()+]|\bor\b|\band\b", " ",
-                EMPLOYMENT.sub(" ", HYBRID_WORDS.sub(" ", ONSITE_WORDS.sub(" ", REMOTE_WORDS.sub(" ", field)))),
+                r"[,/&()+]|\bor\b|\band\b",
+                " ",
+                EMPLOYMENT.sub(
+                    " ", HYBRID_WORDS.sub(" ", ONSITE_WORDS.sub(" ", REMOTE_WORDS.sub(" ", field)))
+                ),
             ).strip()
             if not residue:
                 continue
@@ -276,5 +281,5 @@ class HackerNewsScraper(ScraperBase):
     @staticmethod
     def _created(value: Any) -> datetime | None:
         if isinstance(value, (int, float)) and value > 1_000_000_000:
-            return datetime.fromtimestamp(value, tz=timezone.utc)
+            return datetime.fromtimestamp(value, tz=UTC)
         return None

@@ -1,7 +1,7 @@
 """BulldogJob (bulldogjob.com) — Polish/CEE tech jobs, often B2B.
 
     POST https://bulldogjob.com/graphql
-    {"query": "query{searchJobs(country:\"PL\",language:en,page:1,perPage:50){totalCount nodes{...}}}"}
+    GraphQL searchJobs query with country PL, English language and 50 results.
 
 Public GraphQL endpoint, verified 2026-08-18: HTTP 200 with an honest UA, no
 auth, no key. robots.txt leaves the listing paths open (only /auth, /account,

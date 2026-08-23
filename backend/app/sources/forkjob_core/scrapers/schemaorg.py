@@ -42,9 +42,7 @@ def find_type(blocks: list[dict[str, Any]], type_name: str) -> dict[str, Any] | 
     """First block whose @type matches (also matches inside a @type list)."""
     for block in blocks:
         declared = block.get("@type")
-        if declared == type_name or (
-            isinstance(declared, list) and type_name in declared
-        ):
+        if declared == type_name or (isinstance(declared, list) and type_name in declared):
             return block
     return None
 
@@ -113,10 +111,7 @@ def place(node: Any) -> tuple[str | None, str | None]:
     country = address.get("addressCountry")
     if isinstance(country, dict):
         country = country.get("name")
-    if isinstance(country, str):
-        country = country.strip().upper()[:2] or None
-    else:
-        country = None
+    country = country.strip().upper()[:2] or None if isinstance(country, str) else None
 
     return (city.strip() if isinstance(city, str) and city.strip() else None), country
 

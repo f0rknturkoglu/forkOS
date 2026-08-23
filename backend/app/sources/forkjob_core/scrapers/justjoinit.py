@@ -8,7 +8,8 @@ work mode, and skill tags.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import contextlib
+from datetime import datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
@@ -34,9 +35,7 @@ class JustJoinItScraper(ScraperBase):
         if isinstance(payload, dict):
             entries = payload.get("data") or payload.get("offers") or []
         if not isinstance(entries, list):
-            raise ScraperPermanentError(
-                f"justjoinit: expected list, got {type(payload).__name__}"
-            )
+            raise ScraperPermanentError(f"justjoinit: expected list, got {type(payload).__name__}")
         jobs: list[Job] = []
         for entry in entries:
             if isinstance(entry, dict):
@@ -58,7 +57,9 @@ class JustJoinItScraper(ScraperBase):
         # Location: city + country, e.g. "Warsaw, Poland"
         city = (entry.get("city") or "").strip()
         country_code = (entry.get("countryCode") or entry.get("country_code") or "").strip().upper()
-        location = f"{city}, {country_code}" if city and country_code else (city or country_code or None)
+        location = (
+            f"{city}, {country_code}" if city and country_code else (city or country_code or None)
+        )
         country = country_code if country_code else country_from_name(location)
 
         # Work mode
@@ -103,10 +104,8 @@ class JustJoinItScraper(ScraperBase):
         posted_str = entry.get("publishedAt") or entry.get("createdAt")
         posted_at = None
         if isinstance(posted_str, str):
-            try:
+            with contextlib.suppress(ValueError):
                 posted_at = datetime.fromisoformat(posted_str.replace("Z", "+00:00"))
-            except ValueError:
-                pass
 
         return Job.build(
             url=url,

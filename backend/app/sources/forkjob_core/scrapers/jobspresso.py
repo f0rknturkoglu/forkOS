@@ -18,7 +18,6 @@ from __future__ import annotations
 import html
 import re
 from email.utils import parsedate_to_datetime
-from typing import Any
 from xml.etree import ElementTree as ET
 
 from ..geo import country_from_name, region_for

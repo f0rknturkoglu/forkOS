@@ -17,28 +17,28 @@ import re
 import unicodedata
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
-class Layer(str, Enum):
+class Layer(StrEnum):
     """Which collection layer produced a record."""
 
     A = "A"  # ATS adapters — public board endpoints
     B = "B"  # Spanish job portal scrapers
 
 
-class DateSource(str, Enum):
+class DateSource(StrEnum):
     """Where `posted_at` came from. Drives the tiered freshness decay.
 
     Never guess this. An adapter that cannot tell a publish date from an edit
     date must say `UPDATED`, and one with no date at all must say `DISCOVERED`.
     """
 
-    EMPLOYER = "employer"      # source gave a real publish date -> full decay
-    UPDATED = "updated"        # only an edit/refresh timestamp -> half decay
+    EMPLOYER = "employer"  # source gave a real publish date -> full decay
+    UPDATED = "updated"  # only an edit/refresh timestamp -> half decay
     DISCOVERED = "discovered"  # no date at all, first_seen stands in -> no decay
 
 
@@ -51,14 +51,14 @@ DATE_SOURCE_MARK = {
 }
 
 
-class WorkMode(str, Enum):
+class WorkMode(StrEnum):
     REMOTE = "remote"
     HYBRID = "hybrid"
     ONSITE = "onsite"
     UNKNOWN = "unknown"
 
 
-class Region(str, Enum):
+class Region(StrEnum):
     TR = "TR"
     EU = "EU"
     #: Layer A boards are global — a Greenhouse board returns US postings too.
@@ -67,7 +67,7 @@ class Region(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     NEW = "new"
     SEEN = "seen"
     SHORTLIST = "shortlist"
@@ -77,7 +77,7 @@ class Status(str, Enum):
     IGNORED = "ignored"
 
 
-class RunStatus(str, Enum):
+class RunStatus(StrEnum):
     OK = "ok"
     ERROR = "error"
     PARTIAL = "partial"
@@ -94,7 +94,7 @@ SWEEPABLE_STATUSES: frozenset[Status] = frozenset({Status.NEW, Status.SEEN})
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def new_cluster_id() -> str:
@@ -108,8 +108,17 @@ def new_cluster_id() -> str:
 #: Tracking params dropped before hashing. Never drop a param that identifies
 #: the posting itself (e.g. Greenhouse `gh_jid`).
 _DROP_PARAMS = {
-    "source", "ref", "referrer", "gh_src", "lever-source",
-    "fbclid", "gclid", "mc_cid", "mc_eid", "trackingid", "trk",
+    "source",
+    "ref",
+    "referrer",
+    "gh_src",
+    "lever-source",
+    "fbclid",
+    "gclid",
+    "mc_cid",
+    "mc_eid",
+    "trackingid",
+    "trk",
 }
 _DROP_PARAM_PREFIXES = ("utm_",)
 
@@ -161,10 +170,37 @@ def make_job_id(url: str) -> str:
 #: Dropped from company names before comparison, so "Trendyol Grup A.Ş." from
 #: a portal and "Trendyol" from its ATS resolve to the same core.
 _LEGAL_SUFFIXES = {
-    "inc", "llc", "ltd", "limited", "gmbh", "bv", "nv", "ab", "as", "oy",
-    "sa", "sl", "slu", "sau", "sas", "spa", "srl", "plc", "corp", "co",
-    "sti", "ltdsti", "anonim", "sirketi", "sirket", "grup", "group",
-    "holding", "technologies", "technology", "tech",
+    "inc",
+    "llc",
+    "ltd",
+    "limited",
+    "gmbh",
+    "bv",
+    "nv",
+    "ab",
+    "as",
+    "oy",
+    "sa",
+    "sl",
+    "slu",
+    "sau",
+    "sas",
+    "spa",
+    "srl",
+    "plc",
+    "corp",
+    "co",
+    "sti",
+    "ltdsti",
+    "anonim",
+    "sirketi",
+    "sirket",
+    "grup",
+    "group",
+    "holding",
+    "technologies",
+    "technology",
+    "tech",
 }
 
 _WS_RE = re.compile(r"\s+")
@@ -352,7 +388,7 @@ class Job:
         if reference is None:
             return None
         if reference.tzinfo is None:
-            reference = reference.replace(tzinfo=timezone.utc)
+            reference = reference.replace(tzinfo=UTC)
         return (utcnow() - reference).days
 
     @property
@@ -435,6 +471,7 @@ class Job:
 # Small conversion helpers
 # --------------------------------------------------------------------------
 
+
 def json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
@@ -453,8 +490,8 @@ def dt_to_str(value: datetime | None) -> str | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat(timespec="seconds")
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat(timespec="seconds")
 
 
 def str_to_dt(value: str | None) -> datetime | None:
@@ -464,4 +501,4 @@ def str_to_dt(value: str | None) -> datetime | None:
         parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)

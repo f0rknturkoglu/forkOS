@@ -28,7 +28,7 @@ Field notes from the live response:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..models import DateSource, Job, Layer, WorkMode
@@ -91,7 +91,7 @@ class ArbeitnowScraper(ScraperBase):
         created = entry.get("created_at")
         posted_at = None
         if isinstance(created, (int, float)) and created > 0:
-            posted_at = datetime.fromtimestamp(created, tz=timezone.utc)
+            posted_at = datetime.fromtimestamp(created, tz=UTC)
 
         tags = [t for t in (entry.get("tags") or []) if isinstance(t, str)]
 

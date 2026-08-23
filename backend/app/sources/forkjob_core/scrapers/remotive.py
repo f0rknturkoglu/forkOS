@@ -7,7 +7,8 @@ No key, no auth, no pagination needed. Returns all active jobs.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import contextlib
+from datetime import datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
@@ -54,10 +55,8 @@ class RemotiveScraper(ScraperBase):
         posted_str = entry.get("publication_date")
         posted_at = None
         if isinstance(posted_str, str):
-            try:
+            with contextlib.suppress(ValueError):
                 posted_at = datetime.fromisoformat(posted_str.replace("Z", "+00:00"))
-            except ValueError:
-                pass
 
         salary = entry.get("salary")
         salary_text = None

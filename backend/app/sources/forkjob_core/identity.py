@@ -15,7 +15,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from enum import Enum
+from enum import StrEnum
 
 from .models import Job, norm_text
 
@@ -25,7 +25,7 @@ from .models import Job, norm_text
 DEFAULT_TITLE_THRESHOLD = 0.90
 
 
-class MatchKind(str, Enum):
+class MatchKind(StrEnum):
     EXTERNAL_ID = "external_id"
     JOB_ID = "job_id"
     CLUSTER_EXACT = "cluster_exact"

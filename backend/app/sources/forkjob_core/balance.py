@@ -125,7 +125,9 @@ def balance(
     # order they are read in. Without this a 4-posting TR bucket puts an
     # 18-point sales role above a 60-point engineering one purely because the
     # round-robin reached it first.
-    selected.sort(key=lambda pair: (pair[0].score if pair[0].score is not None else -999), reverse=True)
+    selected.sort(
+        key=lambda pair: pair[0].score if pair[0].score is not None else -999, reverse=True
+    )
     return selected
 
 
@@ -181,8 +183,11 @@ def allocate_slots(
     # 3. hand leftovers to whoever still has supply, quota buckets first
     if remaining > 0:
         quota_first = sorted(
-            _ordered(supply), key=lambda n: (n not in config.quotas, BUCKET_ORDER.index(n)
-                                             if n in BUCKET_ORDER else 99)
+            _ordered(supply),
+            key=lambda n: (
+                n not in config.quotas,
+                BUCKET_ORDER.index(n) if n in BUCKET_ORDER else 99,
+            ),
         )
         for name in quota_first:
             if remaining <= 0:

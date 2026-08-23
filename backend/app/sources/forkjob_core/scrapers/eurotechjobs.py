@@ -159,7 +159,7 @@ def _text(card: Node, selector: str) -> str | None:
 
 
 def _country(location: Any) -> str | None:
-    """"Barcelona, Spain" -> ES. The country is the last comma-separated part."""
+    """ "Barcelona, Spain" -> ES. The country is the last comma-separated part."""
     if not isinstance(location, str) or not location.strip():
         return None
     return country_from_name(location.split(",")[-1].strip())
@@ -172,7 +172,7 @@ def _city(location: Any) -> str | None:
 
 
 def _relative_date(value: Any) -> Any:
-    """"Posted 10 days ago" -> a timestamp. Returns None when unparseable."""
+    """ "Posted 10 days ago" -> a timestamp. Returns None when unparseable."""
     if not isinstance(value, str):
         return None
     match = _AGE_RE.search(value)

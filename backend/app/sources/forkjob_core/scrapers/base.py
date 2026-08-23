@@ -16,12 +16,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import sys
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass
+from enum import StrEnum
 from hashlib import sha1
 from pathlib import Path
 from typing import Any
@@ -31,7 +30,7 @@ from urllib.robotparser import RobotFileParser
 import httpx
 from selectolax.parser import HTMLParser
 
-from ..models import Job, Layer
+from ..models import Job
 
 CACHE_DIR = Path("data/cache")
 USER_AGENT = "forkjob/0.1 (personal job search bot; +https://github.com/f0rkjob)"
@@ -59,16 +58,16 @@ class ScraperPermanentError(ScraperError):
 # ---------------------------------------------------------------------------
 
 
-class RobotsPolicy(str, Enum):
-    RESPECT = "respect"    # check robots.txt, obey disallow
-    IGNORE = "ignore"      # skip the check entirely
-    WARN = "warn"          # check but only log disallowed paths
+class RobotsPolicy(StrEnum):
+    RESPECT = "respect"  # check robots.txt, obey disallow
+    IGNORE = "ignore"  # skip the check entirely
+    WARN = "warn"  # check but only log disallowed paths
 
 
-class CacheMode(str, Enum):
-    OFF = "off"            # never cache
-    WRITE = "write"        # cache every fresh response
-    READ = "read"          # replay from cache, never hit the network
+class CacheMode(StrEnum):
+    OFF = "off"  # never cache
+    WRITE = "write"  # cache every fresh response
+    READ = "read"  # replay from cache, never hit the network
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +204,7 @@ class ScraperHttpClient:
                     raise last_error
 
             if attempt < self.config.max_retries - 1:
-                await asyncio.sleep(self.config.backoff_base * (2 ** attempt))
+                await asyncio.sleep(self.config.backoff_base * (2**attempt))
 
         raise last_error or ScraperTransientError("request failed")
 
@@ -365,9 +364,7 @@ class ScraperBase(ABC):
     async def scrape(self, client: ScraperHttpClient) -> list[Job] | ScrapeBatch:
         """Fetch and parse all available jobs. Pure — no side effects."""
 
-    async def collect(
-        self, client: ScraperHttpClient | None = None
-    ) -> list[Job] | ScrapeBatch:
+    async def collect(self, client: ScraperHttpClient | None = None) -> list[Job] | ScrapeBatch:
         """Convenience wrapper that creates a client if one is not provided."""
         if client is not None:
             return await self.scrape(client)

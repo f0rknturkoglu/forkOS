@@ -21,11 +21,38 @@ from .models import Region, norm_text
 #: visa difference is handled by the scoring signals, not by the bucket.
 EU_COUNTRIES = frozenset(
     {
-        "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR",
-        "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK",
-        "SI", "ES", "SE",           # EU27
-        "IS", "LI", "NO", "CH",     # EEA + Switzerland
-        "GB",                       # UK
+        "AT",
+        "BE",
+        "BG",
+        "HR",
+        "CY",
+        "CZ",
+        "DK",
+        "EE",
+        "FI",
+        "FR",
+        "DE",
+        "GR",
+        "HU",
+        "IE",
+        "IT",
+        "LV",
+        "LT",
+        "LU",
+        "MT",
+        "NL",
+        "PL",
+        "PT",
+        "RO",
+        "SK",
+        "SI",
+        "ES",
+        "SE",  # EU27
+        "IS",
+        "LI",
+        "NO",
+        "CH",  # EEA + Switzerland
+        "GB",  # UK
     }
 )
 
@@ -119,28 +146,138 @@ def _cities(code: str, *names: str) -> None:
         CITY_TO_COUNTRY[norm_text(name)] = code
 
 
-_cities("ES", "Madrid", "Barcelona", "Valencia", "Sevilla", "Seville", "Bilbao",
-        "Zaragoza", "Málaga", "Malaga", "Murcia", "Palma", "Las Palmas",
-        "Alicante", "Valladolid", "Vigo", "Gijón", "A Coruña", "La Coruña",
-        "Granada", "Pamplona", "San Sebastián", "Santander", "Salamanca")
-_cities("TR", "Ankara", "İstanbul", "Istanbul", "İzmir", "Izmir", "Bursa",
-        "Antalya", "Adana", "Konya", "Gaziantep", "Kocaeli", "Eskişehir",
-        "Eskisehir", "Kayseri", "Karabük", "Karabuk")
-_cities("SE", "Stockholm", "Gothenburg", "Göteborg", "Malmö", "Malmo",
-        "Uppsala", "Linköping", "Lund", "Västerås")
-_cities("NL", "Amsterdam", "Rotterdam", "The Hague", "Den Haag", "Utrecht",
-        "Eindhoven", "Delft", "Groningen")
-_cities("DE", "Berlin", "Munich", "München", "Hamburg", "Frankfurt", "Cologne",
-        "Köln", "Stuttgart", "Düsseldorf", "Dusseldorf", "Leipzig", "Dresden",
-        "Karlsruhe", "Nuremberg", "Nürnberg")
+_cities(
+    "ES",
+    "Madrid",
+    "Barcelona",
+    "Valencia",
+    "Sevilla",
+    "Seville",
+    "Bilbao",
+    "Zaragoza",
+    "Málaga",
+    "Malaga",
+    "Murcia",
+    "Palma",
+    "Las Palmas",
+    "Alicante",
+    "Valladolid",
+    "Vigo",
+    "Gijón",
+    "A Coruña",
+    "La Coruña",
+    "Granada",
+    "Pamplona",
+    "San Sebastián",
+    "Santander",
+    "Salamanca",
+)
+_cities(
+    "TR",
+    "Ankara",
+    "İstanbul",
+    "Istanbul",
+    "İzmir",
+    "Izmir",
+    "Bursa",
+    "Antalya",
+    "Adana",
+    "Konya",
+    "Gaziantep",
+    "Kocaeli",
+    "Eskişehir",
+    "Eskisehir",
+    "Kayseri",
+    "Karabük",
+    "Karabuk",
+)
+_cities(
+    "SE",
+    "Stockholm",
+    "Gothenburg",
+    "Göteborg",
+    "Malmö",
+    "Malmo",
+    "Uppsala",
+    "Linköping",
+    "Lund",
+    "Västerås",
+)
+_cities(
+    "NL",
+    "Amsterdam",
+    "Rotterdam",
+    "The Hague",
+    "Den Haag",
+    "Utrecht",
+    "Eindhoven",
+    "Delft",
+    "Groningen",
+)
+_cities(
+    "DE",
+    "Berlin",
+    "Munich",
+    "München",
+    "Hamburg",
+    "Frankfurt",
+    "Cologne",
+    "Köln",
+    "Stuttgart",
+    "Düsseldorf",
+    "Dusseldorf",
+    "Leipzig",
+    "Dresden",
+    "Karlsruhe",
+    "Nuremberg",
+    "Nürnberg",
+)
 _cities("PT", "Lisbon", "Lisboa", "Porto", "Braga", "Coimbra", "Aveiro")
 _cities("IE", "Dublin", "Cork", "Galway", "Limerick")
-_cities("PL", "Warsaw", "Warszawa", "Kraków", "Krakow", "Wrocław", "Wroclaw",
-        "Poznań", "Poznan", "Gdańsk", "Gdansk", "Łódź", "Lodz", "Katowice")
-_cities("FR", "Paris", "Lyon", "Toulouse", "Marseille", "Bordeaux", "Lille",
-        "Nantes", "Nice", "Montpellier", "Grenoble", "Sophia Antipolis")
-_cities("IT", "Milan", "Milano", "Rome", "Roma", "Turin", "Torino", "Bologna",
-        "Naples", "Napoli", "Florence", "Firenze")
+_cities(
+    "PL",
+    "Warsaw",
+    "Warszawa",
+    "Kraków",
+    "Krakow",
+    "Wrocław",
+    "Wroclaw",
+    "Poznań",
+    "Poznan",
+    "Gdańsk",
+    "Gdansk",
+    "Łódź",
+    "Lodz",
+    "Katowice",
+)
+_cities(
+    "FR",
+    "Paris",
+    "Lyon",
+    "Toulouse",
+    "Marseille",
+    "Bordeaux",
+    "Lille",
+    "Nantes",
+    "Nice",
+    "Montpellier",
+    "Grenoble",
+    "Sophia Antipolis",
+)
+_cities(
+    "IT",
+    "Milan",
+    "Milano",
+    "Rome",
+    "Roma",
+    "Turin",
+    "Torino",
+    "Bologna",
+    "Naples",
+    "Napoli",
+    "Florence",
+    "Firenze",
+)
 _cities("BE", "Brussels", "Bruxelles", "Antwerp", "Antwerpen", "Ghent", "Gent", "Leuven")
 _cities("AT", "Vienna", "Wien", "Graz", "Linz", "Salzburg")
 _cities("DK", "Copenhagen", "København", "Aarhus", "Odense")
@@ -162,23 +299,106 @@ _cities("LU", "Luxembourg City")
 _cities("MT", "Valletta", "Sliema")
 _cities("CY", "Nicosia", "Limassol")
 _cities("IS", "Reykjavik", "Reykjavík")
-_cities("GB", "London", "Manchester", "Edinburgh", "Bristol", "Cambridge",
-        "Birmingham", "Leeds", "Glasgow", "Oxford", "Belfast", "Sheffield",
-        "Newcastle", "Nottingham", "Reading", "Brighton")
-_cities("US", "New York", "NYC", "San Francisco", "Seattle", "Austin", "Boston",
-        "Chicago", "Los Angeles", "Denver", "Atlanta", "Portland", "Miami",
-        "San Diego", "Dallas", "Houston", "Washington DC", "Washington, DC",
-        "Philadelphia", "Phoenix", "Minneapolis", "Detroit", "Pittsburgh",
-        "Salt Lake City", "Arlington", "San Jose", "Palo Alto", "Mountain View",
-        "Sunnyvale", "Santa Clara", "Menlo Park", "Cupertino", "Redmond",
-        "Bellevue", "Raleigh", "Durham", "Charlotte", "Nashville", "Columbus")
-_cities("CA", "Toronto", "Vancouver", "Montreal", "Montréal", "Ottawa",
-        "Calgary", "Edmonton", "Waterloo", "Quebec City")
-_cities("IN", "Bangalore", "Bengaluru", "Mumbai", "Delhi", "New Delhi",
-        "Hyderabad", "Chennai", "Pune", "Gurgaon", "Gurugram", "Noida",
-        "Kolkata", "Ahmedabad", "Jaipur")
-_cities("BR", "São Paulo", "Sao Paulo", "Rio de Janeiro", "Belo Horizonte",
-        "Porto Alegre", "Curitiba", "Brasília", "Recife", "Florianópolis")
+_cities(
+    "GB",
+    "London",
+    "Manchester",
+    "Edinburgh",
+    "Bristol",
+    "Cambridge",
+    "Birmingham",
+    "Leeds",
+    "Glasgow",
+    "Oxford",
+    "Belfast",
+    "Sheffield",
+    "Newcastle",
+    "Nottingham",
+    "Reading",
+    "Brighton",
+)
+_cities(
+    "US",
+    "New York",
+    "NYC",
+    "San Francisco",
+    "Seattle",
+    "Austin",
+    "Boston",
+    "Chicago",
+    "Los Angeles",
+    "Denver",
+    "Atlanta",
+    "Portland",
+    "Miami",
+    "San Diego",
+    "Dallas",
+    "Houston",
+    "Washington DC",
+    "Washington, DC",
+    "Philadelphia",
+    "Phoenix",
+    "Minneapolis",
+    "Detroit",
+    "Pittsburgh",
+    "Salt Lake City",
+    "Arlington",
+    "San Jose",
+    "Palo Alto",
+    "Mountain View",
+    "Sunnyvale",
+    "Santa Clara",
+    "Menlo Park",
+    "Cupertino",
+    "Redmond",
+    "Bellevue",
+    "Raleigh",
+    "Durham",
+    "Charlotte",
+    "Nashville",
+    "Columbus",
+)
+_cities(
+    "CA",
+    "Toronto",
+    "Vancouver",
+    "Montreal",
+    "Montréal",
+    "Ottawa",
+    "Calgary",
+    "Edmonton",
+    "Waterloo",
+    "Quebec City",
+)
+_cities(
+    "IN",
+    "Bangalore",
+    "Bengaluru",
+    "Mumbai",
+    "Delhi",
+    "New Delhi",
+    "Hyderabad",
+    "Chennai",
+    "Pune",
+    "Gurgaon",
+    "Gurugram",
+    "Noida",
+    "Kolkata",
+    "Ahmedabad",
+    "Jaipur",
+)
+_cities(
+    "BR",
+    "São Paulo",
+    "Sao Paulo",
+    "Rio de Janeiro",
+    "Belo Horizonte",
+    "Porto Alegre",
+    "Curitiba",
+    "Brasília",
+    "Recife",
+    "Florianópolis",
+)
 _cities("AR", "Buenos Aires", "Córdoba", "Rosario", "Mendoza")
 _cities("CL", "Santiago", "Santiago de Chile", "Valparaíso")
 _cities("CO", "Bogotá", "Bogota", "Medellín", "Medellin", "Cali", "Barranquilla")
@@ -216,13 +436,65 @@ _cities("GE", "Tbilisi")
 
 #: "Arlington, VA" and "San Francisco, CA" are US without naming the country.
 US_STATE_CODES = frozenset(
-    """AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS
-    MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI
-    WY DC""".split()
+    [
+        "AL",
+        "AK",
+        "AZ",
+        "AR",
+        "CA",
+        "CO",
+        "CT",
+        "DE",
+        "FL",
+        "GA",
+        "HI",
+        "ID",
+        "IL",
+        "IN",
+        "IA",
+        "KS",
+        "KY",
+        "LA",
+        "ME",
+        "MD",
+        "MA",
+        "MI",
+        "MN",
+        "MS",
+        "MO",
+        "MT",
+        "NE",
+        "NV",
+        "NH",
+        "NJ",
+        "NM",
+        "NY",
+        "NC",
+        "ND",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VT",
+        "VA",
+        "WA",
+        "WV",
+        "WI",
+        "WY",
+        "DC",
+    ]
 )
 
 #: Canadian provinces, same problem: "Toronto, ON".
-CA_PROVINCE_CODES = frozenset("AB BC MB NB NL NS NT NU ON PE QC SK YT".split())
+CA_PROVINCE_CODES = frozenset(
+    ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]
+)
 
 
 def country_from_name(text: str | None) -> str | None:

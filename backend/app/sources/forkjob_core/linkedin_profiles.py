@@ -105,9 +105,7 @@ class LinkedInProfiles:
         if not isinstance(entries, list):
             return cls([], path)
 
-        profiles = [
-            LinkedInProfile.from_dict(e) for e in entries if isinstance(e, dict)
-        ]
+        profiles = [LinkedInProfile.from_dict(e) for e in entries if isinstance(e, dict)]
         return cls(profiles, path)
 
     def save(self) -> None:
@@ -152,9 +150,7 @@ class LinkedInProfiles:
 
     # -- merge ---------------------------------------------------------------
 
-    def merge_with_defaults(
-        self, defaults: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def merge_with_defaults(self, defaults: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Return default profiles followed by user profiles as dicts.
 
         Default profiles from portals.yaml come first so their names are

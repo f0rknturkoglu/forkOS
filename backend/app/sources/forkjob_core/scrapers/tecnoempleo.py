@@ -114,9 +114,7 @@ class TecnoempleoScraper(ScraperBase):
             return None
         return self.build_job(posting, html, url, title)
 
-    def build_job(
-        self, posting: dict[str, Any], html: str, url: str, title: str
-    ) -> Job:
+    def build_job(self, posting: dict[str, Any], html: str, url: str, title: str) -> Job:
         city, country = place(posting.get("jobLocation"))
         # Spain-only portal; a posting without an addressCountry is ES.
         country = country or "ES"
@@ -127,9 +125,7 @@ class TecnoempleoScraper(ScraperBase):
         date_source = DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED
 
         detail = _detail_map(html)
-        location = detail.get("Ubicación") or ", ".join(
-            p for p in (city, country) if p
-        ) or None
+        location = detail.get("Ubicación") or ", ".join(p for p in (city, country) if p) or None
         work_mode = _work_mode(posting, title, url, detail)
 
         description = _compose_description(posting, html, detail)
@@ -252,9 +248,7 @@ def _detail_map(html: str) -> dict[str, str]:
     return result
 
 
-def _work_mode(
-    posting: dict[str, Any], title: str, url: str, detail: dict[str, str]
-) -> WorkMode:
+def _work_mode(posting: dict[str, Any], title: str, url: str, detail: dict[str, str]) -> WorkMode:
     """Remote/hybrid/onsite from the strongest signal available.
 
     Order matters: the posting's own statement first, then the detail box's
@@ -284,9 +278,7 @@ def _work_mode(
     return WorkMode.UNKNOWN
 
 
-def _compose_description(
-    posting: dict[str, Any], html: str, detail: dict[str, str]
-) -> str | None:
+def _compose_description(posting: dict[str, Any], html: str, detail: dict[str, str]) -> str | None:
     """ld+json description plus the detail-box facts the scorer reads."""
     parts = [html_to_text(posting.get("description"))]
     facts: list[str] = []

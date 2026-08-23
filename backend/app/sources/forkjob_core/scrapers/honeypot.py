@@ -1,7 +1,9 @@
 """Honeypot.io — reverse recruiting for DE/NL/AT tech jobs."""
 
 from __future__ import annotations
+
 from typing import Any
+
 from ..geo import country_from_name, region_for
 from ..models import DateSource, Job, Layer, Region, WorkMode
 from ..normalize import html_to_text, parse_datetime
@@ -70,10 +72,14 @@ class HoneypotScraper(ScraperBase):
 
         posted_at = parse_datetime(entry.get("published_at") or entry.get("created_at"))
         return Job.build(
-            url=url, source=self.source, layer=Layer.B,
-            company=company, title=title,
+            url=url,
+            source=self.source,
+            layer=Layer.B,
+            company=company,
+            title=title,
             external_id=str(entry.get("id")) if entry.get("id") else None,
-            location=location, country=country,
+            location=location,
+            country=country,
             region=region_for(country) if country else Region.EU,
             work_mode=(WorkMode.REMOTE if entry.get("remote") else WorkMode.UNKNOWN),
             remote=True if entry.get("remote") else None,

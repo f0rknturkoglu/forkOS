@@ -10,7 +10,8 @@ remote ratio, and tech stack tags explicitly per posting.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import contextlib
+from datetime import datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
@@ -54,9 +55,7 @@ class DevITJobsScraper(ScraperBase):
         if isinstance(payload, dict):
             entries = payload.get("jobs") or payload.get("data") or []
         if not isinstance(entries, list):
-            raise ScraperPermanentError(
-                f"devitjobs: expected list, got {type(payload).__name__}"
-            )
+            raise ScraperPermanentError(f"devitjobs: expected list, got {type(payload).__name__}")
         jobs: list[Job] = []
         for entry in entries:
             if isinstance(entry, dict):
@@ -90,10 +89,11 @@ class DevITJobsScraper(ScraperBase):
 
         # Remote
         remote_ratio = entry.get("remoteRatio") or entry.get("remote")
-        if isinstance(remote_ratio, (int, float)) and remote_ratio >= 80:
-            work_mode = WorkMode.REMOTE
-            remote = True
-        elif entry.get("remote") is True:
+        if (
+            isinstance(remote_ratio, (int, float))
+            and remote_ratio >= 80
+            or entry.get("remote") is True
+        ):
             work_mode = WorkMode.REMOTE
             remote = True
         else:
@@ -111,10 +111,8 @@ class DevITJobsScraper(ScraperBase):
         posted_str = entry.get("publishedAt") or entry.get("createdAt") or entry.get("date")
         posted_at = None
         if isinstance(posted_str, str):
-            try:
+            with contextlib.suppress(ValueError):
                 posted_at = datetime.fromisoformat(posted_str.replace("Z", "+00:00"))
-            except ValueError:
-                pass
 
         return Job.build(
             url=url,

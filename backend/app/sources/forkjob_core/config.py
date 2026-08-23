@@ -229,44 +229,130 @@ DEFAULT_SKILLS: list[SkillWeight] = [
 #: "systems" or "development" were tried and pulled in "Cloud Billing
 #: Associate" and "Business Development Representative" — a field is not a job.
 DEFAULT_ROLE_TERMS: list[str] = [
-    "software", "engineer", "engineering", "developer", "programmer",
-    "backend", "back-end", "frontend", "front-end",
-    "full stack", "fullstack", "full-stack",
-    "sde", "swe", "devops", "sre", "data engineer", "ml engineer",
-    "machine learning engineer", "ai engineer", "test engineer", "qa engineer",
-    "web developer", "computer science",
-    "yazılım", "geliştirici", "mühendis",
-    "desarrollador", "programador", "ingeniero",
+    "software",
+    "engineer",
+    "engineering",
+    "developer",
+    "programmer",
+    "backend",
+    "back-end",
+    "frontend",
+    "front-end",
+    "full stack",
+    "fullstack",
+    "full-stack",
+    "sde",
+    "swe",
+    "devops",
+    "sre",
+    "data engineer",
+    "ml engineer",
+    "machine learning engineer",
+    "ai engineer",
+    "test engineer",
+    "qa engineer",
+    "web developer",
+    "computer science",
+    "yazılım",
+    "geliştirici",
+    "mühendis",
+    "desarrollador",
+    "programador",
+    "ingeniero",
 ]
 
 DEFAULT_LEVEL_WORDS: list[str] = [
-    "junior", "jr.", "jr", "entry level", "entry-level", "graduate",
-    "new grad", "new graduate", "recent graduate", "associate", "trainee",
-    "intern", "internship", "becario", "becaria", "prácticas", "practicas",
-    "early career", "stajyer", "işe yeni başlayan",
+    "junior",
+    "jr.",
+    "jr",
+    "entry level",
+    "entry-level",
+    "graduate",
+    "new grad",
+    "new graduate",
+    "recent graduate",
+    "associate",
+    "trainee",
+    "intern",
+    "internship",
+    "becario",
+    "becaria",
+    "prácticas",
+    "practicas",
+    "early career",
+    "stajyer",
+    "işe yeni başlayan",
 ]
 
 #: Ordered most senior first — the first tier whose word appears wins.
 DEFAULT_SENIORITY_TIERS: list[SeniorityTier] = [
-    SeniorityTier("executive", 45.0, [
-        "head of", "director", "vp ", "vice president", "chief", "cto", "cio",
-        "founding engineer", "general manager",
-    ]),
-    SeniorityTier("principal", 40.0, [
-        "principal", "distinguished", "fellow", "architect", "staff engineer",
-        "staff software", "staff data", "staff platform",
-    ]),
-    SeniorityTier("lead", 32.0, [
-        "lead", "tech lead", "team lead", "technical lead", "manager",
-        "engineering manager", "supervisor", "takım lideri",
-    ]),
-    SeniorityTier("senior", 25.0, [
-        "senior", "sr.", "sr ", "expert", "specialist iii", "iii", "iv",
-        "kıdemli",
-    ]),
-    SeniorityTier("mid", 8.0, [
-        "mid-level", "mid level", "intermediate", "ii",
-    ]),
+    SeniorityTier(
+        "executive",
+        45.0,
+        [
+            "head of",
+            "director",
+            "vp ",
+            "vice president",
+            "chief",
+            "cto",
+            "cio",
+            "founding engineer",
+            "general manager",
+        ],
+    ),
+    SeniorityTier(
+        "principal",
+        40.0,
+        [
+            "principal",
+            "distinguished",
+            "fellow",
+            "architect",
+            "staff engineer",
+            "staff software",
+            "staff data",
+            "staff platform",
+        ],
+    ),
+    SeniorityTier(
+        "lead",
+        32.0,
+        [
+            "lead",
+            "tech lead",
+            "team lead",
+            "technical lead",
+            "manager",
+            "engineering manager",
+            "supervisor",
+            "takım lideri",
+        ],
+    ),
+    SeniorityTier(
+        "senior",
+        25.0,
+        [
+            "senior",
+            "sr.",
+            "sr ",
+            "expert",
+            "specialist iii",
+            "iii",
+            "iv",
+            "kıdemli",
+        ],
+    ),
+    SeniorityTier(
+        "mid",
+        8.0,
+        [
+            "mid-level",
+            "mid level",
+            "intermediate",
+            "ii",
+        ],
+    ),
 ]
 
 #: I have no professional experience, so anything above a token requirement is
@@ -282,12 +368,27 @@ DEFAULT_EXPERIENCE_BANDS: list[ExperienceBand] = [
 #: Whole professions I am not applying for, plus hard legal blockers. A match
 #: sets the score to kill_score and hides the posting from the default view.
 DEFAULT_KILL_WORDS: list[str] = [
-    "account executive", "sales representative", "sales manager",
-    "business development", "recruiter", "talent acquisition",
-    "accountant", "bookkeeper", "physician", "nurse", "attorney",
-    "paralegal", "truck driver", "warehouse", "barista", "chef",
-    "security clearance", "top secret", "us citizenship required",
-    "must be a us citizen", "polygraph",
+    "account executive",
+    "sales representative",
+    "sales manager",
+    "business development",
+    "recruiter",
+    "talent acquisition",
+    "accountant",
+    "bookkeeper",
+    "physician",
+    "nurse",
+    "attorney",
+    "paralegal",
+    "truck driver",
+    "warehouse",
+    "barista",
+    "chef",
+    "security clearance",
+    "top secret",
+    "us citizenship required",
+    "must be a us citizen",
+    "polygraph",
 ]
 
 
@@ -328,12 +429,23 @@ def _load_scoring(raw: dict[str, Any]) -> ScoringConfig:
     sc = default_scoring()
 
     for key in (
-        "base", "skill_max", "skill_title_multiplier", "level_bonus",
-        "level_description_factor", "visa_bonus", "visa_penalty",
-        "spanish_requirement_penalty", "english_working_bonus",
-        "role_mismatch_penalty", "role_description_relief",
-        "tr_relocation_penalty", "freshness_penalty_per_day",
-        "freshness_max_penalty", "kill_score", "score_cap", "score_floor",
+        "base",
+        "skill_max",
+        "skill_title_multiplier",
+        "level_bonus",
+        "level_description_factor",
+        "visa_bonus",
+        "visa_penalty",
+        "spanish_requirement_penalty",
+        "english_working_bonus",
+        "role_mismatch_penalty",
+        "role_description_relief",
+        "tr_relocation_penalty",
+        "freshness_penalty_per_day",
+        "freshness_max_penalty",
+        "kill_score",
+        "score_cap",
+        "score_floor",
     ):
         if key in raw:
             setattr(sc, key, float(raw[key]))
@@ -346,9 +458,7 @@ def _load_scoring(raw: dict[str, Any]) -> ScoringConfig:
         sc.seniority_title_only = bool(raw["seniority_title_only"])
 
     if isinstance(raw.get("freshness_factors"), dict):
-        sc.freshness_factors = {
-            str(k): float(v) for k, v in raw["freshness_factors"].items()
-        }
+        sc.freshness_factors = {str(k): float(v) for k, v in raw["freshness_factors"].items()}
 
     if raw.get("skills") is not None:
         sc.skills = [
@@ -431,8 +541,7 @@ def save_config(config: Config, path: Path | str | None = None) -> None:
         "scoring": {
             "base": sc.base,
             "skills": [
-                {"name": s.name, "points": s.points, "aliases": s.aliases}
-                for s in sc.skills
+                {"name": s.name, "points": s.points, "aliases": s.aliases} for s in sc.skills
             ],
             "skill_max": sc.skill_max,
             "skill_title_multiplier": sc.skill_title_multiplier,

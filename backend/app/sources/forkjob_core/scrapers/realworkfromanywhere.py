@@ -22,10 +22,9 @@ from __future__ import annotations
 
 import re
 from email.utils import parsedate_to_datetime
-from typing import Any
 from xml.etree import ElementTree as ET
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import DateSource, Job, Layer, WorkMode
 from ..normalize import html_to_text
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
@@ -133,9 +132,7 @@ def _company(description: str) -> str | None:
 
 def _salary(description: str) -> str | None:
     """Find a "$190,000 - $220,000 USD" style band in the prose."""
-    match = re.search(
-        r"(\$[\d,]{4,})\s*(?:-|to|–)\s*(\$[\d,]{4,})\s*([A-Z]{3})?", description
-    )
+    match = re.search(r"(\$[\d,]{4,})\s*(?:-|to|–)\s*(\$[\d,]{4,})\s*([A-Z]{3})?", description)
     if not match:
         return None
     parts = [match.group(1), "-", match.group(2)]

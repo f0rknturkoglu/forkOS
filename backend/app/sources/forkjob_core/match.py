@@ -36,7 +36,7 @@ class Signals:
     level_in_title: bool = False
     seniority: SeniorityTier | None = None
     seniority_word: str | None = None
-    visa: int = 0                      # +1 sponsors, -1 refuses, 0 silent
+    visa: int = 0  # +1 sponsors, -1 refuses, 0 silent
     visa_phrase: str | None = None
     spanish_required: bool = False
     english_working: bool = False
@@ -57,7 +57,7 @@ def detect(job: Job, sc: ScoringConfig) -> Signals:
     """Run every rule over one posting."""
     title = (job.title or "").lower()
     title_norm = norm_text(job.title)
-    description = (job.description or "")
+    description = job.description or ""
     desc_lower = description.lower()
     # Skills and level words cluster near the top, and scanning further mostly
     # picks up boilerplate about the company's other roles.
@@ -153,9 +153,7 @@ def _mentions(haystack: str, term: str) -> bool:
     if not term or not haystack:
         return False
     if term[0].isalnum() and term[-1].isalnum():
-        return re.search(
-            rf"(?<![a-z0-9]){re.escape(term)}s?(?![a-z0-9])", haystack
-        ) is not None
+        return re.search(rf"(?<![a-z0-9]){re.escape(term)}s?(?![a-z0-9])", haystack) is not None
     return term in haystack
 
 
@@ -419,11 +417,14 @@ def _find_payment_rails(haystack: str) -> list[str]:
     and "eor" appears in many German compound words.
     """
     rails = [name for name, pattern in _RAILS if pattern.search(haystack)]
-    if "eor" in rails and _is_dutch_or_german(haystack):
-        # The EOR regex fires on Dutch "deel" (part) and German words
-        # containing "eor". Verify it's a real EOR mention.
-        if not _has_real_eor(haystack):
-            rails.remove("eor")
+    # The EOR regex fires on Dutch "deel" (part) and German words containing
+    # "eor". Verify it's a real EOR mention.
+    if (
+        "eor" in rails
+        and _is_dutch_or_german(haystack)
+        and not _has_real_eor(haystack)
+    ):
+        rails.remove("eor")
     return rails
 
 

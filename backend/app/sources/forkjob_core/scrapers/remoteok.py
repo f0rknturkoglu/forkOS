@@ -27,7 +27,7 @@ Field notes:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
@@ -50,9 +50,7 @@ class RemoteOkScraper(ScraperBase):
     def parse(self, payload: Any) -> list[Job]:
         """Pure: API payload in, Jobs out."""
         if not isinstance(payload, list):
-            raise ScraperPermanentError(
-                f"remoteok: expected a list, got {type(payload).__name__}"
-            )
+            raise ScraperPermanentError(f"remoteok: expected a list, got {type(payload).__name__}")
         jobs: list[Job] = []
         for entry in payload:
             if not isinstance(entry, dict) or "legal" in entry:
@@ -110,5 +108,5 @@ def _salary(entry: dict[str, Any]) -> str | None:
 
 def _epoch(value: Any) -> datetime | None:
     if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value, tz=timezone.utc)
+        return datetime.fromtimestamp(value, tz=UTC)
     return None

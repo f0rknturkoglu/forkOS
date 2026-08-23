@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import html as html_lib
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import region_for
@@ -101,16 +101,32 @@ EXPERIENCE_CODES = {
 
 #: `educationAndQualificationLevelCodes`.
 EDUCATION_CODES = {
-    "basic", "medium", "tertiary", "bachelor", "master", "doctoral",
-    "not_classified", "NS",
+    "basic",
+    "medium",
+    "tertiary",
+    "bachelor",
+    "master",
+    "doctoral",
+    "not_classified",
+    "NS",
 }
 
 #: `positionOfferingCodes` — contract type. `internship` and `apprenticeship`
 #: are the entry-level ones.
 OFFERING_CODES = {
-    "internship", "apprenticeship", "contract", "directhire", "temporary",
-    "temporarytohire", "contracttohire", "seasonal", "selfemployed",
-    "volunteer", "oncall", "recruitmentreserve", "NS",
+    "internship",
+    "apprenticeship",
+    "contract",
+    "directhire",
+    "temporary",
+    "temporarytohire",
+    "contracttohire",
+    "seasonal",
+    "selfemployed",
+    "volunteer",
+    "oncall",
+    "recruitmentreserve",
+    "NS",
 }
 
 #: `positionScheduleCodes`.
@@ -270,9 +286,7 @@ class EuresScraper(ScraperBase):
                 for page in range(1, search.max_pages + 1):
                     payload = self.build_payload(search, country, page)
                     try:
-                        data = await client.post_json(
-                            SEARCH_API, payload, headers=self.headers
-                        )
+                        data = await client.post_json(SEARCH_API, payload, headers=self.headers)
                     except ScraperPermanentError:
                         break  # one slice failing must not sink the rest
 
@@ -362,7 +376,7 @@ def _location(location_map: Any) -> tuple[str | None, str | None]:
 
 def _epoch_ms(value: Any) -> datetime | None:
     if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+        return datetime.fromtimestamp(value / 1000, tz=UTC)
     return None
 
 
@@ -393,9 +407,7 @@ def _load_searches(searches: Any, countries: Any) -> tuple[EuresSearch, ...]:
         built.append(
             EuresSearch(
                 name=str(raw.get("name") or f"search-{len(built) + 1}"),
-                countries=_country_codes(
-                    raw.get("countries") or override or DEFAULT_COUNTRIES
-                ),
+                countries=_country_codes(raw.get("countries") or override or DEFAULT_COUNTRIES),
                 occupations=tuple(raw.get("occupations") or DEFAULT_OCCUPATIONS),
                 experience=tuple(raw.get("experience") or ()),
                 education=tuple(raw.get("education") or ()),

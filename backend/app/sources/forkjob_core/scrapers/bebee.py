@@ -49,6 +49,7 @@ DEFAULT_MAX_OFFERS = 40
 #: tolerance.
 _ld_blocks = ld_blocks
 
+
 class BebeeScraper(ScraperBase):
     source_key = "bebee"
     label = "beBee"

@@ -26,6 +26,7 @@ Field notes from the live response:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from typing import Any
@@ -69,10 +70,8 @@ def _extract_objects(html: str) -> list[dict[str, Any]]:
                 elif ch == "}":
                     depth -= 1
                     if depth == 0:
-                        try:
+                        with contextlib.suppress(json.JSONDecodeError, ValueError):
                             out.append(json.loads(html[open_brace : i + 1]))
-                        except (json.JSONDecodeError, ValueError):
-                            pass
                         break
     return out
 

@@ -47,9 +47,7 @@ SITE_BASE = "https://www.getmanfred.com"
 #: configured 2s spacing, so this is a time budget as much as a politeness one.
 DEFAULT_MAX_OFFERS = 40
 
-_NEXT_DATA_RE = re.compile(
-    r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S
-)
+_NEXT_DATA_RE = re.compile(r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
 
@@ -130,7 +128,9 @@ class ManfredScraper(ScraperBase):
             url=url,
             source=self.source,
             layer=Layer.B,
-            company=offer.get("company") or (jsonld.get("hiringOrganization") or {}).get("name") or "",
+            company=offer.get("company")
+            or (jsonld.get("hiringOrganization") or {}).get("name")
+            or "",
             title=str(title).strip(),
             external_id=str(offer["id"]) if offer.get("id") is not None else None,
             location=location_text,

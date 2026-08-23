@@ -163,8 +163,9 @@ class KariyerNetScraper(ScraperBase):
 
         posted_at, date_source = _card_date(attrs)
 
-        work_mode = _WORK_MODES.get((attrs.get("workmodeltext") or "").strip().lower(),
-                                    WorkMode.UNKNOWN)
+        work_mode = _WORK_MODES.get(
+            (attrs.get("workmodeltext") or "").strip().lower(), WorkMode.UNKNOWN
+        )
 
         # The card shows no description; the detail page is a second request
         # per posting and is deliberately not fetched. Scoring signals that
@@ -184,7 +185,8 @@ class KariyerNetScraper(ScraperBase):
             location=city_raw or attrs.get("countryname"),
             city=city,
             country="TR" if (attrs.get("countryname") or "").lower().startswith("tür") else None,
-            region=Region.TR if (attrs.get("countryname") or "").lower().startswith("tür")
+            region=Region.TR
+            if (attrs.get("countryname") or "").lower().startswith("tür")
             else Region.UNKNOWN,
             work_mode=work_mode,
             department=attrs.get("sectorname") or None,
@@ -212,7 +214,7 @@ def _card_date(attrs: dict[str, str]) -> tuple[Any, DateSource]:
 
 
 def _parse_age(label: str | None) -> timedelta | None:
-    """"1 gün" -> 1 day. Returns None when the label says nothing usable."""
+    """ "1 gün" -> 1 day. Returns None when the label says nothing usable."""
     if not label:
         return None
     match = _AGE_RE.search(label)

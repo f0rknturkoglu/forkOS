@@ -80,9 +80,7 @@ class CustomFeedsScraper(ScraperBase):
             jobs.extend(parsed)
             succeeded += 1
 
-        return ScrapeBatch(
-            jobs=jobs, errors=errors, attempted=len(feeds), succeeded=succeeded
-        )
+        return ScrapeBatch(jobs=jobs, errors=errors, attempted=len(feeds), succeeded=succeeded)
 
     def parse_page(self, html: str, feed: Feed) -> list[Job]:
         """Read a company's own careers page.
@@ -96,9 +94,11 @@ class CustomFeedsScraper(ScraperBase):
            selectors inside it. This is the fallback that makes non-ATS
            companies reachable at all.
         """
-        jobs = [j for j in (
-            self._from_ld(node, feed) for node in job_posting_nodes(html)
-        ) if j is not None]
+        jobs = [
+            j
+            for j in (self._from_ld(node, feed) for node in job_posting_nodes(html))
+            if j is not None
+        ]
         if jobs:
             return jobs
 
@@ -127,8 +127,13 @@ class CustomFeedsScraper(ScraperBase):
         posted = parse_datetime(schema_text(node.get("datePosted")))
         description = html_to_text(schema_text(node.get("description")) or "") or ""
         return self._build(
-            feed, url=url, title=title, company=company, location=location,
-            country=country or feed.country or None, description=description,
+            feed,
+            url=url,
+            title=title,
+            company=company,
+            location=location,
+            country=country or feed.country or None,
+            description=description,
             posted_at=posted,
             # datePosted is the employer's own field, unlike a feed's pubDate.
             date_source=DateSource.EMPLOYER if posted else DateSource.DISCOVERED,
@@ -157,8 +162,12 @@ class CustomFeedsScraper(ScraperBase):
         details = [d for d in (department,) if d]
 
         return self._build(
-            feed, url=url, title=title, company=feed.label,
-            location=location or None, country=feed.country or None,
+            feed,
+            url=url,
+            title=title,
+            company=feed.label,
+            location=location or None,
+            country=feed.country or None,
             description="\n".join(details),
             posted_at=None,
             # A listing page carries no date, and inventing one would let a
@@ -174,9 +183,17 @@ class CustomFeedsScraper(ScraperBase):
         return " ".join(found.text(strip=True).split()) if found is not None else ""
 
     def _build(
-        self, feed: Feed, *, url: str, title: str, company: str,
-        location: str | None, country: str | None, description: str,
-        posted_at: Any, date_source: DateSource,
+        self,
+        feed: Feed,
+        *,
+        url: str,
+        title: str,
+        company: str,
+        location: str | None,
+        country: str | None,
+        description: str,
+        posted_at: Any,
+        date_source: DateSource,
     ) -> Job:
         haystack = f"{title}\n{location or ''}\n{description[:1500]}"
         if HYBRID_WORDS.search(haystack):
@@ -228,9 +245,10 @@ class CustomFeedsScraper(ScraperBase):
 
         # html_to_text returns None for empty input, and plenty of feeds carry
         # a title and a link with nothing else.
-        description = html_to_text(
-            self._text(item, "description", f"{ATOM}summary", f"{ATOM}content") or ""
-        ) or ""
+        description = (
+            html_to_text(self._text(item, "description", f"{ATOM}summary", f"{ATOM}content") or "")
+            or ""
+        )
 
         haystack = f"{raw_title}\n{description[:1500]}"
         if HYBRID_WORDS.search(haystack):
