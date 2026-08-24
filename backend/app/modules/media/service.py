@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import json
@@ -32,6 +33,8 @@ from app.modules.media.models import (
     MediaUnit,
 )
 from app.modules.media.providers.base import (
+    MediaProvider,
+    ProviderResult,
     canonical_provider_id,
     provider_identity_candidates,
 )
@@ -50,10 +53,12 @@ from app.modules.media.schemas import (
     MediaItemOut,
     MediaItemUpdate,
     MediaPageOut,
+    GlobalMetadataSearchOut,
     MediaStats,
     MediaUnitOut,
     MediaUnitUpsert,
     MetadataResult,
+    MetadataSearchWarning,
     ProgressValidationOut,
     UnitUpsertResult,
 )
@@ -240,6 +245,32 @@ async def provider_registry(session: AsyncSession) -> ProviderRegistry:
     return ProviderRegistry.from_settings({row.key: row.value for row in rows})
 
 
+def _metadata_result(row: ProviderResult, kind: str) -> MetadataResult:
+    return MetadataResult(
+        kind=kind,
+        provider=row.provider,
+        provider_id=row.provider_id,
+        title=row.title,
+        subtitle=row.subtitle,
+        year=row.year,
+        summary=row.summary,
+        total=row.total,
+        progress_measure=row.progress_measure,
+        cover=row.cover_url,
+        backdrop=row.backdrop_url,
+        cover_url=row.cover_url,
+        backdrop_url=row.backdrop_url,
+        provider_ids=row.provider_ids,
+        meta=row.meta,
+        metadata={
+            **row.meta,
+            "provider": row.provider,
+            "provider_id": row.provider_id,
+            "provider_ids": row.provider_ids,
+        },
+    )
+
+
 async def search_metadata(
     session: AsyncSession, q: str, kind: str, *, provider_id: str | None = None
 ) -> list[MetadataResult]:
@@ -250,31 +281,53 @@ async def search_metadata(
         suffix = f": {', '.join(missing)}" if missing else ""
         raise RuntimeError(f"{kind} için hazır provider yok{suffix}")
     results = await provider.search(q)
-    return [
-        MetadataResult(
-            provider=row.provider,
-            provider_id=row.provider_id,
-            title=row.title,
-            subtitle=row.subtitle,
-            year=row.year,
-            summary=row.summary,
-            total=row.total,
-            progress_measure=row.progress_measure,
-            cover=row.cover_url,
-            backdrop=row.backdrop_url,
-            cover_url=row.cover_url,
-            backdrop_url=row.backdrop_url,
-            provider_ids=row.provider_ids,
-            meta=row.meta,
-            metadata={
-                **row.meta,
-                "provider": row.provider,
-                "provider_id": row.provider_id,
-                "provider_ids": row.provider_ids,
-            },
-        )
-        for row in results
+    return [_metadata_result(row, kind) for row in results]
+
+
+async def search_all_metadata(session: AsyncSession, q: str) -> GlobalMetadataSearchOut:
+    registry = await provider_registry(session)
+    providers: list[tuple[str, MediaProvider]] = [
+        (kind, registry.for_kind(kind)) for kind in registry.kinds
     ]
+    ready: list[tuple[str, MediaProvider]] = []
+    warnings: list[MetadataSearchWarning] = []
+
+    for kind, provider in providers:
+        if provider.ready:
+            ready.append((kind, provider))
+
+    outcomes = await asyncio.gather(
+        *(provider.search(q) for _, provider in ready), return_exceptions=True
+    )
+    outcomes_by_kind = dict(zip((kind for kind, _ in ready), outcomes, strict=True))
+    results: list[MetadataResult] = []
+    seen: set[tuple[str, str, str]] = set()
+    for kind, provider in providers:
+        if not provider.ready:
+            missing = ", ".join(provider.missing_settings)
+            suffix = f": {missing}" if missing else ""
+            warnings.append(
+                MetadataSearchWarning(
+                    provider=provider.id,
+                    kind=kind,
+                    message=f"{kind} için provider hazır değil{suffix}",
+                )
+            )
+            continue
+        outcome = outcomes_by_kind[kind]
+        if isinstance(outcome, BaseException):
+            warnings.append(
+                MetadataSearchWarning(provider=provider.id, kind=kind, message=str(outcome))
+            )
+            continue
+        for row in outcome:
+            result = _metadata_result(row, kind)
+            key = (result.kind, result.provider, result.provider_id)
+            if key not in seen:
+                seen.add(key)
+                results.append(result)
+
+    return GlobalMetadataSearchOut(results=results, warnings=warnings)
 
 
 async def list_items(

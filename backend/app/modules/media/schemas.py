@@ -409,6 +409,7 @@ class ProgressValidationOut(BaseModel):
 class MetadataResult(BaseModel):
     """Provider arama sonucunun ortak, kayda dönüştürülebilir biçimi."""
 
+    kind: str
     provider: str
     provider_id: str
     title: str
@@ -424,6 +425,17 @@ class MetadataResult(BaseModel):
     provider_ids: dict[str, Any] = Field(default_factory=dict)
     meta: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MetadataSearchWarning(BaseModel):
+    provider: str
+    kind: str
+    message: str
+
+
+class GlobalMetadataSearchOut(BaseModel):
+    results: list[MetadataResult]
+    warnings: list[MetadataSearchWarning]
 
 
 class MediaProviderCapabilitiesOut(BaseModel):

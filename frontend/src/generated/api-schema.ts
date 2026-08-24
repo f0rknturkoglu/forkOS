@@ -945,6 +945,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/media/search/global": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search All Metadata */
+        get: operations["search_all_metadata_api_media_search_global_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/media/stats": {
         parameters: {
             query?: never;
@@ -2988,6 +3005,13 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** GlobalMetadataSearchOut */
+        GlobalMetadataSearchOut: {
+            /** Results */
+            results: components["schemas"]["MetadataResult"][];
+            /** Warnings */
+            warnings: components["schemas"]["MetadataSearchWarning"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3740,6 +3764,8 @@ export interface components {
             cover?: string | null;
             /** Cover Url */
             cover_url?: string | null;
+            /** Kind */
+            kind: string;
             /** Meta */
             meta?: {
                 [key: string]: unknown;
@@ -3768,6 +3794,15 @@ export interface components {
             total?: number | null;
             /** Year */
             year?: number | null;
+        };
+        /** MetadataSearchWarning */
+        MetadataSearchWarning: {
+            /** Kind */
+            kind: string;
+            /** Message */
+            message: string;
+            /** Provider */
+            provider: string;
         };
         /** MilestoneIn */
         MilestoneIn: {
@@ -6656,6 +6691,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetadataResult"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_all_metadata_api_media_search_global_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalMetadataSearchOut"];
                 };
             };
             /** @description Validation Error */

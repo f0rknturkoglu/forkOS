@@ -1542,6 +1542,30 @@
         "title": "GithubCredentialsIn",
         "type": "object"
       },
+      "GlobalMetadataSearchOut": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataSearchWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "warnings"
+        ],
+        "title": "GlobalMetadataSearchOut",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3899,6 +3923,10 @@
             ],
             "title": "Cover Url"
           },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
           "meta": {
             "additionalProperties": true,
             "title": "Meta",
@@ -3983,11 +4011,35 @@
           }
         },
         "required": [
+          "kind",
           "provider",
           "provider_id",
           "title"
         ],
         "title": "MetadataResult",
+        "type": "object"
+      },
+      "MetadataSearchWarning": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "kind",
+          "message"
+        ],
+        "title": "MetadataSearchWarning",
         "type": "object"
       },
       "MilestoneIn": {
@@ -9666,6 +9718,49 @@
           }
         },
         "summary": "Search Metadata",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/search/global": {
+      "get": {
+        "operationId": "search_all_metadata_api_media_search_global_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlobalMetadataSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search All Metadata",
         "tags": [
           "media"
         ]

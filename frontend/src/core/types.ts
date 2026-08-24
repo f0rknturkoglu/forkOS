@@ -429,6 +429,8 @@ export type MediaPage = ApiSchemas["MediaPageOut"];
 export type MediaDetail = ApiSchemas["MediaDetailOut"];
 export type MediaStats = ApiSchemas["MediaStats"];
 export type MetadataResult = ApiSchemas["MetadataResult"];
+export type GlobalMetadataSearch = ApiSchemas["GlobalMetadataSearchOut"];
+export type MediaProviderStatus = ApiSchemas["MediaProviderStatusOut"];
 
 export interface Deadline {
   entity_id: string; type: string; title: string; due_at: string;

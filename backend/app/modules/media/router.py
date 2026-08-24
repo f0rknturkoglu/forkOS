@@ -31,6 +31,7 @@ from app.modules.media.schemas import (
     MediaSyncBatchOut,
     MediaSyncIdleOut,
     MediaUnitOut,
+    GlobalMetadataSearchOut,
     MetadataResult,
 )
 
@@ -106,6 +107,14 @@ async def media_upcoming(
     session: AsyncSession = Depends(get_session),
 ):
     return await service.upcoming_units(session, days)
+
+
+@router.get("/media/search/global", response_model=GlobalMetadataSearchOut)
+async def search_all_metadata(
+    q: str = Query(min_length=2),
+    session: AsyncSession = Depends(get_session),
+):
+    return await service.search_all_metadata(session, q)
 
 
 @router.get("/media/search", response_model=list[MetadataResult])
