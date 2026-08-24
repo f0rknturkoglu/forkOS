@@ -7,7 +7,14 @@ import { Badge, Button, Empty, PageFrame, PageHeader, Toolbar, cx, relativeTime 
 import type { ActivityEvent, SourceHealth } from "@/core/types";
 import { ALERT_VERBS, describe } from "./verbs";
 
-function dayKey(iso: string): string {
+function localDayKey(iso: string): string {
+  const date = new Date(iso);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function dayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString("tr-TR", {
     weekday: "long", day: "numeric", month: "long",
   });
@@ -34,14 +41,20 @@ export function ActivityPage() {
   });
 
   const events = useMemo(
-    () => (onlyAlerts ? data.filter((event) => ALERT_VERBS.has(event.verb)) : data),
+    () => (onlyAlerts ? data.filter(isAlert) : data),
     [data, onlyAlerts],
   );
-  const dayEntries = useMemo(() => Object.entries(events.reduce<Record<string, ActivityEvent[]>>((acc, event) => {
-    (acc[dayKey(event.occurred_at)] ??= []).push(event);
-    return acc;
-  }, {})), [events]);
-  const dayKeys = useMemo(() => dayEntries.map(([day]) => day), [dayEntries]);
+  const dayEntries = useMemo(() => {
+    const entries = new Map<string, { key: string; label: string; events: ActivityEvent[] }>();
+    for (const event of events) {
+      const key = localDayKey(event.occurred_at);
+      const entry = entries.get(key) ?? { key, label: dayLabel(event.occurred_at), events: [] };
+      entry.events.push(event);
+      entries.set(key, entry);
+    }
+    return [...entries.values()];
+  }, [events]);
+  const dayKeys = useMemo(() => dayEntries.map(({ key }) => key), [dayEntries]);
   const allDaysOpen = dayKeys.length > 0 && dayKeys.every((day) => openDays.has(day));
 
   const problems = health.filter((s) => s.status !== "ok");
@@ -91,20 +104,20 @@ export function ActivityPage() {
       ) : events.length === 0 ? (
         <Empty>Henüz kayıt yok.</Empty>
       ) : (
-        dayEntries.map(([day, dayEvents]) => {
+        dayEntries.map(({ key, label, events: dayEvents }) => {
           const alertCount = dayEvents.filter(isAlert).length;
-          const open = openDays.has(day);
+          const open = openDays.has(key);
           return (
             <details
-              key={day}
+              key={key}
               data-activity-day
               open={open}
-              onToggle={(event) => setDayOpen(day, event.currentTarget.open)}
+              onToggle={(event) => setDayOpen(key, event.currentTarget.open)}
               className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
             >
               <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none">
                 <ChevronDown className={cx("transition-transform", open && "rotate-180")} size={15} />
-                <span className="label-caps text-secondary">{day}</span>
+                <span className="label-caps text-secondary">{label}</span>
                 <span className="ml-auto text-meta text-muted">{dayEvents.length} hareket</span>
                 {alertCount > 0 && <Badge tone="warn">{alertCount} uyarı</Badge>}
               </summary>

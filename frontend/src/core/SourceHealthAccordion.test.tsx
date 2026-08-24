@@ -22,6 +22,14 @@ const runs: SourceHealth[] = [
     started_at: "2026-08-25T07:00:00.000Z",
     finished_at: null,
   },
+  {
+    source: "Bültenler",
+    status: "empty",
+    items_found: 0,
+    error: null,
+    started_at: "2026-08-25T06:00:00.000Z",
+    finished_at: "2026-08-25T06:00:01.000Z",
+  },
 ];
 
 describe("SourceHealthAccordion", () => {
@@ -32,8 +40,8 @@ describe("SourceHealthAccordion", () => {
     );
 
     expect(container.querySelector("details")?.hasAttribute("open")).toBe(false);
-    expect(screen.getByText("2 kayıt")).toBeTruthy();
-    expect(screen.getByText("1 sorunlu")).toBeTruthy();
+    expect(screen.getByText("3 kayıt")).toBeTruthy();
+    expect(screen.getByText("2 sorunlu")).toBeTruthy();
 
     rerender(<SourceHealthAccordion sources={runs} open onOpenChange={onOpenChange} />);
     expect(screen.getByText("Fırsatlar")).toBeTruthy();

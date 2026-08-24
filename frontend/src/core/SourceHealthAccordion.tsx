@@ -16,7 +16,7 @@ export function SourceHealthAccordion({
   onOpenChange,
 }: SourceHealthAccordionProps): JSX.Element {
   const healthy = sources.filter((source) => source.status === "ok").length;
-  const problematic = sources.filter((source) => source.status === "error").length;
+  const problematic = sources.filter((source) => source.status !== "ok").length;
 
   return (
     <details
