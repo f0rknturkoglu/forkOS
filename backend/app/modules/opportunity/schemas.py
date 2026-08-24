@@ -67,19 +67,6 @@ class RequirementIn(BaseModel):
     note: str | None = None
 
 
-class NotificationOut(BaseModel):
-    id: int
-    kind: str
-    title: str
-    body: str | None
-    entity_id: UUID | None
-    #: Bildirime tiklayinca nereye gidilecegini arayuz bundan cozer.
-    entity_type: str | None = None
-    importance: int
-    created_at: datetime
-    read_at: datetime | None
-
-
 class DeadlineOut(BaseModel):
     entity_id: UUID
     type: str
@@ -92,6 +79,7 @@ class DeadlineOut(BaseModel):
 
 class SourceSyncBatchOut(BaseModel):
     id: UUID
+    scope: Literal["opportunity", "media"] = "opportunity"
     status: Literal["queued", "running", "completed", "completed_with_errors"]
     source_ids: list[str]
     total_sources: int

@@ -7,13 +7,14 @@ Compose icinde calistir:  make test
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
+from app.core.time import local_today
 from app.db import engine
 from app.main import app
 
@@ -362,7 +363,7 @@ async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncC
 
     await client.post(f"/api/todos/{normal['id']}/complete")
     await client.post(f"/api/todos/{routine['id']}/complete")
-    await client.post(f"/api/habits/{habit['id']}/check", json={"day": date.today().isoformat()})
+    await client.post(f"/api/habits/{habit['id']}/check", json={"day": local_today().isoformat()})
 
     after = (await client.get("/api/activity/heatmap", params={"days": 7})).json()
     after_today = after["days"][-1]["kinds"]
@@ -371,7 +372,7 @@ async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncC
     assert after["labels"]["routine"] == "rutin"
 
     detail = (await client.get(
-        "/api/activity/day", params={"day": date.today().isoformat()}
+        "/api/activity/day", params={"day": local_today().isoformat()}
     )).json()
     routine_event = next(
         item for item in detail["events"]
@@ -393,7 +394,7 @@ async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncC
 
 
 async def test_today_agenda_deduplicates_planned_due_todo(client: AsyncClient):
-    day = date.today()
+    day = local_today()
     todo = (await client.post("/api/todos", json={
         "title": f"Agenda dedupe {uuid.uuid4().hex[:8]}",
         "due_at": f"{day.isoformat()}T09:00:00+03:00",
@@ -415,7 +416,7 @@ async def test_today_agenda_deduplicates_planned_due_todo(client: AsyncClient):
 
 
 async def test_today_agenda_nests_due_child_under_context_parent(client: AsyncClient):
-    day = date.today()
+    day = local_today()
     parent = (await client.post("/api/todos", json={
         "title": f"Agenda parent {uuid.uuid4().hex[:8]}",
     })).json()
@@ -438,7 +439,7 @@ async def test_today_agenda_nests_due_child_under_context_parent(client: AsyncCl
 
 
 async def test_today_agenda_does_not_suggest_a_context_parent(client: AsyncClient):
-    day = date.today()
+    day = local_today()
     project = (await client.post("/api/projects", json={
         "title": f"Context project {uuid.uuid4().hex[:8]}"
     })).json()
@@ -468,7 +469,7 @@ async def test_today_agenda_does_not_suggest_a_context_parent(client: AsyncClien
 
 
 async def test_today_agenda_uses_istanbul_day_boundaries(client: AsyncClient):
-    day = date.today()
+    day = local_today()
     zone = ZoneInfo("Europe/Istanbul")
     midnight = datetime.combine(day, datetime.min.time(), tzinfo=zone)
     previous = await _seed_external_event(
@@ -496,7 +497,7 @@ async def test_today_agenda_uses_istanbul_day_boundaries(client: AsyncClient):
 async def test_today_agenda_returns_bounded_project_and_recent_rss_suggestions(
     client: AsyncClient,
 ):
-    day = date.today()
+    day = local_today()
     projects = []
     todos = []
     for index in range(5):
@@ -534,7 +535,7 @@ async def test_today_agenda_returns_bounded_project_and_recent_rss_suggestions(
 
 
 async def test_today_agenda_keeps_read_planned_rss_in_completed(client: AsyncClient):
-    day = date.today()
+    day = local_today()
     feed_id, item_ids = await _seed_feed_items([1])
     item_id = item_ids[0]
     slot = (await client.post("/api/plan", json={
@@ -575,7 +576,7 @@ async def test_todos_recur_only_filters_normal_tasks(client: AsyncClient):
 
 
 async def test_plan_reschedule_and_unschedule_append_events(client: AsyncClient):
-    day = date.today()
+    day = local_today()
     next_day = day + timedelta(days=1)
     todo = (await client.post("/api/todos", json={
         "title": f"Plan events {uuid.uuid4().hex[:8]}"
@@ -609,10 +610,10 @@ async def test_today_agenda_hides_suggestions_when_auto_mode_is_disabled(client:
     await client.put("/api/settings/today.auto_suggestions", json={"value": False})
     try:
         agenda = (await client.get(
-            "/api/today/agenda", params={"day": date.today().isoformat()}
+            "/api/today/agenda", params={"day": local_today().isoformat()}
         )).json()
         assert agenda["auto_suggestions"] is False
-        assert agenda["suggestions"] == {"todos": [], "rss": []}
+        assert agenda["suggestions"] == {"todos": [], "rss": [], "media": []}
     finally:
         await client.put("/api/settings/today.auto_suggestions", json={"value": True})
         await client.delete(f"/api/todos/{todo['id']}")
@@ -757,7 +758,7 @@ async def test_phase2_productivity_flow(client: AsyncClient):
         "/api/plan",
         json={
             "entity_id": todo["id"],
-            "day": date.today().isoformat(),
+            "day": local_today().isoformat(),
             "duration_min": 25,
         },
     )
@@ -791,7 +792,7 @@ async def test_phase2_productivity_flow(client: AsyncClient):
     checked = await client.post(
         f"/api/habits/{habit['id']}/check",
         json={
-            "day": date.today().isoformat(),
+            "day": local_today().isoformat(),
             "done": True,
         },
     )
@@ -802,7 +803,7 @@ async def test_phase2_productivity_flow(client: AsyncClient):
     assert completed.status_code == 200
     assert completed.json()["status"] == "done"
 
-    period = date.today().isoformat()
+    period = local_today().isoformat()
     preview = await client.get(
         "/api/reviews/preview",
         params={
@@ -903,7 +904,7 @@ async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient)
             json={
                 "title": f"Service {suffix}",
                 "amount": "149.90",
-                "next_due_at": date.today().isoformat(),
+                "next_due_at": local_today().isoformat(),
             },
         )
     ).json()
@@ -911,7 +912,7 @@ async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient)
     paid = (await client.post(f"/api/recurring-payments/{recurring['id']}/pay")).json()
     created_ids.append(paid["expense"]["id"])
     assert paid["expense"]["amount"] == 149.9
-    assert paid["next_due_at"] != date.today().isoformat()
+    assert paid["next_due_at"] != local_today().isoformat()
 
     key = f"test.{suffix}"
     response = await client.put(f"/api/settings/{key}", json={"value": {"ok": True}})
@@ -941,7 +942,6 @@ async def test_media_roundtrip_preserves_meta_and_cover(client: AsyncClient):
                 "title": f"Kapak {suffix}",
                 "kind": "movie",
                 "status": "planned",
-                "tags": ["bilimkurgu", "uzay"],
                 "meta": {
                     "source": "tmdb",
                     "tmdb_id": 157336,
@@ -952,13 +952,9 @@ async def test_media_roundtrip_preserves_meta_and_cover(client: AsyncClient):
             },
         )
     ).json()
-    listed = (await client.get("/api/media")).json()
-    found = next(item for item in listed if item["id"] == created["id"])
+    detail = (await client.get(f"/api/media/{created['id']}")).json()
+    found = detail["item"]
     assert found["meta"]["source"] == "tmdb"
     assert found["meta"]["cover_url"].endswith("w200/xbiycuc84TrieEWwkkuH2hoEa9S.jpg")
     assert found["meta"]["original_title"] == "Interstellar"
-    assert found["tags"] == ["bilimkurgu", "uzay"]
-    # Etiket guncellemesi listeyi degistirmeli (set, eklemek degil).
-    updated = (await client.patch(f"/api/media/{created['id']}", json={"tags": ["uzay"]})).json()
-    assert updated["tags"] == ["uzay"]
     await client.delete(f"/api/media/{created['id']}")

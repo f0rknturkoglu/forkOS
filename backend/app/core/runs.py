@@ -22,6 +22,21 @@ ERROR = "error"
 async def start_run(
     session: AsyncSession, source: str, *, batch_id=None
 ) -> SourceRun:
+    if batch_id is not None:
+        reserved = (
+            await session.execute(
+                select(SourceRun)
+                .where(
+                    SourceRun.source == source,
+                    SourceRun.batch_id == batch_id,
+                    SourceRun.status == "running",
+                )
+                .order_by(SourceRun.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if reserved is not None:
+            return reserved
     run = SourceRun(source=source, status="running", batch_id=batch_id)
     session.add(run)
     await session.flush()

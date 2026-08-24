@@ -1,8 +1,7 @@
-from datetime import date
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.core.time import local_today
 from app.main import app
 
 
@@ -24,13 +23,13 @@ async def test_review_combines_legacy_habits_and_recurring_todos(client: AsyncCl
     assert (
         await client.post(
             f"/api/habits/{habit['id']}/check",
-            json={"day": date.today().isoformat(), "done": True},
+            json={"day": local_today().isoformat(), "done": True},
         )
     ).status_code == 200
 
     response = await client.get(
         "/api/reviews/preview",
-        params={"kind": "daily", "period_start": date.today().isoformat()},
+        params={"kind": "daily", "period_start": local_today().isoformat()},
     )
 
     assert response.status_code == 200
@@ -40,7 +39,7 @@ async def test_review_combines_legacy_habits_and_recurring_todos(client: AsyncCl
         "/api/reviews",
         json={
             "kind": "daily",
-            "period_start": date.today().isoformat(),
+            "period_start": local_today().isoformat(),
             "decisions": {},
         },
     )

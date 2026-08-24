@@ -1,10 +1,9 @@
-from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, select, text, update
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
@@ -13,10 +12,9 @@ from app.core.models import Entity, Link, SourceRun
 from app.db import get_session
 from app.modules.opportunity import service
 from app.modules.opportunity import sync as sync_service
-from app.modules.opportunity.models import Notification, Opportunity, OpportunityRequirement
+from app.modules.opportunity.models import Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
     DeadlineOut,
-    NotificationOut,
     OpportunityIn,
     OpportunityOut,
     OpportunityPatch,
@@ -202,83 +200,6 @@ async def deadlines(session: AsyncSession = Depends(get_session)):
     return [dict(r) for r in rows]
 
 
-@router.get("/notifications", response_model=list[NotificationOut])
-async def notifications(session: AsyncSession = Depends(get_session)):
-    # entity ile outer join: bildirimin hedef turu arayuzde rota secimine gider.
-    rows = (
-        await session.execute(
-            select(Notification, Entity.type)
-            .outerjoin(Entity, Entity.id == Notification.entity_id)
-            .where(Notification.dismissed_at.is_(None))
-            .order_by(Notification.created_at.desc())
-            .limit(100)
-        )
-    ).all()
-    return [
-        NotificationOut(
-            id=item.id,
-            kind=item.kind,
-            title=item.title,
-            body=item.body,
-            entity_id=item.entity_id,
-            entity_type=entity_type,
-            importance=item.importance,
-            created_at=item.created_at,
-            read_at=item.read_at,
-        )
-        for item, entity_type in rows
-    ]
-
-
-@router.post("/notifications/{notification_id}/read")
-async def read_notification(notification_id: int, session: AsyncSession = Depends(get_session)):
-    item = await session.get(Notification, notification_id)
-    if item is None:
-        raise HTTPException(404)
-    item.read_at = datetime.now(UTC)
-    await session.commit()
-    return {"ok": True}
-
-
-@router.post("/notifications/read-all")
-async def read_all_notifications(session: AsyncSession = Depends(get_session)):
-    """Panelin 'tumunu okundu isaretle' dugmesi. Kayitlar durur, yalnizca okundu olur."""
-    now = datetime.now(UTC)
-    result = await session.execute(
-        update(Notification)
-        .where(Notification.read_at.is_(None), Notification.dismissed_at.is_(None))
-        .values(read_at=now)
-    )
-    await session.commit()
-    return {"read": result.rowcount or 0}
-
-
-@router.post("/notifications/{notification_id}/dismiss")
-async def dismiss_notification(notification_id: int, session: AsyncSession = Depends(get_session)):
-    """Bildirimi panelden kaldirir. Silmez -- event gecmisi append-only kalir."""
-    item = await session.get(Notification, notification_id)
-    if item is None:
-        raise HTTPException(404)
-    now = datetime.now(UTC)
-    item.dismissed_at = now
-    if item.read_at is None:
-        item.read_at = now
-    await session.commit()
-    return {"ok": True}
-
-
-@router.post("/notifications/dismiss-all")
-async def dismiss_all_notifications(session: AsyncSession = Depends(get_session)):
-    now = datetime.now(UTC)
-    result = await session.execute(
-        update(Notification)
-        .where(Notification.dismissed_at.is_(None))
-        .values(dismissed_at=now, read_at=func.coalesce(Notification.read_at, now))
-    )
-    await session.commit()
-    return {"dismissed": result.rowcount or 0}
-
-
 @router.get("/sources/runs")
 async def source_runs(session: AsyncSession = Depends(get_session)):
     return list(
@@ -303,14 +224,21 @@ async def source_catalog():
 
 
 @router.get("/sources/sync", response_model=SourceSyncStatusOut)
-async def sync_status(session: AsyncSession = Depends(get_session)):
+async def sync_status(
+    scope: Literal["opportunity", "media"] = "opportunity",
+    session: AsyncSession = Depends(get_session),
+):
     """Aktif manuel batch ve kaynak bazli kesin ilerleme."""
-    return await sync_service.current_status(session)
+    return await sync_service.current_status(session, scope=scope)
 
 
 @router.get("/sources/sync/history", response_model=list[SourceSyncBatchOut])
-async def sync_history(limit: int = 10, session: AsyncSession = Depends(get_session)):
-    return await sync_service.history(session, min(limit, 50))
+async def sync_history(
+    limit: int = 10,
+    scope: Literal["opportunity", "media"] = "opportunity",
+    session: AsyncSession = Depends(get_session),
+):
+    return await sync_service.history(session, min(limit, 50), scope=scope)
 
 
 @router.post("/sources/refresh", response_model=SourceRefreshOut)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, func, or_, select
@@ -11,6 +12,7 @@ from sqlalchemy.orm import aliased
 from app.config import settings
 from app.core.models import Entity, Link
 from app.modules.calendar.models import ExternalEvent
+from app.modules.media.models import MediaItem
 from app.modules.project.models import Project
 from app.modules.rss.models import Feed, FeedItem
 from app.modules.system.models import Setting
@@ -135,6 +137,81 @@ def _rss_row(item: FeedItem, title: str, feed_title: str, slot: PlanSlot | None 
     )
 
 
+_MEASURE_LABELS = {
+    "item": "öğe",
+    "episode": "bölüm",
+    "chapter": "bölüm",
+    "page": "sayfa",
+    "minute": "dk",
+    "hour": "saat",
+    "track": "parça",
+}
+
+
+def _display_number(value) -> str:
+    decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
+    rendered = format(decimal_value, "f")
+    return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
+
+
+def _media_progress_label(item: MediaItem) -> str:
+    measure = _MEASURE_LABELS.get(item.progress_measure or "", item.progress_measure or "")
+    progress = _display_number(item.progress) if item.progress is not None else None
+    total = _display_number(item.total) if item.total is not None else None
+    if progress is not None and total is not None:
+        detail = f"{progress} / {total}"
+    elif progress is not None:
+        detail = progress
+    elif total is not None:
+        detail = f"0 / {total}"
+    else:
+        detail = ""
+    if detail and measure:
+        detail = f"{detail} {measure}"
+    if item.status == "completed":
+        return f"Tamamlandı · {detail}" if detail else "Tamamlandı"
+    return detail or "Henüz başlanmadı"
+
+
+def _media_cover(item: MediaItem) -> str | None:
+    if not item.cover_path:
+        return item.cover_url
+    if item.cover_path.startswith("/api/media/assets/"):
+        return item.cover_path
+    return f"/api/media/assets/{item.cover_path.rsplit('/', 1)[-1]}"
+
+
+def _media_row(
+    item: MediaItem,
+    title: str,
+    slot: PlanSlot | None = None,
+    *,
+    source: str = "suggestion",
+) -> AgendaRow:
+    completed = item.status == "completed"
+    interactive = item.status in {"planned", "in_progress", "paused"}
+    return AgendaRow(
+        kind="media",
+        source=source,
+        id=item.id,
+        slot_id=slot.id if slot else None,
+        title=title,
+        completed=completed,
+        action="log_media" if interactive else None,
+        read_only=not interactive,
+        starts_at=(
+            _planned_start(slot.day, slot.start_min)
+            if slot is not None and slot.start_min is not None
+            else None
+        ),
+        duration_min=slot.duration_min if slot else None,
+        media_kind=item.kind,
+        media_status=item.status,
+        progress_label=_media_progress_label(item),
+        cover_url=_media_cover(item),
+    )
+
+
 async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     start, end = _bounds(day)
     external_rows = (await session.execute(
@@ -247,6 +324,30 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
         else:
             checklist.append(row)
 
+    media_slot_ids = [
+        slot.entity_id for slot in slots if slot.entity_id not in handled_ids
+    ]
+    media_rows = []
+    if media_slot_ids:
+        media_rows = (await session.execute(
+            select(MediaItem, Entity.title)
+            .join(Entity, Entity.id == MediaItem.id)
+            .where(MediaItem.id.in_(media_slot_ids), Entity.archived_at.is_(None))
+        )).all()
+    media_by_id = {item.id: (item, title) for item, title in media_rows}
+    for media_id in media_slot_ids:
+        if media_id not in media_by_id:
+            continue
+        item, title = media_by_id[media_id]
+        handled_ids.add(item.id)
+        row = _media_row(item, title, slot_by_entity[item.id], source="planned")
+        if row.completed:
+            completed.append(row)
+        elif row.starts_at is not None:
+            timed.append(row)
+        else:
+            checklist.append(row)
+
     generic_ids = [slot.entity_id for slot in slots if slot.entity_id not in handled_ids]
     if generic_ids:
         generic_titles = dict((await session.execute(
@@ -277,6 +378,18 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     auto_suggestions = True if auto_setting is None else bool(auto_setting.value)
     todo_suggestions: list[AgendaRow] = []
     rss_suggestions: list[AgendaRow] = []
+    # Bu liste bir tavsiye degil, devam eden mevcut medya durumudur. Additive
+    # sozlesme icin suggestions altinda kalir ama otomatik tavsiye ayarindan etkilenmez.
+    continue_media = (await session.execute(
+        select(MediaItem, Entity.title)
+        .join(Entity, Entity.id == MediaItem.id)
+        .where(MediaItem.status == "in_progress", Entity.archived_at.is_(None))
+        .order_by(Entity.updated_at.desc(), MediaItem.id.desc())
+        .limit(4)
+    )).all()
+    media_suggestions = [
+        _media_row(item, title) for item, title in continue_media
+    ]
     if auto_suggestions:
         # Yalniz cocugu bugune dusen ust gorev de akista context basligi olarak
         # bulunur; ayni ust gorevi onerilerde ikinci kez gostermeyelim.
@@ -335,5 +448,9 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
         timed=_nest(timed, parents, project_titles),
         checklist=_nest(checklist, parents, project_titles),
         completed=_nest(completed, parents, project_titles),
-        suggestions={"todos": todo_suggestions, "rss": rss_suggestions},
+        suggestions={
+            "todos": todo_suggestions,
+            "rss": rss_suggestions,
+            "media": media_suggestions,
+        },
     )

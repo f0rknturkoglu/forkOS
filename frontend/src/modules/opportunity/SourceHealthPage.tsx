@@ -4,12 +4,20 @@ import { AlertTriangle, Check, Loader2, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
 import { Badge, Button, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Toolbar, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
+import { useHashRoute } from "@/app/router";
 import type {
   SourceHealth, SourceRefreshResult, SourceSyncBatch, SourceSyncStatus,
 } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { sourceLabel } from "./labels";
-import { SyncProgress } from "./SyncProgress";
+import {
+  sourceSyncApiPath,
+  sourceSyncHistoryApiPath,
+  sourceSyncHistoryQueryKey,
+  sourceSyncQueryKey,
+  SyncProgress,
+  type SourceSyncScope,
+} from "./SyncProgress";
 
 type Catalog = { id: string; interval_minutes: number; kind: string };
 const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: "Duyuru" };
@@ -23,6 +31,8 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function SourceHealthPage() {
+  const route = useHashRoute();
+  const scope: SourceSyncScope = route.params.get("scope") === "media" ? "media" : "opportunity";
   const online = useOnline();
   const invalidate = useInvalidate();
   const toast = useToast();
@@ -40,13 +50,13 @@ export function SourceHealthPage() {
   });
   // Cekim surerken hizli, bosta seyrek yokla.
   const { data: sync } = useQuery({
-    queryKey: ["source-sync"],
-    queryFn: () => api.get<SourceSyncStatus>("/sources/sync"),
+    queryKey: sourceSyncQueryKey(scope),
+    queryFn: () => api.get<SourceSyncStatus>(sourceSyncApiPath(scope)),
     refetchInterval: (query) => (query.state.data?.running.length ? 2_000 : 15_000),
   });
   const { data: history = [] } = useQuery({
-    queryKey: ["source-sync-history"],
-    queryFn: () => api.get<SourceSyncBatch[]>("/sources/sync/history"),
+    queryKey: sourceSyncHistoryQueryKey(scope),
+    queryFn: () => api.get<SourceSyncBatch[]>(sourceSyncHistoryApiPath(scope)),
     refetchInterval: sync?.active ? 2_000 : 30_000,
   });
 
@@ -136,10 +146,11 @@ export function SourceHealthPage() {
 
   return (
     <PageFrame className="space-y-5">
-      <PageHeader eyebrow="Sistem" title="Kaynak Durumu" />
+      <PageHeader eyebrow="Sistem" title={scope === "media" ? "Medya Kaynak Durumu" : "Kaynak Durumu"} />
 
-      <SyncProgress />
+      <SyncProgress scope={scope} />
 
+      {scope === "opportunity" && <>
       {/* ── Özet ── */}
       <MetricStrip className="grid-cols-2 md:grid-cols-4">
         <Metric label="Kaynak" value={catalog.length} hint={`${counts.new} hiç çalışmadı`} />
@@ -308,6 +319,7 @@ export function SourceHealthPage() {
           Her koşu <code className="font-mono text-[11.5px]">source_run</code>’a yazılır — üst üste üç boş koşu bildirim üretir.
         </p>
       </Section>
+      </>}
 
       <Section title="Son senkronizasyonlar" hint={`${history.length} koşum`}>
         {history.length === 0 ? (

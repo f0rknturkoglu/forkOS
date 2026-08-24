@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { MediaItem } from "@/core/types";
 import { Cover, externalLinks, KindChips, SiteLinks, statusLabel, statusLabelsFor } from "./shared";
 
 const item = {
@@ -8,9 +7,8 @@ const item = {
   progress: 60, total: 180, score: null, notes: null,
   started_at: null, finished_at: null,
   meta: { source: "openlibrary", ol_key: "/works/OL1W" },
-  tags: [],
   created_at: null,
-} satisfies MediaItem;
+};
 
 describe("media shared components", () => {
   it("cover falls back to the uppercase initial when url is missing", () => {
@@ -80,7 +78,7 @@ describe("media shared components", () => {
 
   it("renders outlined site links so they stand out in the UI", () => {
     const html = renderToStaticMarkup(<SiteLinks links={[["Letterboxd", "https://letterboxd.com/search/Interstellar/"]]} />);
-    expect(html).toContain("border-subtle");
+    expect(html).toContain("border-[color:var(--src-letterboxd)]");
     expect(html).toContain('href="https://letterboxd.com/search/Interstellar/"');
     expect(html).toContain("Letterboxd ↗");
   });

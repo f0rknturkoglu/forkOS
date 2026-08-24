@@ -17,9 +17,11 @@ from app.modules.opportunity.service import deadline_ladder
 from app.worker.digest import morning_digest
 from app.worker.jobs import (
     catch_up,
+    catch_up_media,
     consume_source_sync_batches,
     nightly_backup,
     poll_feeds,
+    poll_media,
     poll_opportunities,
     prune_old_items,
     record_worker_heartbeat,
@@ -70,6 +72,14 @@ async def main() -> None:
         coalesce=True,
     )
     scheduler.add_job(
+        poll_media,
+        "interval",
+        hours=1,
+        id="poll_media",
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
         record_worker_heartbeat,
         "interval",
         minutes=1,
@@ -103,6 +113,7 @@ async def main() -> None:
     try:
         await record_worker_heartbeat()
         await catch_up()
+        await catch_up_media()
         await deadlines()
         await morning_digest()
         await sync_calendar()

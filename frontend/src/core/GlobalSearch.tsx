@@ -18,6 +18,8 @@ const ROUTE_FOR: Record<string, (id: string) => string> = {
   project: (id) => `#/projects?focus=${id}`,
   expense: () => "#/finance",
   recurring_payment: () => "#/finance",
+  media_item: (id) => `#/media?focus=${id}`,
+  media_unit: () => "#/media",
 };
 
 export function entityRoute(entity: Entity): string {
@@ -48,4 +50,6 @@ export const TYPE_LABELS: Record<string, string> = {
   project: "Project",
   expense: "Expense",
   recurring_payment: "Recurring",
+  media_item: "Medya",
+  media_unit: "Medya bölümü",
 };

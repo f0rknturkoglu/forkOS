@@ -3,14 +3,14 @@ import { api } from "@/core/api";
 import { Empty, Section, cx } from "@/core/ui";
 import { navigate } from "@/app/router";
 import { Cover, KIND_LABELS, kindBg, kindChip, progressPct, statusLabel } from "./shared";
-import type { MediaItem } from "@/core/types";
+import type { MediaPage } from "@/core/types";
 
-export function MediaWidget() {
-  const { data = [] } = useQuery({
+export function MediaContinueWidget() {
+  const { data } = useQuery({
     queryKey: ["media", "in_progress", "widget"],
-    queryFn: () => api.get<MediaItem[]>("/media?status=in_progress"),
+    queryFn: () => api.get<MediaPage>("/media?status=in_progress&limit=8"),
   });
-  const active = data.slice(0, 8);
+  const active = data?.items ?? [];
 
   return (
     <Section
@@ -27,12 +27,14 @@ export function MediaWidget() {
         <div className="flex gap-2.5 overflow-x-auto pb-1">
           {active.map((item) => {
             const pct = progressPct(item);
-            const cover = String(item.meta?.cover_url ?? "") || null;
+            const cover = item.cover_path
+              ? `/api/media/assets/${item.cover_path}`
+              : (item.cover_url ?? null);
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => navigate("/media")}
+                onClick={() => navigate(`/media?focus=${item.id}`)}
                 className="group w-28 shrink-0 text-left"
               >
                 <span className="block overflow-hidden rounded-card border border-subtle bg-surface-sunken shadow-card transition group-hover:border-strong">

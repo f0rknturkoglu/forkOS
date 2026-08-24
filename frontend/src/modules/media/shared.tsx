@@ -157,17 +157,28 @@ export function KindChips({
 }
 
 /** Kaynak marka renkleri — index.css'teki --src-* değişkenleri. */
-const SRC_VAR: Record<string, string> = {
-  tmdb: "src-tmdb", anilist: "src-anilist", kitsu: "src-kitsu", openlibrary: "src-openlibrary",
-  itunes: "src-itunes", rawg: "src-rawg", letterboxd: "src-letterboxd", imdb: "src-imdb",
-  rottentomatoes: "src-rottentomatoes", mal: "src-mal", goodreads: "src-goodreads",
-  audible: "src-audible", spotify: "src-spotify", rym: "src-rym", hltb: "src-hltb",
+const SRC_CLASSES: Record<string, string> = {
+  tmdb: "text-[color:var(--src-tmdb)] border-[color:var(--src-tmdb)]",
+  anilist: "text-[color:var(--src-anilist)] border-[color:var(--src-anilist)]",
+  kitsu: "text-[color:var(--src-kitsu)] border-[color:var(--src-kitsu)]",
+  openlibrary: "text-[color:var(--src-openlibrary)] border-[color:var(--src-openlibrary)]",
+  itunes: "text-[color:var(--src-itunes)] border-[color:var(--src-itunes)]",
+  rawg: "text-[color:var(--src-rawg)] border-[color:var(--src-rawg)]",
+  letterboxd: "text-[color:var(--src-letterboxd)] border-[color:var(--src-letterboxd)]",
+  imdb: "text-[color:var(--src-imdb)] border-[color:var(--src-imdb)]",
+  rottentomatoes: "text-[color:var(--src-rottentomatoes)] border-[color:var(--src-rottentomatoes)]",
+  mal: "text-[color:var(--src-mal)] border-[color:var(--src-mal)]",
+  goodreads: "text-[color:var(--src-goodreads)] border-[color:var(--src-goodreads)]",
+  audible: "text-[color:var(--src-audible)] border-[color:var(--src-audible)]",
+  spotify: "text-[color:var(--src-spotify)] border-[color:var(--src-spotify)]",
+  rym: "text-[color:var(--src-rym)] border-[color:var(--src-rym)]",
+  hltb: "text-[color:var(--src-hltb)] border-[color:var(--src-hltb)]",
 };
 
 /** Bağlantı/badge adı -> marka renk sınıfı (kenarlık + yazı). */
 export function srcColor(name: string): string {
-  const v = SRC_VAR[name] ?? SRC_BY_NAME[name];
-  return v ? `text-[color:var(--${v})] border-[color:var(--${v})]` : "text-secondary border-subtle";
+  const key = SRC_CLASSES[name] ? name : SRC_BY_NAME[name];
+  return SRC_CLASSES[key] ?? "text-secondary border-subtle";
 }
 
 const SRC_BY_NAME: Record<string, string> = {

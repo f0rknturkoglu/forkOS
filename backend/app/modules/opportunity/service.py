@@ -6,13 +6,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select, text
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
-from app.modules.opportunity.models import Notification, Opportunity, OpportunityRequirement
+from app.core.notifications import notify
+from app.modules.opportunity.models import Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
     OpportunityIn,
     OpportunityOut,
@@ -331,32 +331,6 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             dedup_key=f"digest:{source_label}:{datetime.now(UTC).date()}",
         )
     return added
-
-
-async def notify(
-    session: AsyncSession,
-    *,
-    kind: str,
-    title: str,
-    body: str | None,
-    dedup_key: str,
-    entity_id: uuid.UUID | None = None,
-    importance: int = 1,
-) -> None:
-    stmt = (
-        insert(Notification)
-        .values(
-            kind=kind,
-            title=title,
-            body=body,
-            entity_id=entity_id,
-            importance=importance,
-            dedup_key=dedup_key,
-            created_at=datetime.now(UTC),
-        )
-        .on_conflict_do_nothing(index_elements=[Notification.dedup_key])
-    )
-    await session.execute(stmt)
 
 
 async def deadline_ladder(session: AsyncSession) -> int:

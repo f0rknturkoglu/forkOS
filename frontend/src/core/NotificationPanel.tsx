@@ -30,9 +30,16 @@ const ROUTE_FOR_KIND: [prefix: string, route: string][] = [
   ["deadline", "/opportunities"],
   ["source", "/sources"],
   ["rss", "/rss"],
+  ["media", "/media"],
 ];
 
-function routeOf(item: Notification): string {
+export function notificationRoute(item: Notification): string {
+  if (item.entity_type === "media_item") {
+    return item.entity_id ? `/media?focus=${item.entity_id}` : "/media";
+  }
+  if (item.entity_type === "media_unit") {
+    return "/media";
+  }
   if (item.entity_type && ROUTE_FOR_TYPE[item.entity_type]) return ROUTE_FOR_TYPE[item.entity_type];
   const match = ROUTE_FOR_KIND.find(([prefix]) => item.kind.startsWith(prefix));
   return match ? match[1] : "/activity";
@@ -82,7 +89,7 @@ export function NotificationPanel() {
 
   function openItem(item: Notification) {
     if (!item.read_at) read.mutate(item.id);
-    location.hash = routeOf(item);
+    location.hash = notificationRoute(item);
     setOpen(false);
   }
 

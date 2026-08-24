@@ -12,11 +12,14 @@ from sqlalchemy import (
     Computed,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
@@ -71,6 +74,12 @@ class Link(Base):
     __table_args__ = (
         UniqueConstraint("from_id", "to_id", "relation", name="link_uniq"),
         CheckConstraint("from_id <> to_id", name="link_no_self"),
+        Index(
+            "media_collection_item_link_idx",
+            "from_id",
+            "to_id",
+            postgresql_where=text("relation = 'media.collection_item'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -153,10 +162,14 @@ class SourceRun(Base):
 class SourceSyncBatch(Base):
     """Manuel kaynak cekimlerinin kalici operasyonel ilerleme kaydi."""
     __tablename__ = "source_sync_batch"
+    __table_args__ = (
+        Index("source_sync_batch_scope_time_idx", "scope", text("created_at desc")),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
     )
+    scope: Mapped[str] = mapped_column(Text, nullable=False, default="opportunity")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
     source_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     total_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -170,3 +183,20 @@ class SourceSyncBatch(Base):
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Notification(Base):
+    __tablename__ = "notification"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    kind: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    body: Mapped[str | None] = mapped_column(Text)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE")
+    )
+    importance: Mapped[int] = mapped_column(SmallInteger, default=1)
+    dedup_key: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

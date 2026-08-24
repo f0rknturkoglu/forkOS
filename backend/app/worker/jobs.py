@@ -11,9 +11,10 @@ import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 
+from app.core import source_sync
 from app.db import SessionLocal
 from app.modules.calendar.service import sync_google
-from app.modules.opportunity import sync as source_sync
+from app.modules.media.sync import poll_media_source, poll_media_sources
 from app.modules.opportunity.worker import (
     poll_named_source,
 )
@@ -104,17 +105,16 @@ async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
             session, older_than=datetime.now(UTC) - timedelta(minutes=15)
         )
         await session.commit()
-        batch = await source_sync.claim_pending_batch(session)
-        if batch is None:
-            return 0
-        pending = (await source_sync.pending_source_ids(session, batch))[:limit]
+        batch, pending = await source_sync.claim_pending_sources(session, limit=limit)
 
-    if not pending:
+    if batch is None or not pending:
         return 0
     semaphore = asyncio.Semaphore(CONCURRENCY)
 
     async def one(source_id: str) -> int:
         async with semaphore:
+            if batch.scope == "media":
+                return await poll_media_source(source_id, batch_id=batch.id)
             return await poll_named_source(source_id, batch_id=batch.id)
 
     total = sum(await asyncio.gather(*(one(source_id) for source_id in pending)))
@@ -123,6 +123,18 @@ async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
         len(pending),
         total,
     )
+    return total
+
+
+async def poll_media() -> int:
+    total = await poll_media_sources()
+    log.info("poll_media: %d değişiklik", total)
+    return total
+
+
+async def catch_up_media() -> int:
+    total = await poll_media_sources(ignore_interval=False)
+    log.info("catch_up_media: %d değişiklik", total)
     return total
 
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.db import SessionLocal, engine
 from app.main import app
@@ -199,6 +200,68 @@ async def test_batch_counters_are_derived_once_per_source():
         assert batch.completed_sources == 1
         assert batch.ok_sources == 1
         assert batch.items_found == 2
+
+
+async def test_two_workers_atomically_reserve_distinct_batch_sources():
+    from app.core.source_sync import claim_pending_sources, create_or_extend_batch
+
+    async with SessionLocal() as session:
+        batch, _ = await create_or_extend_batch(session, ["alpha", "beta"])
+        batch_id = batch.id
+        await session.commit()
+
+    async def claim_one():
+        async with SessionLocal() as session:
+            claimed_batch, sources = await claim_pending_sources(session, limit=1)
+            return claimed_batch.id if claimed_batch else None, sources
+
+    first, second = await asyncio.gather(claim_one(), claim_one())
+    assert first[0] == second[0] == batch_id
+    assert set(first[1] + second[1]) == {"alpha", "beta"}
+    assert set(first[1]).isdisjoint(second[1])
+
+    async with SessionLocal() as session:
+        running = list(
+            (
+                await session.execute(
+                    text(
+                        "select source from source_run where batch_id=cast(:id as uuid) "
+                        "and status='running' order by source"
+                    ),
+                    {"id": batch_id},
+                )
+            ).scalars()
+        )
+    assert running == ["alpha", "beta"]
+
+
+async def test_concurrent_batch_creation_serializes_per_scope_and_unions_sources():
+    from app.core.models import SourceSyncBatch
+    from app.core.source_sync import ACTIVE_STATUSES, create_or_extend_batch
+
+    async def queue(source_id: str):
+        async with SessionLocal() as session:
+            batch, _ = await create_or_extend_batch(
+                session, [source_id], scope="media"
+            )
+            await session.commit()
+            return batch.id
+
+    first, second = await asyncio.gather(queue("media:tmdb"), queue("media:anilist"))
+    assert first == second
+    async with SessionLocal() as session:
+        batches = list(
+            (
+                await session.execute(
+                    select(SourceSyncBatch).where(
+                        SourceSyncBatch.scope == "media",
+                        SourceSyncBatch.status.in_(ACTIVE_STATUSES),
+                    )
+                )
+            ).scalars()
+        )
+    assert len(batches) == 1
+    assert set(batches[0].source_ids) == {"media:tmdb", "media:anilist"}
 
 
 async def test_system_status_exposes_worker_heartbeat(client: AsyncClient):
