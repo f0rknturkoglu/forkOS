@@ -59,6 +59,21 @@ async def test_global_search_keeps_successes_and_reports_partial_failures(monkey
 
 
 @pytest.mark.no_database
+async def test_global_search_sanitizes_provider_exception_messages(monkeypatch):
+    registry = FakeRegistry()
+    raw_url = "https://api.themoviedb.org/3/search/movie?api_key=super-secret"
+    registry.book.search.side_effect = RuntimeError(f"Request failed: {raw_url}")
+    monkeypatch.setattr(service, "provider_registry", AsyncMock(return_value=registry))
+
+    result = await service.search_all_metadata(SimpleNamespace(), "dune")
+
+    warning = next(warning for warning in result.warnings if warning.provider == "openlibrary")
+    assert warning.message == "Provider araması başarısız"
+    assert "super-secret" not in warning.message
+    assert raw_url not in warning.message
+
+
+@pytest.mark.no_database
 async def test_single_kind_search_still_returns_kind(monkeypatch):
     registry = FakeRegistry()
     monkeypatch.setattr(service, "provider_registry", AsyncMock(return_value=registry))

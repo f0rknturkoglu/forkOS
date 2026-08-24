@@ -6,6 +6,7 @@ import asyncio
 import base64
 import binascii
 import json
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -78,6 +79,7 @@ DEFAULT_MEASURE = {
     "game": "hour",
 }
 REQUEST_FINGERPRINT_KEY = "_request_fingerprint"
+logger = logging.getLogger(__name__)
 
 
 class MediaConflictError(ValueError):
@@ -316,8 +318,18 @@ async def search_all_metadata(session: AsyncSession, q: str) -> GlobalMetadataSe
             continue
         outcome = outcomes_by_kind[kind]
         if isinstance(outcome, BaseException):
+            logger.warning(
+                "Media provider search failed (kind=%s provider=%s error_type=%s)",
+                kind,
+                provider.id,
+                type(outcome).__name__,
+            )
             warnings.append(
-                MetadataSearchWarning(provider=provider.id, kind=kind, message=str(outcome))
+                MetadataSearchWarning(
+                    provider=provider.id,
+                    kind=kind,
+                    message="Provider araması başarısız",
+                )
             )
             continue
         for row in outcome:
