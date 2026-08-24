@@ -445,6 +445,7 @@ export interface MediaItem {
   started_at: string | null;
   finished_at: string | null;
   meta: Record<string, unknown>;
+  tags: string[];
   created_at: string | null;
 }
 

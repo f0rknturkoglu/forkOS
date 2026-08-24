@@ -929,3 +929,36 @@ async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient)
         await connection.execute(
             text("delete from entity where id = any(cast(:ids as uuid[]))"), {"ids": created_ids}
         )
+
+
+async def test_media_roundtrip_preserves_meta_and_cover(client: AsyncClient):
+    """Afiş ve metadata arama-ekle akışında kaybolmamali (meta uçtan uca yasamali)."""
+    suffix = uuid.uuid4().hex[:8]
+    created = (
+        await client.post(
+            "/api/media",
+            json={
+                "title": f"Kapak {suffix}",
+                "kind": "movie",
+                "status": "planned",
+                "tags": ["bilimkurgu", "uzay"],
+                "meta": {
+                    "source": "tmdb",
+                    "tmdb_id": 157336,
+                    "tmdb_type": "movie",
+                    "original_title": "Interstellar",
+                    "cover_url": "https://image.tmdb.org/t/p/w200/xbiycuc84TrieEWwkkuH2hoEa9S.jpg",
+                },
+            },
+        )
+    ).json()
+    listed = (await client.get("/api/media")).json()
+    found = next(item for item in listed if item["id"] == created["id"])
+    assert found["meta"]["source"] == "tmdb"
+    assert found["meta"]["cover_url"].endswith("w200/xbiycuc84TrieEWwkkuH2hoEa9S.jpg")
+    assert found["meta"]["original_title"] == "Interstellar"
+    assert found["tags"] == ["bilimkurgu", "uzay"]
+    # Etiket guncellemesi listeyi degistirmeli (set, eklemek degil).
+    updated = (await client.patch(f"/api/media/{created['id']}", json={"tags": ["uzay"]})).json()
+    assert updated["tags"] == ["uzay"]
+    await client.delete(f"/api/media/{created['id']}")

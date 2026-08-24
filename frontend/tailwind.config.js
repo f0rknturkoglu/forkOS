@@ -55,6 +55,18 @@ export default {
           3: "var(--heat-3)",
           4: "var(--heat-4)",
         },
+        // Medya türleri -- her türün kimlik rengi (chip, rozet, vurgu).
+        kind: {
+          movie: "var(--kind-movie)",
+          show: "var(--kind-show)",
+          anime: "var(--kind-anime)",
+          manga: "var(--kind-manga)",
+          book: "var(--kind-book)",
+          audiobook: "var(--kind-audiobook)",
+          podcast: "var(--kind-podcast)",
+          music: "var(--kind-music)",
+          game: "var(--kind-game)",
+        },
       },
       borderColor: { DEFAULT: "var(--border)" },
       fontFamily: {

@@ -60,6 +60,34 @@
     --heat-3:          #4E86DF;
     --heat-4:          #1F5FD0;
 
+    /* Medya türleri — kimlik renkleri (metin/çip/rozet kontrasti surface'a göre). */
+    --kind-movie:      #B3261E;
+    --kind-show:       #2E5E9E;
+    --kind-anime:      #C2185B;
+    --kind-manga:      #6A3FA0;
+    --kind-book:       #A05A17;
+    --kind-audiobook:  #3E6490;
+    --kind-podcast:    #1E6B45;
+    --kind-music:      #0F766E;
+    --kind-game:       #5F6F3D;
+
+    /* Kaynak marka renkleri — çip/rozetlerde kaynağın kendi rengi. */
+    --src-tmdb:          #0E7A48;
+    --src-anilist:       #0B6BCB;
+    --src-kitsu:         #D63384;
+    --src-openlibrary:   #7A4A24;
+    --src-itunes:        #C81E50;
+    --src-rawg:          #4B5563;
+    --src-letterboxd:    #2E8B57;
+    --src-imdb:          #A17E0A;
+    --src-rottentomatoes:#B42318;
+    --src-mal:           #2E51A2;
+    --src-goodreads:     #9C6B1E;
+    --src-audible:       #B26A00;
+    --src-spotify:       #15883E;
+    --src-rym:           #C22A4B;
+    --src-hltb:          #3E5C76;
+
     color-scheme: light;
   }
 
@@ -103,6 +131,34 @@
     --heat-2:          #2E5896;
     --heat-3:          #4A7FCB;
     --heat-4:          #6FA8FF;
+
+    /* Medya türleri — koyu zeminde biraz açık tonlar. */
+    --kind-movie:      #E57A6C;
+    --kind-show:       #6E9BD6;
+    --kind-anime:      #E279A9;
+    --kind-manga:      #A78BDE;
+    --kind-book:       #D6944F;
+    --kind-audiobook:  #7FA3C8;
+    --kind-podcast:    #55B084;
+    --kind-music:      #46B5A8;
+    --kind-game:       #9BB078;
+
+    /* Kaynak marka renkleri — koyu temada açık tonlar. */
+    --src-tmdb:          #21C97A;
+    --src-anilist:       #58B2FF;
+    --src-kitsu:         #FF6FA5;
+    --src-openlibrary:   #CDA077;
+    --src-itunes:        #FF6B8F;
+    --src-rawg:          #A8B3BF;
+    --src-letterboxd:    #57C785;
+    --src-imdb:          #F5C518;
+    --src-rottentomatoes:#FF7A5C;
+    --src-mal:           #6F8EE0;
+    --src-goodreads:     #E3C48A;
+    --src-audible:       #FFB84D;
+    --src-spotify:       #3DDC84;
+    --src-rym:           #FF7A96;
+    --src-hltb:          #8FB0CC;
 
     color-scheme: dark;
   }

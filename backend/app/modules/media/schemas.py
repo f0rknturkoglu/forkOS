@@ -20,6 +20,7 @@ class MediaItemIn(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     meta: dict[str, Any] = {}
+    tags: list[str] = []
 
     @field_validator("kind")
     @classmethod
@@ -55,6 +56,7 @@ class MediaItemUpdate(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     meta: dict[str, Any] | None = None
+    tags: list[str] | None = None
 
     @field_validator("status")
     @classmethod
@@ -85,6 +87,7 @@ class MediaItemOut(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     meta: dict[str, Any] = {}
+    tags: list[str] = []
     created_at: datetime | None = None
 
 
