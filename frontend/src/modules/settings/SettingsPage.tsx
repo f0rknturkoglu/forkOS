@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
 import { allModules } from "@/core/registry";
+import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import { Badge, Button, PageFrame, PageHeader, Section as Panel, relativeTime, useTheme, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
@@ -9,6 +10,12 @@ import type { Theme } from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 
 type IntegrationStatus = { connected: boolean; login?: string | null };
+
+export function SettingsSourceHealth({ sources }: { sources: SourceHealth[] }): JSX.Element {
+  const [open, setOpen] = useState(false);
+  return <SourceHealthAccordion title="Kaynak sağlığı" sources={sources} open={open} onOpenChange={setOpen} />;
+}
+
 export function SettingsPage() {
   const toast = useToast();
   const online = useOnline();
@@ -78,7 +85,7 @@ export function SettingsPage() {
             <p>Detaylı durum: Sağlık paneli → "Yedekleme" widget'ı.</p>
           </div>
         )}</Panel></div>
-    <Panel title="Kaynak sağlığı"><div className="max-h-80 overflow-auto border-y border-subtle"><table className="w-full text-left text-meta"><thead className="text-muted"><tr><th className="p-2">Kaynak</th><th>Durum</th><th>Sonuç</th><th>Zaman</th></tr></thead><tbody>{sources.map(source => <tr key={source.source} className="border-t border-subtle"><td className="p-2">{source.source}</td><td><Badge tone={source.status === "ok" ? "ok" : source.status === "error" ? "warn" : "neutral"}>{source.status}</Badge></td><td>{source.items_found}</td><td>{new Date(source.started_at).toLocaleString("tr-TR")}</td></tr>)}</tbody></table></div></Panel></PageFrame>;
+    <SettingsSourceHealth sources={sources} /></PageFrame>;
 }
 
 /**
