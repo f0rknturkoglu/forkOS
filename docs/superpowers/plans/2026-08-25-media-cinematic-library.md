@@ -85,9 +85,10 @@ class FakeRegistry:
     def __init__(self):
         self.movie = SimpleNamespace(
             id="tmdb", ready=True, missing_settings=(),
-            search=AsyncMock(return_value=[ProviderResult(
-                provider="tmdb", provider_id="movie:1", title="Dune"
-            )]),
+            search=AsyncMock(return_value=[
+                ProviderResult(provider="tmdb", provider_id="movie:1", title="Dune"),
+                ProviderResult(provider="tmdb", provider_id="movie:1", title="Dune duplicate"),
+            ]),
         )
         self.book = SimpleNamespace(
             id="openlibrary", ready=True, missing_settings=(),
@@ -125,7 +126,7 @@ async def test_single_kind_search_still_returns_kind(monkeypatch):
     assert rows[0].kind == "movie"
 ```
 
-Add a duplicate fixture where the same `(kind, provider, provider_id)` appears twice and assert only one result remains.
+The duplicate `movie:1` fixture above is intentional; the single-row equality assertion proves global deduplication.
 
 - [ ] **Step 2: Verify RED**
 
@@ -140,7 +141,21 @@ In `schemas.py` add:
 ```python
 class MetadataResult(BaseModel):
     kind: str
-    # keep every existing field unchanged below
+    provider: str
+    provider_id: str
+    title: str
+    subtitle: str | None = None
+    summary: str | None = None
+    total: float | None = None
+    progress_measure: str | None = None
+    cover: str | None = None
+    backdrop: str | None = None
+    cover_url: str | None = None
+    backdrop_url: str | None = None
+    year: int | None = None
+    provider_ids: dict[str, Any] = Field(default_factory=dict)
+    meta: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class MetadataSearchWarning(BaseModel):
@@ -269,7 +284,25 @@ expect(externalLinks("music", "Closer", {}, "musicbrainz", "release-1", {}))
   ]));
 ```
 
-Add table-driven assertions for movie/show, anime/manga, book, audiobook, podcast, and game, ensuring unrelated services never appear.
+Use this table to assert required and forbidden site names:
+
+```tsx
+const linkCases = [
+  ["movie", ["TMDB", "IMDb", "Rotten Tomatoes", "Letterboxd"], ["RateYourMusic"]],
+  ["show", ["TMDB", "IMDb", "Rotten Tomatoes"], ["Letterboxd"]],
+  ["anime", ["AniList", "MyAnimeList"], ["Goodreads"]],
+  ["manga", ["AniList", "MyAnimeList"], ["IMDb"]],
+  ["book", ["OpenLibrary", "Goodreads"], ["IMDb"]],
+  ["audiobook", ["Audible", "Apple Books"], ["Letterboxd"]],
+  ["podcast", ["Apple Podcasts", "Spotify"], ["Goodreads"]],
+  ["game", ["RAWG", "HowLongToBeat"], ["IMDb"]],
+] as const;
+for (const [kind, required, forbidden] of linkCases) {
+  const names = externalLinks(kind, "Dune", {}, undefined, undefined, {}).map(([name]) => name);
+  expect(names).toEqual(expect.arrayContaining([...required]));
+  for (const name of forbidden) expect(names).not.toContain(name);
+}
+```
 
 - [ ] **Step 2: Write failing menu interaction tests**
 
@@ -365,7 +398,7 @@ expect(body).toMatchObject({
 });
 ```
 
-Return 409 on a second add and assert `Kütüphanede aç` links to `#/media/<existing-id>`.
+Return `409` with `{ detail: "Bu provider kaydı kütüphanede zaten var", existing_id: "media-existing" }` on a second add and assert `Kütüphanede aç` links to `#/media/media-existing`.
 
 - [ ] **Step 2: Verify RED**
 
@@ -619,8 +652,18 @@ Expected: the existing page still renders category-selected search and small row
   <PageHeader eyebrow="Takip" title="Medya" />
   <MediaMetrics stats={stats} />
   <MediaSearchComposer online={online} onAdded={refresh} />
-  <MediaLibraryControls ... />
-  <MediaPosterGrid items={items} online={online} onQuick={...} onTrash={...} />
+  <MediaLibraryControls
+    kind={kind}
+    status={status}
+    onKindChange={setKind}
+    onStatusChange={setStatus}
+  />
+  <MediaPosterGrid
+    items={items}
+    online={online}
+    onQuick={(item) => quick.mutate(item)}
+    onTrash={(item) => confirmTrash(item)}
+  />
   <MediaSyncSummary online={online} />
 </PageFrame>
 ```
