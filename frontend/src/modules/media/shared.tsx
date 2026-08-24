@@ -58,6 +58,21 @@ export function progressPct(item: Pick<MediaItem, "progress" | "total">): number
   return item.total ? Math.min(100, Math.round(((item.progress ?? 0) / item.total) * 100)) : null;
 }
 
+/** Yerel kapaklar yalnız güvenli tek dosya adıyla servis edilir. */
+export function mediaCoverUrl(item: Pick<MediaItem, "cover_path" | "cover_url" | "meta">): string | null {
+  const path = item.cover_path ?? "";
+  const name = path.includes("/") || path.includes("\\") ? null : path;
+  if (name && /^[a-z0-9][a-z0-9._-]*\.(?:jpg|jpeg|png|webp)$/i.test(name)) {
+    return `/api/media/assets/${encodeURIComponent(name)}`;
+  }
+  return item.cover_url ?? (String(item.meta?.cover_url ?? "") || null);
+}
+
+/** Canonical provider, legacy kayıtların meta.source alanına düşer. */
+export function mediaProvider(item: Pick<MediaItem, "provider" | "meta">): string | null {
+  return item.provider ?? (typeof item.meta?.source === "string" ? item.meta.source : null);
+}
+
 /** Kapak yoksa ya da URL kiriksa bas harf yedegi. */
 export function Cover({ url, title, size = "h-24 w-16" }: { url: string | null; title: string; size?: string }) {
   const [broken, setBroken] = useState(false);
@@ -78,40 +93,85 @@ export function Cover({ url, title, size = "h-24 w-16" }: { url: string | null; 
   );
 }
 
+function asId(value: unknown): string | null {
+  return typeof value === "string" || typeof value === "number" ? String(value) || null : null;
+}
+
+function identityFor(
+  name: string,
+  meta: Record<string, unknown>,
+  provider?: string | null,
+  providerId?: string | null,
+  providerIds?: Record<string, unknown> | null,
+  legacyKey?: string,
+): string | null {
+  if (provider === name) return asId(providerId) ?? asId(providerIds?.[name]);
+  return asId(providerIds?.[name]) ?? asId(meta[legacyKey ?? name]);
+}
+
 /** Kayit/arama sonucu icin harici site kisa yollari; ture gore sinirli,
  *  keyword her zaman Ingilizce (original_title varsa o, yoksa baslik). */
-export function externalLinks(kind: string, title: string, meta: Record<string, unknown>): [string, string][] {
+export function externalLinks(
+  kind: string,
+  title: string,
+  meta: Record<string, unknown>,
+  provider?: string | null,
+  providerId?: string | null,
+  providerIds?: Record<string, unknown> | null,
+): [string, string][] {
   const q = encodeURIComponent(String((meta as { original_title?: string }).original_title ?? title));
   const links: [string, string][] = [];
   if (kind === "anime" || kind === "manga") {
-    if (meta.source === "anilist" && meta.anilist_id) {
-      links.push(["AniList", "https://anilist.co/" + kind + "/" + String(meta.anilist_id)]);
-    }
+    const anilistId = identityFor("anilist", meta, provider, providerId, providerIds, "anilist_id");
+    links.push(["AniList", anilistId
+      ? "https://anilist.co/" + kind + "/" + encodeURIComponent(anilistId)
+      : "https://anilist.co/search/" + kind + "?search=" + q]);
     links.push(["MyAnimeList", "https://myanimelist.net/search/all?q=" + q]);
   } else if (kind === "book") {
-    if (meta.source === "openlibrary" && meta.ol_key) {
-      links.push(["OpenLibrary", "https://openlibrary.org" + String(meta.ol_key)]);
-    }
+    const openLibraryId = identityFor("openlibrary", meta, provider, providerId, providerIds, "ol_key");
+    const openLibraryPath = openLibraryId?.startsWith("/")
+      ? openLibraryId
+      : openLibraryId ? "/works/" + openLibraryId : null;
+    links.push(["OpenLibrary", openLibraryPath
+      ? "https://openlibrary.org" + openLibraryPath
+      : "https://openlibrary.org/search?q=" + q]);
     links.push(["Goodreads", "https://www.goodreads.com/search?q=" + q]);
   } else if (kind === "movie") {
-    if (meta.source === "tmdb" && meta.tmdb_id) {
-      links.push(["TMDB", "https://www.themoviedb.org/movie/" + String(meta.tmdb_id)]);
-    }
+    const tmdbId = identityFor("tmdb", meta, provider, providerId, providerIds, "tmdb_id")?.replace(/^movie:/, "");
+    links.push(["TMDB", tmdbId
+      ? "https://www.themoviedb.org/movie/" + encodeURIComponent(tmdbId)
+      : "https://www.themoviedb.org/search?query=" + q]);
     links.push(["Letterboxd", "https://letterboxd.com/search/" + q + "/"]);
     links.push(["IMDb", "https://www.imdb.com/find/?q=" + q]);
     links.push(["Rotten Tomatoes", "https://www.rottentomatoes.com/search?search=" + q]);
   } else if (kind === "show") {
-    if (meta.source === "tmdb" && meta.tmdb_id) {
-      links.push(["TMDB", "https://www.themoviedb.org/tv/" + String(meta.tmdb_id)]);
-    }
+    const tmdbId = identityFor("tmdb", meta, provider, providerId, providerIds, "tmdb_id")?.replace(/^tv:/, "");
+    links.push(["TMDB", tmdbId
+      ? "https://www.themoviedb.org/tv/" + encodeURIComponent(tmdbId)
+      : "https://www.themoviedb.org/search?query=" + q]);
     links.push(["IMDb", "https://www.imdb.com/find/?q=" + q]);
+    links.push(["Rotten Tomatoes", "https://www.rottentomatoes.com/search?search=" + q]);
   } else if (kind === "audiobook") {
     links.push(["Audible", "https://www.audible.com/search?keywords=" + q]);
+    links.push(["Apple Books", "https://books.apple.com/us/search?term=" + q]);
   } else if (kind === "podcast") {
+    const itunesId = identityFor("itunes", meta, provider, providerId, providerIds);
+    links.push(["Apple Podcasts", itunesId
+      ? "https://podcasts.apple.com/us/podcast/id" + encodeURIComponent(itunesId)
+      : "https://podcasts.apple.com/us/search?term=" + q]);
     links.push(["Spotify", "https://open.spotify.com/search/" + q]);
   } else if (kind === "music") {
-    links.push(["RyM", "https://rateyourmusic.com/search?searchterm=" + q]);
+    const musicBrainzId = identityFor("musicbrainz", meta, provider, providerId, providerIds);
+    links.push(["Apple Music", "https://music.apple.com/us/search?term=" + q]);
+    links.push(["MusicBrainz", musicBrainzId
+      ? "https://musicbrainz.org/release-group/" + encodeURIComponent(musicBrainzId)
+      : "https://musicbrainz.org/search?query=" + q + "&type=release_group"]);
+    links.push(["RateYourMusic", "https://rateyourmusic.com/search?searchterm=" + q]);
   } else if (kind === "game") {
+    const rawgId = identityFor("rawg", meta, provider, providerId, providerIds);
+    links.push(["RAWG", rawgId
+      ? "https://rawg.io/games/" + encodeURIComponent(rawgId)
+      : "https://rawg.io/search?search=" + q]);
     links.push(["HowLongToBeat", "https://howlongtobeat.com/?q=" + q]);
   }
   return links;
@@ -163,6 +223,9 @@ const SRC_CLASSES: Record<string, string> = {
   kitsu: "text-[color:var(--src-kitsu)] border-[color:var(--src-kitsu)]",
   openlibrary: "text-[color:var(--src-openlibrary)] border-[color:var(--src-openlibrary)]",
   itunes: "text-[color:var(--src-itunes)] border-[color:var(--src-itunes)]",
+  google_books: "text-[color:var(--src-google-books)] border-[color:var(--src-google-books)]",
+  musicbrainz: "text-[color:var(--src-musicbrainz)] border-[color:var(--src-musicbrainz)]",
+  igdb: "text-[color:var(--src-igdb)] border-[color:var(--src-igdb)]",
   rawg: "text-[color:var(--src-rawg)] border-[color:var(--src-rawg)]",
   letterboxd: "text-[color:var(--src-letterboxd)] border-[color:var(--src-letterboxd)]",
   imdb: "text-[color:var(--src-imdb)] border-[color:var(--src-imdb)]",
@@ -181,10 +244,16 @@ export function srcColor(name: string): string {
   return SRC_CLASSES[key] ?? "text-secondary border-subtle";
 }
 
+/** Provider kimliğini kaynak renkli outline chip olarak sunar. */
+export function providerChip(provider: string | null | undefined): string {
+  return provider ? srcColor(provider) : "text-secondary border-subtle";
+}
+
 const SRC_BY_NAME: Record<string, string> = {
   TMDB: "tmdb", Letterboxd: "letterboxd", IMDb: "imdb", "Rotten Tomatoes": "rottentomatoes",
   AniList: "anilist", MyAnimeList: "mal", OpenLibrary: "openlibrary", Goodreads: "goodreads",
-  Audible: "audible", Spotify: "spotify", RyM: "rym", HowLongToBeat: "hltb",
+  Audible: "audible", Spotify: "spotify", RyM: "rym", RateYourMusic: "rym", HowLongToBeat: "hltb",
+  "Google Books": "google_books", MusicBrainz: "musicbrainz", IGDB: "igdb",
 };
 
 /** Çerçeveli (outline) harici site bağlantıları — arayüzde her zaman görünür,

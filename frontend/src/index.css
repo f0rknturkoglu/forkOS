@@ -77,6 +77,9 @@
     --src-kitsu:         #D63384;
     --src-openlibrary:   #7A4A24;
     --src-itunes:        #C81E50;
+    --src-google-books:  #356AC3;
+    --src-musicbrainz:   #7A3E9D;
+    --src-igdb:          #6B4FC4;
     --src-rawg:          #4B5563;
     --src-letterboxd:    #2E8B57;
     --src-imdb:          #A17E0A;
@@ -149,6 +152,9 @@
     --src-kitsu:         #FF6FA5;
     --src-openlibrary:   #CDA077;
     --src-itunes:        #FF6B8F;
+    --src-google-books:  #7EAEFF;
+    --src-musicbrainz:   #C592E8;
+    --src-igdb:          #AE95FF;
     --src-rawg:          #A8B3BF;
     --src-letterboxd:    #57C785;
     --src-imdb:          #F5C518;

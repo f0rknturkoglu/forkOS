@@ -1,6 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Cover, externalLinks, KindChips, SiteLinks, statusLabel, statusLabelsFor } from "./shared";
+import {
+  Cover,
+  externalLinks,
+  KindChips,
+  mediaCoverUrl,
+  mediaProvider,
+  providerChip,
+  SiteLinks,
+  statusLabel,
+  statusLabelsFor,
+} from "./shared";
 
 const item = {
   id: "1", title: "Yabancı", kind: "book", status: "in_progress",
@@ -11,6 +21,51 @@ const item = {
 };
 
 describe("media shared components", () => {
+  it("normalizes local covers, preserves remote fallbacks, and rejects paths", () => {
+    expect(mediaCoverUrl({ cover_path: "abc.webp", cover_url: "https://remote" })).toBe(
+      "/api/media/assets/abc.webp",
+    );
+    expect(mediaCoverUrl({ cover_path: "../abc.webp", cover_url: "https://remote" })).toBe(
+      "https://remote",
+    );
+    expect(mediaCoverUrl({ cover_path: null, cover_url: null, meta: { cover_url: "https://legacy" } })).toBe(
+      "https://legacy",
+    );
+  });
+
+  it("prefers canonical provider identity and gives it a source chip", () => {
+    expect(mediaProvider({ provider: "musicbrainz", meta: { source: "itunes" } })).toBe(
+      "musicbrainz",
+    );
+    expect(providerChip("musicbrainz")).toContain("--src-musicbrainz");
+  });
+
+  it("offers only the external sites relevant to each media kind", () => {
+    expect(externalLinks("music", "Closer", {}, "musicbrainz", "release-1", {}))
+      .toEqual(expect.arrayContaining([
+        ["MusicBrainz", "https://musicbrainz.org/release-group/release-1"],
+        ["Apple Music", "https://music.apple.com/us/search?term=Closer"],
+        ["RateYourMusic", "https://rateyourmusic.com/search?searchterm=Closer"],
+      ]));
+
+    const linkCases = [
+      ["movie", ["TMDB", "IMDb", "Rotten Tomatoes", "Letterboxd"], ["RateYourMusic"]],
+      ["show", ["TMDB", "IMDb", "Rotten Tomatoes"], ["Letterboxd"]],
+      ["anime", ["AniList", "MyAnimeList"], ["Goodreads"]],
+      ["manga", ["AniList", "MyAnimeList"], ["IMDb"]],
+      ["book", ["OpenLibrary", "Goodreads"], ["IMDb"]],
+      ["audiobook", ["Audible", "Apple Books"], ["Letterboxd"]],
+      ["podcast", ["Apple Podcasts", "Spotify"], ["Goodreads"]],
+      ["game", ["RAWG", "HowLongToBeat"], ["IMDb"]],
+    ] as const;
+
+    for (const [kind, required, forbidden] of linkCases) {
+      const names = externalLinks(kind, "Dune", {}, undefined, undefined, {}).map(([name]) => name);
+      expect(names).toEqual(expect.arrayContaining([...required]));
+      for (const name of forbidden) expect(names).not.toContain(name);
+    }
+  });
+
   it("cover falls back to the uppercase initial when url is missing", () => {
     const html = renderToStaticMarkup(<Cover url={null} title="yabancı" />);
     expect(html).toContain("Y");
@@ -55,9 +110,9 @@ describe("media shared components", () => {
     expect(links).toContainEqual(["Rotten Tomatoes", "https://www.rottentomatoes.com/search?search=Interstellar"]);
   });
 
-  it("keeps music on RateYourMusic only", () => {
+  it("keeps music on RateYourMusic", () => {
     const links = externalLinks("music", "Closer", {});
-    expect(links).toContainEqual(["RyM", "https://rateyourmusic.com/search?searchterm=Closer"]);
+    expect(links).toContainEqual(["RateYourMusic", "https://rateyourmusic.com/search?searchterm=Closer"]);
     expect(links.some(([name]) => name === "Letterboxd")).toBe(false);
   });
 
