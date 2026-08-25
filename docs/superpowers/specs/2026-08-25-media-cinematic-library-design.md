@@ -1,6 +1,6 @@
 # Sinematik Medya Kütüphanesi Tasarımı
 
-**Tarih:** 2026-08-25  
+**Tarih:** 2026-08-25
 **Durum:** Kullanıcı tarafından onaylandı
 
 ## Amaç

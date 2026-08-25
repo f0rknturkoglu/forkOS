@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MediaLibraryControls, MediaMetrics, MediaPosterGrid } from "./MediaPosterGrid";
+import { MediaLibraryControls, MediaMetrics, MediaPosterGrid, MediaPosterGridSkeleton } from "./MediaPosterGrid";
 import { MediaSearchComposer } from "./MediaSearchComposer";
 
 const dune = {
@@ -51,6 +51,15 @@ describe("MediaPosterGrid", () => {
     expect(container.querySelectorAll(".h-px")).toHaveLength(2);
   });
 
+  it("replaces a broken cover image with the title initial", () => {
+    render(<MediaPosterGrid items={[dune]} online onQuick={vi.fn()} onTrash={vi.fn()} />);
+
+    fireEvent.error(screen.getByRole("img", { name: "Dune kapağı" }));
+
+    expect(screen.getByRole("img", { name: "Dune kapağı" }).textContent).toBe("D");
+    expect(screen.queryByRole("img", { name: "Dune kapağı" })?.tagName).toBe("DIV");
+  });
+
   it("runs enabled quick actions but disables quick and trash actions while offline", () => {
     const onQuick = vi.fn();
     const { rerender } = render(<MediaPosterGrid items={[dune]} online onQuick={onQuick} onTrash={vi.fn()} />);
@@ -71,6 +80,20 @@ describe("MediaPosterGrid", () => {
     expect(screen.getByRole("button", { name: "Arrival ilerlemesini bir artır" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Blade Runner ilerlemesini bir artır" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Dune: Messiah ilerlemesini bir artır" })).toBeNull();
+  });
+});
+
+describe("MediaPosterGridSkeleton", () => {
+  afterEach(cleanup);
+
+  it("reserves poster-card geometry while the first library page loads", () => {
+    const { container } = render(<MediaPosterGridSkeleton count={4} />);
+
+    const status = screen.getByRole("status", { name: "Kütüphane yükleniyor" });
+    expect(status).toBeTruthy();
+    expect(container.querySelector("[data-media-grid]")?.className).toContain("auto-fill");
+    expect(container.querySelectorAll("[data-media-poster-skeleton]")).toHaveLength(4);
+    expect(container.querySelectorAll("[data-media-poster-skeleton] .aspect-\\[2\\/3\\]")).toHaveLength(4);
   });
 });
 

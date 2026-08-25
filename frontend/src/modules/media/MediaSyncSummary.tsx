@@ -11,7 +11,7 @@ import { KIND_LABELS, providerLabel } from "./shared";
 type BadgeTone = "neutral" | "warn" | "ok" | "danger";
 
 function isHealthy(provider: MediaProviderStatus): boolean {
-  return provider.ready && provider.last_status !== "error";
+  return provider.ready && provider.last_status === "ok";
 }
 
 function providerStatus(provider: MediaProviderStatus): { label: string; tone: BadgeTone } {
@@ -107,6 +107,9 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
               <ul>
                 {data.map((provider) => {
                   const status = providerStatus(provider);
+                  const itemsFound = "items_found" in provider && typeof provider.items_found === "number"
+                    ? provider.items_found
+                    : null;
                   return (
                     <li key={provider.id} className="grid gap-1 border-b border-subtle px-3.5 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-3">
                       <div className="min-w-0">
@@ -118,6 +121,7 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
                         ))}
                       </div>
                       <div className="flex items-start gap-2 sm:justify-end">
+                        {itemsFound !== null && <span className="text-meta text-muted">{itemsFound} kayıt bulundu</span>}
                         <Badge tone={status.tone}>{status.label}</Badge>
                         {provider.last_run_at && <span className="text-meta text-muted">{relativeTime(provider.last_run_at)}</span>}
                       </div>

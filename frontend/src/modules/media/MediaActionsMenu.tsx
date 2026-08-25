@@ -113,6 +113,11 @@ export function MediaActionsMenu({
     item.provider_ids,
   );
 
+  const closeAndRestoreFocus = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
   return (
     <div className="relative shrink-0">
       <button
@@ -156,7 +161,7 @@ export function MediaActionsMenu({
               role="menuitem"
               target="_blank"
               rel="noreferrer"
-              onClick={() => setOpen(false)}
+              onClick={closeAndRestoreFocus}
               className="block rounded px-2.5 py-1.5 text-body text-secondary transition hover:bg-surface-hover hover:text-primary"
             >
               {name} ↗
@@ -168,7 +173,7 @@ export function MediaActionsMenu({
             role="menuitem"
             disabled={disabled}
             onClick={() => {
-              setOpen(false);
+              closeAndRestoreFocus();
               onTrash(item);
             }}
             className={cx(

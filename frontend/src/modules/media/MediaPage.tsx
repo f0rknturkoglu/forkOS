@@ -10,6 +10,7 @@ import {
   MediaLibraryControls,
   MediaMetrics,
   MediaPosterGrid,
+  MediaPosterGridSkeleton,
 } from "./MediaPosterGrid";
 import {
   consumptionBody,
@@ -122,7 +123,7 @@ export function MediaPage() {
       />
 
       {library.isLoading ? (
-        <p role="status" aria-label="Kütüphane yükleniyor" className="py-8 text-center text-meta text-muted">Kütüphane yükleniyor…</p>
+        <MediaPosterGridSkeleton />
       ) : library.isError ? (
         <Empty variant="page" action={<Button size="sm" disabled={library.isFetching} onClick={() => { void library.refetch(); }}>Kütüphaneyi yeniden dene</Button>}>
           Kütüphane yüklenemedi: {library.error.message}

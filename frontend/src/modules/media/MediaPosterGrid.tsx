@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Metric, MetricStrip, cx } from "@/core/ui";
 import type { MediaItem, MediaStats } from "@/core/types";
@@ -85,12 +86,13 @@ export function MediaLibraryControls({
 
 function PosterCover({ item, href }: { item: PosterItem; href: string }) {
   const url = mediaCoverUrl(item);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const alt = `${item.title} kapağı`;
   const coverClass = "aspect-[2/3] w-full rounded-card border border-subtle object-cover";
   return (
     <a href={href} aria-label={`${item.title} detayını aç`} className="block rounded-card focus:outline-none focus:ring-2 focus:ring-accent">
-      {url ? (
-        <img src={url} alt={alt} loading="lazy" className={coverClass} />
+      {url && failedUrl !== url ? (
+        <img src={url} alt={alt} loading="lazy" onError={() => setFailedUrl(url)} className={coverClass} />
       ) : (
         <div role="img" aria-label={alt} className={cx("flex items-center justify-center bg-surface-sunken font-serif text-title text-secondary", coverClass)}>
           {(item.title.trim().charAt(0) || "?").toUpperCase()}
@@ -177,5 +179,26 @@ export function MediaPosterGrid({
     >
       {items.map((item) => <MediaPoster key={item.id} item={item} online={online} onQuick={onQuick} onTrash={onTrash} />)}
     </ul>
+  );
+}
+
+export function MediaPosterGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div role="status" aria-label="Kütüphane yükleniyor">
+      <span className="sr-only">Kütüphane yükleniyor…</span>
+      <ul
+        data-media-grid
+        aria-hidden="true"
+        className="grid grid-cols-[repeat(auto-fill,minmax(156px,1fr))] gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]"
+      >
+        {Array.from({ length: count }, (_, index) => (
+          <li key={index} data-media-poster-skeleton className="min-w-0 animate-pulse">
+            <div className="aspect-[2/3] w-full rounded-card border border-subtle bg-surface-sunken" />
+            <div className="mt-2 h-4 w-3/4 rounded bg-surface-sunken" />
+            <div className="mt-2 h-5 w-1/2 rounded bg-surface-sunken" />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

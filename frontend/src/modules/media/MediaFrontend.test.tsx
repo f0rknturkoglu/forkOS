@@ -317,7 +317,9 @@ describe.skip("responsive media frontend (Task 5 contract)", () => {
       return defaultResponse(path, method);
     };
     const first = renderView("#/media/library");
-    expect(await screen.findByRole("status", { name: "Kütüphane yükleniyor" })).toBeTruthy();
+    const loading = await screen.findByRole("status", { name: "Kütüphane yükleniyor" });
+    expect(loading.querySelectorAll("[data-media-poster-skeleton]")).toHaveLength(6);
+    expect(loading.querySelector(".aspect-\\[2\\/3\\]")).toBeTruthy();
     (resolveLibrary as ((response: Response) => void) | null)?.(
       json({ items: [], total: 0, next_cursor: null }),
     );

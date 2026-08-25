@@ -1,39 +1,39 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MediaSyncSummary } from "./MediaSyncSummary";
 
 const providers = [
   {
     id: "tmdb", kinds: ["movie", "show"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:30:00.000Z", last_status: "ok", last_error: null,
+    last_run_at: "2026-08-25T07:30:00.000Z", last_status: "ok", last_error: null, items_found: 12,
     capabilities: { search: true, details: true, units: true, upcoming: true, cache_artwork: true, requires_settings: [] },
   },
   {
     id: "anilist", kinds: ["anime", "manga"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:20:00.000Z", last_status: "ok", last_error: null,
+    last_run_at: "2026-08-25T07:20:00.000Z", last_status: "ok", last_error: null, items_found: 3,
     capabilities: { search: true, details: true, units: true, upcoming: true, cache_artwork: false, requires_settings: [] },
   },
   {
     id: "openlibrary", kinds: ["book"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:00:00.000Z", last_status: "empty", last_error: null,
+    last_run_at: "2026-08-25T07:00:00.000Z", last_status: "empty", last_error: null, items_found: 0,
     capabilities: { search: true, details: true, units: false, upcoming: false, cache_artwork: true, requires_settings: [] },
   },
   {
     id: "itunes", kinds: ["music", "podcast"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T06:30:00.000Z", last_status: "ok", last_error: null,
+    last_run_at: "2026-08-25T06:30:00.000Z", last_status: "ok", last_error: null, items_found: 8,
     capabilities: { search: true, details: true, units: false, upcoming: false, cache_artwork: false, requires_settings: [] },
   },
   {
     id: "igdb", kinds: ["game"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T06:00:00.000Z", last_status: "ok", last_error: null,
+    last_run_at: "2026-08-25T06:00:00.000Z", last_status: "ok", last_error: null, items_found: 5,
     capabilities: { search: true, details: true, units: false, upcoming: true, cache_artwork: true, requires_settings: [] },
   },
   {
     id: "kitsu", kinds: ["anime"], ready: true, missing_settings: ["media.kitsu_key"],
-    last_run_at: "2026-08-25T05:00:00.000Z", last_status: "error", last_error: "API anahtarı reddedildi",
+    last_run_at: "2026-08-25T05:00:00.000Z", last_status: "error", last_error: "API anahtarı reddedildi", items_found: 0,
     capabilities: { search: true, details: true, units: true, upcoming: false, cache_artwork: false, requires_settings: ["media.kitsu_key"] },
   },
 ];
@@ -90,7 +90,7 @@ describe("MediaSyncSummary", () => {
     const { container } = renderSummary();
 
     expect(await screen.findByText("6 kaynak")).toBeTruthy();
-    expect(screen.getByText("5 sağlıklı")).toBeTruthy();
+    expect(screen.getByText("4 sağlıklı")).toBeTruthy();
     expect(screen.getByText("son çekim 30 dk önce")).toBeTruthy();
 
     const details = container.querySelector("details[data-media-sync]") as HTMLDetailsElement;
@@ -100,6 +100,8 @@ describe("MediaSyncSummary", () => {
     expect(details.open).toBe(true);
     expect(screen.getByText("TMDB")).toBeTruthy();
     expect(screen.getByText("Film · Dizi")).toBeTruthy();
+    expect(screen.getByText("12 kayıt bulundu")).toBeTruthy();
+    expect(within(screen.getByText("OpenLibrary").closest("li")!).getByText("0 kayıt bulundu")).toBeTruthy();
     expect(screen.getByText("boş")).toBeTruthy();
     expect(screen.getByText("Son hata: API anahtarı reddedildi")).toBeTruthy();
     expect(screen.getByText("Eksik ayar: media.kitsu_key")).toBeTruthy();

@@ -68,6 +68,20 @@ describe("MediaActionsMenu", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("restores trigger focus after selecting an action", async () => {
+    const user = userEvent.setup();
+    const onTrash = vi.fn();
+    render(<MediaActionsMenu item={item} onTrash={onTrash} disabled={false} />);
+
+    const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
+    await user.click(trigger);
+    await user.click(screen.getByRole("menuitem", { name: "Çöpe taşı" }));
+
+    expect(onTrash).toHaveBeenCalledWith(item);
+    expect(screen.queryByRole("menu", { name: "Dune işlemleri menüsü" })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("closes when a pointer event happens outside the menu", async () => {
     const user = userEvent.setup();
     render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
