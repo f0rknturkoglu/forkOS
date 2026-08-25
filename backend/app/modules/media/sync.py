@@ -124,6 +124,7 @@ async def provider_statuses(session: AsyncSession) -> list[dict]:
                 ),
                 "last_run_at": row.finished_at if row else None,
                 "last_status": row.status if row else None,
+                "last_items_found": row.items_found if row else None,
                 "last_error": row.error if row else None,
             }
         )

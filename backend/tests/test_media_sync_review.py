@@ -7,6 +7,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 
+from app.core.models import SourceRun
 from app.db import SessionLocal
 from app.main import app
 from app.modules.media import service
@@ -312,3 +313,33 @@ async def test_provider_endpoint_unions_capabilities_across_kind_adapters(
     assert tmdb["kinds"] == ["movie", "show"]
     assert tmdb["capabilities"]["units"] is True
     assert tmdb["capabilities"]["upcoming"] is True
+
+
+async def test_provider_endpoint_exposes_latest_source_run_item_count(
+    client: AsyncClient,
+):
+    async with SessionLocal() as session:
+        session.add_all(
+            [
+                SourceRun(
+                    source="media:tmdb:first-item",
+                    status="ok",
+                    items_found=2,
+                    started_at=datetime(2026, 1, 1, tzinfo=UTC),
+                    finished_at=datetime(2026, 1, 1, 0, 1, tzinfo=UTC),
+                ),
+                SourceRun(
+                    source="media:tmdb:second-item",
+                    status="ok",
+                    items_found=7,
+                    started_at=datetime(2026, 1, 2, tzinfo=UTC),
+                    finished_at=datetime(2026, 1, 2, 0, 1, tzinfo=UTC),
+                ),
+            ]
+        )
+        await session.commit()
+
+    providers = (await client.get("/api/media/providers")).json()
+    tmdb = next(row for row in providers if row["id"] == "tmdb")
+
+    assert tmdb["last_items_found"] == 7

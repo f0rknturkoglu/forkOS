@@ -3601,6 +3601,8 @@ export interface components {
             kinds: string[];
             /** Last Error */
             last_error?: string | null;
+            /** Last Items Found */
+            last_items_found?: number | null;
             /** Last Run At */
             last_run_at?: string | null;
             /** Last Status */

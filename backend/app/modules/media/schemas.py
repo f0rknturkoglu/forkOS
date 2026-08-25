@@ -455,6 +455,7 @@ class MediaProviderStatusOut(BaseModel):
     missing_settings: list[str]
     last_run_at: datetime | None = None
     last_status: str | None = None
+    last_items_found: int | None = None
     last_error: str | None = None
 
 

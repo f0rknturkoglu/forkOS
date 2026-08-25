@@ -41,6 +41,7 @@ from app.modules.media.providers.base import (
 )
 from app.modules.media.providers.registry import ProviderRegistry
 from app.modules.media.schemas import (
+    GlobalMetadataSearchOut,
     MediaCollectionIn,
     MediaCollectionOut,
     MediaCollectionUpdate,
@@ -54,7 +55,6 @@ from app.modules.media.schemas import (
     MediaItemOut,
     MediaItemUpdate,
     MediaPageOut,
-    GlobalMetadataSearchOut,
     MediaStats,
     MediaUnitOut,
     MediaUnitUpsert,
@@ -289,7 +289,9 @@ async def search_metadata(
 async def search_all_metadata(session: AsyncSession, q: str) -> GlobalMetadataSearchOut:
     registry = await provider_registry(session)
     providers: list[tuple[str, MediaProvider]] = [
-        (kind, registry.for_kind(kind)) for kind in registry.kinds
+        variant
+        for variants in registry.provider_groups().values()
+        for variant in variants
     ]
     ready: list[tuple[str, MediaProvider]] = []
     warnings: list[MetadataSearchWarning] = []
@@ -297,26 +299,23 @@ async def search_all_metadata(session: AsyncSession, q: str) -> GlobalMetadataSe
     for kind, provider in providers:
         if provider.ready:
             ready.append((kind, provider))
+            continue
+        missing = ", ".join(provider.missing_settings)
+        suffix = f": {missing}" if missing else ""
+        warnings.append(
+            MetadataSearchWarning(
+                provider=provider.id,
+                kind=kind,
+                message=f"{kind} için provider hazır değil{suffix}",
+            )
+        )
 
     outcomes = await asyncio.gather(
         *(provider.search(q) for _, provider in ready), return_exceptions=True
     )
-    outcomes_by_kind = dict(zip((kind for kind, _ in ready), outcomes, strict=True))
     results: list[MetadataResult] = []
-    seen: set[tuple[str, str, str]] = set()
-    for kind, provider in providers:
-        if not provider.ready:
-            missing = ", ".join(provider.missing_settings)
-            suffix = f": {missing}" if missing else ""
-            warnings.append(
-                MetadataSearchWarning(
-                    provider=provider.id,
-                    kind=kind,
-                    message=f"{kind} için provider hazır değil{suffix}",
-                )
-            )
-            continue
-        outcome = outcomes_by_kind[kind]
+    seen: set[tuple[str, str]] = set()
+    for (kind, provider), outcome in zip(ready, outcomes, strict=True):
         if isinstance(outcome, BaseException):
             logger.warning(
                 "Media provider search failed (kind=%s provider=%s error_type=%s)",
@@ -334,7 +333,7 @@ async def search_all_metadata(session: AsyncSession, q: str) -> GlobalMetadataSe
             continue
         for row in outcome:
             result = _metadata_result(row, kind)
-            key = (result.kind, result.provider, result.provider_id)
+            key = (result.provider, result.provider_id)
             if key not in seen:
                 seen.add(key)
                 results.append(result)

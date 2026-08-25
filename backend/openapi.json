@@ -3453,6 +3453,17 @@
             ],
             "title": "Last Error"
           },
+          "last_items_found": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Items Found"
+          },
           "last_run_at": {
             "anyOf": [
               {

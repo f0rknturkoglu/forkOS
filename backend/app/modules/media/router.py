@@ -13,6 +13,7 @@ from app.modules.media import sync as media_sync
 from app.modules.media.artwork import ArtworkStore
 from app.modules.media.models import KINDS, STATUSES
 from app.modules.media.schemas import (
+    GlobalMetadataSearchOut,
     MediaCollectionIn,
     MediaCollectionOut,
     MediaCollectionUpdate,
@@ -31,7 +32,6 @@ from app.modules.media.schemas import (
     MediaSyncBatchOut,
     MediaSyncIdleOut,
     MediaUnitOut,
-    GlobalMetadataSearchOut,
     MetadataResult,
 )
 
