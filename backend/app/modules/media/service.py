@@ -891,7 +891,6 @@ async def _complete_cycle(
 
 async def _synchronize_status(session: AsyncSession, item: MediaItem, status: str) -> None:
     cycle = await _open_cycle(session, item.id)
-    now = datetime.now(UTC)
     if status == "completed" and item.status == "completed" and cycle is None:
         return
     if status == "planned":
@@ -905,7 +904,7 @@ async def _synchronize_status(session: AsyncSession, item: MediaItem, status: st
     if status == "completed":
         if cycle is None:
             cycle = await _start_cycle(session, item, MediaCycleStart(), commit=False)
-        await _complete_cycle(session, item, cycle, now)
+        await _complete_cycle(session, item, cycle, datetime.now(UTC))
         return
     if status == "in_progress":
         cycle.status = "active"
@@ -917,7 +916,7 @@ async def _synchronize_status(session: AsyncSession, item: MediaItem, status: st
         item.finished_at = None
     elif status == "dropped":
         cycle.status = "dropped"
-        cycle.completed_at = now
+        cycle.completed_at = datetime.now(UTC)
         item.finished_at = None
     item.status = status
 

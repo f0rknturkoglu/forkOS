@@ -983,6 +983,23 @@ async def test_patch_status_keeps_open_cycle_state_in_sync(client: AsyncClient):
     assert detail["cycles"][0]["completed_at"] is not None
 
 
+async def test_patch_planned_to_dropped_completes_new_cycle_after_it_starts(
+    client: AsyncClient,
+):
+    item = await _create(client, progress=0)
+    response = await client.patch(f"/api/media/{item['id']}", json={"status": "dropped"})
+
+    assert response.status_code == 200, response.text
+    detail = (await client.get(f"/api/media/{item['id']}")).json()
+    cycle = detail["cycles"][0]
+    assert detail["item"]["status"] == "dropped"
+    assert cycle["status"] == "dropped"
+    assert cycle["completed_at"] is not None
+    assert datetime.fromisoformat(cycle["completed_at"]) >= datetime.fromisoformat(
+        cycle["started_at"]
+    )
+
+
 async def test_provider_identity_is_required_unique_and_patchable(client: AsyncClient):
     missing_provider = await client.post(
         "/api/media",
