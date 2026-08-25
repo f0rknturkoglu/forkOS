@@ -2,16 +2,10 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { ApiError, api } from "@/core/api";
-import {Button, Chip, Input, RowList, cx} from "@/core/ui";
+import { Button, Chip, Input, RowList, cx } from "@/core/ui";
 import { useDebounced } from "@/lib/hooks";
-import type {
-  GlobalMetadataSearch,
-  MediaItem,
-  MediaPage,
-  MediaProviderStatus,
-  MetadataResult,
-} from "@/core/types";
-import {Cover, KIND_LABELS, mediaCoverUrl, mediaProvider, providerChip, providerLabel} from "./shared";
+import type { GlobalMetadataSearch, MediaItem, MediaPage, MediaProviderStatus, MetadataResult } from "@/core/types";
+import { Cover, KIND_LABELS, mediaCoverUrl, mediaProvider, providerChip, providerLabel } from "./shared";
 
 type DuplicateState = { href: string; term: string; identity: string };
 type AddRequest = { hit: MetadataResult; term: string };
@@ -54,9 +48,18 @@ function ResultRow({ hit, action }: { hit: MetadataResult; action?: React.ReactN
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-body font-medium text-primary">{hit.title}</h3>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta text-muted">
-          <Chip identity={"kind-" + hit.kind} variant="outline" size="xs">{KIND_LABELS[hit.kind] ?? hit.kind}</Chip>
-          <span className={cx("rounded border px-1.5 py-0.5", providerChip(hit.provider))}>{providerLabel(hit.provider)}</span>
-          {(hit.subtitle || hit.year) && <span>{hit.subtitle ?? ""}{hit.year ? ` · ${hit.year}` : ""}</span>}
+          <Chip identity={"kind-" + hit.kind} variant="outline" size="xs">
+            {KIND_LABELS[hit.kind] ?? hit.kind}
+          </Chip>
+          <span className={cx("rounded border px-1.5 py-0.5", providerChip(hit.provider))}>
+            {providerLabel(hit.provider)}
+          </span>
+          {(hit.subtitle || hit.year) && (
+            <span>
+              {hit.subtitle ?? ""}
+              {hit.year ? ` · ${hit.year}` : ""}
+            </span>
+          )}
         </div>
       </div>
       {action}
@@ -127,9 +130,10 @@ export function MediaSearchComposer({
   const libraryItems = library.data?.items ?? [];
   const hits = catalog.data?.results ?? [];
   const warnings = catalog.data?.warnings ?? [];
-  const noReadyProviders = providerStatuses.isSuccess
-    && Array.isArray(providerStatuses.data)
-    && !providerStatuses.data.some((provider) => provider.ready);
+  const noReadyProviders =
+    providerStatuses.isSuccess &&
+    Array.isArray(providerStatuses.data) &&
+    !providerStatuses.data.some((provider) => provider.ready);
   const duplicateVisible = duplicate && duplicate.term === term && duplicate.term === search.trim();
 
   return (
@@ -153,19 +157,42 @@ export function MediaSearchComposer({
 
       {enabled && (
         <div className="space-y-4">
-          {(library.isFetching || catalog.isFetching) && <p role="status" aria-live="polite" className="text-meta text-muted">Aranıyor…</p>}
+          {(library.isFetching || catalog.isFetching) && (
+            <p role="status" aria-live="polite" className="text-meta text-muted">
+              Aranıyor…
+            </p>
+          )}
           {(warnings.length > 0 || noReadyProviders) && (
             <p role="status" aria-live="polite" className="text-meta text-muted">
               {warnings.map((warning) => warning.message).join(" · ")}
-              {noReadyProviders && <> <a href="#/settings?section=media-links" className="text-accent hover:underline">Medya bağlantılarını aç</a></>}
+              {noReadyProviders && (
+                <>
+                  {" "}
+                  <a href="#/settings?section=media-links" className="text-accent hover:underline">
+                    Medya bağlantılarını aç
+                  </a>
+                </>
+              )}
             </p>
           )}
 
-          {addError && <p role="alert" className="text-meta text-danger">{addError}</p>}
+          {addError && (
+            <p role="alert" className="text-meta text-danger">
+              {addError}
+            </p>
+          )}
 
           <section aria-labelledby="media-library-results">
-            <h2 id="media-library-results" className="label-caps text-secondary">Kütüphanende</h2>
-            {library.isError ? <p role="alert" className="mt-2 text-meta text-danger">Kütüphane sonuçları yüklenemedi.</p> : library.isFetching ? <p className="mt-2 text-meta text-muted">Aranıyor…</p> : (
+            <h2 id="media-library-results" className="label-caps text-secondary">
+              Kütüphanende
+            </h2>
+            {library.isError ? (
+              <p role="alert" className="mt-2 text-meta text-danger">
+                Kütüphane sonuçları yüklenemedi.
+              </p>
+            ) : library.isFetching ? (
+              <p className="mt-2 text-meta text-muted">Aranıyor…</p>
+            ) : (
               <RowList as="ul" className="mt-1">
                 {libraryItems.map((item) => (
                   <li key={item.id} className="flex items-center gap-3 py-2">
@@ -197,14 +224,22 @@ export function MediaSearchComposer({
           </section>
 
           <section aria-labelledby="media-catalog-results">
-            <h2 id="media-catalog-results" className="label-caps text-secondary">Katalog sonuçları</h2>
-            {catalog.isError ? <p role="alert" className="mt-2 text-meta text-danger">Katalog sonuçları yüklenemedi.</p> : catalog.isFetching ? <p className="mt-2 text-meta text-muted">Aranıyor…</p> : (
+            <h2 id="media-catalog-results" className="label-caps text-secondary">
+              Katalog sonuçları
+            </h2>
+            {catalog.isError ? (
+              <p role="alert" className="mt-2 text-meta text-danger">
+                Katalog sonuçları yüklenemedi.
+              </p>
+            ) : catalog.isFetching ? (
+              <p className="mt-2 text-meta text-muted">Aranıyor…</p>
+            ) : (
               <RowList as="ul" className="mt-1">
                 {hits.map((hit) => (
                   <ResultRow
                     key={`${hit.kind}:${hit.provider}:${hit.provider_id}`}
                     hit={hit}
-                    action={(
+                    action={
                       <Button
                         size="sm"
                         variant="primary"
@@ -213,7 +248,7 @@ export function MediaSearchComposer({
                       >
                         <Plus size={13} /> {hit.title} kütüphaneye ekle
                       </Button>
-                    )}
+                    }
                   />
                 ))}
               </RowList>
@@ -222,7 +257,10 @@ export function MediaSearchComposer({
 
           {duplicateVisible && (
             <p role="status" aria-live="polite" className="text-meta text-muted">
-              Bu kayıt zaten kütüphanende. <a href={duplicate.href} className="text-accent hover:underline">Kütüphanede aç</a>
+              Bu kayıt zaten kütüphanende.{" "}
+              <a href={duplicate.href} className="text-accent hover:underline">
+                Kütüphanede aç
+              </a>
             </p>
           )}
         </div>

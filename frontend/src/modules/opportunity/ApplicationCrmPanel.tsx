@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, CalendarClock } from "lucide-react";
 import { api } from "@/core/api";
-import {Chip, Empty, Section, cx, relativeTime} from "@/core/ui";
+import { Chip, Empty, Section, cx, relativeTime } from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { ApplicationFunnel, Followup } from "@/core/types";
 import { STATUS_TONES, statusLabel } from "./labels";
@@ -36,8 +36,15 @@ export function ApplicationCrmPanel() {
                   <span className="w-28 shrink-0 truncate text-meta text-secondary">{statusLabel(row.status)}</span>
                   <div className="h-4 min-w-0 flex-1 overflow-hidden rounded-control bg-surface-sunken">
                     <div
-                      className={cx("h-full rounded-control",
-                        tone === "ok" ? "bg-ok" : tone === "danger" ? "bg-danger" : tone === "warn" ? "bg-warn" : "bg-accent",
+                      className={cx(
+                        "h-full rounded-control",
+                        tone === "ok"
+                          ? "bg-ok"
+                          : tone === "danger"
+                            ? "bg-danger"
+                            : tone === "warn"
+                              ? "bg-warn"
+                              : "bg-accent",
                       )}
                       style={{ width: (row.count / maxCount) * 100 + "%" }}
                     />
@@ -55,10 +62,12 @@ export function ApplicationCrmPanel() {
           <Empty>Veri yok.</Empty>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {[["applied_to_interview", "Başvuru → Görüşme"],
+            {[
+              ["applied_to_interview", "Başvuru → Görüşme"],
               ["interview_to_offer", "Görüşme → Teklif"],
               ["offer_to_accepted", "Teklif → Kabul"],
-              ["applied_to_rejected", "Başvuru → Red"]].map(([key, label]) => (
+              ["applied_to_rejected", "Başvuru → Red"],
+            ].map(([key, label]) => (
               <div key={key} className="rounded-control border border-subtle px-3 py-2">
                 <div className="numeral text-title leading-tight text-primary">
                   {conv[key] == null ? "—" : conv[key] + "%"}

@@ -28,12 +28,22 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
     if (options.queryKey[0] === "source-sync-history") {
-      return { data: [{
-        id: "batch-1", created_at: "2026-08-23T10:00:00Z",
-        started_at: "2026-08-23T10:00:00Z", finished_at: "2026-08-23T10:00:04Z",
-        total_sources: 2, completed_sources: 2, ok_sources: 2,
-        empty_sources: 0, error_sources: 0, items_found: 3,
-      }] };
+      return {
+        data: [
+          {
+            id: "batch-1",
+            created_at: "2026-08-23T10:00:00Z",
+            started_at: "2026-08-23T10:00:00Z",
+            finished_at: "2026-08-23T10:00:04Z",
+            total_sources: 2,
+            completed_sources: 2,
+            ok_sources: 2,
+            empty_sources: 0,
+            error_sources: 0,
+            items_found: 3,
+          },
+        ],
+      };
     }
     if (options.queryKey[0] === "source-sync") {
       return { data: { active: null, last_completed: null, running: [], sources: [] } };
@@ -50,10 +60,12 @@ describe("SourceHealthPage media scope", () => {
 
   it("renders media history and calls scoped status/history endpoints", async () => {
     const markup = renderToStaticMarkup(<SourceHealthPage />);
-    const status = harness.queries.find((query) =>
-      query.queryKey[0] === "source-sync" && query.queryKey[1] === "media");
-    const history = harness.queries.find((query) =>
-      query.queryKey[0] === "source-sync-history" && query.queryKey[1] === "media");
+    const status = harness.queries.find(
+      (query) => query.queryKey[0] === "source-sync" && query.queryKey[1] === "media",
+    );
+    const history = harness.queries.find(
+      (query) => query.queryKey[0] === "source-sync-history" && query.queryKey[1] === "media",
+    );
 
     await status?.queryFn();
     await history?.queryFn();

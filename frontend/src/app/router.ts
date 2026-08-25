@@ -34,12 +34,10 @@ export function matchRoutePath(pattern: string, path: string): URLSearchParams |
 }
 
 /** Static equality wins globally; dynamic patterns retain declaration order as fallback. */
-export function findRouteMatch<T extends { path: string }>(
-  routes: readonly T[],
-  path: string,
-): T | undefined {
-  return routes.find((route) => route.path === path)
-    ?? routes.find((route) => matchRoutePath(route.path, path) !== null);
+export function findRouteMatch<T extends { path: string }>(routes: readonly T[], path: string): T | undefined {
+  return (
+    routes.find((route) => route.path === path) ?? routes.find((route) => matchRoutePath(route.path, path) !== null)
+  );
 }
 
 function read(pattern?: string): Route {
@@ -77,8 +75,10 @@ export function navigate(path: string, options: { replace?: boolean } = {}): voi
 
   const oldURL = location.href;
   history.replaceState(history.state, "", nextHash);
-  window.dispatchEvent(new HashChangeEvent("hashchange", {
-    oldURL,
-    newURL: location.href,
-  }));
+  window.dispatchEvent(
+    new HashChangeEvent("hashchange", {
+      oldURL,
+      newURL: location.href,
+    }),
+  );
 }

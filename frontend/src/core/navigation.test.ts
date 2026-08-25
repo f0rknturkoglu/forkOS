@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ModuleSpec } from "./types";
-import {
-  activeNavigationGroup,
-  groupTarget,
-  navigationGroups,
-} from "./navigation";
+import { activeNavigationGroup, groupTarget, navigationGroups } from "./navigation";
 
 const Page = () => null;
 const modules: ModuleSpec[] = [

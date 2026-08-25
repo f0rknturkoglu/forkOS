@@ -30,7 +30,12 @@ vi.mock("react", async (importOriginal) => {
       if (!(index in harness.stateValues)) {
         harness.stateValues[index] = typeof initial === "function" ? initial() : initial;
       }
-      return [harness.stateValues[index], (value: unknown) => { harness.stateValues[index] = value; }];
+      return [
+        harness.stateValues[index],
+        (value: unknown) => {
+          harness.stateValues[index] = value;
+        },
+      ];
     },
   };
 });
@@ -58,8 +63,14 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 const activeSession = {
-  id: "pomo-1", context_title: "Proje görevi", kind: "focus", paused_at: null,
-  paused_s: 0, planned_min: 50, started_at: "2026-01-01T10:00:00.000Z", topic: "Odak",
+  id: "pomo-1",
+  context_title: "Proje görevi",
+  kind: "focus",
+  paused_at: null,
+  paused_s: 0,
+  planned_min: 50,
+  started_at: "2026-01-01T10:00:00.000Z",
+  topic: "Odak",
 };
 const contextTodo = { id: "todo-1", title: "Proje görevi" };
 const refreshEvent = "pomodoro.write";

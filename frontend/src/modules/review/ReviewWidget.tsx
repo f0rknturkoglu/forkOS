@@ -43,11 +43,7 @@ export function ReviewWidget() {
       >
         <ClipboardCheck size={15} className="shrink-0" />
         <span className="min-w-0 flex-1 text-body">
-          {doneToday
-            ? "Bugünü değerlendirdin."
-            : evening
-              ? "Günü kapat — bugünü değerlendir"
-              : "Günlük değerlendirme"}
+          {doneToday ? "Bugünü değerlendirdin." : evening ? "Günü kapat — bugünü değerlendir" : "Günlük değerlendirme"}
         </span>
         {!doneToday && <span className="shrink-0 text-meta">aç →</span>}
       </button>

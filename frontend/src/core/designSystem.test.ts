@@ -31,7 +31,8 @@ function walk(dir: string, out: string[] = []): string[] {
 const files = walk(MODULES_ROOT);
 
 /** Ham tailwind palet sinifi: bg-blue-500, text-gray-400, border-red-200 ... */
-const RAW_PALETTE = /(?:^|["'\s`])(?:bg|text|border|ring|from|to|via|fill|stroke|divide|shadow)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
+const RAW_PALETTE =
+  /(?:^|["'\s`])(?:bg|text|border|ring|from|to|via|fill|stroke|divide|shadow)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
 
 describe("tasarım sistemi (modüller)", () => {
   it("keyfi tipografi (olcek disi boyut) kullanmaz", () => {

@@ -1,15 +1,15 @@
 import { Bookmark, ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
-import {Button, Chip, Select, cx, relativeTime} from "@/core/ui";
+import { Button, Chip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
-import {
-  REMOTE_LABELS, SCORE_TONE, STATUSES,
-  daysLeft, kindLabel, remoteKind, scoreBand, statusLabel,
-} from "./labels";
+import { REMOTE_LABELS, SCORE_TONE, STATUSES, daysLeft, kindLabel, remoteKind, scoreBand, statusLabel } from "./labels";
 import { sourceLabel } from "@/core/labels";
 import type { RemoteKind } from "./labels";
 
 export function FilterChip({
-  label, count, active, onClick,
+  label,
+  count,
+  active,
+  onClick,
 }: {
   label: string;
   count: number;
@@ -35,8 +35,20 @@ export function FilterChip({
 }
 
 export function OpportunityCard({
-  item, onOpen, onStatus, onTrash, onRestore, onDelete, disabled, isTrash,
-  layout = "rows", onSource, onRemote, onKind, sourceActive = false, remoteActive = false,
+  item,
+  onOpen,
+  onStatus,
+  onTrash,
+  onRestore,
+  onDelete,
+  disabled,
+  isTrash,
+  layout = "rows",
+  onSource,
+  onRemote,
+  onKind,
+  sourceActive = false,
+  remoteActive = false,
   onSave,
 }: {
   item: Opportunity;
@@ -72,35 +84,64 @@ export function OpportunityCard({
   }
 
   return (
-    <article className={cx(
-      "group min-w-0 px-1 py-3 transition hover:bg-surface-hover",
-      layout === "rows"
-        ? "grid grid-cols-[52px_minmax(0,1fr)] gap-3 sm:grid-cols-[58px_minmax(0,1fr)_auto]"
-        : "flex flex-col gap-2",
-      band === "killed" && "opacity-60",
-    )}>
+    <article
+      className={cx(
+        "group min-w-0 px-1 py-3 transition hover:bg-surface-hover",
+        layout === "rows"
+          ? "grid grid-cols-[52px_minmax(0,1fr)] gap-3 sm:grid-cols-[58px_minmax(0,1fr)_auto]"
+          : "flex flex-col gap-2",
+        band === "killed" && "opacity-60",
+      )}
+    >
       <div className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}>
-        <div className={cx(
-          "numeral leading-none",
-          layout === "rows" ? "text-numeral-lg" : "text-title",
-          band === "strong" ? "text-ok" : band === "fair" ? "text-warn" : band === "killed" ? "text-danger" : "text-muted",
-        )}>
+        <div
+          className={cx(
+            "numeral leading-none",
+            layout === "rows" ? "text-numeral-lg" : "text-title",
+            band === "strong"
+              ? "text-ok"
+              : band === "fair"
+                ? "text-warn"
+                : band === "killed"
+                  ? "text-danger"
+                  : "text-muted",
+          )}
+        >
           {item.score === null ? "—" : Math.round(item.score)}
         </div>
         <span className="text-micro uppercase tracking-wide text-muted">skor</span>
       </div>
       <div className="min-w-0">
-        <button type="button" onClick={onOpen} className="block max-w-full text-left text-heading leading-snug text-primary transition hover:text-accent">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="block max-w-full text-left text-heading leading-snug text-primary transition hover:text-accent"
+        >
           <span className="line-clamp-2">{item.title}</span>
         </button>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
           {item.organization && <span className="truncate text-secondary">{item.organization}</span>}
-          {item.location && <span className="inline-flex items-center gap-1"><MapPin size={12} />{item.location}</span>}
-          <span title={new Date(item.found_at).toLocaleString("tr-TR")}>⏱ {relativeTime(item.found_at)} · tarandı</span>
-          <button type="button" onClick={() => onKind?.(item.kind)} className={chip(false)} title="Türüne göre filtrele">
+          {item.location && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin size={12} />
+              {item.location}
+            </span>
+          )}
+          <span title={new Date(item.found_at).toLocaleString("tr-TR")}>{relativeTime(item.found_at)} · tarandı</span>
+          <button
+            type="button"
+            onClick={() => onKind?.(item.kind)}
+            className={chip(false)}
+            title="Türüne göre filtrele"
+          >
             {kindLabel(item.kind)}
           </button>
-          <button type="button" onClick={() => onSource?.(item.source)} className={chip(sourceActive)} title="Kaynağına göre filtrele">
+          <button
+            type="button"
+            onClick={() => onSource?.(item.source)}
+            className={chip(sourceActive)}
+            title="Kaynağına göre filtrele"
+          >
             {sourceLabel(item.source)}
           </button>
           {rk && (
@@ -108,21 +149,26 @@ export function OpportunityCard({
               type="button"
               onClick={() => onRemote?.(rk)}
               title="Uzaktan/ofis durumuna göre filtrele"
-              className={cx(
-                chip(remoteActive),
-                rk === "remote" && !remoteActive && "border-accent-border text-accent",
-              )}
+              className={cx(chip(remoteActive), rk === "remote" && !remoteActive && "border-accent-border text-accent")}
             >
               {REMOTE_LABELS[rk]}
             </button>
           )}
-          {left !== null && <span className={urgent ? "text-warn" : "text-secondary"}>{left < 0 ? `${Math.abs(left)} gün geçti` : left === 0 ? "Son gün" : `${left} gün kaldı`}</span>}
+          {left !== null && (
+            <span className={urgent ? "text-warn" : "text-secondary"}>
+              {left < 0 ? `${Math.abs(left)} gün geçti` : left === 0 ? "Son gün" : `${left} gün kaldı`}
+            </span>
+          )}
         </div>
       </div>
-      <div className={cx(
-        "flex flex-wrap items-center gap-2",
-        layout === "rows" ? "col-span-2 sm:col-span-1 sm:justify-end" : "justify-start",
-      )}>        {isTrash ? (
+      <div
+        className={cx(
+          "flex flex-wrap items-center gap-2",
+          layout === "rows" ? "col-span-2 sm:col-span-1 sm:justify-end" : "justify-start",
+        )}
+      >
+        {" "}
+        {isTrash ? (
           <>
             <Button size="sm" onClick={onRestore} disabled={disabled}>
               <RotateCcw size={13} /> Geri yükle
@@ -140,7 +186,9 @@ export function OpportunityCard({
             className="min-w-0 flex-1"
           >
             {STATUSES.map((status) => (
-              <option key={status} value={status}>{statusLabel(status)}</option>
+              <option key={status} value={status}>
+                {statusLabel(status)}
+              </option>
             ))}
           </Select>
         )}
@@ -151,7 +199,10 @@ export function OpportunityCard({
             rel="noreferrer"
             title="İlanı yeni sekmede aç"
             aria-label="İlanı yeni sekmede aç"
-            className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition hover:bg-surface-hover hover:text-primary"
+            className={cx(
+              "flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition",
+              "hover:bg-surface-hover hover:text-primary",
+            )}
           >
             <ExternalLink size={14} />
           </a>
@@ -163,7 +214,10 @@ export function OpportunityCard({
             disabled={disabled}
             title="Kütüphaneye kaydet"
             aria-label={`${item.title} fırsatını kütüphaneye kaydet`}
-            className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition hover:bg-surface-hover hover:text-primary disabled:opacity-50"
+            className={cx(
+              "flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition",
+              "hover:bg-surface-hover hover:text-primary disabled:opacity-50",
+            )}
           >
             <Bookmark size={14} />
           </button>
@@ -175,7 +229,10 @@ export function OpportunityCard({
             disabled={disabled}
             title="Çöpe at"
             aria-label={`${item.title} fırsatını çöpe at`}
-            className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition hover:border-danger hover:text-danger disabled:opacity-50"
+            className={cx(
+              "flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition",
+              "hover:border-danger hover:text-danger disabled:opacity-50",
+            )}
           >
             <Trash2 size={14} />
           </button>

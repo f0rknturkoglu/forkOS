@@ -14,10 +14,10 @@ type Origin = "rss" | "reddit" | "hn" | "gh";
  * index.css'te --feed-* olarak tanimli.
  */
 const ORIGIN: Record<Origin, { icon: LucideIcon; text: string }> = {
-  rss:    { icon: Rss,           text: "text-feed-rss" },
+  rss: { icon: Rss, text: "text-feed-rss" },
   reddit: { icon: MessageSquare, text: "text-feed-reddit" },
-  hn:     { icon: Flame,         text: "text-feed-hn" },
-  gh:     { icon: Github,        text: "text-feed-gh" },
+  hn: { icon: Flame, text: "text-feed-hn" },
+  gh: { icon: Github, text: "text-feed-gh" },
 };
 
 interface StreamItem {
@@ -251,16 +251,9 @@ export function FeedStreamWidget() {
                       {item.title}
                     </button>
                   )}
-                  {item.subtitle && (
-                    <p className="mt-0.5 line-clamp-1 text-meta text-secondary">{item.subtitle}</p>
-                  )}
+                  {item.subtitle && <p className="mt-0.5 line-clamp-1 text-meta text-secondary">{item.subtitle}</p>}
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-meta text-muted">
-                    <span
-                      className={cx(
-                        "rounded border border-subtle px-1.5 py-0.5 text-micro leading-4",
-                        skin.text,
-                      )}
-                    >
+                    <span className={cx("rounded border border-subtle px-1.5 py-0.5 text-micro leading-4", skin.text)}>
                       {item.source}
                     </span>
                     {item.host && <span className="max-w-[40%] truncate">{item.host}</span>}
@@ -271,12 +264,7 @@ export function FeedStreamWidget() {
                       </span>
                     )}
                     {item.commentsUrl && (
-                      <a
-                        href={item.commentsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:text-primary"
-                      >
+                      <a href={item.commentsUrl} target="_blank" rel="noreferrer" className="hover:text-primary">
                         yorumlar
                       </a>
                     )}

@@ -11,7 +11,6 @@ import {} from "@/lib/hooks";
 export type MediaConsumptionIn = components["schemas"]["MediaConsumptionIn"];
 type ConsumptionAction = "quick" | "set" | "finish";
 
-
 const MEASURE_LABELS: Record<string, string> = {
   chapter: "bölüm",
   episode: "bölüm",
@@ -80,12 +79,7 @@ export function MediaProgressActions({
   if (item.status === "completed" || item.status === "dropped") {
     return (
       <div className={cx("flex min-w-0 flex-wrap items-center gap-2", compact && "gap-1.5")}>
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={!online || cycle.isPending}
-          onClick={() => cycle.mutate()}
-        >
+        <Button size="sm" variant="primary" disabled={!online || cycle.isPending} onClick={() => cycle.mutate()}>
           <RotateCcw size={14} aria-hidden="true" /> Yeni tur başlat
         </Button>
         {cycle.error && (
@@ -101,26 +95,13 @@ export function MediaProgressActions({
 
   return (
     <div className={cx("flex min-w-0 flex-wrap items-center gap-2", compact && "gap-1.5")}>
-      <Button
-        size="sm"
-        disabled={disabled}
-        onClick={() => mutation.mutate({ action: "quick" })}
-      >
+      <Button size="sm" disabled={disabled} onClick={() => mutation.mutate({ action: "quick" })}>
         <ChevronRight size={14} aria-hidden="true" /> {quickLabel(item.progress_measure)}
       </Button>
-      <Button
-        size="sm"
-        disabled={disabled}
-        onClick={() => setSetting((open) => !open)}
-      >
+      <Button size="sm" disabled={disabled} onClick={() => setSetting((open) => !open)}>
         <SlidersHorizontal size={13} aria-hidden="true" /> {setting ? "Vazgeç" : "İlerlemeyi ayarla"}
       </Button>
-      <Button
-        size="sm"
-        variant="primary"
-        disabled={disabled}
-        onClick={() => mutation.mutate({ action: "finish" })}
-      >
+      <Button size="sm" variant="primary" disabled={disabled} onClick={() => mutation.mutate({ action: "finish" })}>
         <Check size={14} aria-hidden="true" /> Tamamlandı olarak işaretle
       </Button>
       {setting && (
@@ -145,7 +126,9 @@ export function MediaProgressActions({
             />
           </Field>
           <span className="pb-2 text-meta text-muted">{measureLabel(item.progress_measure)}</span>
-          <Button type="submit" size="sm" disabled={disabled} className="col-span-2 w-full sm:col-span-1 sm:w-auto">İlerlemeyi kaydet</Button>
+          <Button type="submit" size="sm" disabled={disabled} className="col-span-2 w-full sm:col-span-1 sm:w-auto">
+            İlerlemeyi kaydet
+          </Button>
         </form>
       )}
       {mutation.error && (

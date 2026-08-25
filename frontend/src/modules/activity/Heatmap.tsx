@@ -30,7 +30,9 @@ const WEEKDAYS = ["Pzt", "", "Çar", "", "Cum", "", "Paz"];
 
 function tooltip(entry: HeatmapDay, labels: Record<string, string>): string {
   const date = new Date(entry.day).toLocaleDateString("tr-TR", {
-    day: "numeric", month: "long", year: "numeric",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
   if (entry.total === 0) return `${date} — kayıt yok`;
   const parts = Object.entries(entry.kinds)
@@ -74,11 +76,7 @@ export function Heatmap({ days = 365 }: { days?: number }) {
     <Section
       title="Emek haritası"
       hint={`son ${Math.round(days / 30)} ay`}
-      action={
-        data.streak > 0 ? (
-          <span className="text-meta text-accent">{data.streak} gün üst üste</span>
-        ) : undefined
-      }
+      action={data.streak > 0 ? <span className="text-meta text-accent">{data.streak} gün üst üste</span> : undefined}
       bodyClassName="space-y-3 px-3.5 py-3"
     >
       {/* Gun etiketleri kaydirma ALANININ DISINDA: harita saga kayinca
@@ -86,7 +84,9 @@ export function Heatmap({ days = 365 }: { days?: number }) {
       <div className="flex gap-1">
         <div className="grid shrink-0 grid-rows-7 gap-1 pr-1 pt-4 text-micro leading-[10px] text-muted">
           {WEEKDAYS.map((label, index) => (
-            <span key={index} className="flex h-2.5 items-center">{label}</span>
+            <span key={index} className="flex h-2.5 items-center">
+              {label}
+            </span>
           ))}
         </div>
 
@@ -94,11 +94,7 @@ export function Heatmap({ days = 365 }: { days?: number }) {
           <div className="inline-flex flex-col gap-1">
             <div className="flex gap-1 text-micro leading-3 text-muted">
               {monthTicks.map((tick) => (
-                <span
-                  key={tick.week}
-                  style={{ width: `${tick.span * 14 - 4}px` }}
-                  className="shrink-0 truncate"
-                >
+                <span key={tick.week} style={{ width: `${tick.span * 14 - 4}px` }} className="shrink-0 truncate">
                   {tick.label}
                 </span>
               ))}

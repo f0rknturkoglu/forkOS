@@ -3,11 +3,7 @@ import { entityRoute } from "./GlobalSearch";
 import { notificationRoute } from "./NotificationPanel";
 import { hydrateEntityRegistry } from "./entityRegistry";
 import type { Entity, Notification } from "./types";
-import {
-  sourceSyncApiPath,
-  sourceSyncQueryKey,
-  sourceSyncRoute,
-} from "@/modules/opportunity/SyncProgress";
+import { sourceSyncApiPath, sourceSyncQueryKey, sourceSyncRoute } from "@/modules/opportunity/SyncProgress";
 
 function entity(type: string, id = "media-1"): Entity {
   return {
@@ -37,9 +33,33 @@ function notification(overrides: Partial<Notification>): Notification {
 describe("media integration routing", () => {
   beforeEach(() => {
     hydrateEntityRegistry([
-      { type: "media_item", label: "Medya", label_plural: "Medyalar", route: "/media/{id}", icon: "Film", searchable: true, linkable: true },
-      { type: "media_unit", label: "Bölüm", label_plural: "Bölümler", route: "/media", icon: "FileVideo", searchable: true, linkable: true },
-      { type: "opportunity", label: "Fırsat", label_plural: "Fırsatlar", route: "/opportunities?focus={id}", icon: "Target", searchable: true, linkable: true },
+      {
+        type: "media_item",
+        label: "Medya",
+        label_plural: "Medyalar",
+        route: "/media/{id}",
+        icon: "Film",
+        searchable: true,
+        linkable: true,
+      },
+      {
+        type: "media_unit",
+        label: "Bölüm",
+        label_plural: "Bölümler",
+        route: "/media",
+        icon: "FileVideo",
+        searchable: true,
+        linkable: true,
+      },
+      {
+        type: "opportunity",
+        label: "Fırsat",
+        label_plural: "Fırsatlar",
+        route: "/opportunities?focus={id}",
+        icon: "Target",
+        searchable: true,
+        linkable: true,
+      },
     ]);
   });
 
@@ -49,12 +69,22 @@ describe("media integration routing", () => {
   });
 
   it("routes media notifications by entity or kind", () => {
-    expect(notificationRoute(notification({
-      entity_type: "media_item", entity_id: "media-1",
-    }))).toBe("/media/media-1");
-    expect(notificationRoute(notification({
-      entity_type: "media_unit", entity_id: "unit-1",
-    }))).toBe("/media");
+    expect(
+      notificationRoute(
+        notification({
+          entity_type: "media_item",
+          entity_id: "media-1",
+        }),
+      ),
+    ).toBe("/media/media-1");
+    expect(
+      notificationRoute(
+        notification({
+          entity_type: "media_unit",
+          entity_id: "unit-1",
+        }),
+      ),
+    ).toBe("/media");
     expect(notificationRoute(notification({ kind: "media_release" }))).toBe("/media");
     expect(notificationRoute(notification({ kind: "media_sync" }))).toBe("/media");
   });

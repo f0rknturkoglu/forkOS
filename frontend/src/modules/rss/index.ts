@@ -4,7 +4,7 @@ import { Rss } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import {invalidate} from "@/core/queryClient";
+import { invalidate } from "@/core/queryClient";
 import { confirmDialog } from "@/core/dialog";
 import { RssStats } from "./RssStats";
 
@@ -12,7 +12,9 @@ const RssPage = lazy(() => import("./RssPage").then((module) => ({ default: modu
 
 registerModule({
   id: "rss",
-  title: "RSS", icon: Rss, group: "capture",
+  title: "RSS",
+  icon: Rss,
+  group: "capture",
   routes: [{ path: "/rss", element: RssPage }],
   todayStats: [RssStats],
   commands: [

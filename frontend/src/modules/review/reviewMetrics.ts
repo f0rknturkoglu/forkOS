@@ -1,8 +1,6 @@
 import type { ReviewPreview } from "@/core/types";
 
-export function reviewMetricRows(
-  stats: ReviewPreview["stats"],
-): [string, string | number][] {
+export function reviewMetricRows(stats: ReviewPreview["stats"]): [string, string | number][] {
   const routines = Object.values(stats.habits).reduce((total, count) => total + count, 0);
   return [
     ["Tamamlanan", stats.todos.completed],

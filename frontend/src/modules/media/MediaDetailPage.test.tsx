@@ -63,25 +63,29 @@ describe("media detail page", () => {
 
   beforeEach(() => {
     calls = [];
-    responder = (_path, method) => new Response(JSON.stringify(method === "GET" ? detail : item), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    responder = (_path, method) =>
+      new Response(JSON.stringify(method === "GET" ? detail : item), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() },
     });
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const path = new URL(String(input), "http://localhost").pathname;
-      const method = init?.method ?? "GET";
-      calls.push({
-        body: init?.body ? JSON.parse(String(init.body)) : {},
-        method,
-        path,
-      });
-      return responder(path, method);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input), "http://localhost").pathname;
+        const method = init?.method ?? "GET";
+        calls.push({
+          body: init?.body ? JSON.parse(String(init.body)) : {},
+          method,
+          path,
+        });
+        return responder(path, method);
+      }),
+    );
   });
 
   afterEach(() => {
@@ -144,7 +148,9 @@ describe("media detail page", () => {
     expect(await screen.findByRole("heading", { name: "Dune: Prophecy" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Sonraki bölüm" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "İlerlemeyi ayarla" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
     expect((screen.getByRole("button", { name: "Puan ve notu düzenle" }) as HTMLButtonElement).disabled).toBe(true);
     expect(calls.some((call) => call.method === "GET")).toBe(true);
     expect(calls.some((call) => call.method !== "GET")).toBe(false);
@@ -186,7 +192,10 @@ describe("media detail page", () => {
         return new Response(JSON.stringify(detail), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       patchCount += 1;
-      if (patchCount === 1) return new Promise<Response>((resolve) => { rejectPatch = resolve; });
+      if (patchCount === 1)
+        return new Promise<Response>((resolve) => {
+          rejectPatch = resolve;
+        });
       return new Response(JSON.stringify(item), { status: 200, headers: { "Content-Type": "application/json" } });
     };
     const user = userEvent.setup();

@@ -41,7 +41,10 @@ describe("hash route matching", () => {
   });
 
   it("prefers an exact static route over an earlier dynamic sibling", () => {
-    const routes = [{ path: "/media/:id", name: "detail" }, { path: "/media/stats", name: "stats" }];
+    const routes = [
+      { path: "/media/:id", name: "detail" },
+      { path: "/media/stats", name: "stats" },
+    ];
     expect(findRouteMatch(routes, "/media/stats")?.name).toBe("stats");
   });
 

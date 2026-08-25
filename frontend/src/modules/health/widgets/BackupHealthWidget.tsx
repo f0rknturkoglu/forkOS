@@ -3,9 +3,9 @@ import { useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CloudUpload, Database, HardDriveDownload, UploadCloud } from "lucide-react";
 import { api } from "@/core/api";
-import {Button, Chip, FileInput, Section, cx, relativeTime, useToast} from "@/core/ui";
+import { Button, Chip, FileInput, Section, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import type { BackupStatus } from "@/core/types";
 
 function formatBytes(bytes: number): string {
@@ -37,17 +37,12 @@ export function BackupHealthWidget() {
 
   const restoreRef = useRef<HTMLInputElement>(null);
   const restoreBackup = useMutation({
-    mutationFn: (file: File) =>
-      api.upload<{ restored: number }>("/backup/restore", file),
+    mutationFn: (file: File) => api.upload<{ restored: number }>("/backup/restore", file),
     onSuccess: (result) => {
       invalidateAfter("backup.write");
-      toast.push(
-        `${result.restored} kayıt geri yüklendi — çakışan kayıtlara dokunulmadı.`,
-        { tone: "ok" },
-      );
+      toast.push(`${result.restored} kayıt geri yüklendi — çakışan kayıtlara dokunulmadı.`, { tone: "ok" });
     },
-    onError: (error: Error) =>
-      toast.push(`Geri yükleme başarısız: ${error.message}`, { tone: "danger" }),
+    onError: (error: Error) => toast.push(`Geri yükleme başarısız: ${error.message}`, { tone: "danger" }),
   });
 
   async function pickRestore(file: File) {
@@ -66,9 +61,7 @@ export function BackupHealthWidget() {
     onSuccess: (result) => {
       invalidateAfter("backup.write");
       toast.push(
-        `Yedek alındı (${formatBytes(result.size)})${
-          data?.drive_folder_id ? " — Drive'a da yükleniyor" : ""
-        }`,
+        `Yedek alındı (${formatBytes(result.size)})${data?.drive_folder_id ? " — Drive'a da yükleniyor" : ""}`,
         { tone: "ok" },
       );
     },
@@ -111,9 +104,8 @@ export function BackupHealthWidget() {
           <span>Yedekte neler var</span>
         </div>
         <p className="mt-1 text-meta text-muted">
-          entity · link · event (geçmiş akışı) + tüm modül tabloları (bookmark, feed/item, todo,
-          pomodoro, habit, review, opportunity, study, course/book, document, project, expense…)
-          + ayarlar (setting).
+          entity · link · event (geçmiş akışı) + tüm modül tabloları (bookmark, feed/item, todo, pomodoro, habit,
+          review, opportunity, study, course/book, document, project, expense…) + ayarlar (setting).
         </p>
       </div>
 
@@ -134,7 +126,9 @@ export function BackupHealthWidget() {
             <Chip tone="ok">{last.counts.entities} varlık</Chip>
             <Chip>{last.counts.events} olay</Chip>
             {top.map(([name, count]) => (
-              <Chip key={name}>{name} {count}</Chip>
+              <Chip key={name}>
+                {name} {count}
+              </Chip>
             ))}
           </div>
         )}
@@ -152,12 +146,8 @@ export function BackupHealthWidget() {
         ) : (
           <>
             <div className="flex items-center gap-2 border-y border-subtle px-1 py-2">
-              <span className="min-w-0 flex-1 truncate text-body text-primary">
-                {data.drive_folder_id}
-              </span>
-              <Chip tone={google?.connected ? "ok" : "warn"}>
-                {google?.connected ? "Google bağlı" : "bağlı değil"}
-              </Chip>
+              <span className="min-w-0 flex-1 truncate text-body text-primary">{data.drive_folder_id}</span>
+              <Chip tone={google?.connected ? "ok" : "warn"}>{google?.connected ? "Google bağlı" : "bağlı değil"}</Chip>
             </div>
             {data.last_drive_error && (
               <p className="mt-2 flex items-start gap-1.5 rounded-card border border-danger-border bg-danger-surface px-3 py-2 text-meta text-danger">
@@ -166,7 +156,8 @@ export function BackupHealthWidget() {
             )}
             {!data.last_drive_error && data.last_drive_upload && (
               <p className="mt-2 text-meta text-muted">
-                Son yükleme: <span className="text-secondary">{data.last_drive_upload.file}</span> · {relativeTime(data.last_drive_upload.at)}
+                Son yükleme: <span className="text-secondary">{data.last_drive_upload.file}</span> ·{" "}
+                {relativeTime(data.last_drive_upload.at)}
               </p>
             )}
             {!data.last_drive_upload && !data.last_drive_error && (

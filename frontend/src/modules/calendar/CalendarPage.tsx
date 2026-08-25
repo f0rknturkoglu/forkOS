@@ -4,8 +4,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { CalendarEvent } from "@/core/types";
-import {Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx} from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
+import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
 
 type View = "week" | "month";
 
@@ -107,32 +107,29 @@ export function CalendarPage() {
   return (
     <PageFrame className="space-y-5">
       <PageHeader eyebrow="Planlama" title="Takvim" />
-      <p className="text-meta text-muted">
-        Google → forkOS salt okunur; yalnızca plan blokları Google'a gönderilir.
-      </p>
+      <p className="text-meta text-muted">Google → forkOS salt okunur; yalnızca plan blokları Google'a gönderilir.</p>
 
       <Toolbar>
         <div className="flex items-center gap-1">
           <Button size="sm" onClick={() => step(-1)} title="Önceki">
             <ChevronLeft size={14} />
           </Button>
-          <Button size="sm" onClick={() => setAnchor(new Date())}>Bugün</Button>
+          <Button size="sm" onClick={() => setAnchor(new Date())}>
+            Bugün
+          </Button>
           <Button size="sm" onClick={() => step(1)} title="Sonraki">
             <ChevronRight size={14} />
           </Button>
         </div>
 
         {/* Donem basligi: hangi ay/hafta oldugu artik acikca yaziyor. */}
-        <h2 className="font-serif text-title text-primary first-letter:uppercase">
-          {periodLabel(anchor, view, days)}
-        </h2>
+        <h2 className="font-serif text-title text-primary first-letter:uppercase">{periodLabel(anchor, view, days)}</h2>
 
         <span className="min-w-2 flex-1" />
 
         <div className="flex items-center gap-1">
           {(["month", "week"] as View[]).map((value) => (
-            <Button key={value} size="sm" variant={view === value ? "primary" : "ghost"}
-              onClick={() => setView(value)}>
+            <Button key={value} size="sm" variant={view === value ? "primary" : "ghost"} onClick={() => setView(value)}>
               {value === "month" ? "Ay" : "Hafta"}
             </Button>
           ))}
@@ -146,13 +143,17 @@ export function CalendarPage() {
       <div className="overflow-x-auto">
         {/* Ay izgarasi dar hucrelerle sigar; hafta gorunumu etkinlik detayi
             tasidigi icin daha genis olmali. */}
-        <div className={cx(
-          "overflow-hidden rounded-card border border-subtle bg-surface shadow-card",
-          view === "month" ? "min-w-[560px]" : "min-w-[760px]",
-        )}>
+        <div
+          className={cx(
+            "overflow-hidden rounded-card border border-subtle bg-surface shadow-card",
+            view === "month" ? "min-w-[560px]" : "min-w-[760px]",
+          )}
+        >
           <div className="grid grid-cols-7 border-b border-subtle bg-surface-sunken">
             {WEEKDAYS.map((label) => (
-              <div key={label} className="px-2 py-1.5 text-center label-caps">{label}</div>
+              <div key={label} className="px-2 py-1.5 text-center label-caps">
+                {label}
+              </div>
             ))}
           </div>
 
@@ -173,10 +174,12 @@ export function CalendarPage() {
                   )}
                 >
                   <div className="mb-1 flex items-center gap-1.5">
-                    <span className={cx(
-                      "numeral flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-meta tabular-nums",
-                      isToday ? "bg-accent font-medium text-canvas" : outside ? "text-muted" : "text-secondary",
-                    )}>
+                    <span
+                      className={cx(
+                        "numeral flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-meta tabular-nums",
+                        isToday ? "bg-accent font-medium text-canvas" : outside ? "text-muted" : "text-secondary",
+                      )}
+                    >
                       {day.getDate()}
                     </span>
                     {/* Ayin ilk gunu: izgarada ay degisimini gorunur kilar. */}
@@ -189,8 +192,10 @@ export function CalendarPage() {
 
                   <div className="space-y-1">
                     {rows.slice(0, view === "week" ? 8 : 3).map((event) => (
-                      <article key={`${event.source}-${event.id}`}
-                        className="rounded border border-subtle bg-canvas px-1.5 py-1">
+                      <article
+                        key={`${event.source}-${event.id}`}
+                        className="rounded border border-subtle bg-canvas px-1.5 py-1"
+                      >
                         <div className="flex items-start justify-between gap-1">
                           <span className="min-w-0 flex-1 truncate text-micro leading-4 text-primary">
                             {event.title}
@@ -201,28 +206,34 @@ export function CalendarPage() {
                           {event.all_day
                             ? "tüm gün"
                             : new Date(event.starts_at).toLocaleTimeString("tr-TR", {
-                                hour: "2-digit", minute: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
                               })}
                         </p>
                         {view === "week" && !event.read_only && !event.google_event_id && (
-                          <Button size="sm" className="mt-1 h-6 px-2 text-micro"
+                          <Button
+                            size="sm"
+                            className="mt-1 h-6 px-2 text-micro"
                             disabled={!online || push.isPending}
-                            onClick={() => push.mutate(event.id)}>
+                            onClick={() => push.mutate(event.id)}
+                          >
                             Google'a gönder
                           </Button>
                         )}
                         {view === "week" && event.url && (
-                          <a href={event.url} target="_blank" rel="noreferrer"
-                            className="mt-0.5 block text-micro text-accent hover:underline">
+                          <a
+                            href={event.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 block text-micro text-accent hover:underline"
+                          >
                             Aç ↗
                           </a>
                         )}
                       </article>
                     ))}
                     {rows.length > (view === "week" ? 8 : 3) && (
-                      <p className="px-1 text-micro text-muted">
-                        +{rows.length - (view === "week" ? 8 : 3)} daha
-                      </p>
+                      <p className="px-1 text-micro text-muted">+{rows.length - (view === "week" ? 8 : 3)} daha</p>
                     )}
                   </div>
                 </div>

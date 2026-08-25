@@ -29,9 +29,7 @@ export function registerModule(spec: ModuleSpec): void {
 export const allModules = (): ModuleSpec[] => [...registry.values()];
 
 function enabledModules(): ModuleSpec[] {
-  const disabled = new Set<string>(
-    JSON.parse(localStorage.getItem("lifeos.disabledModules") ?? "[]"),
-  );
+  const disabled = new Set<string>(JSON.parse(localStorage.getItem("lifeos.disabledModules") ?? "[]"));
   return allModules().filter((m) => !disabled.has(m.id));
 }
 
@@ -50,21 +48,29 @@ export function hydrateSettings(settings: Record<string, unknown>): void {
     localStorage.setItem("lifeos.weather.lat", JSON.stringify(lat));
     localStorage.setItem("lifeos.weather.lon", JSON.stringify(lon));
   }
-  const links = Array.isArray(settings["media.links"]) ? settings["media.links"] as { name: string; url: string }[] : [];
-  externalCommands = links.map((link) => ({ id: `media.${link.name}`, label: `Open ${link.name}`, run: () => { window.open(link.url, "_blank", "noopener"); } }));
+  const links = Array.isArray(settings["media.links"])
+    ? (settings["media.links"] as { name: string; url: string }[])
+    : [];
+  externalCommands = links.map((link) => ({
+    id: `media.${link.name}`,
+    label: `Open ${link.name}`,
+    run: () => {
+      window.open(link.url, "_blank", "noopener");
+    },
+  }));
 }
 export const allCommands = () => [...enabledModules().flatMap((m) => m.commands ?? []), ...externalCommands];
 /** Ayarlardaki siraya gore modulleri dizer. */
 function orderedModules(): ModuleSpec[] {
   const order: string[] = JSON.parse(localStorage.getItem("lifeos.widgetOrder") ?? "[]");
   return [...enabledModules()].sort((a, b) => {
-    const ai = order.indexOf(a.id); const bi = order.indexOf(b.id);
+    const ai = order.indexOf(a.id);
+    const bi = order.indexOf(b.id);
     return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
   });
 }
 
-export const allTodayWidgets = () =>
-  orderedModules().flatMap((m) => m.todayWidgets ?? []);
+export const allTodayWidgets = () => orderedModules().flatMap((m) => m.todayWidgets ?? []);
 /**
  * Panel sutunundaki widget'lar, `order` alanina gore sirali.
  * Esitlikte modul sirasi korunur (Array#sort kararli).
@@ -79,17 +85,13 @@ export const allRoutes = () => enabledModules().flatMap((m) => m.routes);
 
 /** Aktif rotanin sahibi modul -- baslik ve ikon icin. */
 export function moduleForPath(path: string): ModuleSpec | undefined {
-  const candidates = enabledModules().flatMap((module) =>
-    module.routes.map((route) => ({ path: route.path, module })),
-  );
+  const candidates = enabledModules().flatMap((module) => module.routes.map((route) => ({ path: route.path, module })));
   return findRouteMatch(candidates, path)?.module;
 }
 
 /** Ust seritte gorunecek baslik: once rotanin kendi adi, sonra modulunki. */
 export function titleForPath(path: string): string | undefined {
-  const candidates = enabledModules().flatMap((module) =>
-    module.routes.map((route) => ({ ...route, module })),
-  );
+  const candidates = enabledModules().flatMap((module) => module.routes.map((route) => ({ ...route, module })));
   const match = findRouteMatch(candidates, path);
-  return match ? match.title ?? match.module.title : undefined;
+  return match ? (match.title ?? match.module.title) : undefined;
 }

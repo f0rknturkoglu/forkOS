@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import { api } from "@/core/api";
-import {Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast} from "@/core/ui";
+import { Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast } from "@/core/ui";
 import { Copy } from "lucide-react";
 import type { SourceHealth } from "@/core/types";
 import { sourceLabel } from "@/core/labels";
@@ -24,12 +24,9 @@ export function SourceHealthWidget() {
   /** Agent'a yapistirmak icin hata satirlarini TSV olarak panoya kopyala. */
   async function copyErrors() {
     const text = broken
-      .map((run) => [
-        sourceLabel(run.source),
-        run.status,
-        run.error ?? "",
-        new Date(run.started_at).toISOString(),
-      ].join("	"))
+      .map((run) =>
+        [sourceLabel(run.source), run.status, run.error ?? "", new Date(run.started_at).toISOString()].join("	"),
+      )
       .join("\n");
     try {
       await navigator.clipboard.writeText(text || "hata yok");
@@ -44,10 +41,17 @@ export function SourceHealthWidget() {
       title="Kaynak Sağlığı"
       action={
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" onClick={copyErrors} disabled={broken.length === 0} title="Hata satırlarını panoya kopyala (agent a yapistirmak icin)">
+          <Button
+            size="sm"
+            onClick={copyErrors}
+            disabled={broken.length === 0}
+            title="Hata satırlarını panoya kopyala (agent a yapistirmak icin)"
+          >
             <Copy size={13} /> Hataları kopyala
           </Button>
-          <a href="#/sources" className="text-meta text-accent hover:underline">tüm kaynaklar →</a>
+          <a href="#/sources" className="text-meta text-accent hover:underline">
+            tüm kaynaklar →
+          </a>
         </div>
       }
       bodyClassName="space-y-4"

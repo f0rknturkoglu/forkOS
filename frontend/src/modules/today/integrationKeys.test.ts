@@ -31,8 +31,10 @@ vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
 vi.mock("@tanstack/react-query", () => ({
-  QueryClient: class { invalidateQueries() {} },
-  MutationCache: class {} ,
+  QueryClient: class {
+    invalidateQueries() {}
+  },
+  MutationCache: class {},
   useMutation: vi.fn((options: MutationOptions) => {
     harness.mutations.push(options);
     return { mutate: vi.fn(), isPending: false };
@@ -58,9 +60,7 @@ describe("cross-page query integration", () => {
     renderToStaticMarkup(createElement(TodayAgendaWidget));
     renderToStaticMarkup(createElement(RecurringWidget));
 
-    expect(harness.queries.map((query) => query.queryKey)).toContainEqual(
-      ["today-agenda", expect.any(String)],
-    );
+    expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["today-agenda", expect.any(String)]);
     expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["recurring", "widget"]);
   });
 

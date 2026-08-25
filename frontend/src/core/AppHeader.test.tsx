@@ -23,11 +23,7 @@ const modules: ModuleSpec[] = [
 describe("two-level app header", () => {
   it("keeps group and module navigation in separate labelled rows", () => {
     const html = renderToStaticMarkup(
-      <NavigationRows
-        path="/rss"
-        groups={navigationGroups(modules)}
-        utilities={<span>araçlar</span>}
-      />,
+      <NavigationRows path="/rss" groups={navigationGroups(modules)} utilities={<span>araçlar</span>} />,
     );
 
     expect(html).toContain('aria-label="Ana bölümler"');
@@ -39,11 +35,7 @@ describe("two-level app header", () => {
 
   it("marks a module active on its dynamic detail and links back to its index", () => {
     const html = renderToStaticMarkup(
-      <NavigationRows
-        path="/media/media-1"
-        groups={navigationGroups(modules)}
-        utilities={<span />}
-      />,
+      <NavigationRows path="/media/media-1" groups={navigationGroups(modules)} utilities={<span />} />,
     );
 
     expect(html).toContain('href="#/media" aria-current="page"');

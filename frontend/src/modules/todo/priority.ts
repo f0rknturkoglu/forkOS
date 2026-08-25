@@ -5,9 +5,9 @@
  * Renk semantik tonlardan gelir (index.css), marka rengi degil.
  */
 export const PRIORITIES = [
-  { value: 0, label: "yok",    dot: "bg-icon",   text: "text-muted",  tone: "neutral" },
-  { value: 1, label: "düşük",  dot: "bg-ok",     text: "text-ok",     tone: "ok" },
-  { value: 2, label: "orta",   dot: "bg-warn",   text: "text-warn",   tone: "warn" },
+  { value: 0, label: "yok", dot: "bg-icon", text: "text-muted", tone: "neutral" },
+  { value: 1, label: "düşük", dot: "bg-ok", text: "text-ok", tone: "ok" },
+  { value: 2, label: "orta", dot: "bg-warn", text: "text-warn", tone: "warn" },
   { value: 3, label: "yüksek", dot: "bg-danger", text: "text-danger", tone: "danger" },
 ] as const;
 
@@ -28,13 +28,14 @@ export const recurLabel = (value: string | null): string | null =>
 export function dueLabel(iso: string | null): { text: string; tone: "muted" | "accent" | "danger" } | null {
   if (!iso) return null;
   const due = new Date(iso);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const day = new Date(due); day.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(due);
+  day.setHours(0, 0, 0, 0);
   const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000);
 
-  const time = due.getHours() || due.getMinutes()
-    ? due.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
-    : "";
+  const time =
+    due.getHours() || due.getMinutes() ? due.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "";
   const withTime = (label: string) => (time ? `${label} ${time}` : label);
 
   if (diff < 0) return { text: withTime(diff === -1 ? "dün" : `${-diff} gün gecikti`), tone: "danger" };

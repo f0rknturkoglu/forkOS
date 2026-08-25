@@ -11,27 +11,70 @@ type MutationOptions = {
 type QueryOptions = { queryKey: readonly unknown[] };
 
 const parent: AgendaRow = {
-  kind: "todo", source: "due", id: "parent-1", slot_id: null,
-  title: "Ana görev", completed: false, action: null, read_only: false,
-  context_only: true, starts_at: null, duration_min: null, parent_id: null,
-  project_title: "forkOS", feed_title: null, url: null, recur: null,
-  media_kind: null, media_status: null, progress_label: null, cover_url: null,
-  children: [{
-    kind: "todo", source: "due", id: "child-1", slot_id: null,
-    title: "Alt görev", completed: false, action: "complete_todo", read_only: false,
-    context_only: false, starts_at: null, duration_min: null, parent_id: "parent-1",
-    project_title: "forkOS", feed_title: null, url: null, recur: null, children: [],
-    media_kind: null, media_status: null, progress_label: null, cover_url: null,
-  }],
+  kind: "todo",
+  source: "due",
+  id: "parent-1",
+  slot_id: null,
+  title: "Ana görev",
+  completed: false,
+  action: null,
+  read_only: false,
+  context_only: true,
+  starts_at: null,
+  duration_min: null,
+  parent_id: null,
+  project_title: "forkOS",
+  feed_title: null,
+  url: null,
+  recur: null,
+  media_kind: null,
+  media_status: null,
+  progress_label: null,
+  cover_url: null,
+  children: [
+    {
+      kind: "todo",
+      source: "due",
+      id: "child-1",
+      slot_id: null,
+      title: "Alt görev",
+      completed: false,
+      action: "complete_todo",
+      read_only: false,
+      context_only: false,
+      starts_at: null,
+      duration_min: null,
+      parent_id: "parent-1",
+      project_title: "forkOS",
+      feed_title: null,
+      url: null,
+      recur: null,
+      children: [],
+      media_kind: null,
+      media_status: null,
+      progress_label: null,
+      cover_url: null,
+    },
+  ],
 };
 
 const todoRow: AgendaRow = {
-  ...parent, id: "todo-1", title: "Görevi tamamla", context_only: false,
-  action: "complete_todo", children: [],
+  ...parent,
+  id: "todo-1",
+  title: "Görevi tamamla",
+  context_only: false,
+  action: "complete_todo",
+  children: [],
 };
 const rssRow: AgendaRow = {
-  ...todoRow, kind: "rss", source: "planned", id: "rss-1", slot_id: "slot-rss",
-  title: "Yazıyı oku", action: "mark_rss_read", feed_title: "Yerel akış",
+  ...todoRow,
+  kind: "rss",
+  source: "planned",
+  id: "rss-1",
+  slot_id: "slot-rss",
+  title: "Yazıyı oku",
+  action: "mark_rss_read",
+  feed_title: "Yerel akış",
   project_title: null,
 };
 const mediaRow: AgendaRow = {
@@ -52,11 +95,18 @@ const mediaRow: AgendaRow = {
 const agenda: TodayAgenda = {
   day: "2026-08-23",
   auto_suggestions: true,
-  timed: [{
-    ...todoRow, kind: "calendar", source: "calendar", id: "cal-1",
-    title: "Toplantı", action: null, read_only: true,
-    starts_at: "2026-08-23T09:30:00+03:00",
-  }],
+  timed: [
+    {
+      ...todoRow,
+      kind: "calendar",
+      source: "calendar",
+      id: "cal-1",
+      title: "Toplantı",
+      action: null,
+      read_only: true,
+      starts_at: "2026-08-23T09:30:00+03:00",
+    },
+  ],
   checklist: [parent, todoRow, rssRow, mediaRow],
   completed: [],
   suggestions: {
@@ -67,8 +117,13 @@ const agenda: TodayAgenda = {
 };
 
 const harness = vi.hoisted(() => ({
-  apiDel: vi.fn(), apiGet: vi.fn(), apiPost: vi.fn(), apiPut: vi.fn(),
-  invalidate: vi.fn(), mutations: [] as MutationOptions[], queries: [] as QueryOptions[],
+  apiDel: vi.fn(),
+  apiGet: vi.fn(),
+  apiPost: vi.fn(),
+  apiPut: vi.fn(),
+  invalidate: vi.fn(),
+  mutations: [] as MutationOptions[],
+  queries: [] as QueryOptions[],
 }));
 
 vi.mock("@/core/api", () => ({
@@ -82,8 +137,10 @@ vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
 vi.mock("@tanstack/react-query", () => ({
-  QueryClient: class { invalidateQueries() {} },
-  MutationCache: class {} ,
+  QueryClient: class {
+    invalidateQueries() {}
+  },
+  MutationCache: class {},
   useMutation: vi.fn((options: MutationOptions) => {
     harness.mutations.push(options);
     return { mutate: vi.fn(), isPending: false };
@@ -135,11 +192,17 @@ describe("unified Today agenda", () => {
 
     const schedule = mutationNamed("today-schedule");
     await schedule?.mutationFn?.({
-      row: { ...todoRow, id: "suggested-1" }, day: agenda.day, start: "10:15", duration: "45",
+      row: { ...todoRow, id: "suggested-1" },
+      day: agenda.day,
+      start: "10:15",
+      duration: "45",
     } as never);
     expect(schedule).toBeDefined();
     expect(harness.apiPost).toHaveBeenCalledWith("/plan", {
-      entity_id: "suggested-1", day: agenda.day, start_min: 615, duration_min: 45,
+      entity_id: "suggested-1",
+      day: agenda.day,
+      start_min: 615,
+      duration_min: 45,
     });
     const remove = mutationNamed("today-remove");
     await remove?.mutationFn?.(rssRow as never);
@@ -150,7 +213,11 @@ describe("unified Today agenda", () => {
 
     complete?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith(
-      "todo.write", "plan.write", "rss.write", "media.write", "calendar.write",
+      "todo.write",
+      "plan.write",
+      "rss.write",
+      "media.write",
+      "calendar.write",
     );
   });
 

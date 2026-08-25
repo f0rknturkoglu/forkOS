@@ -20,10 +20,7 @@ export function ActivityWidget() {
     <Section
       title="Son hareketler"
       action={
-        <button
-          onClick={() => navigate("/activity")}
-          className="text-meta text-muted hover:text-primary"
-        >
+        <button onClick={() => navigate("/activity")} className="text-meta text-muted hover:text-primary">
           tümü →
         </button>
       }
@@ -40,9 +37,7 @@ export function ActivityWidget() {
                 ALERT_VERBS.has(event.verb) ? "text-warn" : "text-muted",
               )}
             >
-              <span className="min-w-0 flex-1 truncate">
-                {describe(event.verb, event.payload)}
-              </span>
+              <span className="min-w-0 flex-1 truncate">{describe(event.verb, event.payload)}</span>
               <span className="shrink-0 tabular-nums">{relativeTime(event.occurred_at)}</span>
             </li>
           ))}

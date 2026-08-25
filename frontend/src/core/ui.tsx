@@ -40,7 +40,9 @@ export function useTheme(): [Theme, (next: Theme) => void] {
   const [theme, setLocal] = useState<Theme>(readTheme);
   useEffect(() => {
     themeListeners.add(setLocal);
-    return () => { themeListeners.delete(setLocal); };
+    return () => {
+      themeListeners.delete(setLocal);
+    };
   }, []);
   return [theme, applyTheme];
 }
@@ -49,24 +51,13 @@ export function useTheme(): [Theme, (next: Theme) => void] {
    Yuzeyler
    ══════════════════════════════════════════════════════════════════════ */
 
-
 /** Sayfalarin ortak genislik ve responsive dis bosluk cercevesi. */
 export function PageFrame({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cx("mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6", className)}>
-      {children}
-    </div>
-  );
+  return <div className={cx("mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6", className)}>{children}</div>;
 }
 
 /** Sayfa basligi; ana eylemi icerikle ayni hizada tutar. */
-export function PageHeader({
-  eyebrow, title, action,
-}: {
-  eyebrow?: ReactNode;
-  title: ReactNode;
-  action?: ReactNode;
-}) {
+export function PageHeader({ eyebrow, title, action }: { eyebrow?: ReactNode; title: ReactNode; action?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -87,7 +78,13 @@ export function PageHeader({
  * ic ice kutu cizmemek icin.
  */
 export function Section({
-  title, hint, action, children, className, bodyClassName, flat = false,
+  title,
+  hint,
+  action,
+  children,
+  className,
+  bodyClassName,
+  flat = false,
 }: {
   title?: ReactNode;
   hint?: ReactNode;
@@ -99,12 +96,7 @@ export function Section({
 }) {
   const head = title || hint || action;
   return (
-    <section
-      className={cx(
-        !flat && "rounded-card border border-subtle bg-surface shadow-card",
-        className,
-      )}
-    >
+    <section className={cx(!flat && "rounded-card border border-subtle bg-surface shadow-card", className)}>
       {head && (
         <header
           className={cx(
@@ -143,7 +135,10 @@ export function MetricStrip({ children, className }: { children: ReactNode; clas
 }
 
 export function Metric({
-  label, value, hint, href,
+  label,
+  value,
+  hint,
+  href,
 }: {
   label: ReactNode;
   value: ReactNode;
@@ -156,16 +151,16 @@ export function Metric({
       <div className="numeral truncate text-numeral-lg leading-none text-primary transition-colors group-hover:text-accent">
         {value}
       </div>
-      <div className="mt-1 truncate text-meta text-secondary transition-colors group-hover:text-accent">
-        {label}
-      </div>
+      <div className="mt-1 truncate text-meta text-secondary transition-colors group-hover:text-accent">{label}</div>
       {hint && <div className="truncate text-meta text-muted">{hint}</div>}
     </>
   );
   const shell = "min-w-0 px-3.5 py-3 sm:px-4";
 
   return href ? (
-    <a href={href} className={cx(shell, "group block")}>{body}</a>
+    <a href={href} className={cx(shell, "group block")}>
+      {body}
+    </a>
   ) : (
     <div className={shell}>{body}</div>
   );
@@ -174,15 +169,16 @@ export function Metric({
 /** Arama, filtre, siralama ve ana eylemlerin tek responsive seridi. */
 export function Toolbar({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cx("flex flex-wrap items-center gap-2 border-y border-subtle py-2.5", className)}>
-      {children}
-    </div>
+    <div className={cx("flex flex-wrap items-center gap-2 border-y border-subtle py-2.5", className)}>{children}</div>
   );
 }
 
 /** Ince ayiracli veri satirlari. Cerceveyi saran kutu (Section) verir. */
 export function RowList({
-  children, className, as: Component = "div", onKeyDown,
+  children,
+  className,
+  as: Component = "div",
+  onKeyDown,
 }: {
   children: ReactNode;
   className?: string;
@@ -190,10 +186,7 @@ export function RowList({
   onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
 }) {
   return (
-    <Component
-      className={cx("divide-y divide-subtle", className)}
-      onKeyDown={onKeyDown}
-    >
+    <Component className={cx("divide-y divide-subtle", className)} onKeyDown={onKeyDown}>
       {children}
     </Component>
   );
@@ -203,13 +196,7 @@ export function RowList({
  * Bolum basligi: kucuk kapital etiket + sayfayi bolen ince cizgi.
  * Today ve liste sayfalari hiyerarsiyi bununla kurar, kart icine almadan.
  */
-export function SectionHeader({
-  label, hint, action,
-}: {
-  label: string;
-  hint?: ReactNode;
-  action?: ReactNode;
-}) {
+export function SectionHeader({ label, hint, action }: { label: string; hint?: ReactNode; action?: ReactNode }) {
   return (
     <div className="mb-3 flex items-baseline gap-3">
       <span className="label-caps">{label}</span>
@@ -230,14 +217,22 @@ export function SectionHeader({
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
-  primary:   "border-primary bg-primary text-canvas hover:opacity-90",
+  primary: "border-primary bg-primary text-canvas hover:opacity-90",
   secondary: "border-strong bg-surface text-primary hover:bg-surface-hover",
-  ghost:     "border-transparent bg-transparent text-secondary hover:bg-surface-hover hover:text-primary",
-  danger:    "border-danger-border bg-danger-surface text-danger hover:brightness-95",
+  ghost: "border-transparent bg-transparent text-secondary hover:bg-surface-hover hover:text-primary",
+  danger: "border-danger-border bg-danger-surface text-danger hover:brightness-95",
 };
 
 export function Button({
-  children, onClick, variant = "secondary", disabled, title, type = "button", size = "md", className, autoFocus,
+  children,
+  onClick,
+  variant = "secondary",
+  disabled,
+  title,
+  type = "button",
+  size = "md",
+  className,
+  autoFocus,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -271,7 +266,12 @@ export function Button({
 
 /** Sadece ikon tasiyan buton. title zorunlu -- ekran okuyucu ve tooltip icin. */
 export function IconButton({
-  children, onClick, title, disabled, tone = "neutral", className,
+  children,
+  onClick,
+  title,
+  disabled,
+  tone = "neutral",
+  className,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -302,8 +302,16 @@ export function IconButton({
 }
 
 export function Input({
-  value, onChange, placeholder, disabled, type = "text", className, autoFocus, onKeyDown,
-  onBlur, ariaLabel,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  type = "text",
+  className,
+  autoFocus,
+  onKeyDown,
+  onBlur,
+  ariaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -339,7 +347,13 @@ export function Input({
 }
 
 export function Select({
-  value, onChange, children, disabled, className, ariaLabel, id,
+  value,
+  onChange,
+  children,
+  disabled,
+  className,
+  ariaLabel,
+  id,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -370,7 +384,10 @@ export function Select({
 
 /** Form alani + etiketi. Etiket her zaman gorunur; placeholder etiket degildir. */
 export function Field({
-  label, children, hint, className,
+  label,
+  children,
+  hint,
+  className,
 }: {
   label: string;
   children: ReactNode;
@@ -387,7 +404,13 @@ export function Field({
 }
 
 export function Textarea({
-  value, onChange, placeholder, rows = 3, className, onBlur, disabled,
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+  className,
+  onBlur,
+  disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -417,7 +440,11 @@ export function Textarea({
 
 /** Onay kutusu. Ham <input type="checkbox"> yasak — bu primitive kullanilir. */
 export function Checkbox({
-  checked, onChange, label, disabled, className,
+  checked,
+  onChange,
+  label,
+  disabled,
+  className,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -447,7 +474,14 @@ export function Checkbox({
 
 /** Kaydirma cubugu (ilerleme gibi aralik girisleri). */
 export function Range({
-  value, onChange, min = 0, max = 100, step = 1, disabled, ariaLabel, className,
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  disabled,
+  ariaLabel,
+  className,
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -475,7 +509,15 @@ export function Range({
 
 /** Sayisal giris; Input'un tipini degil, sayi semantigini tasir. */
 export function NumberInput({
-  value, onChange, placeholder, disabled, className, min, max, step = "any", ariaLabel,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  className,
+  min,
+  max,
+  step = "any",
+  ariaLabel,
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -513,20 +555,15 @@ export function NumberInput({
 
 /** Gizli dosya secici. Gorumunur tetikleyici (Button) ref ile .click() cagirir.
  *  Ham <input type="file"> yerine bu primitive kullanilir. */
-export const FileInput = forwardRef<HTMLInputElement, {
-  accept?: string;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  className?: string;
-}>(function FileInput({ accept, onChange, className }, ref) {
-  return (
-    <input
-      ref={ref}
-      type="file"
-      accept={accept}
-      onChange={onChange}
-      className={cx("hidden", className)}
-    />
-  );
+export const FileInput = forwardRef<
+  HTMLInputElement,
+  {
+    accept?: string;
+    onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    className?: string;
+  }
+>(function FileInput({ accept, onChange, className }, ref) {
+  return <input ref={ref} type="file" accept={accept} onChange={onChange} className={cx("hidden", className)} />;
 });
 
 export function Kbd({ children }: { children: ReactNode }) {
@@ -549,24 +586,24 @@ export type ChipVariant = "soft" | "outline" | "solid";
 const CHIP_STYLES: Record<ChipVariant, Record<ChipTone, string>> = {
   soft: {
     neutral: "border-subtle bg-surface text-muted",
-    accent:  "border-accent-border bg-accent-surface text-accent",
-    ok:      "border-ok-border bg-ok-surface text-ok",
-    warn:    "border-warn-border bg-warn-surface text-warn",
-    danger:  "border-danger-border bg-danger-surface text-danger",
+    accent: "border-accent-border bg-accent-surface text-accent",
+    ok: "border-ok-border bg-ok-surface text-ok",
+    warn: "border-warn-border bg-warn-surface text-warn",
+    danger: "border-danger-border bg-danger-surface text-danger",
   },
   outline: {
     neutral: "border-subtle bg-surface text-secondary",
-    accent:  "border-accent-border bg-surface text-accent",
-    ok:      "border-ok-border bg-surface text-ok",
-    warn:    "border-warn-border bg-surface text-warn",
-    danger:  "border-danger-border bg-surface text-danger",
+    accent: "border-accent-border bg-surface text-accent",
+    ok: "border-ok-border bg-surface text-ok",
+    warn: "border-warn-border bg-surface text-warn",
+    danger: "border-danger-border bg-surface text-danger",
   },
   solid: {
     neutral: "border-transparent bg-icon text-canvas",
-    accent:  "border-accent-border bg-accent text-canvas",
-    ok:      "border-ok-border bg-ok text-canvas",
-    warn:    "border-warn-border bg-warn text-canvas",
-    danger:  "border-danger-border bg-danger text-canvas",
+    accent: "border-accent-border bg-accent text-canvas",
+    ok: "border-ok-border bg-ok text-canvas",
+    warn: "border-warn-border bg-warn text-canvas",
+    danger: "border-danger-border bg-danger text-canvas",
   },
 };
 
@@ -618,10 +655,7 @@ type ChipBase = {
   icon?: ReactNode;
   size?: "xs" | "sm";
 };
-type ChipProps = ChipBase & (
-    | { tone?: ChipTone; identity?: never }
-  | { identity: string; tone?: never }
-);
+type ChipProps = ChipBase & ({ tone?: ChipTone; identity?: never } | { identity: string; tone?: never });
 
 /**
  * Tek chip/rozet bileşeni.
@@ -649,7 +683,8 @@ export function Chip({ children, variant = "soft", tone, identity, icon, size = 
 
 /** Tek kutucuk sayisal ozet (saglik paneli gibi ozet satirlari). */
 export function MiniStat({ label, value, tone }: { label: string; value: number; tone?: "ok" | "warn" | "danger" }) {
-  const color = tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "text-primary";
+  const color =
+    tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "text-primary";
   return (
     <div className="border-y border-subtle px-3 py-2">
       <div className={cx("numeral text-title leading-tight", color)}>{value}</div>
@@ -662,7 +697,10 @@ export function MiniStat({ label, value, tone }: { label: string; value: number;
  * Bos durum. Tek gri cumle degil: ne oldugunu soyler, ne yapilacagini gosterir.
  */
 export function Empty({
-  children, title, action, variant = "inline",
+  children,
+  title,
+  action,
+  variant = "inline",
 }: {
   children: ReactNode;
   title?: string;
@@ -732,9 +770,7 @@ export function emitGlobalToast(toast: GlobalToastInput): void {
   globalToastListeners.forEach((listener) => listener(toast));
 }
 
-export function subscribeGlobalToast(
-  listener: (toast: GlobalToastInput) => void,
-): () => void {
+export function subscribeGlobalToast(listener: (toast: GlobalToastInput) => void): () => void {
   globalToastListeners.add(listener);
   return () => globalToastListeners.delete(listener);
 }
@@ -761,10 +797,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo(() => ({ push }), [push]);
 
-  useEffect(
-    () => subscribeGlobalToast(({ message, options }) => push(message, options)),
-    [push],
-  );
+  useEffect(() => subscribeGlobalToast(({ message, options }) => push(message, options)), [push]);
 
   return (
     <ToastContext.Provider value={api}>

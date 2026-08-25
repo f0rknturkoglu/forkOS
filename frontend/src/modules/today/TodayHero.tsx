@@ -83,11 +83,7 @@ function WeatherPanel() {
   if (!coords) {
     return (
       <div className="flex items-center gap-2.5 text-meta text-muted sm:border-l sm:border-subtle sm:pl-8">
-        <span>
-          {denied
-            ? "Konum izni yok — Ayarlar'dan şehir gir."
-            : "Hava durumu için konum gerekli."}
-        </span>
+        <span>{denied ? "Konum izni yok — Ayarlar'dan şehir gir." : "Hava durumu için konum gerekli."}</span>
         <button
           type="button"
           onClick={requestLocation}
@@ -114,9 +110,7 @@ function WeatherPanel() {
       <div className="flex items-center gap-3">
         <Icon size={30} strokeWidth={1.4} className="shrink-0 text-secondary" />
         <div>
-          <p className="numeral text-display leading-none text-primary">
-            {Math.round(current.temperature_2m)}°
-          </p>
+          <p className="numeral text-display leading-none text-primary">{Math.round(current.temperature_2m)}°</p>
           <p className="mt-1 text-meta text-secondary">{weatherLabel(current.weather_code)}</p>
         </div>
       </div>

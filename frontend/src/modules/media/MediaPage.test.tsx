@@ -13,9 +13,16 @@ import {
 } from "./shared";
 
 const item = {
-  id: "1", title: "Yabancı", kind: "book", status: "in_progress",
-  progress: 60, total: 180, score: null, notes: null,
-  started_at: null, finished_at: null,
+  id: "1",
+  title: "Yabancı",
+  kind: "book",
+  status: "in_progress",
+  progress: 60,
+  total: 180,
+  score: null,
+  notes: null,
+  started_at: null,
+  finished_at: null,
   meta: { source: "openlibrary", ol_key: "/works/OL1W" },
   created_at: null,
 };
@@ -37,26 +44,26 @@ describe("media shared components", () => {
       "abc.webp#fragment",
       "folder/abc.webp",
       "folder\\abc.webp",
-    ]) expect(mediaCoverUrl({ cover_path: path, cover_url: "https://remote" })).toBe("https://remote");
+    ])
+      expect(mediaCoverUrl({ cover_path: path, cover_url: "https://remote" })).toBe("https://remote");
     expect(mediaCoverUrl({ cover_path: null, cover_url: null, meta: { cover_url: "https://legacy" } })).toBe(
       "https://legacy",
     );
   });
 
   it("prefers canonical provider identity and gives it a source chip", () => {
-    expect(mediaProvider({ provider: "musicbrainz", meta: { source: "itunes" } })).toBe(
-      "musicbrainz",
-    );
+    expect(mediaProvider({ provider: "musicbrainz", meta: { source: "itunes" } })).toBe("musicbrainz");
     expect(providerChip("musicbrainz")).toContain("--src-musicbrainz");
   });
 
   it("offers only the external sites relevant to each media kind", () => {
-    expect(externalLinks("music", "Closer", {}, "musicbrainz", "release-1", {}))
-      .toEqual(expect.arrayContaining([
+    expect(externalLinks("music", "Closer", {}, "musicbrainz", "release-1", {})).toEqual(
+      expect.arrayContaining([
         ["MusicBrainz", "https://musicbrainz.org/release-group/release-1"],
         ["Apple Music", "https://music.apple.com/us/search?term=Closer"],
         ["RateYourMusic", "https://rateyourmusic.com/search?searchterm=Closer"],
-      ]));
+      ]),
+    );
 
     const linkCases = [
       ["movie", ["TMDB", "IMDb", "Rotten Tomatoes", "Letterboxd"], ["RateYourMusic"]],
@@ -83,9 +90,7 @@ describe("media shared components", () => {
   });
 
   it("renders the image while the url is intact", () => {
-    const html = renderToStaticMarkup(
-      <Cover url="https://example.com/x.jpg" title="Yabancı" size="h-14 w-10" />,
-    );
+    const html = renderToStaticMarkup(<Cover url="https://example.com/x.jpg" title="Yabancı" size="h-14 w-10" />);
     expect(html).toContain("<img");
     expect(html).toContain('src="https://example.com/x.jpg"');
   });
@@ -120,7 +125,11 @@ describe("media shared components", () => {
   });
 
   it("uses the English original_title for search keywords when present", () => {
-    const links = externalLinks("movie", "Yıldızlararası", { source: "tmdb", tmdb_id: 157336, original_title: "Interstellar" });
+    const links = externalLinks("movie", "Yıldızlararası", {
+      source: "tmdb",
+      tmdb_id: 157336,
+      original_title: "Interstellar",
+    });
     expect(links).toContainEqual(["Letterboxd", "https://letterboxd.com/search/Interstellar/"]);
     expect(links).toContainEqual(["Rotten Tomatoes", "https://www.rottentomatoes.com/search?search=Interstellar"]);
   });
@@ -147,7 +156,9 @@ describe("media shared components", () => {
   });
 
   it("renders outlined site links so they stand out in the UI", () => {
-    const html = renderToStaticMarkup(<SiteLinks links={[["Letterboxd", "https://letterboxd.com/search/Interstellar/"]]} />);
+    const html = renderToStaticMarkup(
+      <SiteLinks links={[["Letterboxd", "https://letterboxd.com/search/Interstellar/"]]} />,
+    );
     expect(html).toContain("border-[color:var(--src-letterboxd)]");
     expect(html).toContain('href="https://letterboxd.com/search/Interstellar/"');
     expect(html).toContain("Letterboxd ↗");

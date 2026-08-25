@@ -15,10 +15,7 @@ export function ReadingQueueWidget() {
     <Section
       title="Okuma sırası"
       action={
-        <button
-          onClick={() => navigate("/bookmarks")}
-          className="text-meta text-muted hover:text-primary"
-        >
+        <button onClick={() => navigate("/bookmarks")} className="text-meta text-muted hover:text-primary">
           tümü →
         </button>
       }

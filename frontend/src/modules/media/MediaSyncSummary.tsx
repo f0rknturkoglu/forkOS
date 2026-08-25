@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { MediaProviderStatus } from "@/core/types";
-import {Button, Chip, cx, relativeTime} from "@/core/ui";
+import { Button, Chip, cx, relativeTime } from "@/core/ui";
 import {} from "@/lib/hooks";
 import { SyncProgress } from "@/modules/opportunity/SyncProgress";
 import { KIND_LABELS, providerLabel } from "./shared";
@@ -38,7 +38,7 @@ function providerKinds(provider: MediaProviderStatus): string {
 export function MediaSyncSummary({ online }: { online: boolean }) {
   const [open, setOpen] = useState(false);
   const wasProviderError = useRef(false);
- 
+
   const providers = useQuery({
     queryKey: ["media-providers"],
     queryFn: () => api.get<MediaProviderStatus[]>("/media/providers"),
@@ -66,14 +66,23 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
       className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
     >
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 marker:content-none">
-        <ChevronDown className={cx("shrink-0 transition-transform", open && "rotate-180")} size={15} aria-hidden="true" />
+        <ChevronDown
+          className={cx("shrink-0 transition-transform", open && "rotate-180")}
+          size={15}
+          aria-hidden="true"
+        />
         <span className="text-body font-medium text-primary">Kaynak ayrıntıları</span>
         {providers.isLoading ? (
-          <span className="ml-auto text-meta text-muted" aria-live="polite">Kaynaklar yükleniyor…</span>
+          <span className="ml-auto text-meta text-muted" aria-live="polite">
+            Kaynaklar yükleniyor…
+          </span>
         ) : failed ? (
           <span className="ml-auto text-meta text-danger">Kaynak verisi alınamadı</span>
         ) : (
-          <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-meta text-muted" aria-live="polite">
+          <span
+            className="ml-auto flex flex-wrap items-center justify-end gap-2 text-meta text-muted"
+            aria-live="polite"
+          >
             <span>{data.length} kaynak</span>
             <Chip tone={healthy === data.length && data.length > 0 ? "ok" : "warn"}>{healthy} sağlıklı</Chip>
             {lastRun && <span>son çekim {relativeTime(lastRun)}</span>}
@@ -85,14 +94,23 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
         {failed ? (
           <div role="alert" className="flex flex-wrap items-center gap-3 px-3.5 py-3 text-meta text-danger">
             <span>Medya sağlayıcıları yüklenemedi: {providers.error.message}</span>
-            <Button size="sm" disabled={providers.isFetching} onClick={() => { void providers.refetch(); }}>Yeniden dene</Button>
+            <Button
+              size="sm"
+              disabled={providers.isFetching}
+              onClick={() => {
+                void providers.refetch();
+              }}
+            >
+              Yeniden dene
+            </Button>
           </div>
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle px-3.5 py-2.5">
               <p className="text-meta text-secondary">Tüm sağlayıcılar arka planda kuyruğa alınır.</p>
               <Button size="sm" disabled={!online || sync.isPending} onClick={() => sync.mutate()}>
-                <RefreshCw size={13} aria-hidden="true" className={sync.isPending ? "animate-spin" : undefined} /> Şimdi tara
+                <RefreshCw size={13} aria-hidden="true" className={sync.isPending ? "animate-spin" : undefined} /> Şimdi
+                tara
               </Button>
             </div>
 
@@ -109,13 +127,22 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
                 {data.map((provider) => {
                   const status = providerStatus(provider);
                   return (
-                    <li key={provider.id} className="grid gap-1 border-b border-subtle px-3.5 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-3">
+                    <li
+                      key={provider.id}
+                      className="grid gap-1 border-b border-subtle px-3.5 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-3"
+                    >
                       <div className="min-w-0">
                         <p className="truncate text-body text-primary">{providerLabel(provider.id) ?? provider.id}</p>
                         <p className="truncate text-meta text-secondary">{providerKinds(provider)}</p>
-                        {provider.last_error && <p className="break-words text-meta text-danger" title={`Son hata: ${provider.last_error}`}>Son hata: {provider.last_error}</p>}
+                        {provider.last_error && (
+                          <p className="break-words text-meta text-danger" title={`Son hata: ${provider.last_error}`}>
+                            Son hata: {provider.last_error}
+                          </p>
+                        )}
                         {provider.missing_settings.map((setting) => (
-                          <p key={setting} className="break-words text-meta text-warn" title={`Eksik ayar: ${setting}`}>Eksik ayar: {setting}</p>
+                          <p key={setting} className="break-words text-meta text-warn" title={`Eksik ayar: ${setting}`}>
+                            Eksik ayar: {setting}
+                          </p>
                         ))}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -123,7 +150,9 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
                           <span className="text-meta text-muted">{provider.last_items_found} kayıt bulundu</span>
                         )}
                         <Chip tone={status.tone}>{status.label}</Chip>
-                        {provider.last_run_at && <span className="text-meta text-muted">{relativeTime(provider.last_run_at)}</span>}
+                        {provider.last_run_at && (
+                          <span className="text-meta text-muted">{relativeTime(provider.last_run_at)}</span>
+                        )}
                       </div>
                     </li>
                   );

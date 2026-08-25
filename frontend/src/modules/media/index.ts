@@ -6,8 +6,12 @@ import { MediaContinueWidget } from "./MediaWidget";
 
 const MediaPage = lazy(() => import("./MediaPage").then((module) => ({ default: module.MediaPage })));
 const MediaDetailPage = lazy(() => import("./MediaDetailPage").then((module) => ({ default: module.MediaDetailPage })));
-const MediaCollectionsPage = lazy(() => import("./MediaCollectionsPage").then((module) => ({ default: module.MediaCollectionsPage })));
-const MediaUpcomingPage = lazy(() => import("./MediaUpcomingPage").then((module) => ({ default: module.MediaUpcomingPage })));
+const MediaCollectionsPage = lazy(() =>
+  import("./MediaCollectionsPage").then((module) => ({ default: module.MediaCollectionsPage })),
+);
+const MediaUpcomingPage = lazy(() =>
+  import("./MediaUpcomingPage").then((module) => ({ default: module.MediaUpcomingPage })),
+);
 const MediaStatsPage = lazy(() => import("./MediaStatsPage").then((module) => ({ default: module.MediaStatsPage })));
 const MediaTrashPage = lazy(() => import("./MediaTrashPage").then((module) => ({ default: module.MediaTrashPage })));
 

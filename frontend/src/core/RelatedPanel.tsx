@@ -10,7 +10,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link2, Unlink, X } from "lucide-react";
 import { api, qs } from "./api";
-import {invalidate} from "./queryClient";
+import { invalidate } from "./queryClient";
 import { entityRoute, typeLabel } from "./entityRegistry";
 import { Button, Chip, Empty, IconButton, Input, Section, cx, relativeTime } from "./ui";
 import { useDebounced, useOnline } from "@/lib/hooks";
@@ -74,24 +74,33 @@ export function RelatedPanel({ entityId, title = "İlgili kayıtlar" }: { entity
         <div className="mb-3 space-y-2">
           <div className="flex items-center gap-2">
             <Input value={query} onChange={setQuery} placeholder="Kayıt ara…" className="min-w-0 flex-1" />
-            <IconButton title="Vazgeç" onClick={() => { setPicking(false); setQuery(""); }}>
+            <IconButton
+              title="Vazgeç"
+              onClick={() => {
+                setPicking(false);
+                setQuery("");
+              }}
+            >
               <X size={14} />
             </IconButton>
           </div>
           {debounced.length >= 2 && (
             <div className="max-h-56 overflow-y-auto rounded-card border border-subtle">
-              {Object.values(hits).flat().slice(0, 8).map((hit) => (
-                <button
-                  key={hit.id}
-                  type="button"
-                  disabled={hit.id === entityId || link.isPending}
-                  onClick={() => link.mutate(hit.id)}
-                  className="flex w-full items-center justify-between gap-2 border-b border-subtle px-3 py-2 text-left text-meta transition last:border-b-0 hover:bg-surface-hover disabled:opacity-40"
-                >
-                  <span className="min-w-0 truncate">{hit.title}</span>
-                  <Chip>{typeLabel(hit.type)}</Chip>
-                </button>
-              ))}
+              {Object.values(hits)
+                .flat()
+                .slice(0, 8)
+                .map((hit) => (
+                  <button
+                    key={hit.id}
+                    type="button"
+                    disabled={hit.id === entityId || link.isPending}
+                    onClick={() => link.mutate(hit.id)}
+                    className="flex w-full items-center justify-between gap-2 border-b border-subtle px-3 py-2 text-left text-meta transition last:border-b-0 hover:bg-surface-hover disabled:opacity-40"
+                  >
+                    <span className="min-w-0 truncate">{hit.title}</span>
+                    <Chip>{typeLabel(hit.type)}</Chip>
+                  </button>
+                ))}
             </div>
           )}
         </div>
@@ -111,7 +120,9 @@ export function RelatedPanel({ entityId, title = "İlgili kayıtlar" }: { entity
                     className="min-w-0 flex-1"
                   >
                     <span className="block truncate text-body text-primary hover:text-accent">{row.entity.title}</span>
-                    <span className="text-meta text-muted">{typeLabel(row.entity.type)} · {relativeTime(row.entity.updated_at)}</span>
+                    <span className="text-meta text-muted">
+                      {typeLabel(row.entity.type)} · {relativeTime(row.entity.updated_at)}
+                    </span>
                   </a>
                   <IconButton
                     title="Bağı kaldır"

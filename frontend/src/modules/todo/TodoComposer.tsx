@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { CalendarDays, Plus, Repeat, Tag, X } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Input, cx, useToast } from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import { PRIORITIES, RECURRENCES } from "./priority";
 
 /**
@@ -26,7 +26,12 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
   const toast = useToast();
 
   function reset() {
-    setTitle(""); setPriority(2); setDue(""); setRecur(""); setTags([]); setTagDraft("");
+    setTitle("");
+    setPriority(2);
+    setDue("");
+    setRecur("");
+    setTags([]);
+    setTagDraft("");
     setOpen(false);
   }
 
@@ -74,8 +79,7 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
           />
         </div>
         {(open || title) && (
-          <Button type="submit" variant="primary" size="sm"
-            disabled={!online || !title.trim() || create.isPending}>
+          <Button type="submit" variant="primary" size="sm" disabled={!online || !title.trim() || create.isPending}>
             Ekle
           </Button>
         )}
@@ -140,11 +144,17 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
               </span>
               <div className="flex flex-wrap items-center gap-1.5">
                 {tags.map((tag) => (
-                  <span key={tag}
-                    className="flex items-center gap-1 rounded-control border border-accent-border bg-accent-surface px-2 py-1 text-meta text-accent">
+                  <span
+                    key={tag}
+                    className="flex items-center gap-1 rounded-control border border-accent-border bg-accent-surface px-2 py-1 text-meta text-accent"
+                  >
                     #{tag}
-                    <button type="button" onClick={() => setTags((c) => c.filter((t) => t !== tag))}
-                      aria-label={`${tag} etiketini kaldır`} className="hover:opacity-70">
+                    <button
+                      type="button"
+                      onClick={() => setTags((c) => c.filter((t) => t !== tag))}
+                      aria-label={`${tag} etiketini kaldır`}
+                      className="hover:opacity-70"
+                    >
                       <X size={11} />
                     </button>
                   </span>
@@ -154,7 +164,10 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
                   onChange={setTagDraft}
                   onKeyDown={(event) => {
                     // Enter formu gondermesin: burada etiket ekliyor.
-                    if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addTag(); }
+                    if (event.key === "Enter" || event.key === ",") {
+                      event.preventDefault();
+                      addTag();
+                    }
                     if (event.key === "Backspace" && !tagDraft) setTags((c) => c.slice(0, -1));
                   }}
                   onBlur={addTag}
@@ -167,7 +180,9 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
           </div>
 
           <div className="flex justify-end">
-            <Button size="sm" variant="ghost" onClick={reset}>Kapat</Button>
+            <Button size="sm" variant="ghost" onClick={reset}>
+              Kapat
+            </Button>
           </div>
         </div>
       )}

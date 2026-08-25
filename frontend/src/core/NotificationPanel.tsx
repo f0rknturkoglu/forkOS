@@ -70,7 +70,9 @@ export function NotificationPanel() {
     const onDown = (e: MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -168,7 +170,12 @@ export function NotificationPanel() {
                         aria-hidden
                       />
                       <span className="min-w-0 flex-1">
-                        <span className={cx("block text-body", item.read_at ? "text-secondary" : "font-medium text-primary")}>
+                        <span
+                          className={cx(
+                            "block text-body",
+                            item.read_at ? "text-secondary" : "font-medium text-primary",
+                          )}
+                        >
                           {item.title}
                         </span>
                         {item.body && <span className="mt-0.5 block text-meta text-muted">{item.body}</span>}

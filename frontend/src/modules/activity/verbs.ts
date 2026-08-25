@@ -48,11 +48,7 @@ export const VERB_LABELS: Record<string, string> = {
   "recurring.paid": "Düzenli ödeme işlendi",
 };
 
-export const ALERT_VERBS = new Set([
-  "source.stalled",
-  "rss.feed_failed",
-  "rss.feed_disabled",
-]);
+export const ALERT_VERBS = new Set(["source.stalled", "rss.feed_failed", "rss.feed_disabled"]);
 
 export function describe(verb: string, payload: Record<string, unknown>): string {
   const label = VERB_LABELS[verb] ?? verb;

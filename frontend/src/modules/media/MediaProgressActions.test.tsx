@@ -40,22 +40,27 @@ describe("append-only media progress", () => {
 
   beforeEach(() => {
     calls = [];
-    responder = () => new Response(JSON.stringify({ id: "consumption-1" }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    responder = () =>
+      new Response(JSON.stringify({ id: "consumption-1" }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
     let uuid = 0;
     vi.spyOn(globalThis.crypto, "randomUUID").mockImplementation(
-      () => `00000000-0000-4000-8000-${String(++uuid).padStart(12, "0")}` as `${string}-${string}-${string}-${string}-${string}`,
+      () =>
+        `00000000-0000-4000-8000-${String(++uuid).padStart(12, "0")}` as `${string}-${string}-${string}-${string}-${string}`,
     );
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      calls.push({
-        body: init?.body ? JSON.parse(String(init.body)) : {},
-        method: init?.method ?? "GET",
-        path: new URL(String(input), "http://localhost").pathname,
-      });
-      return responder();
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({
+          body: init?.body ? JSON.parse(String(init.body)) : {},
+          method: init?.method ?? "GET",
+          path: new URL(String(input), "http://localhost").pathname,
+        });
+        return responder();
+      }),
+    );
   });
 
   afterEach(() => {
@@ -65,11 +70,7 @@ describe("append-only media progress", () => {
   });
 
   it("creates a fresh UUID for every quick, set, and finish body", () => {
-    const bodies = [
-      consumptionBody("quick", item),
-      consumptionBody("set", item, 5),
-      consumptionBody("finish", item),
-    ];
+    const bodies = [consumptionBody("quick", item), consumptionBody("set", item, 5), consumptionBody("finish", item)];
 
     expect(bodies.map((body) => body.action)).toEqual(["quick", "set", "finish"]);
     expect(bodies[0]).toMatchObject({ amount: 1, measure: "episode" });
@@ -121,7 +122,9 @@ describe("append-only media progress", () => {
 
     expect((screen.getByRole("button", { name: "Sonraki bölüm" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "İlerlemeyi ayarla" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
   });
 
   it("requires an explicit retryable cycle start after completion and refreshes every read model", async () => {
@@ -132,9 +135,9 @@ describe("append-only media progress", () => {
       return attempts === 1
         ? new Response("cycle rejected", { status: 500 })
         : new Response(JSON.stringify({ id: "cycle-2" }), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          });
     };
     const user = userEvent.setup();
     const { invalidate } = renderActions(true, completed);
@@ -173,9 +176,7 @@ describe("append-only media progress", () => {
     expect(screen.queryByRole("button", { name: "Tamamlandı olarak işaretle" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Yeni tur başlat" }));
 
-    await waitFor(() => expect(calls).toEqual([
-      { body: {}, method: "POST", path: "/api/media/media%2Fone/cycles" },
-    ]));
+    await waitFor(() => expect(calls).toEqual([{ body: {}, method: "POST", path: "/api/media/media%2Fone/cycles" }]));
   });
 
   it("lays out the exact progress form without narrow-screen overflow", async () => {
@@ -195,7 +196,10 @@ describe("append-only media progress", () => {
   it("blocks duplicate pending POSTs and preserves set input after rejection for retry", async () => {
     const user = userEvent.setup();
     let settle!: (response: Response) => void;
-    responder = () => new Promise<Response>((resolve) => { settle = resolve; });
+    responder = () =>
+      new Promise<Response>((resolve) => {
+        settle = resolve;
+      });
     renderActions();
 
     await user.click(screen.getByRole("button", { name: "İlerlemeyi ayarla" }));
@@ -213,10 +217,11 @@ describe("append-only media progress", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("progress rejected");
     expect(progress.value).toBe("5");
 
-    responder = () => new Response(JSON.stringify({ id: "consumption-2" }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    responder = () =>
+      new Response(JSON.stringify({ id: "consumption-2" }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      });
     await user.click(submit);
     await waitFor(() => expect(calls).toHaveLength(2));
   });

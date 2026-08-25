@@ -10,15 +10,75 @@ import { ToastProvider } from "@/core/ui";
 import { MediaPage } from "./MediaPage";
 
 const items = [
-  { id: "movie-1", title: "Arrival", kind: "movie", status: "in_progress", progress: 2, total: 10, progress_measure: "item", provider: "tmdb", provider_id: "movie:329865", provider_ids: { tmdb: "329865" } },
-  { id: "book-1", title: "Dune", kind: "book", status: "planned", progress: 0, total: 500, progress_measure: "page", provider: "openlibrary", provider_id: "/works/OL893415W", provider_ids: {} },
-  { id: "anime-1", title: "Monster", kind: "anime", status: "completed", progress: 74, total: 74, progress_measure: "episode", provider: "anilist", provider_id: "19", provider_ids: { anilist: "19" } },
-  { id: "game-1", title: "Disco Elysium", kind: "game", status: "paused", progress: 4, total: 20, progress_measure: "hour", provider: "rawg", provider_id: "3212", provider_ids: { rawg: "3212" } },
+  {
+    id: "movie-1",
+    title: "Arrival",
+    kind: "movie",
+    status: "in_progress",
+    progress: 2,
+    total: 10,
+    progress_measure: "item",
+    provider: "tmdb",
+    provider_id: "movie:329865",
+    provider_ids: { tmdb: "329865" },
+  },
+  {
+    id: "book-1",
+    title: "Dune",
+    kind: "book",
+    status: "planned",
+    progress: 0,
+    total: 500,
+    progress_measure: "page",
+    provider: "openlibrary",
+    provider_id: "/works/OL893415W",
+    provider_ids: {},
+  },
+  {
+    id: "anime-1",
+    title: "Monster",
+    kind: "anime",
+    status: "completed",
+    progress: 74,
+    total: 74,
+    progress_measure: "episode",
+    provider: "anilist",
+    provider_id: "19",
+    provider_ids: { anilist: "19" },
+  },
+  {
+    id: "game-1",
+    title: "Disco Elysium",
+    kind: "game",
+    status: "paused",
+    progress: 4,
+    total: 20,
+    progress_measure: "hour",
+    provider: "rawg",
+    provider_id: "3212",
+    provider_ids: { rawg: "3212" },
+  },
 ].map((item) => ({
-  archived_at: null, backdrop_path: null, backdrop_url: null, cover_path: null, cover_url: null,
-  created_at: "2026-08-20T10:00:00Z", favorite: false, finished_at: null, last_synced_at: null,
-  meta: {}, monitored: false, notes: null, owned: false, ownership: {}, release_date: null,
-  review: null, score: null, started_at: null, summary: null, updated_at: "2026-08-20T10:00:00Z",
+  archived_at: null,
+  backdrop_path: null,
+  backdrop_url: null,
+  cover_path: null,
+  cover_url: null,
+  created_at: "2026-08-20T10:00:00Z",
+  favorite: false,
+  finished_at: null,
+  last_synced_at: null,
+  meta: {},
+  monitored: false,
+  notes: null,
+  owned: false,
+  ownership: {},
+  release_date: null,
+  review: null,
+  score: null,
+  started_at: null,
+  summary: null,
+  updated_at: "2026-08-20T10:00:00Z",
   ...item,
 }));
 
@@ -47,17 +107,33 @@ function responseFor(path: string, method: string): Response {
     if (statsShouldFail) return json({ detail: "stats unavailable" }, 500);
     return json({ total: 4, in_progress: 1, completed: 1, planned: 1 });
   }
-  if (path === "/api/media/search/global?q=dune") return json({
-    results: [{
-      kind: "movie", provider: "tmdb", provider_id: "movie:438631", title: "Dune: Part One",
-      subtitle: "Film", summary: null, total: 1, progress_measure: "item", cover: null,
-      backdrop: null, cover_url: null, backdrop_url: null, year: 2021,
-      provider_ids: { tmdb: "438631" }, meta: {}, metadata: {},
-    }],
-    warnings: [],
-  });
+  if (path === "/api/media/search/global?q=dune")
+    return json({
+      results: [
+        {
+          kind: "movie",
+          provider: "tmdb",
+          provider_id: "movie:438631",
+          title: "Dune: Part One",
+          subtitle: "Film",
+          summary: null,
+          total: 1,
+          progress_measure: "item",
+          cover: null,
+          backdrop: null,
+          cover_url: null,
+          backdrop_url: null,
+          year: 2021,
+          provider_ids: { tmdb: "438631" },
+          meta: {},
+          metadata: {},
+        },
+      ],
+      warnings: [],
+    });
   if (path === "/api/media/providers") return json([]);
-  if (path === "/api/sources/sync?scope=media") return json({ active: null, last_completed: null, running: [], sources: [] });
+  if (path === "/api/sources/sync?scope=media")
+    return json({ active: null, last_completed: null, running: [], sources: [] });
   if (path === "/api/media/movie-1/consumptions" && method === "POST") return json({ id: "consumption-1" }, 201);
   if (path === "/api/media/movie-1" && method === "DELETE") return json(null, 204);
   return json({});
@@ -85,14 +161,17 @@ describe("cinematic MediaPage", () => {
     statsShouldFail = false;
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "11111111-1111-4111-8111-111111111111") });
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(String(input), "http://localhost");
-      const method = init?.method ?? "GET";
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-      const path = url.pathname + url.search;
-      calls.push({ body, method, path });
-      return responseFor(path, method);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), "http://localhost");
+        const method = init?.method ?? "GET";
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        const path = url.pathname + url.search;
+        calls.push({ body, method, path });
+        return responseFor(path, method);
+      }),
+    );
   });
 
   afterEach(() => {
@@ -143,13 +222,20 @@ describe("cinematic MediaPage", () => {
     const { invalidate } = renderPage();
     await user.click(await screen.findByRole("button", { name: "Arrival ilerlemesini bir artır" }));
 
-    await waitFor(() => expect(calls).toContainEqual({
-      path: "/api/media/movie-1/consumptions",
-      method: "POST",
-      body: { action: "quick", amount: 1, client_uuid: "11111111-1111-4111-8111-111111111111", measure: "item" },
-    }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        path: "/api/media/movie-1/consumptions",
+        method: "POST",
+        body: { action: "quick", amount: 1, client_uuid: "11111111-1111-4111-8111-111111111111", measure: "item" },
+      }),
+    );
     expect(invalidate.mock.calls.map(([filters]) => (filters as { queryKey: string[] }).queryKey)).toEqual([
-      ["media"], ["media-detail"], ["media-stats"], ["media-dashboard"], ["today-agenda"], ["activity"],
+      ["media"],
+      ["media-detail"],
+      ["media-stats"],
+      ["media-dashboard"],
+      ["today-agenda"],
+      ["activity"],
     ]);
   });
 

@@ -4,9 +4,24 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import type { Expense, RecurringPayment } from "@/core/types";
-import {Button, Chip, Empty, IconButton, Input, Metric, MetricStrip, NumberInput, PageFrame, PageHeader, RowList, Section, Select, Toolbar} from "@/core/ui";
+import {
+  Button,
+  Chip,
+  Empty,
+  IconButton,
+  Input,
+  Metric,
+  MetricStrip,
+  NumberInput,
+  PageFrame,
+  PageHeader,
+  RowList,
+  Section,
+  Select,
+  Toolbar,
+} from "@/core/ui";
 import { localDateKey } from "@/lib/date";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 
 type Summary = { currency: string; category: string; amount: string };
 const categories = ["food", "subscriptions", "transport", "education", "entertainment", "other"];
@@ -25,8 +40,14 @@ const subOf = (id: string | null) => SUBS.find((s) => s.id === id);
 
 /* Kategori renk paleti — donut ve rozetlerde sabit dagilim (chart tokenlari). */
 const PALETTE = [
-  "var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)",
-  "var(--chart-5)", "var(--chart-6)", "var(--chart-7)", "var(--chart-8)",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
 ];
 const colorOf = (index: number) => PALETTE[index % PALETTE.length];
 
@@ -60,7 +81,9 @@ function Donut({ segments }: { segments: { label: string; value: number; color: 
           const el = (
             <circle
               key={s.label}
-              cx="50" cy="50" r={R}
+              cx="50"
+              cy="50"
+              r={R}
               fill="none"
               stroke={s.color}
               strokeWidth="14"
@@ -77,7 +100,9 @@ function Donut({ segments }: { segments: { label: string; value: number; color: 
           <div key={s.label} className="flex items-center gap-2 text-meta">
             <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: s.color }} />
             <span className="truncate text-secondary">{s.label}</span>
-            <span className="numeral ml-auto font-medium text-primary">{Math.round(s.value).toLocaleString("tr-TR")}</span>
+            <span className="numeral ml-auto font-medium text-primary">
+              {Math.round(s.value).toLocaleString("tr-TR")}
+            </span>
           </div>
         ))}
         <div className="flex items-center gap-2 border-t border-subtle pt-1.5 text-meta">
@@ -98,19 +123,37 @@ export function FinancePage() {
   const now = new Date();
   const online = useOnline();
   const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => api.get<Expense[]>("/expenses") });
-  const { data: recurring = [] } = useQuery({ queryKey: ["recurring"], queryFn: () => api.get<RecurringPayment[]>("/recurring-payments") });
-  const { data: summary = [] } = useQuery({ queryKey: ["expense-summary"], queryFn: () => api.get<Summary[]>("/expenses/summary") });
+  const { data: recurring = [] } = useQuery({
+    queryKey: ["recurring"],
+    queryFn: () => api.get<RecurringPayment[]>("/recurring-payments"),
+  });
+  const { data: summary = [] } = useQuery({
+    queryKey: ["expense-summary"],
+    queryFn: () => api.get<Summary[]>("/expenses/summary"),
+  });
 
   const refresh = () => invalidateAfter("finance.write");
   const create = useMutation({
     mutationFn: () =>
       tab === "expenses"
         ? api.post("/expenses", { title, amount, category, sub: sub || null })
-        : api.post("/recurring-payments", { title, amount, category: sub ? "subscriptions" : category, sub: sub || null, next_due_at: localDateKey(now) }),
-    onSuccess: () => { setTitle(""); setAmount(""); setSub(""); refresh(); },
+        : api.post("/recurring-payments", {
+            title,
+            amount,
+            category: sub ? "subscriptions" : category,
+            sub: sub || null,
+            next_due_at: localDateKey(now),
+          }),
+    onSuccess: () => {
+      setTitle("");
+      setAmount("");
+      setSub("");
+      refresh();
+    },
   });
   const remove = useMutation({
-    mutationFn: ({ id, kind }: { id: string; kind: "expenses" | "recurring-payments" }) => api.del("/" + kind + "/" + id),
+    mutationFn: ({ id, kind }: { id: string; kind: "expenses" | "recurring-payments" }) =>
+      api.del("/" + kind + "/" + id),
     onSuccess: refresh,
   });
   const pay = useMutation({
@@ -127,14 +170,17 @@ export function FinancePage() {
   function BrandPicker() {
     return (
       <div className="flex flex-wrap gap-1.5">
-        <button type="button" onClick={() => setSub("")}
-          className={cxSub(!sub)}>
+        <button type="button" onClick={() => setSub("")} className={cxSub(!sub)}>
           <span className="h-[22px] w-[22px] rounded-full border border-subtle bg-surface-sunken" />
           Yok
         </button>
         {SUBS.map((s) => (
-          <button key={s.id} type="button" onClick={() => setSub(sub === s.id ? "" : s.id)}
-            className={cxSub(sub === s.id)}>
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setSub(sub === s.id ? "" : s.id)}
+            className={cxSub(sub === s.id)}
+          >
             <SubLogo sub={s.id} />
             {s.label}
           </button>
@@ -142,8 +188,12 @@ export function FinancePage() {
       </div>
     );
     function cxSub(active: boolean) {
-      return "flex h-8 items-center gap-1.5 rounded-control border px-2.5 text-meta transition " +
-        (active ? "border-accent bg-accent-surface font-medium text-accent" : "border-subtle text-secondary hover:bg-surface-hover");
+      return (
+        "flex h-8 items-center gap-1.5 rounded-control border px-2.5 text-meta transition " +
+        (active
+          ? "border-accent bg-accent-surface font-medium text-accent"
+          : "border-subtle text-secondary hover:bg-surface-hover")
+      );
     }
   }
 
@@ -152,14 +202,22 @@ export function FinancePage() {
       <PageHeader eyebrow="Takip" title="Finans" />
       <p className="text-meta text-muted">Kur dönüşümü yok; her para birimi kendi toplamında kalır.</p>
       <Toolbar>
-        <Button variant={tab === "budget" ? "primary" : "ghost"} onClick={() => setTab("budget")}>Bütçe</Button>
-        <Button variant={tab === "expenses" ? "primary" : "ghost"} onClick={() => setTab("expenses")}>Harcamalar</Button>
-        <Button variant={tab === "recurring" ? "primary" : "ghost"} onClick={() => setTab("recurring")}>Abonelikler</Button>
+        <Button variant={tab === "budget" ? "primary" : "ghost"} onClick={() => setTab("budget")}>
+          Bütçe
+        </Button>
+        <Button variant={tab === "expenses" ? "primary" : "ghost"} onClick={() => setTab("expenses")}>
+          Harcamalar
+        </Button>
+        <Button variant={tab === "recurring" ? "primary" : "ghost"} onClick={() => setTab("recurring")}>
+          Abonelikler
+        </Button>
       </Toolbar>
 
       {tab === "budget" && (
         <Section title="Bu ay · bütçe dağılımı">
-          {Object.keys(byCurrency).length === 0 ? (<Empty>Bu ay harcama yok.</Empty>) : (
+          {Object.keys(byCurrency).length === 0 ? (
+            <Empty>Bu ay harcama yok.</Empty>
+          ) : (
             <div className="grid gap-6 lg:grid-cols-2">
               {Object.entries(byCurrency).map(([currency, rows]) => {
                 const segments = rows
@@ -182,16 +240,34 @@ export function FinancePage() {
         <Toolbar>
           <form
             className="grid w-full gap-2 md:grid-cols-[1fr_9rem_10rem_auto]"
-            onSubmit={(e) => { e.preventDefault(); if (title.trim() && Number(amount) > 0) create.mutate(); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (title.trim() && Number(amount) > 0) create.mutate();
+            }}
           >
-            <Input value={title} onChange={setTitle} placeholder={tab === "expenses" ? "Harcama" : "Abonelik ödemesi"} className="w-full" />
-            <NumberInput value={amount === "" ? NaN : Number(amount)} onChange={(n) => setAmount(String(n))} placeholder="Tutar TRY" step={0.01} className="w-full" />
+            <Input
+              value={title}
+              onChange={setTitle}
+              placeholder={tab === "expenses" ? "Harcama" : "Abonelik ödemesi"}
+              className="w-full"
+            />
+            <NumberInput
+              value={amount === "" ? NaN : Number(amount)}
+              onChange={(n) => setAmount(String(n))}
+              placeholder="Tutar TRY"
+              step={0.01}
+              className="w-full"
+            />
             {tab === "expenses" && (
               <Select value={category} onChange={setCategory} className="w-full">
-                {categories.map((x) => <option key={x}>{x}</option>)}
+                {categories.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
               </Select>
             )}
-            <Button type="submit" variant="primary" disabled={!online || create.isPending}>Ekle</Button>
+            <Button type="submit" variant="primary" disabled={!online || create.isPending}>
+              Ekle
+            </Button>
           </form>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-meta text-muted">{tab === "expenses" ? "Tür:" : "Abonelik:"}</span>
@@ -209,11 +285,22 @@ export function FinancePage() {
                   {x.sub && <SubLogo sub={x.sub} size={20} />}
                   <span className="min-w-0">
                     <span className="block truncate">{x.title}</span>
-                    <p className="text-meta text-muted">{x.spent_on} · {x.category}{x.sub ? " · abonelik" : ""}</p>
+                    <p className="text-meta text-muted">
+                      {x.spent_on} · {x.category}
+                      {x.sub ? " · abonelik" : ""}
+                    </p>
                   </span>
                 </div>
-                <strong className="shrink-0">{Number(x.amount).toLocaleString("tr-TR")} {x.currency}</strong>
-                <IconButton title="Sil" tone="danger" disabled={!online} className="shrink-0 opacity-0 transition group-hover:opacity-100" onClick={() => remove.mutate({ id: x.id, kind: "expenses" })}>
+                <strong className="shrink-0">
+                  {Number(x.amount).toLocaleString("tr-TR")} {x.currency}
+                </strong>
+                <IconButton
+                  title="Sil"
+                  tone="danger"
+                  disabled={!online}
+                  className="shrink-0 opacity-0 transition group-hover:opacity-100"
+                  onClick={() => remove.mutate({ id: x.id, kind: "expenses" })}
+                >
                   <Trash2 size={14} />
                 </IconButton>
               </div>
@@ -229,13 +316,26 @@ export function FinancePage() {
               <div key={x.id} className="group flex flex-wrap items-center gap-3 py-3">
                 <SubLogo sub={x.sub} size={26} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-body text-primary">{x.title}{x.sub ? " · " + (subOf(x.sub)?.label ?? x.sub) : ""}</p>
+                  <p className="text-body text-primary">
+                    {x.title}
+                    {x.sub ? " · " + (subOf(x.sub)?.label ?? x.sub) : ""}
+                  </p>
                   <p className="text-meta text-muted">Sonraki: {x.next_due_at ?? "belirsiz"}</p>
                 </div>
                 <Chip tone={x.active ? "ok" : "neutral"}>{x.frequency}</Chip>
-                <strong>{Number(x.amount).toLocaleString("tr-TR")} {x.currency}</strong>
-                <Button variant="primary" disabled={!online || pay.isPending} onClick={() => pay.mutate(x.id)}>Ödendi</Button>
-                <IconButton title="Sil" tone="danger" disabled={!online} className="opacity-0 transition group-hover:opacity-100" onClick={() => remove.mutate({ id: x.id, kind: "recurring-payments" })}>
+                <strong>
+                  {Number(x.amount).toLocaleString("tr-TR")} {x.currency}
+                </strong>
+                <Button variant="primary" disabled={!online || pay.isPending} onClick={() => pay.mutate(x.id)}>
+                  Ödendi
+                </Button>
+                <IconButton
+                  title="Sil"
+                  tone="danger"
+                  disabled={!online}
+                  className="opacity-0 transition group-hover:opacity-100"
+                  onClick={() => remove.mutate({ id: x.id, kind: "recurring-payments" })}
+                >
                   <Trash2 size={14} />
                 </IconButton>
               </div>
@@ -244,7 +344,9 @@ export function FinancePage() {
         </Section>
       )}
 
-      {((tab === "expenses" && !expenses.length) || (tab === "recurring" && !recurring.length)) && <Empty>Kayıt yok.</Empty>}
+      {((tab === "expenses" && !expenses.length) || (tab === "recurring" && !recurring.length)) && (
+        <Empty>Kayıt yok.</Empty>
+      )}
     </PageFrame>
   );
 }

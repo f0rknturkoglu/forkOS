@@ -11,7 +11,12 @@ type MediaActionsMenuItem = Pick<
 
 type MenuPosition = { left: number; top: number; width: number; maxHeight?: number };
 
-function menuPosition(triggerRect: DOMRect, menuHeight: number, viewportWidth: number, viewportHeight: number): MenuPosition {
+function menuPosition(
+  triggerRect: DOMRect,
+  menuHeight: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): MenuPosition {
   const gutter = 8;
   const gap = 4;
   const width = Math.min(208, Math.max(0, viewportWidth - gutter * 2));
@@ -44,20 +49,18 @@ export function MediaActionsMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
-  const enabledMenuitems = () => Array.from(
-    menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
-  ).filter((element) => !(element instanceof HTMLButtonElement && element.disabled));
+  const enabledMenuitems = () =>
+    Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []).filter(
+      (element) => !(element instanceof HTMLButtonElement && element.disabled),
+    );
 
   const updatePosition = () => {
     const trigger = triggerRef.current;
     const menu = menuRef.current;
     if (!trigger || !menu) return;
-    setPosition(menuPosition(
-      trigger.getBoundingClientRect(),
-      menu.scrollHeight,
-      window.innerWidth,
-      window.innerHeight,
-    ));
+    setPosition(
+      menuPosition(trigger.getBoundingClientRect(), menu.scrollHeight, window.innerWidth, window.innerHeight),
+    );
   };
 
   useLayoutEffect(() => {
@@ -147,12 +150,16 @@ export function MediaActionsMenu({
           aria-label={`${item.title} işlemleri menüsü`}
           onKeyDown={moveMenuFocus}
           className="fixed z-20 rounded-control border border-subtle bg-surface p-1 shadow-lg"
-          style={position ? {
-            left: position.left,
-            top: position.top,
-            width: position.width,
-            ...(position.maxHeight === undefined ? {} : { maxHeight: position.maxHeight, overflowY: "auto" }),
-          } : undefined}
+          style={
+            position
+              ? {
+                  left: position.left,
+                  top: position.top,
+                  width: position.width,
+                  ...(position.maxHeight === undefined ? {} : { maxHeight: position.maxHeight, overflowY: "auto" }),
+                }
+              : undefined
+          }
         >
           {links.map(([name, url]) => (
             <a

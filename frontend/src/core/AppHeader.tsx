@@ -5,12 +5,7 @@ import { NotificationPanel } from "./NotificationPanel";
 import { StatusLed } from "./StatusLed";
 import { navigationModules } from "./registry";
 import { Kbd, cx, useTheme } from "./ui";
-import {
-  activeNavigationGroup,
-  groupTarget,
-  moduleTarget,
-  navigationGroups,
-} from "./navigation";
+import { activeNavigationGroup, groupTarget, moduleTarget, navigationGroups } from "./navigation";
 import { findRouteMatch } from "@/app/router";
 import type { NavigationGroup } from "./navigation";
 import type { ModuleSpec } from "./types";
@@ -25,9 +20,7 @@ function ModuleTab({ module, active }: { module: ModuleSpec; active: boolean }) 
       aria-current={active ? "page" : undefined}
       className={cx(
         "flex h-9 shrink-0 items-center gap-1.5 border-b-2 text-meta transition-colors",
-        active
-          ? "border-accent text-primary"
-          : "border-transparent text-muted hover:text-primary",
+        active ? "border-accent text-primary" : "border-transparent text-muted hover:text-primary",
       )}
     >
       {Icon && <Icon size={13} className="shrink-0" />}
@@ -47,9 +40,7 @@ export function NavigationRows({
 }) {
   const activeGroup = activeNavigationGroup(path, groups);
   const activeModule = findRouteMatch(
-    activeGroup.modules.flatMap((module) =>
-      module.routes.map((route) => ({ path: route.path, module })),
-    ),
+    activeGroup.modules.flatMap((module) => module.routes.map((route) => ({ path: route.path, module }))),
     path,
   )?.module;
 
@@ -63,7 +54,10 @@ export function NavigationRows({
           <span className="hidden font-serif text-heading text-primary sm:inline">forkOS</span>
         </a>
 
-        <nav aria-label="Ana bölümler" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-1">
+        <nav
+          aria-label="Ana bölümler"
+          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-1"
+        >
           {groups.map((group) => (
             <a
               key={group.id}
@@ -134,11 +128,5 @@ function HeaderUtilities() {
 }
 
 export function AppHeader({ path }: { path: string }) {
-  return (
-    <NavigationRows
-      path={path}
-      groups={navigationGroups(navigationModules())}
-      utilities={<HeaderUtilities />}
-    />
-  );
+  return <NavigationRows path={path} groups={navigationGroups(navigationModules())} utilities={<HeaderUtilities />} />;
 }

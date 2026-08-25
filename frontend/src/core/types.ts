@@ -4,12 +4,9 @@ import type { components } from "@/generated/api-schema";
 
 type ApiSchemas = components["schemas"];
 
-export type Collection =
-  | "inbox" | "read_later" | "learning" | "reference" | "projects" | "archive";
+export type Collection = "inbox" | "read_later" | "learning" | "reference" | "projects" | "archive";
 
-export const COLLECTIONS: Collection[] = [
-  "inbox", "read_later", "learning", "reference", "projects", "archive",
-];
+export const COLLECTIONS: Collection[] = ["inbox", "read_later", "learning", "reference", "projects", "archive"];
 
 export const COLLECTION_LABELS: Record<Collection, string> = {
   inbox: "Gelen Kutusu",
@@ -47,7 +44,7 @@ export interface HeatmapDay {
 
 export interface DayDetail {
   day: string;
-  	events: (ActivityEvent & { kind: string | null })[];
+  events: (ActivityEvent & { kind: string | null })[];
   kinds: Record<string, number>;
   labels: Record<string, string>;
   total: number;
@@ -183,10 +180,7 @@ export type AgendaRow = Omit<ApiAgendaRow, "children"> & {
   children: AgendaRow[];
 };
 
-export type TodayAgenda = Omit<
-  ApiSchemas["TodayAgendaOut"],
-  "timed" | "checklist" | "completed" | "suggestions"
-> & {
+export type TodayAgenda = Omit<ApiSchemas["TodayAgendaOut"], "timed" | "checklist" | "completed" | "suggestions"> & {
   timed: AgendaRow[];
   checklist: AgendaRow[];
   completed: AgendaRow[];
@@ -194,49 +188,97 @@ export type TodayAgenda = Omit<
 };
 
 export interface StudyArea {
-  id: string; title: string; color: string | null; active: boolean; position: number;
+  id: string;
+  title: string;
+  color: string | null;
+  active: boolean;
+  position: number;
 }
 
 export interface StudyTopic {
-  id: string; title: string; area_id: string; parent_id: string | null;
-  status: string; confidence: number | null; target_min: number | null;
-  position: number; last_studied_at: string | null; children: StudyTopic[];
+  id: string;
+  title: string;
+  area_id: string;
+  parent_id: string | null;
+  status: string;
+  confidence: number | null;
+  target_min: number | null;
+  position: number;
+  last_studied_at: string | null;
+  children: StudyTopic[];
 }
 
 export interface Course {
-  id: string; title: string; platform: string | null; url: string | null;
-  status: string; progress_pct: number; started_at: string | null;
-  completed_at: string | null; notes: string | null;
+  id: string;
+  title: string;
+  platform: string | null;
+  url: string | null;
+  status: string;
+  progress_pct: number;
+  started_at: string | null;
+  completed_at: string | null;
+  notes: string | null;
 }
 
 export interface Book {
-  id: string; title: string; author: string | null; status: string;
-  total_pages: number | null; current_page: number; started_at: string | null;
-  finished_at: string | null; rating: number | null; notes: string | null;
+  id: string;
+  title: string;
+  author: string | null;
+  status: string;
+  total_pages: number | null;
+  current_page: number;
+  started_at: string | null;
+  finished_at: string | null;
+  rating: number | null;
+  notes: string | null;
 }
 
 export interface Document {
-  id: string; title: string; drive_file_id: string; mime: string | null;
-  category: string | null; web_view_link: string | null; size_bytes: number | null;
-  drive_modified_at: string | null; synced_at: string;
+  id: string;
+  title: string;
+  drive_file_id: string;
+  mime: string | null;
+  category: string | null;
+  web_view_link: string | null;
+  size_bytes: number | null;
+  drive_modified_at: string | null;
+  synced_at: string;
 }
 
 export interface CalendarEvent {
-  id: string; source: "google" | "plan"; title: string; starts_at: string;
-  ends_at: string | null; all_day: boolean; location?: string | null;
-  url?: string | null; note?: string | null; read_only: boolean;
+  id: string;
+  source: "google" | "plan";
+  title: string;
+  starts_at: string;
+  ends_at: string | null;
+  all_day: boolean;
+  location?: string | null;
+  url?: string | null;
+  note?: string | null;
+  read_only: boolean;
   google_event_id?: string | null;
 }
 
 export interface Milestone {
-  id: string; project_id: string; title: string; due_at: string | null;
-  completed_at: string | null; position: number;
+  id: string;
+  project_id: string;
+  title: string;
+  due_at: string | null;
+  completed_at: string | null;
+  position: number;
 }
 
 export interface Project {
-  id: string; title: string; status: string; github_repo: string | null;
-  url: string | null; stack: string[]; next_action: string | null;
-  last_activity_at: string | null; notes: string | null; position: number;
+  id: string;
+  title: string;
+  status: string;
+  github_repo: string | null;
+  url: string | null;
+  stack: string[];
+  next_action: string | null;
+  last_activity_at: string | null;
+  notes: string | null;
+  position: number;
   milestones: Milestone[];
 }
 
@@ -269,13 +311,13 @@ export interface GithubRepoPanel {
   private: boolean;
   issues: GithubIssue[];
   pulls: GithubIssue[];
-  	commits: {
-		sha: string;
-		message: string;
-		url: string;
-		author: string | null;
-		committed_at: string | null;
-	}[];
+  commits: {
+    sha: string;
+    message: string;
+    url: string;
+    author: string | null;
+    committed_at: string | null;
+  }[];
   /** Token ile mi okundu -- limitin 60/saat mi 5000/saat mi oldugunu soyler. */
   authenticated: boolean;
 }
@@ -292,22 +334,34 @@ export interface ProjectEvent {
 }
 
 export interface Expense {
-  id: string; title: string; amount: string; currency: string; category: string;
-  spent_on: string; note: string | null;
+  id: string;
+  title: string;
+  amount: string;
+  currency: string;
+  category: string;
+  spent_on: string;
+  note: string | null;
   sub: string | null;
 }
 
 export interface RecurringPayment {
-  id: string; title: string; amount: string; currency: string; category: string;
-  billing_day: number | null; frequency: string; next_due_at: string | null;
-  active: boolean; note: string | null;
+  id: string;
+  title: string;
+  amount: string;
+  currency: string;
+  category: string;
+  billing_day: number | null;
+  frequency: string;
+  next_due_at: string | null;
+  active: boolean;
+  note: string | null;
   sub: string | null;
 }
 
 export type AppSettings = Record<string, unknown> & {
   "modules.disabled": string[];
   "today.widget_order": string[];
-  	"media.links": { name: string; url: string; icon?: string }[];
+  "media.links": { name: string; url: string; icon?: string }[];
   theme: string;
 };
 
@@ -377,11 +431,22 @@ export type SourceSyncStatus = ApiSchemas["SourceSyncStatusOut"];
 export type SourceRefreshResult = ApiSchemas["SourceRefreshOut"];
 
 export interface Opportunity {
-  id: string; title: string; kind: string; organization: string | null;
-  url: string | null; status: string; priority: number; found_at: string;
-  deadline_at: string | null; applied_at: string | null; location: string | null;
-  remote: string | null; compensation: string | null; source: string;
-  external_id: string | null; raw: Record<string, unknown>;
+  id: string;
+  title: string;
+  kind: string;
+  organization: string | null;
+  url: string | null;
+  status: string;
+  priority: number;
+  found_at: string;
+  deadline_at: string | null;
+  applied_at: string | null;
+  location: string | null;
+  remote: string | null;
+  compensation: string | null;
+  source: string;
+  external_id: string | null;
+  raw: Record<string, unknown>;
   /** forkjob uyum puanı (0-100); -1 elenmiş demek. Liste ucunda da dolu. */
   score: number | null;
   /** Puanın bileşenleri — yalnızca detay ucunda dolu. */
@@ -458,14 +523,25 @@ export type GlobalMetadataSearch = ApiSchemas["GlobalMetadataSearchOut"];
 export type MediaProviderStatus = ApiSchemas["MediaProviderStatusOut"];
 
 export interface Deadline {
-  entity_id: string; type: string; title: string; due_at: string;
-  module: string; sub_kind: string | null; priority: number;
+  entity_id: string;
+  type: string;
+  title: string;
+  due_at: string;
+  module: string;
+  sub_kind: string | null;
+  priority: number;
 }
 
 export interface Notification {
-  id: number; kind: string; title: string; body: string | null;
-  entity_id: string | null; entity_type: string | null;
-  importance: number; created_at: string; read_at: string | null;
+  id: number;
+  kind: string;
+  title: string;
+  body: string | null;
+  entity_id: string | null;
+  entity_type: string | null;
+  importance: number;
+  created_at: string;
+  read_at: string | null;
 }
 
 export interface Command {

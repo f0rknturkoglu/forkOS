@@ -25,10 +25,7 @@ function walk(dir: string, out: string[] = []): string[] {
 
 // invalidation.ts ve queryClient.ts tanim dosyalaridir; kendi yorumlarinda
 // "invalidate(a,b)" ornegi gecer (kural 14 cagri yerlerini baglar).
-const EXEMPT = new Set([
-  join(ROOT, "core", "invalidation.ts"),
-  join(ROOT, "core", "queryClient.ts"),
-]);
+const EXEMPT = new Set([join(ROOT, "core", "invalidation.ts"), join(ROOT, "core", "queryClient.ts")]);
 const files = walk(join(ROOT, "modules"))
   .concat(walk(join(ROOT, "core")))
   .filter((f) => !EXEMPT.has(f));
@@ -51,7 +48,15 @@ describe("merkezi invalidation (kural 14)", () => {
   });
 
   it("bugun-agenda her yazma olayinda tazeleniyor", () => {
-    for (const event of ["todo.write", "plan.write", "rss.write", "media.write", "opportunity.write", "project.write", "calendar.write"]) {
+    for (const event of [
+      "todo.write",
+      "plan.write",
+      "rss.write",
+      "media.write",
+      "opportunity.write",
+      "project.write",
+      "calendar.write",
+    ]) {
       expect(AFTER[event as keyof typeof AFTER], `${event} bugun-agenda icermeli`).toContain("today-agenda");
     }
   });

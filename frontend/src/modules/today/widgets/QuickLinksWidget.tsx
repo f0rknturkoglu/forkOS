@@ -15,9 +15,7 @@ export function QuickLinksWidget() {
   return (
     <Section title="Hızlı erişim">
       {links.length === 0 ? (
-        <p className="text-meta text-muted">
-          Ayarlar'dan hızlı link ekle (Letterboxd, Goodreads…).
-        </p>
+        <p className="text-meta text-muted">Ayarlar'dan hızlı link ekle (Letterboxd, Goodreads…).</p>
       ) : (
         <div className="grid grid-cols-2 gap-1.5">
           {links.map((link) => (

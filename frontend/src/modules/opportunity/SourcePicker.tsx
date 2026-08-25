@@ -6,7 +6,7 @@ import { api } from "@/core/api";
 import { navigate } from "@/app/router";
 import { Button, Checkbox, Input, cx, relativeTime, useToast } from "@/core/ui";
 import type { SourceHealth, SourceRefreshResult, SourceSyncStatus } from "@/core/types";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import { sourceLabel } from "@/core/labels";
 
 type Catalog = { id: string; interval_minutes: number; kind: string };
@@ -40,10 +40,7 @@ export function SourcePicker() {
     refetchInterval: (query) => (query.state.data?.running.length ? 2_000 : 30_000),
   });
 
-  const running = useMemo(
-    () => new Set((sync?.running ?? []).map((item) => item.source)),
-    [sync],
-  );
+  const running = useMemo(() => new Set((sync?.running ?? []).map((item) => item.source)), [sync]);
   const latest = useMemo(() => {
     const map = new Map<string, SourceHealth>();
     for (const run of runs) if (!map.has(run.source)) map.set(run.source, run);
@@ -51,16 +48,13 @@ export function SourcePicker() {
   }, [runs]);
 
   const refresh = useMutation({
-    mutationFn: (source_ids: string[]) =>
-      api.post<SourceRefreshResult>("/sources/refresh", { source_ids }),
+    mutationFn: (source_ids: string[]) => api.post<SourceRefreshResult>("/sources/refresh", { source_ids }),
     onSuccess: (result) => {
       setPicked(new Set());
       setOpen(false);
       invalidateAfter("source.sync");
       toast.push(
-        result.queued
-          ? `${result.queued} kaynak kuyruğa alındı`
-          : "Seçilen kaynaklar aktif çekimde zaten var",
+        result.queued ? `${result.queued} kaynak kuyruğa alındı` : "Seçilen kaynaklar aktif çekimde zaten var",
         { tone: "ok" },
       );
     },
@@ -71,7 +65,9 @@ export function SourcePicker() {
     const onDown = (e: MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -82,9 +78,7 @@ export function SourcePicker() {
 
   const visible = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("tr");
-    return needle
-      ? catalog.filter((source) => source.id.toLocaleLowerCase("tr").includes(needle))
-      : catalog;
+    return needle ? catalog.filter((source) => source.id.toLocaleLowerCase("tr").includes(needle)) : catalog;
   }, [catalog, search]);
 
   const allPicked = visible.length > 0 && visible.every((s) => picked.has(s.id));
@@ -92,7 +86,8 @@ export function SourcePicker() {
   function toggle(id: string) {
     setPicked((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -152,11 +147,7 @@ export function SourcePicker() {
           </div>
 
           <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-3 py-2">
-            <Checkbox
-              checked={allPicked}
-              onChange={toggleAll}
-              label={allPicked ? "Seçimi kaldır" : "Hepsini seç"}
-            />
+            <Checkbox checked={allPicked} onChange={toggleAll} label={allPicked ? "Seçimi kaldır" : "Hepsini seç"} />
             <span className="flex-1" />
             <span className="text-meta text-muted">{visible.length} kaynak</span>
           </div>
@@ -171,26 +162,22 @@ export function SourcePicker() {
                   <Checkbox
                     checked={checked}
                     onChange={() => toggle(source.id)}
-                    label={<>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body text-primary">{sourceLabel(source.id)}</span>
-                        <span className="block truncate text-meta text-muted">
-                          {KIND_LABELS[source.kind] ?? source.kind}
-                          {" · "}
-                          {busy
-                            ? "çekiliyor…"
-                            : run?.started_at
-                              ? relativeTime(run.started_at)
-                              : "hiç çalışmadı"}
+                    label={
+                      <>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-body text-primary">{sourceLabel(source.id)}</span>
+                          <span className="block truncate text-meta text-muted">
+                            {KIND_LABELS[source.kind] ?? source.kind}
+                            {" · "}
+                            {busy ? "çekiliyor…" : run?.started_at ? relativeTime(run.started_at) : "hiç çalışmadı"}
+                          </span>
                         </span>
-                      </span>
-                      {run && run.items_found > 0 && (
-                        <span className="numeral shrink-0 text-body text-secondary">+{run.items_found}</span>
-                      )}
-                      {run?.status === "ok" && !busy && (
-                        <Check size={14} className="shrink-0 text-ok" />
-                      )}
-                    </>}
+                        {run && run.items_found > 0 && (
+                          <span className="numeral shrink-0 text-body text-secondary">+{run.items_found}</span>
+                        )}
+                        {run?.status === "ok" && !busy && <Check size={14} className="shrink-0 text-ok" />}
+                      </>
+                    }
                     className={cx(
                       "w-full gap-3 border-b border-subtle px-3 py-2 transition last:border-b-0 hover:bg-surface-hover",
                       checked && "bg-accent-surface/40",
@@ -207,7 +194,10 @@ export function SourcePicker() {
           <div className="flex items-center gap-2 border-t border-subtle bg-canvas px-3 py-2.5">
             <button
               type="button"
-              onClick={() => { setOpen(false); navigate("/sources"); }}
+              onClick={() => {
+                setOpen(false);
+                navigate("/sources");
+              }}
               className="flex items-center gap-1.5 text-meta text-muted transition hover:text-primary"
             >
               Ayrı sayfada aç <ArrowUpRight size={13} />

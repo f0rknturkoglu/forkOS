@@ -16,11 +16,19 @@ beforeAll(() => {
     Object.defineProperty(globalThis, "localStorage", {
       value: {
         getItem: (k: string) => store.get(k) ?? null,
-        setItem: (k: string, v: string) => { store.set(k, v); },
-        removeItem: (k: string) => { store.delete(k); },
-        clear: () => { store.clear(); },
+        setItem: (k: string, v: string) => {
+          store.set(k, v);
+        },
+        removeItem: (k: string) => {
+          store.delete(k);
+        },
+        clear: () => {
+          store.clear();
+        },
         key: () => null,
-        get length() { return store.size; },
+        get length() {
+          return store.size;
+        },
       },
       configurable: true,
     });
@@ -29,11 +37,7 @@ beforeAll(() => {
 
 describe("Bugun widget sozlesmesi", () => {
   it("en az 14 modulun katkisini icerir", () => {
-    const widgets = [
-      ...allTodayWidgetsIn("left"),
-      ...allTodayWidgetsIn("center"),
-      ...allTodayWidgetsIn("right"),
-    ];
+    const widgets = [...allTodayWidgetsIn("left"), ...allTodayWidgetsIn("center"), ...allTodayWidgetsIn("right")];
     expect(widgets.length).toBeGreaterThanOrEqual(14);
   });
 });

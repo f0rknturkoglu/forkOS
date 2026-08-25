@@ -11,11 +11,18 @@ function sanitizeHtml(html: string): string {
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function KbdInline({ children }: { children: React.ReactNode }) {
-  return <kbd className="mx-1 rounded border border-strong bg-surface px-1 py-0.5 font-sans text-micro text-muted">{children}</kbd>;
+  return (
+    <kbd className="mx-1 rounded border border-strong bg-surface px-1 py-0.5 font-sans text-micro text-muted">
+      {children}
+    </kbd>
+  );
 }
 
 export interface RssReadingPaneProps {
@@ -33,16 +40,25 @@ export interface RssReadingPaneProps {
 }
 
 export function RssReadingPane({
-  detail, online, saveCollection, onSaveCollection,
-  onToggleRead, onSave, onOpenBookmark, onPrev, onNext, hasPrev, hasNext,
+  detail,
+  online,
+  saveCollection,
+  onSaveCollection,
+  onToggleRead,
+  onSave,
+  onOpenBookmark,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
 }: RssReadingPaneProps) {
   if (!detail) {
     return (
       <Empty variant="page" title="Bir yazı seç">
         Soldaki listeden bir yazıya tıkla — içeriği burada okursun.
         <span className="mt-2 block text-meta text-muted">
-          Kısayollar: <KbdInline>j</KbdInline> <KbdInline>k</KbdInline> gezin ·
-          <KbdInline>u</KbdInline> okundu · <KbdInline>s</KbdInline> kaydet · <KbdInline>⇧ J</KbdInline> sonraki okunmamış
+          Kısayollar: <KbdInline>j</KbdInline> <KbdInline>k</KbdInline> gezin ·<KbdInline>u</KbdInline> okundu ·{" "}
+          <KbdInline>s</KbdInline> kaydet · <KbdInline>⇧ J</KbdInline> sonraki okunmamış
         </span>
       </Empty>
     );
@@ -63,7 +79,9 @@ export function RssReadingPane({
           ariaLabel="Koleksiyon"
         >
           {COLLECTIONS.map((collection) => (
-            <option key={collection} value={collection}>{COLLECTION_LABELS[collection]}</option>
+            <option key={collection} value={collection}>
+              {COLLECTION_LABELS[collection]}
+            </option>
           ))}
         </Select>
         {detail.saved_bookmark_id ? (
@@ -85,8 +103,12 @@ export function RssReadingPane({
           </Button>
         )}
         <span className="flex-1" />
-        <Button size="sm" disabled={!hasPrev} onClick={onPrev} title="Önceki">‹ Önceki</Button>
-        <Button size="sm" disabled={!hasNext} onClick={onNext} title="Sonraki">Sonraki ›</Button>
+        <Button size="sm" disabled={!hasPrev} onClick={onPrev} title="Önceki">
+          ‹ Önceki
+        </Button>
+        <Button size="sm" disabled={!hasNext} onClick={onNext} title="Sonraki">
+          Sonraki ›
+        </Button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
@@ -96,7 +118,12 @@ export function RssReadingPane({
           {detail.author && <span>· {detail.author}</span>}
           {detail.published_at && <span>· {relativeTime(detail.published_at)}</span>}
           {detail.url && (
-            <a href={detail.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
+            <a
+              href={detail.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-accent hover:underline"
+            >
               <ExternalLink size={12} /> orijinali
             </a>
           )}

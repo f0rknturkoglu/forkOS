@@ -1,29 +1,93 @@
 import { useState } from "react";
-import {cx, identityClasses} from "@/core/ui";
+import { cx, identityClasses } from "@/core/ui";
 import type { MediaItem } from "@/core/types";
 
 export const KINDS = ["movie", "show", "anime", "manga", "book", "audiobook", "podcast", "music", "game"] as const;
 export const KIND_LABELS: Record<string, string> = {
-  movie: "Film", show: "Dizi", anime: "Anime", manga: "Manga", book: "Kitap",
-  audiobook: "Sesli Kitap", podcast: "Podcast", music: "Müzik", game: "Oyun",
+  movie: "Film",
+  show: "Dizi",
+  anime: "Anime",
+  manga: "Manga",
+  book: "Kitap",
+  audiobook: "Sesli Kitap",
+  podcast: "Podcast",
+  music: "Müzik",
+  game: "Oyun",
 };
 export const STATUSES = ["planned", "in_progress", "paused", "completed", "dropped"] as const;
 export const STATUS_LABELS: Record<string, string> = {
-  planned: "Planlandı", in_progress: "Devam ediyor", paused: "Duraklatıldı",
-  completed: "Tamamlandı", dropped: "Bırakıldı",
+  planned: "Planlandı",
+  in_progress: "Devam ediyor",
+  paused: "Duraklatıldı",
+  completed: "Tamamlandı",
+  dropped: "Bırakıldı",
 };
 
 /** Tür bazlı durum adları. Değerler aynı; arayüz türün dilini konuşur. */
 const STATUS_SETS: Record<string, Record<string, string>> = {
-  movie: { planned: "İzlenecek", in_progress: "İzleniyor", paused: "Duraklatıldı", completed: "İzlendi", dropped: "Bırakıldı" },
-  show: { planned: "İzlenecek", in_progress: "İzleniyor", paused: "Duraklatıldı", completed: "İzlendi", dropped: "Bırakıldı" },
-  anime: { planned: "İzlenecek", in_progress: "İzleniyor", paused: "Duraklatıldı", completed: "İzlendi", dropped: "Bırakıldı" },
-  game: { planned: "Oynanacak", in_progress: "Oynanıyor", paused: "Ara verildi", completed: "Bitirildi", dropped: "Bırakıldı" },
-  music: { planned: "Dinlenecek", in_progress: "Dinleniyor", paused: "Duraklatıldı", completed: "Dinlendi", dropped: "Bırakıldı" },
-  podcast: { planned: "Dinlenecek", in_progress: "Dinleniyor", paused: "Duraklatıldı", completed: "Dinlendi", dropped: "Bırakıldı" },
-  audiobook: { planned: "Dinlenecek", in_progress: "Dinleniyor", paused: "Duraklatıldı", completed: "Dinlendi", dropped: "Bırakıldı" },
-  book: { planned: "Okunacak", in_progress: "Okunuyor", paused: "Duraklatıldı", completed: "Okundu", dropped: "Bırakıldı" },
-  manga: { planned: "Okunacak", in_progress: "Okunuyor", paused: "Duraklatıldı", completed: "Okundu", dropped: "Bırakıldı" },
+  movie: {
+    planned: "İzlenecek",
+    in_progress: "İzleniyor",
+    paused: "Duraklatıldı",
+    completed: "İzlendi",
+    dropped: "Bırakıldı",
+  },
+  show: {
+    planned: "İzlenecek",
+    in_progress: "İzleniyor",
+    paused: "Duraklatıldı",
+    completed: "İzlendi",
+    dropped: "Bırakıldı",
+  },
+  anime: {
+    planned: "İzlenecek",
+    in_progress: "İzleniyor",
+    paused: "Duraklatıldı",
+    completed: "İzlendi",
+    dropped: "Bırakıldı",
+  },
+  game: {
+    planned: "Oynanacak",
+    in_progress: "Oynanıyor",
+    paused: "Ara verildi",
+    completed: "Bitirildi",
+    dropped: "Bırakıldı",
+  },
+  music: {
+    planned: "Dinlenecek",
+    in_progress: "Dinleniyor",
+    paused: "Duraklatıldı",
+    completed: "Dinlendi",
+    dropped: "Bırakıldı",
+  },
+  podcast: {
+    planned: "Dinlenecek",
+    in_progress: "Dinleniyor",
+    paused: "Duraklatıldı",
+    completed: "Dinlendi",
+    dropped: "Bırakıldı",
+  },
+  audiobook: {
+    planned: "Dinlenecek",
+    in_progress: "Dinleniyor",
+    paused: "Duraklatıldı",
+    completed: "Dinlendi",
+    dropped: "Bırakıldı",
+  },
+  book: {
+    planned: "Okunacak",
+    in_progress: "Okunuyor",
+    paused: "Duraklatıldı",
+    completed: "Okundu",
+    dropped: "Bırakıldı",
+  },
+  manga: {
+    planned: "Okunacak",
+    in_progress: "Okunuyor",
+    paused: "Duraklatıldı",
+    completed: "Okundu",
+    dropped: "Bırakıldı",
+  },
 };
 
 /** Bir kaydın durum adı; bilinmeyen türde genel etikete düşer. */
@@ -37,8 +101,15 @@ export function statusLabelsFor(kind: string): Record<string, string> {
 }
 
 const KIND_COLORS: Record<string, string> = {
-  movie: "movie", show: "show", anime: "anime", manga: "manga", book: "book",
-  audiobook: "audiobook", podcast: "podcast", music: "music", game: "game",
+  movie: "movie",
+  show: "show",
+  anime: "anime",
+  manga: "manga",
+  book: "book",
+  audiobook: "audiobook",
+  podcast: "podcast",
+  music: "music",
+  game: "game",
 };
 
 /** toplam girilmemisse yuzde yok demektir. */
@@ -51,8 +122,12 @@ export function mediaCoverUrl(item: Pick<MediaItem, "cover_path" | "cover_url" |
   const path = item.cover_path ?? "";
   const assetPrefix = "/api/media/assets/";
   const name = path.startsWith(assetPrefix) ? path.slice(assetPrefix.length) : path;
-  const safePath = !path.includes("\\") && !path.includes("?") && !path.includes("#") && !path.includes("%")
-    && (path === name || path.startsWith(assetPrefix));
+  const safePath =
+    !path.includes("\\") &&
+    !path.includes("?") &&
+    !path.includes("#") &&
+    !path.includes("%") &&
+    (path === name || path.startsWith(assetPrefix));
   if (safePath && name && /^[a-z0-9][a-z0-9._-]*\.(?:jpg|jpeg|png|webp)$/i.test(name)) {
     return `/api/media/assets/${encodeURIComponent(name)}`;
   }
@@ -87,16 +162,16 @@ export function Cover({ url, title, size = "h-24 w-16" }: { url: string | null; 
   const [broken, setBroken] = useState(false);
   if (url && !broken) {
     return (
-      <img
-        src={url}
-        alt=""
-        onError={() => setBroken(true)}
-        className={cx("shrink-0 rounded object-cover", size)}
-      />
+      <img src={url} alt="" onError={() => setBroken(true)} className={cx("shrink-0 rounded object-cover", size)} />
     );
   }
   return (
-    <div className={cx("flex shrink-0 items-center justify-center rounded border border-subtle bg-surface-sunken font-serif text-heading text-secondary", size)}>
+    <div
+      className={cx(
+        "flex shrink-0 items-center justify-center rounded border border-subtle bg-surface-sunken font-serif text-heading text-secondary",
+        size,
+      )}
+    >
       {(title.trim().charAt(0) || "?").toUpperCase()}
     </div>
   );
@@ -132,32 +207,44 @@ export function externalLinks(
   const links: [string, string][] = [];
   if (kind === "anime" || kind === "manga") {
     const anilistId = identityFor("anilist", meta, provider, providerId, providerIds, "anilist_id");
-    links.push(["AniList", anilistId
-      ? "https://anilist.co/" + kind + "/" + encodeURIComponent(anilistId)
-      : "https://anilist.co/search/" + kind + "?search=" + q]);
+    links.push([
+      "AniList",
+      anilistId
+        ? "https://anilist.co/" + kind + "/" + encodeURIComponent(anilistId)
+        : "https://anilist.co/search/" + kind + "?search=" + q,
+    ]);
     links.push(["MyAnimeList", "https://myanimelist.net/search/all?q=" + q]);
   } else if (kind === "book") {
     const openLibraryId = identityFor("openlibrary", meta, provider, providerId, providerIds, "ol_key");
     const openLibraryPath = openLibraryId?.startsWith("/")
       ? openLibraryId
-      : openLibraryId ? "/works/" + openLibraryId : null;
-    links.push(["OpenLibrary", openLibraryPath
-      ? "https://openlibrary.org" + openLibraryPath
-      : "https://openlibrary.org/search?q=" + q]);
+      : openLibraryId
+        ? "/works/" + openLibraryId
+        : null;
+    links.push([
+      "OpenLibrary",
+      openLibraryPath ? "https://openlibrary.org" + openLibraryPath : "https://openlibrary.org/search?q=" + q,
+    ]);
     links.push(["Goodreads", "https://www.goodreads.com/search?q=" + q]);
   } else if (kind === "movie") {
     const tmdbId = identityFor("tmdb", meta, provider, providerId, providerIds, "tmdb_id")?.replace(/^movie:/, "");
-    links.push(["TMDB", tmdbId
-      ? "https://www.themoviedb.org/movie/" + encodeURIComponent(tmdbId)
-      : "https://www.themoviedb.org/search?query=" + q]);
+    links.push([
+      "TMDB",
+      tmdbId
+        ? "https://www.themoviedb.org/movie/" + encodeURIComponent(tmdbId)
+        : "https://www.themoviedb.org/search?query=" + q,
+    ]);
     links.push(["Letterboxd", "https://letterboxd.com/search/" + q + "/"]);
     links.push(["IMDb", "https://www.imdb.com/find/?q=" + q]);
     links.push(["Rotten Tomatoes", "https://www.rottentomatoes.com/search?search=" + q]);
   } else if (kind === "show") {
     const tmdbId = identityFor("tmdb", meta, provider, providerId, providerIds, "tmdb_id")?.replace(/^tv:/, "");
-    links.push(["TMDB", tmdbId
-      ? "https://www.themoviedb.org/tv/" + encodeURIComponent(tmdbId)
-      : "https://www.themoviedb.org/search?query=" + q]);
+    links.push([
+      "TMDB",
+      tmdbId
+        ? "https://www.themoviedb.org/tv/" + encodeURIComponent(tmdbId)
+        : "https://www.themoviedb.org/search?query=" + q,
+    ]);
     links.push(["IMDb", "https://www.imdb.com/find/?q=" + q]);
     links.push(["Rotten Tomatoes", "https://www.rottentomatoes.com/search?search=" + q]);
   } else if (kind === "audiobook") {
@@ -165,22 +252,29 @@ export function externalLinks(
     links.push(["Apple Books", "https://books.apple.com/us/search?term=" + q]);
   } else if (kind === "podcast") {
     const itunesId = identityFor("itunes", meta, provider, providerId, providerIds);
-    links.push(["Apple Podcasts", itunesId
-      ? "https://podcasts.apple.com/us/podcast/id" + encodeURIComponent(itunesId)
-      : "https://podcasts.apple.com/us/search?term=" + q]);
+    links.push([
+      "Apple Podcasts",
+      itunesId
+        ? "https://podcasts.apple.com/us/podcast/id" + encodeURIComponent(itunesId)
+        : "https://podcasts.apple.com/us/search?term=" + q,
+    ]);
     links.push(["Spotify", "https://open.spotify.com/search/" + q]);
   } else if (kind === "music") {
     const musicBrainzId = identityFor("musicbrainz", meta, provider, providerId, providerIds);
     links.push(["Apple Music", "https://music.apple.com/us/search?term=" + q]);
-    links.push(["MusicBrainz", musicBrainzId
-      ? "https://musicbrainz.org/release-group/" + encodeURIComponent(musicBrainzId)
-      : "https://musicbrainz.org/search?query=" + q + "&type=release_group"]);
+    links.push([
+      "MusicBrainz",
+      musicBrainzId
+        ? "https://musicbrainz.org/release-group/" + encodeURIComponent(musicBrainzId)
+        : "https://musicbrainz.org/search?query=" + q + "&type=release_group",
+    ]);
     links.push(["RateYourMusic", "https://rateyourmusic.com/search?searchterm=" + q]);
   } else if (kind === "game") {
     const rawgId = identityFor("rawg", meta, provider, providerId, providerIds);
-    links.push(["RAWG", rawgId
-      ? "https://rawg.io/games/" + encodeURIComponent(rawgId)
-      : "https://rawg.io/search?search=" + q]);
+    links.push([
+      "RAWG",
+      rawgId ? "https://rawg.io/games/" + encodeURIComponent(rawgId) : "https://rawg.io/search?search=" + q,
+    ]);
     links.push(["HowLongToBeat", "https://howlongtobeat.com/?q=" + q]);
   }
   return links;
@@ -206,7 +300,9 @@ export function kindBg(kind: string): string {
 
 /** Tur dagilimi cipleri; tiklanabilir filtre. "Tumu" her zaman basta. */
 export function KindChips({
-  counts, value, onChange,
+  counts,
+  value,
+  onChange,
 }: {
   counts: Record<string, number>;
   value: string;
@@ -228,7 +324,11 @@ export function KindChips({
             "h-7 rounded-control border px-2.5 text-meta transition",
             value === kind
               ? "border-accent bg-accent-surface text-accent"
-              : cx(kind ? identityClasses("kind-" + kind) : "border-subtle text-secondary hover:border-strong hover:text-primary"),
+              : cx(
+                  kind
+                    ? identityClasses("kind-" + kind)
+                    : "border-subtle text-secondary hover:border-strong hover:text-primary",
+                ),
           )}
         >
           {label} <span className="numeral opacity-70">{count}</span>
@@ -272,10 +372,22 @@ export function providerChip(provider: string | null | undefined): string {
 }
 
 const SRC_BY_NAME: Record<string, string> = {
-  TMDB: "tmdb", Letterboxd: "letterboxd", IMDb: "imdb", "Rotten Tomatoes": "rottentomatoes",
-  AniList: "anilist", MyAnimeList: "mal", OpenLibrary: "openlibrary", Goodreads: "goodreads",
-  Audible: "audible", Spotify: "spotify", RyM: "rym", RateYourMusic: "rym", HowLongToBeat: "hltb",
-  "Google Books": "google_books", MusicBrainz: "musicbrainz", IGDB: "igdb",
+  TMDB: "tmdb",
+  Letterboxd: "letterboxd",
+  IMDb: "imdb",
+  "Rotten Tomatoes": "rottentomatoes",
+  AniList: "anilist",
+  MyAnimeList: "mal",
+  OpenLibrary: "openlibrary",
+  Goodreads: "goodreads",
+  Audible: "audible",
+  Spotify: "spotify",
+  RyM: "rym",
+  RateYourMusic: "rym",
+  HowLongToBeat: "hltb",
+  "Google Books": "google_books",
+  MusicBrainz: "musicbrainz",
+  IGDB: "igdb",
 };
 
 /** Çerçeveli (outline) harici site bağlantıları — arayüzde her zaman görünür,
@@ -284,8 +396,13 @@ export function SiteLinks({ links, className }: { links: [string, string][]; cla
   return (
     <span className={cx("flex flex-wrap items-center gap-1.5", className)}>
       {links.map(([name, url]) => (
-        <a key={name} href={url} target="_blank" rel="noreferrer"
-          className={cx("rounded border px-1.5 py-0.5 text-micro transition hover:opacity-80", srcColor(name))}>
+        <a
+          key={name}
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className={cx("rounded border px-1.5 py-0.5 text-micro transition hover:opacity-80", srcColor(name))}
+        >
           {name} ↗
         </a>
       ))}

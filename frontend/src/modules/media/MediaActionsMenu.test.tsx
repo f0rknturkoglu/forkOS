@@ -110,7 +110,14 @@ describe("MediaActionsMenu", () => {
     render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
     const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
     vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
-      x: 2, y: 24, top: 24, left: 2, right: 34, bottom: 56, width: 32, height: 32,
+      x: 2,
+      y: 24,
+      top: 24,
+      left: 2,
+      right: 34,
+      bottom: 56,
+      width: 32,
+      height: 32,
       toJSON: () => ({}),
     });
 
@@ -127,10 +134,14 @@ describe("MediaActionsMenu", () => {
   it("flips above a bottom-edge trigger when the menu fits there", async () => {
     const originalHeight = window.innerHeight;
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
-    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
       return this.getAttribute("role") === "menu" ? 220 : 0;
     });
-    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
       if (this.getAttribute("role") === "menu") {
         return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: 220, width: 208, height: 220, toJSON: () => ({}) };
       }
@@ -153,10 +164,14 @@ describe("MediaActionsMenu", () => {
   it("constrains an oversized menu to the viewport gutter", async () => {
     const originalHeight = window.innerHeight;
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
-    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
       return this.getAttribute("role") === "menu" ? 800 : 0;
     });
-    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
       if (this.getAttribute("role") === "menu") {
         return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: 800, width: 208, height: 800, toJSON: () => ({}) };
       }
@@ -179,10 +194,14 @@ describe("MediaActionsMenu", () => {
   it("keeps an oversized menu constrained after a viewport resize", async () => {
     const originalHeight = window.innerHeight;
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
-    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
       return this.getAttribute("role") === "menu" ? 800 : 0;
     });
-    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
       if (this.getAttribute("role") === "menu") {
         const height = Number.parseFloat(this.style.maxHeight) || 800;
         return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: height, width: 208, height, toJSON: () => ({}) };

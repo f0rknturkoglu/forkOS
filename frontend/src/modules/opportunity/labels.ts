@@ -27,8 +27,16 @@ export const STATUS_LABELS: Record<string, string> = {
 
 /** Basvuru hattinin sirasi. Kart ve suzgecte ayni sira kullanilir. */
 export const STATUSES = [
-  "discovered", "considering", "preparing", "applied", "interview",
-  "offer", "accepted", "rejected", "withdrawn", "closed",
+  "discovered",
+  "considering",
+  "preparing",
+  "applied",
+  "interview",
+  "offer",
+  "accepted",
+  "rejected",
+  "withdrawn",
+  "closed",
 ];
 
 type StatusTone = "neutral" | "accent" | "ok" | "warn" | "danger";

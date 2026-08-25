@@ -1,19 +1,48 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
-import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Tag, Trash2 } from "lucide-react";
-import {Button, Chip, Empty, IconButton, Input, Kbd, PageFrame, PageHeader, RowList, Section, Toolbar, cx, hostOf, relativeTime, useToast} from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
+import {
+  Button,
+  Chip,
+  Empty,
+  IconButton,
+  Input,
+  Kbd,
+  PageFrame,
+  PageHeader,
+  RowList,
+  Section,
+  Toolbar,
+  cx,
+  hostOf,
+  relativeTime,
+  useToast,
+} from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";
 
 const TARGETS: Collection[] = COLLECTIONS.filter((c) => c !== "inbox");
 
 function InboxCard({
-  bookmark, disabled, selected, onSelect, registerRef,
+  bookmark,
+  disabled,
+  selected,
+  onSelect,
+  registerRef,
 }: {
   bookmark: Bookmark;
   disabled: boolean;
@@ -29,7 +58,9 @@ function InboxCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(bookmark.tags.join(", "));
   // Duzenleme formu acikken kart kisayollarini yut, yoksa "1" yazamazsin.
-  const swallow = (e: React.KeyboardEvent) => { if (editing) e.stopPropagation(); };
+  const swallow = (e: React.KeyboardEvent) => {
+    if (editing) e.stopPropagation();
+  };
 
   const remove = useMutation({
     mutationFn: () => api.del(`/bookmarks/${bookmark.id}`),
@@ -46,7 +77,10 @@ function InboxCard({
 
   return (
     <li
-      ref={(node) => { setNodeRef(node); registerRef(node); }}
+      ref={(node) => {
+        setNodeRef(node);
+        registerRef(node);
+      }}
       // Klavye yolu: kart odaklanabilir; secim ok tuslariyla gezer,
       // tasima 1-4 ile yapilir. Sayfanin altindaki lejant bunu anlatir.
       tabIndex={0}
@@ -94,11 +128,7 @@ function InboxCard({
           )}
         </div>
         <div className="flex shrink-0 gap-1">
-          <IconButton
-            title="Etiketleri düzenle"
-            disabled={disabled}
-            onClick={() => setEditing((v) => !v)}
-          >
+          <IconButton title="Etiketleri düzenle" disabled={disabled} onClick={() => setEditing((v) => !v)}>
             <Tag size={15} />
           </IconButton>
           <IconButton title="Sil" tone="danger" disabled={disabled} onClick={() => remove.mutate()}>
@@ -113,7 +143,12 @@ function InboxCard({
           className="mt-3 flex gap-2 border-t border-subtle pt-3"
           onSubmit={(e) => {
             e.preventDefault();
-            setTags.mutate(draft.split(",").map((t) => t.trim()).filter(Boolean));
+            setTags.mutate(
+              draft
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean),
+            );
             setEditing(false);
           }}
         >
@@ -124,10 +159,16 @@ function InboxCard({
             ariaLabel="Etiketler, virgülle ayrılmış"
             placeholder="etiketler, virgülle"
             className="flex-1"
-            onKeyDown={(e) => { if (e.key === "Escape") setEditing(false); }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEditing(false);
+            }}
           />
-          <Button type="submit" variant="primary" size="sm">Kaydet</Button>
-          <Button size="sm" onClick={() => setEditing(false)}>Vazgeç</Button>
+          <Button type="submit" variant="primary" size="sm">
+            Kaydet
+          </Button>
+          <Button size="sm" onClick={() => setEditing(false)}>
+            Vazgeç
+          </Button>
         </form>
       )}
     </li>
@@ -142,7 +183,11 @@ function InboxCard({
  * okuyucuya anlatilabilir ve rakam kisayoluyla da calisir.
  */
 function DropTarget({
-  collection, count, index, hasSelection, onMove,
+  collection,
+  count,
+  index,
+  hasSelection,
+  onMove,
 }: {
   collection: Collection;
   count: number;
@@ -195,10 +240,9 @@ function QuickCapture() {
       setUrl("");
       setTitle("");
       invalidateAfter("bookmark.write");
-      toast.push(
-        result.duplicate ? "Bu URL zaten kayıtlıydı — yine de eklendi." : "Gelen kutusuna eklendi",
-        { tone: result.duplicate ? "warn" : "ok" },
-      );
+      toast.push(result.duplicate ? "Bu URL zaten kayıtlıydı — yine de eklendi." : "Gelen kutusuna eklendi", {
+        tone: result.duplicate ? "warn" : "ok",
+      });
     },
   });
 
@@ -210,12 +254,7 @@ function QuickCapture() {
         if (url.trim()) capture.mutate();
       }}
     >
-      <Input
-        value={url}
-        onChange={setUrl}
-        placeholder="https://..."
-        className="min-w-48 flex-1"
-      />
+      <Input value={url} onChange={setUrl} placeholder="https://..." className="min-w-48 flex-1" />
       <Input
         value={title}
         onChange={setTitle}
@@ -248,9 +287,7 @@ export function InboxPage() {
 
   const { data: stats } = useQuery({
     queryKey: ["bookmark-stats"],
-    queryFn: () => api.get<{ collections: { collection: Collection; count: number }[] }>(
-      "/bookmarks/stats",
-    ),
+    queryFn: () => api.get<{ collections: { collection: Collection; count: number }[] }>("/bookmarks/stats"),
   });
 
   const move = useMutation({
@@ -267,8 +304,7 @@ export function InboxPage() {
     }
   };
 
-  const countOf = (collection: Collection) =>
-    stats?.collections.find((c) => c.collection === collection)?.count ?? 0;
+  const countOf = (collection: Collection) => stats?.collections.find((c) => c.collection === collection)?.count ?? 0;
 
   /** Tasima/silme sonrasi odaklanilacak sira. Liste tazelenince kullanilir. */
   const restoreIndex = useRef<number | null>(null);
@@ -311,8 +347,16 @@ export function InboxPage() {
     const index = data.findIndex((b) => b.id === selectedId);
     const key = event.key;
 
-    if (key === "ArrowDown" || key === "j") { event.preventDefault(); focusCard(index + 1); return; }
-    if (key === "ArrowUp"   || key === "k") { event.preventDefault(); focusCard(index - 1); return; }
+    if (key === "ArrowDown" || key === "j") {
+      event.preventDefault();
+      focusCard(index + 1);
+      return;
+    }
+    if (key === "ArrowUp" || key === "k") {
+      event.preventDefault();
+      focusCard(index - 1);
+      return;
+    }
 
     const slot = Number(key);
     if (Number.isInteger(slot) && slot >= 1 && slot <= TARGETS.length) {
@@ -324,7 +368,9 @@ export function InboxPage() {
   return (
     <PageFrame className="space-y-5">
       <PageHeader eyebrow="Kaynaklar" title="Gelen Kutusu" />
-      <Toolbar><QuickCapture /></Toolbar>
+      <Toolbar>
+        <QuickCapture />
+      </Toolbar>
 
       <DndContext
         sensors={sensors}
@@ -334,7 +380,10 @@ export function InboxPage() {
       >
         <div className="grid min-w-0 divide-y divide-subtle border-y border-subtle lg:grid-cols-[minmax(0,1fr)_240px] lg:divide-x lg:divide-y-0">
           <div className="min-w-0 py-3 lg:pr-4">
-            <div className="mb-2 flex items-center justify-between"><span className="label-caps">Bekleyenler</span><span className="text-meta text-muted">{data.length} kayıt</span></div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="label-caps">Bekleyenler</span>
+              <span className="text-meta text-muted">{data.length} kayıt</span>
+            </div>
             {isLoading ? (
               <p className="text-body text-muted">Yükleniyor…</p>
             ) : data.length === 0 ? (
@@ -381,14 +430,14 @@ export function InboxPage() {
                 [`1–${TARGETS.length}`, "seçili kartı taşı"],
               ].map(([keys, what]) => (
                 <div key={keys} className="flex items-center gap-2">
-                  <dt><Kbd>{keys}</Kbd></dt>
+                  <dt>
+                    <Kbd>{keys}</Kbd>
+                  </dt>
                   <dd>{what}</dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-3 text-meta text-muted">
-              Taşıma tek UPDATE’tir; link ve event kayıtları kopmaz.
-            </p>
+            <p className="mt-3 text-meta text-muted">Taşıma tek UPDATE’tir; link ve event kayıtları kopmaz.</p>
           </Section>
         </div>
 

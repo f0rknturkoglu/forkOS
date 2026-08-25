@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import {Chip, Empty, cx, relativeTime} from "@/core/ui";
+import { Chip, Empty, cx, relativeTime } from "@/core/ui";
 import type { SourceHealth } from "@/core/types";
 
 export interface SourceHealthAccordionProps {
@@ -49,7 +49,9 @@ export function SourceHealthAccordion({
                 <Chip tone={source.status === "ok" ? "ok" : source.status === "error" ? "danger" : "warn"}>
                   {source.status}
                 </Chip>
-                <span className="text-meta text-muted">+{source.items_found} · {relativeTime(source.started_at)}</span>
+                <span className="text-meta text-muted">
+                  +{source.items_found} · {relativeTime(source.started_at)}
+                </span>
               </li>
             ))}
           </ul>

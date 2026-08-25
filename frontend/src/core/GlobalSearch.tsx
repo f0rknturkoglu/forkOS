@@ -19,5 +19,3 @@ export function useGlobalSearch(query: string) {
     staleTime: 10_000,
   });
 }
-
-

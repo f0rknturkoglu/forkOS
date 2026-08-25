@@ -20,8 +20,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             // OFFLINE = SADECE OKUMA. Mutation'lar cache'lenmez.
-            urlPattern: ({ url, request }) =>
-              url.pathname.startsWith("/api/") && request.method === "GET",
+            urlPattern: ({ url, request }) => url.pathname.startsWith("/api/") && request.method === "GET",
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "lifeos-api",
@@ -48,9 +47,6 @@ export default defineConfig({
     // Container icinde inotify calismiyor (Podman/Docker VM + bind mount):
     // dosyayi degistiriyorsun, HMR hic tetiklenmiyor. compose WATCH_POLLING=1
     // gonderir. Native Linux'ta 0 yaparak CPU'yu geri alabilirsin.
-    watch:
-      process.env.WATCH_POLLING === "1"
-        ? { usePolling: true, interval: 400 }
-        : undefined,
+    watch: process.env.WATCH_POLLING === "1" ? { usePolling: true, interval: 400 } : undefined,
   },
 });

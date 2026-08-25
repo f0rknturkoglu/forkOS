@@ -18,23 +18,20 @@ export function navigationGroups(modules: ModuleSpec[]): NavigationGroup[] {
   return [{ id: "pinned", label: "Bugün", modules: pinned }, ...grouped];
 }
 
-export function activeNavigationGroup(
-  path: string,
-  groups: NavigationGroup[],
-): NavigationGroup {
+export function activeNavigationGroup(path: string, groups: NavigationGroup[]): NavigationGroup {
   const candidates = groups.flatMap((group) =>
-    group.modules.flatMap((module) =>
-      module.routes.map((route) => ({ path: route.path, group })),
-    ),
+    group.modules.flatMap((module) => module.routes.map((route) => ({ path: route.path, group }))),
   );
   return findRouteMatch(candidates, path)?.group ?? groups[0];
 }
 
 /** Navigation never targets a path pattern when the module has a concrete page. */
 export function moduleTarget(module: ModuleSpec): string {
-  return module.routes.find((route) => !route.path.split("/").some((part) => part.startsWith(":")))?.path
-    ?? module.routes[0]?.path
-    ?? "/";
+  return (
+    module.routes.find((route) => !route.path.split("/").some((part) => part.startsWith(":")))?.path ??
+    module.routes[0]?.path ??
+    "/"
+  );
 }
 
 export function groupTarget(group: NavigationGroup): string {

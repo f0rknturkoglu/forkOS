@@ -16,177 +16,177 @@
 
 @layer base {
   :root {
-    --canvas:          #EEF0F3;
-    --surface:         #FFFFFF;
-    --surface-sunken:  #E4E7EC;
-    --surface-hover:   #F4F6F8;
+    --canvas: #eef0f3;
+    --surface: #ffffff;
+    --surface-sunken: #e4e7ec;
+    --surface-hover: #f4f6f8;
 
-    --border:          #DDE1E7;
-    --border-strong:   #C3C9D2;  /* 3.1:1 / surface */
+    --border: #dde1e7;
+    --border-strong: #c3c9d2; /* 3.1:1 / surface */
 
-    --text:            #0F1115;  /* 18.7:1 / surface */
-    --text-secondary:  #454B56;  /*  8.8:1 / surface */
-    --text-muted:      #5C636F;  /*  6.1:1 / surface */
-    --icon:            #7A828F;  /*  3.9:1 / surface — ikon, metin degil */
+    --text: #0f1115; /* 18.7:1 / surface */
+    --text-secondary: #454b56; /*  8.8:1 / surface */
+    --text-muted: #5c636f; /*  6.1:1 / surface */
+    --icon: #7a828f; /*  3.9:1 / surface — ikon, metin degil */
 
-    --accent:          #1F5FD0;  /*  5.8:1 / surface */
-    --accent-surface:  #EAF1FE;
-    --accent-border:   #C5DAFB;
+    --accent: #1f5fd0; /*  5.8:1 / surface */
+    --accent-surface: #eaf1fe;
+    --accent-border: #c5dafb;
 
-    --success:         #1E6B45;
-    --success-surface: #E8F6EE;
-    --success-border:  #BFE3CE;
+    --success: #1e6b45;
+    --success-surface: #e8f6ee;
+    --success-border: #bfe3ce;
 
-    --warning:         #8A5A00;
-    --warning-surface: #FDF3E0;
-    --warning-border:  #F0DBB0;
+    --warning: #8a5a00;
+    --warning-surface: #fdf3e0;
+    --warning-border: #f0dbb0;
 
-    --danger:          #B3261E;
-    --danger-surface:  #FDECEA;
-    --danger-border:   #F6C9C4;
+    --danger: #b3261e;
+    --danger-surface: #fdecea;
+    --danger-border: #f6c9c4;
 
     /* Okuma akisindaki kaynak renkleri. Markanin saf tonu (HN #FF6600,
        Reddit #FF4500) beyaz uzerinde 3:1'in altinda kaliyor; metin olarak
        kullanilabilsin diye koyulastirildi. */
-    --feed-rss:        #1E7A4C;
-    --feed-hn:         #C25708;
-    --feed-reddit:     #C7300B;
-    --feed-gh:         #3B4048;
+    --feed-rss: #1e7a4c;
+    --feed-hn: #c25708;
+    --feed-reddit: #c7300b;
+    --feed-gh: #3b4048;
 
     /* Emek haritasi basamaklari (0 = bos gun). */
-    --heat-0:          #E4E7EC;
-    --heat-1:          #C8DCF8;
-    --heat-2:          #8FB6EE;
-    --heat-3:          #4E86DF;
-    --heat-4:          #1F5FD0;
+    --heat-0: #e4e7ec;
+    --heat-1: #c8dcf8;
+    --heat-2: #8fb6ee;
+    --heat-3: #4e86df;
+    --heat-4: #1f5fd0;
 
     /* Grafik paleti -- kategorik dagilimlar (donut, bar). Sabit sirayla
        atanir; kategori adi hash'lenmez. Semantik tonlarla karistirma. */
-    --chart-1:         #1F5FD0;
-    --chart-2:         #1E6B45;
-    --chart-3:         #B3261E;
-    --chart-4:         #8A5A00;
-    --chart-5:         #6A3FA0;
-    --chart-6:         #0F766E;
-    --chart-7:         #C2185B;
-    --chart-8:         #5F6F3D;
+    --chart-1: #1f5fd0;
+    --chart-2: #1e6b45;
+    --chart-3: #b3261e;
+    --chart-4: #8a5a00;
+    --chart-5: #6a3fa0;
+    --chart-6: #0f766e;
+    --chart-7: #c2185b;
+    --chart-8: #5f6f3d;
 
     /* Medya türleri — KİMLİK renkleri (metin/çip/rozet kontrasti surface'a göre).
        Semantik tonlardan (ok/warn/danger/accent) ayrıdır: durum bildirmez,
        kaydın türünü işaretler. Chip identity="kind-movie" ile kullanılır. */
-    --kind-movie:      #B3261E;
-    --kind-show:       #2E5E9E;
-    --kind-anime:      #C2185B;
-    --kind-manga:      #6A3FA0;
-    --kind-book:       #A05A17;
-    --kind-audiobook:  #3E6490;
-    --kind-podcast:    #1E6B45;
-    --kind-music:      #0F766E;
-    --kind-game:       #5F6F3D;
+    --kind-movie: #b3261e;
+    --kind-show: #2e5e9e;
+    --kind-anime: #c2185b;
+    --kind-manga: #6a3fa0;
+    --kind-book: #a05a17;
+    --kind-audiobook: #3e6490;
+    --kind-podcast: #1e6b45;
+    --kind-music: #0f766e;
+    --kind-game: #5f6f3d;
 
     /* Kaynak marka renkleri — çip/rozetlerde kaynağın kendi rengi. */
-    --src-tmdb:          #0E7A48;
-    --src-anilist:       #0B6BCB;
-    --src-kitsu:         #D63384;
-    --src-openlibrary:   #7A4A24;
-    --src-itunes:        #C81E50;
-    --src-google-books:  #356AC3;
-    --src-musicbrainz:   #7A3E9D;
-    --src-igdb:          #6B4FC4;
-    --src-rawg:          #4B5563;
-    --src-letterboxd:    #2E8B57;
-    --src-imdb:          #A17E0A;
-    --src-rottentomatoes:#B42318;
-    --src-mal:           #2E51A2;
-    --src-goodreads:     #9C6B1E;
-    --src-audible:       #B26A00;
-    --src-spotify:       #15883E;
-    --src-rym:           #C22A4B;
-    --src-hltb:          #3E5C76;
+    --src-tmdb: #0e7a48;
+    --src-anilist: #0b6bcb;
+    --src-kitsu: #d63384;
+    --src-openlibrary: #7a4a24;
+    --src-itunes: #c81e50;
+    --src-google-books: #356ac3;
+    --src-musicbrainz: #7a3e9d;
+    --src-igdb: #6b4fc4;
+    --src-rawg: #4b5563;
+    --src-letterboxd: #2e8b57;
+    --src-imdb: #a17e0a;
+    --src-rottentomatoes: #b42318;
+    --src-mal: #2e51a2;
+    --src-goodreads: #9c6b1e;
+    --src-audible: #b26a00;
+    --src-spotify: #15883e;
+    --src-rym: #c22a4b;
+    --src-hltb: #3e5c76;
 
     color-scheme: light;
   }
 
   [data-theme="dark"] {
-    --canvas:          #0E0F12;
-    --surface:         #17191D;
-    --surface-sunken:  #1E2126;
-    --surface-hover:   #23262C;
+    --canvas: #0e0f12;
+    --surface: #17191d;
+    --surface-sunken: #1e2126;
+    --surface-hover: #23262c;
 
-    --border:          #2A2E35;
-    --border-strong:   #3C424C;
+    --border: #2a2e35;
+    --border-strong: #3c424c;
 
-    --text:            #F2F4F7;  /* 17.1:1 / canvas */
-    --text-secondary:  #AEB6C2;  /*  8.5:1 / canvas */
-    --text-muted:      #8B94A1;  /*  5.5:1 / canvas */
-    --icon:            #7E8794;
+    --text: #f2f4f7; /* 17.1:1 / canvas */
+    --text-secondary: #aeb6c2; /*  8.5:1 / canvas */
+    --text-muted: #8b94a1; /*  5.5:1 / canvas */
+    --icon: #7e8794;
 
-    --accent:          #6FA8FF;
-    --accent-surface:  #14213A;
-    --accent-border:   #26406B;
+    --accent: #6fa8ff;
+    --accent-surface: #14213a;
+    --accent-border: #26406b;
 
-    --success:         #6FCF97;
-    --success-surface: #13251B;
-    --success-border:  #24402F;
+    --success: #6fcf97;
+    --success-surface: #13251b;
+    --success-border: #24402f;
 
-    --warning:         #E0B060;
-    --warning-surface: #2A2113;
-    --warning-border:  #45351C;
+    --warning: #e0b060;
+    --warning-surface: #2a2113;
+    --warning-border: #45351c;
 
-    --danger:          #F08A7C;
-    --danger-surface:  #2B1815;
-    --danger-border:   #472521;
+    --danger: #f08a7c;
+    --danger-surface: #2b1815;
+    --danger-border: #472521;
 
-    --feed-rss:        #5FD39A;
-    --feed-hn:         #FF9A57;
-    --feed-reddit:     #FF7A52;
-    --feed-gh:         #AFB6C0;
+    --feed-rss: #5fd39a;
+    --feed-hn: #ff9a57;
+    --feed-reddit: #ff7a52;
+    --feed-gh: #afb6c0;
 
-    --heat-0:          #1E2126;
-    --heat-1:          #1E3A63;
-    --heat-2:          #2E5896;
-    --heat-3:          #4A7FCB;
-    --heat-4:          #6FA8FF;
+    --heat-0: #1e2126;
+    --heat-1: #1e3a63;
+    --heat-2: #2e5896;
+    --heat-3: #4a7fcb;
+    --heat-4: #6fa8ff;
 
-    --chart-1:         #6FA8FF;
-    --chart-2:         #6FCF97;
-    --chart-3:         #F08A7C;
-    --chart-4:         #E0B060;
-    --chart-5:         #A78BDE;
-    --chart-6:         #46B5A8;
-    --chart-7:         #E279A9;
-    --chart-8:         #9BB078;
+    --chart-1: #6fa8ff;
+    --chart-2: #6fcf97;
+    --chart-3: #f08a7c;
+    --chart-4: #e0b060;
+    --chart-5: #a78bde;
+    --chart-6: #46b5a8;
+    --chart-7: #e279a9;
+    --chart-8: #9bb078;
 
     /* Medya türleri — koyu zeminde biraz açık tonlar. */
-    --kind-movie:      #E57A6C;
-    --kind-show:       #6E9BD6;
-    --kind-anime:      #E279A9;
-    --kind-manga:      #A78BDE;
-    --kind-book:       #D6944F;
-    --kind-audiobook:  #7FA3C8;
-    --kind-podcast:    #55B084;
-    --kind-music:      #46B5A8;
-    --kind-game:       #9BB078;
+    --kind-movie: #e57a6c;
+    --kind-show: #6e9bd6;
+    --kind-anime: #e279a9;
+    --kind-manga: #a78bde;
+    --kind-book: #d6944f;
+    --kind-audiobook: #7fa3c8;
+    --kind-podcast: #55b084;
+    --kind-music: #46b5a8;
+    --kind-game: #9bb078;
 
     /* Kaynak marka renkleri — koyu temada açık tonlar. */
-    --src-tmdb:          #21C97A;
-    --src-anilist:       #58B2FF;
-    --src-kitsu:         #FF6FA5;
-    --src-openlibrary:   #CDA077;
-    --src-itunes:        #FF6B8F;
-    --src-google-books:  #7EAEFF;
-    --src-musicbrainz:   #C592E8;
-    --src-igdb:          #AE95FF;
-    --src-rawg:          #A8B3BF;
-    --src-letterboxd:    #57C785;
-    --src-imdb:          #F5C518;
-    --src-rottentomatoes:#FF7A5C;
-    --src-mal:           #6F8EE0;
-    --src-goodreads:     #E3C48A;
-    --src-audible:       #FFB84D;
-    --src-spotify:       #3DDC84;
-    --src-rym:           #FF7A96;
-    --src-hltb:          #8FB0CC;
+    --src-tmdb: #21c97a;
+    --src-anilist: #58b2ff;
+    --src-kitsu: #ff6fa5;
+    --src-openlibrary: #cda077;
+    --src-itunes: #ff6b8f;
+    --src-google-books: #7eaeff;
+    --src-musicbrainz: #c592e8;
+    --src-igdb: #ae95ff;
+    --src-rawg: #a8b3bf;
+    --src-letterboxd: #57c785;
+    --src-imdb: #f5c518;
+    --src-rottentomatoes: #ff7a5c;
+    --src-mal: #6f8ee0;
+    --src-goodreads: #e3c48a;
+    --src-audible: #ffb84d;
+    --src-spotify: #3ddc84;
+    --src-rym: #ff7a96;
+    --src-hltb: #8fb0cc;
 
     color-scheme: dark;
   }
@@ -210,15 +210,23 @@
     border-radius: 3px;
   }
 
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
   ::-webkit-scrollbar-thumb {
     background: var(--border-strong);
     border-radius: 5px;
     border: 2px solid var(--canvas);
   }
-  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-  ::selection { background: var(--accent-surface); color: var(--text); }
+  ::selection {
+    background: var(--accent-surface);
+    color: var(--text);
+  }
 }
 
 .dashboard-grid {
@@ -227,9 +235,18 @@
   gap: 1.25rem;
 }
 
-.dashboard-main { grid-area: main; min-width: 0; }
-.dashboard-left { grid-area: left; min-width: 0; }
-.dashboard-right { grid-area: right; min-width: 0; }
+.dashboard-main {
+  grid-area: main;
+  min-width: 0;
+}
+.dashboard-left {
+  grid-area: left;
+  min-width: 0;
+}
+.dashboard-right {
+  grid-area: right;
+  min-width: 0;
+}
 
 @media (min-width: 768px) and (max-width: 1279px) {
   .dashboard-grid {
@@ -271,12 +288,27 @@
     line-height: 1.3;
     margin: 1.4em 0 0.5em;
   }
-  .article-content h1 { font-size: 1.5em; }
-  .article-content h2 { font-size: 1.25em; }
-  .article-content h3 { font-size: 1.1em; }
-  .article-content p { margin: 0.8em 0; }
-  .article-content a { color: var(--accent); text-decoration: underline; }
-  .article-content img { max-width: 100%; height: auto; border-radius: 5px; }
+  .article-content h1 {
+    font-size: 1.5em;
+  }
+  .article-content h2 {
+    font-size: 1.25em;
+  }
+  .article-content h3 {
+    font-size: 1.1em;
+  }
+  .article-content p {
+    margin: 0.8em 0;
+  }
+  .article-content a {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .article-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+  }
   .article-content pre {
     overflow-x: auto;
     padding: 0.8em 1em;
@@ -289,7 +321,10 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.9em;
   }
-  .article-content pre code { background: transparent; padding: 0; }
+  .article-content pre code {
+    background: transparent;
+    padding: 0;
+  }
   .article-content blockquote {
     margin: 1em 0;
     padding-left: 1em;
@@ -297,8 +332,17 @@
     color: var(--text-secondary);
   }
   .article-content ul,
-  .article-content ol { margin: 0.8em 0; padding-left: 1.6em; }
-  .article-content table { border-collapse: collapse; margin: 1em 0; }
+  .article-content ol {
+    margin: 0.8em 0;
+    padding-left: 1.6em;
+  }
+  .article-content table {
+    border-collapse: collapse;
+    margin: 1em 0;
+  }
   .article-content th,
-  .article-content td { border: 1px solid var(--border); padding: 0.4em 0.7em; }
+  .article-content td {
+    border: 1px solid var(--border);
+    padding: 0.4em 0.7em;
+  }
 }

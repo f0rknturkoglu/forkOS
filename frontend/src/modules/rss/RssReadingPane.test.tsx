@@ -4,11 +4,18 @@ import type { FeedItem } from "@/core/types";
 import { RssReadingPane } from "./RssReadingPane";
 
 const detail: FeedItem = {
-  id: "item-1", feed_id: "feed-1", feed_title: "forkOS", title: "Güvenli içerik",
-  url: "https://example.com", author: null,
-  summary: null, content: '<p onclick="bad()">Merhaba</p><script>alert(1)</script>',
-  published_at: "2026-08-23T10:00:00Z", fetched_at: "2026-08-23T10:01:00Z",
-  read_at: null, saved_bookmark_id: null,
+  id: "item-1",
+  feed_id: "feed-1",
+  feed_title: "forkOS",
+  title: "Güvenli içerik",
+  url: "https://example.com",
+  author: null,
+  summary: null,
+  content: '<p onclick="bad()">Merhaba</p><script>alert(1)</script>',
+  published_at: "2026-08-23T10:00:00Z",
+  fetched_at: "2026-08-23T10:01:00Z",
+  read_at: null,
+  saved_bookmark_id: null,
 };
 
 describe("RSS reading pane", () => {

@@ -30,7 +30,11 @@ export function MediaTrashPage() {
   async function confirmPermanent(item: TrashItem) {
     const confirmed = await confirmDialog({
       title: "Kalıcı olarak sil",
-      body: <><span>Bu işlem geri alınamaz.</span> {item.title} kaydı ve tüketim geçmişi silinecek.</>,
+      body: (
+        <>
+          <span>Bu işlem geri alınamaz.</span> {item.title} kaydı ve tüketim geçmişi silinecek.
+        </>
+      ),
       confirmLabel: "Kalıcı sil",
       tone: "danger",
     });
@@ -44,9 +48,24 @@ export function MediaTrashPage() {
       <PageHeader eyebrow="Takip" title="Çöp kutusu" />
 
       {isLoading ? (
-        <p role="status" className="text-meta text-muted">Çöp kutusu yükleniyor…</p>
+        <p role="status" className="text-meta text-muted">
+          Çöp kutusu yükleniyor…
+        </p>
       ) : isError ? (
-        <Empty variant="page" action={<Button size="sm" disabled={isFetching} onClick={() => { void refetch(); }}>Yeniden dene</Button>}>
+        <Empty
+          variant="page"
+          action={
+            <Button
+              size="sm"
+              disabled={isFetching}
+              onClick={() => {
+                void refetch();
+              }}
+            >
+              Yeniden dene
+            </Button>
+          }
+        >
           Çöp kutusu yüklenemedi: {error.message}
         </Empty>
       ) : items.length === 0 ? (
@@ -71,7 +90,13 @@ export function MediaTrashPage() {
                 <Button size="sm" disabled={!online || restore.isPending} onClick={() => restore.mutate(item)}>
                   <RotateCcw size={13} aria-hidden="true" /> {item.title} kaydını geri yükle
                 </Button>
-                <Button size="sm" disabled={!online || remove.isPending} onClick={() => { void confirmPermanent(item); }}>
+                <Button
+                  size="sm"
+                  disabled={!online || remove.isPending}
+                  onClick={() => {
+                    void confirmPermanent(item);
+                  }}
+                >
                   <Trash2 size={13} aria-hidden="true" /> {item.title} kaydını kalıcı sil
                 </Button>
               </span>
@@ -80,8 +105,16 @@ export function MediaTrashPage() {
         </RowList>
       )}
 
-      {restore.error && <p role="alert" className="text-meta text-danger">Geri yüklenemedi: {restore.error.message}</p>}
-      {remove.error && <p role="alert" className="text-meta text-danger">Kalıcı silinemedi: {remove.error.message}</p>}
+      {restore.error && (
+        <p role="alert" className="text-meta text-danger">
+          Geri yüklenemedi: {restore.error.message}
+        </p>
+      )}
+      {remove.error && (
+        <p role="alert" className="text-meta text-danger">
+          Kalıcı silinemedi: {remove.error.message}
+        </p>
+      )}
     </PageFrame>
   );
 }

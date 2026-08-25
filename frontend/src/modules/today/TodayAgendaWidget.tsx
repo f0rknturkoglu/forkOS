@@ -2,14 +2,35 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  BookOpen, CalendarClock, Check, ChevronRight, Circle, CreditCard,
-  ExternalLink, Plus, RotateCw, Target, Trash2,
+  BookOpen,
+  CalendarClock,
+  Check,
+  ChevronRight,
+  Circle,
+  CreditCard,
+  ExternalLink,
+  Plus,
+  RotateCw,
+  Target,
+  Trash2,
 } from "lucide-react";
 import { api } from "@/core/api";
 import type { AgendaRow, FeedItem, TodayAgenda, Todo } from "@/core/types";
-import {Button, Chip, Empty, IconButton, Input, RowList, Section, SectionHeader, Select, Spinner, cx, useToast} from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
-
+import {
+  Button,
+  Chip,
+  Empty,
+  IconButton,
+  Input,
+  RowList,
+  Section,
+  SectionHeader,
+  Select,
+  Spinner,
+  cx,
+  useToast,
+} from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
 
 const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
   daily: "her gün",
@@ -38,8 +59,8 @@ function clockLabel(value: string | null | undefined): string | null {
 }
 
 function pickerRow(item: Todo | FeedItem, kind: "todo" | "rss"): AgendaRow {
-  const todo = kind === "todo" ? item as Todo : null;
-  const rss = kind === "rss" ? item as FeedItem : null;
+  const todo = kind === "todo" ? (item as Todo) : null;
+  const rss = kind === "rss" ? (item as FeedItem) : null;
   return {
     kind,
     source: "suggestion",
@@ -106,8 +127,16 @@ export function TodayAgendaWidget() {
   });
   const schedule = useMutation({
     mutationKey: ["today-schedule"],
-    mutationFn: ({ row, day: targetDay, start: targetStart, duration: targetDuration }: {
-      row: AgendaRow; day: string; start: string; duration: string;
+    mutationFn: ({
+      row,
+      day: targetDay,
+      start: targetStart,
+      duration: targetDuration,
+    }: {
+      row: AgendaRow;
+      day: string;
+      start: string;
+      duration: string;
     }) => {
       const minute = startMinute(targetStart);
       const minutes = targetDuration ? Number(targetDuration) : null;
@@ -161,15 +190,17 @@ export function TodayAgendaWidget() {
             onClick={() => agenda && toggleAuto.mutate(!agenda.auto_suggestions)}
             className={cx(
               "rounded-full border px-2 py-0.5 text-micro transition",
-              agenda?.auto_suggestions
-                ? "border-ok-border bg-ok-surface text-ok"
-                : "border-subtle text-muted",
+              agenda?.auto_suggestions ? "border-ok-border bg-ok-surface text-ok" : "border-subtle text-muted",
             )}
           >
             oto {agenda?.auto_suggestions ? "açık" : "kapalı"}
           </button>
-          <button type="button" onClick={() => setAdding((value) => !value)}
-            disabled={!online} className="flex items-center gap-1 text-meta text-accent hover:underline disabled:opacity-40">
+          <button
+            type="button"
+            onClick={() => setAdding((value) => !value)}
+            disabled={!online}
+            className="flex items-center gap-1 text-meta text-accent hover:underline disabled:opacity-40"
+          >
             <Plus size={13} /> {adding ? "kapat" : "ekle"}
           </button>
         </div>
@@ -185,46 +216,89 @@ export function TodayAgendaWidget() {
         <div className="grid gap-2 border-b border-subtle pb-4 sm:grid-cols-[minmax(0,1fr)_92px_92px_auto]">
           <Select value={selected} onChange={setSelected} ariaLabel="Bugüne eklenecek öğe" className="min-w-0">
             <option value="">Görev veya RSS seç…</option>
-            {todoOptions.length > 0 && <optgroup label="Görevler">
-              {todoOptions.map((row) => <option key={`todo:${row.id}`} value={`todo:${row.id}`}>{row.title}</option>)}
-            </optgroup>}
-            {rssOptions.length > 0 && <optgroup label="RSS yazıları">
-              {rssOptions.map((row) => <option key={`rss:${row.id}`} value={`rss:${row.id}`}>{row.title}</option>)}
-            </optgroup>}
+            {todoOptions.length > 0 && (
+              <optgroup label="Görevler">
+                {todoOptions.map((row) => (
+                  <option key={`todo:${row.id}`} value={`todo:${row.id}`}>
+                    {row.title}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {rssOptions.length > 0 && (
+              <optgroup label="RSS yazıları">
+                {rssOptions.map((row) => (
+                  <option key={`rss:${row.id}`} value={`rss:${row.id}`}>
+                    {row.title}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </Select>
           <Input type="time" value={start} onChange={setStart} ariaLabel="Başlangıç saati" />
           <Input type="number" value={duration} onChange={setDuration} placeholder="dakika" ariaLabel="Süre (dakika)" />
-          <Button size="sm" variant="primary" disabled={!online || !selectedRow || schedule.isPending}
-            onClick={() => selectedRow && schedule.mutate({ row: selectedRow, day, start, duration })}>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!online || !selectedRow || schedule.isPending}
+            onClick={() => selectedRow && schedule.mutate({ row: selectedRow, day, start, duration })}
+          >
             Bugüne ekle
           </Button>
         </div>
       )}
 
-      {agendaQuery.isLoading ? <Spinner /> : agendaQuery.isError || !agenda ? (
-        <Empty action={<Button size="sm" onClick={() => agendaQuery.refetch()}>Yeniden dene</Button>}>
+      {agendaQuery.isLoading ? (
+        <Spinner />
+      ) : agendaQuery.isError || !agenda ? (
+        <Empty
+          action={
+            <Button size="sm" onClick={() => agendaQuery.refetch()}>
+              Yeniden dene
+            </Button>
+          }
+        >
           Günün akışı alınamadı.
         </Empty>
       ) : (
         <>
-          <AgendaGroup label="Saatli" rows={agenda.timed} online={online}
-            complete={(row) => complete.mutate(row)} remove={(row) => remove.mutate(row)} />
-          <AgendaGroup label="Yapılacaklar" rows={agenda.checklist} online={online}
-            complete={(row) => complete.mutate(row)} remove={(row) => remove.mutate(row)} />
+          <AgendaGroup
+            label="Saatli"
+            rows={agenda.timed}
+            online={online}
+            complete={(row) => complete.mutate(row)}
+            remove={(row) => remove.mutate(row)}
+          />
+          <AgendaGroup
+            label="Yapılacaklar"
+            rows={agenda.checklist}
+            online={online}
+            complete={(row) => complete.mutate(row)}
+            remove={(row) => remove.mutate(row)}
+          />
 
           {suggestions.length > 0 && agenda.auto_suggestions && (
             <div>
               <SectionHeader label="Öneriler" hint="planına yazılmadı" />
               <RowList>
                 {suggestions.map((row) => (
-                  <AgendaLine key={`${row.kind}:${row.id}`} row={row} online={online}
-                    complete={() => {}} remove={() => {}}
-                    suggestionAction={(
-                      <Button size="sm" variant="ghost" disabled={!online || schedule.isPending}
-                        onClick={() => schedule.mutate({ row, day, start: "", duration: "" })}>
+                  <AgendaLine
+                    key={`${row.kind}:${row.id}`}
+                    row={row}
+                    online={online}
+                    complete={() => {}}
+                    remove={() => {}}
+                    suggestionAction={
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={!online || schedule.isPending}
+                        onClick={() => schedule.mutate({ row, day, start: "", duration: "" })}
+                      >
                         Bugüne ekle
                       </Button>
-                    )} />
+                    }
+                  />
                 ))}
               </RowList>
             </div>
@@ -235,24 +309,35 @@ export function TodayAgendaWidget() {
               <SectionHeader label="Tamamlananlar" hint={`${agenda.completed.length}`} />
               <RowList>
                 {agenda.completed.map((row) => (
-                  <AgendaLine key={`${row.kind}:${row.id}`} row={row} online={online}
-                    complete={() => {}} remove={(item) => remove.mutate(item)} />
+                  <AgendaLine
+                    key={`${row.kind}:${row.id}`}
+                    row={row}
+                    online={online}
+                    complete={() => {}}
+                    remove={(item) => remove.mutate(item)}
+                  />
                 ))}
               </RowList>
             </div>
           )}
 
-          {agenda.timed.length === 0 && agenda.checklist.length === 0
-            && suggestions.length === 0 && agenda.completed.length === 0 && (
-            <Empty>Bugün için henüz bir şey yok.</Empty>
-          )}
+          {agenda.timed.length === 0 &&
+            agenda.checklist.length === 0 &&
+            suggestions.length === 0 &&
+            agenda.completed.length === 0 && <Empty>Bugün için henüz bir şey yok.</Empty>}
         </>
       )}
     </Section>
   );
 }
 
-function AgendaGroup({ label, rows, online, complete, remove }: {
+function AgendaGroup({
+  label,
+  rows,
+  online,
+  complete,
+  remove,
+}: {
   label: string;
   rows: AgendaRow[];
   online: boolean;
@@ -263,15 +348,23 @@ function AgendaGroup({ label, rows, online, complete, remove }: {
   return (
     <div>
       <SectionHeader label={label} hint={`${rows.length}`} />
-      <RowList>{rows.map((row) => (
-        <AgendaLine key={`${row.kind}:${row.id}`} row={row} online={online}
-          complete={complete} remove={remove} />
-      ))}</RowList>
+      <RowList>
+        {rows.map((row) => (
+          <AgendaLine key={`${row.kind}:${row.id}`} row={row} online={online} complete={complete} remove={remove} />
+        ))}
+      </RowList>
     </div>
   );
 }
 
-function AgendaLine({ row, online, complete, remove, suggestionAction, nested = false }: {
+function AgendaLine({
+  row,
+  online,
+  complete,
+  remove,
+  suggestionAction,
+  nested = false,
+}: {
   row: AgendaRow;
   online: boolean;
   complete: (row: AgendaRow) => void;
@@ -280,13 +373,9 @@ function AgendaLine({ row, online, complete, remove, suggestionAction, nested = 
   nested?: boolean;
 }) {
   const time = clockLabel(row.starts_at);
-  const meta = row.kind === "media"
-    ? row.progress_label
-    : row.project_title ?? row.feed_title;
+  const meta = row.kind === "media" ? row.progress_label : (row.project_title ?? row.feed_title);
   const interactive = Boolean(
-    (row.action === "complete_todo" || row.action === "mark_rss_read")
-    && !row.context_only
-    && !row.completed,
+    (row.action === "complete_todo" || row.action === "mark_rss_read") && !row.context_only && !row.completed,
   );
   return (
     <div data-agenda-id={row.id} className={cx("py-2", nested && "ml-5 border-l border-subtle pl-3")}>
@@ -317,23 +406,41 @@ function AgendaLine({ row, online, complete, remove, suggestionAction, nested = 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-baseline gap-2">
             {time && <span className="numeral shrink-0 text-meta text-accent">{time}</span>}
-            <span className={cx(
-              "min-w-0 truncate text-body text-primary",
-              row.completed && "line-through text-muted",
-              row.context_only && "font-medium text-secondary",
-            )}>{row.title}</span>
+            <span
+              className={cx(
+                "min-w-0 truncate text-body text-primary",
+                row.completed && "line-through text-muted",
+                row.context_only && "font-medium text-secondary",
+              )}
+            >
+              {row.title}
+            </span>
             {row.duration_min && <span className="shrink-0 text-meta text-muted">{row.duration_min} dk</span>}
           </div>
           {(meta || row.recur) && (
             <div className="mt-0.5 flex items-center gap-1.5 text-meta text-muted">
               {meta && <span className="truncate">{meta}</span>}
-              {row.recur && <Chip tone="accent"><RotateCw size={9} className="mr-1 inline" />{RECUR_LABELS[row.recur]}</Chip>}
+              {row.recur && (
+                <Chip tone="accent">
+                  <RotateCw size={9} className="mr-1 inline" />
+                  {RECUR_LABELS[row.recur]}
+                </Chip>
+              )}
             </div>
           )}
         </div>
 
-        {row.url && <a href={row.url} target="_blank" rel="noreferrer" title="Bağlantıyı aç"
-          className="mt-0.5 shrink-0 text-muted hover:text-accent"><ExternalLink size={14} /></a>}
+        {row.url && (
+          <a
+            href={row.url}
+            target="_blank"
+            rel="noreferrer"
+            title="Bağlantıyı aç"
+            className="mt-0.5 shrink-0 text-muted hover:text-accent"
+          >
+            <ExternalLink size={14} />
+          </a>
+        )}
         {suggestionAction}
         {row.slot_id && (
           <IconButton title="Bugünden çıkar" disabled={!online} onClick={() => remove(row)}>
@@ -343,8 +450,14 @@ function AgendaLine({ row, online, complete, remove, suggestionAction, nested = 
       </div>
 
       {row.children.map((child) => (
-        <AgendaLine key={`${child.kind}:${child.id}`} row={child} online={online}
-          complete={complete} remove={remove} nested />
+        <AgendaLine
+          key={`${child.kind}:${child.id}`}
+          row={child}
+          online={online}
+          complete={complete}
+          remove={remove}
+          nested
+        />
       ))}
     </div>
   );

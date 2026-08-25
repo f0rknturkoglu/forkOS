@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import type { SourceHealth } from "@/core/types";
 import { SettingsSourceHealth } from "./SettingsPage";
+
+afterEach(() => cleanup());
 
 const sources: SourceHealth[] = [
   {
@@ -25,17 +27,16 @@ const sources: SourceHealth[] = [
 ];
 
 describe("SettingsSourceHealth", () => {
-  it("starts closed and reveals source names when opened", () => {
-    const { container } = render(<SettingsSourceHealth sources={sources} />);
-    const details = container.querySelector("details[data-source-health]")!;
+  it("summarizes broken sources in one line and links to the health page", () => {
+    render(<SettingsSourceHealth sources={sources} />);
+    expect(screen.getByText("1 kaynak hata veriyor")).toBeTruthy();
+    const link = screen.getByRole("link", { name: "kaynak sağlığı" });
+    expect(link.getAttribute("href")).toBe("#/health");
+  });
 
-    expect(details.hasAttribute("open")).toBe(false);
-    expect(screen.getByText("2 kayıt")).toBeTruthy();
-
-    fireEvent.click(screen.getByText("Kaynak sağlığı"));
-
-    expect(details.hasAttribute("open")).toBe(true);
-    expect(screen.getByText("Haberler")).toBeTruthy();
-    expect(screen.getByText("Fırsatlar")).toBeTruthy();
+  it("shows an all-healthy line when no source errored", () => {
+    render(<SettingsSourceHealth sources={[sources[0]]} />);
+    expect(screen.getByText("Tüm kaynaklar sağlıklı")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "kaynak sağlığı" }).getAttribute("href")).toBe("#/health");
   });
 });

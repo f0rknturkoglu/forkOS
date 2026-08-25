@@ -4,10 +4,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Empty, Input, RowList, Section, Select, cx, useToast } from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import type { Project, Todo } from "@/core/types";
 import { TodoRow } from "@/modules/todo/TodoRow";
-
 
 export function createProjectTodo(projectId: string, title: string, milestoneId: string) {
   return api.post<Todo>("/todos", {
@@ -38,7 +37,10 @@ export function ProjectTodos({ project }: { project: Project }) {
 
   const add = useMutation({
     mutationFn: () => createProjectTodo(project.id, title, milestone),
-    onSuccess: () => { setTitle(""); refresh(); },
+    onSuccess: () => {
+      setTitle("");
+      refresh();
+    },
     onError: () => toast.push("Görev eklenemedi.", { tone: "danger" }),
   });
 
@@ -48,12 +50,14 @@ export function ProjectTodos({ project }: { project: Project }) {
 
   // Acik gorevler kilometre tasina gore gruplanir; bagsizlar en sonda.
   const groups = [
-    ...(project.milestones ?? []).map((item) => ({
-      id: item.id,
-      label: item.title,
-      done: Boolean(item.completed_at),
-      items: open.filter((todo) => todo.milestone_id === item.id),
-    })).filter((group) => group.items.length > 0),
+    ...(project.milestones ?? [])
+      .map((item) => ({
+        id: item.id,
+        label: item.title,
+        done: Boolean(item.completed_at),
+        items: open.filter((todo) => todo.milestone_id === item.id),
+      }))
+      .filter((group) => group.items.length > 0),
     {
       id: "loose",
       label: "Kilometre taşına bağlı değil",
@@ -66,21 +70,29 @@ export function ProjectTodos({ project }: { project: Project }) {
     <Section title="Görevler" hint={`${open.length} açık${done.length ? ` · ${done.length} bitti` : ""}`}>
       <form
         className="mb-3 flex flex-wrap gap-2"
-        onSubmit={(event) => { event.preventDefault(); if (title.trim()) add.mutate(); }}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (title.trim()) add.mutate();
+        }}
       >
-        <Input value={title} onChange={setTitle} placeholder="Bu projede ne yapılacak?"
-          className="min-w-40 flex-1" ariaLabel="Yeni görev" />
+        <Input
+          value={title}
+          onChange={setTitle}
+          placeholder="Bu projede ne yapılacak?"
+          className="min-w-40 flex-1"
+          ariaLabel="Yeni görev"
+        />
         {milestones.length > 0 && (
-          <Select value={milestone} onChange={setMilestone} className="w-44"
-            ariaLabel="Kilometre taşı">
+          <Select value={milestone} onChange={setMilestone} className="w-44" ariaLabel="Kilometre taşı">
             <option value="">kilometre taşı yok</option>
             {milestones.map((item) => (
-              <option key={item.id} value={item.id}>{item.title}</option>
+              <option key={item.id} value={item.id}>
+                {item.title}
+              </option>
             ))}
           </Select>
         )}
-        <Button type="submit" variant="primary" size="sm"
-          disabled={!online || !title.trim() || add.isPending}>
+        <Button type="submit" variant="primary" size="sm" disabled={!online || !title.trim() || add.isPending}>
           <Plus size={13} /> Ekle
         </Button>
       </form>
@@ -105,7 +117,9 @@ export function ProjectTodos({ project }: { project: Project }) {
             <div className="mt-3 border-t border-subtle pt-2">
               <p className="mb-1 label-caps">Bitenler</p>
               <RowList as="ul">
-                {done.map((todo) => <TodoRow key={todo.id} todo={todo} compact onChange={refresh} />)}
+                {done.map((todo) => (
+                  <TodoRow key={todo.id} todo={todo} compact onChange={refresh} />
+                ))}
               </RowList>
             </div>
           )}

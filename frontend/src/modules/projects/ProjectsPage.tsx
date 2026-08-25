@@ -4,9 +4,24 @@ import { useHashRoute } from "@/app/router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
-import {Button, Chip, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select, Textarea, cx, relativeTime, useToast} from "@/core/ui";
+import {
+  Button,
+  Chip,
+  Empty,
+  Field,
+  IconButton,
+  Input,
+  PageFrame,
+  PageHeader,
+  Section,
+  Select,
+  Textarea,
+  cx,
+  relativeTime,
+  useToast,
+} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import type { Project } from "@/core/types";
 import { GithubPanel } from "./GithubPanel";
 import { ProjectTodos } from "./ProjectTodos";
@@ -20,8 +35,7 @@ const STATUSES = [
   { value: "idea", label: "fikir", tone: "accent", dot: "bg-accent" },
 ] as const;
 
-const statusOf = (value: string) =>
-  STATUSES.find((item) => item.value === value) ?? STATUSES[0];
+const statusOf = (value: string) => STATUSES.find((item) => item.value === value) ?? STATUSES[0];
 
 /**
  * Proje yonetimi: solda liste, sagda secili projenin her seyi.
@@ -63,7 +77,11 @@ export function ProjectsPage() {
 
       {adding && (
         <NewProject
-          onDone={(id) => { setAdding(false); invalidateAfter("project.write"); setSelected(id); }}
+          onDone={(id) => {
+            setAdding(false);
+            invalidateAfter("project.write");
+            setSelected(id);
+          }}
         />
       )}
 
@@ -93,8 +111,12 @@ export function ProjectsPage() {
                     >
                       <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", status.dot)} />
                       <span className="min-w-0 flex-1">
-                        <span className={cx("block truncate text-body",
-                          active ? "font-medium text-primary" : "text-secondary")}>
+                        <span
+                          className={cx(
+                            "block truncate text-body",
+                            active ? "font-medium text-primary" : "text-secondary",
+                          )}
+                        >
                           {project.title}
                         </span>
                         <span className="block truncate text-meta text-muted">
@@ -143,12 +165,19 @@ function ProjectDetail({ project }: { project: Project }) {
         action={
           <span className="flex items-center gap-2">
             {project.url && (
-              <a href={project.url} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 text-meta text-accent hover:underline">
+              <a
+                href={project.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-meta text-accent hover:underline"
+              >
                 <ExternalLink size={12} /> aç
               </a>
             )}
-            <IconButton title="Projeyi sil" tone="danger" disabled={!online || remove.isPending}
+            <IconButton
+              title="Projeyi sil"
+              tone="danger"
+              disabled={!online || remove.isPending}
               onClick={async () => {
                 const ok = await confirmDialog({
                   title: `"${project.title}" silinsin mi?`,
@@ -157,7 +186,8 @@ function ProjectDetail({ project }: { project: Project }) {
                   tone: "danger",
                 });
                 if (ok) remove.mutate();
-              }}>
+              }}
+            >
               <Trash2 size={14} />
             </IconButton>
           </span>
@@ -165,25 +195,40 @@ function ProjectDetail({ project }: { project: Project }) {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Durum">
-            <Select value={project.status} onChange={(value) => patch.mutate({ status: value })}
-              disabled={!online} className="w-full" ariaLabel="Proje durumu">
+            <Select
+              value={project.status}
+              onChange={(value) => patch.mutate({ status: value })}
+              disabled={!online}
+              className="w-full"
+              ariaLabel="Proje durumu"
+            >
               {STATUSES.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
               ))}
             </Select>
           </Field>
           <Field label="GitHub deposu" hint="sahip/depo">
-            <SavedInput value={project.github_repo ?? ""} disabled={!online}
-              ariaLabel="GitHub deposu" placeholder="sahip/depo"
-              onSave={(value) => patch.mutate({ github_repo: value || null })} />
+            <SavedInput
+              value={project.github_repo ?? ""}
+              disabled={!online}
+              ariaLabel="GitHub deposu"
+              placeholder="sahip/depo"
+              onSave={(value) => patch.mutate({ github_repo: value || null })}
+            />
           </Field>
         </div>
 
         <div className="mt-3">
           <Field label="Proje bağlantısı" hint="site, doküman, board…">
-            <SavedInput value={project.url ?? ""} disabled={!online}
-              ariaLabel="Proje bağlantısı" placeholder="https://…"
-              onSave={(value) => patch.mutate({ url: value || null })} />
+            <SavedInput
+              value={project.url ?? ""}
+              disabled={!online}
+              ariaLabel="Proje bağlantısı"
+              placeholder="https://…"
+              onSave={(value) => patch.mutate({ url: value || null })}
+            />
           </Field>
         </div>
       </Section>
@@ -223,8 +268,13 @@ function NewProject({ onDone }: { onDone: (id: string) => void }) {
 
   return (
     <Section title="Yeni proje">
-      <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
-        onSubmit={(event) => { event.preventDefault(); if (title.trim()) create.mutate(); }}>
+      <form
+        className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (title.trim()) create.mutate();
+        }}
+      >
         <Field label="Ad">
           <Input value={title} onChange={setTitle} placeholder="Proje adı" className="w-full" />
         </Field>
@@ -239,7 +289,6 @@ function NewProject({ onDone }: { onDone: (id: string) => void }) {
   );
 }
 
-
 /**
  * Yazarken serbest, alandan cikinca kaydeden alan.
  *
@@ -248,7 +297,11 @@ function NewProject({ onDone }: { onDone: (id: string) => void }) {
  * secilince) tazelenir.
  */
 function SavedInput({
-  value, onSave, disabled, ariaLabel, placeholder,
+  value,
+  onSave,
+  disabled,
+  ariaLabel,
+  placeholder,
 }: {
   value: string;
   onSave: (value: string) => void;
@@ -257,14 +310,20 @@ function SavedInput({
   placeholder?: string;
 }) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => { setDraft(value); }, [value]);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
 
   return (
     <Input
       value={draft}
       onChange={setDraft}
-      onBlur={(next) => { if (next.trim() !== value) onSave(next.trim()); }}
-      onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+      onBlur={(next) => {
+        if (next.trim() !== value) onSave(next.trim());
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+      }}
       disabled={disabled}
       placeholder={placeholder}
       ariaLabel={ariaLabel}
@@ -274,14 +333,18 @@ function SavedInput({
 }
 
 function SavedTextarea({
-  value, onSave, disabled,
+  value,
+  onSave,
+  disabled,
 }: {
   value: string;
   onSave: (value: string) => void;
   disabled?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => { setDraft(value); }, [value]);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
   const dirty = draft.trim() !== value.trim();
 
   return (
@@ -289,10 +352,13 @@ function SavedTextarea({
       <Textarea
         value={draft}
         onChange={setDraft}
-        onBlur={(next) => { if (next.trim() !== value) onSave(next.trim()); }}
+        onBlur={(next) => {
+          if (next.trim() !== value) onSave(next.trim());
+        }}
         rows={8}
-        placeholder={"Karar kayıtları, açık sorular, bağlantılar…\n\n"
-          + "Ne olduğu Günlük'te zaten duruyor; burası NEDEN'in yeri."}
+        placeholder={
+          "Karar kayıtları, açık sorular, bağlantılar…\n\n" + "Ne olduğu Günlük'te zaten duruyor; burası NEDEN'in yeri."
+        }
         className={cx("font-mono text-meta leading-6", disabled && "opacity-60")}
       />
       <p className="mt-1 text-meta text-muted">

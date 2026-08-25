@@ -4,7 +4,7 @@ import { Inbox } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import {invalidate} from "@/core/queryClient";
+import { invalidate } from "@/core/queryClient";
 import { InboxWidget } from "./InboxWidget";
 import { InboxStats } from "./InboxStats";
 
@@ -12,7 +12,9 @@ const InboxPage = lazy(() => import("./InboxPage").then((module) => ({ default: 
 
 registerModule({
   id: "inbox",
-  title: "Gelen Kutusu", icon: Inbox, group: "capture",
+  title: "Gelen Kutusu",
+  icon: Inbox,
+  group: "capture",
   routes: [{ path: "/inbox", element: InboxPage }],
   todayStats: [InboxStats],
   todayWidgets: [{ component: InboxWidget, slot: "right", order: 40 }],

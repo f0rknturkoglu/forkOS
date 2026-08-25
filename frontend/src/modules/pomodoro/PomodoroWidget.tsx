@@ -5,7 +5,7 @@ import { Maximize2, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { Button, IconButton, Input, RowList, Section, cx, useToast } from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./time";
 import { FocusMode } from "./FocusMode";
@@ -62,7 +62,10 @@ export function PomodoroWidget() {
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.del(`/pomodoro/${id}`),
-    onSuccess: () => { refresh(); toast.push("Seans silindi", { tone: "ok" }); },
+    onSuccess: () => {
+      refresh();
+      toast.push("Seans silindi", { tone: "ok" });
+    },
   });
 
   const left = remaining(active, now);
@@ -74,26 +77,47 @@ export function PomodoroWidget() {
         title="Pomodoro"
         action={
           <span className="flex items-center gap-3">
-            <button type="button" onClick={() => setAdding((v) => !v)}
-              className="flex items-center gap-1 text-meta text-accent hover:underline">
+            <button
+              type="button"
+              onClick={() => setAdding((v) => !v)}
+              className="flex items-center gap-1 text-meta text-accent hover:underline"
+            >
               <Plus size={13} /> {adding ? "kapat" : "elle"}
             </button>
-            <button type="button" onClick={() => navigate("/pomodoro")}
-              className="text-meta text-muted hover:text-primary">aç →</button>
+            <button
+              type="button"
+              onClick={() => navigate("/pomodoro")}
+              className="text-meta text-muted hover:text-primary"
+            >
+              aç →
+            </button>
           </span>
         }
       >
-        {adding && <QuickManual onDone={() => { setAdding(false); refresh(); }} />}
+        {adding && (
+          <QuickManual
+            onDone={() => {
+              setAdding(false);
+              refresh();
+            }}
+          />
+        )}
 
         {active ? (
           <div>
-            <button type="button" onClick={() => setFocusMode(true)} title="Odak moduna gir"
-              className="group block w-full text-left">
+            <button
+              type="button"
+              onClick={() => setFocusMode(true)}
+              title="Odak moduna gir"
+              className="group block w-full text-left"
+            >
               <span className="flex items-baseline gap-2">
-                <span className={cx(
-                  "numeral text-display leading-none tabular-nums transition-colors",
-                  paused ? "text-muted" : "text-primary group-hover:text-accent",
-                )}>
+                <span
+                  className={cx(
+                    "numeral text-display leading-none tabular-nums transition-colors",
+                    paused ? "text-muted" : "text-primary group-hover:text-accent",
+                  )}
+                >
                   {clock(left)}
                 </span>
                 <Maximize2 size={13} className="text-icon transition-colors group-hover:text-accent" />
@@ -104,11 +128,20 @@ export function PomodoroWidget() {
             </button>
 
             <div className="mt-3 flex flex-wrap gap-1.5">
-              <Button size="sm" disabled={!online || togglePause.isPending}
-                onClick={() => togglePause.mutate()}>
-                {paused ? <><Play size={13} /> devam</> : <><Pause size={13} /> duraklat</>}
+              <Button size="sm" disabled={!online || togglePause.isPending} onClick={() => togglePause.mutate()}>
+                {paused ? (
+                  <>
+                    <Play size={13} /> devam
+                  </>
+                ) : (
+                  <>
+                    <Pause size={13} /> duraklat
+                  </>
+                )}
               </Button>
-              <Button size="sm" disabled={!online} onClick={() => stop.mutate(false)}>tamamla</Button>
+              <Button size="sm" disabled={!online} onClick={() => stop.mutate(false)}>
+                tamamla
+              </Button>
               <Button size="sm" variant="danger" disabled={!online} onClick={() => stop.mutate(true)}>
                 kes
               </Button>
@@ -116,12 +149,15 @@ export function PomodoroWidget() {
           </div>
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" variant="primary" disabled={!online || start.isPending}
-              onClick={() => start.mutate("focus")}>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!online || start.isPending}
+              onClick={() => start.mutate("focus")}
+            >
               {FOCUS_MIN} dk odak
             </Button>
-            <Button size="sm" disabled={!online || start.isPending}
-              onClick={() => start.mutate("short_break")}>
+            <Button size="sm" disabled={!online || start.isPending} onClick={() => start.mutate("short_break")}>
               {BREAK_MIN} dk mola
             </Button>
           </div>
@@ -135,15 +171,18 @@ export function PomodoroWidget() {
           <RowList as="ul" className="mt-1">
             {sessions.map((item) => (
               <li key={item.id} className="group flex items-center gap-2 py-1.5">
-                <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full",
-                  item.interrupted ? "bg-warn" : "bg-ok")} />
+                <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", item.interrupted ? "bg-warn" : "bg-ok")} />
                 <span className="min-w-0 flex-1 truncate text-meta text-secondary">
                   {item.topic || item.context_title || "Odak"}
                 </span>
                 <span className="shrink-0 text-meta text-muted">{item.actual_min ?? 0} dk</span>
-                <IconButton title="Seansı sil" tone="danger" disabled={!online || remove.isPending}
+                <IconButton
+                  title="Seansı sil"
+                  tone="danger"
+                  disabled={!online || remove.isPending}
                   onClick={() => remove.mutate(item.id)}
-                  className="h-6 w-6 opacity-0 transition group-hover:opacity-100">
+                  className="h-6 w-6 opacity-0 transition group-hover:opacity-100"
+                >
                   <Trash2 size={12} />
                 </IconButton>
               </li>
@@ -176,19 +215,30 @@ function QuickManual({ onDone }: { onDone: () => void }) {
         minutes,
         topic: topic || undefined,
       }),
-    onSuccess: () => { toast.push("Seans işlendi", { tone: "ok" }); onDone(); },
+    onSuccess: () => {
+      toast.push("Seans işlendi", { tone: "ok" });
+      onDone();
+    },
     onError: () => toast.push("İşlenemedi — tarih gelecekte olabilir.", { tone: "danger" }),
   });
 
   return (
-    <form className="mb-3 space-y-2 border-b border-subtle pb-3"
-      onSubmit={(event) => { event.preventDefault(); add.mutate(); }}>
-      <Input type="datetime-local" value={when} onChange={setWhen} className="w-full"
-        ariaLabel="Başlangıç" />
+    <form
+      className="mb-3 space-y-2 border-b border-subtle pb-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        add.mutate();
+      }}
+    >
+      <Input type="datetime-local" value={when} onChange={setWhen} className="w-full" ariaLabel="Başlangıç" />
       <div className="flex gap-2">
-        <Input type="number" value={String(minutes)}
+        <Input
+          type="number"
+          value={String(minutes)}
           onChange={(value) => setMinutes(Math.max(1, Math.min(600, Number(value) || FOCUS_MIN)))}
-          className="w-20" ariaLabel="Süre (dakika)" />
+          className="w-20"
+          ariaLabel="Süre (dakika)"
+        />
         <Input value={topic} onChange={setTopic} placeholder="Konu" className="min-w-0 flex-1" />
       </div>
       <Button type="submit" size="sm" variant="primary" disabled={!online || add.isPending}>

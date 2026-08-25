@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, Link2, ListChecks } from "lucide-react";
 import { api } from "./api";
 import { useToast } from "./ui";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 
 /**
  * Pencereye birakilan seyi yakalar.
@@ -27,7 +27,10 @@ function readDrop(transfer: DataTransfer): { kind: Kind; value: string } | null 
   const uri = transfer.getData("text/uri-list").trim();
   if (uri) {
     // uri-list yorum satiri icerebilir (# ile baslar).
-    const first = uri.split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith("#"));
+    const first = uri
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith("#"));
     if (first) return { kind: "link", value: first };
   }
 
@@ -44,15 +47,15 @@ export function DropCapture() {
   // katman her cocuk gecisinde titriyor.
   const depth = useRef(0);
   const toast = useToast();
- 
+
   const online = useOnline();
 
   useEffect(() => {
     if (!online) return;
 
     const hasPayload = (event: DragEvent) =>
-      Array.from(event.dataTransfer?.types ?? []).some((type) =>
-        type === "Files" || type === "text/uri-list" || type === "text/plain",
+      Array.from(event.dataTransfer?.types ?? []).some(
+        (type) => type === "Files" || type === "text/uri-list" || type === "text/plain",
       );
 
     const onEnter = (event: DragEvent) => {
@@ -62,7 +65,7 @@ export function DropCapture() {
     };
     const onOver = (event: DragEvent) => {
       if (!hasPayload(event)) return;
-      event.preventDefault();  // olmazsa tarayici dosyayi kendi acar
+      event.preventDefault(); // olmazsa tarayici dosyayi kendi acar
       if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
     };
     const onLeave = () => {
@@ -93,16 +96,26 @@ export function DropCapture() {
             client_uuid: crypto.randomUUID(),
           });
           invalidateAfter("bookmark.write");
-          toast.push(
-            result.duplicate ? "Zaten kayıtlıydı — yine de gelen kutusunda." : "Gelen kutusuna eklendi",
-            { tone: result.duplicate ? "warn" : "ok", action: { label: "aç", run: () => { location.hash = "/inbox"; } } },
-          );
+          toast.push(result.duplicate ? "Zaten kayıtlıydı — yine de gelen kutusunda." : "Gelen kutusuna eklendi", {
+            tone: result.duplicate ? "warn" : "ok",
+            action: {
+              label: "aç",
+              run: () => {
+                location.hash = "/inbox";
+              },
+            },
+          });
         } else {
           await api.post("/todos", { title: dropped.value.slice(0, 500) });
           invalidateAfter("todo.write");
           toast.push("Görev olarak eklendi", {
             tone: "ok",
-            action: { label: "aç", run: () => { location.hash = "/todos"; } },
+            action: {
+              label: "aç",
+              run: () => {
+                location.hash = "/todos";
+              },
+            },
           });
         }
       } catch {
@@ -133,9 +146,7 @@ export function DropCapture() {
     >
       <div className="rounded-overlay border-2 border-dashed border-accent bg-surface px-8 py-7 text-center shadow-overlay">
         <Download size={26} className="mx-auto text-accent" />
-        <p className="mt-3 font-serif text-title text-primary">
-          {busy ? "Kaydediliyor…" : "Bırak, yakalayayım"}
-        </p>
+        <p className="mt-3 font-serif text-title text-primary">{busy ? "Kaydediliyor…" : "Bırak, yakalayayım"}</p>
         <ul className="mt-3 space-y-1 text-meta text-secondary">
           <li className="flex items-center justify-center gap-1.5">
             <Link2 size={13} className="text-icon" /> Bağlantı → gelen kutusu

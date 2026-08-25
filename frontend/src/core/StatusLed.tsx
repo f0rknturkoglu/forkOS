@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  AlertTriangle, CheckCircle2, Clock4, Cpu, HardDrive, MemoryStick, X,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock4, Cpu, HardDrive, MemoryStick, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
 import { cx } from "@/core/ui";
@@ -56,7 +54,11 @@ function fmtUptime(seconds: number): string {
 }
 
 function Bar({
-  label, value, hint, icon, limit,
+  label,
+  value,
+  hint,
+  icon,
+  limit,
 }: {
   label: string;
   value: number | null;
@@ -68,7 +70,9 @@ function Bar({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2 text-meta">
-        <span className="flex items-center gap-1.5 text-secondary">{icon} {label}</span>
+        <span className="flex items-center gap-1.5 text-secondary">
+          {icon} {label}
+        </span>
         <span className="numeral text-primary">{value === null ? "ölçülüyor…" : `%${pct(value)}`}</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-sunken">
@@ -127,7 +131,9 @@ export function StatusLed() {
     const onDown = (e: MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -136,9 +142,7 @@ export function StatusLed() {
     };
   }, [open]);
 
-  const memUsed = data?.mem_total_kb
-    ? 1 - (data.mem_available_kb ?? 0) / data.mem_total_kb
-    : null;
+  const memUsed = data?.mem_total_kb ? 1 - (data.mem_available_kb ?? 0) / data.mem_total_kb : null;
   const diskUsed = data?.disk ? 1 - data.disk.free / data.disk.total : null;
   const cpuUsed = data?.cpu_pct === null || data?.cpu_pct === undefined ? null : data.cpu_pct / 100;
 
@@ -174,13 +178,7 @@ export function StatusLed() {
         aria-expanded={open}
         className="flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-primary"
       >
-        <span
-          className={cx(
-            "h-2 w-2 rounded-full ring-4 transition-colors",
-            DOT[tone],
-            RING[tone],
-          )}
-        />
+        <span className={cx("h-2 w-2 rounded-full ring-4 transition-colors", DOT[tone], RING[tone])} />
       </button>
 
       {open && (
@@ -241,12 +239,19 @@ export function StatusLed() {
                 hint={data.load.length > 0 ? `yük ${data.load[0].toFixed(2)} · ${data.cpu_count} çekirdek` : undefined}
                 icon={<Cpu size={13} />}
               />
-              <Bar label="RAM" value={memUsed} limit={{ warn: WARN.mem, crit: CRIT.mem }} icon={<MemoryStick size={13} />} />
+              <Bar
+                label="RAM"
+                value={memUsed}
+                limit={{ warn: WARN.mem, crit: CRIT.mem }}
+                icon={<MemoryStick size={13} />}
+              />
               <Bar
                 label="Disk"
                 value={diskUsed}
                 limit={{ warn: WARN.disk, crit: CRIT.disk }}
-                hint={data.disk ? `${(data.disk.free / 1e9).toFixed(0)} GB boş · ${data.disk.path ?? "/app"}` : undefined}
+                hint={
+                  data.disk ? `${(data.disk.free / 1e9).toFixed(0)} GB boş · ${data.disk.path ?? "/app"}` : undefined
+                }
                 icon={<HardDrive size={13} />}
               />
               <p className="flex items-center gap-1.5 pt-1 text-meta text-muted">

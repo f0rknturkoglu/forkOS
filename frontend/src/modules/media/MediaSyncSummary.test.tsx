@@ -8,34 +8,112 @@ import { MediaSyncSummary } from "./MediaSyncSummary";
 
 const providers = [
   {
-    id: "tmdb", kinds: ["movie", "show"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:30:00.000Z", last_status: "ok", last_error: null, last_items_found: 12,
-    capabilities: { search: true, details: true, units: true, upcoming: true, cache_artwork: true, requires_settings: [] },
+    id: "tmdb",
+    kinds: ["movie", "show"],
+    ready: true,
+    missing_settings: [],
+    last_run_at: "2026-08-25T07:30:00.000Z",
+    last_status: "ok",
+    last_error: null,
+    last_items_found: 12,
+    capabilities: {
+      search: true,
+      details: true,
+      units: true,
+      upcoming: true,
+      cache_artwork: true,
+      requires_settings: [],
+    },
   },
   {
-    id: "anilist", kinds: ["anime", "manga"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:20:00.000Z", last_status: "ok", last_error: null, last_items_found: 3,
-    capabilities: { search: true, details: true, units: true, upcoming: true, cache_artwork: false, requires_settings: [] },
+    id: "anilist",
+    kinds: ["anime", "manga"],
+    ready: true,
+    missing_settings: [],
+    last_run_at: "2026-08-25T07:20:00.000Z",
+    last_status: "ok",
+    last_error: null,
+    last_items_found: 3,
+    capabilities: {
+      search: true,
+      details: true,
+      units: true,
+      upcoming: true,
+      cache_artwork: false,
+      requires_settings: [],
+    },
   },
   {
-    id: "openlibrary", kinds: ["book"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:00:00.000Z", last_status: "empty", last_error: null, last_items_found: 0,
-    capabilities: { search: true, details: true, units: false, upcoming: false, cache_artwork: true, requires_settings: [] },
+    id: "openlibrary",
+    kinds: ["book"],
+    ready: true,
+    missing_settings: [],
+    last_run_at: "2026-08-25T07:00:00.000Z",
+    last_status: "empty",
+    last_error: null,
+    last_items_found: 0,
+    capabilities: {
+      search: true,
+      details: true,
+      units: false,
+      upcoming: false,
+      cache_artwork: true,
+      requires_settings: [],
+    },
   },
   {
-    id: "itunes", kinds: ["music", "podcast"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T06:30:00.000Z", last_status: "ok", last_error: null, last_items_found: 8,
-    capabilities: { search: true, details: true, units: false, upcoming: false, cache_artwork: false, requires_settings: [] },
+    id: "itunes",
+    kinds: ["music", "podcast"],
+    ready: true,
+    missing_settings: [],
+    last_run_at: "2026-08-25T06:30:00.000Z",
+    last_status: "ok",
+    last_error: null,
+    last_items_found: 8,
+    capabilities: {
+      search: true,
+      details: true,
+      units: false,
+      upcoming: false,
+      cache_artwork: false,
+      requires_settings: [],
+    },
   },
   {
-    id: "igdb", kinds: ["game"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T06:00:00.000Z", last_status: "ok", last_error: null, last_items_found: 5,
-    capabilities: { search: true, details: true, units: false, upcoming: true, cache_artwork: true, requires_settings: [] },
+    id: "igdb",
+    kinds: ["game"],
+    ready: true,
+    missing_settings: [],
+    last_run_at: "2026-08-25T06:00:00.000Z",
+    last_status: "ok",
+    last_error: null,
+    last_items_found: 5,
+    capabilities: {
+      search: true,
+      details: true,
+      units: false,
+      upcoming: true,
+      cache_artwork: true,
+      requires_settings: [],
+    },
   },
   {
-    id: "kitsu", kinds: ["anime"], ready: true, missing_settings: ["media.kitsu_key"],
-    last_run_at: "2026-08-25T05:00:00.000Z", last_status: "error", last_error: "API anahtarı reddedildi", last_items_found: 0,
-    capabilities: { search: true, details: true, units: true, upcoming: false, cache_artwork: false, requires_settings: ["media.kitsu_key"] },
+    id: "kitsu",
+    kinds: ["anime"],
+    ready: true,
+    missing_settings: ["media.kitsu_key"],
+    last_run_at: "2026-08-25T05:00:00.000Z",
+    last_status: "error",
+    last_error: "API anahtarı reddedildi",
+    last_items_found: 0,
+    capabilities: {
+      search: true,
+      details: true,
+      units: true,
+      upcoming: false,
+      cache_artwork: false,
+      requires_settings: ["media.kitsu_key"],
+    },
   },
 ];
 
@@ -55,7 +133,9 @@ function renderSummary(online = true) {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((next) => { resolve = next; });
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
   return { promise, resolve };
 }
 
@@ -68,17 +148,21 @@ describe("MediaSyncSummary", () => {
     calls = [];
     responder = (path, method) => {
       if (path === "/api/media/providers") return json(providers);
-      if (path === "/api/sources/sync?scope=media") return json({ active: null, last_completed: null, running: [], sources: [] });
+      if (path === "/api/sources/sync?scope=media")
+        return json({ active: null, last_completed: null, running: [], sources: [] });
       if (path === "/api/media/sync" && method === "POST") return json({ queued: 6 });
       return json({ detail: "unexpected request" }, 404);
     };
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(String(input), "http://localhost");
-      const path = url.pathname + url.search;
-      const method = init?.method ?? "GET";
-      calls.push({ path, method });
-      return responder(path, method);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), "http://localhost");
+        const path = url.pathname + url.search;
+        const method = init?.method ?? "GET";
+        calls.push({ path, method });
+        return responder(path, method);
+      }),
+    );
   });
 
   afterEach(() => {
@@ -112,7 +196,8 @@ describe("MediaSyncSummary", () => {
     const pending = deferred<Response>();
     responder = (path, method) => {
       if (path === "/api/media/providers") return json(providers);
-      if (path === "/api/sources/sync?scope=media") return json({ active: null, last_completed: null, running: [], sources: [] });
+      if (path === "/api/sources/sync?scope=media")
+        return json({ active: null, last_completed: null, running: [], sources: [] });
       if (path === "/api/media/sync" && method === "POST") return pending.promise;
       return json({}, 404);
     };
@@ -147,7 +232,8 @@ describe("MediaSyncSummary", () => {
         providerGets += 1;
         return providerGets === 1 ? json({ detail: "sağlayıcılar kapalı" }, 500) : json(providers);
       }
-      if (path === "/api/sources/sync?scope=media") return json({ active: null, last_completed: null, running: [], sources: [] });
+      if (path === "/api/sources/sync?scope=media")
+        return json({ active: null, last_completed: null, running: [], sources: [] });
       if (path === "/api/media/sync" && method === "POST") return json({ detail: "kuyruk kapalı" }, 500);
       return json({}, 404);
     };
@@ -158,7 +244,9 @@ describe("MediaSyncSummary", () => {
     const details = document.querySelector("details[data-media-sync]") as HTMLDetailsElement;
     expect(details.open).toBe(true);
     fireEvent.click(screen.getByText("Kaynak ayrıntıları"));
-    await act(async () => { details.dispatchEvent(new Event("toggle")); });
+    await act(async () => {
+      details.dispatchEvent(new Event("toggle"));
+    });
     expect(details.open).toBe(false);
     expect(details.querySelector("svg")?.className.baseVal).not.toContain("rotate-180");
 
@@ -176,9 +264,10 @@ describe("MediaSyncSummary", () => {
   it("keeps provider diagnostics fully readable", async () => {
     const longError = "Sağlayıcının ayrıntılı yanıtı: geçici ağ geçidi hatası nedeniyle katalog bağlantısı kurulamadı.";
     const longSetting = "media.providers.kitsu.credentials.api_key";
-    responder = (path) => path === "/api/media/providers"
-      ? json([{ ...providers[5], last_error: longError, missing_settings: [longSetting] }])
-      : json({ active: null, last_completed: null, running: [], sources: [] });
+    responder = (path) =>
+      path === "/api/media/providers"
+        ? json([{ ...providers[5], last_error: longError, missing_settings: [longSetting] }])
+        : json({ active: null, last_completed: null, running: [], sources: [] });
     renderSummary();
     await screen.findByText("1 kaynak");
     fireEvent.click(screen.getByText("Kaynak ayrıntıları"));

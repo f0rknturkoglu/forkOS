@@ -13,8 +13,14 @@ describe("SyncProgress", () => {
   let responses: Response[];
 
   beforeEach(() => {
-    responses = [json({ detail: "medya eşitlemesi kapalı" }, 500), json({ active: null, last_completed: null, running: [], sources: [] })];
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(responses.shift() ?? json({}))));
+    responses = [
+      json({ detail: "medya eşitlemesi kapalı" }, 500),
+      json({ active: null, last_completed: null, running: [], sources: [] }),
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(responses.shift() ?? json({}))),
+    );
   });
 
   afterEach(() => {

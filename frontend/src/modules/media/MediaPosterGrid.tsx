@@ -1,14 +1,36 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import {Chip, Metric, MetricStrip, Select, cx, identityClasses} from "@/core/ui";
+import { Chip, Metric, MetricStrip, Select, cx, identityClasses } from "@/core/ui";
 import type { MediaItem, MediaStats } from "@/core/types";
 import { MediaActionsMenu } from "./MediaActionsMenu";
-import {KIND_LABELS, KINDS, STATUSES, STATUS_LABELS, kindBg, mediaCoverUrl, mediaProvider, progressPct, providerChip, providerLabel} from "./shared";
+import {
+  KIND_LABELS,
+  KINDS,
+  STATUSES,
+  STATUS_LABELS,
+  kindBg,
+  mediaCoverUrl,
+  mediaProvider,
+  progressPct,
+  providerChip,
+  providerLabel,
+} from "./shared";
 
 type PosterItem = Pick<
   MediaItem,
-  "id" | "title" | "kind" | "status" | "progress" | "total" | "cover_path" | "cover_url"
-  | "meta" | "progress_measure" | "provider" | "provider_id" | "provider_ids"
+  | "id"
+  | "title"
+  | "kind"
+  | "status"
+  | "progress"
+  | "total"
+  | "cover_path"
+  | "cover_url"
+  | "meta"
+  | "progress_measure"
+  | "provider"
+  | "provider_id"
+  | "provider_ids"
 >;
 
 type PosterStats = Pick<MediaStats, "total" | "in_progress" | "completed" | "planned">;
@@ -49,23 +71,27 @@ export function MediaLibraryControls({
             onClick={() => onKindChange(value)}
             className={cx(
               "h-7 shrink-0 rounded-control border px-2.5 text-meta transition",
-              kind === value ? "border-accent bg-accent-surface text-accent" : value
-                ? cx(identityClasses("kind-" + value), "hover:opacity-80")
-                : "border-subtle text-secondary hover:border-strong hover:text-primary",
+              kind === value
+                ? "border-accent bg-accent-surface text-accent"
+                : value
+                  ? cx(identityClasses("kind-" + value), "hover:opacity-80")
+                  : "border-subtle text-secondary hover:border-strong hover:text-primary",
             )}
           >
-            {value ? KIND_LABELS[value] ?? value : "Tümü"}
+            {value ? (KIND_LABELS[value] ?? value) : "Tümü"}
           </button>
         ))}
       </div>
-      <label className="sr-only" htmlFor="media-library-status">Durum filtresi</label>
-      <Select
-        id="media-library-status"
-        value={status}
-        onChange={onStatusChange}
-      >
+      <label className="sr-only" htmlFor="media-library-status">
+        Durum filtresi
+      </label>
+      <Select id="media-library-status" value={status} onChange={onStatusChange}>
         <option value="">Tüm durumlar</option>
-        {STATUSES.map((value) => <option key={value} value={value}>{STATUS_LABELS[value]}</option>)}
+        {STATUSES.map((value) => (
+          <option key={value} value={value}>
+            {STATUS_LABELS[value]}
+          </option>
+        ))}
       </Select>
     </div>
   );
@@ -77,11 +103,22 @@ function PosterCover({ item, href }: { item: PosterItem; href: string }) {
   const alt = `${item.title} kapağı`;
   const coverClass = "aspect-[2/3] w-full rounded-card border border-subtle object-cover";
   return (
-    <a href={href} aria-label={`${item.title} detayını aç`} className="block rounded-card focus:outline-none focus:ring-2 focus:ring-accent">
+    <a
+      href={href}
+      aria-label={`${item.title} detayını aç`}
+      className="block rounded-card focus:outline-none focus:ring-2 focus:ring-accent"
+    >
       {url && failedUrl !== url ? (
         <img src={url} alt={alt} loading="lazy" onError={() => setFailedUrl(url)} className={coverClass} />
       ) : (
-        <div role="img" aria-label={alt} className={cx("flex items-center justify-center bg-surface-sunken font-serif text-title text-secondary", coverClass)}>
+        <div
+          role="img"
+          aria-label={alt}
+          className={cx(
+            "flex items-center justify-center bg-surface-sunken font-serif text-title text-secondary",
+            coverClass,
+          )}
+        >
           {(item.title.trim().charAt(0) || "?").toUpperCase()}
         </div>
       )}
@@ -89,7 +126,12 @@ function PosterCover({ item, href }: { item: PosterItem; href: string }) {
   );
 }
 
-function MediaPoster({ item, online, onQuick, onTrash }: {
+function MediaPoster({
+  item,
+  online,
+  onQuick,
+  onTrash,
+}: {
   item: PosterItem;
   online: boolean;
   onQuick: (item: PosterItem) => void;
@@ -100,8 +142,13 @@ function MediaPoster({ item, online, onQuick, onTrash }: {
   const percent = progressPct(item);
   const progress = item.progress ?? 0;
   const hasUsableProgress = Number.isFinite(progress);
-  const canQuick = QUICK_PROGRESS_STATUSES.has(item.status) && hasUsableProgress
-    && typeof item.total === "number" && Number.isFinite(item.total) && item.total > 0 && progress < item.total;
+  const canQuick =
+    QUICK_PROGRESS_STATUSES.has(item.status) &&
+    hasUsableProgress &&
+    typeof item.total === "number" &&
+    Number.isFinite(item.total) &&
+    item.total > 0 &&
+    progress < item.total;
 
   return (
     <li data-media-poster className="min-w-0">
@@ -112,13 +159,26 @@ function MediaPoster({ item, online, onQuick, onTrash }: {
         </div>
       </div>
       <div className="mt-2 min-w-0">
-        <a href={href} className="block truncate text-body font-medium text-primary hover:text-accent focus:outline-none focus:underline">
+        <a
+          href={href}
+          className="block truncate text-body font-medium text-primary hover:text-accent focus:outline-none focus:underline"
+        >
           {item.title}
         </a>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
-          <Chip identity={"kind-" + item.kind} variant="outline" size="xs">{KIND_LABELS[item.kind] ?? item.kind}</Chip>
-          {provider && <span className={cx("rounded border px-1.5 py-0.5", providerChip(provider))}>{providerLabel(provider)}</span>}
-          {percent !== null && <span className="numeral text-muted">{item.progress ?? 0}/{item.total}</span>}
+          <Chip identity={"kind-" + item.kind} variant="outline" size="xs">
+            {KIND_LABELS[item.kind] ?? item.kind}
+          </Chip>
+          {provider && (
+            <span className={cx("rounded border px-1.5 py-0.5", providerChip(provider))}>
+              {providerLabel(provider)}
+            </span>
+          )}
+          {percent !== null && (
+            <span className="numeral text-muted">
+              {item.progress ?? 0}/{item.total}
+            </span>
+          )}
         </div>
         {percent !== null && (
           <div
@@ -164,7 +224,9 @@ export function MediaPosterGrid({
       data-media-grid
       className="grid grid-cols-[repeat(auto-fill,minmax(156px,1fr))] gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]"
     >
-      {items.map((item) => <MediaPoster key={item.id} item={item} online={online} onQuick={onQuick} onTrash={onTrash} />)}
+      {items.map((item) => (
+        <MediaPoster key={item.id} item={item} online={online} onQuick={onQuick} onTrash={onTrash} />
+      ))}
     </ul>
   );
 }

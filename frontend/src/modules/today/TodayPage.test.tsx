@@ -24,14 +24,11 @@ describe("responsive Today layout", () => {
   });
 
   it("routes Hacker News and GitHub reads through the local API", () => {
-    const source = readFileSync(
-      new URL("./widgets/FeedStreamWidget.tsx", import.meta.url),
-      "utf8",
-    );
+    const source = readFileSync(new URL("./widgets/FeedStreamWidget.tsx", import.meta.url), "utf8");
 
-    expect(source).toContain('/news/hacker-news');
-    expect(source).toContain('/news/github-trending');
+    expect(source).toContain("/news/hacker-news");
+    expect(source).toContain("/news/github-trending");
     expect(source).not.toContain('fetch("https://hn.algolia.com');
-    expect(source).not.toContain('fetch(\n        `https://api.github.com');
+    expect(source).not.toContain("fetch(\n        `https://api.github.com");
   });
 });

@@ -16,7 +16,14 @@ export function MediaCollectionsPage() {
   const [editing, setEditing] = useState<MediaCollection | null>(null);
   const [editName, setEditName] = useState("");
 
-  const { data: collections, isLoading, isFetching, isError, error, refetch } = useQuery({
+  const {
+    data: collections,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["media", "collections"],
     queryFn: () => api.get<MediaCollection[]>("/media/collections"),
   });
@@ -45,7 +52,11 @@ export function MediaCollectionsPage() {
   async function confirmDelete(collection: MediaCollection) {
     const confirmed = await confirmDialog({
       title: "Koleksiyon silinsin mi?",
-      body: <><span>{collection.title}</span> koleksiyonu ve koleksiyon üyelikleri silinecek; kayıtlar kalır.</>,
+      body: (
+        <>
+          <span>{collection.title}</span> koleksiyonu ve koleksiyon üyelikleri silinecek; kayıtlar kalır.
+        </>
+      ),
       confirmLabel: "Koleksiyonu sil",
       tone: "danger",
     });
@@ -72,13 +83,32 @@ export function MediaCollectionsPage() {
             <Plus size={13} aria-hidden="true" /> Koleksiyon oluştur
           </Button>
         </form>
-        {create.error && <p role="alert" className="mt-2 text-meta text-danger">Koleksiyon oluşturulamadı: {create.error.message}</p>}
+        {create.error && (
+          <p role="alert" className="mt-2 text-meta text-danger">
+            Koleksiyon oluşturulamadı: {create.error.message}
+          </p>
+        )}
       </Section>
 
       {isLoading ? (
-        <p role="status" className="text-meta text-muted">Koleksiyonlar yükleniyor…</p>
+        <p role="status" className="text-meta text-muted">
+          Koleksiyonlar yükleniyor…
+        </p>
       ) : isError ? (
-        <Empty variant="page" action={<Button size="sm" disabled={isFetching} onClick={() => { void refetch(); }}>Yeniden dene</Button>}>
+        <Empty
+          variant="page"
+          action={
+            <Button
+              size="sm"
+              disabled={isFetching}
+              onClick={() => {
+                void refetch();
+              }}
+            >
+              Yeniden dene
+            </Button>
+          }
+        >
           Koleksiyonlar yüklenemedi: {error.message}
         </Empty>
       ) : !collections || collections.length === 0 ? (
@@ -87,15 +117,30 @@ export function MediaCollectionsPage() {
         <RowList as="ul">
           {collections.map((collection) => (
             <li key={collection.id} className="flex flex-wrap items-center gap-2 py-2.5">
-              <Chip identity="kind-movie" variant="outline">{collection.title}</Chip>
+              <Chip identity="kind-movie" variant="outline">
+                {collection.title}
+              </Chip>
               {collection.description && (
                 <span className="min-w-0 flex-1 truncate text-meta text-muted">{collection.description}</span>
               )}
               <span className="ml-auto flex shrink-0 items-center gap-1.5">
-                <Button size="sm" disabled={!online} onClick={() => { setEditing(collection); setEditName(collection.title); }}>
+                <Button
+                  size="sm"
+                  disabled={!online}
+                  onClick={() => {
+                    setEditing(collection);
+                    setEditName(collection.title);
+                  }}
+                >
                   <Pencil size={13} aria-hidden="true" /> {collection.title} koleksiyonunu düzenle
                 </Button>
-                <Button size="sm" disabled={!online || remove.isPending} onClick={() => { void confirmDelete(collection); }}>
+                <Button
+                  size="sm"
+                  disabled={!online || remove.isPending}
+                  onClick={() => {
+                    void confirmDelete(collection);
+                  }}
+                >
                   <Trash2 size={13} aria-hidden="true" /> {collection.title} koleksiyonunu sil
                 </Button>
               </span>
@@ -115,18 +160,33 @@ export function MediaCollectionsPage() {
             }}
           >
             <Field label="Koleksiyon adını düzenle" className="min-w-0 flex-1">
-              <Input value={editName} onChange={setEditName} disabled={!online || rename.isPending} className="w-full" />
+              <Input
+                value={editName}
+                onChange={setEditName}
+                disabled={!online || rename.isPending}
+                className="w-full"
+              />
             </Field>
             <Button type="submit" variant="primary" disabled={!online || !editName.trim() || rename.isPending}>
               Koleksiyon değişikliklerini kaydet
             </Button>
-            <Button size="md" disabled={rename.isPending} onClick={() => setEditing(null)}>Vazgeç</Button>
+            <Button size="md" disabled={rename.isPending} onClick={() => setEditing(null)}>
+              Vazgeç
+            </Button>
           </form>
-          {rename.error && <p role="alert" className="mt-2 text-meta text-danger">Koleksiyon güncellenemedi: {rename.error.message}</p>}
+          {rename.error && (
+            <p role="alert" className="mt-2 text-meta text-danger">
+              Koleksiyon güncellenemedi: {rename.error.message}
+            </p>
+          )}
         </Section>
       )}
 
-      {remove.error && <p role="alert" className="text-meta text-danger">Koleksiyon silinemedi: {remove.error.message}</p>}
+      {remove.error && (
+        <p role="alert" className="text-meta text-danger">
+          Koleksiyon silinemedi: {remove.error.message}
+        </p>
+      )}
     </PageFrame>
   );
 }

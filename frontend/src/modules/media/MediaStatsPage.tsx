@@ -27,7 +27,8 @@ function unitRow(unit: MediaUnit) {
           aria-label={`${unit.title} kaydını aç`}
           className="block truncate text-body font-medium text-primary hover:text-accent hover:underline"
         >
-          {unit.number != null ? `${unit.number}. ` : ""}{unit.title}
+          {unit.number != null ? `${unit.number}. ` : ""}
+          {unit.title}
         </a>
         {unit.release_at && (
           <p className="mt-0.5 text-meta text-muted">
@@ -42,7 +43,14 @@ function unitRow(unit: MediaUnit) {
 
 export function MediaStatsPage() {
   const online = useOnline();
-  const { data: dashboard, isLoading, isFetching, isError, error, refetch } = useQuery({
+  const {
+    data: dashboard,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["media-dashboard"],
     queryFn: () => api.get<MediaDashboard>("/media/dashboard"),
   });
@@ -52,9 +60,24 @@ export function MediaStatsPage() {
       <PageHeader eyebrow="Takip" title="Medya özeti" />
 
       {isLoading ? (
-        <p role="status" className="text-meta text-muted">Medya özeti yükleniyor…</p>
+        <p role="status" className="text-meta text-muted">
+          Medya özeti yükleniyor…
+        </p>
       ) : isError ? (
-        <Empty variant="page" action={<Button size="sm" disabled={isFetching} onClick={() => { void refetch(); }}>Yeniden dene</Button>}>
+        <Empty
+          variant="page"
+          action={
+            <Button
+              size="sm"
+              disabled={isFetching}
+              onClick={() => {
+                void refetch();
+              }}
+            >
+              Yeniden dene
+            </Button>
+          }
+        >
           Medya özeti yüklenemedi: {error.message}
         </Empty>
       ) : dashboard?.stats ? (
@@ -64,7 +87,10 @@ export function MediaStatsPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat label="Toplam süre" value={durationLabel(dashboard.stats.total_duration_min)} />
               <Stat label="Puanlanan kayıt" value={dashboard.stats.scored_count} />
-              <Stat label="Ortalama puan" value={dashboard.stats.average_score == null ? "—" : `${dashboard.stats.average_score} / 10`} />
+              <Stat
+                label="Ortalama puan"
+                value={dashboard.stats.average_score == null ? "—" : `${dashboard.stats.average_score} / 10`}
+              />
               <Stat label="Tür dağılımı" value={Object.keys(dashboard.stats.by_kind).length} />
             </div>
             {Object.keys(dashboard.stats.by_kind).length > 0 && (
@@ -105,7 +131,8 @@ export function MediaStatsPage() {
                     </div>
                     {item.progress != null && (
                       <span className="shrink-0 numeral text-meta text-secondary">
-                        {item.progress}{item.total != null ? ` / ${item.total}` : ""}
+                        {item.progress}
+                        {item.total != null ? ` / ${item.total}` : ""}
                       </span>
                     )}
                   </li>

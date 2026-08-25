@@ -10,7 +10,9 @@ const DayPage = lazy(() => import("./DayPage").then((module) => ({ default: modu
 
 registerModule({
   id: "activity",
-  title: "Etkinlik", icon: Activity, group: "system",
+  title: "Etkinlik",
+  icon: Activity,
+  group: "system",
   routes: [
     { path: "/activity", element: ActivityPage },
     // Emek haritasi karesinin hedefi: #/day?d=YYYY-MM-DD
@@ -21,7 +23,5 @@ registerModule({
     { component: Heatmap, slot: "center", order: 30 },
     { component: ActivityWidget, slot: "right", order: 90 },
   ],
-  commands: [
-    { id: "activity.open", label: "Etkinliği aç", run: () => navigate("/activity") },
-  ],
+  commands: [{ id: "activity.open", label: "Etkinliği aç", run: () => navigate("/activity") }],
 });

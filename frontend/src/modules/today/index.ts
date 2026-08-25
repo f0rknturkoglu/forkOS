@@ -9,7 +9,9 @@ const TodayPage = lazy(() => import("./TodayPage").then((module) => ({ default: 
 
 registerModule({
   id: "today",
-  title: "Bugün", icon: Sun, group: "pinned",
+  title: "Bugün",
+  icon: Sun,
+  group: "pinned",
   routes: [{ path: "/", element: TodayPage }],
   // Saat + hava ust seritte (TodayHero); sunucu ve saglik ust seritteki
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.

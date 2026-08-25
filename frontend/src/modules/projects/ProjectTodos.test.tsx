@@ -29,7 +29,12 @@ vi.mock("react", async (importOriginal) => {
       if (!(index in harness.stateValues)) {
         harness.stateValues[index] = typeof initial === "function" ? initial() : initial;
       }
-      return [harness.stateValues[index], (value: unknown) => { harness.stateValues[index] = value; }];
+      return [
+        harness.stateValues[index],
+        (value: unknown) => {
+          harness.stateValues[index] = value;
+        },
+      ];
     },
   };
 });
@@ -38,8 +43,14 @@ vi.mock("@/core/ui", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/core/ui")>();
   return {
     ...actual,
-    Input: (props: InputProps) => { harness.inputs.push(props); return null; },
-    Select: (props: SelectProps) => { harness.selects.push(props); return null; },
+    Input: (props: InputProps) => {
+      harness.inputs.push(props);
+      return null;
+    },
+    Select: (props: SelectProps) => {
+      harness.selects.push(props);
+      return null;
+    },
   };
 });
 vi.mock("@/lib/hooks", () => ({
@@ -73,9 +84,16 @@ describe("project todo integration", () => {
     harness.apiPost.mockResolvedValue({ id: "todo-1" });
     const projectWithMilestone = {
       ...project,
-      milestones: [{
-        id: "milestone-1", project_id: "project-1", title: "İlk adım", due_at: null, completed_at: null, position: 0,
-      }],
+      milestones: [
+        {
+          id: "milestone-1",
+          project_id: "project-1",
+          title: "İlk adım",
+          due_at: null,
+          completed_at: null,
+          position: 0,
+        },
+      ],
     };
     renderToStaticMarkup(<ProjectTodos project={projectWithMilestone} />);
 

@@ -12,7 +12,12 @@ export function InboxStats() {
   return (
     <>
       <Metric label="Gelen kutusu" value={data?.inbox ?? "–"} href="#/inbox" />
-      <Metric label="Bugün kaydedilen" value={data?.saved_today ?? "–"} hint={`toplam ${data?.total ?? 0}`} href="#/bookmarks" />
+      <Metric
+        label="Bugün kaydedilen"
+        value={data?.saved_today ?? "–"}
+        hint={`toplam ${data?.total ?? 0}`}
+        href="#/bookmarks"
+      />
     </>
   );
 }

@@ -15,17 +15,22 @@ export function DocumentsWidget() {
     .slice(0, 5);
   return (
     <Section title="Son belgeler">
-      {recent.length === 0 ? <Empty>Yeni belge yok.</Empty> : (
-    <RowList>
-      {recent.map((doc) => (
-        <div key={doc.id} className="py-2">
-          <a href={`#/documents?focus=${doc.id}`} className="block truncate text-body text-primary hover:text-accent">
-            {doc.title}
-          </a>
-          <p className="text-meta text-muted">{relativeTime(doc.drive_modified_at ?? doc.synced_at)}</p>
-        </div>
-      ))}
-      </RowList>
+      {recent.length === 0 ? (
+        <Empty>Yeni belge yok.</Empty>
+      ) : (
+        <RowList>
+          {recent.map((doc) => (
+            <div key={doc.id} className="py-2">
+              <a
+                href={`#/documents?focus=${doc.id}`}
+                className="block truncate text-body text-primary hover:text-accent"
+              >
+                {doc.title}
+              </a>
+              <p className="text-meta text-muted">{relativeTime(doc.drive_modified_at ?? doc.synced_at)}</p>
+            </div>
+          ))}
+        </RowList>
       )}
     </Section>
   );

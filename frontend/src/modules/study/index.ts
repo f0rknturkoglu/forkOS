@@ -7,7 +7,10 @@ import { StudyWidget } from "./StudyWidget";
 const StudyPage = lazy(() => import("./StudyPage").then((module) => ({ default: module.StudyPage })));
 
 registerModule({
-  id: "study", title: "Çalışma", icon: BookOpen, group: "track",
+  id: "study",
+  title: "Çalışma",
+  icon: BookOpen,
+  group: "track",
   routes: [{ path: "/study", element: StudyPage }],
   todayWidgets: [{ component: StudyWidget, slot: "left", order: 60 }],
   commands: [{ id: "study.open", label: "Çalışma ağacını aç", run: () => navigate("/study") }],

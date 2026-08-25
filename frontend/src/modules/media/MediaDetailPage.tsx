@@ -9,7 +9,16 @@ import type { components } from "@/generated/api-schema";
 import { Button, Chip, Field, Input, PageFrame, Section, Surface, Textarea, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
-import { KIND_LABELS, SiteLinks, externalLinks, mediaCoverUrl, mediaProvider, providerChip, providerLabel, statusLabel } from "./shared";
+import {
+  KIND_LABELS,
+  SiteLinks,
+  externalLinks,
+  mediaCoverUrl,
+  mediaProvider,
+  providerChip,
+  providerLabel,
+  statusLabel,
+} from "./shared";
 import { MediaProgressActions, measureLabel } from "./MediaProgressActions";
 
 type MediaUnit = components["schemas"]["MediaUnitOut"];
@@ -21,27 +30,23 @@ function DetailCover({ item }: { item: MediaItem }) {
   const cover = mediaCoverUrl(item);
   const className = "aspect-[2/3] w-full rounded-card border border-subtle object-cover shadow-card";
   if (cover && !broken) {
-    return (
-      <img
-        src={cover}
-        alt={`${item.title} kapağı`}
-        onError={() => setBroken(true)}
-        className={className}
-      />
-    );
+    return <img src={cover} alt={`${item.title} kapağı`} onError={() => setBroken(true)} className={className} />;
   }
   return (
-    <div role="img" aria-label={`${item.title} kapağı`} className={cx(className, "flex items-center justify-center bg-surface-sunken font-serif text-display text-secondary")}>
+    <div
+      role="img"
+      aria-label={`${item.title} kapağı`}
+      className={cx(
+        className,
+        "flex items-center justify-center bg-surface-sunken font-serif text-display text-secondary",
+      )}
+    >
       {(item.title.trim().charAt(0) || "?").toUpperCase()}
     </div>
   );
 }
 
-function MetadataEditor({ item, online, onChanged }: {
-  item: MediaItem;
-  online: boolean;
-  onChanged: () => void;
-}) {
+function MetadataEditor({ item, online, onChanged }: { item: MediaItem; online: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const [score, setScore] = useState(item.score == null ? "" : String(item.score));
   const [notes, setNotes] = useState(item.notes ?? "");
@@ -84,20 +89,18 @@ function MetadataEditor({ item, online, onChanged }: {
       }}
     >
       <Field label="Puan">
-        <Input
-          type="number"
-          value={score}
-          onChange={setScore}
-          disabled={disabled}
-          className="w-28"
-        />
+        <Input type="number" value={score} onChange={setScore} disabled={disabled} className="w-28" />
       </Field>
       <Field label="Notlar">
         <Textarea rows={4} value={notes} onChange={setNotes} />
       </Field>
       <div className="flex gap-2">
-        <Button type="submit" size="sm" variant="primary" disabled={disabled}>Puan ve notu kaydet</Button>
-        <Button size="sm" disabled={mutation.isPending} onClick={() => setEditing(false)}>Vazgeç</Button>
+        <Button type="submit" size="sm" variant="primary" disabled={disabled}>
+          Puan ve notu kaydet
+        </Button>
+        <Button size="sm" disabled={mutation.isPending} onClick={() => setEditing(false)}>
+          Vazgeç
+        </Button>
       </div>
       {mutation.error && (
         <p role="alert" className="text-meta text-danger">
@@ -109,7 +112,14 @@ function MetadataEditor({ item, online, onChanged }: {
 }
 
 const SUFFIX_BY_VOWEL: Record<string, string> = {
-  a: "ı", e: "i", ı: "ı", i: "i", o: "u", ö: "ü", u: "u", ü: "ü",
+  a: "ı",
+  e: "i",
+  ı: "ı",
+  i: "i",
+  o: "u",
+  ö: "ü",
+  u: "u",
+  ü: "ü",
 };
 
 function lastVowelSuffix(word: string): string {
@@ -130,7 +140,12 @@ function genitive(word: string): string {
   return word + lastVowelSuffix(word) + "n";
 }
 
-function UnitsSection({ item, units, consumptions, online }: {
+function UnitsSection({
+  item,
+  units,
+  consumptions,
+  online,
+}: {
   item: MediaItem;
   units: MediaUnit[];
   consumptions: MediaConsumption[];
@@ -163,7 +178,8 @@ function UnitsSection({ item, units, consumptions, online }: {
             <li key={unit.id} className="flex flex-wrap items-center gap-3 py-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-medium text-primary">
-                  {unit.number != null ? `${unit.number}. ` : ""}{unit.title}
+                  {unit.number != null ? `${unit.number}. ` : ""}
+                  {unit.title}
                 </p>
                 <p className="mt-0.5 text-meta text-muted">
                   {unit.unit_type}
@@ -191,7 +207,11 @@ function UnitsSection({ item, units, consumptions, online }: {
   );
 }
 
-function CollectionMembership({ itemId, collections, online }: {
+function CollectionMembership({
+  itemId,
+  collections,
+  online,
+}: {
   itemId: string;
   collections: MediaCollection[];
   online: boolean;
@@ -250,21 +270,40 @@ export function MediaDetailPage() {
     if (!itemId) return;
     const previousTitle = document.title;
     document.title = data?.item.title ? `${data.item.title} — forkOS` : "Medya detayı — forkOS";
-    return () => { document.title = previousTitle; };
+    return () => {
+      document.title = previousTitle;
+    };
   }, [data?.item.title, itemId]);
 
   if (!itemId) {
-    return <PageFrame><p className="text-body text-danger">Medya kimliği bulunamadı.</p></PageFrame>;
+    return (
+      <PageFrame>
+        <p className="text-body text-danger">Medya kimliği bulunamadı.</p>
+      </PageFrame>
+    );
   }
   if (isLoading) {
-    return <PageFrame><p role="status" className="text-body text-muted">Medya yükleniyor…</p></PageFrame>;
+    return (
+      <PageFrame>
+        <p role="status" className="text-body text-muted">
+          Medya yükleniyor…
+        </p>
+      </PageFrame>
+    );
   }
   if (error || !data) {
     return (
       <PageFrame>
         <div role="alert" className="space-y-3 text-body text-danger">
           <p>Medya detayı yüklenemedi: {error?.message}</p>
-          <Button disabled={isFetching} onClick={() => { void refetch(); }}>Yeniden dene</Button>
+          <Button
+            disabled={isFetching}
+            onClick={() => {
+              void refetch();
+            }}
+          >
+            Yeniden dene
+          </Button>
         </div>
       </PageFrame>
     );
@@ -272,12 +311,20 @@ export function MediaDetailPage() {
 
   const item = data.item;
   const provider = mediaProvider(item);
-  const sites = externalLinks(item.kind, item.title, item.meta ?? {}, item.provider, item.provider_id, item.provider_ids);
+  const sites = externalLinks(
+    item.kind,
+    item.title,
+    item.meta ?? {},
+    item.provider,
+    item.provider_id,
+    item.provider_ids,
+  );
   const externalUrl = typeof item.meta?.url === "string" && item.meta.url ? item.meta.url : null;
   const progress = item.progress ?? 0;
-  const progressText = item.total == null
-    ? `${progress} ${measureLabel(item.progress_measure)}`
-    : `${progress} / ${item.total} ${measureLabel(item.progress_measure)}`;
+  const progressText =
+    item.total == null
+      ? `${progress} ${measureLabel(item.progress_measure)}`
+      : `${progress} / ${item.total} ${measureLabel(item.progress_measure)}`;
 
   return (
     <PageFrame className="space-y-5">
@@ -291,9 +338,17 @@ export function MediaDetailPage() {
         <div className="min-w-0 space-y-5">
           <header>
             <div className="flex flex-wrap items-center gap-2 text-meta">
-              <Chip identity={"kind-" + item.kind} variant="outline">{KIND_LABELS[item.kind] ?? item.kind}</Chip>
-              <span className="rounded border border-subtle px-2 py-0.5 text-secondary">{statusLabel(item.kind, item.status)}</span>
-              {provider && <span className={cx("rounded border px-2 py-0.5", providerChip(provider))}>{providerLabel(provider)}</span>}
+              <Chip identity={"kind-" + item.kind} variant="outline">
+                {KIND_LABELS[item.kind] ?? item.kind}
+              </Chip>
+              <span className="rounded border border-subtle px-2 py-0.5 text-secondary">
+                {statusLabel(item.kind, item.status)}
+              </span>
+              {provider && (
+                <span className={cx("rounded border px-2 py-0.5", providerChip(provider))}>
+                  {providerLabel(provider)}
+                </span>
+              )}
             </div>
             <h1 className="mt-3 font-serif text-display text-primary">{item.title}</h1>
             {item.summary && <p className="mt-3 max-w-3xl text-body leading-6 text-secondary">{item.summary}</p>}
@@ -326,15 +381,25 @@ export function MediaDetailPage() {
 
           <Section
             title="Kaynaklarda aç"
-            action={externalUrl ? (
-              <Button size="sm" disabled={!online} onClick={() => {
-                void save.save({ url: externalUrl, title: item.title, collection: "reference" });
-              }}>
-                <Bookmark size={13} aria-hidden="true" /> Kaydet
-              </Button>
-            ) : undefined}
+            action={
+              externalUrl ? (
+                <Button
+                  size="sm"
+                  disabled={!online}
+                  onClick={() => {
+                    void save.save({ url: externalUrl, title: item.title, collection: "reference" });
+                  }}
+                >
+                  <Bookmark size={13} aria-hidden="true" /> Kaydet
+                </Button>
+              ) : undefined
+            }
           >
-            {sites.length ? <SiteLinks links={sites} /> : <p className="text-body text-muted">Bu tür için kaynak kısayolu yok.</p>}
+            {sites.length ? (
+              <SiteLinks links={sites} />
+            ) : (
+              <p className="text-body text-muted">Bu tür için kaynak kısayolu yok.</p>
+            )}
           </Section>
         </div>
       </div>

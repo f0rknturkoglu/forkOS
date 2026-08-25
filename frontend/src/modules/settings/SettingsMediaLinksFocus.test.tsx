@@ -23,13 +23,17 @@ describe("Settings media-links target", () => {
       configurable: true,
       value: vi.fn(),
     });
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
-      const path = new URL(String(input), "http://localhost").pathname;
-      if (path === "/api/settings") return json({ "modules.disabled": [], "media.links": [] });
-      if (path === "/api/sources/health") return json([]);
-      if (path === "/api/backup/status") return json({ last_backup: null, drive_folder_id: null, last_drive_upload: null, last_drive_error: null });
-      return json({ connected: false });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = new URL(String(input), "http://localhost").pathname;
+        if (path === "/api/settings") return json({ "modules.disabled": [], "media.links": [] });
+        if (path === "/api/sources/health") return json([]);
+        if (path === "/api/backup/status")
+          return json({ last_backup: null, drive_folder_id: null, last_drive_upload: null, last_drive_error: null });
+        return json({ connected: false });
+      }),
+    );
   });
 
   afterEach(() => {
@@ -42,7 +46,9 @@ describe("Settings media-links target", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(
       <QueryClientProvider client={client}>
-        <ToastProvider><SettingsPage /></ToastProvider>
+        <ToastProvider>
+          <SettingsPage />
+        </ToastProvider>
       </QueryClientProvider>,
     );
 

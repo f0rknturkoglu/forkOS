@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Minimize2, Pause, Play, X } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, cx } from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import type { PomodoroSession } from "@/core/types";
 import { clock, remaining } from "./time";
 
@@ -45,7 +45,9 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
   });
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", onKey);
     // Katman acikken arka plan kaymasin.
     const previous = document.body.style.overflow;
@@ -64,7 +66,9 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
     if (!active) return;
     const previous = document.title;
     document.title = `${clock(left)} · ${paused ? "durakladı" : "odak"}`;
-    return () => { document.title = previous; };
+    return () => {
+      document.title = previous;
+    };
   }, [active, left, paused]);
 
   useEffect(() => {
@@ -103,7 +107,12 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
         <svg width="320" height="320" viewBox="0 0 320 320" className="-rotate-90" aria-hidden>
           <circle cx="160" cy="160" r="140" fill="none" strokeWidth="6" className="stroke-subtle" />
           <circle
-            cx="160" cy="160" r="140" fill="none" strokeWidth="6" strokeLinecap="round"
+            cx="160"
+            cy="160"
+            r="140"
+            fill="none"
+            strokeWidth="6"
+            strokeLinecap="round"
             className={cx(
               "transition-[stroke-dashoffset] duration-1000 ease-linear",
               left === 0 ? "stroke-ok" : paused ? "stroke-strong" : "stroke-accent",
@@ -113,10 +122,12 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
           />
         </svg>
         <div className="absolute text-center">
-          <div className={cx(
-            "numeral text-display-2xl leading-none tabular-nums transition-colors",
-            paused ? "text-muted" : "text-primary",
-          )}>
+          <div
+            className={cx(
+              "numeral text-display-2xl leading-none tabular-nums transition-colors",
+              paused ? "text-muted" : "text-primary",
+            )}
+          >
             {clock(left)}
           </div>
           <p className="mt-2 text-meta text-muted">
@@ -126,9 +137,16 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <Button variant="primary" disabled={!online || togglePause.isPending}
-          onClick={() => togglePause.mutate()}>
-          {paused ? <><Play size={14} /> devam et</> : <><Pause size={14} /> duraklat</>}
+        <Button variant="primary" disabled={!online || togglePause.isPending} onClick={() => togglePause.mutate()}>
+          {paused ? (
+            <>
+              <Play size={14} /> devam et
+            </>
+          ) : (
+            <>
+              <Pause size={14} /> duraklat
+            </>
+          )}
         </Button>
         <Button disabled={!online || stop.isPending} onClick={() => stop.mutate(false)}>
           tamamla

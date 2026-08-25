@@ -4,11 +4,23 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Maximize2, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import {
-  Button, Empty, Field, IconButton, Input, Metric, MetricStrip,
-  PageFrame, PageHeader, RowList, Section, Select, cx, useToast,
+  Button,
+  Empty,
+  Field,
+  IconButton,
+  Input,
+  Metric,
+  MetricStrip,
+  PageFrame,
+  PageHeader,
+  RowList,
+  Section,
+  Select,
+  cx,
+  useToast,
 } from "@/core/ui";
 import type { PomodoroSession, PomodoroStats, Todo } from "@/core/types";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import { FocusMode } from "./FocusMode";
 import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./time";
 
@@ -84,18 +96,20 @@ export function PomodoroPage() {
       <PageFrame className="space-y-5">
         <PageHeader eyebrow="Planlama" title="Pomodoro" />
         <p className="text-meta text-muted">
-          Sayaç veritabanındaki başlangıç zamanına dayanır; sekme kapansa da devam eder.
-          Varsayılan blok {FOCUS_MIN} dk odak / {BREAK_MIN} dk mola.
+          Sayaç veritabanındaki başlangıç zamanına dayanır; sekme kapansa da devam eder. Varsayılan blok {FOCUS_MIN} dk
+          odak / {BREAK_MIN} dk mola.
         </p>
 
         {active ? (
           <Section title={KIND_LABELS[active.kind] ?? active.kind} hint={paused ? "duraklatıldı" : "sürüyor"}>
             <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
               <div>
-                <div className={cx(
-                  "numeral text-display-xl leading-none tabular-nums transition-colors",
-                  paused ? "text-muted" : "text-primary",
-                )}>
+                <div
+                  className={cx(
+                    "numeral text-display-xl leading-none tabular-nums transition-colors",
+                    paused ? "text-muted" : "text-primary",
+                  )}
+                >
                   {clock(left)}
                 </div>
                 <p className="mt-1.5 truncate text-meta text-muted">
@@ -108,9 +122,19 @@ export function PomodoroPage() {
                   <Maximize2 size={14} /> odak modu
                 </Button>
                 <Button disabled={!online || togglePause.isPending} onClick={() => togglePause.mutate()}>
-                  {paused ? <><Play size={14} /> devam et</> : <><Pause size={14} /> duraklat</>}
+                  {paused ? (
+                    <>
+                      <Play size={14} /> devam et
+                    </>
+                  ) : (
+                    <>
+                      <Pause size={14} /> duraklat
+                    </>
+                  )}
                 </Button>
-                <Button disabled={!online} onClick={() => stop.mutate(false)}>tamamla</Button>
+                <Button disabled={!online} onClick={() => stop.mutate(false)}>
+                  tamamla
+                </Button>
                 <Button variant="danger" disabled={!online} onClick={() => stop.mutate(true)}>
                   yarıda kes
                 </Button>
@@ -120,8 +144,7 @@ export function PomodoroPage() {
         ) : (
           <Section title="Yeni blok">
             <div className="flex flex-wrap gap-2">
-              <Button variant="primary" disabled={!online || start.isPending}
-                onClick={() => start.mutate("focus")}>
+              <Button variant="primary" disabled={!online || start.isPending} onClick={() => start.mutate("focus")}>
                 {minutes} dk odak başlat
               </Button>
               <Button disabled={!online || start.isPending} onClick={() => start.mutate("short_break")}>
@@ -131,18 +154,24 @@ export function PomodoroPage() {
 
             <div className="mt-4 grid gap-3 border-t border-subtle pt-4 sm:grid-cols-3">
               <Field label="Süre (dk)">
-                <Input type="number" value={String(minutes)}
+                <Input
+                  type="number"
+                  value={String(minutes)}
                   onChange={(value) => setMinutes(Math.max(1, Math.min(240, Number(value) || FOCUS_MIN)))}
-                  className="w-full" />
+                  className="w-full"
+                />
               </Field>
               <Field label="Konu" className="sm:col-span-2">
-                <Input value={topic} onChange={setTopic} placeholder="Neye odaklanıyorsun?"
-                  className="w-full" />
+                <Input value={topic} onChange={setTopic} placeholder="Neye odaklanıyorsun?" className="w-full" />
               </Field>
               <Field label="Bağlam" className="sm:col-span-3">
                 <Select value={context} onChange={setContext} className="w-full" ariaLabel="Bağlam görevi">
                   <option value="">Bağımsız</option>
-                  {todos.map((todo) => <option key={todo.id} value={todo.id}>{todo.title}</option>)}
+                  {todos.map((todo) => (
+                    <option key={todo.id} value={todo.id}>
+                      {todo.title}
+                    </option>
+                  ))}
                 </Select>
               </Field>
             </div>
@@ -166,7 +195,11 @@ export function PomodoroPage() {
 }
 
 /** Gecmis seanslar: elle ekleme + silme. Sayac calismadan yapilan is de sayilir. */
-function SessionHistory({ todos, onChange, onManualDone }: {
+function SessionHistory({
+  todos,
+  onChange,
+  onManualDone,
+}: {
   todos: Todo[];
   onChange: () => void;
   onManualDone: () => void;
@@ -182,20 +215,34 @@ function SessionHistory({ todos, onChange, onManualDone }: {
 
   const remove = useMutation({
     mutationFn: (id: string) => api.del(`/pomodoro/${id}`),
-    onSuccess: () => { onChange(); toast.push("Seans silindi", { tone: "ok" }); },
+    onSuccess: () => {
+      onChange();
+      toast.push("Seans silindi", { tone: "ok" });
+    },
   });
 
   return (
     <Section
       title="Son seanslar"
       action={
-        <button type="button" onClick={() => setAdding((v) => !v)}
-          className="flex items-center gap-1 text-meta text-accent hover:underline">
+        <button
+          type="button"
+          onClick={() => setAdding((v) => !v)}
+          className="flex items-center gap-1 text-meta text-accent hover:underline"
+        >
           <Plus size={13} /> {adding ? "vazgeç" : "elle ekle"}
         </button>
       }
     >
-      {adding && <ManualForm todos={todos} onDone={() => { setAdding(false); onManualDone(); }} />}
+      {adding && (
+        <ManualForm
+          todos={todos}
+          onDone={() => {
+            setAdding(false);
+            onManualDone();
+          }}
+        />
+      )}
 
       {sessions.length === 0 ? (
         <Empty>Henüz kayıtlı seans yok.</Empty>
@@ -203,22 +250,29 @@ function SessionHistory({ todos, onChange, onManualDone }: {
         <RowList as="ul">
           {sessions.map((item) => (
             <li key={item.id} className="flex items-center gap-3 py-2">
-              <span className={cx("h-2 w-2 shrink-0 rounded-full",
-                item.interrupted ? "bg-warn" : "bg-ok")} />
+              <span className={cx("h-2 w-2 shrink-0 rounded-full", item.interrupted ? "bg-warn" : "bg-ok")} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-body text-primary">
                   {item.topic || item.context_title || KIND_LABELS[item.kind] || "Odak"}
                 </span>
                 <span className="block text-meta text-muted">
                   {new Date(item.started_at).toLocaleString("tr-TR", {
-                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
-                  {" · "}{item.actual_min ?? 0} dk
+                  {" · "}
+                  {item.actual_min ?? 0} dk
                   {item.interrupted && " · yarıda kesildi"}
                 </span>
               </span>
-              <IconButton title="Seansı sil" tone="danger" disabled={!online || remove.isPending}
-                onClick={() => remove.mutate(item.id)}>
+              <IconButton
+                title="Seansı sil"
+                tone="danger"
+                disabled={!online || remove.isPending}
+                onClick={() => remove.mutate(item.id)}
+              >
                 <Trash2 size={14} />
               </IconButton>
             </li>
@@ -250,22 +304,31 @@ function ManualForm({ todos, onDone }: { todos: Todo[]; onDone: () => void }) {
         topic: topic || undefined,
         context_entity_id: context || undefined,
       }),
-    onSuccess: () => { toast.push("Seans işlendi", { tone: "ok" }); onDone(); },
+    onSuccess: () => {
+      toast.push("Seans işlendi", { tone: "ok" });
+      onDone();
+    },
     onError: () => toast.push("İşlenemedi — tarih gelecekte olabilir.", { tone: "danger" }),
   });
 
   return (
     <form
       className="mb-3 grid gap-3 border-b border-subtle pb-4 sm:grid-cols-2"
-      onSubmit={(event) => { event.preventDefault(); add.mutate(); }}
+      onSubmit={(event) => {
+        event.preventDefault();
+        add.mutate();
+      }}
     >
       <Field label="Başlangıç">
         <Input type="datetime-local" value={when} onChange={setWhen} className="w-full" />
       </Field>
       <Field label="Süre (dk)">
-        <Input type="number" value={String(minutes)}
+        <Input
+          type="number"
+          value={String(minutes)}
           onChange={(value) => setMinutes(Math.max(1, Math.min(600, Number(value) || FOCUS_MIN)))}
-          className="w-full" />
+          className="w-full"
+        />
       </Field>
       <Field label="Konu">
         <Input value={topic} onChange={setTopic} placeholder="Ne üzerinde çalıştın?" className="w-full" />
@@ -273,7 +336,11 @@ function ManualForm({ todos, onDone }: { todos: Todo[]; onDone: () => void }) {
       <Field label="Bağlam">
         <Select value={context} onChange={setContext} className="w-full" ariaLabel="Bağlam görevi">
           <option value="">Bağımsız</option>
-          {todos.map((todo) => <option key={todo.id} value={todo.id}>{todo.title}</option>)}
+          {todos.map((todo) => (
+            <option key={todo.id} value={todo.id}>
+              {todo.title}
+            </option>
+          ))}
         </Select>
       </Field>
       <div className="sm:col-span-2">

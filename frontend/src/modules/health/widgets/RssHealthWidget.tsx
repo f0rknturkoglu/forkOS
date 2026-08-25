@@ -2,9 +2,9 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
-import {Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast} from "@/core/ui";
+import { Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import type { Feed, RssStats } from "@/core/types";
 
 function problemBadges(feed: Feed): { label: string; tone: "warn" | "danger" }[] {
@@ -38,9 +38,7 @@ export function RssHealthWidget() {
     onSuccess: (result) => {
       invalidateAfter("rss.write");
       toast.push(
-        result.started > 0
-          ? `${result.started} besleme çekiliyor…`
-          : "Süresi gelen besleme yok — hepsi taze.",
+        result.started > 0 ? `${result.started} besleme çekiliyor…` : "Süresi gelen besleme yok — hepsi taze.",
         { tone: result.started > 0 ? "neutral" : "ok" },
       );
     },
@@ -66,12 +64,9 @@ export function RssHealthWidget() {
     },
     onSuccess: (removed) => {
       invalidateAfter("rss.write");
-      toast.push(
-        removed > 0
-          ? removed + " yanıt vermeyen besleme silindi."
-          : "Silinecek besleme yok.",
-        { tone: removed > 0 ? "ok" : "neutral" },
-      );
+      toast.push(removed > 0 ? removed + " yanıt vermeyen besleme silindi." : "Silinecek besleme yok.", {
+        tone: removed > 0 ? "ok" : "neutral",
+      });
     },
     onError: (error: Error) => toast.push("Silme başarısız: " + error.message, { tone: "danger" }),
   });
@@ -83,20 +78,29 @@ export function RssHealthWidget() {
     }
     const ok = await confirmDialog({
       title: "Yanıt vermeyen beslemeler silinsin mi?",
-      body: (<><strong className="font-medium text-primary">{dead.length}</strong> besleme (hata biriktirmiş veya kapatılmış) ve bağlı yazıları listeden kalkar. Geri alınamaz.</>),
+      body: (
+        <>
+          <strong className="font-medium text-primary">{dead.length}</strong> besleme (hata biriktirmiş veya kapatılmış)
+          ve bağlı yazıları listeden kalkar. Geri alınamaz.
+        </>
+      ),
       confirmLabel: "Sil",
       tone: "danger",
     });
     if (ok) deleteDead.mutate();
   }
-  
 
   return (
     <Section
       title="RSS Sağlığı"
       action={
         <div className="flex items-center gap-2">
-          <Button size="sm" disabled={!online || deleteDead.isPending} onClick={confirmDeleteDead} title="Hata biriktiren veya kapatılmış beslemeleri sil">
+          <Button
+            size="sm"
+            disabled={!online || deleteDead.isPending}
+            onClick={confirmDeleteDead}
+            title="Hata biriktiren veya kapatılmış beslemeleri sil"
+          >
             <Trash2 size={13} />
             {dead.length > 0 ? `${dead.length} sorunlu sil` : "Sorunlu yok"}
           </Button>
@@ -124,16 +128,15 @@ export function RssHealthWidget() {
           </p>
           <ul className="space-y-1.5">
             {problems.slice(0, 10).map((feed) => (
-              <li
-                key={feed.id}
-                className="flex items-center gap-2.5 border-b border-subtle px-1 py-2 last:border-b-0"
-              >
+              <li key={feed.id} className="flex items-center gap-2.5 border-b border-subtle px-1 py-2 last:border-b-0">
                 <AlertTriangle size={13} className="shrink-0 text-warn" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="max-w-[260px] truncate text-body text-primary">{feed.title}</span>
                     {problemBadges(feed).map((b) => (
-                      <Chip key={b.label} tone={b.tone}>{b.label}</Chip>
+                      <Chip key={b.label} tone={b.tone}>
+                        {b.label}
+                      </Chip>
                     ))}
                   </div>
                   <p className="mt-0.5 text-meta text-muted">
@@ -152,7 +155,9 @@ export function RssHealthWidget() {
             ))}
           </ul>
           {problems.length > 10 && (
-            <p className="mt-2 text-meta text-muted">+{problems.length - 10} besleme daha — tümünü tazele ile düzeltebilirsin.</p>
+            <p className="mt-2 text-meta text-muted">
+              +{problems.length - 10} besleme daha — tümünü tazele ile düzeltebilirsin.
+            </p>
           )}
         </div>
       )}

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import {Chip, Empty, Section, cx, relativeTime} from "@/core/ui";
+import { Chip, Empty, Section, cx, relativeTime } from "@/core/ui";
 import type { ProjectEvent } from "@/core/types";
 import { VERB_LABELS } from "@/modules/activity/verbs";
 
@@ -34,32 +34,35 @@ export function ProjectTimeline({ projectId }: { projectId: string }) {
       ) : (
         <ul className="relative ml-1 border-l border-strong">
           {data.map((event) => {
-            const message = (event.payload.message as string | undefined)
-              ?? (event.payload.title as string | undefined);
+            const message =
+              (event.payload.message as string | undefined) ?? (event.payload.title as string | undefined);
             const url = event.payload.url as string | undefined;
             return (
               <li key={event.id} className="relative min-h-9 py-1.5 pl-5">
                 <span className="absolute -left-[5px] top-3" aria-hidden>
-                  <span className={cx("block h-2.5 w-2.5 rounded-full ring-[3px] ring-surface",
-                    toneOf(event.verb))} />
+                  <span className={cx("block h-2.5 w-2.5 rounded-full ring-[3px] ring-surface", toneOf(event.verb))} />
                 </span>
                 <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-body">
                   <span className="numeral shrink-0 text-meta tabular-nums text-muted">
                     {new Date(event.occurred_at).toLocaleDateString("tr-TR", {
-                      day: "numeric", month: "short",
+                      day: "numeric",
+                      month: "short",
                     })}
                   </span>
                   <span className="text-secondary">{VERB_LABELS[event.verb] ?? event.verb}</span>
-                  {(event.title || message) && (
-                    url ? (
-                      <a href={url} target="_blank" rel="noreferrer"
-                        className="min-w-0 truncate text-primary hover:text-accent">
+                  {(event.title || message) &&
+                    (url ? (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="min-w-0 truncate text-primary hover:text-accent"
+                      >
                         {event.title ?? message}
                       </a>
                     ) : (
                       <span className="min-w-0 truncate text-primary">{event.title ?? message}</span>
-                    )
-                  )}
+                    ))}
                   {event.entity_type && <Chip>{event.entity_type}</Chip>}
                   <span className="text-meta text-muted">{relativeTime(event.occurred_at)}</span>
                 </div>

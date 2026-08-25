@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
-import {Button, Chip, Empty, PageFrame, PageHeader, Toolbar, cx, relativeTime} from "@/core/ui";
+import { Button, Chip, Empty, PageFrame, PageHeader, Toolbar, cx, relativeTime } from "@/core/ui";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
 import { ALERT_VERBS, describe } from "./verbs";
 
@@ -16,13 +16,16 @@ function localDayKey(iso: string): string {
 
 function dayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString("tr-TR", {
-    weekday: "long", day: "numeric", month: "long",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
   });
 }
 
 function isAlert(event: ActivityEvent): boolean {
-  return ALERT_VERBS.has(event.verb)
-    || (event.verb === "source_sync.completed" && Number(event.payload.errors ?? 0) > 0);
+  return (
+    ALERT_VERBS.has(event.verb) || (event.verb === "source_sync.completed" && Number(event.payload.errors ?? 0) > 0)
+  );
 }
 
 export function ActivityPage() {
@@ -40,10 +43,7 @@ export function ActivityPage() {
     queryFn: () => api.get<SourceHealth[]>("/sources/health"),
   });
 
-  const events = useMemo(
-    () => (onlyAlerts ? data.filter(isAlert) : data),
-    [data, onlyAlerts],
-  );
+  const events = useMemo(() => (onlyAlerts ? data.filter(isAlert) : data), [data, onlyAlerts]);
   const dayEntries = useMemo(() => {
     const entries = new Map<string, { key: string; label: string; events: ActivityEvent[] }>();
     for (const event of events) {
@@ -66,16 +66,15 @@ export function ActivityPage() {
       if (dayKeys.length > 0 && !dayKeys.some((day) => next.has(day))) {
         next.add(dayKeys[0]);
       }
-      return next.size === current.size && [...next].every((day) => current.has(day))
-        ? current
-        : next;
+      return next.size === current.size && [...next].every((day) => current.has(day)) ? current : next;
     });
   }, [dayKeys]);
 
   function setDayOpen(day: string, open: boolean) {
     setOpenDays((current) => {
       const next = new Set(current);
-      if (open) next.add(day); else next.delete(day);
+      if (open) next.add(day);
+      else next.delete(day);
       return next;
     });
   }
@@ -139,11 +138,11 @@ export function ActivityPage() {
                           <span className={cx(alert ? "text-warn" : "text-secondary")}>
                             {describe(event.verb, event.payload)}
                           </span>
-                          <span className="ml-2 text-meta text-muted">
-                            {relativeTime(event.occurred_at)}
-                          </span>
+                          <span className="ml-2 text-meta text-muted">{relativeTime(event.occurred_at)}</span>
                           {event.entity_type && (
-                            <span className="ml-2"><Chip>{event.entity_type}</Chip></span>
+                            <span className="ml-2">
+                              <Chip>{event.entity_type}</Chip>
+                            </span>
                           )}
                         </div>
                       </li>

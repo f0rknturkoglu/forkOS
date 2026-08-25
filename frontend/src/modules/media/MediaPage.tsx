@@ -14,12 +14,7 @@ import type {
 } from "@/core/types";
 import { Button, Chip, Empty, Input, PageFrame, PageHeader, RowList, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
-import {
-  MediaLibraryControls,
-  MediaMetrics,
-  MediaPosterGrid,
-  MediaPosterGridSkeleton,
-} from "./MediaPosterGrid";
+import { MediaLibraryControls, MediaMetrics, MediaPosterGrid, MediaPosterGridSkeleton } from "./MediaPosterGrid";
 import { consumptionBody } from "./MediaProgressActions";
 import { MediaSearchComposer, providerCreateBody } from "./MediaSearchComposer";
 import { MediaSyncSummary } from "./MediaSyncSummary";
@@ -73,13 +68,7 @@ function mediaViewForPath(path: string, initialParams: URLSearchParams): ReactNo
 }
 
 /** Provider arama paneli: "Medya ekle" ile açılır, tüm sağlayıcılarda arar. */
-function ProviderSearchPanel({
-  online,
-  onAdded,
-}: {
-  online: boolean;
-  onAdded: () => void;
-}) {
+function ProviderSearchPanel({ online, onAdded }: { online: boolean; onAdded: () => void }) {
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<MetadataResult[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -140,19 +129,31 @@ function ProviderSearchPanel({
         <Button
           variant="primary"
           disabled={!online || searching || term.trim().length < 2}
-          onClick={() => { void runSearch(); }}
+          onClick={() => {
+            void runSearch();
+          }}
         >
           Ara
         </Button>
       </div>
 
-      {searching && <p role="status" aria-live="polite" className="text-meta text-muted">Aranıyor…</p>}
-      {error && <p role="alert" className="text-meta text-danger">{error}</p>}
-      {addError && <p role="alert" className="text-meta text-danger">{addError}</p>}
-
-      {results && results.length === 0 && !searching && (
-        <Empty>Sağlayıcılarda sonuç bulunamadı.</Empty>
+      {searching && (
+        <p role="status" aria-live="polite" className="text-meta text-muted">
+          Aranıyor…
+        </p>
       )}
+      {error && (
+        <p role="alert" className="text-meta text-danger">
+          {error}
+        </p>
+      )}
+      {addError && (
+        <p role="alert" className="text-meta text-danger">
+          {addError}
+        </p>
+      )}
+
+      {results && results.length === 0 && !searching && <Empty>Sağlayıcılarda sonuç bulunamadı.</Empty>}
 
       {results && results.length > 0 && (
         <RowList as="ul" className="mt-1">
@@ -175,7 +176,10 @@ function ProviderSearchPanel({
                       {providerLabel(hit.provider)}
                     </span>
                     {(hit.subtitle || hit.year) && (
-                      <span>{hit.subtitle ?? ""}{hit.year ? ` · ${hit.year}` : ""}</span>
+                      <span>
+                        {hit.subtitle ?? ""}
+                        {hit.year ? ` · ${hit.year}` : ""}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -245,10 +249,7 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
   const refresh = () => invalidateAfter("media.write");
   const quick = useMutation({
     mutationFn: (item: Pick<MediaItem, "id" | "progress_measure">) =>
-      api.post(
-        `/media/${encodeURIComponent(item.id)}/consumptions`,
-        consumptionBody("quick", item),
-      ),
+      api.post(`/media/${encodeURIComponent(item.id)}/consumptions`, consumptionBody("quick", item)),
     onSuccess: refresh,
   });
   const trash = useMutation({
@@ -259,7 +260,11 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
   async function confirmTrash(item: Pick<MediaItem, "id" | "title">) {
     const confirmed = await confirmDialog({
       title: "Kayıt çöpe taşınsın mı?",
-      body: <><strong className="font-medium text-primary">{item.title}</strong> çöp kutusundan geri yüklenebilir.</>,
+      body: (
+        <>
+          <strong className="font-medium text-primary">{item.title}</strong> çöp kutusundan geri yüklenebilir.
+        </>
+      ),
       confirmLabel: "Çöpe taşı",
       tone: "danger",
     });
@@ -324,20 +329,32 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
       <PageHeader
         eyebrow="Takip"
         title="Medya"
-        action={(
+        action={
           <Button disabled={!online} onClick={() => setProviderOpen((open) => !open)}>
             <Plus size={14} aria-hidden="true" /> Medya ekle
           </Button>
-        )}
+        }
       />
 
       <div className="space-y-2">
         <MediaMetrics stats={stats.data} />
-        {stats.isLoading && <p role="status" aria-label="İstatistikler yükleniyor" className="text-meta text-muted">İstatistikler yükleniyor…</p>}
+        {stats.isLoading && (
+          <p role="status" aria-label="İstatistikler yükleniyor" className="text-meta text-muted">
+            İstatistikler yükleniyor…
+          </p>
+        )}
         {stats.isError && (
           <div role="alert" className="flex flex-wrap items-center gap-3 text-meta text-danger">
             <span>Medya istatistikleri yüklenemedi: {stats.error.message}</span>
-            <Button size="sm" disabled={stats.isFetching} onClick={() => { void stats.refetch(); }}>İstatistikleri yeniden dene</Button>
+            <Button
+              size="sm"
+              disabled={stats.isFetching}
+              onClick={() => {
+                void stats.refetch();
+              }}
+            >
+              İstatistikleri yeniden dene
+            </Button>
           </div>
         )}
       </div>
@@ -379,12 +396,7 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
                 <X size={16} aria-hidden="true" />
               </button>
             </div>
-            <MediaLibraryControls
-              kind={kind}
-              status={status}
-              onKindChange={setKind}
-              onStatusChange={setStatus}
-            />
+            <MediaLibraryControls kind={kind} status={status} onKindChange={setKind} onStatusChange={setStatus} />
           </div>
         </div>
       )}
@@ -395,23 +407,41 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
 
       {!searchActive && (
         <>
-          <MediaLibraryControls
-            kind={kind}
-            status={status}
-            onKindChange={setKind}
-            onStatusChange={setStatus}
-          />
+          <MediaLibraryControls kind={kind} status={status} onKindChange={setKind} onStatusChange={setStatus} />
 
           {library.isLoading ? (
             <MediaPosterGridSkeleton />
           ) : library.isError ? (
-            <Empty variant="page" action={<Button size="sm" disabled={library.isFetching} onClick={() => { void library.refetch(); }}>Kütüphaneyi yeniden dene</Button>}>
+            <Empty
+              variant="page"
+              action={
+                <Button
+                  size="sm"
+                  disabled={library.isFetching}
+                  onClick={() => {
+                    void library.refetch();
+                  }}
+                >
+                  Kütüphaneyi yeniden dene
+                </Button>
+              }
+            >
               Kütüphane yüklenemedi: {library.error.message}
             </Empty>
           ) : items.length === 0 ? (
             <Empty
               variant="page"
-              action={<Button size="sm" disabled={library.isFetching} onClick={() => { void library.refetch(); }}>Kütüphaneyi yeniden dene</Button>}
+              action={
+                <Button
+                  size="sm"
+                  disabled={library.isFetching}
+                  onClick={() => {
+                    void library.refetch();
+                  }}
+                >
+                  Kütüphaneyi yeniden dene
+                </Button>
+              }
             >
               <span>Kütüphanen boş</span> — yukarıdan tüm medyada arayarak ilk kaydını ekleyebilirsin.
             </Empty>
@@ -420,7 +450,9 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
               items={items}
               online={online}
               onQuick={(item) => quick.mutate(item)}
-              onTrash={(item) => { void confirmTrash(item); }}
+              onTrash={(item) => {
+                void confirmTrash(item);
+              }}
             />
           )}
 
@@ -428,16 +460,30 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
             <div className="flex justify-center">
               <Button
                 disabled={!online || loadingMore}
-                onClick={() => { void loadMorePage(); }}
+                onClick={() => {
+                  void loadMorePage();
+                }}
               >
                 Daha fazla yükle
               </Button>
             </div>
           )}
-          {loadMoreError && <p role="alert" className="text-center text-meta text-danger">Daha fazla kayıt yüklenemedi: {loadMoreError}</p>}
+          {loadMoreError && (
+            <p role="alert" className="text-center text-meta text-danger">
+              Daha fazla kayıt yüklenemedi: {loadMoreError}
+            </p>
+          )}
 
-          {quick.error && <p role="alert" className="text-meta text-danger">İlerleme kaydedilemedi: {quick.error.message}</p>}
-          {trash.error && <p role="alert" className="text-meta text-danger">Kayıt çöpe taşınamadı: {trash.error.message}</p>}
+          {quick.error && (
+            <p role="alert" className="text-meta text-danger">
+              İlerleme kaydedilemedi: {quick.error.message}
+            </p>
+          )}
+          {trash.error && (
+            <p role="alert" className="text-meta text-danger">
+              Kayıt çöpe taşınamadı: {trash.error.message}
+            </p>
+          )}
         </>
       )}
 
@@ -449,7 +495,7 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
 export function MediaPage() {
   const route = useHashRoute();
   const focusId = route.params.get("focus");
-    const [view] = useState(() => mediaViewForPath(route.path, route.params));
+  const [view] = useState(() => mediaViewForPath(route.path, route.params));
 
   useEffect(() => {
     if (focusId) navigate(`/media/${encodeURIComponent(focusId)}`, { replace: true });

@@ -7,10 +7,18 @@ import { ReviewWidget } from "./ReviewWidget";
 const DailyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.DailyReviewPage })));
 const WeeklyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.WeeklyReviewPage })));
 
-registerModule({ id: "review", title: "Değerlendirme", icon: ClipboardCheck, group: "track", routes: [
-  { path: "/review/weekly", element: WeeklyReviewPage },
-  { path: "/review/daily", element: DailyReviewPage },
-], todayWidgets: [{ component: ReviewWidget, slot: "left", order: 80 }], commands: [
-  { id: "review.weekly", label: "Haftalık değerlendirmeyi aç", run: () => navigate("/review/weekly") },
-  { id: "review.daily", label: "Günlük değerlendirmeyi aç", run: () => navigate("/review/daily") },
-] });
+registerModule({
+  id: "review",
+  title: "Değerlendirme",
+  icon: ClipboardCheck,
+  group: "track",
+  routes: [
+    { path: "/review/weekly", element: WeeklyReviewPage },
+    { path: "/review/daily", element: DailyReviewPage },
+  ],
+  todayWidgets: [{ component: ReviewWidget, slot: "left", order: 80 }],
+  commands: [
+    { id: "review.weekly", label: "Haftalık değerlendirmeyi aç", run: () => navigate("/review/weekly") },
+    { id: "review.daily", label: "Günlük değerlendirmeyi aç", run: () => navigate("/review/daily") },
+  ],
+});

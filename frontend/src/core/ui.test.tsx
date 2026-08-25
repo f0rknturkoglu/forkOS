@@ -1,14 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import {
-  Metric,
-  MetricStrip,
-  PageFrame,
-  RowList,
-  Section,
-  Surface,
-  Toolbar,
-} from "./ui";
+import { Metric, MetricStrip, PageFrame, RowList, Section, Surface, Toolbar } from "./ui";
 
 describe("UI primitives", () => {
   it("wraps section content in a card shell by default", () => {

@@ -45,7 +45,12 @@ export function useSaveToLibrary() {
       const label = COLLECTION_LABELS[result.collection as keyof typeof COLLECTION_LABELS] ?? "kütüphaneye";
       toast.push(`"${input.title.slice(0, 40)}" ${label} eklendi`, {
         tone: result.duplicate ? "neutral" : "ok",
-        action: { label: "Aç", run: () => { window.location.hash = `/bookmarks?focus=${result.id}`; } },
+        action: {
+          label: "Aç",
+          run: () => {
+            window.location.hash = `/bookmarks?focus=${result.id}`;
+          },
+        },
       });
     },
   });

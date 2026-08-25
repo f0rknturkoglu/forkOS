@@ -2,14 +2,14 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 import { api, qs } from "@/core/api";
-import {Chip, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx} from "@/core/ui";
+import { Chip, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx } from "@/core/ui";
 import { useHashRoute } from "@/app/router";
 import type { DayDetail } from "@/core/types";
 import { localDateKey } from "@/lib/date";
 import { ALERT_VERBS, VERB_LABELS, describe } from "./verbs";
 
 function shift(day: string, delta: number): string {
-  const date = new Date(`${day}T12:00:00`);   // ogle: yaz saati kaymasindan etkilenmez
+  const date = new Date(`${day}T12:00:00`); // ogle: yaz saati kaymasindan etkilenmez
   date.setDate(date.getDate() + delta);
   return localDateKey(date);
 }
@@ -34,7 +34,10 @@ export function DayPage() {
   });
 
   const label = new Date(day).toLocaleDateString("tr-TR", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
   const isToday = day === today();
   const isFuture = day > today();
@@ -59,22 +62,28 @@ export function DayPage() {
         title={label}
         action={
           <nav className="flex items-center gap-1 text-meta">
-            <a href={`#/day${qs({ d: shift(day, -1) })}`}
-              className="flex items-center gap-1 rounded-control border border-subtle px-2.5 py-1.5 text-secondary transition hover:border-strong hover:text-primary">
+            <a
+              href={`#/day${qs({ d: shift(day, -1) })}`}
+              className="flex items-center gap-1 rounded-control border border-subtle px-2.5 py-1.5 text-secondary transition hover:border-strong hover:text-primary"
+            >
               <ArrowLeft size={13} /> önceki
             </a>
             {!isToday && (
-              <a href={`#/day${qs({ d: today() })}`}
-                className="rounded-control border border-subtle px-2.5 py-1.5 text-secondary transition hover:border-strong hover:text-primary">
+              <a
+                href={`#/day${qs({ d: today() })}`}
+                className="rounded-control border border-subtle px-2.5 py-1.5 text-secondary transition hover:border-strong hover:text-primary"
+              >
                 bugün
               </a>
             )}
-            <a href={`#/day${qs({ d: shift(day, 1) })}`}
+            <a
+              href={`#/day${qs({ d: shift(day, 1) })}`}
               className={cx(
                 "flex items-center gap-1 rounded-control border border-subtle px-2.5 py-1.5 transition",
                 isFuture ? "pointer-events-none opacity-40" : "text-secondary hover:border-strong hover:text-primary",
               )}
-              aria-disabled={isFuture}>
+              aria-disabled={isFuture}
+            >
               sonraki <ArrowRight size={13} />
             </a>
           </nav>
@@ -112,12 +121,11 @@ export function DayPage() {
                     <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                       <span className="numeral shrink-0 text-meta tabular-nums text-muted">
                         {new Date(event.occurred_at).toLocaleTimeString("tr-TR", {
-                          hour: "2-digit", minute: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </span>
-                      <span className="min-w-0 text-secondary">
-                        {describe(event.verb, event.payload)}
-                      </span>
+                      <span className="min-w-0 text-secondary">{describe(event.verb, event.payload)}</span>
                       {event.entity_type && <Chip>{event.entity_type}</Chip>}
                     </div>
                   </li>
@@ -150,13 +158,15 @@ export function DayPage() {
                 <ul className="mt-3 divide-y divide-subtle border-t border-subtle">
                   {grouped.map((row) => (
                     <li key={row.verb} className="flex items-baseline justify-between gap-3 py-2">
-                      <span className={cx("min-w-0 truncate text-body",
-                        ALERT_VERBS.has(row.verb) ? "text-warn" : "text-secondary")}>
+                      <span
+                        className={cx(
+                          "min-w-0 truncate text-body",
+                          ALERT_VERBS.has(row.verb) ? "text-warn" : "text-secondary",
+                        )}
+                      >
                         {VERB_LABELS[row.verb] ?? row.verb}
                       </span>
-                      <span className="numeral shrink-0 text-meta tabular-nums text-muted">
-                        {row.count}
-                      </span>
+                      <span className="numeral shrink-0 text-meta tabular-nums text-muted">{row.count}</span>
                     </li>
                   ))}
                 </ul>

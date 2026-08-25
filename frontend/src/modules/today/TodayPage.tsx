@@ -37,10 +37,22 @@ export function TodayPage() {
 
   return (
     <DashboardLayout
-      hero={<TodayHero metrics={stats.map((Tile, index) => <Tile key={index} />)} />}
-      center={center.map((Widget, index) => <Widget key={index} />)}
-      left={left.map((Widget, index) => <Widget key={index} />)}
-      right={right.map((Widget, index) => <Widget key={index} />)}
+      hero={
+        <TodayHero
+          metrics={stats.map((Tile, index) => (
+            <Tile key={index} />
+          ))}
+        />
+      }
+      center={center.map((Widget, index) => (
+        <Widget key={index} />
+      ))}
+      left={left.map((Widget, index) => (
+        <Widget key={index} />
+      ))}
+      right={right.map((Widget, index) => (
+        <Widget key={index} />
+      ))}
       labelled
     />
   );
@@ -48,9 +60,7 @@ export function TodayPage() {
 
 /** Sutun basligi -- sadece sutunlarin ayristigi genislikte gorunur. */
 function ColumnLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="label-caps hidden border-b border-subtle pb-1.5 md:block">{children}</p>
-  );
+  return <p className="label-caps hidden border-b border-subtle pb-1.5 md:block">{children}</p>;
 }
 
 export function DashboardLayout({

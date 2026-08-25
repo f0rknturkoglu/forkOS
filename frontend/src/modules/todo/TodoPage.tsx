@@ -3,9 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
-import {
-  Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx,
-} from "@/core/ui";
+import { Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
 import { TodoRow } from "./TodoRow";
@@ -46,11 +44,14 @@ export function TodoPage() {
 
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ["todos", status, routineOnly ? "routines" : "all", projectFilter],
-    queryFn: () => api.get<Todo[]>(`/todos${qs({
-      status: status || undefined,
-      limit: 300,
-      recur_only: routineOnly || undefined,
-    })}`),
+    queryFn: () =>
+      api.get<Todo[]>(
+        `/todos${qs({
+          status: status || undefined,
+          limit: 300,
+          recur_only: routineOnly || undefined,
+        })}`,
+      ),
   });
   const { data: tags = [] } = useQuery({
     queryKey: ["tags"],
@@ -66,22 +67,25 @@ export function TodoPage() {
     return acc;
   }, {});
   const parentIds = new Set(filtered.map((todo) => todo.id));
-  const visible = filtered.filter(
-    (todo) => !todo.parent_id || !parentIds.has(todo.parent_id),
-  );
-  const grouped = status === "open"
-    ? BUCKETS.map((bucket) => ({
-        ...bucket,
-        items: visible.filter((todo) => bucketOf(todo) === bucket.id),
-      })).filter((bucket) => bucket.items.length > 0)
-    : [{ id: "all", label: "", items: visible }];
+  const visible = filtered.filter((todo) => !todo.parent_id || !parentIds.has(todo.parent_id));
+  const grouped =
+    status === "open"
+      ? BUCKETS.map((bucket) => ({
+          ...bucket,
+          items: visible.filter((todo) => bucketOf(todo) === bucket.id),
+        })).filter((bucket) => bucket.items.length > 0)
+      : [{ id: "all", label: "", items: visible }];
 
   return (
     <PageFrame className="space-y-5">
       <PageHeader
         eyebrow="Planlama"
         title="Görevler"
-        action={<a href="#/planner" className="text-meta text-accent hover:underline">Haftalık plan →</a>}
+        action={
+          <a href="#/planner" className="text-meta text-accent hover:underline">
+            Haftalık plan →
+          </a>
+        }
       />
 
       <TodoComposer />
@@ -118,9 +122,12 @@ export function TodoPage() {
             <Repeat size={12} /> Rutinler
           </button>
           {projectFilter && (
-            <button type="button" onClick={() => navigate(path)}
+            <button
+              type="button"
+              onClick={() => navigate(path)}
               title="Proje filtresini kaldır"
-              className="ml-1 flex shrink-0 items-center gap-1.5 rounded-control border border-accent-border bg-accent-surface px-3 py-1.5 text-meta text-accent">
+              className="ml-1 flex shrink-0 items-center gap-1.5 rounded-control border border-accent-border bg-accent-surface px-3 py-1.5 text-meta text-accent"
+            >
               {projectTitle ?? projectFilter} ✕
             </button>
           )}
@@ -131,17 +138,25 @@ export function TodoPage() {
         {tags.length > 0 && (
           <div className="flex items-center gap-1 overflow-x-auto">
             {tag && (
-              <button type="button" onClick={() => setTag("")}
-                className="shrink-0 rounded-control border border-accent-border bg-accent-surface px-2.5 py-1 text-meta text-accent">
+              <button
+                type="button"
+                onClick={() => setTag("")}
+                className="shrink-0 rounded-control border border-accent-border bg-accent-surface px-2.5 py-1 text-meta text-accent"
+              >
                 #{tag} ✕
               </button>
             )}
-            {!tag && tags.slice(0, 6).map((item) => (
-              <button key={item.name} type="button" onClick={() => setTag(item.name)}
-                className="shrink-0 rounded-control border border-subtle px-2.5 py-1 text-meta text-muted transition hover:border-strong hover:text-primary">
-                #{item.name}
-              </button>
-            ))}
+            {!tag &&
+              tags.slice(0, 6).map((item) => (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={() => setTag(item.name)}
+                  className="shrink-0 rounded-control border border-subtle px-2.5 py-1 text-meta text-muted transition hover:border-strong hover:text-primary"
+                >
+                  #{item.name}
+                </button>
+              ))}
           </div>
         )}
       </Toolbar>
@@ -158,8 +173,7 @@ export function TodoPage() {
         </Empty>
       ) : (
         grouped.map((bucket) => (
-          <Section key={bucket.id} title={bucket.label || undefined}
-            hint={`${bucket.items.length} görev`}>
+          <Section key={bucket.id} title={bucket.label || undefined} hint={`${bucket.items.length} görev`}>
             <RowList as="ul">
               {bucket.items.map((todo) => (
                 <TodoRow key={todo.id} todo={todo}>

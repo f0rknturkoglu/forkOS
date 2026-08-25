@@ -20,12 +20,15 @@ from app.modules.media.models import (
     STATUSES,
     UNIT_TYPES,
 )
-
-
-def _known(value: str | None, values: list[str], label: str) -> str | None:
-    if value is not None and value not in values:
-        raise ValueError(f"{label} su olmali: {values}")
-    return value
+from app.modules.media.validators import (
+    _known,
+)
+from app.modules.media.validators import (
+    nonnegative as _nonnegative,
+)
+from app.modules.media.validators import (
+    score_range as _score_range,
+)
 
 
 class MediaItemIn(BaseModel):
@@ -78,16 +81,12 @@ class MediaItemIn(BaseModel):
     @field_validator("progress", "total")
     @classmethod
     def nonnegative(cls, value: float | None) -> float | None:
-        if value is not None and value < 0:
-            raise ValueError("progress/total negatif olamaz")
-        return value
+        return _nonnegative(value)
 
     @field_validator("score")
     @classmethod
     def score_range(cls, value: int | None) -> int | None:
-        if value is not None and not 0 <= value <= 10:
-            raise ValueError("score 0-10 olmali")
-        return value
+        return _score_range(value)
 
     @model_validator(mode="after")
     def provider_source_has_identity(self):
@@ -145,16 +144,12 @@ class MediaItemUpdate(BaseModel):
     @field_validator("progress", "total")
     @classmethod
     def nonnegative(cls, value: float | None) -> float | None:
-        if value is not None and value < 0:
-            raise ValueError("progress/total negatif olamaz")
-        return value
+        return _nonnegative(value)
 
     @field_validator("score")
     @classmethod
     def score_range(cls, value: int | None) -> int | None:
-        if value is not None and not 0 <= value <= 10:
-            raise ValueError("score 0-10 olmali")
-        return value
+        return _score_range(value)
 
     @model_validator(mode="after")
     def mutation_invariants(self):

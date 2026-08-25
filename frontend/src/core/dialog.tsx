@@ -36,13 +36,18 @@ export function DialogHost() {
 
   useEffect(() => {
     show = setPending;
-    return () => { show = null; };
+    return () => {
+      show = null;
+    };
   }, []);
 
   useEffect(() => {
     if (!pending) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopPropagation(); close(false); }
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        close(false);
+      }
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
@@ -73,11 +78,7 @@ export function DialogHost() {
         {pending.body && <div className="mt-2 text-body text-secondary">{pending.body}</div>}
         <div className="mt-5 flex justify-end gap-2">
           <Button onClick={() => close(false)}>{pending.cancelLabel ?? "Vazgeç"}</Button>
-          <Button
-            autoFocus
-            variant={pending.tone === "danger" ? "danger" : "primary"}
-            onClick={() => close(true)}
-          >
+          <Button autoFocus variant={pending.tone === "danger" ? "danger" : "primary"} onClick={() => close(true)}>
             {pending.confirmLabel}
           </Button>
         </div>

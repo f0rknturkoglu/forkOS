@@ -18,10 +18,7 @@ export function InboxWidget() {
     <Section
       title="Gelen Kutusu"
       action={
-        <button
-          onClick={() => navigate("/inbox")}
-          className="text-meta text-muted hover:text-primary"
-        >
+        <button onClick={() => navigate("/inbox")} className="text-meta text-muted hover:text-primary">
           {stats?.inbox ?? 0} bekliyor →
         </button>
       }
@@ -31,13 +28,15 @@ export function InboxWidget() {
       ) : (
         <RowList>
           {latest.map((bookmark) => (
-            <a key={bookmark.id} href={bookmark.url} target="_blank" rel="noreferrer" className="flex items-baseline justify-between gap-3 py-2 hover:text-accent">
-              <span className="truncate text-body text-secondary">
-                {bookmark.title || bookmark.url}
-              </span>
-              <span className="shrink-0 text-meta text-muted">
-                {relativeTime(bookmark.saved_at)}
-              </span>
+            <a
+              key={bookmark.id}
+              href={bookmark.url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-baseline justify-between gap-3 py-2 hover:text-accent"
+            >
+              <span className="truncate text-body text-secondary">{bookmark.title || bookmark.url}</span>
+              <span className="shrink-0 text-meta text-muted">{relativeTime(bookmark.saved_at)}</span>
             </a>
           ))}
         </RowList>

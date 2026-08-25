@@ -24,15 +24,19 @@ export function LearningWidget() {
   ];
   return (
     <Section title="Devam eden öğrenme">
-      {rows.length === 0 ? <Empty>Devam eden kurs ya da kitap yok.</Empty> : (
-    <RowList>
-      {rows.map((row) => (
-        <div key={row.id} className="flex items-baseline justify-between gap-2 py-2 text-meta">
-          <a href="#/learning" className="min-w-0 truncate text-body text-primary hover:text-accent">{row.title}</a>
-          <span className="shrink-0 text-muted">{row.detail}</span>
-        </div>
-      ))}
-      </RowList>
+      {rows.length === 0 ? (
+        <Empty>Devam eden kurs ya da kitap yok.</Empty>
+      ) : (
+        <RowList>
+          {rows.map((row) => (
+            <div key={row.id} className="flex items-baseline justify-between gap-2 py-2 text-meta">
+              <a href="#/learning" className="min-w-0 truncate text-body text-primary hover:text-accent">
+                {row.title}
+              </a>
+              <span className="shrink-0 text-muted">{row.detail}</span>
+            </div>
+          ))}
+        </RowList>
       )}
     </Section>
   );

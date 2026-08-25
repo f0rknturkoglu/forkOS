@@ -1,4 +1,4 @@
-import "@/modules";                 // registry yi doldurur -- ILK import olmali
+import "@/modules"; // registry yi doldurur -- ILK import olmali
 import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, WifiOff, X } from "lucide-react";
@@ -42,7 +42,10 @@ function PageLoading() {
 /* ── Uyari seritleri ─────────────────────────────────────────────────── */
 
 function Banner({
-  tone, icon, children, onDismiss,
+  tone,
+  icon,
+  children,
+  onDismiss,
 }: {
   tone: "warn" | "danger";
   icon: React.ReactNode;
@@ -80,13 +83,18 @@ function SourceAlert() {
   });
   const broken = data.filter((s) => s.status === "error");
   if (broken.length === 0 || dismissed) return null;
-  const names = broken.slice(0, 3).map((s) => s.source).join(", ");
+  const names = broken
+    .slice(0, 3)
+    .map((s) => s.source)
+    .join(", ");
   return (
     <Banner tone="warn" icon={<AlertTriangle size={15} />} onDismiss={() => setDismissed(true)}>
       {broken.length} kaynak hata veriyor: <strong className="font-medium">{names}</strong>
       {broken.length > 3 && ` +${broken.length - 3}`}
       {" — "}
-      <a href="#/sources" className="border-b border-warn-border">kaynak sağlığına git</a>
+      <a href="#/sources" className="border-b border-warn-border">
+        kaynak sağlığına git
+      </a>
     </Banner>
   );
 }
@@ -105,7 +113,9 @@ export default function App() {
   });
   if (entityTypes) hydrateEntityRegistry(entityTypes);
 
-  useEffect(() => { applyTheme(readTheme()); }, []);
+  useEffect(() => {
+    applyTheme(readTheme());
+  }, []);
 
   const routes = allRoutes();
   const route = routeForPath(routes, path);
@@ -119,8 +129,8 @@ export default function App() {
         <main id="main-content" className="min-h-0 min-w-0 flex-1">
           {!online && (
             <Banner tone="warn" icon={<WifiOff size={15} />}>
-              Çevrimdışısın. Kayıtlı veriler okunabilir, yazma işlemleri kapalı.
-              Tarayıcı eklentisi kaydettiklerini kuyruğa alır.
+              Çevrimdışısın. Kayıtlı veriler okunabilir, yazma işlemleri kapalı. Tarayıcı eklentisi kaydettiklerini
+              kuyruğa alır.
             </Banner>
           )}
           <SourceAlert />

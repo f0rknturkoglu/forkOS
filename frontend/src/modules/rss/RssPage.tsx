@@ -3,13 +3,24 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import {Button, Chip, Empty, FileInput, Input, PageFrame, PageHeader, Surface, cx, relativeTime, useToast} from "@/core/ui";
+import {
+  Button,
+  Chip,
+  Empty,
+  FileInput,
+  Input,
+  PageFrame,
+  PageHeader,
+  Surface,
+  cx,
+  relativeTime,
+  useToast,
+} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import {useOnline} from "@/lib/hooks";
+import { useOnline } from "@/lib/hooks";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
 import { RssReadingPane } from "./RssReadingPane";
-
 
 type SmartView = "unread" | "today" | "saved" | "all";
 
@@ -38,8 +49,7 @@ function AddFeed() {
   const toast = useToast();
 
   const add = useMutation({
-    mutationFn: () =>
-      api.post("/rss/feeds", { url: url.trim(), category: category.trim() || null }),
+    mutationFn: () => api.post("/rss/feeds", { url: url.trim(), category: category.trim() || null }),
     onSuccess: () => {
       setUrl("");
       invalidateAfter("rss.write");
@@ -48,8 +58,7 @@ function AddFeed() {
   });
 
   const importOpml = useMutation({
-    mutationFn: (file: File) =>
-      api.upload<{ added: number; skipped: number }>("/rss/import", file),
+    mutationFn: (file: File) => api.upload<{ added: number; skipped: number }>("/rss/import", file),
     onSuccess: (result) => {
       invalidateAfter("rss.write");
       // import sonrasi arka plan cekimi worker'i beklemeden yazilari getirir
@@ -71,12 +80,7 @@ function AddFeed() {
           if (url.trim()) add.mutate();
         }}
       >
-        <Input
-          value={url}
-          onChange={setUrl}
-          placeholder="Besleme URL’si"
-          className="w-full"
-        />
+        <Input value={url} onChange={setUrl} placeholder="Besleme URL’si" className="w-full" />
         <Input
           value={category}
           onChange={setCategory}
@@ -121,10 +125,9 @@ function FeedAvatar({ feed, size = 16 }: { feed?: Feed | null; size?: number }) 
       host = null;
     }
   }
-  const candidates = [
-    feed?.favicon_url,
-    host ? `https://${host}/favicon.ico` : null,
-  ].filter((v): v is string => Boolean(v));
+  const candidates = [feed?.favicon_url, host ? `https://${host}/favicon.ico` : null].filter((v): v is string =>
+    Boolean(v),
+  );
   const src = candidates.find((c) => !failed.has(c));
 
   if (src) {
@@ -153,7 +156,11 @@ function FeedAvatar({ feed, size = 16 }: { feed?: Feed | null; size?: number }) 
 }
 
 function FeedRow({
-  feed, selected, onSelect, onRefresh, onRemove,
+  feed,
+  selected,
+  onSelect,
+  onRefresh,
+  onRemove,
 }: {
   feed: Feed;
   selected: boolean;
@@ -175,12 +182,12 @@ function FeedRow({
       >
         <FeedAvatar feed={feed} />
         <span className="truncate">{feed.title}</span>
-        {feed.unread > 0 && (
-          <span className="numeral ml-auto shrink-0 text-meta text-accent">{feed.unread}</span>
-        )}
+        {feed.unread > 0 && <span className="numeral ml-auto shrink-0 text-meta text-accent">{feed.unread}</span>}
         <span
-          className={cx("ml-auto h-1.5 w-1.5 shrink-0 rounded-full",
-            broken ? "bg-danger" : feed.last_status ? "bg-ok" : "bg-icon")}
+          className={cx(
+            "ml-auto h-1.5 w-1.5 shrink-0 rounded-full",
+            broken ? "bg-danger" : feed.last_status ? "bg-ok" : "bg-icon",
+          )}
           title={broken ? "hata" : feed.last_status ? "sağlıklı" : "henüz çekilmedi"}
         />
       </button>
@@ -212,7 +219,10 @@ function FeedRow({
 /* ── Liste satırı ────────────────────────────────────────────────────── */
 
 function ItemRow({
-  item, feed, selected, onOpen,
+  item,
+  feed,
+  selected,
+  onOpen,
 }: {
   item: FeedItem;
   feed?: Feed;
@@ -229,10 +239,7 @@ function ItemRow({
           selected ? "bg-accent-surface" : "hover:bg-surface-hover",
         )}
       >
-        <div className={cx(
-          "truncate text-body",
-          item.read_at ? "font-normal text-muted" : "font-medium text-primary",
-        )}>
+        <div className={cx("truncate text-body", item.read_at ? "font-normal text-muted" : "font-medium text-primary")}>
           {item.title}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-meta text-muted">
@@ -303,8 +310,7 @@ export function RssPage() {
   const refreshAll = () => invalidateAfter("rss.write");
 
   const markRead = useMutation({
-    mutationFn: ({ id, read }: { id: string; read: boolean }) =>
-      api.post(`/rss/items/${id}/read${qs({ read })}`),
+    mutationFn: ({ id, read }: { id: string; read: boolean }) => api.post(`/rss/items/${id}/read${qs({ read })}`),
     onSuccess: () => {
       refreshAll();
       invalidateAfter("rss.write"); // okuma bolmesi de guncelsin
@@ -325,10 +331,12 @@ export function RssPage() {
 
   const readAll = useMutation({
     mutationFn: () =>
-      api.post(`/rss/read-all${qs({
-        feed_id: feedId ?? undefined,
-        category: categorySel ?? undefined,
-      })}`),
+      api.post(
+        `/rss/read-all${qs({
+          feed_id: feedId ?? undefined,
+          category: categorySel ?? undefined,
+        })}`,
+      ),
     onSuccess: refreshAll,
   });
 
@@ -396,8 +404,16 @@ export function RssPage() {
 
   function onListKeyDown(e: React.KeyboardEvent) {
     if (items.length === 0) return;
-    if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); step(1); return; }
-    if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); step(-1); return; }
+    if (e.key === "j" || e.key === "ArrowDown") {
+      e.preventDefault();
+      step(1);
+      return;
+    }
+    if (e.key === "k" || e.key === "ArrowUp") {
+      e.preventDefault();
+      step(-1);
+      return;
+    }
     if (e.key === "u" || e.key === "Enter") {
       e.preventDefault();
       const it = items[index >= 0 ? index : 0];
@@ -412,21 +428,24 @@ export function RssPage() {
     }
     if (e.key === "J") {
       e.preventDefault();
-      const next = items.find((i, idx) => idx > index && !i.read_at)
-        ?? items.find((i) => !i.read_at);
+      const next = items.find((i, idx) => idx > index && !i.read_at) ?? items.find((i) => !i.read_at);
       if (next) openItem(next);
       return;
     }
-    if (e.key === "Escape") { setSelectedId(null); return; }
+    if (e.key === "Escape") {
+      setSelectedId(null);
+      return;
+    }
   }
 
   const selectedFeed = feeds.find((f) => f.id === feedId);
-  const title = feedId ? (selectedFeed?.title ?? "RSS") : categorySel ?? SMART_LABELS[smart];
+  const title = feedId ? (selectedFeed?.title ?? "RSS") : (categorySel ?? SMART_LABELS[smart]);
 
   function toggleCategory(key: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
@@ -448,7 +467,12 @@ export function RssPage() {
   async function confirmRemove(feed: Feed) {
     const ok = await confirmDialog({
       title: "Besleme silinsin mi?",
-      body: <><strong className="font-medium text-primary">{feed.title}</strong> ve ona bağlı okunmamış yazılar listeden kalkar. Bu işlem geri alınamaz.</>,
+      body: (
+        <>
+          <strong className="font-medium text-primary">{feed.title}</strong> ve ona bağlı okunmamış yazılar listeden
+          kalkar. Bu işlem geri alınamaz.
+        </>
+      ),
       confirmLabel: "Sil",
       tone: "danger",
     });
@@ -459,201 +483,224 @@ export function RssPage() {
     <PageFrame className="flex min-h-[calc(100dvh-84px)] flex-col gap-5">
       <PageHeader eyebrow="Kaynaklar" title="RSS Okuyucu" />
       <Surface className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[260px_340px_minmax(0,1fr)]">
-      {/* ── Sol: akıllı görünümler + beslemeler ── */}
-      <aside className="flex max-h-[380px] min-w-0 flex-col overflow-y-auto border-b border-subtle p-3 md:max-h-[560px] md:border-b-0 md:border-r xl:max-h-none">
-        <div className="mb-2 flex items-center justify-between px-1">
-          <span className="label-caps">Görünümler</span>
-          <button
-            type="button"
-            disabled={!online}
-            onClick={() => refreshAllFeed.mutate()}
-            title="Süresi gelen tüm beslemeleri çek"
-            className="flex h-6 items-center gap-1 rounded px-1.5 text-meta text-muted hover:bg-surface-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <RefreshCw size={12} /> Tümünü tazele
-          </button>
-        </div>
-        <ul className="space-y-0.5">
-          {SMART_ORDER.map((v) => {
-            const count = v === "unread" ? stats?.unread : v === "today" ? stats?.today : v === "saved" ? stats?.saved : undefined;
-            return (
-              <li key={v}>
-                <button
-                  type="button"
-                  onClick={() => selectView(v)}
-                  className={cx(
-                    "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-body transition",
-                    !feedId && !categorySel && smart === v ? "bg-surface-sunken font-medium text-primary" : "text-secondary hover:bg-surface-hover",
-                  )}
-                >
-                  <span className="truncate">{SMART_LABELS[v]}</span>
-                  {count !== undefined && (
-                    <span className={cx("numeral ml-auto text-meta", !feedId && !categorySel && smart === v ? "text-accent" : "text-muted")}>{count}</span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="mt-3 mb-1 flex items-center justify-between border-b border-subtle pb-2">
-          <span className="label-caps">Klasörler</span>
-          {folderKeys.length > 0 && (
+        {/* ── Sol: akıllı görünümler + beslemeler ── */}
+        <aside className="flex max-h-[380px] min-w-0 flex-col overflow-y-auto border-b border-subtle p-3 md:max-h-[560px] md:border-b-0 md:border-r xl:max-h-none">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="label-caps">Görünümler</span>
             <button
               type="button"
-              onClick={toggleAllFolders}
-              title={allClosed ? "Tüm klasörleri aç" : "Tüm klasörleri daralt"}
-              className="text-meta text-muted transition hover:text-primary"
+              disabled={!online}
+              onClick={() => refreshAllFeed.mutate()}
+              title="Süresi gelen tüm beslemeleri çek"
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-meta text-muted hover:bg-surface-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {allClosed ? "Tümünü genişlet" : "Tümünü daralt"}
+              <RefreshCw size={12} /> Tümünü tazele
             </button>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          {Object.entries(grouped).map(([category, group]) => {
-            const unreadSum = group.reduce((acc, f) => acc + f.unread, 0);
-            const key = category;
-            const isClosed = collapsed.has(key);
-            return (
-              <div key={key}>
-                <div className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => toggleCategory(key)}
-                    title={isClosed ? "Klasörü aç" : "Klasörü kapat"}
-                    aria-expanded={!isClosed}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-secondary hover:bg-surface-hover hover:text-primary"
-                  >
-                    <ChevronDown size={16} className={cx("transition-transform duration-150", isClosed && "-rotate-90")} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectCategory(key)}
-                    title="Klasördeki tüm yazıları göster"
-                    className={cx(
-                      "flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-meta uppercase tracking-wide transition",
-                      categorySel === key
-                        ? "bg-surface-sunken font-medium text-primary"
-                        : "text-muted hover:text-primary",
-                    )}
-                  >
-                    <span className="truncate">{category}</span>
-                    {unreadSum > 0 && (
-                      <span className="numeral ml-auto text-meta text-accent">{unreadSum}</span>
-                    )}
-                  </button>
-                </div>
-                {!isClosed && (
-                  <ul className="mt-0.5 space-y-0.5">
-                    {group.map((feed) => (
-                      <FeedRow
-                        key={feed.id}
-                        feed={feed}
-                        selected={feedId === feed.id}
-                        onSelect={() => selectFeed(feed.id)}
-                        onRefresh={() => refreshFeed.mutate(feed.id)}
-                        onRemove={() => confirmRemove(feed)}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {feeds.length === 0 && (
-          <Empty>Henüz besleme yok. Aşağıdan URL ekle ya da OPML dosyanı içeri aktar.</Empty>
-        )}
-
-        <div className="mt-4 border-t border-subtle pt-3">
-          <button
-            type="button"
-            onClick={() => setShowAdd((v) => !v)}
-            aria-expanded={showAdd}
-            className="flex h-8 w-full items-center justify-center gap-2 rounded-control border border-subtle bg-surface text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
-          >
-            <Settings2 size={14} />
-            {showAdd ? "Ekleme formunu kapat" : "Besleme ekle / OPML"}
-          </button>
-          {showAdd && (
-            <div className="mt-2">
-              <AddFeed />
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* ── Orta: yazı listesi ── */}
-      <section className="flex min-h-[420px] min-w-0 flex-col border-b border-subtle md:border-b-0 xl:border-r">
-        <div className="border-b border-subtle px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <h2 className="min-w-0 flex-1 truncate font-serif text-heading text-primary">{title}</h2>
-            {(feedId || categorySel || smart === "all") && (
-              <Button size="sm" variant={unreadOnly ? "primary" : "ghost"} onClick={() => setUnreadOnly((v) => !v)} title="Sadece okunmamışlar">
-                {unreadOnly ? "okunmamış" : "hepsi"}
-              </Button>
-            )}
-            <Button size="sm" disabled={!online || items.length === 0} onClick={() => readAll.mutate()} title="Listedekileri okundu işaretle">
-              okundu
-            </Button>
           </div>
-          {feedId && selectedFeed?.last_fetched_at == null && (
-            <p className="mt-1.5 text-meta text-warn">
-              Bu besleme henüz çekilmedi — satırdaki ⟳ veya "Tümünü tazele" ile getir.
-            </p>
-          )}
-          <p className="mt-1 text-meta text-muted">{items.length} yazı</p>
-        </div>
+          <ul className="space-y-0.5">
+            {SMART_ORDER.map((v) => {
+              const count =
+                v === "unread"
+                  ? stats?.unread
+                  : v === "today"
+                    ? stats?.today
+                    : v === "saved"
+                      ? stats?.saved
+                      : undefined;
+              return (
+                <li key={v}>
+                  <button
+                    type="button"
+                    onClick={() => selectView(v)}
+                    className={cx(
+                      "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-body transition",
+                      !feedId && !categorySel && smart === v
+                        ? "bg-surface-sunken font-medium text-primary"
+                        : "text-secondary hover:bg-surface-hover",
+                    )}
+                  >
+                    <span className="truncate">{SMART_LABELS[v]}</span>
+                    {count !== undefined && (
+                      <span
+                        className={cx(
+                          "numeral ml-auto text-meta",
+                          !feedId && !categorySel && smart === v ? "text-accent" : "text-muted",
+                        )}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-          {isLoading ? (
-            <p className="py-6 text-center text-meta text-muted">Yükleniyor…</p>
-          ) : items.length === 0 ? (
-            <Empty>
-              {smart === "unread" && !feedId
-                ? "Okunacak yazı yok — hepsi yakalandı."
-                : "Bu görünümde yazı yok."}
-            </Empty>
-          ) : (
-            <ul className="divide-y divide-subtle outline-none" onKeyDown={onListKeyDown} tabIndex={0}>
-              {items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  feed={feeds.find((x) => x.id === item.feed_id)}
-                  selected={selectedId === item.id}
-                  onOpen={() => openItem(item)}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
+          <div className="mt-3 mb-1 flex items-center justify-between border-b border-subtle pb-2">
+            <span className="label-caps">Klasörler</span>
+            {folderKeys.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleAllFolders}
+                title={allClosed ? "Tüm klasörleri aç" : "Tüm klasörleri daralt"}
+                className="text-meta text-muted transition hover:text-primary"
+              >
+                {allClosed ? "Tümünü genişlet" : "Tümünü daralt"}
+              </button>
+            )}
+          </div>
 
-      {/* ── Sağ: okuma bölmesi ── */}
-      <section className="flex min-h-[520px] min-w-0 flex-col border-t border-subtle md:col-span-2 xl:col-span-1 xl:border-t-0">
-        <RssReadingPane
-          detail={detail}
-          online={online}
-          saveCollection={saveCollection}
-          onSaveCollection={setSaveCollection}
-          onToggleRead={() => {
-            if (detail?.id) markRead.mutate({ id: detail.id, read: !detail.read_at });
-          }}
-          onSave={() => {
-            if (detail?.id) save.mutate({ id: detail.id, collection: saveCollection });
-          }}
-          onOpenBookmark={() => {
-            if (detail?.saved_bookmark_id) navigate(`/bookmarks?focus=${detail.saved_bookmark_id}`);
-          }}
-          onPrev={() => step(-1)}
-          onNext={() => step(1)}
-          hasPrev={hasPrev}
-          hasNext={hasNext}
-        />
-      </section>
+          <div className="space-y-3">
+            {Object.entries(grouped).map(([category, group]) => {
+              const unreadSum = group.reduce((acc, f) => acc + f.unread, 0);
+              const key = category;
+              const isClosed = collapsed.has(key);
+              return (
+                <div key={key}>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(key)}
+                      title={isClosed ? "Klasörü aç" : "Klasörü kapat"}
+                      aria-expanded={!isClosed}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-secondary hover:bg-surface-hover hover:text-primary"
+                    >
+                      <ChevronDown
+                        size={16}
+                        className={cx("transition-transform duration-150", isClosed && "-rotate-90")}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectCategory(key)}
+                      title="Klasördeki tüm yazıları göster"
+                      className={cx(
+                        "flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-meta uppercase tracking-wide transition",
+                        categorySel === key
+                          ? "bg-surface-sunken font-medium text-primary"
+                          : "text-muted hover:text-primary",
+                      )}
+                    >
+                      <span className="truncate">{category}</span>
+                      {unreadSum > 0 && <span className="numeral ml-auto text-meta text-accent">{unreadSum}</span>}
+                    </button>
+                  </div>
+                  {!isClosed && (
+                    <ul className="mt-0.5 space-y-0.5">
+                      {group.map((feed) => (
+                        <FeedRow
+                          key={feed.id}
+                          feed={feed}
+                          selected={feedId === feed.id}
+                          onSelect={() => selectFeed(feed.id)}
+                          onRefresh={() => refreshFeed.mutate(feed.id)}
+                          onRemove={() => confirmRemove(feed)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {feeds.length === 0 && <Empty>Henüz besleme yok. Aşağıdan URL ekle ya da OPML dosyanı içeri aktar.</Empty>}
+
+          <div className="mt-4 border-t border-subtle pt-3">
+            <button
+              type="button"
+              onClick={() => setShowAdd((v) => !v)}
+              aria-expanded={showAdd}
+              className="flex h-8 w-full items-center justify-center gap-2 rounded-control border border-subtle bg-surface text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+            >
+              <Settings2 size={14} />
+              {showAdd ? "Ekleme formunu kapat" : "Besleme ekle / OPML"}
+            </button>
+            {showAdd && (
+              <div className="mt-2">
+                <AddFeed />
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* ── Orta: yazı listesi ── */}
+        <section className="flex min-h-[420px] min-w-0 flex-col border-b border-subtle md:border-b-0 xl:border-r">
+          <div className="border-b border-subtle px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <h2 className="min-w-0 flex-1 truncate font-serif text-heading text-primary">{title}</h2>
+              {(feedId || categorySel || smart === "all") && (
+                <Button
+                  size="sm"
+                  variant={unreadOnly ? "primary" : "ghost"}
+                  onClick={() => setUnreadOnly((v) => !v)}
+                  title="Sadece okunmamışlar"
+                >
+                  {unreadOnly ? "okunmamış" : "hepsi"}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                disabled={!online || items.length === 0}
+                onClick={() => readAll.mutate()}
+                title="Listedekileri okundu işaretle"
+              >
+                okundu
+              </Button>
+            </div>
+            {feedId && selectedFeed?.last_fetched_at == null && (
+              <p className="mt-1.5 text-meta text-warn">
+                Bu besleme henüz çekilmedi — satırdaki ⟳ veya "Tümünü tazele" ile getir.
+              </p>
+            )}
+            <p className="mt-1 text-meta text-muted">{items.length} yazı</p>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+            {isLoading ? (
+              <p className="py-6 text-center text-meta text-muted">Yükleniyor…</p>
+            ) : items.length === 0 ? (
+              <Empty>
+                {smart === "unread" && !feedId ? "Okunacak yazı yok — hepsi yakalandı." : "Bu görünümde yazı yok."}
+              </Empty>
+            ) : (
+              <ul className="divide-y divide-subtle outline-none" onKeyDown={onListKeyDown} tabIndex={0}>
+                {items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    feed={feeds.find((x) => x.id === item.feed_id)}
+                    selected={selectedId === item.id}
+                    onOpen={() => openItem(item)}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* ── Sağ: okuma bölmesi ── */}
+        <section className="flex min-h-[520px] min-w-0 flex-col border-t border-subtle md:col-span-2 xl:col-span-1 xl:border-t-0">
+          <RssReadingPane
+            detail={detail}
+            online={online}
+            saveCollection={saveCollection}
+            onSaveCollection={setSaveCollection}
+            onToggleRead={() => {
+              if (detail?.id) markRead.mutate({ id: detail.id, read: !detail.read_at });
+            }}
+            onSave={() => {
+              if (detail?.id) save.mutate({ id: detail.id, collection: saveCollection });
+            }}
+            onOpenBookmark={() => {
+              if (detail?.saved_bookmark_id) navigate(`/bookmarks?focus=${detail.saved_bookmark_id}`);
+            }}
+            onPrev={() => step(-1)}
+            onNext={() => step(1)}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+          />
+        </section>
       </Surface>
     </PageFrame>
   );

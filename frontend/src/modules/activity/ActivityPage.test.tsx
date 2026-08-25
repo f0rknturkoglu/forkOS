@@ -36,11 +36,11 @@ const problemSource = {
 };
 
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: vi.fn((options: QueryOptions) => (
+  useQuery: vi.fn((options: QueryOptions) =>
     options.queryKey[0] === "activity"
       ? { data: activityEvents, isLoading: false }
-      : { data: [problemSource], isLoading: false }
-  )),
+      : { data: [problemSource], isLoading: false },
+  ),
 }));
 
 vi.mock("./Heatmap", () => ({

@@ -35,9 +35,7 @@ export function MediaContinueWidget() {
         <div className="flex gap-2.5 overflow-x-auto pb-1">
           {active.map((item) => {
             const pct = progressPct(item);
-            const cover = item.cover_path
-              ? `/api/media/assets/${item.cover_path}`
-              : (item.cover_url ?? null);
+            const cover = item.cover_path ? `/api/media/assets/${item.cover_path}` : (item.cover_url ?? null);
             return (
               <div key={item.id} className="w-28 shrink-0">
                 <a
@@ -51,13 +49,21 @@ export function MediaContinueWidget() {
                         <Cover url={cover} title={item.title} size="h-full w-full" />
                       </span>
                       <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                      <span className={cx("absolute left-1 top-1 rounded px-1 py-px text-micro bg-surface", identityClasses("kind-" + item.kind))}>
+                      <span
+                        className={cx(
+                          "absolute left-1 top-1 rounded px-1 py-px text-micro bg-surface",
+                          identityClasses("kind-" + item.kind),
+                        )}
+                      >
                         {statusLabel(item.kind, item.status)}
                       </span>
                       {pct !== null && (
                         <span className="absolute inset-x-1.5 bottom-1.5">
                           <span className="block h-[3px] w-full overflow-hidden rounded-full bg-white/25">
-                            <span className={cx("block h-full rounded-full", kindBg(item.kind))} style={{ width: pct + "%" }} />
+                            <span
+                              className={cx("block h-full rounded-full", kindBg(item.kind))}
+                              style={{ width: pct + "%" }}
+                            />
                           </span>
                         </span>
                       )}
