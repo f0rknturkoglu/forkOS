@@ -8,14 +8,16 @@ import { Kbd, cx, useTheme } from "./ui";
 import {
   activeNavigationGroup,
   groupTarget,
+  moduleTarget,
   navigationGroups,
 } from "./navigation";
+import { matchRoutePath } from "@/app/router";
 import type { NavigationGroup } from "./navigation";
 import type { ModuleSpec } from "./types";
 
 function ModuleTab({ module, path }: { module: ModuleSpec; path: string }) {
-  const target = module.routes[0]?.path ?? "/";
-  const active = module.routes.some((route) => route.path === path);
+  const target = moduleTarget(module);
+  const active = module.routes.some((route) => matchRoutePath(route.path, path) !== null);
 
   return (
     <a

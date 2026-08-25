@@ -29,6 +29,15 @@ const modules: ModuleSpec[] = [
       { path: "/sources", element: Page },
     ],
   },
+  {
+    id: "media",
+    title: "Medya",
+    group: "track",
+    routes: [
+      { path: "/media/:id", element: Page },
+      { path: "/media", element: Page },
+    ],
+  },
 ];
 
 describe("navigation model", () => {
@@ -44,6 +53,12 @@ describe("navigation model", () => {
 
   it("shows only the active group's modules in secondary navigation", () => {
     const active = activeNavigationGroup("/sources", groups);
-    expect(active.modules.map((module) => module.id)).toEqual(["opportunity"]);
+    expect(active.modules.map((module) => module.id)).toEqual(["opportunity", "media"]);
+  });
+
+  it("keeps a dynamic detail in its module group and targets the concrete index", () => {
+    const active = activeNavigationGroup("/media/media-1", groups);
+    expect(active.id).toBe("track");
+    expect(groupTarget(active)).toBe("/opportunities");
   });
 });

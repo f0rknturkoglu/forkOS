@@ -9,6 +9,15 @@ const modules: ModuleSpec[] = [
   { id: "today", title: "Bugün", group: "pinned", routes: [{ path: "/", element: Page }] },
   { id: "rss", title: "RSS", group: "capture", routes: [{ path: "/rss", element: Page }] },
   { id: "todo", title: "Görevler", group: "do", routes: [{ path: "/todos", element: Page }] },
+  {
+    id: "media",
+    title: "Medya",
+    group: "track",
+    routes: [
+      { path: "/media/:id", element: Page },
+      { path: "/media", element: Page },
+    ],
+  },
 ];
 
 describe("two-level app header", () => {
@@ -26,5 +35,18 @@ describe("two-level app header", () => {
     expect(html).toContain('href="#/rss"');
     expect(html).toContain("RSS");
     expect(html).toContain("araçlar");
+  });
+
+  it("marks a module active on its dynamic detail and links back to its index", () => {
+    const html = renderToStaticMarkup(
+      <NavigationRows
+        path="/media/media-1"
+        groups={navigationGroups(modules)}
+        utilities={<span />}
+      />,
+    );
+
+    expect(html).toContain('href="#/media" aria-current="page"');
+    expect(html).not.toContain('href="#/media/:id"');
   });
 });

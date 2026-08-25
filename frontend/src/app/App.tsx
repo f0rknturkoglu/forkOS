@@ -10,8 +10,13 @@ import { allRoutes, hydrateSettings } from "@/core/registry";
 import { api } from "@/core/api";
 import { Kbd, ToastProvider, applyTheme, cx, readTheme } from "@/core/ui";
 import type { AppSettings, SourceHealth } from "@/core/types";
+import type { ModuleSpec } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
-import { useHashRoute } from "./router";
+import { matchRoutePath, useHashRoute } from "./router";
+
+export function routeForPath(routes: ModuleSpec["routes"], path: string) {
+  return routes.find((route) => matchRoutePath(route.path, path) !== null);
+}
 
 function NotFound() {
   return (
@@ -95,7 +100,7 @@ export default function App() {
   useEffect(() => { applyTheme(readTheme()); }, []);
 
   const routes = allRoutes();
-  const route = routes.find((r) => r.path === path);
+  const route = routeForPath(routes, path);
   const Page = route?.element ?? (path === "/" ? routes[0]?.element : NotFound) ?? NotFound;
 
   return (
