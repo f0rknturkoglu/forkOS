@@ -23,6 +23,7 @@ type PosterItem = Pick<
 >;
 
 type PosterStats = Pick<MediaStats, "total" | "in_progress" | "completed" | "planned">;
+const QUICK_PROGRESS_STATUSES = new Set(["planned", "in_progress", "paused"]);
 
 export function MediaMetrics({ stats }: { stats?: PosterStats | null }) {
   return (
@@ -108,8 +109,10 @@ function MediaPoster({ item, online, onQuick, onTrash }: {
   const href = `#/media/${encodeURIComponent(item.id)}`;
   const provider = mediaProvider(item);
   const percent = progressPct(item);
-  const canQuick = item.status !== "completed" && item.total != null && item.total > 0
-    && (item.progress ?? 0) < item.total;
+  const progress = item.progress ?? 0;
+  const hasUsableProgress = Number.isFinite(progress);
+  const canQuick = QUICK_PROGRESS_STATUSES.has(item.status) && hasUsableProgress
+    && typeof item.total === "number" && Number.isFinite(item.total) && item.total > 0 && progress < item.total;
 
   return (
     <li data-media-poster className="min-w-0">
@@ -129,7 +132,14 @@ function MediaPoster({ item, online, onQuick, onTrash }: {
           {percent !== null && <span className="numeral text-muted">{item.progress ?? 0}/{item.total}</span>}
         </div>
         {percent !== null && (
-          <div className="mt-2 h-px overflow-hidden bg-surface-sunken" aria-label={`${item.title} ilerlemesi: yüzde ${percent}`}>
+          <div
+            role="progressbar"
+            aria-label={`${item.title} ilerlemesi`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            className="mt-2 h-px overflow-hidden bg-surface-sunken"
+          >
             <div className={cx("h-full", kindBg(item.kind))} style={{ width: `${percent}%` }} />
           </div>
         )}

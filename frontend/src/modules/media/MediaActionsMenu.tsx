@@ -9,6 +9,19 @@ type MediaActionsMenuItem = Pick<
   "id" | "title" | "kind" | "meta" | "provider" | "provider_id" | "provider_ids"
 >;
 
+type MenuPosition = { left: number; top: number; width: number };
+
+function menuPosition(rect: DOMRect, viewportWidth: number): MenuPosition {
+  const gutter = 8;
+  const width = Math.min(208, Math.max(0, viewportWidth - gutter * 2));
+  const maxLeft = Math.max(gutter, viewportWidth - width - gutter);
+  return {
+    width,
+    left: Math.min(maxLeft, Math.max(gutter, rect.right - width)),
+    top: Math.max(gutter, rect.bottom + 4),
+  };
+}
+
 export function MediaActionsMenu({
   item,
   onTrash,
@@ -19,6 +32,7 @@ export function MediaActionsMenu({
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -27,10 +41,17 @@ export function MediaActionsMenu({
     menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
   ).filter((element) => !(element instanceof HTMLButtonElement && element.disabled));
 
+  const updatePosition = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    setPosition(menuPosition(trigger.getBoundingClientRect(), window.innerWidth));
+  };
+
   useEffect(() => {
     if (!open) return;
 
     enabledMenuitems()[0]?.focus();
+    updatePosition();
 
     const closeForEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -46,9 +67,13 @@ export function MediaActionsMenu({
 
     document.addEventListener("keydown", closeForEscape);
     document.addEventListener("pointerdown", closeForOutsidePointer);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
     return () => {
       document.removeEventListener("keydown", closeForEscape);
       document.removeEventListener("pointerdown", closeForOutsidePointer);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
     };
   }, [open]);
 
@@ -84,7 +109,14 @@ export function MediaActionsMenu({
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={`${item.title} işlemleri`}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          updatePosition();
+          setOpen(true);
+        }}
         className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-secondary transition hover:border-strong hover:text-primary"
       >
         <MoreHorizontal size={16} aria-hidden="true" />
@@ -96,7 +128,8 @@ export function MediaActionsMenu({
           role="menu"
           aria-label={`${item.title} işlemleri menüsü`}
           onKeyDown={moveMenuFocus}
-          className="absolute right-0 z-20 mt-1 w-52 rounded-control border border-subtle bg-surface p-1 shadow-lg"
+          className="fixed z-20 rounded-control border border-subtle bg-surface p-1 shadow-lg"
+          style={position ? { left: position.left, top: position.top, width: position.width } : undefined}
         >
           {links.map(([name, url]) => (
             <a

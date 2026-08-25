@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MediaActionsMenu } from "./MediaActionsMenu";
@@ -88,5 +88,25 @@ describe("MediaActionsMenu", () => {
     expect(trash.disabled).toBe(true);
     fireEvent.keyDown(document.activeElement!, { key: "End" });
     expect(document.activeElement).toBe(within(menu).getByRole("menuitem", { name: /^Rotten Tomatoes/ }));
+  });
+
+  it("keeps a first-column menu inside a narrow viewport", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+    const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      x: 2, y: 24, top: 24, left: 2, right: 34, bottom: 56, width: 32, height: 32,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.click(trigger);
+    const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
+    await waitFor(() => expect(menu.className).toContain("fixed"));
+    const left = Number.parseFloat(menu.style.left);
+    const width = Number.parseFloat(menu.style.width);
+    expect(left).toBeGreaterThanOrEqual(8);
+    expect(left + width).toBeLessThanOrEqual(375 - 8);
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
   });
 });
