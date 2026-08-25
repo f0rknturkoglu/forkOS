@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { ApiError, api } from "@/core/api";
 import { Button, Input, RowList, cx } from "@/core/ui";
 import { useDebounced } from "@/lib/hooks";
 import type { GlobalMetadataSearch, MediaItem, MediaPage, MetadataResult } from "@/core/types";
-import { Cover, KIND_LABELS, kindChip, mediaCoverUrl, providerChip } from "./shared";
+import { Cover, KIND_LABELS, KINDS, kindChip, mediaCoverUrl, providerChip } from "./shared";
+
+type DuplicateState = { href: string; term: string; identity: string };
+type AddRequest = { hit: MetadataResult; term: string };
 
 export function providerCreateBody(hit: MetadataResult): Record<string, unknown> {
   return {
@@ -58,8 +61,13 @@ function ResultRow({ hit, action }: { hit: MetadataResult; action?: React.ReactN
 export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAdded: () => void }) {
   const client = useQueryClient();
   const [search, setSearch] = useState("");
-  const [duplicateHref, setDuplicateHref] = useState<string | null>(null);
+  const searchRef = useRef(search);
+  searchRef.current = search;
+  const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
   const term = useDebounced(search.trim(), 250);
+  const termRef = useRef(term);
+  termRef.current = term;
   const enabled = term.length >= 2;
   const encodedTerm = encodeURIComponent(term);
 
@@ -75,32 +83,40 @@ export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAd
   });
 
   const add = useMutation({
-    mutationFn: (hit: MetadataResult) => api.post<MediaItem>("/media", providerCreateBody(hit)),
+    mutationFn: ({ hit }: AddRequest) => api.post<MediaItem>("/media", providerCreateBody(hit)),
+    onMutate: () => setAddError(null),
     onSuccess: () => {
-      setDuplicateHref(null);
+      setDuplicate(null);
       client.invalidateQueries({ queryKey: ["media"] });
       onAdded();
     },
-    onError: (error: Error, hit) => {
-      if (!(error instanceof ApiError) || error.status !== 409) return;
+    onError: (error: Error, { hit, term: initiatedTerm }: AddRequest) => {
+      if (!(error instanceof ApiError) || error.status !== 409) {
+        setAddError("Eklenemedi. Lütfen tekrar deneyin.");
+        return;
+      }
+      if (searchRef.current.trim() !== initiatedTerm || termRef.current !== initiatedTerm) return;
       const id = existingId(error);
-      setDuplicateHref(id
-        ? `#/media/${encodeURIComponent(id)}`
-        : `#/media?focus=${encodeURIComponent(hit.title)}`);
+      setDuplicate({
+        term: initiatedTerm,
+        identity: `${hit.kind}:${hit.provider}:${hit.provider_id}`,
+        href: id ? `#/media/${encodeURIComponent(id)}` : `#/media?focus=${encodeURIComponent(hit.title)}`,
+      });
     },
   });
 
   const libraryItems = library.data?.items ?? [];
   const hits = catalog.data?.results ?? [];
   const warnings = catalog.data?.warnings ?? [];
-  const allProvidersUnavailable = warnings.length > 0 && hits.length === 0;
+  const allProvidersUnavailable = hits.length === 0 && KINDS.every((kind) => warnings.some((warning) => warning.kind === kind));
+  const duplicateVisible = duplicate && duplicate.term === term && duplicate.term === search.trim();
 
   return (
     <div className="space-y-3">
       <div className="mx-auto max-w-xl">
         <Input
           value={search}
-          onChange={(value) => { setSearch(value); setDuplicateHref(null); }}
+          onChange={(value) => { searchRef.current = value; setSearch(value); setDuplicate(null); setAddError(null); }}
           placeholder="Film, dizi, kitap, müzik…"
           ariaLabel="Tüm medyada ara"
           type="search"
@@ -110,16 +126,19 @@ export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAd
 
       {enabled && (
         <div className="space-y-4">
+          {(library.isFetching || catalog.isFetching) && <p role="status" aria-live="polite" className="text-meta text-muted">Aranıyor…</p>}
           {warnings.length > 0 && (
-            <p className="text-meta text-muted">
+            <p role="status" aria-live="polite" className="text-meta text-muted">
               {warnings.map((warning) => warning.message).join(" · ")}
               {allProvidersUnavailable && <> <a href="#/settings?section=media-links" className="text-accent hover:underline">Medya bağlantılarını aç</a></>}
             </p>
           )}
 
+          {addError && <p role="alert" className="text-meta text-danger">{addError}</p>}
+
           <section aria-labelledby="media-library-results">
             <h2 id="media-library-results" className="label-caps text-secondary">Kütüphanende</h2>
-            {library.isFetching ? <p className="mt-2 text-meta text-muted">Aranıyor…</p> : (
+            {library.isError ? <p role="alert" className="mt-2 text-meta text-danger">Kütüphane sonuçları yüklenemedi.</p> : library.isFetching ? <p className="mt-2 text-meta text-muted">Aranıyor…</p> : (
               <RowList as="ul" className="mt-1">
                 {libraryItems.map((item) => (
                   <li key={item.id} className="flex items-center gap-3 py-2">
@@ -138,18 +157,18 @@ export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAd
 
           <section aria-labelledby="media-catalog-results">
             <h2 id="media-catalog-results" className="label-caps text-secondary">Katalog sonuçları</h2>
-            {catalog.isFetching ? <p className="mt-2 text-meta text-muted">Aranıyor…</p> : (
+            {catalog.isError ? <p role="alert" className="mt-2 text-meta text-danger">Katalog sonuçları yüklenemedi.</p> : catalog.isFetching ? <p className="mt-2 text-meta text-muted">Aranıyor…</p> : (
               <RowList as="ul" className="mt-1">
                 {hits.map((hit) => (
                   <ResultRow
-                    key={`${hit.provider}:${hit.provider_id}`}
+                    key={`${hit.kind}:${hit.provider}:${hit.provider_id}`}
                     hit={hit}
                     action={(
                       <Button
                         size="sm"
                         variant="primary"
                         disabled={!online || add.isPending}
-                        onClick={() => add.mutate(hit)}
+                        onClick={() => add.mutate({ hit, term })}
                       >
                         <Plus size={13} /> {hit.title} kütüphaneye ekle
                       </Button>
@@ -160,7 +179,11 @@ export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAd
             )}
           </section>
 
-          {duplicateHref && <a href={duplicateHref} className="text-meta text-accent hover:underline">Kütüphanede aç</a>}
+          {duplicateVisible && (
+            <p role="status" aria-live="polite" className="text-meta text-muted">
+              Bu kayıt zaten kütüphanende. <a href={duplicate.href} className="text-accent hover:underline">Kütüphanede aç</a>
+            </p>
+          )}
         </div>
       )}
     </div>
