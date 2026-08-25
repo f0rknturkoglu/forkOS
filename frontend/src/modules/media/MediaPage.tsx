@@ -52,6 +52,7 @@ export function MediaPage() {
   const invalidate = useInvalidate();
   const [kind, setKind] = useState("");
   const [status, setStatus] = useState("");
+  const [searchActive, setSearchActive] = useState(false);
 
   useEffect(() => {
     if (focusId) navigate(`/media/${encodeURIComponent(focusId)}`, { replace: true });
@@ -113,34 +114,38 @@ export function MediaPage() {
         )}
       </div>
 
-      <MediaSearchComposer online={online} onAdded={refresh} />
+      <MediaSearchComposer online={online} onAdded={refresh} onActiveChange={setSearchActive} />
 
-      <MediaLibraryControls
-        kind={kind}
-        status={status}
-        onKindChange={setKind}
-        onStatusChange={setStatus}
-      />
+      {!searchActive && (
+        <>
+          <MediaLibraryControls
+            kind={kind}
+            status={status}
+            onKindChange={setKind}
+            onStatusChange={setStatus}
+          />
 
-      {library.isLoading ? (
-        <MediaPosterGridSkeleton />
-      ) : library.isError ? (
-        <Empty variant="page" action={<Button size="sm" disabled={library.isFetching} onClick={() => { void library.refetch(); }}>Kütüphaneyi yeniden dene</Button>}>
-          Kütüphane yüklenemedi: {library.error.message}
-        </Empty>
-      ) : items.length === 0 ? (
-        <Empty>Kütüphanen boş — yukarıdan tüm medyada arayarak ilk kaydını ekleyebilirsin.</Empty>
-      ) : (
-        <MediaPosterGrid
-          items={items}
-          online={online}
-          onQuick={(item) => quick.mutate(item)}
-          onTrash={(item) => { void confirmTrash(item); }}
-        />
+          {library.isLoading ? (
+            <MediaPosterGridSkeleton />
+          ) : library.isError ? (
+            <Empty variant="page" action={<Button size="sm" disabled={library.isFetching} onClick={() => { void library.refetch(); }}>Kütüphaneyi yeniden dene</Button>}>
+              Kütüphane yüklenemedi: {library.error.message}
+            </Empty>
+          ) : items.length === 0 ? (
+            <Empty>Kütüphanen boş — yukarıdan tüm medyada arayarak ilk kaydını ekleyebilirsin.</Empty>
+          ) : (
+            <MediaPosterGrid
+              items={items}
+              online={online}
+              onQuick={(item) => quick.mutate(item)}
+              onTrash={(item) => { void confirmTrash(item); }}
+            />
+          )}
+
+          {quick.error && <p role="alert" className="text-meta text-danger">İlerleme kaydedilemedi: {quick.error.message}</p>}
+          {trash.error && <p role="alert" className="text-meta text-danger">Kayıt çöpe taşınamadı: {trash.error.message}</p>}
+        </>
       )}
-
-      {quick.error && <p role="alert" className="text-meta text-danger">İlerleme kaydedilemedi: {quick.error.message}</p>}
-      {trash.error && <p role="alert" className="text-meta text-danger">Kayıt çöpe taşınamadı: {trash.error.message}</p>}
 
       <MediaSyncSummary online={online} />
     </PageFrame>

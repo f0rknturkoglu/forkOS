@@ -23,15 +23,17 @@ const item = {
 
 type FetchCall = { body: Record<string, unknown>; method: string; path: string };
 
-function renderActions(online = true) {
+function renderActions(online = true, mediaItem: MediaItem = item) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const invalidate = vi.spyOn(client, "invalidateQueries").mockResolvedValue(undefined);
+  const view = render(
     <QueryClientProvider client={client}>
-      <MediaProgressActions item={item} online={online} onChanged={() => undefined} />
+      <MediaProgressActions item={mediaItem} online={online} onChanged={() => undefined} />
     </QueryClientProvider>,
   );
+  return { ...view, invalidate };
 }
 
 describe("append-only media progress", () => {
@@ -122,6 +124,45 @@ describe("append-only media progress", () => {
     expect((screen.getByRole("button", { name: "Sonraki bölüm" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "İlerlemeyi ayarla" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("requires an explicit retryable cycle start after completion and refreshes every read model", async () => {
+    const completed = { ...item, status: "completed", progress: 8 } as MediaItem;
+    let attempts = 0;
+    responder = () => {
+      attempts += 1;
+      return attempts === 1
+        ? new Response("cycle rejected", { status: 500 })
+        : new Response(JSON.stringify({ id: "cycle-2" }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+    };
+    const user = userEvent.setup();
+    const { invalidate } = renderActions(true, completed);
+
+    expect(screen.queryByRole("button", { name: "Sonraki bölüm" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "İlerlemeyi ayarla" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tamamlandı olarak işaretle" })).toBeNull();
+    const start = screen.getByRole("button", { name: "Yeni tur başlat" });
+
+    await user.click(start);
+    expect((await screen.findByRole("alert")).textContent).toContain("cycle rejected");
+    expect(calls).toEqual([{ body: {}, method: "POST", path: "/api/media/media%2Fone/cycles" }]);
+
+    await user.click(start);
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(invalidate.mock.calls.map(([filters]) => (filters as { queryKey: string[] }).queryKey)).toEqual(
+      MEDIA_PROGRESS_REFRESH_KEYS.map((key) => [key]),
+    );
+  });
+
+  it("keeps the explicit new-cycle write disabled offline", () => {
+    const completed = { ...item, status: "completed", progress: 8 } as MediaItem;
+    renderActions(false, completed);
+
+    expect((screen.getByRole("button", { name: "Yeni tur başlat" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Sonraki bölüm" })).toBeNull();
   });
 
   it("lays out the exact progress form without narrow-screen overflow", async () => {

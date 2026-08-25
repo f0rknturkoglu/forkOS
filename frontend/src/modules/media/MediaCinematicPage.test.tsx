@@ -120,14 +120,21 @@ describe("cinematic MediaPage", () => {
 
   it("shows library matches before catalog matches in the global composer", async () => {
     const user = userEvent.setup();
-    renderPage();
-    await user.type(screen.getByRole("searchbox", { name: "Tüm medyada ara" }), "dune");
+    const { container } = renderPage();
+    const search = screen.getByRole("searchbox", { name: "Tüm medyada ara" });
+    await user.type(search, "dune");
 
     const libraryHeading = await screen.findByRole("heading", { name: "Kütüphanende" });
     const catalogHeading = screen.getByRole("heading", { name: "Katalog sonuçları" });
     expect(libraryHeading.compareDocumentPosition(catalogHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(await screen.findByRole("heading", { level: 3, name: "Dune" })).toBeTruthy();
     expect(await screen.findByRole("heading", { level: 3, name: "Dune: Part One" })).toBeTruthy();
+    expect(container.querySelector("[data-media-library-controls]")).toBeNull();
+    expect(container.querySelector("[data-media-grid]")).toBeNull();
+
+    await user.clear(search);
+    await waitFor(() => expect(container.querySelector("[data-media-library-controls]")).toBeTruthy());
+    expect(container.querySelector("[data-media-grid]")).toBeTruthy();
   });
 
   it("posts append-only quick progress with a fresh UUID and invalidates all six families", async () => {

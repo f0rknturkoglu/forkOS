@@ -5,7 +5,16 @@ import { ApiError, api } from "@/core/api";
 import { Button, Input, RowList, cx } from "@/core/ui";
 import { useDebounced } from "@/lib/hooks";
 import type { GlobalMetadataSearch, MediaItem, MediaPage, MetadataResult } from "@/core/types";
-import { Cover, KIND_LABELS, KINDS, kindChip, mediaCoverUrl, providerChip } from "./shared";
+import {
+  Cover,
+  KIND_LABELS,
+  KINDS,
+  kindChip,
+  mediaCoverUrl,
+  mediaProvider,
+  providerChip,
+  providerLabel,
+} from "./shared";
 
 type DuplicateState = { href: string; term: string; identity: string };
 type AddRequest = { hit: MetadataResult; term: string };
@@ -49,7 +58,7 @@ function ResultRow({ hit, action }: { hit: MetadataResult; action?: React.ReactN
         <h3 className="truncate text-body font-medium text-primary">{hit.title}</h3>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta text-muted">
           <span className={cx("rounded border px-1.5 py-0.5", kindChip(hit.kind))}>{KIND_LABELS[hit.kind] ?? hit.kind}</span>
-          <span className={cx("rounded border px-1.5 py-0.5", providerChip(hit.provider))}>{hit.provider}</span>
+          <span className={cx("rounded border px-1.5 py-0.5", providerChip(hit.provider))}>{providerLabel(hit.provider)}</span>
           {(hit.subtitle || hit.year) && <span>{hit.subtitle ?? ""}{hit.year ? ` · ${hit.year}` : ""}</span>}
         </div>
       </div>
@@ -58,7 +67,15 @@ function ResultRow({ hit, action }: { hit: MetadataResult; action?: React.ReactN
   );
 }
 
-export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAdded: () => void }) {
+export function MediaSearchComposer({
+  online,
+  onAdded,
+  onActiveChange,
+}: {
+  online: boolean;
+  onAdded: () => void;
+  onActiveChange?: (active: boolean) => void;
+}) {
   const client = useQueryClient();
   const [search, setSearch] = useState("");
   const searchRef = useRef(search);
@@ -116,7 +133,13 @@ export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAd
       <div className="mx-auto max-w-xl">
         <Input
           value={search}
-          onChange={(value) => { searchRef.current = value; setSearch(value); setDuplicate(null); setAddError(null); }}
+          onChange={(value) => {
+            searchRef.current = value;
+            setSearch(value);
+            setDuplicate(null);
+            setAddError(null);
+            onActiveChange?.(value.trim().length >= 2);
+          }}
           placeholder="Film, dizi, kitap, müzik…"
           ariaLabel="Tüm medyada ara"
           type="search"
@@ -143,12 +166,26 @@ export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAd
                 {libraryItems.map((item) => (
                   <li key={item.id} className="flex items-center gap-3 py-2">
                     <Cover url={mediaCoverUrl(item)} title={item.title} size="h-16 w-11" />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h3 className="truncate text-body font-medium text-primary">{item.title}</h3>
-                      <span className={cx("mt-1 inline-block rounded border px-1.5 py-0.5 text-meta", kindChip(item.kind))}>
-                        {KIND_LABELS[item.kind] ?? item.kind}
-                      </span>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
+                        <span className={cx("rounded border px-1.5 py-0.5", kindChip(item.kind))}>
+                          {KIND_LABELS[item.kind] ?? item.kind}
+                        </span>
+                        {mediaProvider(item) && (
+                          <span className={cx("rounded border px-1.5 py-0.5", providerChip(mediaProvider(item)))}>
+                            {providerLabel(mediaProvider(item))}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <a
+                      href={`#/media/${encodeURIComponent(item.id)}`}
+                      aria-label={`${item.title} detayını aç`}
+                      className="shrink-0 text-meta font-medium text-accent hover:underline focus:outline-none focus:underline"
+                    >
+                      Aç
+                    </a>
                   </li>
                 ))}
               </RowList>

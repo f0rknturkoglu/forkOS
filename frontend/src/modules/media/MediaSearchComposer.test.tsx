@@ -100,7 +100,9 @@ describe("MediaSearchComposer", () => {
     expect(screen.getByRole("heading", { name: "Katalog sonuçları" })).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent)).toEqual(["Dune: Prophecy", "Dune"]);
     expect(screen.getByText("Film")).toBeTruthy();
-    expect(screen.getByText("tmdb")).toBeTruthy();
+    expect(screen.getAllByText("TMDB")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Dune: Prophecy detayını aç" }).getAttribute("href"))
+      .toBe("#/media/media-prophecy");
 
     fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
     await act(async () => {});

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Check, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { api } from "@/core/api";
 import type { MediaItem } from "@/core/types";
 import type { components } from "@/generated/api-schema";
@@ -77,6 +77,34 @@ export function MediaProgressActions({
       onChanged();
     },
   });
+  const cycle = useMutation({
+    mutationFn: () => api.post(`/media/${encodeURIComponent(item.id)}/cycles`, {}),
+    onSuccess: () => {
+      invalidate(...MEDIA_PROGRESS_REFRESH_KEYS);
+      onChanged();
+    },
+  });
+
+  if (item.status === "completed") {
+    return (
+      <div className={cx("flex min-w-0 flex-wrap items-center gap-2", compact && "gap-1.5")}>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={!online || cycle.isPending}
+          onClick={() => cycle.mutate()}
+        >
+          <RotateCcw size={14} aria-hidden="true" /> Yeni tur başlat
+        </Button>
+        {cycle.error && (
+          <p role="alert" className="basis-full text-meta text-danger">
+            Yeni tur başlatılamadı: {cycle.error.message}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   const disabled = !online || mutation.isPending;
 
   return (
