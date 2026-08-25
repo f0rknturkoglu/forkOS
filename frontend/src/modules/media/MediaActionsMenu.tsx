@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import type { MediaItem } from "@/core/types";
 import { cx } from "@/core/ui";
@@ -11,14 +11,14 @@ type MediaActionsMenuItem = Pick<
 
 type MenuPosition = { left: number; top: number; width: number; maxHeight?: number };
 
-function menuPosition(triggerRect: DOMRect, menuRect: DOMRect, viewportWidth: number, viewportHeight: number): MenuPosition {
+function menuPosition(triggerRect: DOMRect, menuHeight: number, viewportWidth: number, viewportHeight: number): MenuPosition {
   const gutter = 8;
   const gap = 4;
   const width = Math.min(208, Math.max(0, viewportWidth - gutter * 2));
   const maxLeft = Math.max(gutter, viewportWidth - width - gutter);
   const belowTop = triggerRect.bottom + gap;
-  const aboveTop = triggerRect.top - gap - menuRect.height;
-  const belowFits = belowTop + menuRect.height <= viewportHeight - gutter;
+  const aboveTop = triggerRect.top - gap - menuHeight;
+  const belowFits = belowTop + menuHeight <= viewportHeight - gutter;
   const aboveFits = aboveTop >= gutter;
   const top = belowFits ? belowTop : aboveFits ? aboveTop : gutter;
   return {
@@ -54,13 +54,13 @@ export function MediaActionsMenu({
     if (!trigger || !menu) return;
     setPosition(menuPosition(
       trigger.getBoundingClientRect(),
-      menu.getBoundingClientRect(),
+      menu.scrollHeight,
       window.innerWidth,
       window.innerHeight,
     ));
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
 
     enabledMenuitems()[0]?.focus();

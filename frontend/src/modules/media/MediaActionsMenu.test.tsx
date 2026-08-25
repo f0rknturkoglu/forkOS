@@ -113,6 +113,9 @@ describe("MediaActionsMenu", () => {
   it("flips above a bottom-edge trigger when the menu fits there", async () => {
     const originalHeight = window.innerHeight;
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
+    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("role") === "menu" ? 220 : 0;
+    });
     const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
       if (this.getAttribute("role") === "menu") {
         return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: 220, width: 208, height: 220, toJSON: () => ({}) };
@@ -128,6 +131,7 @@ describe("MediaActionsMenu", () => {
       expect(Number.parseFloat(menu.style.top) + 220).toBeLessThanOrEqual(598 - 4);
     } finally {
       rect.mockRestore();
+      naturalHeight.mockRestore();
       Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
     }
   });
@@ -135,6 +139,9 @@ describe("MediaActionsMenu", () => {
   it("constrains an oversized menu to the viewport gutter", async () => {
     const originalHeight = window.innerHeight;
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
+    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("role") === "menu" ? 800 : 0;
+    });
     const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
       if (this.getAttribute("role") === "menu") {
         return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: 800, width: 208, height: 800, toJSON: () => ({}) };
@@ -150,6 +157,38 @@ describe("MediaActionsMenu", () => {
       expect(menu.style.overflowY).toBe("auto");
     } finally {
       rect.mockRestore();
+      naturalHeight.mockRestore();
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+    }
+  });
+
+  it("keeps an oversized menu constrained after a viewport resize", async () => {
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
+    const naturalHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("role") === "menu" ? 800 : 0;
+    });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute("role") === "menu") {
+        const height = Number.parseFloat(this.style.maxHeight) || 800;
+        return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: height, width: 208, height, toJSON: () => ({}) };
+      }
+      return { x: 16, y: 200, top: 200, left: 16, right: 48, bottom: 232, width: 32, height: 32, toJSON: () => ({}) };
+    });
+    try {
+      render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+      fireEvent.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+      const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
+      await waitFor(() => expect(menu.style.maxHeight).toBe("624px"));
+
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: 900 });
+      fireEvent(window, new Event("resize"));
+      await waitFor(() => expect(menu.style.maxHeight).toBe("884px"));
+      expect(menu.style.top).toBe("8px");
+      expect(menu.style.overflowY).toBe("auto");
+    } finally {
+      rect.mockRestore();
+      naturalHeight.mockRestore();
       Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
     }
   });
