@@ -11,13 +11,12 @@ import {
   moduleTarget,
   navigationGroups,
 } from "./navigation";
-import { matchRoutePath } from "@/app/router";
+import { findRouteMatch } from "@/app/router";
 import type { NavigationGroup } from "./navigation";
 import type { ModuleSpec } from "./types";
 
-function ModuleTab({ module, path }: { module: ModuleSpec; path: string }) {
+function ModuleTab({ module, active }: { module: ModuleSpec; active: boolean }) {
   const target = moduleTarget(module);
-  const active = module.routes.some((route) => matchRoutePath(route.path, path) !== null);
 
   return (
     <a
@@ -45,6 +44,12 @@ export function NavigationRows({
   utilities: ReactNode;
 }) {
   const activeGroup = activeNavigationGroup(path, groups);
+  const activeModule = findRouteMatch(
+    activeGroup.modules.flatMap((module) =>
+      module.routes.map((route) => ({ path: route.path, module })),
+    ),
+    path,
+  )?.module;
 
   return (
     <header className="shrink-0 border-b border-subtle bg-canvas/95 backdrop-blur">
@@ -80,7 +85,7 @@ export function NavigationRows({
       <nav aria-label="Modüller" className="border-t border-subtle/70">
         <div className="mx-auto flex h-9 w-full max-w-[1600px] items-center gap-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-5 lg:px-6">
           {activeGroup.modules.map((module) => (
-            <ModuleTab key={module.id} module={module} path={path} />
+            <ModuleTab key={module.id} module={module} active={activeModule?.id === module.id} />
           ))}
         </div>
       </nav>

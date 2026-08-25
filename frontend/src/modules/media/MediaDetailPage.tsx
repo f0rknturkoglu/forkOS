@@ -115,6 +115,11 @@ function MetadataEditor({ item, online, onChanged }: {
         <Button type="submit" size="sm" variant="primary" disabled={disabled}>Puan ve notu kaydet</Button>
         <Button size="sm" disabled={mutation.isPending} onClick={() => setEditing(false)}>Vazgeç</Button>
       </div>
+      {mutation.error && (
+        <p role="alert" className="text-meta text-danger">
+          Puan ve notlar kaydedilemedi: {mutation.error.message}
+        </p>
+      )}
     </form>
   );
 }
@@ -124,7 +129,7 @@ export function MediaDetailPage() {
   const itemId = route.params.get("id");
   const online = useOnline();
   const invalidate = useInvalidate();
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["media-detail", itemId],
     queryFn: () => api.get<MediaDetail>(`/media/${encodeURIComponent(itemId ?? "")}`),
     enabled: Boolean(itemId),
@@ -145,7 +150,14 @@ export function MediaDetailPage() {
     return <PageFrame><p role="status" className="text-body text-muted">Medya yükleniyor…</p></PageFrame>;
   }
   if (error || !data) {
-    return <PageFrame><p role="alert" className="text-body text-danger">Medya detayı yüklenemedi.</p></PageFrame>;
+    return (
+      <PageFrame>
+        <div role="alert" className="space-y-3 text-body text-danger">
+          <p>Medya detayı yüklenemedi: {error?.message}</p>
+          <Button disabled={isFetching} onClick={() => { void refetch(); }}>Yeniden dene</Button>
+        </div>
+      </PageFrame>
+    );
   }
 
   const item = data.item;

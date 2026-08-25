@@ -49,4 +49,18 @@ describe("two-level app header", () => {
     expect(html).toContain('href="#/media" aria-current="page"');
     expect(html).not.toContain('href="#/media/:id"');
   });
+
+  it("highlights the exact static module instead of an earlier dynamic module", () => {
+    const competing: ModuleSpec[] = [
+      modules[0],
+      { id: "dynamic", title: "Dinamik", group: "capture", routes: [{ path: "/media/:id", element: Page }] },
+      { id: "stats", title: "İstatistik", group: "system", routes: [{ path: "/media/stats", element: Page }] },
+    ];
+    const html = renderToStaticMarkup(
+      <NavigationRows path="/media/stats" groups={navigationGroups(competing)} utilities={<span />} />,
+    );
+
+    expect(html).toContain('href="#/media/stats" aria-current="page"');
+    expect(html).not.toContain('href="#/media/:id" aria-current="page"');
+  });
 });

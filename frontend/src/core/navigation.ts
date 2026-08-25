@@ -1,6 +1,6 @@
 import { MODULE_GROUPS } from "./types";
 import type { ModuleGroup, ModuleSpec } from "./types";
-import { matchRoutePath } from "@/app/router";
+import { findRouteMatch } from "@/app/router";
 
 export interface NavigationGroup {
   id: ModuleGroup;
@@ -22,11 +22,12 @@ export function activeNavigationGroup(
   path: string,
   groups: NavigationGroup[],
 ): NavigationGroup {
-  return groups.find((group) =>
-    group.modules.some((module) =>
-      module.routes.some((route) => matchRoutePath(route.path, path) !== null),
+  const candidates = groups.flatMap((group) =>
+    group.modules.flatMap((module) =>
+      module.routes.map((route) => ({ path: route.path, group })),
     ),
-  ) ?? groups[0];
+  );
+  return findRouteMatch(candidates, path)?.group ?? groups[0];
 }
 
 /** Navigation never targets a path pattern when the module has a concrete page. */

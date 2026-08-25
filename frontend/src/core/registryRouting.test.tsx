@@ -13,6 +13,12 @@ registerModule({
     { path: "/route-test", element: Page },
   ],
 });
+registerModule({
+  id: "static-routing-test",
+  title: "İstatistikler",
+  group: "system",
+  routes: [{ path: "/route-test/stats", element: Page, title: "Statik istatistik" }],
+});
 
 beforeAll(() => {
   Object.defineProperty(globalThis, "localStorage", {
@@ -26,5 +32,10 @@ describe("registry dynamic routing", () => {
     expect(moduleForPath("/route-test/media-1")?.id).toBe("dynamic-routing-test");
     expect(titleForPath("/route-test/media-1")).toBe("Medya detayı");
     expect(moduleForPath("/route-test")?.id).toBe("dynamic-routing-test");
+  });
+
+  it("prefers a later exact static route for ownership and title", () => {
+    expect(moduleForPath("/route-test/stats")?.id).toBe("static-routing-test");
+    expect(titleForPath("/route-test/stats")).toBe("Statik istatistik");
   });
 });

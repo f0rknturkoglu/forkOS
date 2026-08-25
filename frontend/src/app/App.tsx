@@ -12,10 +12,10 @@ import { Kbd, ToastProvider, applyTheme, cx, readTheme } from "@/core/ui";
 import type { AppSettings, SourceHealth } from "@/core/types";
 import type { ModuleSpec } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
-import { matchRoutePath, useHashRoute } from "./router";
+import { findRouteMatch, useHashRoute } from "./router";
 
 export function routeForPath(routes: ModuleSpec["routes"], path: string) {
-  return routes.find((route) => matchRoutePath(route.path, path) !== null);
+  return findRouteMatch(routes, path);
 }
 
 function NotFound() {

@@ -59,9 +59,14 @@ function renderPage(path = "#/media/media-1") {
 
 describe("media detail page", () => {
   let calls: FetchCall[];
+  let responder: (path: string, method: string) => Response | Promise<Response>;
 
   beforeEach(() => {
     calls = [];
+    responder = (_path, method) => new Response(JSON.stringify(method === "GET" ? detail : item), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() },
@@ -75,10 +80,7 @@ describe("media detail page", () => {
         method,
         path,
       });
-      return new Response(JSON.stringify(method === "GET" ? detail : item), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      return responder(path, method);
     }));
   });
 
@@ -156,5 +158,60 @@ describe("media detail page", () => {
 
     view.unmount();
     expect(document.title).toBe("forkOS");
+  });
+
+  it("retries a terminal detail GET failure", async () => {
+    let gets = 0;
+    responder = (_path, method) => {
+      if (method !== "GET") return new Response(JSON.stringify(item), { status: 200 });
+      gets += 1;
+      return gets === 1
+        ? new Response("detail unavailable", { status: 500 })
+        : new Response(JSON.stringify(detail), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const user = userEvent.setup();
+    renderPage();
+
+    expect((await screen.findByRole("alert")).textContent).toContain("detail unavailable");
+    await user.click(screen.getByRole("button", { name: "Yeniden dene" }));
+    expect(await screen.findByRole("heading", { name: "Dune: Prophecy" })).toBeTruthy();
+    expect(gets).toBe(2);
+  });
+
+  it("blocks duplicate pending PATCHes and preserves metadata after rejection for retry", async () => {
+    let patchCount = 0;
+    let rejectPatch!: (response: Response) => void;
+    responder = (_path, method) => {
+      if (method === "GET") {
+        return new Response(JSON.stringify(detail), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      patchCount += 1;
+      if (patchCount === 1) return new Promise<Response>((resolve) => { rejectPatch = resolve; });
+      return new Response(JSON.stringify(item), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("heading", { name: "Dune: Prophecy" });
+    await user.click(screen.getByRole("button", { name: "Puan ve notu düzenle" }));
+    const score = screen.getByRole("spinbutton", { name: "Puan" }) as HTMLInputElement;
+    const notes = screen.getByRole("textbox", { name: "Notlar" }) as HTMLTextAreaElement;
+    await user.clear(score);
+    await user.type(score, "9");
+    await user.clear(notes);
+    await user.type(notes, "Retry notu");
+    const submit = screen.getByRole("button", { name: "Puan ve notu kaydet" }) as HTMLButtonElement;
+    fireEvent.click(submit);
+    await waitFor(() => expect(patchCount).toBe(1));
+    expect(submit.disabled).toBe(true);
+    fireEvent.click(submit);
+    expect(patchCount).toBe(1);
+
+    rejectPatch(new Response("metadata rejected", { status: 500 }));
+    expect((await screen.findByRole("alert")).textContent).toContain("metadata rejected");
+    expect(score.value).toBe("9");
+    expect(notes.value).toBe("Retry notu");
+
+    await user.click(submit);
+    await waitFor(() => expect(patchCount).toBe(2));
   });
 });

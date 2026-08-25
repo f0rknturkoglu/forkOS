@@ -33,9 +33,20 @@ export function matchRoutePath(pattern: string, path: string): URLSearchParams |
   return params;
 }
 
+/** Static equality wins globally; dynamic patterns retain declaration order as fallback. */
+export function findRouteMatch<T extends { path: string }>(
+  routes: readonly T[],
+  path: string,
+): T | undefined {
+  return routes.find((route) => route.path === path)
+    ?? routes.find((route) => matchRoutePath(route.path, path) !== null);
+}
+
 function read(pattern?: string): Route {
   const raw = location.hash.replace(/^#/, "") || "/";
-  const [path, query = ""] = raw.split("?");
+  const queryIndex = raw.indexOf("?");
+  const path = queryIndex === -1 ? raw : raw.slice(0, queryIndex);
+  const query = queryIndex === -1 ? "" : raw.slice(queryIndex + 1);
   const resolvedPath = path || "/";
   const params = new URLSearchParams(query);
   if (pattern) {

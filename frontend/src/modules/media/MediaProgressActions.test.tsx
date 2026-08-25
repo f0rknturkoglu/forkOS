@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MediaItem } from "@/core/types";
@@ -36,9 +36,14 @@ function renderActions(online = true) {
 
 describe("append-only media progress", () => {
   let calls: FetchCall[];
+  let responder: () => Response | Promise<Response>;
 
   beforeEach(() => {
     calls = [];
+    responder = () => new Response(JSON.stringify({ id: "consumption-1" }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    });
     let uuid = 0;
     vi.spyOn(globalThis.crypto, "randomUUID").mockImplementation(
       () => `00000000-0000-4000-8000-${String(++uuid).padStart(12, "0")}` as `${string}-${string}-${string}-${string}-${string}`,
@@ -49,10 +54,7 @@ describe("append-only media progress", () => {
         method: init?.method ?? "GET",
         path: new URL(String(input), "http://localhost").pathname,
       });
-      return new Response(JSON.stringify({ id: "consumption-1" }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
-      });
+      return responder();
     }));
   });
 
@@ -120,5 +122,48 @@ describe("append-only media progress", () => {
     expect((screen.getByRole("button", { name: "Sonraki bölüm" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "İlerlemeyi ayarla" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("lays out the exact progress form without narrow-screen overflow", async () => {
+    const user = userEvent.setup();
+    renderActions();
+    await user.click(screen.getByRole("button", { name: "İlerlemeyi ayarla" }));
+
+    const form = screen.getByRole("form", { name: "Kesin ilerleme" });
+    expect(form.className).toContain("grid");
+    expect(form.className).toContain("min-w-0");
+    expect(screen.getByRole("spinbutton", { name: "İlerleme değeri" }).className).toContain("w-full");
+    const submit = screen.getByRole("button", { name: "İlerlemeyi kaydet" });
+    expect(submit.className).toContain("w-full");
+    expect(submit.className).toContain("sm:w-auto");
+  });
+
+  it("blocks duplicate pending POSTs and preserves set input after rejection for retry", async () => {
+    const user = userEvent.setup();
+    let settle!: (response: Response) => void;
+    responder = () => new Promise<Response>((resolve) => { settle = resolve; });
+    renderActions();
+
+    await user.click(screen.getByRole("button", { name: "İlerlemeyi ayarla" }));
+    const progress = screen.getByRole("spinbutton", { name: "İlerleme değeri" }) as HTMLInputElement;
+    await user.clear(progress);
+    await user.type(progress, "5");
+    const submit = screen.getByRole("button", { name: "İlerlemeyi kaydet" }) as HTMLButtonElement;
+    fireEvent.click(submit);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(submit.disabled).toBe(true);
+    fireEvent.click(submit);
+    expect(calls).toHaveLength(1);
+
+    settle(new Response("progress rejected", { status: 500 }));
+    expect((await screen.findByRole("alert")).textContent).toContain("progress rejected");
+    expect(progress.value).toBe("5");
+
+    responder = () => new Response(JSON.stringify({ id: "consumption-2" }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    });
+    await user.click(submit);
+    await waitFor(() => expect(calls).toHaveLength(2));
   });
 });

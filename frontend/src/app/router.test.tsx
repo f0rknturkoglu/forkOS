@@ -2,7 +2,7 @@
 
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { matchRoutePath, useHashRoute } from "./router";
+import { findRouteMatch, matchRoutePath, useHashRoute } from "./router";
 
 describe("hash route matching", () => {
   it("matches exact routes without accepting extra segments", () => {
@@ -30,5 +30,18 @@ describe("hash route matching", () => {
     });
     expect(result.current.params.get("id")).toBe("media-2");
     expect(result.current.params.get("tab")).toBe("notes");
+  });
+
+  it("preserves literal question marks after the query delimiter", () => {
+    location.hash = "#/media/id?return=/search?tab=notes&x=1";
+    const { result } = renderHook(() => useHashRoute("/media/:id"));
+
+    expect(result.current.params.get("return")).toBe("/search?tab=notes");
+    expect(result.current.params.get("x")).toBe("1");
+  });
+
+  it("prefers an exact static route over an earlier dynamic sibling", () => {
+    const routes = [{ path: "/media/:id", name: "detail" }, { path: "/media/stats", name: "stats" }];
+    expect(findRouteMatch(routes, "/media/stats")?.name).toBe("stats");
   });
 });

@@ -61,4 +61,13 @@ describe("navigation model", () => {
     expect(active.id).toBe("track");
     expect(groupTarget(active)).toBe("/opportunities");
   });
+
+  it("prefers a static route's group over an earlier dynamic match", () => {
+    const competing = navigationGroups([
+      modules[0],
+      { id: "dynamic", title: "Dinamik", group: "capture", routes: [{ path: "/media/:id", element: Page }] },
+      { id: "stats", title: "İstatistik", group: "system", routes: [{ path: "/media/stats", element: Page }] },
+    ]);
+    expect(activeNavigationGroup("/media/stats", competing).id).toBe("system");
+  });
 });

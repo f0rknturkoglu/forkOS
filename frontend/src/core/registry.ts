@@ -8,7 +8,7 @@
 import type { ComponentType } from "react";
 import { MODULE_GROUPS } from "./types";
 import type { Command, ModuleGroup, ModuleSpec, TodayWidget, TodayZone } from "./types";
-import { matchRoutePath } from "@/app/router";
+import { findRouteMatch } from "@/app/router";
 
 const registry = new Map<string, ModuleSpec>();
 let externalCommands: Command[] = [];
@@ -112,16 +112,17 @@ export function groupedModules(): { id: ModuleGroup; label: string; modules: Mod
 
 /** Aktif rotanin sahibi modul -- baslik ve ikon icin. */
 export function moduleForPath(path: string): ModuleSpec | undefined {
-  return enabledModules().find((m) =>
-    m.routes.some((route) => matchRoutePath(route.path, path) !== null),
+  const candidates = enabledModules().flatMap((module) =>
+    module.routes.map((route) => ({ path: route.path, module })),
   );
+  return findRouteMatch(candidates, path)?.module;
 }
 
 /** Ust seritte gorunecek baslik: once rotanin kendi adi, sonra modulunki. */
 export function titleForPath(path: string): string | undefined {
-  for (const module of enabledModules()) {
-    const route = module.routes.find((candidate) => matchRoutePath(candidate.path, path) !== null);
-    if (route) return route.title ?? module.title;
-  }
-  return undefined;
+  const candidates = enabledModules().flatMap((module) =>
+    module.routes.map((route) => ({ ...route, module })),
+  );
+  const match = findRouteMatch(candidates, path);
+  return match ? match.title ?? match.module.title : undefined;
 }

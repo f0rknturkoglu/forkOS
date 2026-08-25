@@ -80,7 +80,7 @@ export function MediaProgressActions({
   const disabled = !online || mutation.isPending;
 
   return (
-    <div className={cx("flex flex-wrap items-center gap-2", compact && "gap-1.5")}>
+    <div className={cx("flex min-w-0 flex-wrap items-center gap-2", compact && "gap-1.5")}>
       <Button
         size="sm"
         disabled={disabled}
@@ -105,7 +105,8 @@ export function MediaProgressActions({
       </Button>
       {setting && (
         <form
-          className="flex basis-full items-end gap-2 pt-1"
+          aria-label="Kesin ilerleme"
+          className="grid min-w-0 basis-full grid-cols-[minmax(0,1fr)_auto] items-end gap-2 pt-1 sm:grid-cols-[minmax(0,8rem)_auto_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             const progress = Number(value);
@@ -123,12 +124,17 @@ export function MediaProgressActions({
               disabled={disabled}
               aria-label="İlerleme değeri"
               onChange={(event) => setValue(event.target.value)}
-              className="h-8 w-32 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent"
+              className="h-8 w-full min-w-0 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent"
             />
           </label>
           <span className="pb-2 text-meta text-muted">{measureLabel(item.progress_measure)}</span>
-          <Button type="submit" size="sm" disabled={disabled}>İlerlemeyi kaydet</Button>
+          <Button type="submit" size="sm" disabled={disabled} className="col-span-2 w-full sm:col-span-1 sm:w-auto">İlerlemeyi kaydet</Button>
         </form>
+      )}
+      {mutation.error && (
+        <p role="alert" className="basis-full text-meta text-danger">
+          İlerleme kaydedilemedi: {mutation.error.message}
+        </p>
       )}
     </div>
   );
