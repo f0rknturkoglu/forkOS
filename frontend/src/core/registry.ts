@@ -63,12 +63,8 @@ function orderedModules(): ModuleSpec[] {
   });
 }
 
-function normalize(entry: ComponentType | TodayWidget): TodayWidget {
-  return typeof entry === "function" ? { component: entry } : entry;
-}
-
 export const allTodayWidgets = () =>
-  orderedModules().flatMap((m) => (m.todayWidgets ?? []).map(normalize));
+  orderedModules().flatMap((m) => m.todayWidgets ?? []);
 /**
  * Panel sutunundaki widget'lar, `order` alanina gore sirali.
  * Esitlikte modul sirasi korunur (Array#sort kararli).
@@ -76,7 +72,7 @@ export const allTodayWidgets = () =>
 export const allTodayWidgetsIn = (slot: "left" | "center" | "right"): ComponentType[] =>
   allTodayWidgets()
     .filter((w) => (w.slot ?? "center") === slot)
-    .sort((a, b) => (a.order ?? 50) - (b.order ?? 50))
+    .sort((a, b) => a.order - b.order)
     .map((w) => w.component);
 export const allTodayStats = () => orderedModules().flatMap((m) => m.todayStats ?? []);
 export const allRoutes = () => enabledModules().flatMap((m) => m.routes);

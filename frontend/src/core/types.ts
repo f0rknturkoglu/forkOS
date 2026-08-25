@@ -507,11 +507,10 @@ export interface TodayWidget {
    */
   slot?: "left" | "center" | "right";
   /**
-   * Sutun icindeki sira; kucuk once. Verilmezse 50.
-   * Bunsuz sira modules/index.ts'teki import sirasina kalirdi -- yani
-   * sidebar sirasini degistirmek panelin duzenini de bozardi.
+   * Sutun icindeki sira; kucuk once. ZORUNLU: verilmezse cakisma uretir
+   * (eski varsayilan 50 kaldirildi).
    */
-  order?: number;
+  order: number;
 }
 
 export interface ModuleSpec {
@@ -529,6 +528,6 @@ export interface ModuleSpec {
    * Today'e girecek widget'lar. Duz bir bilesen verilirse "ritim" bolgesine
    * duser; bolge secmek icin { component, zone } yaz.
    */
-  todayWidgets?: (ComponentType | TodayWidget)[];
+  todayWidgets?: TodayWidget[];
   commands?: Command[];
 }

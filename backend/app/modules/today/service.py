@@ -12,7 +12,9 @@ from sqlalchemy.orm import aliased
 from app.config import settings
 from app.core.models import Entity, Link
 from app.modules.calendar.models import ExternalEvent
+from app.modules.finance.models import RecurringPayment
 from app.modules.media.models import MediaItem
+from app.modules.opportunity.models import Interview, Opportunity
 from app.modules.project.models import Project
 from app.modules.rss.models import Feed, FeedItem
 from app.modules.system.models import Setting
@@ -350,21 +352,28 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
 
     generic_ids = [slot.entity_id for slot in slots if slot.entity_id not in handled_ids]
     if generic_ids:
-        generic_titles = dict((await session.execute(
-            select(Entity.id, Entity.title).where(
-                Entity.id.in_(generic_ids), Entity.archived_at.is_(None)
-            )
-        )).all())
+        generic_titles = {
+            eid: (title, etype)
+            for eid, title, etype in (await session.execute(
+                select(Entity.id, Entity.title, Entity.type).where(
+                    Entity.id.in_(generic_ids), Entity.archived_at.is_(None)
+                )
+            )).all()
+        }
         for entity_id in generic_ids:
             if entity_id not in generic_titles:
                 continue
             slot = slot_by_entity[entity_id]
+            etype = generic_titles[entity_id][1]
+            kind = "study" if etype in ("study_topic", "study_area") else (
+                "pomodoro" if etype == "pomodoro_session" else "calendar"
+            )
             row = AgendaRow(
-                kind="calendar",
+                kind=kind,
                 source="planned",
                 id=entity_id,
                 slot_id=slot.id,
-                title=generic_titles[entity_id],
+                title=generic_titles[entity_id][0],
                 read_only=True,
                 starts_at=(
                     _planned_start(slot.day, slot.start_min)
@@ -373,6 +382,80 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
                 duration_min=slot.duration_min,
             )
             (timed if row.starts_at is not None else checklist).append(row)
+
+    # Firsat son tarihleri (bugun + yarin) ve bugun vadesi gelen odemeler.
+    deadline_end = end + timedelta(days=1)
+    opps = (await session.execute(
+        select(Opportunity, Entity.title)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(
+            Entity.archived_at.is_(None),
+            Opportunity.deadline_at.is_not(None),
+            Opportunity.deadline_at < deadline_end,
+            Opportunity.status.in_(
+                ("discovered", "considering", "preparing", "applied", "interview", "offer")
+            ),
+        )
+        .order_by(Opportunity.deadline_at)
+    )).all()
+    for opp, title in opps:
+        row = AgendaRow(
+            kind="opportunity",
+            source="due",
+            id=opp.id,
+            title=title,
+            read_only=True,
+            starts_at=opp.deadline_at,
+            url=opp.url,
+        )
+        (timed if row.starts_at is not None else checklist).append(row)
+
+    # Bugunun mulakatlari -- saatli satir olarak.
+    interviews = (await session.execute(
+        select(Interview, Entity.title)
+        .join(Opportunity, Opportunity.id == Interview.opportunity_id)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(
+            Interview.scheduled_at.is_not(None),
+            Interview.scheduled_at >= start,
+            Interview.scheduled_at < end,
+        )
+        .order_by(Interview.scheduled_at)
+    )).all()
+    for interview, title in interviews:
+        timed.append(AgendaRow(
+            kind="interview",
+            source="due",
+            id=interview.id,
+            title=f"Görüşme: {title}",
+            read_only=True,
+            starts_at=interview.scheduled_at,
+            duration_min=interview.duration_min,
+        ))
+
+    # Bugun vadesi gelen tekrarlayan odemeler.
+    payments = (await session.execute(
+        select(RecurringPayment, Entity.title)
+        .join(Entity, Entity.id == RecurringPayment.id)
+        .where(
+            Entity.archived_at.is_(None),
+            RecurringPayment.active.is_(True),
+            RecurringPayment.next_due_at.is_not(None),
+            RecurringPayment.next_due_at >= start,
+            RecurringPayment.next_due_at < end,
+        )
+        .order_by(RecurringPayment.next_due_at)
+    )).all()
+    for payment, title in payments:
+        checklist.append(AgendaRow(
+            kind="payment",
+            source="due",
+            id=payment.id,
+            title=title,
+            read_only=True,
+            starts_at=payment.next_due_at,
+            url=None,
+        ))
 
     auto_setting = await session.get(Setting, "today.auto_suggestions")
     auto_suggestions = True if auto_setting is None else bool(auto_setting.value)

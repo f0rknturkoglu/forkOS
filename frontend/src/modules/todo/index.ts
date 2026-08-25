@@ -1,6 +1,7 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { lazy } from "react";
 import { ListChecks } from "lucide-react";
+import { OverdueTodosWidget } from "./OverdueTodosWidget";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
@@ -16,6 +17,7 @@ registerModule({
     { path: "/habits", element: TodoPage, title: "Rutin görevler" },
     { path: "/planner", element: WeeklyPlannerPage },
   ],
+  todayWidgets: [{ component: OverdueTodosWidget, slot: "right", order: 15 }],
   commands: [
     { id: "todo.open", label: "Görevleri aç", run: () => navigate("/todos") },
     { id: "todo.routines", label: "Rutin görevleri aç", run: () => navigate("/habits") },

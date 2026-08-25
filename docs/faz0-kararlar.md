@@ -89,3 +89,18 @@ Faz 0 baseline'ı sırasında iki pre-existing test hatası düzeltildi
 2. `test_migrations.py` istisna listesine `application_history` (append-only log)
    ve `interview` (1:N alt kayıt) eklendi — AGENTS.md kural 1'in "destek tablosu"
    kategorisiyle aynı gerekçe, `plan_slot` ile aynı sınıf.
+
+---
+
+## Faz 5 kararı — Bugün paneli sütun ayarı (today.columns)
+
+**Karar: kaldırıldı.** `today.columns` ayarı ne backend DEFAULTS'unda ne de
+frontend'de var (Faz 1'de `todayColumns()` ile birlikte okuma kalktı). Panel
+sabit 3 sütun (`dashboard-grid`); widget'lar `slot` + zorunlu `order` ile
+diziliyor. 375/768/1280/1600px'te taşma yok (output/playwright/).
+
+## Faz 5 notu — agenda kind'ları
+
+`AgendaKind` 8 üye: calendar, todo, rss, media, opportunity, interview,
+payment, study. Yeni son-tarihli/olaylı modül agenda'ya `kind` ekleyerek
+girer; kırıcı değişiklik yok. Test: `tests/test_today_kinds.py`.

@@ -6,7 +6,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-AgendaKind = Literal["calendar", "todo", "rss", "media"]
+AgendaKind = Literal[
+    "calendar", "todo", "rss", "media", "opportunity", "interview", "payment", "study",
+]
 AgendaSource = Literal["calendar", "planned", "due", "routine", "suggestion"]
 AgendaAction = Literal["complete_todo", "mark_rss_read", "log_media"]
 

@@ -2,8 +2,8 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  CalendarClock, Check, ChevronRight, Circle, ExternalLink, Plus, RotateCw,
-  Trash2,
+  BookOpen, CalendarClock, Check, ChevronRight, Circle, CreditCard,
+  ExternalLink, Plus, RotateCw, Target, Trash2,
 } from "lucide-react";
 import { api } from "@/core/api";
 import type { AgendaRow, FeedItem, TodayAgenda, Todo } from "@/core/types";
@@ -304,12 +304,12 @@ function AgendaLine({ row, online, complete, remove, suggestionAction, nested = 
           >
             <Circle size={15} />
           </a>
-        ) : interactive ? (
-          <button type="button" title="Tamamla" aria-label={`${row.title} tamamla`}
-            disabled={!online} onClick={() => complete(row)}
-            className="mt-0.5 shrink-0 text-muted transition hover:text-ok disabled:opacity-40">
-            <Circle size={15} />
-          </button>
+        ) : row.kind === "opportunity" ? (
+          <Target size={15} className="mt-0.5 shrink-0 text-muted" />
+        ) : row.kind === "payment" ? (
+          <CreditCard size={15} className="mt-0.5 shrink-0 text-muted" />
+        ) : row.kind === "study" ? (
+          <BookOpen size={15} className="mt-0.5 shrink-0 text-muted" />
         ) : (
           <CalendarClock size={15} className="mt-0.5 shrink-0 text-muted" />
         )}

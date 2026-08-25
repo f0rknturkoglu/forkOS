@@ -79,7 +79,11 @@
               "calendar",
               "todo",
               "rss",
-              "media"
+              "media",
+              "opportunity",
+              "interview",
+              "payment",
+              "study"
             ],
             "title": "Kind",
             "type": "string"

@@ -10,7 +10,9 @@ def _spec():
         router=router,
         entity_types=[
             EntityTypeSpec('media_item', 'Medya', 'Medyalar', '/media/{id}', 'Film'),
-            EntityTypeSpec('media_collection', 'Koleksiyon', 'Koleksiyonlar', '/media/collections', 'Library'),
+            EntityTypeSpec(
+                'media_collection', 'Koleksiyon', 'Koleksiyonlar', '/media/collections', 'Library',
+            ),
             EntityTypeSpec('media_unit', 'Bölüm', 'Bölümler', '/media', 'FileVideo'),
             EntityTypeSpec('media_cycle', 'Döngü', 'Döngüler', '/media', 'RefreshCw'),
             EntityTypeSpec('media_consumption', 'Tüketim', 'Tüketimler', '/media', 'Play'),

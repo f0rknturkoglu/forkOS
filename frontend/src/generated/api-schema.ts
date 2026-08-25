@@ -2681,7 +2681,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "calendar" | "todo" | "rss" | "media";
+            kind: "calendar" | "todo" | "rss" | "media" | "opportunity" | "interview" | "payment" | "study";
             /** Media Kind */
             media_kind?: string | null;
             /** Media Status */
