@@ -1,9 +1,8 @@
 import { invalidateAfter } from "./invalidation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bell, CheckCheck, X } from "lucide-react";
+import { Bell, BellOff, CheckCheck, X } from "lucide-react";
 import { api } from "./api";
-import {invalidate} from "./queryClient";
 import { Empty, cx, relativeTime } from "./ui";
 import type { Notification } from "./types";
 import { entityRoute } from "./entityRegistry";
@@ -58,6 +57,10 @@ export function NotificationPanel() {
   });
   const dismiss = useMutation({
     mutationFn: (id: number) => api.post(`/notifications/${id}/dismiss`),
+    onSuccess: () => invalidateAfter("notification.write"),
+  });
+  const dismissAll = useMutation({
+    mutationFn: () => api.post("/notifications/dismiss-all"),
     onSuccess: () => invalidateAfter("notification.write"),
   });
 
@@ -128,6 +131,17 @@ export function NotificationPanel() {
               >
                 <CheckCheck size={14} />
                 Tümünü okundu işaretle
+              </button>
+            )}
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={() => dismissAll.mutate()}
+                disabled={dismissAll.isPending}
+                className="flex items-center gap-1.5 text-meta text-muted transition hover:text-danger disabled:opacity-50"
+              >
+                <BellOff size={14} />
+                Tümünü kapat
               </button>
             )}
           </div>

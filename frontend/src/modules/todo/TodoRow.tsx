@@ -3,11 +3,12 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
-  Check, CornerDownRight, FolderGit2, ListTree, Milestone as MilestoneIcon, Repeat, Trash2, X,
+  Check, CornerDownRight, FolderGit2, ListTree, Milestone as MilestoneIcon, Repeat, Timer, Trash2, X,
 } from "lucide-react";
 import { api } from "@/core/api";
 import {Chip, IconButton, Input, cx, useToast} from "@/core/ui";
 import {useOnline} from "@/lib/hooks";
+import { navigate } from "@/app/router";
 import type { Todo } from "@/core/types";
 import { dueLabel, priorityOf, recurLabel } from "./priority";
 
@@ -16,6 +17,10 @@ const DUE_CHIP = {
   accent: "border-accent-border bg-accent-surface text-accent",
   danger: "border-danger-border bg-danger-surface text-danger",
 } as const;
+
+/** Proje rozetinin gittigi adres -- secili proje acilsin diye focus tasinir. */
+const projectHref = (todo: Todo) =>
+  todo.project_id ? `#/projects?focus=${encodeURIComponent(todo.project_id)}` : "#/projects";
 
 /**
  * Tek gorev satiri. Hem Gorevler sayfasi hem Bugun paneli bunu kullanir --
@@ -74,6 +79,10 @@ export function TodoRow({
   const priority = priorityOf(todo.priority);
   const due = dueLabel(todo.due_at);
   const recur = recurLabel(todo.recur);
+
+  // Pomodoro sayfasi context/topic parametrelerini acilis aninda okur --
+  // "odaklan" bu adrese gidip formu doldurur, kullanici baslat der.
+  const focusHref = `#/pomodoro?context=${encodeURIComponent(todo.id)}&topic=${encodeURIComponent(todo.title)}`;
 
   return (
     <li className={cx("group", nested && "pl-6")}>
@@ -154,7 +163,7 @@ export function TodoRow({
           )}
           {todo.project_title && (
             <a
-              href="#/projects"
+              href={projectHref(todo)}
               title={`${todo.project_title} projesi`}
               className="flex items-center gap-1 rounded-full border border-accent-border bg-accent-surface px-2 py-0.5 text-micro leading-4 text-accent transition hover:brightness-95"
             >
@@ -162,9 +171,9 @@ export function TodoRow({
             </a>
           )}
           {todo.milestone_title && (
-            <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-secondary">
-              <MilestoneIcon size={10} /> {todo.milestone_title}
-            </span>
+            <a href={projectHref(todo)} title={`${todo.milestone_title} kilometre taşı`}>
+              <Chip icon={<MilestoneIcon size={10} />}>{todo.milestone_title}</Chip>
+            </a>
           )}
           {todo.subtask_total > 0 && (
             <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
@@ -193,6 +202,12 @@ export function TodoRow({
           <IconButton title="Alt görev ekle" disabled={!online}
             onClick={() => setSubtask((current) => (current === null ? "" : null))}>
             <ListTree size={14} />
+          </IconButton>
+        )}
+        {!done && !dropped && (
+          <IconButton title="Odaklan — pomodoro başlat" disabled={!online}
+            onClick={() => navigate(focusHref)}>
+            <Timer size={14} />
           </IconButton>
         )}
         {!done && !dropped && !compact && (

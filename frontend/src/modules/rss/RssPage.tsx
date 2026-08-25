@@ -6,7 +6,7 @@ import { api, qs } from "@/core/api";
 import {Button, Chip, Empty, FileInput, Input, PageFrame, PageHeader, Surface, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import {useOnline} from "@/lib/hooks";
-import { navigate } from "@/app/router";
+import { navigate, useHashRoute } from "@/app/router";
 import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
 import { RssReadingPane } from "./RssReadingPane";
 

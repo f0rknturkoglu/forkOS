@@ -23,7 +23,7 @@ export function PomodoroPage() {
   const [now, setNow] = useState(Date.now());
   const [focusMode, setFocusMode] = useState(false);
   const [minutes, setMinutes] = useState(FOCUS_MIN);
-  const [topic, setTopic] = useState(params.get("title") ?? "");
+  const [topic, setTopic] = useState(params.get("title") ?? params.get("topic") ?? "");
   const [context, setContext] = useState(params.get("context") ?? "");
   const online = useOnline();
   const toast = useToast();

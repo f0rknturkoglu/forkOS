@@ -1,12 +1,13 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, Search, Settings2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { Button, Checkbox, Empty, Input, PageFrame, PageHeader, RowList, Section, Toolbar, cx, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import { navigate } from "@/app/router";
+import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
+import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import {useOnline} from "@/lib/hooks";
 import { REMOTE_LABELS, STATUSES, remoteKind, statusLabel } from "./labels";
 import { sourceLabel } from "@/core/labels";
@@ -27,10 +28,21 @@ const PAGE = 60;
 export function OpportunityPage() {
   const online = useOnline();
   const toast = useToast();
+  const { save } = useSaveToLibrary();
+  const saveItem = (item: Opportunity) => {
+    if (!item.url) return;
+    void save({ url: item.url, title: item.title, collection: "reference", entity_id: item.id });
+  };
   const [tab, setTab] = useState<OpportunityTab>("jobs");
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [shown, setShown] = useState(PAGE);
+  const { params } = useHashRoute();
+  // Kayit defteri rotasi (?focus={id}) detayi acar (kural 13).
+  useEffect(() => {
+    const focus = params.get("focus");
+    if (focus) setSelected(focus);
+  }, [params]);
   const [selected, setSelected] = useState<string | null>(null);
   /** "score" varsayilan: 645 kaydin cogu elenmis, en uygunlar one gelsin. */
   const [sort, setSort] = useState<"score" | "recent" | "deadline">("score");
@@ -341,6 +353,7 @@ export function OpportunityPage() {
                   onTrash={() => trash(item)}
                   onRestore={() => lifecycle.mutate({ action: "restore", id: item.id })}
                   onDelete={() => permanentlyDelete(item)}
+                  onSave={() => saveItem(item)}
                 />
               ))}
             </RowList>

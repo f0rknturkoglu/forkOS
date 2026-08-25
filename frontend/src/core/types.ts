@@ -394,6 +394,10 @@ export interface Opportunity {
   region: string | null;
   follow_up_at: string | null;
   rejection_reason: string | null;
+  /** Belge ters-bağı (DocumentsPage): başvuru kaydındaki CV. Liste ucunda dolu. */
+  cv_document_id?: string | null;
+  /** Belge ters-bağı (DocumentsPage): gereksinime bağlanan ilk belge. */
+  requirement_document_id?: string | null;
 }
 
 export interface Application {

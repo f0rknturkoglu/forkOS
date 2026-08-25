@@ -1,11 +1,13 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, ExternalLink, X } from "lucide-react";
+import { Bookmark, Check, ExternalLink, X } from "lucide-react";
 import { api } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import {Button, Chip, Empty, Input, SectionHeader, Select, Textarea, cx, relativeTime} from "@/core/ui";
 import type { Application, ApplicationHistoryRow, Document, Interview, Opportunity } from "@/core/types";
+import type { Todo } from "@/core/types";
+import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import {useOnline} from "@/lib/hooks";
 import {
   SCORE_TONE, STATUSES, STATUS_TONES,
@@ -33,6 +35,12 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   const [rejecting, setRejecting] = useState(false);
   const [rejectionDraft, setRejectionDraft] = useState("");
   const [interviewDraft, setInterviewDraft] = useState({ stage: "", mode: "video", scheduled_at: "", notes: "" });
+  const [stepTitle, setStepTitle] = useState("");
+  const { save } = useSaveToLibrary();
+  const saveItem = () => {
+    if (!item?.url) return;
+    void save({ url: item.url, title: item.title, collection: "reference", entity_id: item.id });
+  };
 
   const { data: item } = useQuery({
     queryKey: ["opportunity", id],
@@ -45,6 +53,21 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   const { data: documents = [] } = useQuery({
     queryKey: ["documents"],
     queryFn: () => api.get<Document[]>("/documents"),
+  });
+  const { data: steps = [] } = useQuery({
+    queryKey: ["opportunity", id, "todos"],
+    queryFn: () => api.get<Todo[]>(`/opportunities/${id}/todos`),
+  });
+  const addStep = useMutation({
+    mutationFn: () => api.post(`/opportunities/${id}/todos`, { title: stepTitle.trim() }),
+    onSuccess: () => { setStepTitle(""); invalidateAfter("opportunity.write", "todo.write"); },
+  });
+  const toggleStep = useMutation({
+    mutationFn: (step: Todo) =>
+      step.status === "done"
+        ? api.patch(`/todos/${step.id}`, { status: "open" })
+        : api.post(`/todos/${step.id}/complete`),
+    onSuccess: () => invalidateAfter("opportunity.write", "todo.write"),
   });
 
   const patch = useMutation({
@@ -205,6 +228,17 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               >
                 <ExternalLink size={14} /> İlanı aç
               </a>
+            )}
+            {item?.url && (
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!online}
+                title="Kütüphaneye kaydet"
+                onClick={saveItem}
+              >
+                <Bookmark size={14} /> Kaydet
+              </Button>
             )}
             {left !== null && (
               <span className={cx("text-meta", left <= 7 ? "text-warn" : "text-muted")}>
@@ -408,6 +442,52 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                 </div>
               </div>
             )}
+          </section>
+
+          {/* ── Başvuru adımları ── */}
+          <section>
+            <SectionHeader label="Başvuru adımları" hint={`${steps.filter((s) => s.status === "done").length}/${steps.length} tamam`} />
+            {steps.length === 0 ? (
+              <p className="py-3 text-meta text-muted">Henüz adım eklenmedi.</p>
+            ) : (
+              <ul className="mb-3 flex flex-col gap-1.5">
+                {steps.map((step) => (
+                  <li key={step.id} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={step.status === "done"}
+                      disabled={!online || toggleStep.isPending}
+                      onClick={() => toggleStep.mutate(step)}
+                      title={step.status === "done" ? "Adımı aç" : "Adımı tamamla"}
+                      className={cx(
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                        step.status === "done" ? "border-ok bg-ok text-canvas" : "border-strong bg-surface",
+                      )}
+                    >
+                      {step.status === "done" && <Check size={12} />}
+                    </button>
+                    <span className={cx("min-w-0 flex-1 truncate text-body", step.status === "done" && "text-muted line-through")}>
+                      {step.title}
+                    </span>
+                    <Chip size="xs">başvuru adımı</Chip>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => { e.preventDefault(); if (stepTitle.trim()) addStep.mutate(); }}
+            >
+              <Input
+                value={stepTitle}
+                onChange={setStepTitle}
+                placeholder="Örn. formu doldur, transkript gönder…"
+                ariaLabel="Yeni başvuru adımı"
+                className="flex-1"
+              />
+              <Button type="submit" disabled={!online || !stepTitle.trim() || addStep.isPending}>Ekle</Button>
+            </form>
           </section>
 
           {/* ── Takip tarihi ── */}

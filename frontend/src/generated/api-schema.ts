@@ -252,23 +252,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/bookmarks/collections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Collections */
-        get: operations["collections_api_bookmarks_collections_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/bookmarks/stats": {
         parameters: {
             query?: never;
@@ -711,40 +694,6 @@ export interface paths {
         get: operations["export_opml_api_export_opml_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/github/activity": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Github Activity */
-        get: operations["github_activity_api_github_activity_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/github/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Sync Github */
-        post: operations["sync_github_api_github_sync_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4147,6 +4096,8 @@ export interface components {
             compensation: string | null;
             /** Country */
             country?: string | null;
+            /** Cv Document Id */
+            cv_document_id?: string | null;
             /** Deadline At */
             deadline_at: string | null;
             /** External Id */
@@ -4183,6 +4134,8 @@ export interface components {
             rejection_reason?: string | null;
             /** Remote */
             remote: string | null;
+            /** Requirement Document Id */
+            requirement_document_id?: string | null;
             /** Score */
             score?: number | null;
             /** Score Reasons */
@@ -5439,26 +5392,6 @@ export interface operations {
             };
         };
     };
-    collections_api_bookmarks_collections_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": string[];
-                };
-            };
-        };
-    };
     bookmark_stats_api_bookmarks_stats_get: {
         parameters: {
             query?: never;
@@ -6375,46 +6308,6 @@ export interface operations {
         };
     };
     export_opml_api_export_opml_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    github_activity_api_github_activity_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    sync_github_api_github_sync_post: {
         parameters: {
             query?: never;
             header?: never;

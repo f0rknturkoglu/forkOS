@@ -1,13 +1,13 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Star, Trash2 } from "lucide-react";
+import { Star, Trash2, X } from "lucide-react";
 import { api, qs } from "@/core/api";
 import {Button, Chip, Empty, IconButton, Input, PageFrame, PageHeader, RowList, Section, Select, Toolbar, cx, hostOf, relativeTime} from "@/core/ui";
 import {useDebounced, useOnline} from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
-import type { Bookmark, BookmarkStats, Collection, TagCount } from "@/core/types";
+import type { Bookmark, BookmarkStats, Collection, SavedView, TagCount } from "@/core/types";
 
 interface Filter {
   collection?: Collection | "";
@@ -25,6 +25,32 @@ const READ_STATUS_LABELS: Record<(typeof READ_STATUSES)[number], string> = {
   reading: "Okuyor",
   read: "Okundu",
 };
+/** Filtre aktif mi? Kayıtlı görünüm çubuğu ve kaydet düğmesi buna bağlı. */
+function filterActive(f: Filter): boolean {
+  return Boolean(f.collection || f.read_status || f.favorite || f.source || f.tag);
+}
+
+/** Kaydedilecek filtre: boş/undefined alanlar atılır (view.filter DSL'i). */
+function cleanFilter(f: Filter): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (f.collection) out.collection = f.collection;
+  if (f.read_status) out.read_status = f.read_status;
+  if (f.favorite) out.favorite = true;
+  if (f.source) out.source = f.source;
+  if (f.tag) out.tag = f.tag;
+  return out;
+}
+
+/** Görünüm adı -- aktif filtre parçalarından türetilir. */
+function viewName(f: Filter): string {
+  const parts: string[] = [];
+  if (f.collection) parts.push(COLLECTION_LABELS[f.collection]);
+  if (f.read_status) parts.push(READ_STATUS_LABELS[f.read_status as (typeof READ_STATUSES)[number]]);
+  if (f.favorite) parts.push("Favoriler");
+  if (f.source) parts.push("RSS");
+  if (f.tag) parts.push(`#${f.tag}`);
+  return parts.join(" + ") || "Filtre";
+}
 
 /** Basit tek secimli filtre cipi. Sayi verilirse saga yazar (sayaçsız da olur). */
 function FilterChip({
@@ -95,6 +121,11 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
             <span>{relativeTime(bookmark.saved_at)}</span>
             <Chip>{COLLECTION_LABELS[bookmark.collection]}</Chip>
             {bookmark.read_status !== "unread" && <Chip tone="ok">{bookmark.read_status}</Chip>}
+            {bookmark.queue_kind && (
+              <a href="#/learning" title="Öğrenme kuyruğunda" className="inline-flex">
+                <Chip tone="accent">Öğrenme kuyruğu</Chip>
+              </a>
+            )}
             {bookmark.tags.map((tag) => (
               <Chip key={tag}>#{tag}</Chip>
             ))}
@@ -172,6 +203,34 @@ export function BookmarksPage() {
     queryKey: ["tags"],
     queryFn: () => api.get<TagCount[]>("/tags"),
   });
+  const online = useOnline();
+  const { data: views = [] } = useQuery({
+    queryKey: ["saved-views", "bookmarks"],
+    queryFn: () => api.get<SavedView[]>("/views?module=bookmarks"),
+  });
+  const saveView = useMutation({
+    mutationFn: () =>
+      api.post<SavedView>("/views", { name: viewName(filter), module: "bookmarks", filter: cleanFilter(filter) }),
+    onSuccess: () => invalidateAfter("settings.write"),
+  });
+  const removeView = useMutation({
+    mutationFn: (id: string) => api.del(`/views/${id}`),
+    onSuccess: () => invalidateAfter("settings.write"),
+  });
+
+  /** Kayıtlı görünümü uygula: temiz filtre + aramayı sıfırla. */
+  function applyView(v: SavedView) {
+    const next: Filter = { collection: "" };
+    const raw = v.filter ?? {};
+    if (typeof raw.collection === "string") next.collection = raw.collection as Collection;
+    if (typeof raw.read_status === "string") next.read_status = raw.read_status;
+    if (raw.favorite === true) next.favorite = true;
+    if (typeof raw.source === "string") next.source = raw.source;
+    if (typeof raw.tag === "string") next.tag = raw.tag;
+    setFilter(next);
+    setSearch("");
+  }
+  const currentViewJson = JSON.stringify(cleanFilter(filter));
 
   return (
     <PageFrame className="space-y-5">
@@ -245,6 +304,43 @@ export function BookmarksPage() {
             ))}
           </div>
         </Toolbar>
+        {(views.length > 0 || filterActive(filter)) && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-card border border-subtle bg-surface px-3 py-2">
+            <Star size={13} className="text-icon" />
+            <span className="text-meta text-muted">Görünümler</span>
+            {views.map((v) => (
+              <span key={v.id} className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => applyView(v)}
+                  className={cx(
+                    "h-7 rounded-control border px-2 text-meta transition",
+                    JSON.stringify(v.filter ?? {}) === currentViewJson
+                      ? "border-accent bg-accent-surface font-medium text-accent"
+                      : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
+                  )}
+                >
+                  {v.name}
+                </button>
+                <button
+                  type="button"
+                  title="Görünümü sil"
+                  aria-label={`"${v.name}" görünümünü sil`}
+                  onClick={() => removeView.mutate(v.id)}
+                  className="flex h-7 w-6 items-center justify-center rounded-control text-muted opacity-60 transition hover:bg-surface-sunken hover:text-danger"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+            {filterActive(filter) &&
+              !views.some((v) => JSON.stringify(v.filter ?? {}) === currentViewJson) && (
+                <Button size="sm" disabled={!online || saveView.isPending} onClick={() => saveView.mutate()}>
+                  Görünümü kaydet
+                </Button>
+              )}
+          </div>
+        )}
 
         {isLoading ? (
           <p className="text-body text-muted">Yükleniyor…</p>

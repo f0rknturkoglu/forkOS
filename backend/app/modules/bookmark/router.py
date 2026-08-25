@@ -65,11 +65,6 @@ async def bookmark_stats(session: AsyncSession = Depends(get_session)):
     return await service.stats(session)
 
 
-@router.get("/bookmarks/collections", response_model=list[str])
-async def collections():
-    return list(COLLECTIONS)
-
-
 @router.get("/bookmarks/{bookmark_id}", response_model=BookmarkOut)
 async def get_bookmark(bookmark_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
     bookmark = await service.get(session, bookmark_id)

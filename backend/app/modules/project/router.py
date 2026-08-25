@@ -4,14 +4,13 @@ import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.links import link
 from app.db import get_session
 from app.integrations.models import OAuthToken
-from app.modules.project import github, github_repo, service
-from app.modules.project.models import GithubActivity, Project
+from app.modules.project import github_repo, service
+from app.modules.project.models import Project
 from app.modules.project.schemas import (
     GithubCredentialsIn,
     IssueToTodoIn,
@@ -130,25 +129,6 @@ async def github_credentials(
 async def github_status(session: AsyncSession = Depends(get_session)):
     token = await session.get(OAuthToken, "github")
     return {"connected": token is not None, "login": token.scopes if token else None}
-
-
-@router.post("/github/sync")
-async def sync_github(session: AsyncSession = Depends(get_session)):
-    try:
-        return {"synced": await github.sync(session)}
-    except RuntimeError as exc:
-        raise HTTPException(503, str(exc)) from exc
-
-
-@router.get("/github/activity")
-async def github_activity(session: AsyncSession = Depends(get_session)):
-    return list(
-        (
-            await session.execute(
-                select(GithubActivity).order_by(GithubActivity.day.desc()).limit(730)
-            )
-        ).scalars()
-    )
 
 
 def _github_error(exc: httpx.HTTPStatusError) -> str:

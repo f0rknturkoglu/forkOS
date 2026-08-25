@@ -64,6 +64,11 @@ class OpportunityOut(BaseModel):
     follow_up_at: datetime | None = None
     rejection_reason: str | None = None
     trashed_from_status: str | None = None
+    #: Belge ters-bağı (DocumentsPage "bu belge hangi başvurularda kullanılıyor"):
+    #: başvuru kaydındaki CV belgesi. Liste ucunda dolu gelir.
+    cv_document_id: UUID | None = None
+    #: Belge ters-bağı (DocumentsPage): gereksinime bağlanan ilk belge.
+    requirement_document_id: UUID | None = None
 
 
 class RequirementIn(BaseModel):

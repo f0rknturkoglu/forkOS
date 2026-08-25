@@ -1,14 +1,20 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Bookmark, Pencil, RotateCcw, X } from "lucide-react";
 import { useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { MediaDetail, MediaItem } from "@/core/types";
-import {Button, Chip, Field, Input, PageFrame, Section, Surface, Textarea, cx} from "@/core/ui";
-import {useOnline} from "@/lib/hooks";
-import {KIND_LABELS, SiteLinks, externalLinks, mediaCoverUrl, mediaProvider, providerChip, providerLabel, statusLabel} from "./shared";
+import type { components } from "@/generated/api-schema";
+import { Button, Chip, Field, Input, PageFrame, Section, Surface, Textarea, cx } from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
+import { useSaveToLibrary } from "@/core/SaveToLibrary";
+import { KIND_LABELS, SiteLinks, externalLinks, mediaCoverUrl, mediaProvider, providerChip, providerLabel, statusLabel } from "./shared";
 import { MediaProgressActions, measureLabel } from "./MediaProgressActions";
+
+type MediaUnit = components["schemas"]["MediaUnitOut"];
+type MediaCollection = components["schemas"]["MediaCollectionOut"];
+type MediaConsumption = components["schemas"]["MediaConsumptionOut"];
 
 function DetailCover({ item }: { item: MediaItem }) {
   const [broken, setBroken] = useState(false);
@@ -102,6 +108,128 @@ function MetadataEditor({ item, online, onChanged }: {
   );
 }
 
+const SUFFIX_BY_VOWEL: Record<string, string> = {
+  a: "ı", e: "i", ı: "ı", i: "i", o: "u", ö: "ü", u: "u", ü: "ü",
+};
+
+function lastVowelSuffix(word: string): string {
+  for (let index = word.length - 1; index >= 0; index -= 1) {
+    const suffix = SUFFIX_BY_VOWEL[word[index]];
+    if (suffix) return suffix;
+  }
+  return "i";
+}
+
+/** "bölüm" → "bölümü" (belirtme hali) — "Birinci bölümü tamamla" etiketi için. */
+function accusative(word: string): string {
+  return word + lastVowelSuffix(word);
+}
+
+/** "bölüm" → "bölümün" (tamlayan hali) — "…tamamlamasını geri al" etiketi için. */
+function genitive(word: string): string {
+  return word + lastVowelSuffix(word) + "n";
+}
+
+function UnitsSection({ item, units, consumptions, online }: {
+  item: MediaItem;
+  units: MediaUnit[];
+  consumptions: MediaConsumption[];
+  online: boolean;
+}) {
+  const completedUnitIds = new Set(
+    consumptions
+      .filter((entry) => entry.action === "complete_unit" && entry.unit_id != null)
+      .map((entry) => String(entry.unit_id)),
+  );
+  const mutation = useMutation({
+    mutationFn: ({ unit, completed }: { unit: MediaUnit; completed: boolean }) =>
+      api.post(`/media/${encodeURIComponent(item.id)}/consumptions`, {
+        action: completed ? "uncomplete_unit" : "complete_unit",
+        unit_id: unit.id,
+        measure: unit.progress_measure ?? item.progress_measure ?? "item",
+        client_uuid: crypto.randomUUID(),
+      }),
+    onSuccess: () => invalidateAfter("media.write"),
+  });
+  const topLevel = units.filter((unit) => !unit.parent_id);
+  if (topLevel.length === 0) return null;
+
+  return (
+    <Section title="Bölümler">
+      <ul className="divide-y divide-subtle">
+        {topLevel.map((unit) => {
+          const completed = completedUnitIds.has(unit.id);
+          return (
+            <li key={unit.id} className="flex flex-wrap items-center gap-3 py-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-body font-medium text-primary">
+                  {unit.number != null ? `${unit.number}. ` : ""}{unit.title}
+                </p>
+                <p className="mt-0.5 text-meta text-muted">
+                  {unit.unit_type}
+                  {unit.duration_min != null ? ` · ${unit.duration_min} dk` : ""}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant={completed ? "secondary" : "primary"}
+                disabled={!online || mutation.isPending}
+                onClick={() => mutation.mutate({ unit, completed })}
+              >
+                {completed ? `${genitive(unit.title)} tamamlamasını geri al` : `${accusative(unit.title)} tamamla`}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+      {mutation.error && (
+        <p role="alert" className="mt-2 text-meta text-danger">
+          Bölüm durumu güncellenemedi: {mutation.error.message}
+        </p>
+      )}
+    </Section>
+  );
+}
+
+function CollectionMembership({ itemId, collections, online }: {
+  itemId: string;
+  collections: MediaCollection[];
+  online: boolean;
+}) {
+  const remove = useMutation({
+    mutationFn: (collectionId: string) =>
+      api.del(`/media/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(itemId)}`),
+    onSuccess: () => invalidateAfter("media.write"),
+  });
+  if (collections.length === 0) return null;
+
+  return (
+    <Section title="Koleksiyonlar">
+      <ul className="flex flex-wrap gap-2">
+        {collections.map((collection) => (
+          <li key={collection.id} className="flex items-center gap-1.5">
+            <Chip variant="outline">{collection.title}</Chip>
+            <button
+              type="button"
+              aria-label={`${collection.title} koleksiyonundan çıkar`}
+              disabled={!online || remove.isPending}
+              onClick={() => remove.mutate(collection.id)}
+              className="flex h-6 w-6 items-center justify-center rounded border border-subtle text-muted transition hover:border-danger-border hover:bg-danger-surface hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <X size={12} aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {remove.error && (
+        <p role="alert" className="mt-2 text-meta text-danger">
+          Koleksiyondan çıkarılamadı: {remove.error.message}
+        </p>
+      )}
+    </Section>
+  );
+}
+
 export function MediaDetailPage() {
   const route = useHashRoute("/media/:id");
   const itemId = route.params.get("id");
@@ -112,6 +240,11 @@ export function MediaDetailPage() {
     enabled: Boolean(itemId),
   });
   const refresh = () => invalidateAfter("media.write");
+  const save = useSaveToLibrary();
+  const startCycle = useMutation({
+    mutationFn: () => api.post(`/media/${encodeURIComponent(itemId ?? "")}/cycles`, {}),
+    onSuccess: () => invalidateAfter("media.write"),
+  });
 
   useEffect(() => {
     if (!itemId) return;
@@ -140,6 +273,7 @@ export function MediaDetailPage() {
   const item = data.item;
   const provider = mediaProvider(item);
   const sites = externalLinks(item.kind, item.title, item.meta ?? {}, item.provider, item.provider_id, item.provider_ids);
+  const externalUrl = typeof item.meta?.url === "string" && item.meta.url ? item.meta.url : null;
   const progress = item.progress ?? 0;
   const progressText = item.total == null
     ? `${progress} ${measureLabel(item.progress_measure)}`
@@ -165,19 +299,41 @@ export function MediaDetailPage() {
             {item.summary && <p className="mt-3 max-w-3xl text-body leading-6 text-secondary">{item.summary}</p>}
           </header>
 
-          <Surface className="p-4">
-            <p className="label-caps">İlerleme</p>
-            <p className="mt-1 numeral text-title text-primary">{progressText}</p>
-            <div className="mt-4">
-              <MediaProgressActions item={item} online={online} onChanged={() => undefined} />
-            </div>
-          </Surface>
+          <div data-mobile-media-actions>
+            <Surface className="p-4">
+              <p className="label-caps">İlerleme</p>
+              <p className="mt-1 numeral text-title text-primary">{progressText}</p>
+              <div className="mt-4">
+                <MediaProgressActions item={item} online={online} onChanged={() => undefined} />
+              </div>
+              {item.status !== "completed" && item.status !== "dropped" && (
+                <div className="mt-3 border-t border-subtle pt-3">
+                  <Button size="sm" disabled={!online || startCycle.isPending} onClick={() => startCycle.mutate()}>
+                    <RotateCcw size={14} aria-hidden="true" /> Yeni tur başlat
+                  </Button>
+                </div>
+              )}
+            </Surface>
+          </div>
 
           <Section title="Puan ve notlar">
             <MetadataEditor item={item} online={online} onChanged={refresh} />
           </Section>
 
-          <Section title="Kaynaklarda aç">
+          <UnitsSection item={item} units={data.units} consumptions={data.consumptions} online={online} />
+
+          <CollectionMembership itemId={item.id} collections={data.collections} online={online} />
+
+          <Section
+            title="Kaynaklarda aç"
+            action={externalUrl ? (
+              <Button size="sm" disabled={!online} onClick={() => {
+                void save.save({ url: externalUrl, title: item.title, collection: "reference" });
+              }}>
+                <Bookmark size={13} aria-hidden="true" /> Kaydet
+              </Button>
+            ) : undefined}
+          >
             {sites.length ? <SiteLinks links={sites} /> : <p className="text-body text-muted">Bu tür için kaynak kısayolu yok.</p>}
           </Section>
         </div>

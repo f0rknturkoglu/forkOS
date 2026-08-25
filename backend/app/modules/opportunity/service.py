@@ -104,11 +104,44 @@ async def list_opportunities(
         if trashed_only
         else Opportunity.trashed_at.is_(None)
     )
-    if status:
-        stmt = stmt.where(Opportunity.status == status)
-    if kind:
-        stmt = stmt.where(Opportunity.kind == kind)
-    stmt = stmt.limit(limit)
+    rows = (await session.execute(stmt)).all()
+    outs = [_out(row, include_raw=False) for row in rows]
+    if not outs:
+        return outs
+    # Belge ters-bağları: DocumentsPage "bu belge hangi başvurularda kullanılıyor"
+    # için /opportunities listesini istemcide filtreler. Listeye join eklemek
+    # yerine iki hafif sorguyla dolduruyoruz (1:1 application + gereksinimler).
+    app_rows = (
+        await session.execute(
+            select(Application.opportunity_id, Application.cv_document_id)
+            .where(Application.opportunity_id.in_([row[0].id for row in rows]))
+        )
+    ).all()
+    cv_docs = {opportunity_id: cv for opportunity_id, cv in app_rows}
+    req_docs: dict[uuid.UUID, uuid.UUID] = {}
+    for opportunity_id, document_id in (
+        await session.execute(
+            select(
+                OpportunityRequirement.opportunity_id,
+                OpportunityRequirement.document_entity_id,
+            )
+            .where(
+                OpportunityRequirement.opportunity_id.in_([row[0].id for row in rows]),
+                OpportunityRequirement.document_entity_id.is_not(None),
+            )
+            .order_by(OpportunityRequirement.position)
+        )
+    ).all():
+        req_docs.setdefault(opportunity_id, document_id)
+    return [
+        out.model_copy(
+            update={
+                "cv_document_id": cv_docs.get(out.id),
+                "requirement_document_id": req_docs.get(out.id),
+            }
+        )
+        for out in outs
+    ]
     return [_out(row, include_raw=False) for row in (await session.execute(stmt)).all()]
 
 

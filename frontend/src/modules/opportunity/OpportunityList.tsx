@@ -1,4 +1,4 @@
-import { ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { Bookmark, ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import {Button, Chip, Select, cx, relativeTime} from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
@@ -37,6 +37,7 @@ export function FilterChip({
 export function OpportunityCard({
   item, onOpen, onStatus, onTrash, onRestore, onDelete, disabled, isTrash,
   layout = "rows", onSource, onRemote, onKind, sourceActive = false, remoteActive = false,
+  onSave,
 }: {
   item: Opportunity;
   onOpen: () => void;
@@ -53,6 +54,8 @@ export function OpportunityCard({
   onKind?: (kind: string) => void;
   sourceActive?: boolean;
   remoteActive?: boolean;
+  /** İlanı kütüphaneye kaydet ("Kaydet" aksiyonu; url yoksa buton çizilmez). */
+  onSave?: () => void;
 }) {
   const left = daysLeft(item.deadline_at);
   const urgent = left !== null && left <= 7;
@@ -152,6 +155,18 @@ export function OpportunityCard({
           >
             <ExternalLink size={14} />
           </a>
+        )}
+        {!isTrash && onSave && item.url && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={disabled}
+            title="Kütüphaneye kaydet"
+            aria-label={`${item.title} fırsatını kütüphaneye kaydet`}
+            className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition hover:bg-surface-hover hover:text-primary disabled:opacity-50"
+          >
+            <Bookmark size={14} />
+          </button>
         )}
         {!isTrash && (
           <button

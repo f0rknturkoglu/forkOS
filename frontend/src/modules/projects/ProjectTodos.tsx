@@ -32,7 +32,9 @@ export function ProjectTodos({ project }: { project: Project }) {
     queryFn: () => api.get<Todo[]>(`/projects/${project.id}/todos`),
   });
 
-  const refresh = () => invalidateAfter("project.write");
+  // Bugun paneli de "todos" anahtarini izler -- projeden gorev ekleyince
+  // oranin listesi de aninda tazelensin.
+  const refresh = () => invalidateAfter("todo.write", "project.write");
 
   const add = useMutation({
     mutationFn: () => createProjectTodo(project.id, title, milestone),

@@ -4632,6 +4632,18 @@
             ],
             "title": "Country"
           },
+          "cv_document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Document Id"
+          },
           "deadline_at": {
             "anyOf": [
               {
@@ -4755,6 +4767,18 @@
               }
             ],
             "title": "Remote"
+          },
+          "requirement_document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirement Document Id"
           },
           "score": {
             "anyOf": [
@@ -7956,31 +7980,6 @@
         ]
       }
     },
-    "/api/bookmarks/collections": {
-      "get": {
-        "operationId": "collections_api_bookmarks_collections_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "type": "string"
-                  },
-                  "title": "Response Collections Api Bookmarks Collections Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Collections",
-        "tags": [
-          "bookmark"
-        ]
-      }
-    },
     "/api/bookmarks/stats": {
       "get": {
         "operationId": "bookmark_stats_api_bookmarks_stats_get",
@@ -9174,44 +9173,6 @@
         "summary": "Export Opml",
         "tags": [
           "system"
-        ]
-      }
-    },
-    "/api/github/activity": {
-      "get": {
-        "operationId": "github_activity_api_github_activity_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Github Activity",
-        "tags": [
-          "projects"
-        ]
-      }
-    },
-    "/api/github/sync": {
-      "post": {
-        "operationId": "sync_github_api_github_sync_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Sync Github",
-        "tags": [
-          "projects"
         ]
       }
     },

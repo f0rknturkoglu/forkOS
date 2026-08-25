@@ -90,9 +90,9 @@ describe("media detail page", () => {
     vi.unstubAllGlobals();
   });
 
-  it("registers the encoded dynamic detail route before the media index", () => {
+  it("registers the encoded dynamic detail route after the media index", () => {
     const paths = allRoutes().filter((route) => route.path === "/media" || route.path.startsWith("/media/:"));
-    expect(paths.map((route) => route.path)).toEqual(["/media/:id", "/media"]);
+    expect(paths.map((route) => route.path)).toEqual(["/media", "/media/:id"]);
   });
 
   it("loads a readable two-column detail with progress and source actions", async () => {

@@ -81,6 +81,7 @@ async def related(session: AsyncSession, entity_id: uuid.UUID) -> list[dict]:
                 "id": str(entity.id),
                 "type": entity.type,
                 "title": entity.title,
+                "created_at": entity.created_at.isoformat(),
                 "updated_at": entity.updated_at.isoformat(),
             },
         }

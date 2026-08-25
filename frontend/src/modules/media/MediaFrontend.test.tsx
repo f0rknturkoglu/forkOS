@@ -168,7 +168,7 @@ function renderView(path: string, Component: ComponentType = MediaPage) {
 
 // Task 5'in uygulanacak responsive medya sözleşmesi. Task 4 bu ekranı bilinçli olarak
 // kapsam dışında bıraktığı için RED spesifikasyonu aktif regresyon paketine dahil değil.
-describe.skip("responsive media frontend (Task 5 contract)", () => {
+describe("responsive media frontend (Task 5 contract)", () => {
   beforeEach(() => {
     calls = [];
     responder = (path, method) => defaultResponse(path, method);
@@ -239,9 +239,10 @@ describe.skip("responsive media frontend (Task 5 contract)", () => {
     expect(await screen.findByRole("heading", { name: "Dune: Prophecy" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Sonraki bölüm" }));
+    await user.click(screen.getByRole("button", { name: "İlerlemeyi ayarla" }));
     await user.clear(screen.getByRole("spinbutton", { name: "İlerleme değeri" }));
     await user.type(screen.getByRole("spinbutton", { name: "İlerleme değeri" }), "5");
-    await user.click(screen.getByRole("button", { name: "İlerlemeyi ayarla" }));
+    await user.click(screen.getByRole("button", { name: "İlerlemeyi kaydet" }));
     await user.click(screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }));
     await user.click(screen.getByRole("button", { name: "Birinci bölümü tamamla" }));
     await user.click(screen.getByRole("button", { name: "İkinci bölümün tamamlamasını geri al" }));

@@ -16,7 +16,7 @@ from app.modules import MODULES
 FRONTEND_ROUTES = {
     "/bookmarks", "/inbox", "/rss", "/todos", "/planner", "/today", "/",
     "/pomodoro", "/review/daily", "/review/weekly", "/opportunities", "/sources",
-    "/study", "/learning", "/documents", "/calendar", "/media", "/media/{id}",
+    "/study", "/learning", "/documents", "/calendar", "/media", "/media/collections", "/media/{id}",
     "/projects", "/finance", "/health", "/settings", "/activity", "/day",
 }
 

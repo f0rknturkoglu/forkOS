@@ -99,7 +99,7 @@ describe("project todo integration", () => {
     });
 
     add.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("project.write");
+    expect(harness.invalidate).toHaveBeenCalledWith("todo.write", "project.write");
   });
 
   it("trims titles and omits a blank milestone in the atomic helper", async () => {

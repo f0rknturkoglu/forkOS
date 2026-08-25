@@ -1,5 +1,6 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
+import { useHashRoute } from "@/app/router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";

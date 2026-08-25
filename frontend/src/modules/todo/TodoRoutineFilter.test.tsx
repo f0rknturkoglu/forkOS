@@ -45,7 +45,7 @@ describe("Todo routine filter", () => {
     expect(markup).toContain("Görevler");
     expect(markup).toContain("Rutinler");
     expect(markup).not.toContain("Alışkanlıklar");
-    expect(todos?.queryKey).toEqual(["todos", "open", "routines"]);
+    expect(todos?.queryKey).toEqual(["todos", "open", "routines", ""]);
     expect(harness.apiGet).toHaveBeenCalledWith("/todos?status=open&limit=300&recur_only=true");
   });
 });

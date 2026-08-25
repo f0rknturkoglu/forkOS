@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Repeat } from "lucide-react";
-import { useHashRoute } from "@/app/router";
+import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import {
   Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx,
@@ -36,13 +36,16 @@ const BUCKETS = [
 ] as const;
 
 export function TodoPage() {
-  const { path } = useHashRoute();
+  const { path, params } = useHashRoute();
   const [status, setStatus] = useState<string>("open");
   const [tag, setTag] = useState<string>("");
   const [routineOnly, setRoutineOnly] = useState(path === "/habits");
 
+  // ?project=<id> filtre kipi: yalniz o projenin gorevleri listelenir.
+  const projectFilter = params.get("project") ?? "";
+
   const { data: todos = [], isLoading } = useQuery({
-    queryKey: ["todos", status, routineOnly ? "routines" : "all"],
+    queryKey: ["todos", status, routineOnly ? "routines" : "all", projectFilter],
     queryFn: () => api.get<Todo[]>(`/todos${qs({
       status: status || undefined,
       limit: 300,
@@ -54,7 +57,9 @@ export function TodoPage() {
     queryFn: () => api.get<TagCount[]>("/tags"),
   });
 
-  const filtered = tag ? todos.filter((todo) => todo.tags.includes(tag)) : todos;
+  let filtered = tag ? todos.filter((todo) => todo.tags.includes(tag)) : todos;
+  if (projectFilter) filtered = filtered.filter((todo) => todo.project_id === projectFilter);
+  const projectTitle = todos.find((todo) => todo.project_id === projectFilter)?.project_title;
   // Alt gorevler kendi satirlarinda degil, ustlerinin altinda gorunur.
   const childrenOf = filtered.reduce<Record<string, Todo[]>>((acc, todo) => {
     if (todo.parent_id) (acc[todo.parent_id] ??= []).push(todo);
@@ -112,6 +117,13 @@ export function TodoPage() {
           >
             <Repeat size={12} /> Rutinler
           </button>
+          {projectFilter && (
+            <button type="button" onClick={() => navigate(path)}
+              title="Proje filtresini kaldır"
+              className="ml-1 flex shrink-0 items-center gap-1.5 rounded-control border border-accent-border bg-accent-surface px-3 py-1.5 text-meta text-accent">
+              {projectTitle ?? projectFilter} ✕
+            </button>
+          )}
         </div>
 
         <span className="min-w-2 flex-1" />
