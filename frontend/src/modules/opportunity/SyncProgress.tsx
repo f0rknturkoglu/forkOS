@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import type { SourceSyncStatus } from "@/core/types";
-import { Badge, cx } from "@/core/ui";
+import { Badge, Button, cx } from "@/core/ui";
 
 export type SourceSyncScope = "opportunity" | "media";
 
@@ -43,7 +43,15 @@ export function SyncProgress({ compact = false, scope = "opportunity" }: {
   compact?: boolean;
   scope?: SourceSyncScope;
 }) {
-  const { data } = useSourceSync(scope);
+  const { data, error, isError, isFetching, refetch } = useSourceSync(scope);
+  if (isError) {
+    return (
+      <section role="alert" className={cx("flex flex-wrap items-center gap-3 border-y border-danger-border bg-danger-surface text-meta text-danger", compact ? "px-3 py-2.5" : "px-4 py-4")}>
+        <span>Kaynak senkronizasyonu yüklenemedi: {error?.message}</span>
+        <Button size="sm" disabled={isFetching} onClick={() => { void refetch(); }}>Yeniden dene</Button>
+      </section>
+    );
+  }
   const batch = data?.active;
   const recent = data?.last_completed;
   const showRecent = recent?.finished_at

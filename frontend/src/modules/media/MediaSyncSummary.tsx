@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
@@ -36,6 +36,7 @@ function providerKinds(provider: MediaProviderStatus): string {
 
 export function MediaSyncSummary({ online }: { online: boolean }) {
   const [open, setOpen] = useState(false);
+  const wasProviderError = useRef(false);
   const invalidate = useInvalidate();
   const providers = useQuery({
     queryKey: ["media-providers"],
@@ -50,17 +51,21 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
   const healthy = data.filter(isHealthy).length;
   const lastRun = latestRun(data);
   const failed = providers.isError;
-  const detailOpen = open || failed;
+
+  useEffect(() => {
+    if (failed && !wasProviderError.current) setOpen(true);
+    wasProviderError.current = failed;
+  }, [failed]);
 
   return (
     <details
       data-media-sync
-      open={detailOpen}
+      open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
       className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
     >
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 marker:content-none">
-        <ChevronDown className={cx("shrink-0 transition-transform", detailOpen && "rotate-180")} size={15} aria-hidden="true" />
+        <ChevronDown className={cx("shrink-0 transition-transform", open && "rotate-180")} size={15} aria-hidden="true" />
         <span className="text-body font-medium text-primary">Kaynak ayrıntıları</span>
         {providers.isLoading ? (
           <span className="ml-auto text-meta text-muted" aria-live="polite">Kaynaklar yükleniyor…</span>
@@ -107,9 +112,9 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
                       <div className="min-w-0">
                         <p className="truncate text-body text-primary">{providerLabel(provider.id) ?? provider.id}</p>
                         <p className="truncate text-meta text-secondary">{providerKinds(provider)}</p>
-                        {provider.last_error && <p className="truncate text-meta text-danger">Son hata: {provider.last_error}</p>}
+                        {provider.last_error && <p className="break-words text-meta text-danger" title={`Son hata: ${provider.last_error}`}>Son hata: {provider.last_error}</p>}
                         {provider.missing_settings.map((setting) => (
-                          <p key={setting} className="truncate text-meta text-warn">Eksik ayar: {setting}</p>
+                          <p key={setting} className="break-words text-meta text-warn" title={`Eksik ayar: ${setting}`}>Eksik ayar: {setting}</p>
                         ))}
                       </div>
                       <div className="flex items-start gap-2 sm:justify-end">

@@ -44,11 +44,18 @@ function json(value: unknown, status = 200): Response {
 
 function renderSummary(online = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <MediaSyncSummary online={online} />
     </QueryClientProvider>,
   );
+  return { ...view, client };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => { resolve = next; });
+  return { promise, resolve };
 }
 
 describe("MediaSyncSummary", () => {
@@ -98,14 +105,33 @@ describe("MediaSyncSummary", () => {
     expect(screen.getByText("Eksik ayar: media.kitsu_key")).toBeTruthy();
   });
 
-  it("queues all providers from the disclosure and prevents offline writes", async () => {
-    renderSummary();
+  it("blocks duplicate pending syncs and invalidates each affected query family", async () => {
+    const pending = deferred<Response>();
+    responder = (path, method) => {
+      if (path === "/api/media/providers") return json(providers);
+      if (path === "/api/sources/sync?scope=media") return json({ active: null, last_completed: null, running: [], sources: [] });
+      if (path === "/api/media/sync" && method === "POST") return pending.promise;
+      return json({}, 404);
+    };
+    const { client } = renderSummary();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
     fireEvent.click(await screen.findByText("Kaynak ayrıntıları"));
-    fireEvent.click(screen.getByRole("button", { name: "Şimdi tara" }));
-    await act(async () => {});
-    expect(calls).toContainEqual({ path: "/api/media/sync", method: "POST" });
+    const sync = screen.getByRole("button", { name: "Şimdi tara" }) as HTMLButtonElement;
+    fireEvent.click(sync);
+    expect(await screen.findByRole("button", { name: "Şimdi tara" })).toBe(sync);
+    expect(sync.disabled).toBe(true);
+    fireEvent.click(sync);
+    expect(calls.filter((call) => call.path === "/api/media/sync" && call.method === "POST")).toHaveLength(1);
 
-    cleanup();
+    pending.resolve(json({ queued: 6 }));
+    await act(async () => {});
+    const keys = invalidate.mock.calls.map(([filters]) => filters?.queryKey);
+    expect(keys).toContainEqual(["media-providers"]);
+    expect(keys).toContainEqual(["source-sync"]);
+    expect(keys).toContainEqual(["media"]);
+  });
+
+  it("prevents offline sync writes", async () => {
     renderSummary(false);
     fireEvent.click(await screen.findByText("Kaynak ayrıntıları"));
     expect((screen.getByRole("button", { name: "Şimdi tara" }) as HTMLButtonElement).disabled).toBe(true);
@@ -126,6 +152,15 @@ describe("MediaSyncSummary", () => {
 
     expect((await screen.findByRole("alert")).textContent).toContain("sağlayıcılar kapalı");
     expect(screen.queryByText("sağlıklı")).toBeNull();
+    const details = document.querySelector("details[data-media-sync]") as HTMLDetailsElement;
+    expect(details.open).toBe(true);
+    fireEvent.click(screen.getByText("Kaynak ayrıntıları"));
+    await act(async () => { details.dispatchEvent(new Event("toggle")); });
+    expect(details.open).toBe(false);
+    expect(details.querySelector("svg")?.className.baseVal).not.toContain("rotate-180");
+
+    fireEvent.click(screen.getByText("Kaynak ayrıntıları"));
+    expect(details.open).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
     expect(await screen.findByText("6 kaynak")).toBeTruthy();
 
@@ -133,5 +168,23 @@ describe("MediaSyncSummary", () => {
     fireEvent.click(screen.getByRole("button", { name: "Şimdi tara" }));
     expect((await screen.findByRole("alert")).textContent).toContain("kuyruk kapalı");
     expect((screen.getByRole("button", { name: "Şimdi tara" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("keeps provider diagnostics fully readable", async () => {
+    const longError = "Sağlayıcının ayrıntılı yanıtı: geçici ağ geçidi hatası nedeniyle katalog bağlantısı kurulamadı.";
+    const longSetting = "media.providers.kitsu.credentials.api_key";
+    responder = (path) => path === "/api/media/providers"
+      ? json([{ ...providers[5], last_error: longError, missing_settings: [longSetting] }])
+      : json({ active: null, last_completed: null, running: [], sources: [] });
+    renderSummary();
+    await screen.findByText("1 kaynak");
+    fireEvent.click(screen.getByText("Kaynak ayrıntıları"));
+
+    const error = screen.getByText(`Son hata: ${longError}`);
+    const setting = screen.getByText(`Eksik ayar: ${longSetting}`);
+    expect(error.className).toContain("break-words");
+    expect(error.className).not.toContain("truncate");
+    expect(setting.className).toContain("break-words");
+    expect(setting.getAttribute("title")).toBe(`Eksik ayar: ${longSetting}`);
   });
 });
