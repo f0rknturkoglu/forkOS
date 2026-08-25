@@ -31,7 +31,7 @@ export function sourceSyncHistoryQueryKey(scope: SourceSyncScope): readonly stri
     : ["source-sync-history"];
 }
 
-export function useSourceSync(scope: SourceSyncScope = "opportunity") {
+function useSourceSync(scope: SourceSyncScope = "opportunity") {
   return useQuery({
     queryKey: sourceSyncQueryKey(scope),
     queryFn: () => api.get<SourceSyncStatus>(sourceSyncApiPath(scope)),

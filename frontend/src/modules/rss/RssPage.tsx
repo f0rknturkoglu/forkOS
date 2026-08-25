@@ -9,7 +9,7 @@ import { navigate } from "@/app/router";
 import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
 import { RssReadingPane } from "./RssReadingPane";
 
-export const RSS_SAVE_REFRESH_KEYS = [
+const RSS_SAVE_REFRESH_KEYS = [
   "rss-item", "items", "feeds", "rss-stats", "bookmarks", "bookmark-stats", "activity",
 ] as const;
 

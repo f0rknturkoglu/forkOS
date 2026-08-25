@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, Boolean, DateTime, ForeignKey, Integer, SmallInteger, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -85,7 +85,8 @@ class ApplicationHistory(Base):
     """Durum gecis gecmisi — append-only (kural 3 ile birlikte)."""
     __tablename__ = "application_history"
 
-    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="CASCADE"))
     from_status: Mapped[str | None] = mapped_column(Text)
@@ -98,7 +99,8 @@ class ApplicationHistory(Base):
 class Interview(Base):
     __tablename__ = "interview"
 
-    id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="CASCADE"))
     stage: Mapped[str] = mapped_column(Text, nullable=False, default="genel")

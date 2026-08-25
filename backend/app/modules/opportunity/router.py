@@ -1,6 +1,9 @@
+import os
+from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
+import yaml
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, text
@@ -21,21 +24,17 @@ from app.modules.opportunity.schemas import (
     RequirementIn,
     SourceRefreshOut,
     SourceSyncBatchOut,
-    SourceSyncStatusOut,
+       SourceSyncStatusOut,
+    TransitionIn,
 )
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
 from app.modules.todo.schemas import TodoIn, TodoOut
-from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
-import os
-from pathlib import Path
-
-import yaml
-
 from app.sources import forkjob_port
-from app.sources.forkjob_port import forkjob_sources
+from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.linkedin_profiles import LinkedInProfile, LinkedInProfiles
+from app.sources.forkjob_port import forkjob_sources
 
 router = APIRouter(tags=["opportunities"])
 
@@ -476,7 +475,7 @@ async def history(item_id: UUID, session: AsyncSession = Depends(get_session)):
 
 @router.post("/opportunities/{item_id}/transition", response_model=service.OpportunityOut)
 async def transition(
-    item_id: UUID, body: service.TransitionIn, session: AsyncSession = Depends(get_session),
+        item_id: UUID, body: TransitionIn, session: AsyncSession = Depends(get_session),
 ):
     """Durum gecisi: gecmis + event yazar; terminal durumlara takilir."""
     try:
@@ -496,7 +495,8 @@ async def interviews(item_id: UUID, session: AsyncSession = Depends(get_session)
     return await service.list_interviews(session, item_id)
 
 
-@router.post("/opportunities/{item_id}/interviews", response_model=service.InterviewOut, status_code=201)
+@router.post(
+    "/opportunities/{item_id}/interviews", response_model=service.InterviewOut, status_code=201)
 async def add_interview(
     item_id: UUID, body: service.InterviewIn, session: AsyncSession = Depends(get_session),
 ):

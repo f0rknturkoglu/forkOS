@@ -10,7 +10,7 @@ const WeeklyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ d
 registerModule({ id: "review", title: "Değerlendirme", icon: ClipboardCheck, group: "track", routes: [
   { path: "/review/weekly", element: WeeklyReviewPage },
   { path: "/review/daily", element: DailyReviewPage },
-], todayWidgets: [{ component: ReviewWidget, zone: "rhythm", slot: "left", order: 80 }], commands: [
+], todayWidgets: [{ component: ReviewWidget, slot: "left", order: 80 }], commands: [
   { id: "review.weekly", label: "Haftalık değerlendirmeyi aç", run: () => navigate("/review/weekly") },
   { id: "review.daily", label: "Günlük değerlendirmeyi aç", run: () => navigate("/review/daily") },
 ] });

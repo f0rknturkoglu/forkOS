@@ -350,7 +350,7 @@ async def test_overdue_recurring_todo_advances_to_future_and_keeps_context(clien
     await client.delete(f"/api/projects/{project['id']}")
 
 
-async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncClient):
+async def test_heatmap_classifies_routine_todos(client: AsyncClient):
     suffix = uuid.uuid4().hex[:8]
     before = (await client.get("/api/activity/heatmap", params={"days": 7})).json()
     before_today = before["days"][-1]["kinds"]
@@ -359,16 +359,14 @@ async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncC
     routine = (await client.post("/api/todos", json={
         "title": f"Routine {suffix}", "recur": "daily",
     })).json()
-    habit = (await client.post("/api/habits", json={"title": f"Legacy {suffix}"})).json()
 
     await client.post(f"/api/todos/{normal['id']}/complete")
     await client.post(f"/api/todos/{routine['id']}/complete")
-    await client.post(f"/api/habits/{habit['id']}/check", json={"day": local_today().isoformat()})
 
     after = (await client.get("/api/activity/heatmap", params={"days": 7})).json()
     after_today = after["days"][-1]["kinds"]
     assert after_today.get("task", 0) - before_today.get("task", 0) == 1
-    assert after_today.get("routine", 0) - before_today.get("routine", 0) == 2
+    assert after_today.get("routine", 0) - before_today.get("routine", 0) == 1
     assert after["labels"]["routine"] == "rutin"
 
     detail = (await client.get(
@@ -390,7 +388,6 @@ async def test_heatmap_classifies_routine_todos_and_legacy_habits(client: AsyncC
     await client.delete(f"/api/todos/{generated['id']}")
     await client.delete(f"/api/todos/{normal['id']}")
     await client.delete(f"/api/todos/{routine['id']}")
-    await client.delete(f"/api/habits/{habit['id']}")
 
 
 async def test_today_agenda_deduplicates_planned_due_todo(client: AsyncClient):
@@ -739,7 +736,7 @@ async def test_manual_pomodoro_event_includes_context(client: AsyncClient):
 
 
 async def test_phase2_productivity_flow(client: AsyncClient):
-    """Todo -> plan -> pomodoro -> habit -> review dikey dilimi."""
+    """Todo -> plan -> pomodoro -> review dikey dilimi."""
     suffix = uuid.uuid4().hex[:8]
     created_ids: list[str] = []
 
@@ -784,20 +781,6 @@ async def test_phase2_productivity_flow(client: AsyncClient):
     )
     assert stopped.status_code == 200
     assert stopped.json()["actual_min"] == 1
-
-    habit_response = await client.post("/api/habits", json={"title": f"Habit {suffix}"})
-    assert habit_response.status_code == 201
-    habit = habit_response.json()
-    created_ids.append(habit["id"])
-    checked = await client.post(
-        f"/api/habits/{habit['id']}/check",
-        json={
-            "day": local_today().isoformat(),
-            "done": True,
-        },
-    )
-    assert checked.status_code == 200
-    assert checked.json()["done_today"] is True
 
     completed = await client.post(f"/api/todos/{todo['id']}/complete")
     assert completed.status_code == 200

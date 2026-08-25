@@ -56,6 +56,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/funnel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Applications Funnel */
+        get: operations["applications_funnel_api_applications_funnel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/rejection-reasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rejection Reasons */
+        get: operations["rejection_reasons_api_applications_rejection_reasons_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/github": {
         parameters: {
             query?: never;
@@ -694,42 +728,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/habits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Habits */
-        get: operations["list_habits_api_habits_get"];
-        put?: never;
-        /** Create Habit */
-        post: operations["create_habit_api_habits_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/habits/grid": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Habit Grid */
-        get: operations["habit_grid_api_habits_grid_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/habits/{habit_id}": {
+    "/api/interviews/{interview_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -739,35 +738,12 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Delete Habit
-         * @description Aliskanligi ve gunlugunu siler.
-         *
-         *     Birakmak icin `active=false` yeter (gecmis kalir); bu uc kaydi tamamen
-         *     kaldirir -- yanlis eklenmis bir aliskanlik icin.
-         */
-        delete: operations["delete_habit_api_habits__habit_id__delete"];
+        /** Delete Interview */
+        delete: operations["delete_interview_api_interviews__interview_id__delete"];
         options?: never;
         head?: never;
-        /** Update Habit */
-        patch: operations["update_habit_api_habits__habit_id__patch"];
-        trace?: never;
-    };
-    "/api/habits/{habit_id}/check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Check Habit */
-        post: operations["check_habit_api_habits__habit_id__check_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
+        /** Patch Interview */
+        patch: operations["patch_interview_api_interviews__interview_id__patch"];
         trace?: never;
     };
     "/api/learning/queue": {
@@ -1280,6 +1256,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/followups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Followups */
+        get: operations["followups_api_opportunities_followups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{item_id}": {
         parameters: {
             query?: never;
@@ -1297,6 +1290,79 @@ export interface paths {
         head?: never;
         /** Patch */
         patch: operations["patch_api_opportunities__item_id__patch"];
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/application": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Application Detail */
+        get: operations["application_detail_api_opportunities__item_id__application_get"];
+        /** Application Update */
+        put: operations["application_update_api_opportunities__item_id__application_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply
+         * @description Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir.
+         */
+        post: operations["apply_api_opportunities__item_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["history_api_opportunities__item_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/interviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Interviews */
+        get: operations["interviews_api_opportunities__item_id__interviews_get"];
+        put?: never;
+        /** Add Interview */
+        post: operations["add_interview_api_opportunities__item_id__interviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/opportunities/{item_id}/requirements": {
@@ -1346,6 +1412,26 @@ export interface paths {
         put?: never;
         /** Add Opportunity Todo */
         post: operations["add_opportunity_todo_api_opportunities__item_id__todos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/transition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transition
+         * @description Durum gecisi: gecmis + event yazar; terminal durumlara takilir.
+         */
+        post: operations["transition_api_opportunities__item_id__transition_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2119,6 +2205,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources/jobhunter/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Jobhunter Config */
+        get: operations["jobhunter_config_api_sources_jobhunter_config_get"];
+        /**
+         * Jobhunter Config Update
+         * @description Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.
+         *
+         *     Yeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING
+         *     aninda guncellenir).
+         */
+        put: operations["jobhunter_config_update_api_sources_jobhunter_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/jobhunter/env": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Jobhunter Env */
+        get: operations["jobhunter_env_api_sources_jobhunter_env_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/jobhunter/linkedin-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Jobhunter Linkedin Profiles */
+        get: operations["jobhunter_linkedin_profiles_api_sources_jobhunter_linkedin_profiles_get"];
+        /**
+         * Jobhunter Linkedin Profiles Save
+         * @description Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi.
+         */
+        put: operations["jobhunter_linkedin_profiles_save_api_sources_jobhunter_linkedin_profiles_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sources/refresh": {
         parameters: {
             query?: never;
@@ -2561,6 +2709,68 @@ export interface components {
             /** Todos */
             todos?: components["schemas"]["AgendaRow"][];
         };
+        /** ApplicationIn */
+        ApplicationIn: {
+            /** Company Research */
+            company_research?: string | null;
+            /** Cover Letter */
+            cover_letter?: string | null;
+            /** Cv Document Id */
+            cv_document_id?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Salary Expectation */
+            salary_expectation?: string | null;
+        };
+        /** ApplicationOut */
+        ApplicationOut: {
+            /** Company Research */
+            company_research?: string | null;
+            /** Cover Letter */
+            cover_letter?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Cv Document Id */
+            cv_document_id?: string | null;
+            /** Cv Modified At */
+            cv_modified_at?: string | null;
+            /** Cv Title */
+            cv_title?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /**
+             * Posting Snapshot
+             * @default {}
+             */
+            posting_snapshot: {
+                [key: string]: unknown;
+            };
+            /** Salary Expectation */
+            salary_expectation?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * ApplyIn
+         * @description Ilk basvuru: durum 'applied' yapar, snapshot'i birlikte alir.
+         */
+        ApplyIn: {
+            /** Company Research */
+            company_research?: string | null;
+            /** Cover Letter */
+            cover_letter?: string | null;
+            /** Cv Document Id */
+            cv_document_id?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Salary Expectation */
+            salary_expectation?: string | null;
+        };
         /** AreaIn */
         AreaIn: {
             /** Color */
@@ -2880,6 +3090,8 @@ export interface components {
              * Format: date
              */
             spent_on?: string;
+            /** Sub */
+            sub?: string | null;
             /** Title */
             title: string;
         };
@@ -2895,6 +3107,8 @@ export interface components {
             note?: string | null;
             /** Spent On */
             spent_on?: string | null;
+            /** Sub */
+            sub?: string | null;
             /** Title */
             title?: string | null;
         };
@@ -2998,6 +3212,47 @@ export interface components {
             /** Sessions */
             sessions: number;
         };
+        /** FollowupOut */
+        FollowupOut: {
+            /**
+             * Follow Up At
+             * Format: date-time
+             */
+            follow_up_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note?: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
+        /** FunnelOut */
+        FunnelOut: {
+            /** By Status */
+            by_status: components["schemas"]["FunnelRow"][];
+            /** Conversions */
+            conversions: {
+                [key: string]: number | null;
+            };
+            /** Rejection Reasons */
+            rejection_reasons: {
+                [key: string]: unknown;
+            }[];
+            /** Total */
+            total: number;
+        };
+        /** FunnelRow */
+        FunnelRow: {
+            /** Count */
+            count: number;
+            /** Status */
+            status: string;
+        };
         /** GithubCredentialsIn */
         GithubCredentialsIn: {
             /** Login */
@@ -3017,116 +3272,24 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** HabitCheck */
-        HabitCheck: {
+        /** HistoryOut */
+        HistoryOut: {
             /**
-             * Day
-             * Format: date
+             * At
+             * Format: date-time
              */
-            day?: string;
-            /**
-             * Done
-             * @default true
-             */
-            done: boolean;
-            /** Note */
-            note?: string | null;
-        };
-        /** HabitGridEntry */
-        HabitGridEntry: {
-            /**
-             * Day
-             * Format: date
-             */
-            day: string;
-            /** Done */
-            done: boolean;
-            /**
-             * Habit Id
-             * Format: uuid
-             */
-            habit_id: string;
-            /** Note */
-            note?: string | null;
-            /** Title */
-            title: string;
-        };
-        /** HabitIn */
-        HabitIn: {
-            /**
-             * Cadence
-             * @default daily
-             */
-            cadence: string;
-            /** Color */
-            color?: string | null;
-            /**
-             * Position
-             * @default 0
-             */
-            position: number;
-            /**
-             * Target Per Week
-             * @default 7
-             */
-            target_per_week: number;
-            /** Title */
-            title: string;
-        };
-        /** HabitOut */
-        HabitOut: {
-            /** Active */
-            active: boolean;
-            /**
-             * Best Streak
-             * @default 0
-             */
-            best_streak: number;
-            /** Cadence */
-            cadence: string;
-            /** Color */
-            color: string | null;
-            /**
-             * Done Today
-             * @default false
-             */
-            done_today: boolean;
+            at: string;
+            /** From Status */
+            from_status?: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Position */
-            position: number;
-            /**
-             * Streak
-             * @default 0
-             */
-            streak: number;
-            /** Target Per Week */
-            target_per_week: number;
-            /** Title */
-            title: string;
-            /**
-             * Week Done
-             * @default 0
-             */
-            week_done: number;
-        };
-        /** HabitUpdate */
-        HabitUpdate: {
-            /** Active */
-            active?: boolean | null;
-            /** Cadence */
-            cadence?: string | null;
-            /** Color */
-            color?: string | null;
-            /** Position */
-            position?: number | null;
-            /** Target Per Week */
-            target_per_week?: number | null;
-            /** Title */
-            title?: string | null;
+            /** Note */
+            note?: string | null;
+            /** To Status */
+            to_status: string;
         };
         /** ImportResult */
         ImportResult: {
@@ -3139,6 +3302,54 @@ export interface components {
             feeds: string[];
             /** Skipped */
             skipped: number;
+        };
+        /** InterviewIn */
+        InterviewIn: {
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Mode */
+            mode?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Outcome */
+            outcome?: string | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /**
+             * Stage
+             * @default genel
+             */
+            stage: string;
+        };
+        /** InterviewOut */
+        InterviewOut: {
+            /** Duration Min */
+            duration_min?: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Mode */
+            mode?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /** Outcome */
+            outcome?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Scheduled At */
+            scheduled_at?: string | null;
+            /** Stage */
+            stage: string;
         };
         /** IssueToTodoIn */
         IssueToTodoIn: {
@@ -3893,10 +4104,14 @@ export interface components {
             applied_at: string | null;
             /** Compensation */
             compensation: string | null;
+            /** Country */
+            country?: string | null;
             /** Deadline At */
             deadline_at: string | null;
             /** External Id */
             external_id: string | null;
+            /** Follow Up At */
+            follow_up_at?: string | null;
             /**
              * Found At
              * Format: date-time
@@ -3921,6 +4136,10 @@ export interface components {
             raw: {
                 [key: string]: unknown;
             };
+            /** Region */
+            region?: string | null;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
             /** Remote */
             remote: string | null;
             /** Score */
@@ -3946,10 +4165,14 @@ export interface components {
         OpportunityPatch: {
             /** Deadline At */
             deadline_at?: string | null;
+            /** Follow Up At */
+            follow_up_at?: string | null;
             /** Notes */
             notes?: string | null;
             /** Priority */
             priority?: number | null;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
             /** Status */
             status?: string | null;
             /** Title */
@@ -4191,6 +4414,8 @@ export interface components {
             next_due_at?: string | null;
             /** Note */
             note?: string | null;
+            /** Sub */
+            sub?: string | null;
             /** Title */
             title: string;
         };
@@ -4210,6 +4435,8 @@ export interface components {
             next_due_at?: string | null;
             /** Note */
             note?: string | null;
+            /** Sub */
+            sub?: string | null;
             /** Title */
             title?: string | null;
         };
@@ -4742,6 +4969,15 @@ export interface components {
             /** Topic */
             topic: string;
         };
+        /** TransitionIn */
+        TransitionIn: {
+            /** Note */
+            note?: string | null;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+            /** To */
+            to: string;
+        };
         /** UnfinishedTodo */
         UnfinishedTodo: {
             /** Due At */
@@ -4870,6 +5106,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    applications_funnel_api_applications_funnel_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FunnelOut"];
+                };
+            };
+        };
+    };
+    rejection_reasons_api_applications_rejection_reasons_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -6062,107 +6338,12 @@ export interface operations {
             };
         };
     };
-    list_habits_api_habits_get: {
-        parameters: {
-            query?: {
-                active?: boolean | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HabitOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_habit_api_habits_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["HabitIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HabitOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    habit_grid_api_habits_grid_get: {
-        parameters: {
-            query?: {
-                weeks?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HabitGridEntry"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_habit_api_habits__habit_id__delete: {
+    delete_interview_api_interviews__interview_id__delete: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                habit_id: string;
+                interview_id: string;
             };
             cookie?: never;
         };
@@ -6186,18 +6367,18 @@ export interface operations {
             };
         };
     };
-    update_habit_api_habits__habit_id__patch: {
+    patch_interview_api_interviews__interview_id__patch: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                habit_id: string;
+                interview_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["HabitUpdate"];
+                "application/json": components["schemas"]["InterviewIn"];
             };
         };
         responses: {
@@ -6207,42 +6388,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HabitOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    check_habit_api_habits__habit_id__check_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                habit_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["HabitCheck"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HabitOut"];
+                    "application/json": components["schemas"]["InterviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -7455,6 +7601,37 @@ export interface operations {
             };
         };
     };
+    followups_api_opportunities_followups_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     opportunity_detail_api_opportunities__item_id__get: {
         parameters: {
             query?: never;
@@ -7537,6 +7714,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    application_detail_api_opportunities__item_id__application_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    application_update_api_opportunities__item_id__application_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplicationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_api_opportunities__item_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_api_opportunities__item_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    interviews_api_opportunities__item_id__interviews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_interview_api_opportunities__item_id__interviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InterviewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -7700,6 +8075,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_api_opportunities__item_id__transition_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"];
                 };
             };
             /** @description Validation Error */
@@ -9315,6 +9725,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    jobhunter_config_api_sources_jobhunter_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    jobhunter_config_update_api_sources_jobhunter_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    jobhunter_env_api_sources_jobhunter_env_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    jobhunter_linkedin_profiles_api_sources_jobhunter_linkedin_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    jobhunter_linkedin_profiles_save_api_sources_jobhunter_linkedin_profiles_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": unknown[];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

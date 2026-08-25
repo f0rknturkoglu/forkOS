@@ -17,18 +17,20 @@ import type { ModuleSpec } from "./types";
 
 function ModuleTab({ module, active }: { module: ModuleSpec; active: boolean }) {
   const target = moduleTarget(module);
+  const Icon = module.icon;
 
   return (
     <a
       href={`#${target}`}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "flex h-9 shrink-0 items-center border-b-2 text-meta transition-colors",
+        "flex h-9 shrink-0 items-center gap-1.5 border-b-2 text-meta transition-colors",
         active
           ? "border-accent text-primary"
           : "border-transparent text-muted hover:text-primary",
       )}
     >
+      {Icon && <Icon size={13} className="shrink-0" />}
       {module.title}
     </a>
   );

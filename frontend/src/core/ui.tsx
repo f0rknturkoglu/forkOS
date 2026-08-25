@@ -49,15 +49,6 @@ export function useTheme(): [Theme, (next: Theme) => void] {
    Yuzeyler
    ══════════════════════════════════════════════════════════════════════ */
 
-/** Kutu. Derinlik 1px kenarlik + cok hafif kabartmayla kurulur, agir golgeyle degil. */
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cx("rounded-card border border-subtle bg-surface shadow-card", className)}>
-      {children}
-    </div>
-  );
-}
-
 export function Panel({
   title, action, children, className, bodyClassName,
 }: {
@@ -520,7 +511,7 @@ export function Spinner({ label = "Yükleniyor…" }: { label?: string }) {
    verilir; geri alinabilir islemler action ile gelir.
    ══════════════════════════════════════════════════════════════════════ */
 
-export interface Toast {
+interface Toast {
   id: number;
   message: string;
   tone: "neutral" | "ok" | "warn" | "danger";

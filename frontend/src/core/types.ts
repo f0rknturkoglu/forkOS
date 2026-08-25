@@ -45,14 +45,9 @@ export interface HeatmapDay {
   kinds: Record<string, number>;
 }
 
-/** Gun sayfasindaki hareket; `kind` doluysa emek haritasinda sayilmis demektir. */
-export interface DayEvent extends ActivityEvent {
-  kind: string | null;
-}
-
 export interface DayDetail {
   day: string;
-  events: DayEvent[];
+  	events: (ActivityEvent & { kind: string | null })[];
   kinds: Record<string, number>;
   labels: Record<string, string>;
   total: number;
@@ -260,14 +255,6 @@ export interface GithubIssue {
   draft: boolean;
 }
 
-export interface GithubCommit {
-  sha: string;
-  message: string;
-  url: string;
-  author: string | null;
-  committed_at: string | null;
-}
-
 export interface GithubRepoPanel {
   repo: string;
   url: string;
@@ -282,7 +269,13 @@ export interface GithubRepoPanel {
   private: boolean;
   issues: GithubIssue[];
   pulls: GithubIssue[];
-  commits: GithubCommit[];
+  	commits: {
+		sha: string;
+		message: string;
+		url: string;
+		author: string | null;
+		committed_at: string | null;
+	}[];
   /** Token ile mi okundu -- limitin 60/saat mi 5000/saat mi oldugunu soyler. */
   authenticated: boolean;
 }
@@ -298,8 +291,6 @@ export interface ProjectEvent {
   occurred_at: string;
 }
 
-export interface GithubActivity { day: string; repo: string; commit_count: number }
-
 export interface Expense {
   id: string; title: string; amount: string; currency: string; category: string;
   spent_on: string; note: string | null;
@@ -313,11 +304,10 @@ export interface RecurringPayment {
   sub: string | null;
 }
 
-export type MediaLink = { name: string; url: string; icon?: string };
 export type AppSettings = Record<string, unknown> & {
   "modules.disabled": string[];
   "today.widget_order": string[];
-  "media.links": MediaLink[];
+  	"media.links": { name: string; url: string; icon?: string }[];
   theme: string;
 };
 
@@ -342,30 +332,6 @@ export interface PomodoroStats {
   minutes: number;
   sessions: number;
   interrupted: number;
-}
-
-export interface Habit {
-  id: string;
-  title: string;
-  cadence: "daily" | "weekly";
-  target_per_week: number;
-  color: string | null;
-  active: boolean;
-  position: number;
-  done_today: boolean;
-  streak: number;
-  /** Bu hafta (pazartesiden bugune) isaretli gun sayisi. */
-  week_done: number;
-  /** En uzun kesintisiz seri. */
-  best_streak: number;
-}
-
-export interface HabitGridEntry {
-  habit_id: string;
-  title: string;
-  day: string;
-  done: boolean;
-  note: string | null;
 }
 
 export type ReviewPreview = ApiSchemas["ReviewPreview"];
@@ -407,7 +373,6 @@ export interface BackupStatus {
 }
 
 export type SourceSyncBatch = ApiSchemas["SourceSyncBatchOut"];
-export type SourceSyncItem = ApiSchemas["SourceSyncItemOut"];
 export type SourceSyncStatus = ApiSchemas["SourceSyncStatusOut"];
 export type SourceRefreshResult = ApiSchemas["SourceRefreshOut"];
 
@@ -530,17 +495,8 @@ export const MODULE_GROUPS: { id: ModuleGroup; label: string }[] = [
   { id: "system", label: "Sistem" },
 ];
 
-/**
- * Today uc bolgeye ayrilir:
- *   now     — "Su an": suren is, siradaki blok, bugunun gorevleri
- *   pending — "Bekleyenler": islenmeyi bekleyen yiginlar, kompakt
- *   rhythm  — "Ritim": alistirmalar, degerlendirme, gecmis
- */
-export type TodayZone = "now" | "pending" | "rhythm";
-
 export interface TodayWidget {
   component: ComponentType;
-  zone: TodayZone;
   /**
    * Panel sutunu: "left" (plan), "center" (akis), "right" (durum).
    * Verilmezse center.
@@ -571,6 +527,4 @@ export interface ModuleSpec {
    */
   todayWidgets?: (ComponentType | TodayWidget)[];
   commands?: Command[];
-  enabledByDefault?: boolean;
-  searchLabel?: string;
 }

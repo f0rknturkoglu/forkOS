@@ -13,9 +13,9 @@ export class OfflineWriteError extends Error {
   }
 }
 
-export const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
+const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
 
-export function assertOnlineWrite(): void {
+function assertOnlineWrite(): void {
   if (!isOnline()) throw new OfflineWriteError();
 }
 

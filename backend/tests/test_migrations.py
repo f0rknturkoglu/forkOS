@@ -104,6 +104,10 @@ def test_module_tables_reference_entity():
         "setting",
         # Manuel scraper batch'i, source_run gibi operasyonel destek kaydidir.
         "source_sync_batch",
+        # Durum gecis gecmisi -- event gibi append-only log, entity degil.
+        "application_history",
+        # Opportunity alt kaydi (1:N) -- plan_slot gibi tek entity'yi olcen destek tablosu.
+        "interview",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

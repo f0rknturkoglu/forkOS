@@ -11,21 +11,14 @@ async def client():
         yield http
 
 
-async def test_review_combines_legacy_habits_and_recurring_todos(client: AsyncClient) -> None:
+async def test_review_counts_recurring_todo_completions(client: AsyncClient) -> None:
     routine = (
         await client.post("/api/todos", json={"title": "Su iç", "recur": "daily"})
     ).json()
     normal = (await client.post("/api/todos", json={"title": "Tek seferlik"})).json()
-    habit = (await client.post("/api/habits", json={"title": "Eski yürüyüş"})).json()
 
     assert (await client.post(f"/api/todos/{routine['id']}/complete")).status_code == 200
     assert (await client.post(f"/api/todos/{normal['id']}/complete")).status_code == 200
-    assert (
-        await client.post(
-            f"/api/habits/{habit['id']}/check",
-            json={"day": local_today().isoformat(), "done": True},
-        )
-    ).status_code == 200
 
     response = await client.get(
         "/api/reviews/preview",
@@ -33,7 +26,7 @@ async def test_review_combines_legacy_habits_and_recurring_todos(client: AsyncCl
     )
 
     assert response.status_code == 200
-    assert response.json()["stats"]["habits"] == {"Eski yürüyüş": 1, "Su iç": 1}
+    assert response.json()["stats"]["habits"] == {"Su iç": 1}
 
     created = await client.post(
         "/api/reviews",
@@ -44,4 +37,4 @@ async def test_review_combines_legacy_habits_and_recurring_todos(client: AsyncCl
         },
     )
     assert created.status_code == 201
-    assert created.json()["stats"]["habits"] == {"Eski yürüyüş": 1, "Su iç": 1}
+    assert created.json()["stats"]["habits"] == {"Su iç": 1}

@@ -9,6 +9,6 @@ const StudyPage = lazy(() => import("./StudyPage").then((module) => ({ default: 
 registerModule({
   id: "study", title: "Çalışma", icon: BookOpen, group: "track",
   routes: [{ path: "/study", element: StudyPage }],
-  todayWidgets: [{ component: StudyWidget, zone: "rhythm", slot: "left", order: 60 }],
+  todayWidgets: [{ component: StudyWidget, slot: "left", order: 60 }],
   commands: [{ id: "study.open", label: "Çalışma ağacını aç", run: () => navigate("/study") }],
 });

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
@@ -54,10 +54,3 @@ async def delete_entity(session: AsyncSession, entity_id: uuid.UUID) -> bool:
         return False
     await session.delete(entity)
     return True
-
-
-async def get_entities(session: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, Entity]:
-    if not ids:
-        return {}
-    rows = (await session.execute(select(Entity).where(Entity.id.in_(ids)))).scalars()
-    return {e.id: e for e in rows}

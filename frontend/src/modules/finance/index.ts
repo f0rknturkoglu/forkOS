@@ -6,4 +6,4 @@ import { RecurringWidget } from "./RecurringWidget";
 
 const FinancePage = lazy(() => import("./FinancePage").then((module) => ({ default: module.FinancePage })));
 
-registerModule({ id: "finance", title: "Finans", icon: Wallet, group: "track", searchLabel: "Finance", routes: [{ path: "/finance", element: FinancePage }], todayWidgets: [{ component: RecurringWidget, zone: "rhythm", slot: "right", order: 60 }], commands: [{ id: "finance.open", label: "Finansı aç", run: () => navigate("/finance") }] });
+registerModule({ id: "finance", title: "Finans", icon: Wallet, group: "track", routes: [{ path: "/finance", element: FinancePage }], todayWidgets: [{ component: RecurringWidget, slot: "right", order: 60 }], commands: [{ id: "finance.open", label: "Finansı aç", run: () => navigate("/finance") }] });

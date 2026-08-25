@@ -41,11 +41,6 @@ const KIND_COLORS: Record<string, string> = {
   audiobook: "audiobook", podcast: "podcast", music: "music", game: "game",
 };
 
-/** Tür kimlik rengi yazı sınıfı; bilinmeyen türde nötr. */
-export function kindColor(kind: string): string {
-  return KIND_COLORS[kind] ? `text-kind-${KIND_COLORS[kind]}` : "text-secondary";
-}
-
 /** Tür kimlik renginde chip/rozet sınıfı (kenarlık + yazı). */
 export function kindChip(kind: string): string {
   return KIND_COLORS[kind]

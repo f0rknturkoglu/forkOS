@@ -1,4 +1,4 @@
-export const APP_TIME_ZONE = "Europe/Istanbul";
+const APP_TIME_ZONE = "Europe/Istanbul";
 
 export function localDateKey(value: Date, timeZone = APP_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat("en-CA", {

@@ -11,9 +11,6 @@ export const KIND_LABELS: Record<string, string> = {
   other: "Diğer",
 };
 
-/** Filtre seridinde bu sirayla gorunur; katalogda olmayan tur sona eklenir. */
-export const KIND_ORDER = ["job", "internship", "exam", "scholarship", "msc"];
-
 export const STATUS_LABELS: Record<string, string> = {
   discovered: "Keşfedildi",
   considering: "Değerlendiriliyor",
@@ -34,7 +31,7 @@ export const STATUSES = [
   "offer", "accepted", "rejected", "withdrawn", "closed",
 ];
 
-export type StatusTone = "neutral" | "accent" | "ok" | "warn" | "danger";
+type StatusTone = "neutral" | "accent" | "ok" | "warn" | "danger";
 
 export const STATUS_TONES: Record<string, StatusTone> = {
   discovered: "neutral",

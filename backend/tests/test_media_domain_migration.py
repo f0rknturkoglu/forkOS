@@ -127,12 +127,13 @@ def test_populated_legacy_media_row_survives_upgrade_and_downgrade():
         )
         assert scope_column["count"] == 0
     finally:
-        _alembic(MIGRATION_REVISION)
+        _alembic("head")
 
 
 def test_media_item_provider_identity_has_database_unique_partial_index():
     first_id = uuid.uuid4()
     second_id = uuid.uuid4()
+    _alembic(LEGACY_REVISION)
     _alembic(MIGRATION_REVISION)
     try:
         asyncio.run(
@@ -162,6 +163,7 @@ def test_media_item_provider_identity_has_database_unique_partial_index():
             "first_id": first_id,
             "second_id": second_id,
         }))
+        _alembic("head")
 
 
 def test_raw_media_parent_deletion_requires_explicit_child_entity_deletion():
@@ -170,6 +172,7 @@ def test_raw_media_parent_deletion_requires_explicit_child_entity_deletion():
     child_unit_id = uuid.uuid4()
     cycle_id = uuid.uuid4()
     consumption_id = uuid.uuid4()
+    _alembic(LEGACY_REVISION)
     _alembic(MIGRATION_REVISION)
     try:
         asyncio.run(
@@ -261,7 +264,7 @@ def test_raw_media_parent_deletion_requires_explicit_child_entity_deletion():
         )
         assert remaining["count"] == 0
     finally:
-        _alembic(MIGRATION_REVISION)
+        _alembic("head")
 
 
 def test_downgrade_removes_new_domain_entities_and_their_links():
@@ -270,6 +273,7 @@ def test_downgrade_removes_new_domain_entities_and_their_links():
     cycle_id = uuid.uuid4()
     consumption_id = uuid.uuid4()
     collection_id = uuid.uuid4()
+    _alembic(LEGACY_REVISION)
     _alembic(MIGRATION_REVISION)
     try:
         asyncio.run(
@@ -356,5 +360,5 @@ def test_downgrade_removes_new_domain_entities_and_their_links():
         )
         assert stale_links["count"] == 0
     finally:
-        _alembic(MIGRATION_REVISION)
+        _alembic("head")
         asyncio.run(_execute("delete from entity where id=:id", {"id": media_id}))

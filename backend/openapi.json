@@ -249,6 +249,254 @@
         "title": "AgendaSuggestions",
         "type": "object"
       },
+      "ApplicationIn": {
+        "properties": {
+          "company_research": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Research"
+          },
+          "cover_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Letter"
+          },
+          "cv_document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Document Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "salary_expectation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Expectation"
+          }
+        },
+        "title": "ApplicationIn",
+        "type": "object"
+      },
+      "ApplicationOut": {
+        "properties": {
+          "company_research": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Research"
+          },
+          "cover_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Letter"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "cv_document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Document Id"
+          },
+          "cv_modified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Modified At"
+          },
+          "cv_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Title"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "opportunity_id": {
+            "format": "uuid",
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "posting_snapshot": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Posting Snapshot",
+            "type": "object"
+          },
+          "salary_expectation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Expectation"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "opportunity_id"
+        ],
+        "title": "ApplicationOut",
+        "type": "object"
+      },
+      "ApplyIn": {
+        "description": "Ilk basvuru: durum 'applied' yapar, snapshot'i birlikte alir.",
+        "properties": {
+          "company_research": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Research"
+          },
+          "cover_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Letter"
+          },
+          "cv_document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Document Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "salary_expectation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Expectation"
+          }
+        },
+        "title": "ApplyIn",
+        "type": "object"
+      },
       "AreaIn": {
         "properties": {
           "color": {
@@ -1127,6 +1375,17 @@
             "title": "Spent On",
             "type": "string"
           },
+          "sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub"
+          },
           "title": {
             "minLength": 1,
             "title": "Title",
@@ -1204,6 +1463,17 @@
               }
             ],
             "title": "Spent On"
+          },
+          "sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub"
           },
           "title": {
             "anyOf": [
@@ -1522,6 +1792,110 @@
         "title": "FocusReviewStats",
         "type": "object"
       },
+      "FollowupOut": {
+        "properties": {
+          "follow_up_at": {
+            "format": "date-time",
+            "title": "Follow Up At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "follow_up_at"
+        ],
+        "title": "FollowupOut",
+        "type": "object"
+      },
+      "FunnelOut": {
+        "properties": {
+          "by_status": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelRow"
+            },
+            "title": "By Status",
+            "type": "array"
+          },
+          "conversions": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Conversions",
+            "type": "object"
+          },
+          "rejection_reasons": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rejection Reasons",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "by_status",
+          "conversions",
+          "rejection_reasons"
+        ],
+        "title": "FunnelOut",
+        "type": "object"
+      },
+      "FunnelRow": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "count"
+        ],
+        "title": "FunnelRow",
+        "type": "object"
+      },
       "GithubCredentialsIn": {
         "properties": {
           "login": {
@@ -1579,19 +1953,14 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "HabitCheck": {
+      "HistoryOut": {
         "properties": {
-          "day": {
-            "format": "date",
-            "title": "Day",
+          "at": {
+            "format": "date-time",
+            "title": "At",
             "type": "string"
           },
-          "done": {
-            "default": true,
-            "title": "Done",
-            "type": "boolean"
-          },
-          "note": {
+          "from_status": {
             "anyOf": [
               {
                 "type": "string"
@@ -1600,239 +1969,35 @@
                 "type": "null"
               }
             ],
-            "title": "Note"
-          }
-        },
-        "title": "HabitCheck",
-        "type": "object"
-      },
-      "HabitGridEntry": {
-        "properties": {
-          "day": {
-            "format": "date",
-            "title": "Day",
-            "type": "string"
-          },
-          "done": {
-            "title": "Done",
-            "type": "boolean"
-          },
-          "habit_id": {
-            "format": "uuid",
-            "title": "Habit Id",
-            "type": "string"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "habit_id",
-          "title",
-          "day",
-          "done"
-        ],
-        "title": "HabitGridEntry",
-        "type": "object"
-      },
-      "HabitIn": {
-        "properties": {
-          "cadence": {
-            "default": "daily",
-            "title": "Cadence",
-            "type": "string"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "position": {
-            "default": 0,
-            "title": "Position",
-            "type": "integer"
-          },
-          "target_per_week": {
-            "default": 7,
-            "maximum": 7.0,
-            "minimum": 1.0,
-            "title": "Target Per Week",
-            "type": "integer"
-          },
-          "title": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "title"
-        ],
-        "title": "HabitIn",
-        "type": "object"
-      },
-      "HabitOut": {
-        "properties": {
-          "active": {
-            "title": "Active",
-            "type": "boolean"
-          },
-          "best_streak": {
-            "default": 0,
-            "title": "Best Streak",
-            "type": "integer"
-          },
-          "cadence": {
-            "title": "Cadence",
-            "type": "string"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "done_today": {
-            "default": false,
-            "title": "Done Today",
-            "type": "boolean"
+            "title": "From Status"
           },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
           },
-          "position": {
-            "title": "Position",
-            "type": "integer"
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
-          "streak": {
-            "default": 0,
-            "title": "Streak",
-            "type": "integer"
-          },
-          "target_per_week": {
-            "title": "Target Per Week",
-            "type": "integer"
-          },
-          "title": {
-            "title": "Title",
+          "to_status": {
+            "title": "To Status",
             "type": "string"
-          },
-          "week_done": {
-            "default": 0,
-            "title": "Week Done",
-            "type": "integer"
           }
         },
         "required": [
           "id",
-          "title",
-          "cadence",
-          "target_per_week",
-          "color",
-          "active",
-          "position"
+          "to_status",
+          "at"
         ],
-        "title": "HabitOut",
-        "type": "object"
-      },
-      "HabitUpdate": {
-        "properties": {
-          "active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Active"
-          },
-          "cadence": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cadence"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Position"
-          },
-          "target_per_week": {
-            "anyOf": [
-              {
-                "maximum": 7.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Per Week"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          }
-        },
-        "title": "HabitUpdate",
+        "title": "HistoryOut",
         "type": "object"
       },
       "ImportResult": {
@@ -1859,6 +2024,159 @@
           "skipped"
         ],
         "title": "ImportResult",
+        "type": "object"
+      },
+      "InterviewIn": {
+        "properties": {
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "stage": {
+            "default": "genel",
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "title": "InterviewIn",
+        "type": "object"
+      },
+      "InterviewOut": {
+        "properties": {
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "opportunity_id": {
+            "format": "uuid",
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "scheduled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled At"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "opportunity_id",
+          "stage"
+        ],
+        "title": "InterviewOut",
         "type": "object"
       },
       "IssueToTodoIn": {
@@ -4355,6 +4673,17 @@
             ],
             "title": "Compensation"
           },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
           "deadline_at": {
             "anyOf": [
               {
@@ -4377,6 +4706,18 @@
               }
             ],
             "title": "External Id"
+          },
+          "follow_up_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up At"
           },
           "found_at": {
             "format": "date-time",
@@ -4433,6 +4774,28 @@
             "additionalProperties": true,
             "title": "Raw",
             "type": "object"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
           },
           "remote": {
             "anyOf": [
@@ -4551,6 +4914,18 @@
             ],
             "title": "Deadline At"
           },
+          "follow_up_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up At"
+          },
           "notes": {
             "anyOf": [
               {
@@ -4574,6 +4949,17 @@
               }
             ],
             "title": "Priority"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
           },
           "status": {
             "anyOf": [
@@ -5290,6 +5676,17 @@
             ],
             "title": "Note"
           },
+          "sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub"
+          },
           "title": {
             "minLength": 1,
             "title": "Title",
@@ -5389,6 +5786,17 @@
               }
             ],
             "title": "Note"
+          },
+          "sub": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub"
           },
           "title": {
             "anyOf": [
@@ -6871,6 +7279,41 @@
         "title": "TopicReviewStats",
         "type": "object"
       },
+      "TransitionIn": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "title": "TransitionIn",
+        "type": "object"
+      },
       "UnfinishedTodo": {
         "properties": {
           "due_at": {
@@ -7125,6 +7568,46 @@
         "summary": "Activity Heatmap",
         "tags": [
           "core"
+        ]
+      }
+    },
+    "/api/applications/funnel": {
+      "get": {
+        "operationId": "applications_funnel_api_applications_funnel_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FunnelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Applications Funnel",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/applications/rejection-reasons": {
+      "get": {
+        "operationId": "rejection_reasons_api_applications_rejection_reasons_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Rejection Reasons",
+        "tags": [
+          "opportunities"
         ]
       }
     },
@@ -8694,160 +9177,17 @@
         ]
       }
     },
-    "/api/habits": {
-      "get": {
-        "operationId": "list_habits_api_habits_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "active",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": true,
-              "title": "Active"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HabitOut"
-                  },
-                  "title": "Response List Habits Api Habits Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Habits",
-        "tags": [
-          "habit"
-        ]
-      },
-      "post": {
-        "operationId": "create_habit_api_habits_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HabitIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HabitOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Habit",
-        "tags": [
-          "habit"
-        ]
-      }
-    },
-    "/api/habits/grid": {
-      "get": {
-        "operationId": "habit_grid_api_habits_grid_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "weeks",
-            "required": false,
-            "schema": {
-              "default": 8,
-              "maximum": 52,
-              "minimum": 1,
-              "title": "Weeks",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HabitGridEntry"
-                  },
-                  "title": "Response Habit Grid Api Habits Grid Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Habit Grid",
-        "tags": [
-          "habit"
-        ]
-      }
-    },
-    "/api/habits/{habit_id}": {
+    "/api/interviews/{interview_id}": {
       "delete": {
-        "description": "Aliskanligi ve gunlugunu siler.\n\nBirakmak icin `active=false` yeter (gecmis kalir); bu uc kaydi tamamen\nkaldirir -- yanlis eklenmis bir aliskanlik icin.",
-        "operationId": "delete_habit_api_habits__habit_id__delete",
+        "operationId": "delete_interview_api_interviews__interview_id__delete",
         "parameters": [
           {
             "in": "path",
-            "name": "habit_id",
+            "name": "interview_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Habit Id",
+              "title": "Interview Id",
               "type": "string"
             }
           }
@@ -8867,21 +9207,21 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Delete Habit",
+        "summary": "Delete Interview",
         "tags": [
-          "habit"
+          "opportunities"
         ]
       },
       "patch": {
-        "operationId": "update_habit_api_habits__habit_id__patch",
+        "operationId": "patch_interview_api_interviews__interview_id__patch",
         "parameters": [
           {
             "in": "path",
-            "name": "habit_id",
+            "name": "interview_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Habit Id",
+              "title": "Interview Id",
               "type": "string"
             }
           }
@@ -8890,7 +9230,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HabitUpdate"
+                "$ref": "#/components/schemas/InterviewIn"
               }
             }
           },
@@ -8901,7 +9241,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HabitOut"
+                  "$ref": "#/components/schemas/InterviewOut"
                 }
               }
             },
@@ -8918,62 +9258,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Update Habit",
+        "summary": "Patch Interview",
         "tags": [
-          "habit"
-        ]
-      }
-    },
-    "/api/habits/{habit_id}/check": {
-      "post": {
-        "operationId": "check_habit_api_habits__habit_id__check_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "habit_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Habit Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HabitCheck"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HabitOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Check Habit",
-        "tags": [
-          "habit"
+          "opportunities"
         ]
       }
     },
@@ -10817,6 +11104,53 @@
         ]
       }
     },
+    "/api/opportunities/followups": {
+      "get": {
+        "operationId": "followups_api_opportunities_followups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FollowupOut"
+                  },
+                  "title": "Response Followups Api Opportunities Followups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Followups",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/{item_id}": {
       "delete": {
         "operationId": "delete_api_opportunities__item_id__delete",
@@ -10940,6 +11274,299 @@
           }
         },
         "summary": "Patch",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{item_id}/application": {
+      "get": {
+        "operationId": "application_detail_api_opportunities__item_id__application_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Application Detail",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "put": {
+        "operationId": "application_update_api_opportunities__item_id__application_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplicationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Application Update",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{item_id}/apply": {
+      "post": {
+        "description": "Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir.",
+        "operationId": "apply_api_opportunities__item_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{item_id}/history": {
+      "get": {
+        "operationId": "history_api_opportunities__item_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryOut"
+                  },
+                  "title": "Response History Api Opportunities  Item Id  History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "History",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{item_id}/interviews": {
+      "get": {
+        "operationId": "interviews_api_opportunities__item_id__interviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InterviewOut"
+                  },
+                  "title": "Response Interviews Api Opportunities  Item Id  Interviews Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Interviews",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "post": {
+        "operationId": "add_interview_api_opportunities__item_id__interviews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Interview",
         "tags": [
           "opportunities"
         ]
@@ -11171,6 +11798,60 @@
           }
         },
         "summary": "Add Opportunity Todo",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{item_id}/transition": {
+      "post": {
+        "description": "Durum gecisi: gecmis + event yazar; terminal durumlara takilir.",
+        "operationId": "transition_api_opportunities__item_id__transition_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transition",
         "tags": [
           "opportunities"
         ]
@@ -13547,6 +14228,143 @@
         "summary": "Source Health",
         "tags": [
           "core"
+        ]
+      }
+    },
+    "/api/sources/jobhunter/config": {
+      "get": {
+        "operationId": "jobhunter_config_api_sources_jobhunter_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jobhunter Config",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "put": {
+        "description": "Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.\n\nYeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING\naninda guncellenir).",
+        "operationId": "jobhunter_config_update_api_sources_jobhunter_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Jobhunter Config Update",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/sources/jobhunter/env": {
+      "get": {
+        "operationId": "jobhunter_env_api_sources_jobhunter_env_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jobhunter Env",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/sources/jobhunter/linkedin-profiles": {
+      "get": {
+        "operationId": "jobhunter_linkedin_profiles_api_sources_jobhunter_linkedin_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jobhunter Linkedin Profiles",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "put": {
+        "description": "Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi.",
+        "operationId": "jobhunter_linkedin_profiles_save_api_sources_jobhunter_linkedin_profiles_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {},
+                "title": "Body",
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Jobhunter Linkedin Profiles Save",
+        "tags": [
+          "opportunities"
         ]
       }
     },

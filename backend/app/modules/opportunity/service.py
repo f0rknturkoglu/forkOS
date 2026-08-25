@@ -34,7 +34,6 @@ from app.modules.opportunity.schemas import (
     OpportunityOut,
     OpportunityPatch,
     RequirementIn,
-    TransitionIn,
 )
 
 

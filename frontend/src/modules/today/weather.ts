@@ -6,7 +6,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { api } from "@/core/api";
 
-export interface Forecast {
+interface Forecast {
   current: { temperature_2m: number; weather_code: number; relative_humidity_2m: number };
   daily: {
     time: string[];

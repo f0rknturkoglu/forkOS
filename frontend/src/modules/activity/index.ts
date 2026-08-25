@@ -18,8 +18,8 @@ registerModule({
   ],
   todayWidgets: [
     // Harita akisin altinda: gunun listesi once, yilin ozeti sonra.
-    { component: Heatmap, zone: "rhythm", slot: "center", order: 30 },
-    { component: ActivityWidget, zone: "rhythm", slot: "right", order: 90 },
+    { component: Heatmap, slot: "center", order: 30 },
+    { component: ActivityWidget, slot: "right", order: 90 },
   ],
   commands: [
     { id: "activity.open", label: "Etkinliği aç", run: () => navigate("/activity") },

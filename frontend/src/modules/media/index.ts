@@ -16,6 +16,6 @@ registerModule({
     { path: "/media/:id", element: MediaDetailPage },
     { path: "/media", element: MediaPage },
   ],
-  todayWidgets: [{ component: MediaContinueWidget, zone: "rhythm", slot: "right", order: 70 }],
+  todayWidgets: [{ component: MediaContinueWidget, slot: "right", order: 70 }],
   commands: [{ id: "media.open", label: "Medya kütüphanesini aç", run: () => navigate("/media") }],
 });
