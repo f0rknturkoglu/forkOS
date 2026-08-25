@@ -12,17 +12,9 @@ type QueryOptions = {
 
 const harness = vi.hoisted(() => ({
   apiGet: vi.fn(),
-  navigate: vi.fn(),
   queries: [] as QueryOptions[],
 }));
 
-vi.mock("@/app/router", () => ({
-  navigate: harness.navigate,
-  useHashRoute: () => ({
-    path: "/media",
-    params: new URLSearchParams("focus=focus/1"),
-  }),
-}));
 vi.mock("@/core/api", () => ({
   api: { del: vi.fn(), get: harness.apiGet, patch: vi.fn(), post: vi.fn() },
 }));
@@ -45,19 +37,26 @@ vi.mock("@tanstack/react-query", () => ({
 
 describe("MediaPage hash focus receiver", () => {
   beforeEach(() => {
+    history.replaceState(null, "", "#/before-focus");
+    history.pushState(null, "", "#/media?focus=focus%2F1");
     harness.apiGet.mockReset();
-    harness.navigate.mockReset();
     harness.queries.length = 0;
   });
 
   afterEach(cleanup);
 
-  it("routes an entity focus value to the encoded detail page without fetching it as a title or inline detail", async () => {
+  it("replaces an entity focus entry with the encoded detail route without a Back redirect loop", async () => {
+    const initialLength = history.length;
+    const replaceState = vi.spyOn(history, "replaceState");
     render(<MediaPage />);
 
-    await waitFor(() => expect(harness.navigate).toHaveBeenCalledWith("/media/focus%2F1"));
+    await waitFor(() => expect(location.hash).toBe("#/media/focus%2F1"));
+    expect(history.length).toBe(initialLength);
+    expect(replaceState).toHaveBeenCalledTimes(1);
+    expect(replaceState).toHaveBeenCalledWith(history.state, "", "#/media/focus%2F1");
     expect(harness.queries.some((query) => query.queryKey[0] === "media-detail")).toBe(false);
     expect(harness.apiGet).not.toHaveBeenCalledWith(expect.stringContaining("focus%2F1"));
+    replaceState.mockRestore();
   });
 
   it("scrolls and keyboard-focuses a received legacy item row", () => {

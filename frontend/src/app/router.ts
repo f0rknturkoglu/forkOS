@@ -68,6 +68,17 @@ export function useHashRoute(pattern?: string): Route {
   return route;
 }
 
-export function navigate(path: string): void {
-  location.hash = path.startsWith("#") ? path.slice(1) : path;
+export function navigate(path: string, options: { replace?: boolean } = {}): void {
+  const nextHash = `#${path.startsWith("#") ? path.slice(1) : path}`;
+  if (!options.replace) {
+    location.hash = nextHash;
+    return;
+  }
+
+  const oldURL = location.href;
+  history.replaceState(history.state, "", nextHash);
+  window.dispatchEvent(new HashChangeEvent("hashchange", {
+    oldURL,
+    newURL: location.href,
+  }));
 }

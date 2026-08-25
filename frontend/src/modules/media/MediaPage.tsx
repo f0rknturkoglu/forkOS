@@ -53,7 +53,7 @@ export function MediaPage() {
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    if (focusId) navigate(`/media/${encodeURIComponent(focusId)}`);
+    if (focusId) navigate(`/media/${encodeURIComponent(focusId)}`, { replace: true });
   }, [focusId]);
 
   const filters = new URLSearchParams();

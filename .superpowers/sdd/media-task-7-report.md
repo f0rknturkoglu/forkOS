@@ -48,3 +48,12 @@
 - `receiveMediaFocus` export'u compatibility için korunuyor ve mounted/missing row davranışı testli.
 - Bilinen açık ürün sorunu yok. Task 5'in geniş responsive kontratı önceki karara uygun biçimde skipped bırakıldı.
 - `.superpowers/sdd/task-3-report.md` ve `task-4-report.md` kullanıcı değişiklikleri korunup bu görevin staging/commit kapsamına alınmadı.
+
+## Focus history follow-up
+
+- RED: Router replace testi hook'un eski `/media` rotasında kaldığını; MediaPage entegrasyonu focus redirect'in history uzunluğunu 2'den 3'e çıkardığını gösterdi (2 beklenen hata).
+- `navigate(path, { replace: true })` geriye uyumlu olarak eklendi. Normal `navigate(path)` çağrıları mevcut hash-push davranışını koruyor.
+- Replace akışı `history.replaceState` ile mevcut girdiyi değiştiriyor, tam sayfa reload yapmıyor ve `useHashRoute` abonelerine tam bir kez `hashchange` yayıyor.
+- `MediaPage`, `?focus=<id>` uyumluluk redirect'inde encoded detail ID ile replace semantiği kullanıyor. Böylece Back ile focus URL'sine dönüp yeniden redirect olma döngüsü oluşmuyor.
+- Router testi hash, decoded route parametresi, sabit history uzunluğu ve tek subscriber bildirimi ölçüyor. MediaPage entegrasyon testi redirect'in history girdisini yerinde değiştirdiğini ve inline detail/title fetch üretmediğini doğruluyor.
+- Follow-up doğrulaması: cinematic/focus/router/App 15/15; tam frontend 140 geçti, 9 Task 5 testi skipped; production build ve bundle bütçesi geçti.

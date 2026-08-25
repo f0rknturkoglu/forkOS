@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { findRouteMatch, matchRoutePath, useHashRoute } from "./router";
+import { describe, expect, it, vi } from "vitest";
+import { findRouteMatch, matchRoutePath, navigate, useHashRoute } from "./router";
 
 describe("hash route matching", () => {
   it("matches exact routes without accepting extra segments", () => {
@@ -43,5 +43,26 @@ describe("hash route matching", () => {
   it("prefers an exact static route over an earlier dynamic sibling", () => {
     const routes = [{ path: "/media/:id", name: "detail" }, { path: "/media/stats", name: "stats" }];
     expect(findRouteMatch(routes, "/media/stats")?.name).toBe("stats");
+  });
+
+  it("replaces the current hash entry and notifies route subscribers exactly once", () => {
+    history.replaceState(null, "", "#/media?focus=media%2Fone");
+    const initialLength = history.length;
+    const replaceState = vi.spyOn(history, "replaceState");
+    const onHashChange = vi.fn();
+    window.addEventListener("hashchange", onHashChange);
+    const { result } = renderHook(() => useHashRoute("/media/:id"));
+
+    act(() => navigate("/media/media%2Fone", { replace: true }));
+
+    expect(location.hash).toBe("#/media/media%2Fone");
+    expect(result.current.path).toBe("/media/media%2Fone");
+    expect(result.current.params.get("id")).toBe("media/one");
+    expect(history.length).toBe(initialLength);
+    expect(onHashChange).toHaveBeenCalledOnce();
+    expect(replaceState).toHaveBeenCalledWith(history.state, "", "#/media/media%2Fone");
+
+    window.removeEventListener("hashchange", onHashChange);
+    replaceState.mockRestore();
   });
 });
