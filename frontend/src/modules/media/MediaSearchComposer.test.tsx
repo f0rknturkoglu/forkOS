@@ -119,6 +119,7 @@ describe("MediaSearchComposer", () => {
     await search("dune");
     expect(screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent)).toEqual(["Dune", "Dune: Sisterhood"]);
     expect(consoleError.mock.calls.some(([message]) => String(message).includes("same key"))).toBe(false);
+    consoleError.mockRestore();
   });
 
   it("keeps catalog results visible when the library query fails", async () => {
@@ -164,7 +165,7 @@ describe("MediaSearchComposer", () => {
     expect(screen.getByRole("link", { name: "Kütüphanede aç" }).getAttribute("href")).toBe("#/media/media-existing");
   });
 
-  it("falls back to a title focus link when a duplicate omits its existing ID", async () => {
+  it("falls back to the library instead of treating a duplicate title as an item ID", async () => {
     duplicate = { detail: "Bu provider kaydı kütüphanede zaten var" };
     renderComposer();
     await search("dune");
@@ -172,7 +173,7 @@ describe("MediaSearchComposer", () => {
     await act(async () => {});
     fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
     await act(async () => {});
-    expect(screen.getByRole("link", { name: "Kütüphanede aç" }).getAttribute("href")).toBe("#/media?focus=Dune");
+    expect(screen.getByRole("link", { name: "Kütüphanede aç" }).getAttribute("href")).toBe("#/media");
   });
 
   it("does not show an older in-flight duplicate below a newer search term", async () => {
@@ -190,6 +191,24 @@ describe("MediaSearchComposer", () => {
     pending.resolve(json({ detail: "Bu provider kaydı kütüphanede zaten var", existing_id: "media-existing" }, 409));
     await act(async () => {});
     expect(screen.queryByRole("link", { name: "Kütüphanede aç" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 3, name: "Foundation" })).toBeTruthy();
+  });
+
+  it("does not show an older non-conflict add error below a newer search term", async () => {
+    const pending = deferred<Response>();
+    responder = (path, method) => path === "/api/media?q=dune&limit=8"
+      ? json({ items: [], total: 0, next_cursor: null })
+      : path === "/api/media/search/global?q=dune" ? json({ results: [catalogHit], warnings: [] })
+      : path === "/api/media?q=foundation&limit=8" ? json({ items: [], total: 0, next_cursor: null })
+      : path === "/api/media/search/global?q=foundation" ? json({ results: [foundationHit], warnings: [] })
+      : path === "/api/media" && method === "POST" ? pending.promise : json({});
+    renderComposer();
+    await search("dune");
+    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
+    await search("foundation");
+    pending.resolve(json({ detail: "write unavailable" }, 500));
+    await act(async () => {});
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("heading", { level: 3, name: "Foundation" })).toBeTruthy();
   });
 

@@ -19,7 +19,7 @@ import {
 type PosterItem = Pick<
   MediaItem,
   "id" | "title" | "kind" | "status" | "progress" | "total" | "cover_path" | "cover_url"
-  | "meta" | "provider" | "provider_id" | "provider_ids"
+  | "meta" | "progress_measure" | "provider" | "provider_id" | "provider_ids"
 >;
 
 type PosterStats = Pick<MediaStats, "total" | "in_progress" | "completed" | "planned">;

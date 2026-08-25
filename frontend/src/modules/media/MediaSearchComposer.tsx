@@ -91,16 +91,16 @@ export function MediaSearchComposer({ online, onAdded }: { online: boolean; onAd
       onAdded();
     },
     onError: (error: Error, { hit, term: initiatedTerm }: AddRequest) => {
+      if (searchRef.current.trim() !== initiatedTerm || termRef.current !== initiatedTerm) return;
       if (!(error instanceof ApiError) || error.status !== 409) {
         setAddError("Eklenemedi. Lütfen tekrar deneyin.");
         return;
       }
-      if (searchRef.current.trim() !== initiatedTerm || termRef.current !== initiatedTerm) return;
       const id = existingId(error);
       setDuplicate({
         term: initiatedTerm,
         identity: `${hit.kind}:${hit.provider}:${hit.provider_id}`,
-        href: id ? `#/media/${encodeURIComponent(id)}` : `#/media?focus=${encodeURIComponent(hit.title)}`,
+        href: id ? `#/media/${encodeURIComponent(id)}` : "#/media",
       });
     },
   });
