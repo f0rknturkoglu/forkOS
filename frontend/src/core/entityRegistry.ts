@@ -34,6 +34,6 @@ export function typeLabel(type: string): string {
   return registry[type]?.label ?? type;
 }
 
-export function typeSpec(type: string): EntityTypeSpec | undefined {
+function typeSpec(type: string): EntityTypeSpec | undefined {
   return registry[type];
 }

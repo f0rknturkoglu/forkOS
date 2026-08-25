@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { Chip, Empty, cx, relativeTime } from "@/core/ui";
 import type { SourceHealth } from "@/core/types";
 
-export interface SourceHealthAccordionProps {
+interface SourceHealthAccordionProps {
   title?: string;
   sources: SourceHealth[];
   open: boolean;

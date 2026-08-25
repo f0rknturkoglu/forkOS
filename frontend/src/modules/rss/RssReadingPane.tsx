@@ -25,7 +25,7 @@ function KbdInline({ children }: { children: React.ReactNode }) {
   );
 }
 
-export interface RssReadingPaneProps {
+interface RssReadingPaneProps {
   detail: FeedItem | undefined;
   online: boolean;
   saveCollection: Collection;

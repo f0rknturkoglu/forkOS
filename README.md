@@ -3,10 +3,15 @@
 Tek kullanicilik, **local-only** kisisel isletim sistemi.
 Ayrintili yol haritasi: [`forkOS-PLAN.md`](forkOS-PLAN.md) · calisma kurallari: [`CLAUDE.md`](CLAUDE.md)
 
-Su an **Faz 0-5** tamamlandi:
+**Faz 0-7 tamamlandi** (entegrasyon + temizlik + tasarim teklestirme):
 Browser Extension → Universal Inbox → Bookmark Library → RSS Reader → Today/Activity
-→ Todo → Weekly Planner → Pomodoro → Habits → Daily/Weekly Review
+→ Todo → Weekly Planner → Pomodoro → Rutinler → Daily/Weekly Review
 → Firsatlar → Calisma/Ogrenme → Dokuman/Takvim → Projeler → Finans → Ayarlar/Yedekleme.
+
+Ayrica: moduller arasi baglar (`saved_from`, `belongs_to`, `application_step`,
+`prepares_for`...), ilgili kayitlar paneli, her yerden yer imi kaydetme,
+merkezi invalidation ve son-tarih saglayici sozlesmesi. Ayrinti:
+[`docs/mimari.md`](docs/mimari.md) + [`forkOS-ENTEGRASYON-PLANI.md`](forkOS-ENTEGRASYON-PLANI.md).
 
 ## Kurulum
 
@@ -28,6 +33,7 @@ make migrate
 | Alan | Icerik |
 |---|---|
 | Cekirdek | `entity` / `link` / `event` / `tag` / `saved_view` / `source_run`, global arama (FTS + trigram), activity log |
+| Modüller arası bağlar | Her detay sayfasında "İlgili kayıtlar" paneli; yer imi her yerden (`SaveToLibrary`); görev↔proje↔fırsat↔belge zinciri; medya koleksiyonları |
 | Capture | `POST /api/capture` (idempotent), Universal Inbox, Bookmark Library, koleksiyonlar, etiketler, kayitli gorunumler |
 | RSS | Feed CRUD, OPML import, conditional GET'li worker, okundu/kaydet akisi, `feed_item → bookmark` link'i |
 | Frontend | Today (modullerden beslenen widget'lar), Inbox (dnd-kit surukle-birak), Bookmarks, RSS Reader, Activity, `Ctrl+K` command palette + global arama |

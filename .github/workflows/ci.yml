@@ -63,6 +63,9 @@ jobs:
       - run: npm audit --audit-level=moderate
       - run: npm run api:check
       - run: npm test
+      - run: npm run format:check
+      - run: node scripts/check-endpoint-coverage.mjs
+      - run: node scripts/check-dead-exports.mjs
       - run: npm run build
 
   extension:

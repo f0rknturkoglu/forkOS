@@ -8,7 +8,7 @@ import type { components } from "@/generated/api-schema";
 import { Button, Field, NumberInput, cx } from "@/core/ui";
 import {} from "@/lib/hooks";
 
-export type MediaConsumptionIn = components["schemas"]["MediaConsumptionIn"];
+type MediaConsumptionIn = components["schemas"]["MediaConsumptionIn"];
 type ConsumptionAction = "quick" | "set" | "finish";
 
 const MEASURE_LABELS: Record<string, string> = {

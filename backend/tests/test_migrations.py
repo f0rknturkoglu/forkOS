@@ -151,3 +151,24 @@ def test_revisions_form_a_single_chain():
     assert len(parents) == len(set(parents)), "dallanma var: ayni down_revision iki kez"
     for parent in parents:
         assert parent in revisions, f"bilinmeyen down_revision: {parent}"
+
+
+
+def test_no_view_migrations():
+    """Kural 16: son tarihler deadline_provider'dan toplanir; deadline_v gibi
+    elle SQL gorunumleri YAZILMAZ. Tarihsel create view'lara (0016) eslik eden
+    bir drop view OLMAK ZORUNDA; duzenli head'de view kalmaz."""
+    creations: list[str] = []
+    drops: list[str] = []
+    for path in sorted(VERSIONS.glob("*.py")):
+        body = path.read_text().lower()
+        if "create view" in body:
+            creations.append(path.name)
+        if "drop view" in body:
+            drops.append(path.name)
+    # Her create'in daha sonra bir drop'u olmali (0016 -> 0025 gibi).
+    for created in creations:
+        assert created in drops or any(
+            int(re.findall(r"\d{4}", created)[0]) < int(re.findall(r"\d{4}", drop)[0])
+            for drop in drops
+        ), f"{created}: create view var ama sonraki migration'da drop yok (kural 16)"

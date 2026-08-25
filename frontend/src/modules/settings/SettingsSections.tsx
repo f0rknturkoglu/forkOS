@@ -4,7 +4,7 @@ import type { BackupStatus } from "@/core/types";
 import { Button, Checkbox, Chip, FileInput, Input, Section, relativeTime } from "@/core/ui";
 
 export type IntegrationStatus = { connected: boolean; login?: string | null };
-export type MediaLink = { name: string; url: string; icon?: string };
+type MediaLink = { name: string; url: string; icon?: string };
 
 export function ModulesSection({
   online,

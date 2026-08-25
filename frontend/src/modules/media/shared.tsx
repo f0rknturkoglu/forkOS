@@ -361,7 +361,7 @@ const SRC_CLASSES: Record<string, string> = {
 };
 
 /** Bağlantı/badge adı -> marka renk sınıfı (kenarlık + yazı). */
-export function srcColor(name: string): string {
+function srcColor(name: string): string {
   const key = SRC_CLASSES[name] ? name : SRC_BY_NAME[name];
   return SRC_CLASSES[key] ?? "text-secondary border-subtle";
 }

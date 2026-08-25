@@ -578,8 +578,8 @@ export function Kbd({ children }: { children: ReactNode }) {
    Gosterim
    ══════════════════════════════════════════════════════════════════════ */
 
-export type ChipTone = "neutral" | "accent" | "ok" | "warn" | "danger";
-export type ChipVariant = "soft" | "outline" | "solid";
+type ChipTone = "neutral" | "accent" | "ok" | "warn" | "danger";
+type ChipVariant = "soft" | "outline" | "solid";
 
 /** Semantik ton -> variant basina siniflar. Degerler STATIK dizi:
  *  Tailwind JIT kaynakta tam sinif adini arar, calisma zamani birlestirmez. */

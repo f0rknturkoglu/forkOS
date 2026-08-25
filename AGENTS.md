@@ -65,6 +65,24 @@ make reset            # DB'yi sifirla (veri gider)
 Docker kullaniyorsan: `make up CO="docker compose"` (varsayilan `podman compose`).
 DB'siz hizli test: `backend/` icinde `pytest -q` -- Postgres isteyen testler kendini atlar.
 
+13. Entity tipi, etiketi ve rotasi YALNIZCA `EntityTypeSpec`'te tanimlanir
+    (backend/app/modules/__init__.py). Frontend'de tip->rota veya tip->etiket
+    sabiti yazma; `entityRoute()` / `typeLabel()` kullan.
+    Koruyan test: `backend/tests/test_registry.py`, `frontend/src/core/mediaRouting.test.ts`.
+14. Mutation sonrasi tazeleme `invalidateAfter()` ile yapilir
+    (frontend/src/core/invalidation.ts). Ham `invalidate("a","b")` yasak.
+    Koruyan test: `frontend/src/core/invalidation.test.ts`.
+15. Renk, boyut ve yaricap yalnizca tasarim tokenlarindan gelir
+    (src/index.css + tailwind.config.js). `text-[Npx]`, sabit hex ve ham
+    `<input>/<select>/<textarea>` yasak; `Input/Select/Checkbox/Range/
+    NumberInput/FileInput/Chip` kullan.
+    Koruyan test: `frontend/src/core/designSystem.test.ts`.
+16. Son tarih ureten modul `deadline_provider` saglar (ModuleSpec alani);
+    `deadline_v` benzeri elle SQL gorunumu yazilmaz.
+    Koruyan test: `backend/tests/test_migrations.py` (view yok), `app/core/deadlines.py`.
+17. Kayitli olup frontend'den cagrilmayan uç bırakma; uç ya kullanilir ya silinir.
+    Koruyan test: `frontend/scripts/check-endpoint-coverage.mjs` (esik 3).
+
 ## Yapma
 
 - Multi-user / tenant mantigi ekleme.

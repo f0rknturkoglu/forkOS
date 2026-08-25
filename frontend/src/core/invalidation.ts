@@ -67,7 +67,7 @@ export const AFTER = {
   "notification.write": ["notifications"],
 } as const;
 
-export type AfterEvent = keyof typeof AFTER;
+type AfterEvent = keyof typeof AFTER;
 
 /** Mutation sonrasi: olaylarin haritadaki tum key'lerini tazeler. */
 export function invalidateAfter(...events: AfterEvent[]): void {

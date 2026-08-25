@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export interface Route {
+interface Route {
   path: string;
   params: URLSearchParams;
 }

@@ -12,7 +12,7 @@ import { Button, cx } from "./ui";
  * Native confirm() yerine bu kullanilir -- tema, Turkce ve klavye bizde.
  */
 
-export interface ConfirmOptions {
+interface ConfirmOptions {
   title: string;
   body?: ReactNode;
   /** Onay butonunun metni. Ne olacagini soylesin: "Sil", "Okundu işaretle". */
