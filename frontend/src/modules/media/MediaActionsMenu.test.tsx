@@ -109,4 +109,48 @@ describe("MediaActionsMenu", () => {
     expect(left + width).toBeLessThanOrEqual(375 - 8);
     Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
   });
+
+  it("flips above a bottom-edge trigger when the menu fits there", async () => {
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute("role") === "menu") {
+        return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: 220, width: 208, height: 220, toJSON: () => ({}) };
+      }
+      return { x: 16, y: 598, top: 598, left: 16, right: 48, bottom: 630, width: 32, height: 32, toJSON: () => ({}) };
+    });
+    try {
+      render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+      fireEvent.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+      const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
+      await waitFor(() => expect(Number.parseFloat(menu.style.top)).toBeLessThan(598));
+      expect(Number.parseFloat(menu.style.top)).toBeGreaterThanOrEqual(8);
+      expect(Number.parseFloat(menu.style.top) + 220).toBeLessThanOrEqual(598 - 4);
+    } finally {
+      rect.mockRestore();
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+    }
+  });
+
+  it("constrains an oversized menu to the viewport gutter", async () => {
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 640 });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute("role") === "menu") {
+        return { x: 0, y: 0, top: 0, left: 0, right: 208, bottom: 800, width: 208, height: 800, toJSON: () => ({}) };
+      }
+      return { x: 16, y: 200, top: 200, left: 16, right: 48, bottom: 232, width: 32, height: 32, toJSON: () => ({}) };
+    });
+    try {
+      render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+      fireEvent.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+      const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
+      await waitFor(() => expect(menu.style.maxHeight).toBe("624px"));
+      expect(menu.style.top).toBe("8px");
+      expect(menu.style.overflowY).toBe("auto");
+    } finally {
+      rect.mockRestore();
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+    }
+  });
 });

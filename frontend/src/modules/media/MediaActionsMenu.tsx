@@ -9,16 +9,23 @@ type MediaActionsMenuItem = Pick<
   "id" | "title" | "kind" | "meta" | "provider" | "provider_id" | "provider_ids"
 >;
 
-type MenuPosition = { left: number; top: number; width: number };
+type MenuPosition = { left: number; top: number; width: number; maxHeight?: number };
 
-function menuPosition(rect: DOMRect, viewportWidth: number): MenuPosition {
+function menuPosition(triggerRect: DOMRect, menuRect: DOMRect, viewportWidth: number, viewportHeight: number): MenuPosition {
   const gutter = 8;
+  const gap = 4;
   const width = Math.min(208, Math.max(0, viewportWidth - gutter * 2));
   const maxLeft = Math.max(gutter, viewportWidth - width - gutter);
+  const belowTop = triggerRect.bottom + gap;
+  const aboveTop = triggerRect.top - gap - menuRect.height;
+  const belowFits = belowTop + menuRect.height <= viewportHeight - gutter;
+  const aboveFits = aboveTop >= gutter;
+  const top = belowFits ? belowTop : aboveFits ? aboveTop : gutter;
   return {
     width,
-    left: Math.min(maxLeft, Math.max(gutter, rect.right - width)),
-    top: Math.max(gutter, rect.bottom + 4),
+    left: Math.min(maxLeft, Math.max(gutter, triggerRect.right - width)),
+    top,
+    ...(!belowFits && !aboveFits ? { maxHeight: Math.max(0, viewportHeight - gutter * 2) } : {}),
   };
 }
 
@@ -43,8 +50,14 @@ export function MediaActionsMenu({
 
   const updatePosition = () => {
     const trigger = triggerRef.current;
-    if (!trigger) return;
-    setPosition(menuPosition(trigger.getBoundingClientRect(), window.innerWidth));
+    const menu = menuRef.current;
+    if (!trigger || !menu) return;
+    setPosition(menuPosition(
+      trigger.getBoundingClientRect(),
+      menu.getBoundingClientRect(),
+      window.innerWidth,
+      window.innerHeight,
+    ));
   };
 
   useEffect(() => {
@@ -114,7 +127,7 @@ export function MediaActionsMenu({
             setOpen(false);
             return;
           }
-          updatePosition();
+          setPosition(null);
           setOpen(true);
         }}
         className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-secondary transition hover:border-strong hover:text-primary"
@@ -129,7 +142,12 @@ export function MediaActionsMenu({
           aria-label={`${item.title} işlemleri menüsü`}
           onKeyDown={moveMenuFocus}
           className="fixed z-20 rounded-control border border-subtle bg-surface p-1 shadow-lg"
-          style={position ? { left: position.left, top: position.top, width: position.width } : undefined}
+          style={position ? {
+            left: position.left,
+            top: position.top,
+            width: position.width,
+            ...(position.maxHeight === undefined ? {} : { maxHeight: position.maxHeight, overflowY: "auto" }),
+          } : undefined}
         >
           {links.map(([name, url]) => (
             <a
