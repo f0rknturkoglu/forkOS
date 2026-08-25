@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import type { MediaItem } from "@/core/types";
 import { cx } from "@/core/ui";
@@ -21,9 +21,16 @@ export function MediaActionsMenu({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  const enabledMenuitems = () => Array.from(
+    menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+  ).filter((element) => !(element instanceof HTMLButtonElement && element.disabled));
 
   useEffect(() => {
     if (!open) return;
+
+    enabledMenuitems()[0]?.focus();
 
     const closeForEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -45,6 +52,20 @@ export function MediaActionsMenu({
     };
   }, [open]);
 
+  const moveMenuFocus = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const items = enabledMenuitems();
+    if (!items.length) return;
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowDown") nextIndex = (index + 1 + items.length) % items.length;
+    if (event.key === "ArrowUp") nextIndex = (index - 1 + items.length) % items.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = items.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    items[nextIndex].focus();
+  };
+
   const links = externalLinks(
     item.kind,
     item.title,
@@ -61,6 +82,7 @@ export function MediaActionsMenu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={menuId}
         aria-label={`${item.title} işlemleri`}
         onClick={() => setOpen((value) => !value)}
         className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-secondary transition hover:border-strong hover:text-primary"
@@ -70,14 +92,17 @@ export function MediaActionsMenu({
       {open && (
         <div
           ref={menuRef}
-          role="group"
+          id={menuId}
+          role="menu"
           aria-label={`${item.title} işlemleri menüsü`}
+          onKeyDown={moveMenuFocus}
           className="absolute right-0 z-20 mt-1 w-52 rounded-control border border-subtle bg-surface p-1 shadow-lg"
         >
           {links.map(([name, url]) => (
             <a
               key={name}
               href={url}
+              role="menuitem"
               target="_blank"
               rel="noreferrer"
               onClick={() => setOpen(false)}
@@ -89,6 +114,7 @@ export function MediaActionsMenu({
           <div className="my-1 border-t border-subtle" />
           <button
             type="button"
+            role="menuitem"
             disabled={disabled}
             onClick={() => {
               setOpen(false);

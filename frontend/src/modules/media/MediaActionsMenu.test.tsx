@@ -18,20 +18,53 @@ const item = {
 describe("MediaActionsMenu", () => {
   afterEach(cleanup);
 
-  it("opens relevant links, closes on Escape, and restores trigger focus", async () => {
+  it("opens a labelled ARIA menu, relates it to the trigger, and focuses its first item", async () => {
     const user = userEvent.setup();
     render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
 
     const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
     await user.click(trigger);
-    const menu = screen.getByRole("group", { name: "Dune işlemleri menüsü" });
-    expect(screen.queryByRole("menu")).toBeNull();
+    const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger.getAttribute("aria-controls")).toBe(menu.id);
     for (const name of ["TMDB", "IMDb", "Rotten Tomatoes", "Letterboxd"]) {
-      expect(within(menu).getByRole("link", { name: new RegExp(`^${name}`) })).toBeTruthy();
+      expect(within(menu).getByRole("menuitem", { name: new RegExp(`^${name}`) })).toBeTruthy();
     }
+    expect(within(menu).getByRole("menuitem", { name: "Çöpe taşı" })).toBeTruthy();
+    expect(document.activeElement).toBe(within(menu).getByRole("menuitem", { name: /^TMDB/ }));
+  });
+
+  it("wraps Arrow keys and honors Home and End for enabled menuitems", async () => {
+    const user = userEvent.setup();
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+
+    await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+    const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
+    const tmdb = within(menu).getByRole("menuitem", { name: /^TMDB/ });
+    const letterboxd = within(menu).getByRole("menuitem", { name: /^Letterboxd/ });
+    const trash = within(menu).getByRole("menuitem", { name: "Çöpe taşı" });
+
+    fireEvent.keyDown(tmdb, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(letterboxd);
+    fireEvent.keyDown(letterboxd, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(tmdb);
+    fireEvent.keyDown(tmdb, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(trash);
+    fireEvent.keyDown(trash, { key: "Home" });
+    expect(document.activeElement).toBe(tmdb);
+    fireEvent.keyDown(tmdb, { key: "End" });
+    expect(document.activeElement).toBe(trash);
+  });
+
+  it("closes on Escape and restores trigger focus", async () => {
+    const user = userEvent.setup();
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+
+    const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
+    await user.click(trigger);
 
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("group", { name: "Dune işlemleri menüsü" })).toBeNull();
+    expect(screen.queryByRole("menu", { name: "Dune işlemleri menüsü" })).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
 
@@ -40,9 +73,9 @@ describe("MediaActionsMenu", () => {
     render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
 
     await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
-    expect(screen.getByRole("group", { name: "Dune işlemleri menüsü" })).toBeTruthy();
+    expect(screen.getByRole("menu", { name: "Dune işlemleri menüsü" })).toBeTruthy();
     fireEvent.pointerDown(document.body);
-    expect(screen.queryByRole("group", { name: "Dune işlemleri menüsü" })).toBeNull();
+    expect(screen.queryByRole("menu", { name: "Dune işlemleri menüsü" })).toBeNull();
   });
 
   it("disables the trash action while an item mutation is pending", async () => {
@@ -50,6 +83,10 @@ describe("MediaActionsMenu", () => {
     render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled />);
 
     await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
-    expect((screen.getByRole("button", { name: "Çöpe taşı" }) as HTMLButtonElement).disabled).toBe(true);
+    const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
+    const trash = within(menu).getByRole("menuitem", { name: "Çöpe taşı" }) as HTMLButtonElement;
+    expect(trash.disabled).toBe(true);
+    fireEvent.keyDown(document.activeElement!, { key: "End" });
+    expect(document.activeElement).toBe(within(menu).getByRole("menuitem", { name: /^Rotten Tomatoes/ }));
   });
 });
