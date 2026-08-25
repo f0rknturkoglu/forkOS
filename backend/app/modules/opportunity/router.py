@@ -64,6 +64,13 @@ async def opportunities(
     )
 
 
+@router.get("/opportunities/followups", response_model=list[service.FollowupOut])
+async def followups(
+    days: int = 30, session: AsyncSession = Depends(get_session),
+):
+    return await service.list_followups(session, days=min(days, 90))
+
+
 @router.get("/opportunities/{item_id}", response_model=OpportunityOut)
 async def opportunity_detail(item_id: UUID, session: AsyncSession = Depends(get_session)):
     row = (
@@ -413,3 +420,103 @@ async def jobhunter_env():
         "linkein_allow_direct": os.environ.get("LINKEDIN_ALLOW_DIRECT", ""),
         "proxies_file": os.environ.get("FORKJOB_LINKEDIN_PROXIES_FILE", ""),
     }
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Application CRM endpointleri
+# ═════════════════════════════════════════════════════════════════════
+
+
+@router.get("/applications/rejection-reasons")
+async def rejection_reasons():
+    return service.REJECTION_REASONS
+
+
+@router.get("/applications/funnel", response_model=service.FunnelOut)
+async def applications_funnel(session: AsyncSession = Depends(get_session)):
+    return await service.funnel(session)
+
+
+@router.get("/opportunities/{item_id}/application", response_model=service.ApplicationOut)
+async def application_detail(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await service.get_application(session, item_id)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.put("/opportunities/{item_id}/application", response_model=service.ApplicationOut)
+async def application_update(
+    item_id: UUID, body: service.ApplicationIn, session: AsyncSession = Depends(get_session),
+):
+    result = await service.upsert_application(session, item_id, body)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.post("/opportunities/{item_id}/apply", response_model=service.OpportunityOut)
+async def apply(
+    item_id: UUID, body: service.ApplyIn, session: AsyncSession = Depends(get_session),
+):
+    """Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir."""
+    try:
+        result = await service.apply(session, item_id, body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.get("/opportunities/{item_id}/history", response_model=list[service.HistoryOut])
+async def history(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    return await service.list_history(session, item_id)
+
+
+@router.post("/opportunities/{item_id}/transition", response_model=service.OpportunityOut)
+async def transition(
+    item_id: UUID, body: service.TransitionIn, session: AsyncSession = Depends(get_session),
+):
+    """Durum gecisi: gecmis + event yazar; terminal durumlara takilir."""
+    try:
+        result = await service.transition_status(
+            session, item_id, to=body.to, note=body.note,
+            rejection_reason=body.rejection_reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.get("/opportunities/{item_id}/interviews", response_model=list[service.InterviewOut])
+async def interviews(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    return await service.list_interviews(session, item_id)
+
+
+@router.post("/opportunities/{item_id}/interviews", response_model=service.InterviewOut, status_code=201)
+async def add_interview(
+    item_id: UUID, body: service.InterviewIn, session: AsyncSession = Depends(get_session),
+):
+    result = await service.add_interview(session, item_id, body)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.patch("/interviews/{interview_id}", response_model=service.InterviewOut)
+async def patch_interview(
+    interview_id: UUID, body: service.InterviewIn, session: AsyncSession = Depends(get_session),
+):
+    result = await service.patch_interview(session, interview_id, body)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.delete("/interviews/{interview_id}", status_code=204)
+async def delete_interview(interview_id: UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_interview(session, interview_id):
+        raise HTTPException(404)

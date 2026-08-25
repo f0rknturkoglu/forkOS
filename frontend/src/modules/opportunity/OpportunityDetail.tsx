@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ExternalLink, X } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Empty, Input, SectionHeader, cx } from "@/core/ui";
-import type { Document, Opportunity } from "@/core/types";
+import { Badge, Button, Empty, Input, SectionHeader, cx, relativeTime } from "@/core/ui";
+import type { Application, ApplicationHistoryRow, Document, Interview, Opportunity } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import {
   SCORE_TONE, STATUSES, STATUS_TONES,
@@ -21,6 +21,15 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   const online = useOnline();
   const invalidate = useInvalidate();
   const [requirement, setRequirement] = useState("");
+  const [editingApp, setEditingApp] = useState(false);
+  const [coverDraft, setCoverDraft] = useState("");
+  const [cvDraft, setCvDraft] = useState("");
+  const [salaryDraft, setSalaryDraft] = useState("");
+  const [researchDraft, setResearchDraft] = useState("");
+  const [appNoteDraft, setAppNoteDraft] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectionDraft, setRejectionDraft] = useState("");
+  const [interviewDraft, setInterviewDraft] = useState({ stage: "", mode: "video", scheduled_at: "", notes: "" });
 
   const { data: item } = useQuery({
     queryKey: ["opportunity", id],
@@ -48,6 +57,62 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
       api.patch(`/requirements/${requirementId}/document`, { document_entity_id: documentId || null }),
     onSuccess: () => invalidate("opportunity-requirements", "activity"),
   });
+
+  const transition = useMutation({
+    mutationFn: ({ to, note, rejection_reason }: { to: string; note?: string; rejection_reason?: string }) =>
+      api.post("/" + "opportunities/" + id + "/transition", { to, note, rejection_reason }),
+    onSuccess: () => invalidate("opportunity", "opportunities", "activity"),
+    onError: (error: Error) => window.alert("Geçiş başarısız: " + error.message),
+  });
+  const apply = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.post("/" + "opportunities/" + id + "/apply", body),
+    onSuccess: () => invalidate("opportunity", "opportunities", "activity", "applications-funnel"),
+  });
+  const updateApp = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.put("/" + "opportunities/" + id + "/application", body),
+    onSuccess: () => { invalidate("application"); setEditingApp(false); },
+  });
+  const followUp = useMutation({
+    mutationFn: (follow_up_at: string | null) => api.patch("/" + "opportunities/" + id, { follow_up_at }),
+    onSuccess: () => invalidate("opportunity"),
+  });
+  const addInterview = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.post("/" + "opportunities/" + id + "/interviews", body),
+    onSuccess: () => {
+      invalidate("interviews", "activity");
+      setInterviewDraft({ stage: "", mode: "video", scheduled_at: "", notes: "" });
+    },
+  });
+  const removeInterview = useMutation({
+    mutationFn: (interviewId: string) => api.del("/interviews/" + interviewId),
+    onSuccess: () => invalidate("interviews"),
+  });
+
+  const { data: app, refetch: refetchApp } = useQuery({
+    queryKey: ["application", id],
+    queryFn: () => api.get<Application>("/" + "opportunities/" + id + "/application").catch(() => null),
+  });
+  const { data: history = [] } = useQuery({
+    queryKey: ["application-history", id],
+    queryFn: () => api.get<ApplicationHistoryRow[]>("/" + "opportunities/" + id + "/history"),
+  });
+  const { data: interviews = [] } = useQuery({
+    queryKey: ["interviews", id],
+    queryFn: () => api.get<Interview[]>("/" + "opportunities/" + id + "/interviews"),
+  });
+  const { data: rejectionOptions = [] } = useQuery({
+    queryKey: ["rejection-reasons"],
+    queryFn: () => api.get<string[]>("/applications/rejection-reasons"),
+  });
+  useEffect(() => {
+    if (app) {
+      setCoverDraft(app.cover_letter ?? "");
+      setCvDraft(app.cv_document_id ?? "");
+      setSalaryDraft(app.salary_expectation ?? "");
+      setResearchDraft(app.company_research ?? "");
+      setAppNoteDraft(app.note ?? "");
+    }
+  }, [app]);
 
   // Esc kapatsin; cekmece odak tuzagi degil ama kacis yolu olmali.
   useEffect(() => {
@@ -111,7 +176,10 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                 value={item?.status ?? "discovered"}
                 disabled={!online || !item}
                 aria-label="Durum"
-                onChange={(e) => patch.mutate(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === "rejected") { setRejecting(true); return; }
+                  if (e.target.value !== item?.status) transition.mutate({ to: e.target.value });
+                }}
                 className="h-control rounded-control border border-strong bg-surface px-3 text-meta text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent disabled:opacity-50"
               >
                 {STATUSES.map((status) => (
@@ -228,6 +296,173 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               />
               <Button type="submit" disabled={!online || !requirement.trim()}>Ekle</Button>
             </form>
+          </section>
+
+          {/* ── Red nedeni secimi (rejected) ── */}
+          {rejecting && (
+            <section>
+              <SectionHeader label="Red nedeni" />
+              <div className="flex flex-wrap gap-1.5">
+                {rejectionOptions.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setRejectionDraft(reason)}
+                    className={rejectionDraft === reason
+                      ? "h-7 rounded-control border border-accent bg-accent-surface px-2.5 text-meta font-medium text-accent"
+                      : "h-7 rounded-control border border-subtle px-2.5 text-meta text-secondary hover:bg-surface-hover"
+                    }
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Input value={rejectionDraft} onChange={setRejectionDraft} placeholder="Özel neden…" ariaLabel="Red nedeni" className="flex-1" />
+                <Button variant="danger" disabled={!rejectionDraft.trim()}
+                  onClick={() => { transition.mutate({ to: "rejected", rejection_reason: rejectionDraft.trim() }); setRejecting(false); }}>
+                  Reddet
+                </Button>
+                <Button onClick={() => setRejecting(false)}>Vazgeç</Button>
+              </div>
+            </section>
+          )}
+          {item?.status === "rejected" && item.rejection_reason && (
+            <section>
+              <SectionHeader label="Red nedeni" />
+              <div className="flex items-center gap-2 rounded-control border border-danger-border bg-danger-surface px-3 py-2 text-meta text-danger">
+                {item.rejection_reason}
+              </div>
+            </section>
+          )}
+
+          {/* ── Başvuru ── */}
+          <section>
+            <SectionHeader label="Başvuru" hint={app ? `cv: ${app.cv_title ?? "—"}` : "henüz yapılmadı"} />
+            {!app && (
+              <div className="space-y-2">
+                <select
+                  value={cvDraft}
+                  onChange={(e) => setCvDraft(e.target.value)}
+                  aria-label="Kullanılan CV"
+                  className="h-control w-full rounded-control border border-strong bg-surface px-3 text-meta text-primary outline-none focus:border-accent"
+                >
+                  <option value="">CV seç (varsa)</option>
+                  {documents.map((doc) => (<option key={doc.id} value={doc.id}>{doc.title}</option>))}
+                </select>
+                <textarea
+                  value={coverDraft}
+                  onChange={(e) => setCoverDraft(e.target.value)}
+                  rows={3}
+                  placeholder="Cover letter (niyet mektubu)…"
+                  className="w-full resize-y rounded-control border border-subtle bg-surface p-2 text-meta text-primary outline-none"
+                />
+                <Button variant="primary" disabled={!online}
+                  onClick={() => apply.mutate({ cv_document_id: cvDraft || null, cover_letter: coverDraft || null })}>
+                  Başvur
+                </Button>
+              </div>
+            )}
+            {app && !editingApp && (
+              <div className="space-y-2 text-meta text-secondary">
+                {app.cv_title && <p>CV: <strong className="text-primary">{app.cv_title}</strong>{app.cv_modified_at ? " · " + new Date(app.cv_modified_at).toLocaleDateString("tr-TR") : ""}</p>}
+                {app.cover_letter && <p className="whitespace-pre-line text-secondary">{app.cover_letter}</p>}
+                {app.salary_expectation && <p>Maaş beklentisi: {app.salary_expectation}</p>}
+                {app.company_research && <p className="whitespace-pre-line">Araştırma: {app.company_research}</p>}
+                {app.posting_snapshot && Object.keys(app.posting_snapshot).length > 0 && (
+                  <details className="rounded-control border border-subtle bg-surface px-3 py-2">
+                    <summary className="cursor-pointer text-meta text-muted">Başvuru anındaki ilan (snapshot)</summary>
+                    <dl className="mt-2 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 text-meta text-secondary">
+                      {[["Kurum", String(app.posting_snapshot.organization ?? "—")],["Lokasyon", String(app.posting_snapshot.location ?? "—")],["Ücret", String(app.posting_snapshot.compensation ?? "—")]].map(([k, v]) => (<div key={k} className="contents"><dt className="text-muted">{k}</dt><dd>{v}</dd></div>))}
+                    </dl>
+                  </details>
+                )}
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => { setEditingApp(true); refetchApp(); }}>Düzenle</Button>
+                </div>
+              </div>
+            )}
+            {app && editingApp && (
+              <div className="space-y-2">
+                <select value={cvDraft} onChange={(e) => setCvDraft(e.target.value)} aria-label="Kullanılan CV" className="h-control w-full rounded-control border border-strong bg-surface px-3 text-meta text-primary outline-none focus:border-accent">
+                  <option value="">CV seç (varsa)</option>
+                  {documents.map((doc) => (<option key={doc.id} value={doc.id}>{doc.title}</option>))}
+                </select>
+                <textarea value={coverDraft} onChange={(e) => setCoverDraft(e.target.value)} rows={3} placeholder="Cover letter…" className="w-full resize-y rounded-control border border-subtle bg-surface p-2 text-meta text-primary outline-none" />
+                <input value={salaryDraft} onChange={(e) => setSalaryDraft(e.target.value)} placeholder="Maaş beklentisi (örn. 3000 EUR)" className="h-control w-full rounded-control border border-subtle bg-surface px-3 text-meta text-primary outline-none" />
+                <textarea value={researchDraft} onChange={(e) => setResearchDraft(e.target.value)} rows={2} placeholder="Şirket araştırması…" className="w-full resize-y rounded-control border border-subtle bg-surface p-2 text-meta text-primary outline-none" />
+                <div className="flex gap-2">
+                  <Button variant="primary" size="sm" disabled={!online}
+                    onClick={() => updateApp.mutate({ cv_document_id: cvDraft || null, cover_letter: coverDraft || null, salary_expectation: salaryDraft || null, company_research: researchDraft || null })}>
+                    Kaydet
+                  </Button>
+                  <Button size="sm" onClick={() => setEditingApp(false)}>Vazgeç</Button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* ── Takip tarihi ── */}
+          <section>
+            <SectionHeader label="Takip" hint={item?.follow_up_at ? new Date(item.follow_up_at).toLocaleString("tr-TR") : "yok"} />
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                defaultValue={item?.follow_up_at ? new Date(item.follow_up_at).toISOString().slice(0, 16) : ""}
+                onBlur={(e) => e.target.value && followUp.mutate(new Date(e.target.value).toISOString())}
+                aria-label="Takip tarihi"
+                className="h-control rounded-control border border-subtle bg-surface px-3 text-meta text-primary outline-none"
+              />
+              {item?.follow_up_at && <Button size="sm" onClick={() => followUp.mutate(null)}>Temizle</Button>}
+            </div>
+          </section>
+
+          {/* ── Görüşmeler ── */}
+          <section>
+            <SectionHeader label="Görüşmeler" hint={`${interviews.length} kayıt`} />
+            {interviews.length > 0 && (
+              <ul className="mb-3 space-y-1.5">
+                {interviews.map((iv) => (
+                  <li key={iv.id} className="flex items-center gap-2 rounded-control border border-subtle px-3 py-2 text-meta">
+                    <span className="min-w-0 flex-1">
+                      <strong className="text-primary">{iv.stage}</strong>
+                      <span className="ml-2 text-muted">{iv.mode}{iv.scheduled_at ? " · " + new Date(iv.scheduled_at).toLocaleString("tr-TR") : ""}</span>
+                      {iv.notes && <span className="block truncate text-muted">{iv.notes}</span>}
+                    </span>
+                    <button type="button" onClick={() => removeInterview.mutate(iv.id)} title="Görüşmeyi sil" className="text-muted transition hover:text-danger"><X size={13} /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
+              <input value={interviewDraft.stage} onChange={(e) => setInterviewDraft({ ...interviewDraft, stage: e.target.value })} placeholder="Aşama (örn. teknik, HR…)" className="h-control rounded-control border border-subtle bg-surface px-3 text-meta text-primary outline-none" />
+              <select value={interviewDraft.mode} onChange={(e) => setInterviewDraft({ ...interviewDraft, mode: e.target.value })} className="h-control rounded-control border border-subtle bg-surface px-2 text-meta text-primary outline-none" aria-label="Görüşme tipi">
+                <option value="video">Video</option>
+                <option value="telefon">Telefon</option>
+                <option value="yuz_yuze">Yüz yüze</option>
+              </select>
+              <Button size="sm" disabled={!online || !interviewDraft.stage.trim()}
+                onClick={() => addInterview.mutate({ stage: interviewDraft.stage.trim(), mode: interviewDraft.mode, scheduled_at: interviewDraft.scheduled_at || null, notes: interviewDraft.notes || null })}>
+                Ekle
+              </Button>
+            </div>
+          </section>
+
+          {/* ── Durum geçmişi ── */}
+          <section>
+            <SectionHeader label="Geçmiş" hint={`${history.length} değişiklik`} />
+            {history.length === 0 ? (<p className="text-meta text-muted">Henüz geçiş yok.</p>) : (
+              <ol className="space-y-1.5">
+                {history.map((row) => (
+                  <li key={row.id} className="flex items-center gap-2 text-meta">
+                    <span className="w-16 shrink-0 text-muted">{statusLabel(row.from_status ?? "—")}</span>
+                    <span className="text-accent">→</span>
+                    <span className="font-medium text-primary">{statusLabel(row.to_status)}</span>
+                    <span className="ml-auto shrink-0 text-muted">{relativeTime(row.at)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
 
           {item?.notes && (

@@ -424,6 +424,60 @@ export interface Opportunity {
   notes: string | null;
   trashed_at: string | null;
   trashed_from_status: string | null;
+  /** TR | EU | OTHER | UNKNOWN — forkjob region (listsede filtreler bunu kullanir). */
+  country: string | null;
+  region: string | null;
+  follow_up_at: string | null;
+  rejection_reason: string | null;
+}
+
+export interface Application {
+  opportunity_id: string;
+  cv_document_id: string | null;
+  cv_title: string | null;
+  cv_modified_at: string | null;
+  cover_letter: string | null;
+  company_research: string | null;
+  salary_expectation: string | null;
+  posting_snapshot: Record<string, unknown>;
+  note: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ApplicationHistoryRow {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  at: string;
+  note: string | null;
+}
+
+export interface Interview {
+  id: string;
+  opportunity_id: string;
+  stage: string;
+  mode: string | null;
+  scheduled_at: string | null;
+  duration_min: number | null;
+  notes: string | null;
+  outcome: string | null;
+  position: number;
+}
+
+export interface ApplicationFunnel {
+  total: number;
+  by_status: { status: string; count: number }[];
+  conversions: Record<string, number | null>;
+  rejection_reasons: { reason: string; count: number }[];
+}
+
+export interface Followup {
+  id: string;
+  title: string;
+  status: string;
+  follow_up_at: string;
+  note: string | null;
 }
 
 export type MediaItem = ApiSchemas["MediaItemOut"];

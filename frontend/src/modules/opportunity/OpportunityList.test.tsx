@@ -10,6 +10,7 @@ const item = {
   location: "İstanbul", remote: "remote", compensation: null, source: "test",
   external_id: null, raw: {}, score: 82, score_reasons: null, notes: null,
   trashed_at: null, trashed_from_status: null,
+  country: null, region: null, follow_up_at: null, rejection_reason: null,
 } satisfies Opportunity;
 
 describe("opportunity list components", () => {

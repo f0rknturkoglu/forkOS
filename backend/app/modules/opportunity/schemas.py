@@ -25,6 +25,8 @@ class OpportunityPatch(BaseModel):
     priority: int | None = Field(None, ge=1, le=3)
     deadline_at: datetime | None = None
     notes: str | None = None
+    follow_up_at: datetime | None = None
+    rejection_reason: str | None = None
 
     @field_validator("status")
     @classmethod
@@ -57,6 +59,10 @@ class OpportunityOut(BaseModel):
     score_reasons: dict[str, Any] | None = None
     notes: str | None
     trashed_at: datetime | None = None
+    country: str | None = None
+    region: str | None = None
+    follow_up_at: datetime | None = None
+    rejection_reason: str | None = None
     trashed_from_status: str | None = None
 
 
@@ -114,3 +120,84 @@ class SourceRefreshOut(BaseModel):
     batch_id: UUID | None
     queued: int
     total_sources: int
+
+
+class ApplicationOut(BaseModel):
+    opportunity_id: UUID
+    cv_document_id: UUID | None = None
+    cv_title: str | None = None
+    cv_modified_at: datetime | None = None
+    cover_letter: str | None = None
+    company_research: str | None = None
+    salary_expectation: str | None = None
+    posting_snapshot: dict[str, Any] = {}
+    note: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ApplicationIn(BaseModel):
+    cv_document_id: UUID | None = None
+    cover_letter: str | None = None
+    company_research: str | None = None
+    salary_expectation: str | None = None
+    note: str | None = None
+
+
+class ApplyIn(ApplicationIn):
+    """Ilk basvuru: durum 'applied' yapar, snapshot'i birlikte alir."""
+
+
+class TransitionIn(BaseModel):
+    to: str
+    note: str | None = None
+    rejection_reason: str | None = None
+
+
+class HistoryOut(BaseModel):
+    id: UUID
+    from_status: str | None = None
+    to_status: str
+    at: datetime
+    note: str | None = None
+
+
+class InterviewOut(BaseModel):
+    id: UUID
+    opportunity_id: UUID
+    stage: str
+    mode: str | None = None
+    scheduled_at: datetime | None = None
+    duration_min: int | None = None
+    notes: str | None = None
+    outcome: str | None = None
+    position: int = 0
+
+
+class InterviewIn(BaseModel):
+    stage: str = "genel"
+    mode: str | None = None
+    scheduled_at: datetime | None = None
+    duration_min: int | None = None
+    notes: str | None = None
+    outcome: str | None = None
+
+
+class FunnelRow(BaseModel):
+    status: str
+    count: int
+
+
+class FunnelOut(BaseModel):
+    total: int
+    by_status: list[FunnelRow]
+    conversions: dict[str, float | None]
+    rejection_reasons: list[dict[str, Any]]
+
+
+class FollowupOut(BaseModel):
+    id: UUID
+    title: str
+    status: str
+    follow_up_at: datetime
+    note: str | None = None

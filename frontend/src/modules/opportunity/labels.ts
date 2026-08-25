@@ -20,14 +20,18 @@ export const STATUS_LABELS: Record<string, string> = {
   preparing: "Hazırlanıyor",
   applied: "Başvuruldu",
   interview: "Görüşme",
+  offer: "Teklif",
   accepted: "Kabul",
   rejected: "Red",
+  withdrawn: "Geri çekildi",
+  closed: "Kapandı",
   trashed: "Çöp",
 };
 
 /** Basvuru hattinin sirasi. Kart ve suzgecte ayni sira kullanilir. */
 export const STATUSES = [
-  "discovered", "considering", "preparing", "applied", "interview", "accepted", "rejected",
+  "discovered", "considering", "preparing", "applied", "interview",
+  "offer", "accepted", "rejected", "withdrawn", "closed",
 ];
 
 export type StatusTone = "neutral" | "accent" | "ok" | "warn" | "danger";
@@ -38,8 +42,11 @@ export const STATUS_TONES: Record<string, StatusTone> = {
   preparing: "accent",
   applied: "accent",
   interview: "warn",
+  offer: "accent",
   accepted: "ok",
   rejected: "danger",
+  withdrawn: "neutral",
+  closed: "neutral",
   trashed: "danger",
 };
 

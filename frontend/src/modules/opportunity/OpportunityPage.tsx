@@ -15,6 +15,7 @@ import { OpportunityDetail } from "./OpportunityDetail";
 import { JobhunterSettings } from "./JobhunterSettings";
 import { FilterChip, OpportunityCard } from "./OpportunityList";
 import { SourcePicker } from "./SourcePicker";
+import { ApplicationCrmPanel } from "./ApplicationCrmPanel";
 import { SyncProgress } from "./SyncProgress";
 
 type OpportunityTab = "jobs" | "ylsy" | "osym" | "announcements" | "trash";
@@ -42,7 +43,9 @@ export function OpportunityPage() {
   const [sourceFilter, setSourceFilter] = useState("");
   const [remoteFilter, setRemoteFilter] = useState<"" | "remote" | "hybrid" | "office">("");
   const [showSettings, setShowSettings] = useState(false);
+  const [showCrm, setShowCrm] = useState(false);
 
+  const [regionFilter, setRegionFilter] = useState("");
   // Tum kayitlar bir kere gelir; suzme ve arama istemcide. 500 satir icin
   // her suzgec degisiminde sunucuya gitmekten hizli ve sayilar tutarli kalir.
   const { data: allActive = [], isLoading } = useQuery({
@@ -95,6 +98,7 @@ export function OpportunityPage() {
       if (hideKilled && item.score !== null && item.score < 0) return false;
       if (sourceFilter && item.source !== sourceFilter) return false;
       if (remoteFilter && remoteKind(item.remote) !== remoteFilter) return false;
+      if (regionFilter && item.region !== regionFilter) return false;
       if (!needle) return true;
       return [item.title, item.organization, item.location, item.source]
         .some((field) => field?.toLocaleLowerCase("tr").includes(needle));
@@ -109,7 +113,7 @@ export function OpportunityPage() {
         - (b.deadline_at ? new Date(b.deadline_at).getTime() : Infinity),
     }[sort];
     return [...rows].sort(by);
-  }, [data, status, search, sort, hideKilled, sourceFilter, remoteFilter]);
+  }, [data, status, search, sort, hideKilled, sourceFilter, remoteFilter, regionFilter]);
 
   const killedCount = useMemo(
     () => data.filter((item) => item.score !== null && item.score < 0).length,
@@ -156,6 +160,14 @@ export function OpportunityPage() {
           />
         </div>
         <span className="min-w-2 flex-1" />
+        <button
+          type="button"
+          onClick={() => setShowCrm((v) => !v)}
+          title="Başvuru CRM özeti"
+          className="flex h-9 items-center gap-1.5 rounded-control border border-subtle bg-surface px-3 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+        >
+          {showCrm ? "CRM gizle" : "CRM"}
+        </button>
         <button
           type="button"
           onClick={() => setShowSettings(true)}
@@ -224,10 +236,16 @@ export function OpportunityPage() {
       {/* ── Sıralama ── */}
 
       {/* ── Kaynak ve konum filtreleri (tiklanabilir chip ler) ── */}
+      {showCrm && <ApplicationCrmPanel />}
       <Section title="Kaynak & konum">
         <div className="flex flex-wrap gap-2">
           <FilterChip label="Tümü" count={data.length} active={!sourceFilter && !remoteFilter}
             onClick={() => { setSourceFilter(""); setRemoteFilter(""); resetPage(); }} />
+          {([["TR", "Türkiye"], ["EU", "Avrupa"], ["OTHER", "Diğer"]] as const).filter(([r]) => data.some((x) => x.region === r)).map(([r, label]) => (
+            <FilterChip key={r} label={label} count={data.filter((x) => x.region === r).length}
+              active={regionFilter === r}
+              onClick={() => { setRegionFilter(regionFilter === r ? "" : r); resetPage(); }} />
+          ))}
           {[...new Set(data.map((x) => x.source))].slice(0, 12).map((source) => (
             <FilterChip key={source} label={sourceLabel(source)} count={data.filter((x) => x.source === source).length}
               active={sourceFilter === source}
