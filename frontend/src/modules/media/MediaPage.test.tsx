@@ -21,13 +21,23 @@ const item = {
 };
 
 describe("media shared components", () => {
-  it("normalizes local covers, preserves remote fallbacks, and rejects paths", () => {
-    expect(mediaCoverUrl({ cover_path: "abc.webp", cover_url: "https://remote" })).toBe(
-      "/api/media/assets/abc.webp",
+  it("normalizes safe local covers before remote fallbacks and rejects unsafe paths", () => {
+    const cachedName = "a".repeat(64) + ".webp";
+    expect(mediaCoverUrl({ cover_path: cachedName, cover_url: "https://remote" })).toBe(
+      `/api/media/assets/${cachedName}`,
     );
-    expect(mediaCoverUrl({ cover_path: "../abc.webp", cover_url: "https://remote" })).toBe(
-      "https://remote",
+    expect(mediaCoverUrl({ cover_path: `/api/media/assets/${cachedName}`, cover_url: "https://remote" })).toBe(
+      `/api/media/assets/${cachedName}`,
     );
+    for (const path of [
+      "../abc.webp",
+      "/api/media/assets/../abc.webp",
+      "/api/media/assets/%2e%2e%2fabc.webp",
+      "abc.webp?token=secret",
+      "abc.webp#fragment",
+      "folder/abc.webp",
+      "folder\\abc.webp",
+    ]) expect(mediaCoverUrl({ cover_path: path, cover_url: "https://remote" })).toBe("https://remote");
     expect(mediaCoverUrl({ cover_path: null, cover_url: null, meta: { cover_url: "https://legacy" } })).toBe(
       "https://legacy",
     );
@@ -92,6 +102,11 @@ describe("media shared components", () => {
     const movieLinks = externalLinks("movie", "Interstellar", { source: "tmdb", tmdb_id: 42 });
     expect(showLinks).toContainEqual(["TMDB", "https://www.themoviedb.org/tv/42"]);
     expect(movieLinks).toContainEqual(["TMDB", "https://www.themoviedb.org/movie/42"]);
+  });
+
+  it("falls back to legacy metadata IDs when canonical provider IDs are absent", () => {
+    const links = externalLinks("movie", "Interstellar", { tmdb_id: 42 }, "tmdb", undefined, {});
+    expect(links).toContainEqual(["TMDB", "https://www.themoviedb.org/movie/42"]);
   });
 
   it("opens movie shortcuts on Letterboxd, IMDb and Rotten Tomatoes but not RyM", () => {

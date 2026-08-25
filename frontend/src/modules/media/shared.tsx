@@ -61,8 +61,11 @@ export function progressPct(item: Pick<MediaItem, "progress" | "total">): number
 /** Yerel kapaklar yalnız güvenli tek dosya adıyla servis edilir. */
 export function mediaCoverUrl(item: Pick<MediaItem, "cover_path" | "cover_url" | "meta">): string | null {
   const path = item.cover_path ?? "";
-  const name = path.includes("/") || path.includes("\\") ? null : path;
-  if (name && /^[a-z0-9][a-z0-9._-]*\.(?:jpg|jpeg|png|webp)$/i.test(name)) {
+  const assetPrefix = "/api/media/assets/";
+  const name = path.startsWith(assetPrefix) ? path.slice(assetPrefix.length) : path;
+  const safePath = !path.includes("\\") && !path.includes("?") && !path.includes("#") && !path.includes("%")
+    && (path === name || path.startsWith(assetPrefix));
+  if (safePath && name && /^[a-z0-9][a-z0-9._-]*\.(?:jpg|jpeg|png|webp)$/i.test(name)) {
     return `/api/media/assets/${encodeURIComponent(name)}`;
   }
   return item.cover_url ?? (String(item.meta?.cover_url ?? "") || null);
@@ -105,7 +108,7 @@ function identityFor(
   providerIds?: Record<string, unknown> | null,
   legacyKey?: string,
 ): string | null {
-  if (provider === name) return asId(providerId) ?? asId(providerIds?.[name]);
+  if (provider === name) return asId(providerId) ?? asId(providerIds?.[name]) ?? asId(meta[legacyKey ?? name]);
   return asId(providerIds?.[name]) ?? asId(meta[legacyKey ?? name]);
 }
 

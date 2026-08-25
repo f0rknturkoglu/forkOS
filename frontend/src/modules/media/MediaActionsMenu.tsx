@@ -70,7 +70,7 @@ export function MediaActionsMenu({
       {open && (
         <div
           ref={menuRef}
-          role="menu"
+          role="group"
           aria-label={`${item.title} işlemleri menüsü`}
           className="absolute right-0 z-20 mt-1 w-52 rounded-control border border-subtle bg-surface p-1 shadow-lg"
         >
