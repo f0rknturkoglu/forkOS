@@ -76,6 +76,24 @@ export function mediaProvider(item: Pick<MediaItem, "provider" | "meta">): strin
   return item.provider ?? (typeof item.meta?.source === "string" ? item.meta.source : null);
 }
 
+const PROVIDER_LABELS: Record<string, string> = {
+  tmdb: "TMDB",
+  anilist: "AniList",
+  kitsu: "Kitsu",
+  openlibrary: "OpenLibrary",
+  itunes: "iTunes",
+  google_books: "Google Books",
+  musicbrainz: "MusicBrainz",
+  igdb: "IGDB",
+  rawg: "RAWG",
+};
+
+/** Sağlayıcı kimliğini okunabilir, metin taşıyan kısa etikete çevirir. */
+export function providerLabel(provider: string | null | undefined): string | null {
+  if (!provider) return null;
+  return PROVIDER_LABELS[provider] ?? provider;
+}
+
 /** Kapak yoksa ya da URL kiriksa bas harf yedegi. */
 export function Cover({ url, title, size = "h-24 w-16" }: { url: string | null; title: string; size?: string }) {
   const [broken, setBroken] = useState(false);
