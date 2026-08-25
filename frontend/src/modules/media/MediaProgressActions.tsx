@@ -85,7 +85,7 @@ export function MediaProgressActions({
     },
   });
 
-  if (item.status === "completed") {
+  if (item.status === "completed" || item.status === "dropped") {
     return (
       <div className={cx("flex min-w-0 flex-wrap items-center gap-2", compact && "gap-1.5")}>
         <Button

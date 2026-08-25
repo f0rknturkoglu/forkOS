@@ -94,6 +94,8 @@ describe("MediaPosterGridSkeleton", () => {
     expect(container.querySelector("[data-media-grid]")?.className).toContain("auto-fill");
     expect(container.querySelectorAll("[data-media-poster-skeleton]")).toHaveLength(4);
     expect(container.querySelectorAll("[data-media-poster-skeleton] .aspect-\\[2\\/3\\]")).toHaveLength(4);
+    expect(container.querySelector("[data-media-poster-skeleton]")?.className).toContain("motion-safe:animate-pulse");
+    expect(container.querySelector("[data-media-poster-skeleton]")?.className.split(" ")).not.toContain("animate-pulse");
   });
 });
 

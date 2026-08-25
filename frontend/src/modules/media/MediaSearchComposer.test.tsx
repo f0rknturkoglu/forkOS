@@ -214,21 +214,27 @@ describe("MediaSearchComposer", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Foundation" })).toBeTruthy();
   });
 
-  it("only links to Settings when every media kind is unavailable", async () => {
-    responder = (path) => path === "/api/media?q=dune&limit=8"
-      ? json({ items: [], total: 0, next_cursor: null })
-      : path === "/api/media/search/global?q=dune" ? json({ results: [], warnings: [{ provider: "tmdb", kind: "movie", message: "TMDB kapalı" }] }) : json({});
-    renderComposer();
-    await search("dune");
-    expect(screen.getByRole("status").textContent).toContain("TMDB kapalı");
-    expect(screen.queryByRole("link", { name: "Medya bağlantılarını aç" })).toBeNull();
-  });
-
-  it("links to Settings after every media kind reports unavailable", async () => {
+  it("does not mistake temporary ready-provider failures for missing configuration", async () => {
     responder = (path) => path === "/api/media?q=dune&limit=8"
       ? json({ items: [], total: 0, next_cursor: null })
       : path === "/api/media/search/global?q=dune"
-        ? json({ results: [], warnings: KINDS.map((kind) => ({ provider: "test", kind, message: `${kind} kapalı` })) }) : json({});
+        ? json({ results: [], warnings: KINDS.map((kind) => ({ provider: "test", kind, message: `${kind} araması başarısız` })) })
+        : path === "/api/media/providers"
+          ? json([{ id: "tmdb", kinds: ["movie"], ready: true, missing_settings: [], capabilities: {} }])
+          : json({});
+    renderComposer();
+    await search("dune");
+    expect(screen.queryByRole("link", { name: "Medya bağlantılarını aç" })).toBeNull();
+  });
+
+  it("links to the consumed Settings target only when no provider is ready", async () => {
+    responder = (path) => path === "/api/media?q=dune&limit=8"
+      ? json({ items: [], total: 0, next_cursor: null })
+      : path === "/api/media/search/global?q=dune"
+        ? json({ results: [], warnings: [{ provider: "tmdb", kind: "movie", message: "TMDB hazır değil" }] })
+        : path === "/api/media/providers"
+          ? json([{ id: "tmdb", kinds: ["movie"], ready: false, missing_settings: ["media.tmdb_key"], capabilities: {} }])
+          : json({});
     renderComposer();
     await search("dune");
     expect(screen.getByRole("link", { name: "Medya bağlantılarını aç" }).getAttribute("href"))

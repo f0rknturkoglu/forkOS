@@ -165,6 +165,21 @@ describe("append-only media progress", () => {
     expect(screen.queryByRole("button", { name: "Sonraki bölüm" })).toBeNull();
   });
 
+  it("treats dropped media as terminal and starts its next cycle only explicitly", async () => {
+    const dropped = { ...item, status: "dropped" } as MediaItem;
+    const user = userEvent.setup();
+    renderActions(true, dropped);
+
+    expect(screen.queryByRole("button", { name: "Sonraki bölüm" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "İlerlemeyi ayarla" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tamamlandı olarak işaretle" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Yeni tur başlat" }));
+
+    await waitFor(() => expect(calls).toEqual([
+      { body: {}, method: "POST", path: "/api/media/media%2Fone/cycles" },
+    ]));
+  });
+
   it("lays out the exact progress form without narrow-screen overflow", async () => {
     const user = userEvent.setup();
     renderActions();

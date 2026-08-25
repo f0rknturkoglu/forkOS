@@ -4,11 +4,16 @@ import { Plus } from "lucide-react";
 import { ApiError, api } from "@/core/api";
 import { Button, Input, RowList, cx } from "@/core/ui";
 import { useDebounced } from "@/lib/hooks";
-import type { GlobalMetadataSearch, MediaItem, MediaPage, MetadataResult } from "@/core/types";
+import type {
+  GlobalMetadataSearch,
+  MediaItem,
+  MediaPage,
+  MediaProviderStatus,
+  MetadataResult,
+} from "@/core/types";
 import {
   Cover,
   KIND_LABELS,
-  KINDS,
   kindChip,
   mediaCoverUrl,
   mediaProvider,
@@ -98,6 +103,11 @@ export function MediaSearchComposer({
     queryFn: () => api.get<GlobalMetadataSearch>(`/media/search/global?q=${encodedTerm}`),
     enabled,
   });
+  const providerStatuses = useQuery({
+    queryKey: ["media-providers"],
+    queryFn: () => api.get<MediaProviderStatus[]>("/media/providers"),
+    enabled,
+  });
 
   const add = useMutation({
     mutationFn: ({ hit }: AddRequest) => api.post<MediaItem>("/media", providerCreateBody(hit)),
@@ -125,7 +135,9 @@ export function MediaSearchComposer({
   const libraryItems = library.data?.items ?? [];
   const hits = catalog.data?.results ?? [];
   const warnings = catalog.data?.warnings ?? [];
-  const allProvidersUnavailable = hits.length === 0 && KINDS.every((kind) => warnings.some((warning) => warning.kind === kind));
+  const noReadyProviders = providerStatuses.isSuccess
+    && Array.isArray(providerStatuses.data)
+    && !providerStatuses.data.some((provider) => provider.ready);
   const duplicateVisible = duplicate && duplicate.term === term && duplicate.term === search.trim();
 
   return (
@@ -150,10 +162,10 @@ export function MediaSearchComposer({
       {enabled && (
         <div className="space-y-4">
           {(library.isFetching || catalog.isFetching) && <p role="status" aria-live="polite" className="text-meta text-muted">Aranıyor…</p>}
-          {warnings.length > 0 && (
+          {(warnings.length > 0 || noReadyProviders) && (
             <p role="status" aria-live="polite" className="text-meta text-muted">
               {warnings.map((warning) => warning.message).join(" · ")}
-              {allProvidersUnavailable && <> <a href="#/settings?section=media-links" className="text-accent hover:underline">Medya bağlantılarını aç</a></>}
+              {noReadyProviders && <> <a href="#/settings?section=media-links" className="text-accent hover:underline">Medya bağlantılarını aç</a></>}
             </p>
           )}
 

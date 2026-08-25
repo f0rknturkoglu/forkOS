@@ -192,7 +192,7 @@ export function MediaPosterGridSkeleton({ count = 6 }: { count?: number }) {
         className="grid grid-cols-[repeat(auto-fill,minmax(156px,1fr))] gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]"
       >
         {Array.from({ length: count }, (_, index) => (
-          <li key={index} data-media-poster-skeleton className="min-w-0 animate-pulse">
+          <li key={index} data-media-poster-skeleton className="min-w-0 motion-safe:animate-pulse">
             <div className="aspect-[2/3] w-full rounded-card border border-subtle bg-surface-sunken" />
             <div className="mt-2 h-4 w-3/4 rounded bg-surface-sunken" />
             <div className="mt-2 h-5 w-1/2 rounded bg-surface-sunken" />
