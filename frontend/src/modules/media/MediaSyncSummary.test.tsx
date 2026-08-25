@@ -8,32 +8,32 @@ import { MediaSyncSummary } from "./MediaSyncSummary";
 const providers = [
   {
     id: "tmdb", kinds: ["movie", "show"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:30:00.000Z", last_status: "ok", last_error: null, items_found: 12,
+    last_run_at: "2026-08-25T07:30:00.000Z", last_status: "ok", last_error: null, last_items_found: 12,
     capabilities: { search: true, details: true, units: true, upcoming: true, cache_artwork: true, requires_settings: [] },
   },
   {
     id: "anilist", kinds: ["anime", "manga"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:20:00.000Z", last_status: "ok", last_error: null, items_found: 3,
+    last_run_at: "2026-08-25T07:20:00.000Z", last_status: "ok", last_error: null, last_items_found: 3,
     capabilities: { search: true, details: true, units: true, upcoming: true, cache_artwork: false, requires_settings: [] },
   },
   {
     id: "openlibrary", kinds: ["book"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T07:00:00.000Z", last_status: "empty", last_error: null, items_found: 0,
+    last_run_at: "2026-08-25T07:00:00.000Z", last_status: "empty", last_error: null, last_items_found: 0,
     capabilities: { search: true, details: true, units: false, upcoming: false, cache_artwork: true, requires_settings: [] },
   },
   {
     id: "itunes", kinds: ["music", "podcast"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T06:30:00.000Z", last_status: "ok", last_error: null, items_found: 8,
+    last_run_at: "2026-08-25T06:30:00.000Z", last_status: "ok", last_error: null, last_items_found: 8,
     capabilities: { search: true, details: true, units: false, upcoming: false, cache_artwork: false, requires_settings: [] },
   },
   {
     id: "igdb", kinds: ["game"], ready: true, missing_settings: [],
-    last_run_at: "2026-08-25T06:00:00.000Z", last_status: "ok", last_error: null, items_found: 5,
+    last_run_at: "2026-08-25T06:00:00.000Z", last_status: "ok", last_error: null, last_items_found: 5,
     capabilities: { search: true, details: true, units: false, upcoming: true, cache_artwork: true, requires_settings: [] },
   },
   {
     id: "kitsu", kinds: ["anime"], ready: true, missing_settings: ["media.kitsu_key"],
-    last_run_at: "2026-08-25T05:00:00.000Z", last_status: "error", last_error: "API anahtarı reddedildi", items_found: 0,
+    last_run_at: "2026-08-25T05:00:00.000Z", last_status: "error", last_error: "API anahtarı reddedildi", last_items_found: 0,
     capabilities: { search: true, details: true, units: true, upcoming: false, cache_artwork: false, requires_settings: ["media.kitsu_key"] },
   },
 ];
