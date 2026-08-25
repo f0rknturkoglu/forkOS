@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, CalendarClock } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Empty, Section as Panel, cx, relativeTime } from "@/core/ui";
+import {Chip, Empty, Section, cx, relativeTime} from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { ApplicationFunnel, Followup } from "@/core/types";
 import { STATUS_TONES, statusLabel } from "./labels";
@@ -24,7 +24,7 @@ export function ApplicationCrmPanel() {
 
   return (
     <div className="space-y-4">
-      <Panel title="Başvuru funnel">
+      <Section title="Başvuru funnel">
         {total === 0 ? (
           <Empty>Henüz başvuru yok — ilanlardan "Başvur" ile başla.</Empty>
         ) : (
@@ -48,9 +48,9 @@ export function ApplicationCrmPanel() {
             })}
           </div>
         )}
-      </Panel>
+      </Section>
 
-      <Panel title="Dönüşüm oranları">
+      <Section title="Dönüşüm oranları">
         {total === 0 ? (
           <Empty>Veri yok.</Empty>
         ) : (
@@ -60,7 +60,7 @@ export function ApplicationCrmPanel() {
               ["offer_to_accepted", "Teklif → Kabul"],
               ["applied_to_rejected", "Başvuru → Red"]].map(([key, label]) => (
               <div key={key} className="rounded-control border border-subtle px-3 py-2">
-                <div className="numeral text-[20px] leading-tight text-primary">
+                <div className="numeral text-title leading-tight text-primary">
                   {conv[key] == null ? "—" : conv[key] + "%"}
                 </div>
                 <div className="text-meta text-muted">{label}</div>
@@ -68,9 +68,9 @@ export function ApplicationCrmPanel() {
             ))}
           </div>
         )}
-      </Panel>
+      </Section>
 
-      <Panel title="Red nedenleri">
+      <Section title="Red nedenleri">
         {(funnel?.rejection_reasons ?? []).length === 0 ? (
           <Empty>Henüz red kaydı yok.</Empty>
         ) : (
@@ -79,14 +79,14 @@ export function ApplicationCrmPanel() {
               <li key={row.reason} className="flex items-center gap-2 text-meta">
                 <span className="h-1.5 w-1.5 rounded-full bg-danger" />
                 <span className="text-secondary">{row.reason}</span>
-                <Badge tone="danger">{row.count}</Badge>
+                <Chip tone="danger">{row.count}</Chip>
               </li>
             ))}
           </ul>
         )}
-      </Panel>
+      </Section>
 
-      <Panel title="Yaklaşan takipler" action={<CalendarClock size={14} className="text-icon" />}>
+      <Section title="Yaklaşan takipler" action={<CalendarClock size={14} className="text-icon" />}>
         {followups.length === 0 ? (
           <Empty>Takipli başvuru yok.</Empty>
         ) : (
@@ -100,13 +100,13 @@ export function ApplicationCrmPanel() {
                 >
                   <BarChart3 size={13} className="shrink-0 text-icon" />
                   <span className="min-w-0 flex-1 truncate text-body text-primary">{f.title}</span>
-                  <Badge tone="warn">{relativeTime(f.follow_up_at)}</Badge>
+                  <Chip tone="warn">{relativeTime(f.follow_up_at)}</Chip>
                 </button>
               </li>
             ))}
           </ul>
         )}
-      </Panel>
+      </Section>
     </div>
   );
 }

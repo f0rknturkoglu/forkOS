@@ -5,7 +5,7 @@ import {
   Check, CornerDownRight, FolderGit2, ListTree, Milestone as MilestoneIcon, Repeat, Trash2, X,
 } from "lucide-react";
 import { api } from "@/core/api";
-import { IconButton, cx, useToast } from "@/core/ui";
+import {Chip, IconButton, Input, cx, useToast} from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { Todo } from "@/core/types";
 import { dueLabel, priorityOf, recurLabel } from "./priority";
@@ -34,6 +34,7 @@ export function TodoRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [subtask, setSubtask] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   const online = useOnline();
   const invalidate = useInvalidate();
   const toast = useToast();
@@ -103,20 +104,20 @@ export function TodoRow({
             className="flex gap-2"
             onSubmit={(event) => {
               event.preventDefault();
-              const value = (new FormData(event.currentTarget).get("title") as string ?? "").trim();
+              const value = draft.trim();
               setEditing(false);
               if (value && value !== todo.title) patch.mutate({ title: value });
             }}
           >
-            <input name="title" autoFocus defaultValue={todo.title} aria-label="Görev başlığı"
+            <Input autoFocus value={draft} onChange={setDraft} ariaLabel="Görev başlığı"
               onKeyDown={(event) => { if (event.key === "Escape") setEditing(false); }}
-              className="h-8 min-w-0 flex-1 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent" />
+              className="min-w-0 flex-1" />
           </form>
         ) : (
           <button
             type="button"
             disabled={!online}
-            onClick={() => setEditing(true)}
+            onClick={() => { setDraft(todo.title); setEditing(true); }}
             title="Başlığı düzenle"
             className={cx(
               "block w-full truncate text-left text-body transition",
@@ -134,24 +135,20 @@ export function TodoRow({
           */}
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
           {todo.priority > 0 && (
-            <span className={cx(
-              "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-4",
-              priority.chip,
-            )}>
-              <span className={cx("h-1.5 w-1.5 rounded-full", priority.dot)} />
+            <Chip tone={priority.tone} icon={<span className={cx("h-1.5 w-1.5 rounded-full", priority.dot)} />}>
               {priority.label}
-            </span>
+            </Chip>
           )}
           {due && (
             <span className={cx(
-              "rounded-full border px-2 py-0.5 text-[11px] leading-4",
+              "rounded-full border px-2 py-0.5 text-micro leading-4",
               DUE_CHIP[due.tone],
             )}>
               {due.text}
             </span>
           )}
           {recur && todo.recur && (
-            <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-[11px] leading-4 text-muted">
+            <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
               <Repeat size={10} /> {recur}
             </span>
           )}
@@ -159,29 +156,29 @@ export function TodoRow({
             <a
               href="#/projects"
               title={`${todo.project_title} projesi`}
-              className="flex items-center gap-1 rounded-full border border-accent-border bg-accent-surface px-2 py-0.5 text-[11px] leading-4 text-accent transition hover:brightness-95"
+              className="flex items-center gap-1 rounded-full border border-accent-border bg-accent-surface px-2 py-0.5 text-micro leading-4 text-accent transition hover:brightness-95"
             >
               <FolderGit2 size={10} /> {todo.project_title}
             </a>
           )}
           {todo.milestone_title && (
-            <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-[11px] leading-4 text-secondary">
+            <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-secondary">
               <MilestoneIcon size={10} /> {todo.milestone_title}
             </span>
           )}
           {todo.subtask_total > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-[11px] leading-4 text-muted">
+            <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
               <ListTree size={10} /> {todo.subtask_done}/{todo.subtask_total}
             </span>
           )}
           {todo.tags.map((tag) => (
             <span key={tag}
-              className="rounded-full border border-subtle px-2 py-0.5 text-[11px] leading-4 text-secondary">
+              className="rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-secondary">
               #{tag}
             </span>
           ))}
           {dropped && (
-            <span className="rounded-full border border-subtle px-2 py-0.5 text-[11px] leading-4 text-muted">
+            <span className="rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
               bırakıldı
             </span>
           )}
@@ -223,14 +220,14 @@ export function TodoRow({
           }}
         >
           <CornerDownRight size={13} className="shrink-0 text-icon" aria-hidden />
-          <input
+          <Input
             autoFocus
             value={subtask}
-            onChange={(event) => setSubtask(event.target.value)}
+            onChange={setSubtask}
             onKeyDown={(event) => { if (event.key === "Escape") setSubtask(null); }}
             placeholder="Alt görev — Esc ile kapat"
-            aria-label="Alt görev başlığı"
-            className="h-8 min-w-0 flex-1 rounded-control border border-subtle bg-surface px-2 text-meta text-primary outline-none focus:border-accent"
+            ariaLabel="Alt görev başlığı"
+            className="min-w-0 flex-1"
           />
         </form>
       )}

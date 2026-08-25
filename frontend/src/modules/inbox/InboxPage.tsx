@@ -4,7 +4,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Tag, Trash2 } from "lucide-react";
-import { Badge, Button, Empty, IconButton, Input, Kbd, PageFrame, PageHeader, RowList, Section, Toolbar, cx, hostOf, relativeTime, useToast } from "@/core/ui";
+import {Button, Chip, Empty, IconButton, Input, Kbd, PageFrame, PageHeader, RowList, Section, Toolbar, cx, hostOf, relativeTime, useToast} from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";
@@ -82,9 +82,9 @@ function InboxCard({
             <span>{hostOf(bookmark.url)}</span>
             <span>·</span>
             <span>{relativeTime(bookmark.saved_at)}</span>
-            <Badge>{bookmark.source}</Badge>
+            <Chip>{bookmark.source}</Chip>
             {bookmark.tags.map((tag) => (
-              <Badge key={tag}>#{tag}</Badge>
+              <Chip key={tag}>#{tag}</Chip>
             ))}
           </div>
           {bookmark.selection && (
@@ -170,7 +170,7 @@ function DropTarget({
     >
       <Kbd>{index + 1}</Kbd>
       <span className="flex-1 truncate">{COLLECTION_LABELS[collection]}</span>
-      <span className="numeral text-[15px] text-secondary">{count}</span>
+      <span className="numeral text-heading text-secondary">{count}</span>
     </button>
   );
 }
@@ -211,17 +211,17 @@ function QuickCapture() {
         if (url.trim()) capture.mutate();
       }}
     >
-      <input
+      <Input
         value={url}
-        onChange={(e) => setUrl(e.target.value)}
+        onChange={setUrl}
         placeholder="https://..."
-        className="min-w-48 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
+        className="min-w-48 flex-1"
       />
-      <input
+      <Input
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={setTitle}
         placeholder="Başlık (isteğe bağlı)"
-        className="min-w-44 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none sm:max-w-64 focus:border-accent"
+        className="min-w-44 flex-1 sm:max-w-64"
       />
       <Button type="submit" variant="primary" disabled={!online || capture.isPending}>
         Kaydet

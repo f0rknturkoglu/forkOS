@@ -12,7 +12,7 @@ export const openCommandPalette = () => window.dispatchEvent(new Event(OPEN_EVEN
 
 const GROUP_HEADING =
   "mb-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 " +
-  "[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-medium " +
+  "[&_[cmdk-group-heading]]:text-micro [&_[cmdk-group-heading]]:font-medium " +
   "[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.16em] " +
   "[&_[cmdk-group-heading]]:text-muted";
 
@@ -109,7 +109,7 @@ export function CommandPalette() {
                   if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); submitAnswer(); }
                   if (e.key === "Escape") { e.stopPropagation(); setAsking(null); }
                 }}
-                className="h-[50px] w-full bg-transparent text-[14.5px] text-primary outline-none placeholder:text-muted"
+                className="h-[50px] w-full bg-transparent text-body text-primary outline-none placeholder:text-muted"
               />
               <Kbd>esc</Kbd>
             </form>
@@ -121,7 +121,7 @@ export function CommandPalette() {
                 value={query}
                 onValueChange={setQuery}
                 placeholder="Komut veya arama…"
-                className="h-[50px] w-full bg-transparent text-[14.5px] text-primary outline-none placeholder:text-muted"
+                className="h-[50px] w-full bg-transparent text-body text-primary outline-none placeholder:text-muted"
               />
               <Kbd>esc</Kbd>
             </div>
@@ -151,7 +151,7 @@ export function CommandPalette() {
                     className={ITEM}
                   >
                     <span className="truncate">{hit.title || "(başlıksız)"}</span>
-                    <span className="shrink-0 text-[10.5px] uppercase tracking-wide text-muted">
+                    <span className="shrink-0 text-micro uppercase tracking-wide text-muted">
                       {TYPE_LABELS[hit.type] ?? hit.type}
                     </span>
                   </Command.Item>

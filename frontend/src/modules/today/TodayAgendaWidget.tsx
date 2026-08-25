@@ -6,10 +6,7 @@ import {
 } from "lucide-react";
 import { api } from "@/core/api";
 import type { AgendaRow, FeedItem, TodayAgenda, Todo } from "@/core/types";
-import {
-  Badge, Button, Empty, IconButton, Input, RowList, Section, SectionHeader,
-  Select, Spinner, cx, useToast,
-} from "@/core/ui";
+import {Button, Chip, Empty, IconButton, Input, RowList, Section, SectionHeader, Select, Spinner, cx, useToast} from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 
 const REFRESH_KEYS = [
@@ -167,7 +164,7 @@ export function TodayAgendaWidget() {
             disabled={!online || busy || !agenda}
             onClick={() => agenda && toggleAuto.mutate(!agenda.auto_suggestions)}
             className={cx(
-              "rounded-full border px-2 py-0.5 text-[10.5px] transition",
+              "rounded-full border px-2 py-0.5 text-micro transition",
               agenda?.auto_suggestions
                 ? "border-ok-border bg-ok-surface text-ok"
                 : "border-subtle text-muted",
@@ -334,7 +331,7 @@ function AgendaLine({ row, online, complete, remove, suggestionAction, nested = 
           {(meta || row.recur) && (
             <div className="mt-0.5 flex items-center gap-1.5 text-meta text-muted">
               {meta && <span className="truncate">{meta}</span>}
-              {row.recur && <Badge tone="accent"><RotateCw size={9} className="mr-1 inline" />{RECUR_LABELS[row.recur]}</Badge>}
+              {row.recur && <Chip tone="accent"><RotateCw size={9} className="mr-1 inline" />{RECUR_LABELS[row.recur]}</Chip>}
             </div>
           )}
         </div>

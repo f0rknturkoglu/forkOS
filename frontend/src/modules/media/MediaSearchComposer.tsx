@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { ApiError, api } from "@/core/api";
-import { Button, Input, RowList, cx } from "@/core/ui";
+import {Button, Chip, Input, RowList, cx} from "@/core/ui";
 import { useDebounced } from "@/lib/hooks";
 import type {
   GlobalMetadataSearch,
@@ -11,15 +11,7 @@ import type {
   MediaProviderStatus,
   MetadataResult,
 } from "@/core/types";
-import {
-  Cover,
-  KIND_LABELS,
-  kindChip,
-  mediaCoverUrl,
-  mediaProvider,
-  providerChip,
-  providerLabel,
-} from "./shared";
+import {Cover, KIND_LABELS, mediaCoverUrl, mediaProvider, providerChip, providerLabel} from "./shared";
 
 type DuplicateState = { href: string; term: string; identity: string };
 type AddRequest = { hit: MetadataResult; term: string };
@@ -62,7 +54,7 @@ function ResultRow({ hit, action }: { hit: MetadataResult; action?: React.ReactN
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-body font-medium text-primary">{hit.title}</h3>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta text-muted">
-          <span className={cx("rounded border px-1.5 py-0.5", kindChip(hit.kind))}>{KIND_LABELS[hit.kind] ?? hit.kind}</span>
+          <Chip identity={"kind-" + hit.kind} variant="outline" size="xs">{KIND_LABELS[hit.kind] ?? hit.kind}</Chip>
           <span className={cx("rounded border px-1.5 py-0.5", providerChip(hit.provider))}>{providerLabel(hit.provider)}</span>
           {(hit.subtitle || hit.year) && <span>{hit.subtitle ?? ""}{hit.year ? ` · ${hit.year}` : ""}</span>}
         </div>
@@ -181,9 +173,9 @@ export function MediaSearchComposer({
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate text-body font-medium text-primary">{item.title}</h3>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
-                        <span className={cx("rounded border px-1.5 py-0.5", kindChip(item.kind))}>
+                        <Chip identity={"kind-" + item.kind} variant="outline" size="xs">
                           {KIND_LABELS[item.kind] ?? item.kind}
-                        </span>
+                        </Chip>
                         {mediaProvider(item) && (
                           <span className={cx("rounded border px-1.5 py-0.5", providerChip(mediaProvider(item)))}>
                             {providerLabel(mediaProvider(item))}

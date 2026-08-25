@@ -47,13 +47,16 @@ export default {
           reddit: "var(--feed-reddit)",
           gh: "var(--feed-gh)",
         },
-        // Emek haritasi basamaklari.
-        heat: {
-          0: "var(--heat-0)",
-          1: "var(--heat-1)",
-          2: "var(--heat-2)",
-          3: "var(--heat-3)",
-          4: "var(--heat-4)",
+        // Grafik paleti -- kategorik dagilimlar; sabit sirayla atanir.
+        chart: {
+          1: "var(--chart-1)",
+          2: "var(--chart-2)",
+          3: "var(--chart-3)",
+          4: "var(--chart-4)",
+          5: "var(--chart-5)",
+          6: "var(--chart-6)",
+          7: "var(--chart-7)",
+          8: "var(--chart-8)",
         },
         // Medya türleri -- her türün kimlik rengi (chip, rozet, vurgu).
         kind: {
@@ -82,7 +85,15 @@ export default {
         heading: ["15px", { lineHeight: "20px", fontWeight: "600" }],
         title: ["20px", { lineHeight: "26px", letterSpacing: "-0.01em" }],
         display: ["30px", { lineHeight: "34px", letterSpacing: "-0.02em" }],
+        // Sayisal ozetler (Metric/Stat) ve buyuk hero/timer rakamlari.
+        // Keyfi text-[Npx] yazmak yerine bu adimlar kullanilir.
+        "numeral-lg": ["24px", { lineHeight: "28px" }],
+        "numeral-xl": ["26px", { lineHeight: "30px" }],
+        "display-lg": ["40px", { lineHeight: "44px", letterSpacing: "-0.02em" }],
+        "display-xl": ["56px", { lineHeight: "60px", letterSpacing: "-0.02em" }],
+        "display-2xl": ["72px", { lineHeight: "76px", letterSpacing: "-0.02em" }],
       },
+      borderRadius: { control: "4px", card: "5px", overlay: "6px" },
       borderRadius: { control: "4px", card: "5px", overlay: "6px" },
       spacing: { control: "34px", touch: "44px" },
       boxShadow: {

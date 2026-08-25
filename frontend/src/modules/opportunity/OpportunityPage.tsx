@@ -2,15 +2,13 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, Search, Settings2 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { Button, Empty, Input, PageFrame, PageHeader, RowList, Section, Toolbar, cx, useToast } from "@/core/ui";
+import { Button, Checkbox, Empty, Input, PageFrame, PageHeader, RowList, Section, Toolbar, cx, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { navigate } from "@/app/router";
 import type { Opportunity } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
-import {
-  REMOTE_LABELS, STATUSES, remoteKind, sourceLabel, statusLabel,
-
-} from "./labels";
+import { REMOTE_LABELS, STATUSES, remoteKind, statusLabel } from "./labels";
+import { sourceLabel } from "@/core/labels";
 import { OpportunityDetail } from "./OpportunityDetail";
 import { JobhunterSettings } from "./JobhunterSettings";
 import { FilterChip, OpportunityCard } from "./OpportunityList";
@@ -283,16 +281,12 @@ export function OpportunityPage() {
           ))}
 
           {killedCount > 0 && (
-            <label className="ml-2 flex cursor-pointer items-center gap-2.5 text-meta text-secondary">
-              <input
-                type="checkbox"
-                checked={hideKilled}
-                onChange={() => { setHideKilled((v) => !v); resetPage(); }}
-                className="h-4 w-4 accent-[var(--accent)]"
-              />
-              Elenenleri gizle
-              <span className="numeral text-[13px] text-muted">{killedCount}</span>
-            </label>
+            <Checkbox
+              checked={hideKilled}
+              onChange={() => { setHideKilled((v) => !v); resetPage(); }}
+              label={<><span>Elenenleri gizle</span> <span className="numeral text-meta text-muted">{killedCount}</span></>}
+              className="ml-2"
+            />
           )}
         </div>
       </Section>

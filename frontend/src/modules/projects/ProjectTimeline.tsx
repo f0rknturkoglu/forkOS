@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Badge, Empty, Section, cx, relativeTime } from "@/core/ui";
+import {Chip, Empty, Section, cx, relativeTime} from "@/core/ui";
 import type { ProjectEvent } from "@/core/types";
 import { VERB_LABELS } from "@/modules/activity/verbs";
 
@@ -60,7 +60,7 @@ export function ProjectTimeline({ projectId }: { projectId: string }) {
                       <span className="min-w-0 truncate text-primary">{event.title ?? message}</span>
                     )
                   )}
-                  {event.entity_type && <Badge>{event.entity_type}</Badge>}
+                  {event.entity_type && <Chip>{event.entity_type}</Chip>}
                   <span className="text-meta text-muted">{relativeTime(event.occurred_at)}</span>
                 </div>
               </li>

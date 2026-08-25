@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { Badge, Empty, cx, relativeTime } from "@/core/ui";
+import {Chip, Empty, cx, relativeTime} from "@/core/ui";
 import type { SourceHealth } from "@/core/types";
 
 export interface SourceHealthAccordionProps {
@@ -29,8 +29,8 @@ export function SourceHealthAccordion({
         <ChevronDown className={cx("transition-transform", open && "rotate-180")} size={15} />
         <span className="text-body font-medium text-primary">{title}</span>
         <span className="ml-auto text-meta text-muted">{sources.length} kayıt</span>
-        {healthy > 0 && <Badge tone="ok">{healthy} sağlıklı</Badge>}
-        {problematic > 0 && <Badge tone="warn">{problematic} sorunlu</Badge>}
+        {healthy > 0 && <Chip tone="ok">{healthy} sağlıklı</Chip>}
+        {problematic > 0 && <Chip tone="warn">{problematic} sorunlu</Chip>}
       </summary>
       <div className="border-t border-subtle">
         {sources.length === 0 ? (
@@ -46,9 +46,9 @@ export function SourceHealthAccordion({
                   <p className="truncate text-body text-primary">{source.source}</p>
                   {source.error && <p className="truncate text-meta text-danger">{source.error}</p>}
                 </div>
-                <Badge tone={source.status === "ok" ? "ok" : source.status === "error" ? "danger" : "warn"}>
+                <Chip tone={source.status === "ok" ? "ok" : source.status === "error" ? "danger" : "warn"}>
                   {source.status}
-                </Badge>
+                </Chip>
                 <span className="text-meta text-muted">+{source.items_found} · {relativeTime(source.started_at)}</span>
               </li>
             ))}

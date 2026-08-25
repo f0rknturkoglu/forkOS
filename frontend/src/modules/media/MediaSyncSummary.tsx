@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { MediaProviderStatus } from "@/core/types";
-import { Badge, Button, cx, relativeTime } from "@/core/ui";
+import {Button, Chip, cx, relativeTime} from "@/core/ui";
 import { useInvalidate } from "@/lib/hooks";
 import { SyncProgress } from "@/modules/opportunity/SyncProgress";
 import { KIND_LABELS, providerLabel } from "./shared";
@@ -74,7 +74,7 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
         ) : (
           <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-meta text-muted" aria-live="polite">
             <span>{data.length} kaynak</span>
-            <Badge tone={healthy === data.length && data.length > 0 ? "ok" : "warn"}>{healthy} sağlıklı</Badge>
+            <Chip tone={healthy === data.length && data.length > 0 ? "ok" : "warn"}>{healthy} sağlıklı</Chip>
             {lastRun && <span>son çekim {relativeTime(lastRun)}</span>}
           </span>
         )}
@@ -121,7 +121,7 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
                         {provider.last_items_found !== null && provider.last_items_found !== undefined && (
                           <span className="text-meta text-muted">{provider.last_items_found} kayıt bulundu</span>
                         )}
-                        <Badge tone={status.tone}>{status.label}</Badge>
+                        <Chip tone={status.tone}>{status.label}</Chip>
                         {provider.last_run_at && <span className="text-meta text-muted">{relativeTime(provider.last_run_at)}</span>}
                       </div>
                     </li>

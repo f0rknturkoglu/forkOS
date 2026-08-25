@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
-import { Empty, Section, cx } from "@/core/ui";
+import {Empty, Section, cx, identityClasses} from "@/core/ui";
 import { navigate } from "@/app/router";
-import { Cover, KIND_LABELS, kindBg, kindChip, progressPct, statusLabel } from "./shared";
+import {Cover, KIND_LABELS, kindBg, progressPct, statusLabel} from "./shared";
 import type { MediaPage } from "@/core/types";
 
 export function MediaContinueWidget() {
@@ -43,7 +43,7 @@ export function MediaContinueWidget() {
                       <Cover url={cover} title={item.title} size="h-full w-full" />
                     </span>
                     <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                    <span className={cx("absolute left-1 top-1 rounded px-1 py-px text-[9px] bg-surface", kindChip(item.kind))}>
+                    <span className={cx("absolute left-1 top-1 rounded px-1 py-px text-micro bg-surface", identityClasses("kind-" + item.kind))}>
                       {statusLabel(item.kind, item.status)}
                     </span>
                     {pct !== null && (
@@ -56,7 +56,7 @@ export function MediaContinueWidget() {
                   </span>
                 </span>
                 <span className="mt-1.5 block truncate text-meta text-primary">{item.title}</span>
-                <span className="block truncate text-[10px] text-muted">
+                <span className="block truncate text-micro text-muted">
                   {KIND_LABELS[item.kind] ?? item.kind}
                   {pct !== null && <> · %{pct}</>}
                 </span>

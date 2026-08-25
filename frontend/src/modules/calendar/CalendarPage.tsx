@@ -3,9 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { CalendarEvent } from "@/core/types";
-import {
-  Badge, Button, Empty, PageFrame, PageHeader, Section, Toolbar, cx,
-} from "@/core/ui";
+import {Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx} from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 
 type View = "week" | "month";
@@ -183,7 +181,7 @@ export function CalendarPage() {
                     </span>
                     {/* Ayin ilk gunu: izgarada ay degisimini gorunur kilar. */}
                     {day.getDate() === 1 && (
-                      <span className="text-[10px] uppercase tracking-[0.08em] text-muted">
+                      <span className="text-micro uppercase tracking-[0.08em] text-muted">
                         {day.toLocaleDateString("tr-TR", { month: "short" })}
                       </span>
                     )}
@@ -194,12 +192,12 @@ export function CalendarPage() {
                       <article key={`${event.source}-${event.id}`}
                         className="rounded border border-subtle bg-canvas px-1.5 py-1">
                         <div className="flex items-start justify-between gap-1">
-                          <span className="min-w-0 flex-1 truncate text-[11.5px] leading-4 text-primary">
+                          <span className="min-w-0 flex-1 truncate text-micro leading-4 text-primary">
                             {event.title}
                           </span>
-                          {view === "week" && <Badge>{event.source}</Badge>}
+                          {view === "week" && <Chip>{event.source}</Chip>}
                         </div>
-                        <p className="text-[10.5px] leading-4 text-muted">
+                        <p className="text-micro leading-4 text-muted">
                           {event.all_day
                             ? "tüm gün"
                             : new Date(event.starts_at).toLocaleTimeString("tr-TR", {
@@ -207,7 +205,7 @@ export function CalendarPage() {
                               })}
                         </p>
                         {view === "week" && !event.read_only && !event.google_event_id && (
-                          <Button size="sm" className="mt-1 h-6 px-2 text-[10.5px]"
+                          <Button size="sm" className="mt-1 h-6 px-2 text-micro"
                             disabled={!online || push.isPending}
                             onClick={() => push.mutate(event.id)}>
                             Google'a gönder
@@ -215,14 +213,14 @@ export function CalendarPage() {
                         )}
                         {view === "week" && event.url && (
                           <a href={event.url} target="_blank" rel="noreferrer"
-                            className="mt-0.5 block text-[10.5px] text-accent hover:underline">
+                            className="mt-0.5 block text-micro text-accent hover:underline">
                             Aç ↗
                           </a>
                         )}
                       </article>
                     ))}
                     {rows.length > (view === "week" ? 8 : 3) && (
-                      <p className="px-1 text-[10.5px] text-muted">
+                      <p className="px-1 text-micro text-muted">
                         +{rows.length - (view === "week" ? 8 : 3)} daha
                       </p>
                     )}

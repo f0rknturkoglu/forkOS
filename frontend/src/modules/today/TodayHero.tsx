@@ -44,7 +44,7 @@ export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
             {/* Saniye saatle ayni boyda ve bitisik; ayrimi renk yapiyor. */}
             <time
               dateTime={now.toISOString()}
-              className="numeral text-[44px] leading-none tracking-[-0.02em] text-primary"
+              className="numeral text-display-lg leading-none tracking-[-0.02em] text-primary"
             >
               {time}
               <span className="text-muted">:{seconds}</span>
@@ -65,7 +65,7 @@ export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
             className={cx(
               "grid w-full shrink-0 grid-cols-2 gap-x-6 gap-y-3 border-t border-subtle pt-3.5",
               "sm:ml-auto sm:w-auto sm:grid-cols-4 sm:border-t-0 sm:pt-0",
-              "[&>*]:min-w-[104px] [&>*]:px-0 [&>*]:py-0 [&_.numeral]:text-[22px]",
+              "[&>*]:min-w-[104px] [&>*]:px-0 [&>*]:py-0 [&_.numeral]:text-title",
             )}
           >
             {metrics}
@@ -114,7 +114,7 @@ function WeatherPanel() {
       <div className="flex items-center gap-3">
         <Icon size={30} strokeWidth={1.4} className="shrink-0 text-secondary" />
         <div>
-          <p className="numeral text-[28px] leading-none text-primary">
+          <p className="numeral text-display leading-none text-primary">
             {Math.round(current.temperature_2m)}°
           </p>
           <p className="mt-1 text-meta text-secondary">{weatherLabel(current.weather_code)}</p>
@@ -128,11 +128,11 @@ function WeatherPanel() {
             const today = index === 0;
             return (
               <li key={day} className="text-center">
-                <p className={cx("text-[10.5px] uppercase tracking-[0.08em]", today ? "text-accent" : "text-muted")}>
+                <p className={cx("text-micro uppercase tracking-[0.08em]", today ? "text-accent" : "text-muted")}>
                   {today ? "bugün" : new Date(day).toLocaleDateString("tr-TR", { weekday: "short" })}
                 </p>
                 <DayIcon size={15} strokeWidth={1.5} className="mx-auto my-1 text-icon" />
-                <p className="numeral text-[11px] text-secondary">
+                <p className="numeral text-micro text-secondary">
                   {Math.round(daily.temperature_2m_min[index])}°
                   <span className="text-primary"> {Math.round(daily.temperature_2m_max[index])}°</span>
                 </p>

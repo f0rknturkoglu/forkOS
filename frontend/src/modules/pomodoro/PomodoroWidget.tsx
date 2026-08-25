@@ -92,7 +92,7 @@ export function PomodoroWidget() {
               className="group block w-full text-left">
               <span className="flex items-baseline gap-2">
                 <span className={cx(
-                  "numeral text-[32px] leading-none tabular-nums transition-colors",
+                  "numeral text-display leading-none tabular-nums transition-colors",
                   paused ? "text-muted" : "text-primary group-hover:text-accent",
                 )}>
                   {clock(left)}

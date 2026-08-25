@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cx } from "@/core/ui";
+import {cx, identityClasses} from "@/core/ui";
 import type { MediaItem } from "@/core/types";
 
 export const KINDS = ["movie", "show", "anime", "manga", "book", "audiobook", "podcast", "music", "game"] as const;
@@ -40,13 +40,6 @@ const KIND_COLORS: Record<string, string> = {
   movie: "movie", show: "show", anime: "anime", manga: "manga", book: "book",
   audiobook: "audiobook", podcast: "podcast", music: "music", game: "game",
 };
-
-/** Tür kimlik renginde chip/rozet sınıfı (kenarlık + yazı). */
-export function kindChip(kind: string): string {
-  return KIND_COLORS[kind]
-    ? `border border-kind-${KIND_COLORS[kind]} text-kind-${KIND_COLORS[kind]}`
-    : "border border-subtle text-secondary";
-}
 
 /** toplam girilmemisse yuzde yok demektir. */
 export function progressPct(item: Pick<MediaItem, "progress" | "total">): number | null {
@@ -193,9 +186,22 @@ export function externalLinks(
   return links;
 }
 
-/** Tür kimlik renginde dolgu (ilerleme çubuğu, vurgu). */
+/** Tür kimlik renginde dolgu (ilerleme çubuğu, vurgu). Statik sinif adlari
+ *  (Tailwind JIT calisma zamani birlestirmez). */
+const KIND_BG: Record<string, string> = {
+  movie: "bg-[color:var(--kind-movie)]",
+  show: "bg-[color:var(--kind-show)]",
+  anime: "bg-[color:var(--kind-anime)]",
+  manga: "bg-[color:var(--kind-manga)]",
+  book: "bg-[color:var(--kind-book)]",
+  audiobook: "bg-[color:var(--kind-audiobook)]",
+  podcast: "bg-[color:var(--kind-podcast)]",
+  music: "bg-[color:var(--kind-music)]",
+  game: "bg-[color:var(--kind-game)]",
+};
+
 export function kindBg(kind: string): string {
-  return KIND_COLORS[kind] ? `bg-kind-${KIND_COLORS[kind]}` : "bg-accent";
+  return KIND_BG[kind] ?? "bg-accent";
 }
 
 /** Tur dagilimi cipleri; tiklanabilir filtre. "Tumu" her zaman basta. */
@@ -222,7 +228,7 @@ export function KindChips({
             "h-7 rounded-control border px-2.5 text-meta transition",
             value === kind
               ? "border-accent bg-accent-surface text-accent"
-              : cx(kind ? kindChip(kind) : "border-subtle text-secondary hover:border-strong hover:text-primary"),
+              : cx(kind ? identityClasses("kind-" + kind) : "border-subtle text-secondary hover:border-strong hover:text-primary"),
           )}
         >
           {label} <span className="numeral opacity-70">{count}</span>
@@ -279,7 +285,7 @@ export function SiteLinks({ links, className }: { links: [string, string][]; cla
     <span className={cx("flex flex-wrap items-center gap-1.5", className)}>
       {links.map(([name, url]) => (
         <a key={name} href={url} target="_blank" rel="noreferrer"
-          className={cx("rounded border px-1.5 py-0.5 text-[11px] transition hover:opacity-80", srcColor(name))}>
+          className={cx("rounded border px-1.5 py-0.5 text-micro transition hover:opacity-80", srcColor(name))}>
           {name} ↗
         </a>
       ))}

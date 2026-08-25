@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import type { Expense, RecurringPayment } from "@/core/types";
-import { Badge, Button, Empty, IconButton, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Toolbar } from "@/core/ui";
+import {Button, Chip, Empty, IconButton, Input, Metric, MetricStrip, NumberInput, PageFrame, PageHeader, RowList, Section, Select, Toolbar} from "@/core/ui";
 import { localDateKey } from "@/lib/date";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 
@@ -11,17 +11,22 @@ type Summary = { currency: string; category: string; amount: string };
 const categories = ["food", "subscriptions", "transport", "education", "entertainment", "other"];
 
 /* Abonelik markalari (ilk paket): WOW, YouTube, Spotify, Amazon Prime, iCloud+ */
+/* Marka renkleri tema tokenlarindan gelir (chart paleti, sabit sira);
+   JSX'e sabit hex yazilmaz. */
 const SUBS = [
-  { id: "wow", label: "WOW", color: "#6C4CFF", letter: "W" },
-  { id: "youtube", label: "YouTube", color: "#FF4E45", letter: "Y" },
-  { id: "spotify", label: "Spotify", color: "#1DB954", letter: "S" },
-  { id: "amazon_prime", label: "Amazon Prime", color: "#F97316", letter: "P" },
-  { id: "icloud", label: "iCloud+", color: "#3693F6", letter: "i" },
+  { id: "wow", label: "WOW", color: "var(--chart-1)", letter: "W" },
+  { id: "youtube", label: "YouTube", color: "var(--chart-2)", letter: "Y" },
+  { id: "spotify", label: "Spotify", color: "var(--chart-3)", letter: "S" },
+  { id: "amazon_prime", label: "Amazon Prime", color: "var(--chart-4)", letter: "P" },
+  { id: "icloud", label: "iCloud+", color: "var(--chart-5)", letter: "i" },
 ] as const;
 const subOf = (id: string | null) => SUBS.find((s) => s.id === id);
 
-/* Kategori renk paleti — donut ve rozetlerde sabit dagilim */
-const PALETTE = ["#6C4CFF", "#1DB954", "#F59E0B", "#EF4444", "#3693F6", "#14B8A6", "#EC4899", "#8B5CF6", "#F97316", "#64748B"];
+/* Kategori renk paleti — donut ve rozetlerde sabit dagilim (chart tokenlari). */
+const PALETTE = [
+  "var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)",
+  "var(--chart-5)", "var(--chart-6)", "var(--chart-7)", "var(--chart-8)",
+];
 const colorOf = (index: number) => PALETTE[index % PALETTE.length];
 
 function SubLogo({ sub, size = 22 }: { sub: string | null; size?: number }) {
@@ -179,12 +184,12 @@ export function FinancePage() {
             className="grid w-full gap-2 md:grid-cols-[1fr_9rem_10rem_auto]"
             onSubmit={(e) => { e.preventDefault(); if (title.trim() && Number(amount) > 0) create.mutate(); }}
           >
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tab === "expenses" ? "Harcama" : "Abonelik ödemesi"} className="rounded border border-subtle bg-canvas px-3 py-2 text-body" />
-            <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Tutar TRY" className="rounded border border-subtle bg-canvas px-3 py-2 text-body" />
+            <Input value={title} onChange={setTitle} placeholder={tab === "expenses" ? "Harcama" : "Abonelik ödemesi"} className="w-full" />
+            <NumberInput value={amount === "" ? NaN : Number(amount)} onChange={(n) => setAmount(String(n))} placeholder="Tutar TRY" step={0.01} className="w-full" />
             {tab === "expenses" && (
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="rounded border border-subtle bg-canvas px-3 py-2 text-body">
+              <Select value={category} onChange={setCategory} className="w-full">
                 {categories.map((x) => <option key={x}>{x}</option>)}
-              </select>
+              </Select>
             )}
             <Button type="submit" variant="primary" disabled={!online || create.isPending}>Ekle</Button>
           </form>
@@ -227,7 +232,7 @@ export function FinancePage() {
                   <p className="text-body text-primary">{x.title}{x.sub ? " · " + (subOf(x.sub)?.label ?? x.sub) : ""}</p>
                   <p className="text-meta text-muted">Sonraki: {x.next_due_at ?? "belirsiz"}</p>
                 </div>
-                <Badge tone={x.active ? "ok" : "neutral"}>{x.frequency}</Badge>
+                <Chip tone={x.active ? "ok" : "neutral"}>{x.frequency}</Chip>
                 <strong>{Number(x.amount).toLocaleString("tr-TR")} {x.currency}</strong>
                 <Button variant="primary" disabled={!online || pay.isPending} onClick={() => pay.mutate(x.id)}>Ödendi</Button>
                 <IconButton title="Sil" tone="danger" disabled={!online} className="opacity-0 transition group-hover:opacity-100" onClick={() => remove.mutate({ id: x.id, kind: "recurring-payments" })}>

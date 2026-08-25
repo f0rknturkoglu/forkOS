@@ -4,19 +4,9 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { MediaDetail, MediaItem } from "@/core/types";
-import { Button, PageFrame, Section, Surface, cx } from "@/core/ui";
+import {Button, Chip, Field, Input, PageFrame, Section, Surface, Textarea, cx} from "@/core/ui";
 import { useInvalidate, useOnline } from "@/lib/hooks";
-import {
-  KIND_LABELS,
-  SiteLinks,
-  externalLinks,
-  kindChip,
-  mediaCoverUrl,
-  mediaProvider,
-  providerChip,
-  providerLabel,
-  statusLabel,
-} from "./shared";
+import {KIND_LABELS, SiteLinks, externalLinks, mediaCoverUrl, mediaProvider, providerChip, providerLabel, statusLabel} from "./shared";
 import { MEDIA_PROGRESS_REFRESH_KEYS, MediaProgressActions, measureLabel } from "./MediaProgressActions";
 
 function DetailCover({ item }: { item: MediaItem }) {
@@ -86,31 +76,18 @@ function MetadataEditor({ item, online, onChanged }: {
         mutation.mutate({ score: parsedScore, notes: notes.trim() || null });
       }}
     >
-      <label className="block">
-        <span className="mb-1 block text-meta text-secondary">Puan</span>
-        <input
+      <Field label="Puan">
+        <Input
           type="number"
-          min="0"
-          max="10"
-          step="1"
           value={score}
+          onChange={setScore}
           disabled={disabled}
-          aria-label="Puan"
-          onChange={(event) => setScore(event.target.value)}
-          className="h-9 w-28 rounded-control border border-subtle bg-surface px-3 text-body text-primary outline-none focus:border-accent"
+          className="w-28"
         />
-      </label>
-      <label className="block">
-        <span className="mb-1 block text-meta text-secondary">Notlar</span>
-        <textarea
-          rows={4}
-          value={notes}
-          disabled={disabled}
-          aria-label="Notlar"
-          onChange={(event) => setNotes(event.target.value)}
-          className="w-full resize-y rounded-control border border-subtle bg-surface px-3 py-2 text-body text-primary outline-none focus:border-accent"
-        />
-      </label>
+      </Field>
+      <Field label="Notlar">
+        <Textarea rows={4} value={notes} onChange={setNotes} />
+      </Field>
       <div className="flex gap-2">
         <Button type="submit" size="sm" variant="primary" disabled={disabled}>Puan ve notu kaydet</Button>
         <Button size="sm" disabled={mutation.isPending} onClick={() => setEditing(false)}>Vazgeç</Button>
@@ -180,7 +157,7 @@ export function MediaDetailPage() {
         <div className="min-w-0 space-y-5">
           <header>
             <div className="flex flex-wrap items-center gap-2 text-meta">
-              <span className={cx("rounded border px-2 py-0.5", kindChip(item.kind))}>{KIND_LABELS[item.kind] ?? item.kind}</span>
+              <Chip identity={"kind-" + item.kind} variant="outline">{KIND_LABELS[item.kind] ?? item.kind}</Chip>
               <span className="rounded border border-subtle px-2 py-0.5 text-secondary">{statusLabel(item.kind, item.status)}</span>
               {provider && <span className={cx("rounded border px-2 py-0.5", providerChip(provider))}>{providerLabel(provider)}</span>}
             </div>

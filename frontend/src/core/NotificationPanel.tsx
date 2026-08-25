@@ -110,7 +110,7 @@ export function NotificationPanel() {
       >
         <Bell size={16} />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[10px] font-medium leading-none text-canvas">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-micro font-medium leading-none text-canvas">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -125,7 +125,7 @@ export function NotificationPanel() {
           <div className="flex items-center gap-3 border-b border-subtle px-4 py-3">
             <h2 className="text-heading text-primary">Bildirimler</h2>
             {unread > 0 && (
-              <span className="rounded border border-accent-border bg-accent-surface px-1.5 py-0.5 text-[10.5px] leading-4 text-accent">
+              <span className="rounded border border-accent-border bg-accent-surface px-1.5 py-0.5 text-micro leading-4 text-accent">
                 {unread} yeni
               </span>
             )}

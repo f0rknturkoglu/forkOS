@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CloudUpload, Database, HardDriveDownload, UploadCloud } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Section as Panel, cx, relativeTime, useToast } from "@/core/ui";
+import {Button, Chip, FileInput, Section, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { BackupStatus } from "@/core/types";
@@ -79,7 +79,7 @@ export function BackupHealthWidget() {
   const top = last?.counts ? topModules(last.counts.modules, 4) : [];
 
   return (
-    <Panel
+    <Section
       title="Yedekleme"
       action={
         <div className="flex items-center gap-2">
@@ -91,11 +91,9 @@ export function BackupHealthWidget() {
             <HardDriveDownload size={13} className={runNow.isPending ? "animate-pulse" : undefined} />
             Şimdi yedekle
           </Button>
-          <input
+          <FileInput
             ref={restoreRef}
-            type="file"
             accept=".gz,.json,application/gzip,application/json"
-            className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) pickRestore(file);
@@ -127,16 +125,16 @@ export function BackupHealthWidget() {
         ) : (
           <div className="flex flex-wrap items-center gap-2 border-y border-subtle px-1 py-2">
             <span className="min-w-0 flex-1 truncate text-body text-primary">{last.file}</span>
-            <Badge>{formatBytes(last.size)}</Badge>
+            <Chip>{formatBytes(last.size)}</Chip>
             <span className="text-meta text-muted">{relativeTime(last.at)}</span>
           </div>
         )}
         {last?.counts && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <Badge tone="ok">{last.counts.entities} varlık</Badge>
-            <Badge>{last.counts.events} olay</Badge>
+            <Chip tone="ok">{last.counts.entities} varlık</Chip>
+            <Chip>{last.counts.events} olay</Chip>
             {top.map(([name, count]) => (
-              <Badge key={name}>{name} {count}</Badge>
+              <Chip key={name}>{name} {count}</Chip>
             ))}
           </div>
         )}
@@ -157,9 +155,9 @@ export function BackupHealthWidget() {
               <span className="min-w-0 flex-1 truncate text-body text-primary">
                 {data.drive_folder_id}
               </span>
-              <Badge tone={google?.connected ? "ok" : "warn"}>
+              <Chip tone={google?.connected ? "ok" : "warn"}>
                 {google?.connected ? "Google bağlı" : "bağlı değil"}
-              </Badge>
+              </Chip>
             </div>
             {data.last_drive_error && (
               <p className="mt-2 flex items-start gap-1.5 rounded-card border border-danger-border bg-danger-surface px-3 py-2 text-meta text-danger">
@@ -183,6 +181,6 @@ export function BackupHealthWidget() {
         otomatik yedek · <strong className="font-medium text-secondary">{data?.retention_days ?? 14}</strong> gün
         saklanır · makine taşıma (macOS → Windows) için tek dosyanı Drive'dan alıp yeni makinede restore edersin.
       </p>
-    </Panel>
+    </Section>
   );
 }

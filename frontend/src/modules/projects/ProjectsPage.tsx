@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
-import {
-  Badge, Button, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select,
-  Textarea, cx, relativeTime, useToast,
-} from "@/core/ui";
+import {Button, Chip, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select, Textarea, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { Project } from "@/core/types";
@@ -142,7 +139,7 @@ function ProjectDetail({ project }: { project: Project }) {
     <div className="min-w-0 space-y-5">
       <Section
         title={project.title}
-        hint={<Badge tone={status.tone}>{status.label}</Badge>}
+        hint={<Chip tone={status.tone}>{status.label}</Chip>}
         action={
           <span className="flex items-center gap-2">
             {project.url && (
@@ -296,7 +293,7 @@ function SavedTextarea({
         rows={8}
         placeholder={"Karar kayıtları, açık sorular, bağlantılar…\n\n"
           + "Ne olduğu Günlük'te zaten duruyor; burası NEDEN'in yeri."}
-        className={cx("font-mono text-[12.5px] leading-6", disabled && "opacity-60")}
+        className={cx("font-mono text-meta leading-6", disabled && "opacity-60")}
       />
       <p className="mt-1 text-meta text-muted">
         {dirty ? "kaydedilmedi — alandan çıkınca kaydedilir" : `${draft.length} karakter`}

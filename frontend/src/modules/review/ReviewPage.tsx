@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Surface } from "@/core/ui";
+import {Button, Chip, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Surface, Textarea} from "@/core/ui";
 import type { ReviewPreview } from "@/core/types";
 import { localDateKey } from "@/lib/date";
 import { useInvalidate, useOnline } from "@/lib/hooks";
@@ -42,7 +42,7 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
         data.unfinished_todos.map((todo) => [todo.id, "carry"]))) }>hepsini devret</Button> : undefined}>
       {data.unfinished_todos.length === 0 ? <Empty>Açık görev yok.</Empty> : <RowList as="ul">
         {data.unfinished_todos.map((todo) => <li key={todo.id} className="flex flex-wrap items-center gap-2 py-3 text-body">
-          <span className="min-w-48 flex-1">{todo.title}</span><Badge>p{todo.priority}</Badge>
+          <span className="min-w-48 flex-1">{todo.title}</span><Chip>p{todo.priority}</Chip>
           <Button variant={decisions[todo.id] === "carry" ? "primary" : "ghost"}
             onClick={() => setDecisions((old) => ({ ...old, [todo.id]: "carry" }))}>devret</Button>
           <Button variant={decisions[todo.id] === "drop" ? "danger" : "ghost"}
@@ -50,11 +50,11 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
       <div className="mt-4 flex justify-between"><Button onClick={() => setStep(1)}>← geri</Button>
         <Button variant="primary" onClick={() => setStep(3)}>önceliklere geç →</Button></div></Section>}
     {step === 3 && <Surface className="p-4"><Section flat title={kind === "weekly" ? "Gelecek haftanın 3 önceliği" : "Yarına aktar"}>
-      <div className="space-y-2">{priorities.map((value, index) => <input key={index} value={value}
-        onChange={(event) => setPriorities((old) => old.map((item, i) => i === index ? event.target.value : item))}
-        placeholder={`${index + 1}. oncelik`} className="w-full rounded border border-strong bg-canvas px-3 py-2 text-body" />)}</div>
-      <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Not (opsiyonel)"
-        className="mt-3 min-h-20 w-full rounded border border-strong bg-canvas p-3 text-body" />
+      <div className="space-y-2">{priorities.map((value, index) => <Input key={index} value={value}
+        onChange={(v) => setPriorities((old) => old.map((item, i) => i === index ? v : item))}
+        placeholder={`${index + 1}. oncelik`} className="w-full" />)}</div>
+      <Textarea value={note} onChange={setNote} placeholder="Not (opsiyonel)"
+        className="mt-3 min-h-20" />
       <div className="mt-3 flex justify-between"><Button onClick={() => setStep(2)}>← geri</Button><Button variant="primary"
         disabled={!online || save.isPending} onClick={() => save.mutate()}>Değerlendirmeyi tamamla</Button></div></Section></Surface>}
     {step === 4 && <Surface><div className="py-8 text-center"><div className="text-3xl">✓</div>

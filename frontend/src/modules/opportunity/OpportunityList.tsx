@@ -1,10 +1,11 @@
 import { ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
-import { Badge, Button, cx, relativeTime } from "@/core/ui";
+import {Button, Chip, Select, cx, relativeTime} from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
   REMOTE_LABELS, SCORE_TONE, STATUSES,
-  daysLeft, kindLabel, remoteKind, scoreBand, sourceLabel, statusLabel,
+  daysLeft, kindLabel, remoteKind, scoreBand, statusLabel,
 } from "./labels";
+import { sourceLabel } from "@/core/labels";
 import type { RemoteKind } from "./labels";
 
 export function FilterChip({
@@ -28,7 +29,7 @@ export function FilterChip({
       )}
     >
       <span>{label}</span>
-      <span className={cx("numeral text-[13px]", active ? "text-accent" : "text-muted")}>{count}</span>
+      <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
     </button>
   );
 }
@@ -60,7 +61,7 @@ export function OpportunityCard({
 
   function chip(active: boolean) {
     return cx(
-      "flex h-6 items-center rounded-control border px-1.5 text-[11px] transition",
+      "flex h-6 items-center rounded-control border px-1.5 text-micro transition",
       active
         ? "border-accent bg-accent-surface font-medium text-accent"
         : "border-subtle text-secondary hover:bg-surface-hover hover:text-primary",
@@ -78,12 +79,12 @@ export function OpportunityCard({
       <div className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}>
         <div className={cx(
           "numeral leading-none",
-          layout === "rows" ? "text-[24px]" : "text-[20px]",
+          layout === "rows" ? "text-numeral-lg" : "text-title",
           band === "strong" ? "text-ok" : band === "fair" ? "text-warn" : band === "killed" ? "text-danger" : "text-muted",
         )}>
           {item.score === null ? "—" : Math.round(item.score)}
         </div>
-        <span className="text-[10px] uppercase tracking-wide text-muted">skor</span>
+        <span className="text-micro uppercase tracking-wide text-muted">skor</span>
       </div>
       <div className="min-w-0">
         <button type="button" onClick={onOpen} className="block max-w-full text-left text-heading leading-snug text-primary transition hover:text-accent">
@@ -128,17 +129,17 @@ export function OpportunityCard({
             </Button>
           </>
         ) : (
-          <select
+          <Select
             value={item.status}
             disabled={disabled}
-            aria-label="Durum"
-            onChange={(event) => onStatus(event.target.value)}
-            className="h-8 min-w-0 flex-1 rounded-control border border-subtle bg-canvas px-2 text-meta text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent disabled:opacity-50"
+            ariaLabel="Durum"
+            onChange={onStatus}
+            className="min-w-0 flex-1"
           >
             {STATUSES.map((status) => (
               <option key={status} value={status}>{statusLabel(status)}</option>
             ))}
-          </select>
+          </Select>
         )}
         {item.url && (
           <a

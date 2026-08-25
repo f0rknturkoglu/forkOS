@@ -36,7 +36,7 @@ export function ActivityWidget() {
             <li
               key={event.id}
               className={cx(
-                "flex items-baseline gap-2 text-[11px] leading-5",
+                "flex items-baseline gap-2 text-micro leading-5",
                 ALERT_VERBS.has(event.verb) ? "text-warn" : "text-muted",
               )}
             >

@@ -94,7 +94,7 @@ export function PomodoroPage() {
             <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
               <div>
                 <div className={cx(
-                  "numeral text-[56px] leading-none tabular-nums transition-colors",
+                  "numeral text-display-xl leading-none tabular-nums transition-colors",
                   paused ? "text-muted" : "text-primary",
                 )}>
                   {clock(left)}

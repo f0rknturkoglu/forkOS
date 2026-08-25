@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ExternalLink, X } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Empty, Input, SectionHeader, cx, relativeTime } from "@/core/ui";
+import {Button, Chip, Empty, Input, SectionHeader, Select, Textarea, cx, relativeTime} from "@/core/ui";
 import type { Application, ApplicationHistoryRow, Document, Interview, Opportunity } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import {
   SCORE_TONE, STATUSES, STATUS_TONES,
-  daysLeft, kindLabel, scoreBand, sourceLabel, statusLabel,
+  daysLeft, kindLabel, scoreBand, statusLabel,
 } from "./labels";
+import { sourceLabel } from "@/core/labels";
 import type { ScoreBand } from "./labels";
 
 
@@ -26,6 +27,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   const [cvDraft, setCvDraft] = useState("");
   const [salaryDraft, setSalaryDraft] = useState("");
   const [researchDraft, setResearchDraft] = useState("");
+  const [followUpDraft, setFollowUpDraft] = useState("");
   const [appNoteDraft, setAppNoteDraft] = useState("");
   const [rejecting, setRejecting] = useState(false);
   const [rejectionDraft, setRejectionDraft] = useState("");
@@ -113,6 +115,12 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
       setAppNoteDraft(app.note ?? "");
     }
   }, [app]);
+  // Takip tarihi: veri gelince alani doldur; duzenleme taslakta, blur'da kaydedilir.
+  useEffect(() => {
+    if (item?.follow_up_at) {
+      setFollowUpDraft(new Date(item.follow_up_at).toISOString().slice(0, 16));
+    }
+  }, [item?.follow_up_at]);
 
   // Esc kapatsin; cekmece odak tuzagi degil ama kacis yolu olmali.
   useEffect(() => {
@@ -141,16 +149,16 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Badge>{item ? kindLabel(item.kind) : "…"}</Badge>
+                <Chip>{item ? kindLabel(item.kind) : "…"}</Chip>
                 {item && (
-                  <Badge tone={STATUS_TONES[item.status] ?? "neutral"}>{statusLabel(item.status)}</Badge>
+                  <Chip tone={STATUS_TONES[item.status] ?? "neutral"}>{statusLabel(item.status)}</Chip>
                 )}
                 {band && (
-                  <Badge tone={SCORE_TONE[band]}>
+                  <Chip tone={SCORE_TONE[band]}>
                     {band === "killed"
                       ? "elendi"
                       : `${Math.round(item!.score as number)} puan`}
-                  </Badge>
+                  </Chip>
                 )}
               </div>
               <h2 className="font-serif text-title leading-snug text-primary">
@@ -172,20 +180,20 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {!item?.trashed_at && (
-              <select
+              <Select
                 value={item?.status ?? "discovered"}
                 disabled={!online || !item}
-                aria-label="Durum"
-                onChange={(e) => {
-                  if (e.target.value === "rejected") { setRejecting(true); return; }
-                  if (e.target.value !== item?.status) transition.mutate({ to: e.target.value });
+                ariaLabel="Durum"
+                onChange={(value) => {
+                  if (value === "rejected") { setRejecting(true); return; }
+                  if (value !== item?.status) transition.mutate({ to: value });
                 }}
-                className="h-control rounded-control border border-strong bg-surface px-3 text-meta text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent disabled:opacity-50"
+                className="border-strong"
               >
                 {STATUSES.map((status) => (
                   <option key={status} value={status}>{statusLabel(status)}</option>
                 ))}
-              </select>
+              </Select>
             )}
             {item?.url && (
               <a
@@ -232,7 +240,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               />
 
               <div className="flex items-baseline gap-3">
-                <span className="numeral text-[38px] leading-none text-primary">
+                <span className="numeral text-display-lg leading-none text-primary">
                   {Math.round(item.score)}
                 </span>
                 <span className="text-meta text-muted">/ 100</span>
@@ -267,18 +275,18 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                       {req.document_entity_id && <Check size={12} />}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-body">{req.name}</span>
-                    <select
+                    <Select
                       value={req.document_entity_id ?? ""}
                       disabled={!online}
-                      aria-label={`${req.name} için belge`}
-                      onChange={(e) => bindDocument.mutate({ requirementId: req.id, documentId: e.target.value })}
-                      className="h-8 w-48 rounded-control border border-subtle bg-surface px-2 text-meta text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                      ariaLabel={`${req.name} için belge`}
+                      onChange={(v) => bindDocument.mutate({ requirementId: req.id, documentId: v })}
+                      className="w-48"
                     >
                       <option value="">belge eksik</option>
                       {documents.map((doc) => (
                         <option key={doc.id} value={doc.id}>{doc.title}</option>
                       ))}
-                    </select>
+                    </Select>
                   </li>
                 ))}
               </ul>
@@ -341,21 +349,20 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
             <SectionHeader label="Başvuru" hint={app ? `cv: ${app.cv_title ?? "—"}` : "henüz yapılmadı"} />
             {!app && (
               <div className="space-y-2">
-                <select
+                <Select
                   value={cvDraft}
-                  onChange={(e) => setCvDraft(e.target.value)}
-                  aria-label="Kullanılan CV"
-                  className="h-control w-full rounded-control border border-strong bg-surface px-3 text-meta text-primary outline-none focus:border-accent"
+                  onChange={setCvDraft}
+                  ariaLabel="Kullanılan CV"
+                  className="w-full border-strong"
                 >
                   <option value="">CV seç (varsa)</option>
                   {documents.map((doc) => (<option key={doc.id} value={doc.id}>{doc.title}</option>))}
-                </select>
-                <textarea
+                </Select>
+                <Textarea
                   value={coverDraft}
-                  onChange={(e) => setCoverDraft(e.target.value)}
+                  onChange={setCoverDraft}
                   rows={3}
                   placeholder="Cover letter (niyet mektubu)…"
-                  className="w-full resize-y rounded-control border border-subtle bg-surface p-2 text-meta text-primary outline-none"
                 />
                 <Button variant="primary" disabled={!online}
                   onClick={() => apply.mutate({ cv_document_id: cvDraft || null, cover_letter: coverDraft || null })}>
@@ -384,13 +391,13 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
             )}
             {app && editingApp && (
               <div className="space-y-2">
-                <select value={cvDraft} onChange={(e) => setCvDraft(e.target.value)} aria-label="Kullanılan CV" className="h-control w-full rounded-control border border-strong bg-surface px-3 text-meta text-primary outline-none focus:border-accent">
+                <Select value={cvDraft} onChange={setCvDraft} ariaLabel="Kullanılan CV" className="w-full border-strong">
                   <option value="">CV seç (varsa)</option>
                   {documents.map((doc) => (<option key={doc.id} value={doc.id}>{doc.title}</option>))}
-                </select>
-                <textarea value={coverDraft} onChange={(e) => setCoverDraft(e.target.value)} rows={3} placeholder="Cover letter…" className="w-full resize-y rounded-control border border-subtle bg-surface p-2 text-meta text-primary outline-none" />
-                <input value={salaryDraft} onChange={(e) => setSalaryDraft(e.target.value)} placeholder="Maaş beklentisi (örn. 3000 EUR)" className="h-control w-full rounded-control border border-subtle bg-surface px-3 text-meta text-primary outline-none" />
-                <textarea value={researchDraft} onChange={(e) => setResearchDraft(e.target.value)} rows={2} placeholder="Şirket araştırması…" className="w-full resize-y rounded-control border border-subtle bg-surface p-2 text-meta text-primary outline-none" />
+                </Select>
+                <Textarea value={coverDraft} onChange={setCoverDraft} rows={3} placeholder="Cover letter…" />
+                <Input value={salaryDraft} onChange={setSalaryDraft} placeholder="Maaş beklentisi (örn. 3000 EUR)" className="w-full" />
+                <Textarea value={researchDraft} onChange={setResearchDraft} rows={2} placeholder="Şirket araştırması…" />
                 <div className="flex gap-2">
                   <Button variant="primary" size="sm" disabled={!online}
                     onClick={() => updateApp.mutate({ cv_document_id: cvDraft || null, cover_letter: coverDraft || null, salary_expectation: salaryDraft || null, company_research: researchDraft || null })}>
@@ -406,12 +413,12 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
           <section>
             <SectionHeader label="Takip" hint={item?.follow_up_at ? new Date(item.follow_up_at).toLocaleString("tr-TR") : "yok"} />
             <div className="flex flex-wrap items-center gap-2">
-              <input
+              <Input
                 type="datetime-local"
-                defaultValue={item?.follow_up_at ? new Date(item.follow_up_at).toISOString().slice(0, 16) : ""}
-                onBlur={(e) => e.target.value && followUp.mutate(new Date(e.target.value).toISOString())}
-                aria-label="Takip tarihi"
-                className="h-control rounded-control border border-subtle bg-surface px-3 text-meta text-primary outline-none"
+                value={followUpDraft}
+                onChange={setFollowUpDraft}
+                onBlur={(value) => value && followUp.mutate(new Date(value).toISOString())}
+                ariaLabel="Takip tarihi"
               />
               {item?.follow_up_at && <Button size="sm" onClick={() => followUp.mutate(null)}>Temizle</Button>}
             </div>
@@ -435,12 +442,12 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               </ul>
             )}
             <div className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
-              <input value={interviewDraft.stage} onChange={(e) => setInterviewDraft({ ...interviewDraft, stage: e.target.value })} placeholder="Aşama (örn. teknik, HR…)" className="h-control rounded-control border border-subtle bg-surface px-3 text-meta text-primary outline-none" />
-              <select value={interviewDraft.mode} onChange={(e) => setInterviewDraft({ ...interviewDraft, mode: e.target.value })} className="h-control rounded-control border border-subtle bg-surface px-2 text-meta text-primary outline-none" aria-label="Görüşme tipi">
+              <Input value={interviewDraft.stage} onChange={(v) => setInterviewDraft({ ...interviewDraft, stage: v })} placeholder="Aşama (örn. teknik, HR…)" />
+              <Select value={interviewDraft.mode} onChange={(v) => setInterviewDraft({ ...interviewDraft, mode: v })} ariaLabel="Görüşme tipi">
                 <option value="video">Video</option>
                 <option value="telefon">Telefon</option>
                 <option value="yuz_yuze">Yüz yüze</option>
-              </select>
+              </Select>
               <Button size="sm" disabled={!online || !interviewDraft.stage.trim()}
                 onClick={() => addInterview.mutate({ stage: interviewDraft.stage.trim(), mode: interviewDraft.mode, scheduled_at: interviewDraft.scheduled_at || null, notes: interviewDraft.notes || null })}>
                 Ekle

@@ -5,10 +5,10 @@
  * Renk semantik tonlardan gelir (index.css), marka rengi degil.
  */
 export const PRIORITIES = [
-  { value: 0, label: "yok",    dot: "bg-icon",   text: "text-muted",  chip: "border-subtle text-muted" },
-  { value: 1, label: "düşük",  dot: "bg-ok",     text: "text-ok",     chip: "border-ok-border bg-ok-surface text-ok" },
-  { value: 2, label: "orta",   dot: "bg-warn",   text: "text-warn",   chip: "border-warn-border bg-warn-surface text-warn" },
-  { value: 3, label: "yüksek", dot: "bg-danger", text: "text-danger", chip: "border-danger-border bg-danger-surface text-danger" },
+  { value: 0, label: "yok",    dot: "bg-icon",   text: "text-muted",  tone: "neutral" },
+  { value: 1, label: "düşük",  dot: "bg-ok",     text: "text-ok",     tone: "ok" },
+  { value: 2, label: "orta",   dot: "bg-warn",   text: "text-warn",   tone: "warn" },
+  { value: 3, label: "yüksek", dot: "bg-danger", text: "text-danger", tone: "danger" },
 ] as const;
 
 export const priorityOf = (value: number) => PRIORITIES[value] ?? PRIORITIES[0];

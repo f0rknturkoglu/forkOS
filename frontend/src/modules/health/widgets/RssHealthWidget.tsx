@@ -1,24 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Empty, Section as Panel, cx, relativeTime, useToast } from "@/core/ui";
+import {Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { Feed, RssStats } from "@/core/types";
-
-function MiniStat({ label, value, tone }: { label: string; value: number; tone?: "ok" | "warn" | "danger" }) {
-  return (
-    <div className="border-y border-subtle px-3 py-2">
-      <div className={cx(
-        "numeral text-[22px] leading-tight",
-        tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "text-primary",
-      )}>
-        {value}
-      </div>
-      <div className="text-meta text-secondary">{label}</div>
-    </div>
-  );
-}
 
 function problemBadges(feed: Feed): { label: string; tone: "warn" | "danger" }[] {
   const badges: { label: string; tone: "warn" | "danger" }[] = [];
@@ -106,7 +92,7 @@ export function RssHealthWidget() {
   
 
   return (
-    <Panel
+    <Section
       title="RSS Sağlığı"
       action={
         <div className="flex items-center gap-2">
@@ -147,7 +133,7 @@ export function RssHealthWidget() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="max-w-[260px] truncate text-body text-primary">{feed.title}</span>
                     {problemBadges(feed).map((b) => (
-                      <Badge key={b.label} tone={b.tone}>{b.label}</Badge>
+                      <Chip key={b.label} tone={b.tone}>{b.label}</Chip>
                     ))}
                   </div>
                   <p className="mt-0.5 text-meta text-muted">
@@ -170,6 +156,6 @@ export function RssHealthWidget() {
           )}
         </div>
       )}
-    </Panel>
+    </Section>
   );
 }

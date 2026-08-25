@@ -64,14 +64,15 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
     >
       <div className="flex items-center gap-2.5 px-3.5 py-2.5">
         <Plus size={16} className="shrink-0 text-icon" />
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onFocus={() => setOpen(true)}
-          placeholder="Ne yapılacak?"
-          aria-label="Görev başlığı"
-          className="min-w-0 flex-1 bg-transparent text-body text-primary outline-none placeholder:text-muted"
-        />
+        <div className="min-w-0 flex-1" onFocusCapture={() => setOpen(true)}>
+          <Input
+            value={title}
+            onChange={setTitle}
+            placeholder="Ne yapılacak?"
+            ariaLabel="Görev başlığı"
+            className="w-full bg-transparent"
+          />
+        </div>
         {(open || title) && (
           <Button type="submit" variant="primary" size="sm"
             disabled={!online || !title.trim() || create.isPending}>
@@ -148,9 +149,9 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
                     </button>
                   </span>
                 ))}
-                <input
+                <Input
                   value={tagDraft}
-                  onChange={(event) => setTagDraft(event.target.value)}
+                  onChange={setTagDraft}
                   onKeyDown={(event) => {
                     // Enter formu gondermesin: burada etiket ekliyor.
                     if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addTag(); }
@@ -158,8 +159,8 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
                   }}
                   onBlur={addTag}
                   placeholder="etiket ekle"
-                  aria-label="Etiket"
-                  className="h-8 min-w-24 flex-1 rounded-control border border-subtle bg-surface px-2 text-meta text-primary outline-none placeholder:text-muted focus:border-accent"
+                  ariaLabel="Etiket"
+                  className="min-w-24 flex-1"
                 />
               </div>
             </div>

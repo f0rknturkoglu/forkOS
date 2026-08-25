@@ -4,7 +4,7 @@ import { Check, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react"
 import { api } from "@/core/api";
 import type { MediaItem } from "@/core/types";
 import type { components } from "@/generated/api-schema";
-import { Button, cx } from "@/core/ui";
+import { Button, Field, NumberInput, cx } from "@/core/ui";
 import { useInvalidate } from "@/lib/hooks";
 
 export type MediaConsumptionIn = components["schemas"]["MediaConsumptionIn"];
@@ -67,7 +67,7 @@ export function MediaProgressActions({
   onChanged: () => void;
 }) {
   const [setting, setSetting] = useState(false);
-  const [value, setValue] = useState(String(item.progress ?? 0));
+  const [value, setValue] = useState(item.progress ?? 0);
   const invalidate = useInvalidate();
   const mutation = useMutation({
     mutationFn: ({ action, value: next }: { action: ConsumptionAction; value?: number }) =>
@@ -142,19 +142,16 @@ export function MediaProgressActions({
             mutation.mutate({ action: "set", value: progress });
           }}
         >
-          <label className="block min-w-0">
-            <span className="mb-1 block text-meta text-secondary">İlerleme değeri</span>
-            <input
-              type="number"
-              min="0"
-              step="any"
+          <Field label="İlerleme değeri" className="min-w-0">
+            <NumberInput
               value={value}
+              onChange={setValue}
+              min={0}
+              step="any"
               disabled={disabled}
-              aria-label="İlerleme değeri"
-              onChange={(event) => setValue(event.target.value)}
-              className="h-8 w-full min-w-0 rounded-control border border-subtle bg-surface px-2 text-body text-primary outline-none focus:border-accent"
+              className="w-full min-w-0"
             />
-          </label>
+          </Field>
           <span className="pb-2 text-meta text-muted">{measureLabel(item.progress_measure)}</span>
           <Button type="submit" size="sm" disabled={disabled} className="col-span-2 w-full sm:col-span-1 sm:w-auto">İlerlemeyi kaydet</Button>
         </form>

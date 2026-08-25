@@ -57,10 +57,10 @@ export function NavigationRows({
     <header className="shrink-0 border-b border-subtle bg-canvas/95 backdrop-blur">
       <div className="mx-auto flex h-12 w-full max-w-[1600px] items-center gap-1.5 px-4 sm:gap-3 sm:px-5 lg:px-6">
         <a href="#/" className="flex shrink-0 items-center gap-2" aria-label="forkOS Bugün">
-          <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-primary font-serif text-[13px] text-canvas">
+          <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-primary font-serif text-meta text-canvas">
             f
           </span>
-          <span className="hidden font-serif text-[17px] text-primary sm:inline">forkOS</span>
+          <span className="hidden font-serif text-heading text-primary sm:inline">forkOS</span>
         </a>
 
         <nav aria-label="Ana bölümler" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-1">
@@ -70,7 +70,7 @@ export function NavigationRows({
               href={`#${groupTarget(group)}`}
               aria-current={group.id === activeGroup.id ? "page" : undefined}
               className={cx(
-                "shrink-0 border-b px-1.5 py-1 text-[11px] transition-colors sm:px-2 sm:text-meta",
+                "shrink-0 border-b px-1.5 py-1 text-micro transition-colors sm:px-2 sm:text-meta",
                 group.id === activeGroup.id
                   ? "border-accent text-primary"
                   : "border-transparent text-muted hover:text-primary",

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, PageFrame, PageHeader, Surface, cx, relativeTime, useToast } from "@/core/ui";
+import {Button, Chip, Empty, FileInput, Input, PageFrame, PageHeader, Surface, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import { navigate } from "@/app/router";
@@ -74,28 +74,26 @@ function AddFeed() {
           if (url.trim()) add.mutate();
         }}
       >
-        <input
+        <Input
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={setUrl}
           placeholder="Besleme URL’si"
-          className="w-full rounded border border-subtle bg-surface px-2 py-1.5 text-body outline-none focus:border-accent"
+          className="w-full"
         />
-        <input
+        <Input
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={setCategory}
           placeholder="Kategori (AI/LLM, Development...)"
-          className="w-full rounded border border-subtle bg-surface px-2 py-1.5 text-body outline-none focus:border-accent"
+          className="w-full"
         />
         <Button type="submit" variant="primary" disabled={!online || add.isPending}>
           Besleme ekle
         </Button>
       </form>
 
-      <input
+      <FileInput
         ref={fileRef}
-        type="file"
         accept=".opml,.xml,text/xml"
-        className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) importOpml.mutate(file);
@@ -181,7 +179,7 @@ function FeedRow({
         <FeedAvatar feed={feed} />
         <span className="truncate">{feed.title}</span>
         {feed.unread > 0 && (
-          <span className="numeral ml-auto shrink-0 text-[12px] text-accent">{feed.unread}</span>
+          <span className="numeral ml-auto shrink-0 text-meta text-accent">{feed.unread}</span>
         )}
         <span
           className={cx("ml-auto h-1.5 w-1.5 shrink-0 rounded-full",
@@ -244,7 +242,7 @@ function ItemRow({
           <FeedAvatar feed={feed} size={14} />
           <span className="max-w-[180px] truncate">{item.feed_title}</span>
           {item.published_at && <span>· {relativeTime(item.published_at)}</span>}
-          {item.saved_bookmark_id && <Badge tone="ok">kayıtlı</Badge>}
+          {item.saved_bookmark_id && <Chip tone="ok">kayıtlı</Chip>}
         </div>
       </button>
     </li>
@@ -494,7 +492,7 @@ export function RssPage() {
                 >
                   <span className="truncate">{SMART_LABELS[v]}</span>
                   {count !== undefined && (
-                    <span className={cx("numeral ml-auto text-[12px]", !feedId && !categorySel && smart === v ? "text-accent" : "text-muted")}>{count}</span>
+                    <span className={cx("numeral ml-auto text-meta", !feedId && !categorySel && smart === v ? "text-accent" : "text-muted")}>{count}</span>
                   )}
                 </button>
               </li>
@@ -546,7 +544,7 @@ export function RssPage() {
                   >
                     <span className="truncate">{category}</span>
                     {unreadSum > 0 && (
-                      <span className="numeral ml-auto text-[12px] text-accent">{unreadSum}</span>
+                      <span className="numeral ml-auto text-meta text-accent">{unreadSum}</span>
                     )}
                   </button>
                 </div>

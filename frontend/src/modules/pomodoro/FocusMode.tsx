@@ -115,7 +115,7 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
         </svg>
         <div className="absolute text-center">
           <div className={cx(
-            "numeral text-[72px] leading-none tabular-nums transition-colors",
+            "numeral text-display-2xl leading-none tabular-nums transition-colors",
             paused ? "text-muted" : "text-primary",
           )}>
             {clock(left)}

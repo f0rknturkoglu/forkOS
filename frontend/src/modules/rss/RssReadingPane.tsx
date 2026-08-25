@@ -1,5 +1,5 @@
 import { ExternalLink } from "lucide-react";
-import { Button, Empty, relativeTime } from "@/core/ui";
+import { Button, Empty, Select, relativeTime } from "@/core/ui";
 import { COLLECTIONS, COLLECTION_LABELS } from "@/core/types";
 import type { Collection, FeedItem } from "@/core/types";
 
@@ -15,7 +15,7 @@ function stripHtml(html: string): string {
 }
 
 function KbdInline({ children }: { children: React.ReactNode }) {
-  return <kbd className="mx-1 rounded border border-strong bg-surface px-1 py-0.5 font-sans text-[10.5px] text-muted">{children}</kbd>;
+  return <kbd className="mx-1 rounded border border-strong bg-surface px-1 py-0.5 font-sans text-micro text-muted">{children}</kbd>;
 }
 
 export interface RssReadingPaneProps {
@@ -56,17 +56,16 @@ export function RssReadingPane({
         <Button size="sm" disabled={!online} onClick={onToggleRead}>
           {detail.read_at ? "Okunmadı" : "Okundu"}
         </Button>
-        <select
+        <Select
           disabled={!online || Boolean(detail.saved_bookmark_id)}
           value={saveCollection}
-          onChange={(event) => onSaveCollection(event.target.value as Collection)}
-          title="Koleksiyon"
-          className="h-8 rounded-control border border-strong bg-surface px-2 text-meta text-secondary outline-none focus:border-accent"
+          onChange={(value) => onSaveCollection(value as Collection)}
+          ariaLabel="Koleksiyon"
         >
           {COLLECTIONS.map((collection) => (
             <option key={collection} value={collection}>{COLLECTION_LABELS[collection]}</option>
           ))}
-        </select>
+        </Select>
         {detail.saved_bookmark_id ? (
           <Button size="sm" variant="primary" onClick={onOpenBookmark} title="Yer iminde aç">
             Kaydedildi · aç →

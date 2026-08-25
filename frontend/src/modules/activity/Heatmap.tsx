@@ -84,7 +84,7 @@ export function Heatmap({ days = 365 }: { days?: number }) {
       {/* Gun etiketleri kaydirma ALANININ DISINDA: harita saga kayinca
           onlarla birlikte kaymasin, hangi satirin hangi gun oldugu kalsin. */}
       <div className="flex gap-1">
-        <div className="grid shrink-0 grid-rows-7 gap-1 pr-1 pt-4 text-[10px] leading-[10px] text-muted">
+        <div className="grid shrink-0 grid-rows-7 gap-1 pr-1 pt-4 text-micro leading-[10px] text-muted">
           {WEEKDAYS.map((label, index) => (
             <span key={index} className="flex h-2.5 items-center">{label}</span>
           ))}
@@ -92,7 +92,7 @@ export function Heatmap({ days = 365 }: { days?: number }) {
 
         <div ref={scroller} className="min-w-0 flex-1 overflow-x-auto pb-1">
           <div className="inline-flex flex-col gap-1">
-            <div className="flex gap-1 text-[10px] leading-3 text-muted">
+            <div className="flex gap-1 text-micro leading-3 text-muted">
               {monthTicks.map((tick) => (
                 <span
                   key={tick.week}

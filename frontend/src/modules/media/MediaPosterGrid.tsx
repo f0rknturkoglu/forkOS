@@ -1,21 +1,9 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Metric, MetricStrip, cx } from "@/core/ui";
+import {Chip, Metric, MetricStrip, Select, cx, identityClasses} from "@/core/ui";
 import type { MediaItem, MediaStats } from "@/core/types";
 import { MediaActionsMenu } from "./MediaActionsMenu";
-import {
-  KIND_LABELS,
-  KINDS,
-  STATUSES,
-  STATUS_LABELS,
-  kindBg,
-  kindChip,
-  mediaCoverUrl,
-  mediaProvider,
-  progressPct,
-  providerChip,
-  providerLabel,
-} from "./shared";
+import {KIND_LABELS, KINDS, STATUSES, STATUS_LABELS, kindBg, mediaCoverUrl, mediaProvider, progressPct, providerChip, providerLabel} from "./shared";
 
 type PosterItem = Pick<
   MediaItem,
@@ -62,7 +50,7 @@ export function MediaLibraryControls({
             className={cx(
               "h-7 shrink-0 rounded-control border px-2.5 text-meta transition",
               kind === value ? "border-accent bg-accent-surface text-accent" : value
-                ? cx(kindChip(value), "hover:opacity-80")
+                ? cx(identityClasses("kind-" + value), "hover:opacity-80")
                 : "border-subtle text-secondary hover:border-strong hover:text-primary",
             )}
           >
@@ -71,15 +59,14 @@ export function MediaLibraryControls({
         ))}
       </div>
       <label className="sr-only" htmlFor="media-library-status">Durum filtresi</label>
-      <select
+      <Select
         id="media-library-status"
         value={status}
-        onChange={(event) => onStatusChange(event.target.value)}
-        className="h-8 rounded-control border border-subtle bg-surface px-2 text-meta text-primary outline-none focus:border-accent"
+        onChange={onStatusChange}
       >
         <option value="">Tüm durumlar</option>
         {STATUSES.map((value) => <option key={value} value={value}>{STATUS_LABELS[value]}</option>)}
-      </select>
+      </Select>
     </div>
   );
 }
@@ -129,7 +116,7 @@ function MediaPoster({ item, online, onQuick, onTrash }: {
           {item.title}
         </a>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
-          <span className={cx("rounded border px-1.5 py-0.5", kindChip(item.kind))}>{KIND_LABELS[item.kind] ?? item.kind}</span>
+          <Chip identity={"kind-" + item.kind} variant="outline" size="xs">{KIND_LABELS[item.kind] ?? item.kind}</Chip>
           {provider && <span className={cx("rounded border px-1.5 py-0.5", providerChip(provider))}>{providerLabel(provider)}</span>}
           {percent !== null && <span className="numeral text-muted">{item.progress ?? 0}/{item.total}</span>}
         </div>

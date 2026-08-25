@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Star, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { Badge, Button, Empty, IconButton, PageFrame, PageHeader, RowList, Section, Toolbar, cx, hostOf, relativeTime } from "@/core/ui";
+import {Button, Chip, Empty, IconButton, Input, PageFrame, PageHeader, RowList, Section, Select, Toolbar, cx, hostOf, relativeTime} from "@/core/ui";
 import { useDebounced, useInvalidate, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
@@ -48,7 +48,7 @@ function FilterChip({
     >
       <span>{label}</span>
       {count !== undefined && (
-        <span className={cx("numeral text-[13px]", active ? "text-accent" : "text-muted")}>{count}</span>
+        <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
       )}
     </button>
   );
@@ -93,10 +93,10 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
             <span>{hostOf(bookmark.url)}</span>
             <span>·</span>
             <span>{relativeTime(bookmark.saved_at)}</span>
-            <Badge>{COLLECTION_LABELS[bookmark.collection]}</Badge>
-            {bookmark.read_status !== "unread" && <Badge tone="ok">{bookmark.read_status}</Badge>}
+            <Chip>{COLLECTION_LABELS[bookmark.collection]}</Chip>
+            {bookmark.read_status !== "unread" && <Chip tone="ok">{bookmark.read_status}</Chip>}
             {bookmark.tags.map((tag) => (
-              <Badge key={tag}>#{tag}</Badge>
+              <Chip key={tag}>#{tag}</Chip>
             ))}
           </div>
           {bookmark.note && (
@@ -104,7 +104,7 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
           )}
         </div>
 
-        {/* Aksiyonlar tek boyutta: ikon butonlar 32px, metin buton ve select de 32px. */}
+        {/* Aksiyonlar tek boyutta: ikon butonlar 32px, metin buton h-8; select standart h-9. */}
         <div className="flex flex-wrap items-center justify-end gap-1">
           <IconButton
             title={bookmark.favorite ? "Favoriden çıkar" : "Favori yap"}
@@ -123,19 +123,18 @@ function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boole
           >
             {bookmark.read_status === "read" ? "Okunmadı" : "Okundu"}
           </Button>
-          <select
+          <Select
             disabled={!online}
-            title="Koleksiyona taşı"
+            ariaLabel="Koleksiyona taşı"
             value={bookmark.collection}
-            onChange={(e) => patch.mutate({ collection: e.target.value })}
-            className="h-8 rounded-control border border-strong bg-surface px-2 text-meta text-secondary outline-none focus:border-accent"
+            onChange={(v) => patch.mutate({ collection: v })}
           >
             {COLLECTIONS.map((c) => (
               <option key={c} value={c}>
                 {COLLECTION_LABELS[c]}
               </option>
             ))}
-          </select>
+          </Select>
           <IconButton title="Sil" tone="danger" disabled={!online} onClick={() => remove.mutate()}>
             <Trash2 size={15} />
           </IconButton>
@@ -183,11 +182,11 @@ export function BookmarksPage() {
         {/* ── Filtre sırası: arama + chip'ler ── */}
         <Toolbar className="mb-4">
           <div className="flex flex-wrap items-center gap-2">
-            <input
+            <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
               placeholder="Ara (başlık, not, seçim)…"
-              className="min-w-48 flex-1 rounded border border-subtle bg-surface px-3 py-1.5 text-body outline-none focus:border-accent"
+              className="min-w-48 flex-1"
             />
             <FilterChip
               label="★ Favoriler"

@@ -50,15 +50,6 @@ export const STATUS_TONES: Record<string, StatusTone> = {
 export const kindLabel = (kind: string) => KIND_LABELS[kind] ?? kind;
 export const statusLabel = (status: string) => STATUS_LABELS[status] ?? status;
 
-/** "jobhunter:greenhouse:adyen" -> "adyen · greenhouse" */
-export function sourceLabel(source: string): string {
-  const parts = source.split(":");
-  if (parts[0] === "jobhunter" && parts.length >= 3) {
-    return `${parts.slice(2).join(":")} · ${parts[1]}`;
-  }
-  return source;
-}
-
 /** Son tarihe kalan gun; gecmisse negatif. Yoksa null. */
 export function daysLeft(deadline: string | null): number | null {
   if (!deadline) return null;

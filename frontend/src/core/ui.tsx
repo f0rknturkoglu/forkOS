@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -49,27 +49,6 @@ export function useTheme(): [Theme, (next: Theme) => void] {
    Yuzeyler
    ══════════════════════════════════════════════════════════════════════ */
 
-export function Panel({
-  title, action, children, className, bodyClassName,
-}: {
-  title?: ReactNode;
-  action?: ReactNode;
-  children: ReactNode;
-  className?: string;
-  bodyClassName?: string;
-}) {
-  return (
-    <section className={cx("rounded-card border border-subtle bg-surface shadow-card", className)}>
-      {(title || action) && (
-        <header className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-2.5">
-          <h2 className="text-heading text-primary">{title}</h2>
-          {action}
-        </header>
-      )}
-      <div className={cx("p-4", bodyClassName)}>{children}</div>
-    </section>
-  );
-}
 
 /** Sayfalarin ortak genislik ve responsive dis bosluk cercevesi. */
 export function PageFrame({ children, className }: { children: ReactNode; className?: string }) {
@@ -149,7 +128,7 @@ export function Surface({ children, className }: { children: ReactNode; classNam
   return <div className={cx("rounded-card border border-subtle bg-surface shadow-card", className)}>{children}</div>;
 }
 
-/** Tek tek kart kullanmadan sayisal ozeti yatay ayiraclarla verir. */
+/** Sayisal ozet seridi: hucreleri yatay ayraclarla boler, tek cerceve cizer. */
 export function MetricStrip({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
@@ -174,7 +153,7 @@ export function Metric({
 }) {
   const body = (
     <>
-      <div className="numeral truncate text-[24px] leading-none text-primary transition-colors group-hover:text-accent">
+      <div className="numeral truncate text-numeral-lg leading-none text-primary transition-colors group-hover:text-accent">
         {value}
       </div>
       <div className="mt-1 truncate text-meta text-secondary transition-colors group-hover:text-accent">
@@ -408,7 +387,7 @@ export function Field({
 }
 
 export function Textarea({
-  value, onChange, placeholder, rows = 3, className, onBlur,
+  value, onChange, placeholder, rows = 3, className, onBlur, disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -416,26 +395,143 @@ export function Textarea({
   rows?: number;
   className?: string;
   onBlur?: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <textarea
       value={value}
       rows={rows}
       placeholder={placeholder}
+      disabled={disabled}
       onBlur={(e) => onBlur?.(e.target.value)}
       onChange={(e) => onChange(e.target.value)}
       className={cx(
         "w-full resize-y rounded-control border border-subtle bg-surface px-3 py-2 text-body text-primary",
         "outline-none placeholder:text-muted focus:border-accent focus:ring-1 focus:ring-accent",
+        disabled && "cursor-not-allowed opacity-50",
         className,
       )}
     />
   );
 }
 
+/** Onay kutusu. Ham <input type="checkbox"> yasak — bu primitive kullanilir. */
+export function Checkbox({
+  checked, onChange, label, disabled, className,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label?: ReactNode;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <label
+      className={cx(
+        "inline-flex cursor-pointer select-none items-center gap-2 text-meta text-secondary",
+        disabled && "cursor-not-allowed opacity-50",
+        className,
+      )}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded-[3px] border border-strong accent-accent"
+      />
+      {label}
+    </label>
+  );
+}
+
+/** Kaydirma cubugu (ilerleme gibi aralik girisleri). */
+export function Range({
+  value, onChange, min = 0, max = 100, step = 1, disabled, ariaLabel, className,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      type="range"
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className={cx("h-4 w-full cursor-pointer accent-accent", className)}
+    />
+  );
+}
+
+/** Sayisal giris; Input'un tipini degil, sayi semantigini tasir. */
+export function NumberInput({
+  value, onChange, placeholder, disabled, className, min, max, step = "any", ariaLabel,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  min?: number;
+  max?: number;
+  step?: number | "any";
+  ariaLabel?: string;
+}) {
+  return (
+    <input
+      type="number"
+      value={Number.isFinite(value) ? String(value) : ""}
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
+      aria-label={ariaLabel ?? placeholder}
+      placeholder={placeholder}
+      onChange={(e) => {
+        const next = Number(e.target.value);
+        if (e.target.value === "" || Number.isFinite(next)) onChange(next);
+      }}
+      className={cx(
+        "h-9 rounded-control border border-subtle bg-surface px-3 text-body text-primary",
+        "outline-none placeholder:text-muted focus:border-accent focus:ring-1 focus:ring-accent",
+        disabled && "cursor-not-allowed opacity-50",
+        className,
+      )}
+    />
+  );
+}
+
+/** Gizli dosya secici. Gorumunur tetikleyici (Button) ref ile .click() cagirir.
+ *  Ham <input type="file"> yerine bu primitive kullanilir. */
+export const FileInput = forwardRef<HTMLInputElement, {
+  accept?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  className?: string;
+}>(function FileInput({ accept, onChange, className }, ref) {
+  return (
+    <input
+      ref={ref}
+      type="file"
+      accept={accept}
+      onChange={onChange}
+      className={cx("hidden", className)}
+    />
+  );
+});
+
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded border border-strong bg-surface px-1.5 py-0.5 font-sans text-[10.5px] leading-none text-muted">
+    <kbd className="rounded border border-strong bg-surface px-1.5 py-0.5 font-sans text-micro leading-none text-muted">
       {children}
     </kbd>
   );
@@ -445,21 +541,120 @@ export function Kbd({ children }: { children: ReactNode }) {
    Gosterim
    ══════════════════════════════════════════════════════════════════════ */
 
-type BadgeTone = "neutral" | "warn" | "ok" | "accent" | "danger";
+export type ChipTone = "neutral" | "accent" | "ok" | "warn" | "danger";
+export type ChipVariant = "soft" | "outline" | "solid";
 
-const BADGE_STYLES: Record<BadgeTone, string> = {
-  neutral: "border-subtle bg-surface text-muted",
-  accent:  "border-accent-border bg-accent-surface text-accent",
-  ok:      "border-ok-border bg-ok-surface text-ok",
-  warn:    "border-warn-border bg-warn-surface text-warn",
-  danger:  "border-danger-border bg-danger-surface text-danger",
+/** Semantik ton -> variant basina siniflar. Degerler STATIK dizi:
+ *  Tailwind JIT kaynakta tam sinif adini arar, calisma zamani birlestirmez. */
+const CHIP_STYLES: Record<ChipVariant, Record<ChipTone, string>> = {
+  soft: {
+    neutral: "border-subtle bg-surface text-muted",
+    accent:  "border-accent-border bg-accent-surface text-accent",
+    ok:      "border-ok-border bg-ok-surface text-ok",
+    warn:    "border-warn-border bg-warn-surface text-warn",
+    danger:  "border-danger-border bg-danger-surface text-danger",
+  },
+  outline: {
+    neutral: "border-subtle bg-surface text-secondary",
+    accent:  "border-accent-border bg-surface text-accent",
+    ok:      "border-ok-border bg-surface text-ok",
+    warn:    "border-warn-border bg-surface text-warn",
+    danger:  "border-danger-border bg-surface text-danger",
+  },
+  solid: {
+    neutral: "border-transparent bg-icon text-canvas",
+    accent:  "border-accent-border bg-accent text-canvas",
+    ok:      "border-ok-border bg-ok text-canvas",
+    warn:    "border-warn-border bg-warn text-canvas",
+    danger:  "border-danger-border bg-danger text-canvas",
+  },
 };
 
-export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: BadgeTone }) {
+/** Kimlik rengi -> siniflar. Sinif adlari TAM LITERAL yazilmali (JIT);
+ *  "kind-movie" -> text-[color:var(--kind-movie)] gibi keyfi degerler
+ *  kaynakta gorunur oldugu icin derlenir, calisma zamani uretilmez. */
+const IDENTITY_STYLES: Record<string, string> = {
+  "kind-movie": "text-[color:var(--kind-movie)] border-[color:var(--kind-movie)]",
+  "kind-show": "text-[color:var(--kind-show)] border-[color:var(--kind-show)]",
+  "kind-anime": "text-[color:var(--kind-anime)] border-[color:var(--kind-anime)]",
+  "kind-manga": "text-[color:var(--kind-manga)] border-[color:var(--kind-manga)]",
+  "kind-book": "text-[color:var(--kind-book)] border-[color:var(--kind-book)]",
+  "kind-audiobook": "text-[color:var(--kind-audiobook)] border-[color:var(--kind-audiobook)]",
+  "kind-podcast": "text-[color:var(--kind-podcast)] border-[color:var(--kind-podcast)]",
+  "kind-music": "text-[color:var(--kind-music)] border-[color:var(--kind-music)]",
+  "kind-game": "text-[color:var(--kind-game)] border-[color:var(--kind-game)]",
+  "src-tmdb": "text-[color:var(--src-tmdb)] border-[color:var(--src-tmdb)]",
+  "src-anilist": "text-[color:var(--src-anilist)] border-[color:var(--src-anilist)]",
+  "src-kitsu": "text-[color:var(--src-kitsu)] border-[color:var(--src-kitsu)]",
+  "src-openlibrary": "text-[color:var(--src-openlibrary)] border-[color:var(--src-openlibrary)]",
+  "src-itunes": "text-[color:var(--src-itunes)] border-[color:var(--src-itunes)]",
+  "src-google-books": "text-[color:var(--src-google-books)] border-[color:var(--src-google-books)]",
+  "src-musicbrainz": "text-[color:var(--src-musicbrainz)] border-[color:var(--src-musicbrainz)]",
+  "src-igdb": "text-[color:var(--src-igdb)] border-[color:var(--src-igdb)]",
+  "src-rawg": "text-[color:var(--src-rawg)] border-[color:var(--src-rawg)]",
+  "src-letterboxd": "text-[color:var(--src-letterboxd)] border-[color:var(--src-letterboxd)]",
+  "src-imdb": "text-[color:var(--src-imdb)] border-[color:var(--src-imdb)]",
+  "src-rottentomatoes": "text-[color:var(--src-rottentomatoes)] border-[color:var(--src-rottentomatoes)]",
+  "src-mal": "text-[color:var(--src-mal)] border-[color:var(--src-mal)]",
+  "src-goodreads": "text-[color:var(--src-goodreads)] border-[color:var(--src-goodreads)]",
+  "src-audible": "text-[color:var(--src-audible)] border-[color:var(--src-audible)]",
+  "src-spotify": "text-[color:var(--src-spotify)] border-[color:var(--src-spotify)]",
+  "src-rym": "text-[color:var(--src-rym)] border-[color:var(--src-rym)]",
+  "src-hltb": "text-[color:var(--src-hltb)] border-[color:var(--src-hltb)]",
+  "feed-rss": "text-feed-rss border-[color:var(--feed-rss)]",
+  "feed-hn": "text-feed-hn border-[color:var(--feed-hn)]",
+  "feed-reddit": "text-feed-reddit border-[color:var(--feed-reddit)]",
+  "feed-gh": "text-feed-gh border-[color:var(--feed-gh)]",
+};
+
+/** Kimlik rengi siniflari; Chip'in kendisi ve chip gorunumlu butonlar. */
+export function identityClasses(id: string): string {
+  return IDENTITY_STYLES[id] ?? "text-secondary border-subtle";
+}
+
+type ChipBase = {
+  children: ReactNode;
+  variant?: ChipVariant;
+  icon?: ReactNode;
+  size?: "xs" | "sm";
+};
+type ChipProps = ChipBase & (
+    | { tone?: ChipTone; identity?: never }
+  | { identity: string; tone?: never }
+);
+
+/**
+ * Tek chip/rozet bileşeni.
+ * - `tone`    => semantik anlam (durum, oncelik, saglik).
+ * - `identity`=> kimlik rengi ("kind-movie" | "src-tmdb" | "feed-hn").
+ * Ikisi ayni anda verilemez (tip duzeyinde engellenir).
+ */
+export function Chip({ children, variant = "soft", tone, identity, icon, size = "sm" }: ChipProps) {
+  const style = identity
+    ? (IDENTITY_STYLES[identity] ?? "border-subtle bg-surface text-secondary")
+    : CHIP_STYLES[variant][tone ?? "neutral"];
   return (
-    <span className={cx("rounded border px-1.5 py-0.5 text-[10.5px] leading-4", BADGE_STYLES[tone])}>
+    <span
+      className={cx(
+        "inline-flex shrink-0 items-center gap-1 rounded border font-medium leading-4",
+        size === "xs" ? "px-1.5 py-px text-micro" : "px-2 py-0.5 text-micro",
+        style,
+      )}
+    >
+      {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </span>
+  );
+}
+
+/** Tek kutucuk sayisal ozet (saglik paneli gibi ozet satirlari). */
+export function MiniStat({ label, value, tone }: { label: string; value: number; tone?: "ok" | "warn" | "danger" }) {
+  const color = tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "danger" ? "text-danger" : "text-primary";
+  return (
+    <div className="border-y border-subtle px-3 py-2">
+      <div className={cx("numeral text-title leading-tight", color)}>{value}</div>
+      <div className="text-meta text-secondary">{label}</div>
+    </div>
   );
 }
 
@@ -490,10 +685,14 @@ export function Empty({
   );
 }
 
+/**
+ * Tek basina duran sayisal ozet kutucugu (Today stat'i gibi). Bir serit icinde
+ * yan yana sayilar icin MetricStrip + Metric kullan -- Stat kendi cercevesini cizer.
+ */
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div className="rounded-card border border-subtle bg-surface px-4 py-3">
-      <div className="numeral text-[26px] leading-tight text-primary">{value}</div>
+      <div className="numeral text-numeral-xl leading-tight text-primary">{value}</div>
       <div className="text-meta text-secondary">{label}</div>
       {hint && <div className="mt-0.5 text-meta text-muted">{hint}</div>}
     </div>

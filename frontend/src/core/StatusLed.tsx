@@ -86,7 +86,7 @@ function Bar({
           style={{ width: value === null ? "0%" : `${pct(value)}%` }}
         />
       </div>
-      {hint && <p className="mt-1 text-[11px] leading-4 text-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-micro leading-4 text-muted">{hint}</p>}
     </div>
   );
 }

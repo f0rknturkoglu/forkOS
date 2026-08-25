@@ -108,7 +108,7 @@ export function GithubPanel({ project }: { project: Project }) {
               </button>
             ))}
             {!data.authenticated && (
-              <span className="ml-auto text-[11px] text-muted">
+              <span className="ml-auto text-micro text-muted">
                 token yok · 60 istek/saat
               </span>
             )}
@@ -189,7 +189,7 @@ function IssueList({
               )}
               {item.updated_at && <span>{relativeTime(item.updated_at)}</span>}
               {item.labels.slice(0, 3).map((label) => (
-                <span key={label} className="rounded border border-subtle px-1.5 text-[10.5px] leading-4">
+                <span key={label} className="rounded border border-subtle px-1.5 text-micro leading-4">
                   {label}
                 </span>
               ))}

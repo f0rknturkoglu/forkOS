@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import type { SourceSyncStatus } from "@/core/types";
-import { Badge, Button, cx } from "@/core/ui";
+import {Button, Chip, cx} from "@/core/ui";
 
 export type SourceSyncScope = "opportunity" | "media";
 
@@ -88,11 +88,11 @@ export function SyncProgress({ compact = false, scope = "opportunity" }: {
           <Loader2 size={15} className="animate-spin text-accent" />
           Kaynaklar çekiliyor
         </span>
-        <strong className="numeral text-[18px] text-accent">%{batch.progress_pct}</strong>
+        <strong className="numeral text-title text-accent">%{batch.progress_pct}</strong>
         <span className="text-meta text-secondary">
           {batch.completed_sources} / {batch.total_sources} kaynak
         </span>
-        {running > 0 && <Badge tone="accent">{running} aktif</Badge>}
+        {running > 0 && <Chip tone="accent">{running} aktif</Chip>}
         <span className="ml-auto text-meta text-secondary">+{batch.items_found} yeni kayıt</span>
         {batch.error_sources > 0 && (
           <button

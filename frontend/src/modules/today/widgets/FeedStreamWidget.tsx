@@ -257,7 +257,7 @@ export function FeedStreamWidget() {
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-meta text-muted">
                     <span
                       className={cx(
-                        "rounded border border-subtle px-1.5 py-0.5 text-[10.5px] leading-4",
+                        "rounded border border-subtle px-1.5 py-0.5 text-micro leading-4",
                         skin.text,
                       )}
                     >

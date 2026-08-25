@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
-import { Badge, Button, Empty, PageFrame, PageHeader, Toolbar, cx, relativeTime } from "@/core/ui";
+import {Button, Chip, Empty, PageFrame, PageHeader, Toolbar, cx, relativeTime} from "@/core/ui";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
 import { ALERT_VERBS, describe } from "./verbs";
 
@@ -119,7 +119,7 @@ export function ActivityPage() {
                 <ChevronDown className={cx("transition-transform", open && "rotate-180")} size={15} />
                 <span className="label-caps text-secondary">{label}</span>
                 <span className="ml-auto text-meta text-muted">{dayEvents.length} hareket</span>
-                {alertCount > 0 && <Badge tone="warn">{alertCount} uyarı</Badge>}
+                {alertCount > 0 && <Chip tone="warn">{alertCount} uyarı</Chip>}
               </summary>
               <div className="border-t border-subtle px-3.5 py-3">
                 <ul className="relative ml-1 border-l border-strong">
@@ -143,7 +143,7 @@ export function ActivityPage() {
                             {relativeTime(event.occurred_at)}
                           </span>
                           {event.entity_type && (
-                            <span className="ml-2"><Badge>{event.entity_type}</Badge></span>
+                            <span className="ml-2"><Chip>{event.entity_type}</Chip></span>
                           )}
                         </div>
                       </li>

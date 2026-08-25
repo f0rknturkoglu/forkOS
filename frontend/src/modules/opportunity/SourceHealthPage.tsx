@@ -2,14 +2,14 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Check, Loader2, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Toolbar, cx, relativeTime, useToast } from "@/core/ui";
+import {Button, Checkbox, Chip, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Toolbar, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useHashRoute } from "@/app/router";
 import type {
   SourceHealth, SourceRefreshResult, SourceSyncBatch, SourceSyncStatus,
 } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
-import { sourceLabel } from "./labels";
+import { sourceLabel } from "@/core/labels";
 import {
   sourceSyncApiPath,
   sourceSyncHistoryApiPath,
@@ -200,7 +200,7 @@ export function SourceHealthPage() {
               )}
             >
               <span>{label}</span>
-              <span className={cx("numeral text-[13px]", kind === value ? "text-accent" : "text-muted")}>{count}</span>
+              <span className={cx("numeral text-meta", kind === value ? "text-accent" : "text-muted")}>{count}</span>
             </button>
           ))}
       </div>
@@ -213,16 +213,11 @@ export function SourceHealthPage() {
 
         <div className="overflow-hidden border-y border-subtle">
           <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-4 py-2.5">
-            <label className="flex cursor-pointer items-center gap-2.5 text-meta text-secondary">
-              <input
-                type="checkbox"
-                checked={allPicked}
-                onChange={toggleAll}
-                aria-label="Görünen kaynakların hepsini seç"
-                className="h-4 w-4 accent-[var(--accent)]"
-              />
-              {picked.size > 0 ? `${picked.size} seçili` : "Hepsini seç"}
-            </label>
+            <Checkbox
+              checked={allPicked}
+              onChange={toggleAll}
+              label={picked.size > 0 ? `${picked.size} seçili` : "Hepsini seç"}
+            />
             <span className="flex-1" />
             {picked.size > 0 && (
               <>
@@ -257,12 +252,11 @@ export function SourceHealthPage() {
                       picked.has(source.id) && "bg-accent-surface/40",
                     )}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={picked.has(source.id)}
                       onChange={() => toggle(source.id)}
-                      aria-label={`${source.id} seç`}
-                      className="h-4 w-4 shrink-0 accent-[var(--accent)]"
+                      label={<span className="sr-only">{source.id} seç</span>}
+                      className="shrink-0"
                     />
 
                     <div className="min-w-0 flex-1">
@@ -283,14 +277,14 @@ export function SourceHealthPage() {
 
                     <span className="w-12 shrink-0 text-right">
                       {run && run.items_found > 0 && (
-                        <span className="numeral text-[15px] text-secondary">+{run.items_found}</span>
+                        <span className="numeral text-heading text-secondary">+{run.items_found}</span>
                       )}
                     </span>
 
                     <span className="w-[92px] shrink-0 text-right">
-                      <Badge tone={STATUS_TONE[status] ?? "neutral"}>
+                      <Chip tone={STATUS_TONE[status] ?? "neutral"}>
                         {STATUS_LABEL[status] ?? status}
-                      </Badge>
+                      </Chip>
                     </span>
 
                     <button
@@ -316,7 +310,7 @@ export function SourceHealthPage() {
 
         <p className="mt-3 text-meta text-muted">
           Otomatik turlar en bayat dört kaynağı çeker; tam tarama bilinçli bir eylemdir.
-          Her koşu <code className="font-mono text-[11.5px]">source_run</code>’a yazılır — üst üste üç boş koşu bildirim üretir.
+          Her koşu <code className="font-mono text-micro">source_run</code>’a yazılır — üst üste üç boş koşu bildirim üretir.
         </p>
       </Section>
       </>}
@@ -333,9 +327,9 @@ export function SourceHealthPage() {
               return (
                 <div key={batch.id} className="flex flex-wrap items-center gap-3 border-b border-subtle px-4 py-3 last:border-b-0">
                   <span className="min-w-36 text-body text-primary">{relativeTime(batch.created_at)}</span>
-                  <Badge tone={batch.error_sources ? "danger" : "ok"}>
+                  <Chip tone={batch.error_sources ? "danger" : "ok"}>
                     {batch.error_sources ? "hatalarla tamamlandı" : "tamamlandı"}
-                  </Badge>
+                  </Chip>
                   <span className="text-meta text-secondary">{batch.total_sources} kaynak</span>
                   <span className="text-meta text-secondary">+{batch.items_found} kayıt</span>
                   {batch.error_sources > 0 && (

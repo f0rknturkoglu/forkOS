@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Empty, Section as Panel, useToast } from "@/core/ui";
+import {Button, Checkbox, Chip, Empty, Field, Input, NumberInput, Section, Textarea, useToast} from "@/core/ui";
 
 interface ScoringConfig { scoring: Record<string, unknown>; balance: Record<string, unknown>; }
 interface LinkedProfile { term: string; location?: string; results_wanted?: number; hours_old?: number; is_remote?: boolean; fetch_description?: boolean; }
@@ -95,8 +95,6 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
     toast.push(editing.length + " LinkedIn profili kaydedildi.", { tone: "ok" });
   }
 
-  const inputCls = "h-8 min-w-0 rounded-control border border-subtle bg-surface px-2 text-meta text-primary outline-none focus:border-accent";
-  const labelCls = "mb-1 block text-meta text-muted";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/60 p-4" onClick={onClose}>
       <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-card border border-subtle bg-surface shadow-overlay" onClick={(e) => e.stopPropagation()}>
@@ -118,50 +116,45 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
         <div className="space-y-4 p-4">
           {section === "profile" && (
             <div className="space-y-4">
-              <Panel title="Ağırlıklar">
+              <Section title="Ağırlıklar">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
                   {WEIGHT_KEYS.map(([key, label]) => (
-                    <label key={key} className="block">
-                      <span className={labelCls}>{label}</span>
-                      <input type="number" step="0.1" value={weights[key] ?? ""}
-                        onChange={(e) => setWeights((prev) => ({ ...prev, [key]: e.target.value }))}
-                        className={inputCls + " w-full"} />
-                    </label>
+                    <Field key={key} label={label}>
+                      <Input type="number" value={weights[key] ?? ""}
+                        onChange={(v) => setWeights((prev) => ({ ...prev, [key]: v }))}
+                        className="w-full" />
+                    </Field>
                   ))}
                 </div>
-              </Panel>
-              <Panel title="Yetenekler (satır: ad | puan | eş anlamlılar, virgüllü)">
-                <textarea value={skillsText} onChange={(e) => setSkillsText(e.target.value)} rows={6}
-                  className="w-full resize-y rounded-control border border-subtle bg-surface p-2 font-mono text-meta text-primary outline-none" />
-              </Panel>
+              </Section>
+              <Section title="Yetenekler (satır: ad | puan | eş anlamlılar, virgüllü)">
+                <Textarea value={skillsText} onChange={setSkillsText} rows={6} className="font-mono" />
+              </Section>
               <div className="grid gap-4 md:grid-cols-2">
-                <Panel title="Rol terimleri (virgüllü)">
-                  <textarea value={roleTerms} onChange={(e) => setRoleTerms(e.target.value)} rows={3} className="w-full resize-y rounded-control border border-subtle bg-surface p-2 font-mono text-meta text-primary outline-none" />
-                </Panel>
-                <Panel title="Seviye kelimeleri (virgüllü)">
-                  <textarea value={levelWords} onChange={(e) => setLevelWords(e.target.value)} rows={3} className="w-full resize-y rounded-control border border-subtle bg-surface p-2 font-mono text-meta text-primary outline-none" />
-                </Panel>
+                <Section title="Rol terimleri (virgüllü)">
+                  <Textarea value={roleTerms} onChange={setRoleTerms} rows={3} className="font-mono" />
+                </Section>
+                <Section title="Seviye kelimeleri (virgüllü)">
+                  <Textarea value={levelWords} onChange={setLevelWords} rows={3} className="font-mono" />
+                </Section>
               </div>
-              <Panel title="Elenme kelimeleri (virgüllü)">
-                <textarea value={killWords} onChange={(e) => setKillWords(e.target.value)} rows={3} className="w-full resize-y rounded-control border border-subtle bg-surface p-2 font-mono text-meta text-primary outline-none" />
-              </Panel>
+              <Section title="Elenme kelimeleri (virgüllü)">
+                <Textarea value={killWords} onChange={setKillWords} rows={3} className="font-mono" />
+              </Section>
               <div className="flex justify-end"><Button variant="primary" onClick={saveProfile}><Check size={14} /> Kaydet</Button></div>
             </div>
           )}
 
           {section === "linkedin" && (
-            <Panel title="LinkedIn arama profilleri">
+            <Section title="LinkedIn arama profilleri">
               <p className="mb-2 text-meta text-muted">Varsayılan profiller portallarla birleşir; seninkiler en sona eklenir ve senkron turlarında çalışır.</p>
               <div className="space-y-2">
                 {editing.map((row, index) => (
                   <div key={index} className="grid gap-1.5 rounded border border-subtle p-2 sm:grid-cols-[1fr_1fr_5rem_4rem_auto]">
-                    <input value={row.term} onChange={(e) => patchProfile(index, { term: e.target.value })} placeholder="Arama terimi" className={inputCls + " w-full"} />
-                    <input value={row.location ?? ""} onChange={(e) => patchProfile(index, { location: e.target.value })} placeholder="Konum (ops.)" className={inputCls + " w-full"} />
-                    <label className="flex items-center gap-1 text-meta text-muted"><input type="number" value={row.results_wanted ?? 50} onChange={(e) => patchProfile(index, { results_wanted: Number(e.target.value) })} className={inputCls + " w-full"} />sonuç</label>
-                    <label className="flex items-center gap-1 text-meta text-muted">
-                      <input type="checkbox" checked={Boolean(row.is_remote)} onChange={(e) => patchProfile(index, { is_remote: e.target.checked })} className="h-4 w-4 accent-[var(--accent)]" />
-                      <span>Uzak</span>
-                    </label>
+                    <Input value={row.term} onChange={(v) => patchProfile(index, { term: v })} placeholder="Arama terimi" className="w-full" />
+                    <Input value={row.location ?? ""} onChange={(v) => patchProfile(index, { location: v })} placeholder="Konum (ops.)" className="w-full" />
+                    <label className="flex items-center gap-1 text-meta text-muted"><NumberInput value={row.results_wanted ?? 50} onChange={(n) => patchProfile(index, { results_wanted: n })} className="w-full" />sonuç</label>
+                    <Checkbox checked={Boolean(row.is_remote)} onChange={(b) => patchProfile(index, { is_remote: b })} label="Uzak" className="text-meta text-muted" />
                     <button type="button" onClick={() => setEditing((prev) => prev.filter((_, i) => i !== index))} title="Profil sil" className="flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition hover:border-danger hover:text-danger"><Trash2 size={13} /></button>
                   </div>
                 ))}
@@ -171,17 +164,17 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
                 <Button size="sm" onClick={() => setEditing((prev) => [...prev, { term: "" }])}><Plus size={13} /> Profil ekle</Button>
                 <Button variant="primary" size="sm" onClick={saveProfiles}><Check size={13} /> Kaydet</Button>
               </div>
-            </Panel>
+            </Section>
           )}
 
           {section === "env" && (
-            <Panel title="Ortam (container env)">
+            <Section title="Ortam (container env)">
               <div className="space-y-1.5 text-meta">
-                <div className="flex items-center justify-between"><span className="text-muted">LINKEDIN_ALLOW_DIRECT</span><Badge>{env?.linkein_allow_direct ? "açık" : "kapalı"}</Badge></div>
-                <div className="flex items-center justify-between"><span className="text-muted">FORKJOB_LINKEDIN_PROXIES_FILE</span><Badge>{env?.proxies_file || "tanımsız"}</Badge></div>
+                <div className="flex items-center justify-between"><span className="text-muted">LINKEDIN_ALLOW_DIRECT</span><Chip>{env?.linkein_allow_direct ? "açık" : "kapalı"}</Chip></div>
+                <div className="flex items-center justify-between"><span className="text-muted">FORKJOB_LINKEDIN_PROXIES_FILE</span><Chip>{env?.proxies_file || "tanımsız"}</Chip></div>
               </div>
               <p className="mt-3 text-meta text-muted">Bu değerler container başlarken okunur — değiştirmek için compose.yaml env bölümünü düzenle, sonra make down && make up.</p>
-            </Panel>
+            </Section>
           )}
         </div>
       </div>

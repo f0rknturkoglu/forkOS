@@ -1,24 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Button, Empty, Section as Panel, cx, relativeTime, useToast } from "@/core/ui";
+import {Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast} from "@/core/ui";
 import { Copy } from "lucide-react";
 import type { SourceHealth } from "@/core/types";
-import { sourceLabel } from "@/modules/opportunity/labels";
-
-function MiniStat({ label, value, tone }: { label: string; value: number; tone?: "ok" | "danger" }) {
-  return (
-    <div className="border-y border-subtle px-3 py-2">
-      <div className={cx(
-        "numeral text-[22px] leading-tight",
-        tone === "ok" ? "text-ok" : tone === "danger" ? "text-danger" : "text-primary",
-      )}>
-        {value}
-      </div>
-      <div className="text-meta text-secondary">{label}</div>
-    </div>
-  );
-}
+import { sourceLabel } from "@/core/labels";
 
 /** Tum scraper/feed kaynaklarinin son kosum durumu (RSS dahil -- source_run). */
 export function SourceHealthWidget() {
@@ -54,7 +40,7 @@ export function SourceHealthWidget() {
   }
 
   return (
-    <Panel
+    <Section
       title="Kaynak Sağlığı"
       action={
         <div className="flex shrink-0 items-center gap-2">
@@ -89,7 +75,7 @@ export function SourceHealthWidget() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-body text-primary">{sourceLabel(run.source)}</span>
-                    <Badge tone="danger">hata</Badge>
+                    <Chip tone="danger">hata</Chip>
                   </div>
                   {run.error && <p className="mt-0.5 truncate text-meta text-danger">{run.error}</p>}
                   <p className="mt-0.5 text-meta text-muted">{relativeTime(run.started_at)}</p>
@@ -99,6 +85,6 @@ export function SourceHealthWidget() {
           </ul>
         </div>
       )}
-    </Panel>
+    </Section>
   );
 }

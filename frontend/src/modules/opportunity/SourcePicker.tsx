@@ -3,10 +3,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Check, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
 import { navigate } from "@/app/router";
-import { Button, Input, cx, relativeTime, useToast } from "@/core/ui";
+import { Button, Checkbox, Input, cx, relativeTime, useToast } from "@/core/ui";
 import type { SourceHealth, SourceRefreshResult, SourceSyncStatus } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
-import { sourceLabel } from "./labels";
+import { sourceLabel } from "@/core/labels";
 
 type Catalog = { id: string; interval_minutes: number; kind: string };
 const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: "Duyuru" };
@@ -123,7 +123,7 @@ export function SourcePicker() {
         <RefreshCw size={15} className={running.size > 0 ? "animate-spin text-accent" : undefined} />
         Kaynakları çek
         {picked.size > 0 && (
-          <span className="rounded border border-accent-border bg-accent-surface px-1.5 text-[11px] leading-5 text-accent">
+          <span className="rounded border border-accent-border bg-accent-surface px-1.5 text-micro leading-5 text-accent">
             {picked.size}
           </span>
         )}
@@ -141,27 +141,22 @@ export function SourcePicker() {
         >
           <div className="flex items-center gap-2.5 border-b border-subtle px-3 py-2.5">
             <Search size={15} className="shrink-0 text-icon" />
-            <input
+            <Input
               autoFocus
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
               placeholder="Kaynak ara…"
-              aria-label="Kaynak ara"
-              className="w-full bg-transparent text-body text-primary outline-none placeholder:text-muted"
+              ariaLabel="Kaynak ara"
+              className="min-w-0 flex-1"
             />
           </div>
 
           <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-3 py-2">
-            <label className="flex cursor-pointer items-center gap-2.5 text-meta text-secondary">
-              <input
-                type="checkbox"
-                checked={allPicked}
-                onChange={toggleAll}
-                aria-label="Görünenlerin hepsini seç"
-                className="h-4 w-4 accent-[var(--accent)]"
-              />
-              {allPicked ? "Seçimi kaldır" : "Hepsini seç"}
-            </label>
+            <Checkbox
+              checked={allPicked}
+              onChange={toggleAll}
+              label={allPicked ? "Seçimi kaldır" : "Hepsini seç"}
+            />
             <span className="flex-1" />
             <span className="text-meta text-muted">{visible.length} kaynak</span>
           </div>
@@ -173,37 +168,34 @@ export function SourcePicker() {
               const checked = picked.has(source.id);
               return (
                 <li key={source.id}>
-                  <label
+                  <Checkbox
+                    checked={checked}
+                    onChange={() => toggle(source.id)}
+                    label={<>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-body text-primary">{sourceLabel(source.id)}</span>
+                        <span className="block truncate text-meta text-muted">
+                          {KIND_LABELS[source.kind] ?? source.kind}
+                          {" · "}
+                          {busy
+                            ? "çekiliyor…"
+                            : run?.started_at
+                              ? relativeTime(run.started_at)
+                              : "hiç çalışmadı"}
+                        </span>
+                      </span>
+                      {run && run.items_found > 0 && (
+                        <span className="numeral shrink-0 text-body text-secondary">+{run.items_found}</span>
+                      )}
+                      {run?.status === "ok" && !busy && (
+                        <Check size={14} className="shrink-0 text-ok" />
+                      )}
+                    </>}
                     className={cx(
-                      "flex cursor-pointer items-center gap-3 border-b border-subtle px-3 py-2 transition last:border-b-0 hover:bg-surface-hover",
+                      "w-full gap-3 border-b border-subtle px-3 py-2 transition last:border-b-0 hover:bg-surface-hover",
                       checked && "bg-accent-surface/40",
                     )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggle(source.id)}
-                      className="h-4 w-4 shrink-0 accent-[var(--accent)]"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-body text-primary">{sourceLabel(source.id)}</span>
-                      <span className="block truncate text-meta text-muted">
-                        {KIND_LABELS[source.kind] ?? source.kind}
-                        {" · "}
-                        {busy
-                          ? "çekiliyor…"
-                          : run?.started_at
-                            ? relativeTime(run.started_at)
-                            : "hiç çalışmadı"}
-                      </span>
-                    </span>
-                    {run && run.items_found > 0 && (
-                      <span className="numeral shrink-0 text-[14px] text-secondary">+{run.items_found}</span>
-                    )}
-                    {run?.status === "ok" && !busy && (
-                      <Check size={14} className="shrink-0 text-ok" />
-                    )}
-                  </label>
+                  />
                 </li>
               );
             })}

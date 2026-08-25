@@ -2,9 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 import { api, qs } from "@/core/api";
-import {
-  Badge, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx,
-} from "@/core/ui";
+import {Chip, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx} from "@/core/ui";
 import { useHashRoute } from "@/app/router";
 import type { DayDetail } from "@/core/types";
 import { localDateKey } from "@/lib/date";
@@ -120,7 +118,7 @@ export function DayPage() {
                       <span className="min-w-0 text-secondary">
                         {describe(event.verb, event.payload)}
                       </span>
-                      {event.entity_type && <Badge>{event.entity_type}</Badge>}
+                      {event.entity_type && <Chip>{event.entity_type}</Chip>}
                     </div>
                   </li>
                 ))}

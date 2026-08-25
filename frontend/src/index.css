@@ -60,7 +60,20 @@
     --heat-3:          #4E86DF;
     --heat-4:          #1F5FD0;
 
-    /* Medya türleri — kimlik renkleri (metin/çip/rozet kontrasti surface'a göre). */
+    /* Grafik paleti -- kategorik dagilimlar (donut, bar). Sabit sirayla
+       atanir; kategori adi hash'lenmez. Semantik tonlarla karistirma. */
+    --chart-1:         #1F5FD0;
+    --chart-2:         #1E6B45;
+    --chart-3:         #B3261E;
+    --chart-4:         #8A5A00;
+    --chart-5:         #6A3FA0;
+    --chart-6:         #0F766E;
+    --chart-7:         #C2185B;
+    --chart-8:         #5F6F3D;
+
+    /* Medya türleri — KİMLİK renkleri (metin/çip/rozet kontrasti surface'a göre).
+       Semantik tonlardan (ok/warn/danger/accent) ayrıdır: durum bildirmez,
+       kaydın türünü işaretler. Chip identity="kind-movie" ile kullanılır. */
     --kind-movie:      #B3261E;
     --kind-show:       #2E5E9E;
     --kind-anime:      #C2185B;
@@ -134,6 +147,15 @@
     --heat-2:          #2E5896;
     --heat-3:          #4A7FCB;
     --heat-4:          #6FA8FF;
+
+    --chart-1:         #6FA8FF;
+    --chart-2:         #6FCF97;
+    --chart-3:         #F08A7C;
+    --chart-4:         #E0B060;
+    --chart-5:         #A78BDE;
+    --chart-6:         #46B5A8;
+    --chart-7:         #E279A9;
+    --chart-8:         #9BB078;
 
     /* Medya türleri — koyu zeminde biraz açık tonlar. */
     --kind-movie:      #E57A6C;
@@ -228,7 +250,7 @@
 @layer components {
   /* Bolum basligi: "BEKLEYENLER" gibi kucuk kapitaller. */
   .label-caps {
-    @apply text-[10px] font-medium uppercase tracking-[0.16em] text-muted;
+    @apply text-micro font-medium uppercase tracking-[0.16em] text-muted;
   }
   /* Serif rakam — saat, sayac, skor. Hizalanmasi icin tabular. */
   .numeral {
