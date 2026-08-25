@@ -461,7 +461,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Deadlines */
+        /**
+         * Deadlines
+         * @description Son tarihli kayitlar -- kayitli modul saglayicilarindan (kural 16).
+         */
         get: operations["deadlines_api_deadlines_get"];
         put?: never;
         post?: never;
@@ -522,6 +525,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/entities/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Entity Detail */
+        get: operations["entity_detail_api_entities__entity_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/entities/{entity_id}/related": {
         parameters: {
             query?: never;
@@ -529,7 +549,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Related */
+        /**
+         * Related
+         * @description Bagli kayitlar: iliski + yon (outgoing/incoming) + karsi entity ozeti.
+         */
         get: operations["related_api_entities__entity_id__related_get"];
         put?: never;
         post?: never;
@@ -1857,6 +1880,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/registry/entity-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Registry Entity Types
+         * @description Tip -> etiket/rota/ikon kayit defteri (AGENTS.md kural 13). Frontend
+         *     bu uctan beslenir; tip->rota sabiti YAZMAZ.
+         */
+        get: operations["registry_entity_types_api_registry_entity_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/registry/event-verbs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Registry Event Verbs
+         * @description Event verb -> etiket kayit defteri.
+         */
+        get: operations["registry_event_verbs_api_registry_event_verbs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/requirements/{requirement_id}/document": {
         parameters: {
             query?: never;
@@ -3003,29 +3067,6 @@ export interface components {
             status?: string | null;
             /** Title */
             title?: string | null;
-        };
-        /** DeadlineOut */
-        DeadlineOut: {
-            /**
-             * Due At
-             * Format: date-time
-             */
-            due_at: string;
-            /**
-             * Entity Id
-             * Format: uuid
-             */
-            entity_id: string;
-            /** Module */
-            module: string;
-            /** Priority */
-            priority: number;
-            /** Sub Kind */
-            sub_kind: string | null;
-            /** Title */
-            title: string;
-            /** Type */
-            type: string;
         };
         /** EntityOut */
         EntityOut: {
@@ -4439,6 +4480,19 @@ export interface components {
             sub?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * RelatedOut
+         * @description GET /entities/{id}/related satiri: iliski + yon + karsi entity ozeti.
+         */
+        RelatedOut: {
+            /** Direction */
+            direction: string;
+            entity: components["schemas"]["EntityOut"];
+            /** Label */
+            label: string;
+            /** Relation */
+            relation: string;
         };
         /** RequirementDocumentIn */
         RequirementDocumentIn: {
@@ -5874,7 +5928,9 @@ export interface operations {
     };
     deadlines_api_deadlines_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5887,7 +5943,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeadlineOut"][];
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5987,6 +6052,37 @@ export interface operations {
             };
         };
     };
+    entity_detail_api_entities__entity_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     related_api_entities__entity_id__related_get: {
         parameters: {
             query?: never;
@@ -6004,7 +6100,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EntityOut"][];
+                    "application/json": components["schemas"]["RelatedOut"][];
                 };
             };
             /** @description Validation Error */
@@ -9061,6 +9157,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    registry_entity_types_api_registry_entity_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    registry_event_verbs_api_registry_event_verbs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

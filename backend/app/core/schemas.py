@@ -41,6 +41,15 @@ class SavedViewOut(SavedViewIn):
     id: uuid.UUID
 
 
+class RelatedOut(BaseModel):
+    """GET /entities/{id}/related satiri: iliski + yon + karsi entity ozeti."""
+
+    relation: str
+    direction: str
+    label: str
+    entity: EntityOut
+
+
 class LinkIn(BaseModel):
     from_id: uuid.UUID
     to_id: uuid.UUID

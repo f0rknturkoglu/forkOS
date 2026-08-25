@@ -1,9 +1,10 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { CalendarDays, Plus, Repeat, Tag, X } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Input, cx, useToast } from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { PRIORITIES, RECURRENCES } from "./priority";
 
 /**
@@ -22,7 +23,6 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   function reset() {
@@ -42,7 +42,7 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
       }),
     onSuccess: () => {
       reset();
-      invalidate("todos", "activity", "review-preview", "tags");
+      invalidateAfter("todo.write");
       onCreated?.();
     },
     onError: () => toast.push("Görev eklenemedi.", { tone: "danger" }),

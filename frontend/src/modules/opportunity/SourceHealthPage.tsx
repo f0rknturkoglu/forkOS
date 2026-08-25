@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Check, Loader2, RefreshCw, Search } from "lucide-react";
@@ -8,7 +9,7 @@ import { useHashRoute } from "@/app/router";
 import type {
   SourceHealth, SourceRefreshResult, SourceSyncBatch, SourceSyncStatus,
 } from "@/core/types";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { sourceLabel } from "@/core/labels";
 import {
   sourceSyncApiPath,
@@ -34,7 +35,6 @@ export function SourceHealthPage() {
   const route = useHashRoute();
   const scope: SourceSyncScope = route.params.get("scope") === "media" ? "media" : "opportunity";
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
   const [kind, setKind] = useState("");
   const [search, setSearch] = useState("");
@@ -81,7 +81,7 @@ export function SourceHealthPage() {
 
   const refreshOne = useMutation({
     mutationFn: (id: string) => api.post(`/sources/${encodeURIComponent(id)}/refresh`),
-    onSuccess: () => invalidate("source-runs", "source-sync", "opportunities", "notifications"),
+    onSuccess: () => invalidateAfter("source.sync"),
   });
 
   const refreshMany = useMutation({
@@ -89,7 +89,7 @@ export function SourceHealthPage() {
       api.post<SourceRefreshResult>("/sources/refresh", body),
     onSuccess: (result) => {
       setPicked(new Set());
-      invalidate("source-runs", "source-sync", "source-sync-history");
+      invalidateAfter("source.sync");
       toast.push(
         result.queued
           ? `${result.queued} kaynak kuyruğa alındı`

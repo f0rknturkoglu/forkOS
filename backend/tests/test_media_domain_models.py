@@ -214,7 +214,7 @@ def test_media_domain_constraints_and_partial_indexes_are_declared():
 
 
 def test_media_module_registers_all_searchable_entity_types():
-    assert set(MODULE.entity_types) == {
+    assert {spec.type for spec in MODULE.entity_types} == {
         "media_item",
         "media_unit",
         "media_cycle",

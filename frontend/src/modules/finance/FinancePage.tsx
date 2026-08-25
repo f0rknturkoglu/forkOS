@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
@@ -5,7 +6,7 @@ import { api } from "@/core/api";
 import type { Expense, RecurringPayment } from "@/core/types";
 import {Button, Chip, Empty, IconButton, Input, Metric, MetricStrip, NumberInput, PageFrame, PageHeader, RowList, Section, Select, Toolbar} from "@/core/ui";
 import { localDateKey } from "@/lib/date";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
 type Summary = { currency: string; category: string; amount: string };
 const categories = ["food", "subscriptions", "transport", "education", "entertainment", "other"];
@@ -94,14 +95,13 @@ export function FinancePage() {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("other");
   const [sub, setSub] = useState("");
-  const invalidate = useInvalidate();
   const now = new Date();
   const online = useOnline();
   const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => api.get<Expense[]>("/expenses") });
   const { data: recurring = [] } = useQuery({ queryKey: ["recurring"], queryFn: () => api.get<RecurringPayment[]>("/recurring-payments") });
   const { data: summary = [] } = useQuery({ queryKey: ["expense-summary"], queryFn: () => api.get<Summary[]>("/expenses/summary") });
 
-  const refresh = () => invalidate("expenses", "recurring", "expense-summary", "deadlines", "activity");
+  const refresh = () => invalidateAfter("finance.write");
   const create = useMutation({
     mutationFn: () =>
       tab === "expenses"

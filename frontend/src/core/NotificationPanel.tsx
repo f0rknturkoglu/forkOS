@@ -1,10 +1,12 @@
+import { invalidateAfter } from "./invalidation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bell, CheckCheck, X } from "lucide-react";
 import { api } from "./api";
-import { invalidate } from "./queryClient";
+import {invalidate} from "./queryClient";
 import { Empty, cx, relativeTime } from "./ui";
 import type { Notification } from "./types";
+import { entityRoute } from "./entityRegistry";
 
 /**
  * Ust seritteki bildirim paneli.
@@ -14,17 +16,7 @@ import type { Notification } from "./types";
  * modulun icinde degil.
  */
 
-/** Bildirimin hedefi -- once entity turu, o yoksa bildirimin kendi turu. */
-const ROUTE_FOR_TYPE: Record<string, string> = {
-  opportunity: "/opportunities",
-  todo: "/todos",
-  bookmark: "/bookmarks",
-  feed: "/rss",
-  feed_item: "/rss",
-  project: "/projects",
-  document: "/documents",
-};
-
+/** Bildirimin hedefi -- once entity turu (kayit defterinden), o yoksa tur. */
 const ROUTE_FOR_KIND: [prefix: string, route: string][] = [
   ["opportunity", "/opportunities"],
   ["deadline", "/opportunities"],
@@ -34,13 +26,10 @@ const ROUTE_FOR_KIND: [prefix: string, route: string][] = [
 ];
 
 export function notificationRoute(item: Notification): string {
-  if (item.entity_type === "media_item") {
-    return item.entity_id ? `/media?focus=${item.entity_id}` : "/media";
+  if (item.entity_type) {
+    const route = entityRoute(item.entity_type, item.entity_id ?? "");
+    if (route !== "#/") return route;
   }
-  if (item.entity_type === "media_unit") {
-    return "/media";
-  }
-  if (item.entity_type && ROUTE_FOR_TYPE[item.entity_type]) return ROUTE_FOR_TYPE[item.entity_type];
   const match = ROUTE_FOR_KIND.find(([prefix]) => item.kind.startsWith(prefix));
   return match ? match[1] : "/activity";
 }
@@ -61,15 +50,15 @@ export function NotificationPanel() {
 
   const read = useMutation({
     mutationFn: (id: number) => api.post(`/notifications/${id}/read`),
-    onSuccess: () => invalidate("notifications"),
+    onSuccess: () => invalidateAfter("notification.write"),
   });
   const readAll = useMutation({
     mutationFn: () => api.post("/notifications/read-all"),
-    onSuccess: () => invalidate("notifications"),
+    onSuccess: () => invalidateAfter("notification.write"),
   });
   const dismiss = useMutation({
     mutationFn: (id: number) => api.post(`/notifications/${id}/dismiss`),
-    onSuccess: () => invalidate("notifications"),
+    onSuccess: () => invalidateAfter("notification.write"),
   });
 
   // Disari tiklama ve Esc kapatir.

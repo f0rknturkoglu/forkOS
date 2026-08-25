@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -7,12 +8,8 @@ import {
 import { api } from "@/core/api";
 import type { AgendaRow, FeedItem, TodayAgenda, Todo } from "@/core/types";
 import {Button, Chip, Empty, IconButton, Input, RowList, Section, SectionHeader, Select, Spinner, cx, useToast} from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
-const REFRESH_KEYS = [
-  "today-agenda", "todos", "plan", "calendar-events", "items", "rss-stats",
-  "media", "media-dashboard", "activity", "review-preview",
-] as const;
 
 const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
   daily: "her gün",
@@ -71,7 +68,6 @@ function pickerRow(item: Todo | FeedItem, kind: "todo" | "rss"): AgendaRow {
 export function TodayAgendaWidget() {
   const day = localDay();
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState("");
@@ -95,7 +91,7 @@ export function TodayAgendaWidget() {
     enabled: adding,
   });
 
-  const refreshed = () => invalidate(...REFRESH_KEYS);
+  const refreshed = () => invalidateAfter("todo.write", "plan.write", "rss.write", "media.write", "calendar.write");
   const failed = () => toast.push("İşlem tamamlanamadı. Satır korunuyor; tekrar deneyebilirsin.", { tone: "danger" });
 
   const complete = useMutation({

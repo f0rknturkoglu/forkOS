@@ -1,10 +1,11 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import {Button, Chip, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select, Textarea, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { Project } from "@/core/types";
 import { GithubPanel } from "./GithubPanel";
 import { ProjectTodos } from "./ProjectTodos";
@@ -31,7 +32,6 @@ export function ProjectsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const online = useOnline();
-  const invalidate = useInvalidate();
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
@@ -62,7 +62,7 @@ export function ProjectsPage() {
 
       {adding && (
         <NewProject
-          onDone={(id) => { setAdding(false); invalidate("projects"); setSelected(id); }}
+          onDone={(id) => { setAdding(false); invalidateAfter("project.write"); setSelected(id); }}
         />
       )}
 
@@ -117,18 +117,17 @@ export function ProjectsPage() {
 
 function ProjectDetail({ project }: { project: Project }) {
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   const patch = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/projects/${project.id}`, body),
-    onSuccess: () => invalidate("projects", "project-github"),
+    onSuccess: () => invalidateAfter("project.write"),
     onError: () => toast.push("Kaydedilemedi.", { tone: "danger" }),
   });
   const remove = useMutation({
     mutationFn: () => api.del(`/projects/${project.id}`),
     onSuccess: () => {
-      invalidate("projects");
+      invalidateAfter("project.write");
       toast.push("Proje silindi — bağlı görevler durmaya devam ediyor.", { tone: "ok" });
     },
   });

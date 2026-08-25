@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { navigate, useHashRoute } from "@/app/router";
@@ -5,17 +6,14 @@ import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import type { MediaItem, MediaPage as MediaPageResponse, MediaStats } from "@/core/types";
 import { Button, Empty, PageFrame, PageHeader } from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import {
   MediaLibraryControls,
   MediaMetrics,
   MediaPosterGrid,
   MediaPosterGridSkeleton,
 } from "./MediaPosterGrid";
-import {
-  consumptionBody,
-  MEDIA_PROGRESS_REFRESH_KEYS,
-} from "./MediaProgressActions";
+import { consumptionBody } from "./MediaProgressActions";
 import { MediaSearchComposer } from "./MediaSearchComposer";
 import { MediaSyncSummary } from "./MediaSyncSummary";
 
@@ -43,13 +41,11 @@ export function receiveMediaFocus(
 }
 
 /** Compatibility export; all page mutations share the append-only progress invalidation contract. */
-export const MEDIA_REFRESH_KEYS = MEDIA_PROGRESS_REFRESH_KEYS;
 
 export function MediaPage() {
   const route = useHashRoute();
   const focusId = route.params.get("focus");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const [kind, setKind] = useState("");
   const [status, setStatus] = useState("");
   const [searchActive, setSearchActive] = useState(false);
@@ -73,7 +69,7 @@ export function MediaPage() {
     queryFn: () => api.get<MediaStats>("/media/stats"),
   });
 
-  const refresh = () => invalidate(...MEDIA_REFRESH_KEYS);
+  const refresh = () => invalidateAfter("media.write");
   const quick = useMutation({
     mutationFn: (item: Pick<MediaItem, "id" | "progress_measure">) =>
       api.post(

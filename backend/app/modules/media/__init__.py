@@ -1,19 +1,19 @@
 from app.modules.media.router import router
+from app.modules.media.service import deadline_provider as media_deadlines
 
 
 def _spec():
-    from app.modules import ModuleSpec
+    from app.modules import EntityTypeSpec, ModuleSpec
 
-    return ModuleSpec(
-        id="media",
+    return ModuleSpec(id="media",
         title="Medya",
         router=router,
         entity_types=[
-            "media_item",
-            "media_unit",
-            "media_cycle",
-            "media_consumption",
-            "media_collection",
+            EntityTypeSpec('media_item', 'Medya', 'Medyalar', '/media/{id}', 'Film'),
+            EntityTypeSpec('media_collection', 'Koleksiyon', 'Koleksiyonlar', '/media', 'Library'),
+            EntityTypeSpec('media_unit', 'Bölüm', 'Bölümler', '/media', 'FileVideo'),
+            EntityTypeSpec('media_cycle', 'Döngü', 'Döngüler', '/media', 'RefreshCw'),
+            EntityTypeSpec('media_consumption', 'Tüketim', 'Tüketimler', '/media', 'Play'),
         ],
         event_verbs=[
             "media.item_added",
@@ -36,6 +36,7 @@ def _spec():
             "media.sync_failed",
             "media.sync_empty",
         ],
+        deadline_provider=media_deadlines,
     )
 
 

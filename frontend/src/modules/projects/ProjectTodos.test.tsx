@@ -43,8 +43,10 @@ vi.mock("@/core/ui", async (importOriginal) => {
   };
 });
 vi.mock("@/lib/hooks", () => ({
-  useInvalidate: () => harness.invalidate,
   useOnline: () => true,
+}));
+vi.mock("@/core/invalidation", () => ({
+  invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
@@ -97,9 +99,7 @@ describe("project todo integration", () => {
     });
 
     add.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith(
-      "projects", "project-todos", "project-timeline", "todos", "activity",
-    );
+    expect(harness.invalidate).toHaveBeenCalledWith("project.write");
   });
 
   it("trims titles and omits a blank milestone in the atomic helper", async () => {

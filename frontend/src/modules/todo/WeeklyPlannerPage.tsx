@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -5,7 +6,7 @@ import { api, qs } from "@/core/api";
 import { Button, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
 import type { PlanSlot, Todo } from "@/core/types";
 import { localDateKey } from "@/lib/date";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
 const isoDay = localDateKey;
 function monday(value = new Date()) {
@@ -36,7 +37,7 @@ function DayColumn({ day, slots }: { day: Date; slots: PlanSlot[] }) {
 
 export function WeeklyPlannerPage() {
   const [week, setWeek] = useState(() => monday());
-  const online = useOnline(); const invalidate = useInvalidate();
+  const online = useOnline();
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const day = new Date(week); day.setDate(week.getDate() + i); return day;
   }), [week]);
@@ -48,7 +49,7 @@ export function WeeklyPlannerPage() {
     const day = target.replace("day:", "");
     if (active.startsWith("slot:")) return api.patch(`/plan/${active.replace("slot:", "")}`, { day });
     return api.post("/plan", { entity_id: active.replace("todo:", ""), day });
-  }, onSuccess: () => invalidate("plan", "activity") });
+  }, onSuccess: () => invalidateAfter("plan.write") });
   function onDragEnd(event: DragEndEvent) {
     if (!event.over || !online) return;
     move.mutate({ active: String(event.active.id), target: String(event.over.id) });

@@ -25,6 +25,7 @@ from app.core.entity import (
 from app.core.events import log_event
 from app.core.links import link, unlink
 from app.core.models import Entity, EntityTag, Link, Tag
+from app.modules import DeadlineRow
 from app.modules.media.models import (
     MEDIA_COLLECTION_ITEM_RELATION,
     MediaCollection,
@@ -1543,3 +1544,29 @@ async def validate_progress(
         await touch_entity(session, item.id)
         await session.commit()
     return ProgressValidationOut(valid=valid, actual=actual, expected=expected)
+
+
+async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
+    """Yaklasan cikislar: unit release_at (varsa) yoksa item release_date (kural 16)."""
+    from app.core.deadlines import rows_with_titles
+    from app.modules.media.models import MediaItem, MediaUnit
+
+    items = (await session.execute(
+        select(MediaItem).where(MediaItem.release_date.is_not(None))
+    )).scalars()
+    item_due = {i.id: i.release_date for i in items}
+    item_ids = list(item_due)
+    units = (await session.execute(
+        select(MediaUnit).where(MediaUnit.release_at.is_not(None))
+    )).scalars()
+    unit_due = {u.id: u.release_at for u in units}
+    unit_ids = list(unit_due)
+    rows = await rows_with_titles(
+        session, type_="media_item", module="media",
+        ids=item_ids, due_at=item_due, priority={i: 1 for i in item_ids},
+    )
+    rows += await rows_with_titles(
+        session, type_="media_unit", module="media",
+        ids=unit_ids, due_at=unit_due, priority={i: 1 for i in unit_ids},
+    )
+    return rows

@@ -38,8 +38,10 @@ vi.mock("@/core/api", () => ({
   api: { del: harness.apiDel, get: vi.fn(), post: harness.apiPost },
 }));
 vi.mock("@/lib/hooks", () => ({
-  useInvalidate: () => harness.invalidate,
   useOnline: () => true,
+}));
+vi.mock("@/core/invalidation", () => ({
+  invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
@@ -60,9 +62,7 @@ const activeSession = {
   paused_s: 0, planned_min: 50, started_at: "2026-01-01T10:00:00.000Z", topic: "Odak",
 };
 const contextTodo = { id: "todo-1", title: "Proje görevi" };
-const refreshKeys = [
-  "pomodoro-active", "pomodoro-stats", "pomodoro-sessions", "activity", "review-preview", "project-timeline",
-];
+const refreshEvent = "pomodoro.write";
 
 function findPostMutation(url: string, value?: unknown) {
   return harness.mutations.find((mutation) => {
@@ -95,14 +95,14 @@ describe("pomodoro project timeline refresh", () => {
     const stop = findPostMutation("/pomodoro/pomo-1/stop", false);
     expect(stop).toBeDefined();
     stop?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith(...refreshKeys);
+    expect(harness.invalidate).toHaveBeenCalledWith(refreshEvent);
 
     harness.invalidate.mockClear();
     const manual = findPostMutation("/pomodoro");
     expect(manual).toBeDefined();
     expect(harness.apiPost).toHaveBeenCalledWith("/pomodoro", expect.objectContaining({ context_entity_id: "todo-1" }));
     manual?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith(...refreshKeys);
+    expect(harness.invalidate).toHaveBeenCalledWith(refreshEvent);
   });
 
   it("refreshes the project timeline after widget and focus-mode stops, but not pause", () => {
@@ -110,7 +110,7 @@ describe("pomodoro project timeline refresh", () => {
     const widgetStop = findPostMutation("/pomodoro/pomo-1/stop", true);
     expect(widgetStop).toBeDefined();
     widgetStop?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith(...refreshKeys);
+    expect(harness.invalidate).toHaveBeenCalledWith(refreshEvent);
 
     harness.invalidate.mockClear();
     harness.mutations.length = 0;
@@ -118,13 +118,13 @@ describe("pomodoro project timeline refresh", () => {
     const focusStop = findPostMutation("/pomodoro/pomo-1/stop", false);
     expect(focusStop).toBeDefined();
     focusStop?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith(...refreshKeys);
+    expect(harness.invalidate).toHaveBeenCalledWith(refreshEvent);
 
     harness.invalidate.mockClear();
     const pause = findPostMutation("/pomodoro/pomo-1/pause");
     expect(pause).toBeDefined();
     pause?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("pomodoro-active");
-    expect(harness.invalidate).not.toHaveBeenCalledWith(expect.stringContaining("project-timeline"));
+    // Duraklatma da bir pomodoro yazmasidir; harita pomodoro.write'i tazeler.
+    expect(harness.invalidate).toHaveBeenCalledWith(refreshEvent);
   });
 });

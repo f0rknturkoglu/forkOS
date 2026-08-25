@@ -1189,58 +1189,6 @@
         "title": "CoursePatch",
         "type": "object"
       },
-      "DeadlineOut": {
-        "properties": {
-          "due_at": {
-            "format": "date-time",
-            "title": "Due At",
-            "type": "string"
-          },
-          "entity_id": {
-            "format": "uuid",
-            "title": "Entity Id",
-            "type": "string"
-          },
-          "module": {
-            "title": "Module",
-            "type": "string"
-          },
-          "priority": {
-            "title": "Priority",
-            "type": "integer"
-          },
-          "sub_kind": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sub Kind"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "type": {
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "entity_id",
-          "type",
-          "title",
-          "due_at",
-          "module",
-          "sub_kind",
-          "priority"
-        ],
-        "title": "DeadlineOut",
-        "type": "object"
-      },
       "EntityOut": {
         "properties": {
           "created_at": {
@@ -5813,6 +5761,34 @@
         "title": "RecurringPatch",
         "type": "object"
       },
+      "RelatedOut": {
+        "description": "GET /entities/{id}/related satiri: iliski + yon + karsi entity ozeti.",
+        "properties": {
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/EntityOut"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation",
+          "direction",
+          "label",
+          "entity"
+        ],
+        "title": "RelatedOut",
+        "type": "object"
+      },
       "RequirementDocumentIn": {
         "properties": {
           "document_entity_id": {
@@ -8603,26 +8579,44 @@
     },
     "/api/deadlines": {
       "get": {
+        "description": "Son tarihli kayitlar -- kayitli modul saglayicilarindan (kural 16).",
         "operationId": "deadlines_api_deadlines_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DeadlineOut"
-                  },
-                  "title": "Response Deadlines Api Deadlines Get",
-                  "type": "array"
-                }
+                "schema": {}
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Deadlines",
         "tags": [
-          "opportunities"
+          "core"
         ]
       }
     },
@@ -8753,8 +8747,52 @@
         ]
       }
     },
+    "/api/entities/{entity_id}": {
+      "get": {
+        "operationId": "entity_detail_api_entities__entity_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Detail",
+        "tags": [
+          "core"
+        ]
+      }
+    },
     "/api/entities/{entity_id}/related": {
       "get": {
+        "description": "Bagli kayitlar: iliski + yon (outgoing/incoming) + karsi entity ozeti.",
         "operationId": "related_api_entities__entity_id__related_get",
         "parameters": [
           {
@@ -8774,7 +8812,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/EntityOut"
+                    "$ref": "#/components/schemas/RelatedOut"
                   },
                   "title": "Response Related Api Entities  Entity Id  Related Get",
                   "type": "array"
@@ -13140,6 +13178,46 @@
         "summary": "Pay",
         "tags": [
           "finance"
+        ]
+      }
+    },
+    "/api/registry/entity-types": {
+      "get": {
+        "description": "Tip -> etiket/rota/ikon kayit defteri (AGENTS.md kural 13). Frontend\nbu uctan beslenir; tip->rota sabiti YAZMAZ.",
+        "operationId": "registry_entity_types_api_registry_entity_types_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Registry Entity Types",
+        "tags": [
+          "core"
+        ]
+      }
+    },
+    "/api/registry/event-verbs": {
+      "get": {
+        "description": "Event verb -> etiket kayit defteri.",
+        "operationId": "registry_event_verbs_api_registry_event_verbs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Registry Event Verbs",
+        "tags": [
+          "core"
         ]
       }
     },

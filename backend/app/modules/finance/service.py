@@ -12,6 +12,7 @@ from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity
 from app.core.time import local_today
+from app.modules import DeadlineRow
 from app.modules.finance.models import Expense, RecurringPayment
 
 
@@ -147,3 +148,22 @@ async def delete_item(session: AsyncSession, model, item_id: uuid.UUID) -> bool:
                     entity_type=model.ENTITY_TYPE, payload={"title": title})
     await session.commit()
     return True
+
+
+async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
+    """Aktif tekrarlayan odemelerin vadesi (kural 16)."""
+    from app.core.deadlines import rows_with_titles
+    from app.modules.finance.models import RecurringPayment
+
+    payments = (await session.execute(
+        select(RecurringPayment).where(
+            RecurringPayment.active.is_(True),
+            RecurringPayment.next_due_at.is_not(None),
+        )
+    )).scalars()
+    ids = [x.id for x in payments]
+    due = {x.id: x.next_due_at for x in payments}
+    return await rows_with_titles(
+        session, type_="recurring_payment", module="recurring",
+        ids=ids, due_at=due, priority={x.id: 1 for x in payments},
+    )

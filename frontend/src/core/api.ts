@@ -40,7 +40,8 @@ export const api = {
     request<T>(p, { method: "PATCH", body: JSON.stringify(body ?? {}) }),
   put: <T>(p: string, body?: unknown) =>
     request<T>(p, { method: "PUT", body: JSON.stringify(body ?? {}) }),
-  del: (p: string) => request<void>(p, { method: "DELETE" }),
+  del: (p: string, body?: unknown) =>
+    request<void>(p, { method: "DELETE", ...(body ? { body: JSON.stringify(body) } : {}) }),
   /** multipart -- Content-Type'i tarayici koysun, elle yazma. */
   upload: async <T>(p: string, file: File, field = "file") => {
     assertOnlineWrite();

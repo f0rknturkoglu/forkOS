@@ -10,6 +10,7 @@ Sayilar okunur; hicbir sey yazilmaz (bildirimin kendisi disinda).
 from __future__ import annotations
 
 import logging
+from datetime import UTC
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,17 @@ from app.core.time import local_day_bounds, local_today
 from app.db import SessionLocal
 
 log = logging.getLogger("worker.digest")
+
+
+async def _deadline_count(session) -> int:
+    """7 gun icindeki son tarihler (kural 16: provider toplayicisi)."""
+    from datetime import datetime, timedelta
+
+    from app.core.deadlines import collect_deadlines
+
+    rows = await collect_deadlines(session)
+    horizon = datetime.now(UTC) + timedelta(days=7)
+    return sum(1 for r in rows if r["due_at"] <= horizon)
 
 
 async def _scalar(session: AsyncSession, sql: str, **params) -> int:
@@ -47,11 +59,7 @@ async def collect(session: AsyncSession) -> dict[str, int]:
             "select count(*) from plan_slot where day = :today",
             today=today,
         ),
-        "deadlines": await _scalar(
-            session,
-            "select count(*) from deadline_v where due_at >= now() "
-            "and due_at < now() + interval '7 days'",
-        ),
+        "deadlines": await _deadline_count(session),
         "inbox": await _scalar(
             session,
             "select count(*) from bookmark where collection = 'inbox'",

@@ -76,10 +76,14 @@ vi.mock("@/core/api", () => ({
   qs: vi.fn(() => ""),
 }));
 vi.mock("@/lib/hooks", () => ({
-  useInvalidate: () => harness.invalidate,
   useOnline: () => true,
 }));
+vi.mock("@/core/invalidation", () => ({
+  invalidateAfter: (...events: string[]) => harness.invalidate(...events),
+}));
 vi.mock("@tanstack/react-query", () => ({
+  QueryClient: class { invalidateQueries() {} },
+  MutationCache: class {} ,
   useMutation: vi.fn((options: MutationOptions) => {
     harness.mutations.push(options);
     return { mutate: vi.fn(), isPending: false };
@@ -146,8 +150,7 @@ describe("unified Today agenda", () => {
 
     complete?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith(
-      "today-agenda", "todos", "plan", "calendar-events", "items", "rss-stats",
-      "media", "media-dashboard", "activity", "review-preview",
+      "todo.write", "plan.write", "rss.write", "media.write", "calendar.write",
     );
   });
 

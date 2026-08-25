@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { LayoutGrid, List, Search, Settings2 } from "lucide-react";
@@ -6,7 +7,7 @@ import { Button, Checkbox, Empty, Input, PageFrame, PageHeader, RowList, Section
 import { confirmDialog } from "@/core/dialog";
 import { navigate } from "@/app/router";
 import type { Opportunity } from "@/core/types";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { REMOTE_LABELS, STATUSES, remoteKind, statusLabel } from "./labels";
 import { sourceLabel } from "@/core/labels";
 import { OpportunityDetail } from "./OpportunityDetail";
@@ -25,7 +26,6 @@ const PAGE = 60;
 
 export function OpportunityPage() {
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
   const [tab, setTab] = useState<OpportunityTab>("jobs");
   const [status, setStatus] = useState("");
@@ -58,7 +58,7 @@ export function OpportunityPage() {
   const patch = useMutation({
     mutationFn: ({ id, status: next }: { id: string; status: string }) =>
       api.patch(`/opportunities/${id}`, { status: next }),
-    onSuccess: () => invalidate("opportunities", "activity"),
+    onSuccess: () => invalidateAfter("opportunity.write"),
   });
   const lifecycle = useMutation({
     mutationFn: ({ action, id }: { action: "trash" | "restore" | "delete"; id: string }) =>
@@ -66,7 +66,7 @@ export function OpportunityPage() {
         ? api.del(`/opportunities/${id}`)
         : api.post(`/opportunities/${id}/${action}`),
     onSuccess: (_, variables) => {
-      invalidate("opportunities", "activity");
+      invalidateAfter("opportunity.write");
       toast.push(
         variables.action === "trash"
           ? "Fırsat çöpe taşındı"

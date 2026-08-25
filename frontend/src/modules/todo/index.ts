@@ -1,9 +1,10 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { lazy } from "react";
 import { ListChecks } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import { invalidate } from "@/core/queryClient";
+import {invalidate} from "@/core/queryClient";
 
 const TodoPage = lazy(() => import("./TodoPage").then((module) => ({ default: module.TodoPage })));
 const WeeklyPlannerPage = lazy(() => import("./WeeklyPlannerPage").then((module) => ({ default: module.WeeklyPlannerPage })));
@@ -24,7 +25,7 @@ registerModule({
       run: async (title) => {
         if (!title?.trim()) return;
         await api.post("/todos", { title: title.trim() });
-        invalidate("todos", "activity");
+        invalidateAfter("todo.write");
         navigate("/todos");
       } },
   ],

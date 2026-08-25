@@ -1,9 +1,10 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { lazy } from "react";
 import { Inbox } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import { invalidate } from "@/core/queryClient";
+import {invalidate} from "@/core/queryClient";
 import { InboxWidget } from "./InboxWidget";
 import { InboxStats } from "./InboxStats";
 
@@ -29,7 +30,7 @@ registerModule({
           source: "manual",
           client_uuid: crypto.randomUUID(),
         });
-        invalidate("bookmarks", "bookmark-stats", "activity");
+        invalidateAfter("bookmark.write");
         navigate("/inbox");
       },
     },

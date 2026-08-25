@@ -904,7 +904,7 @@ async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient)
     grouped = (
         await client.get("/api/search", params={"q": f"Project {suffix}", "grouped": True})
     ).json()
-    assert any(item["id"] == project["id"] for item in grouped["Projects"])
+    assert any(item["id"] == project["id"] for item in grouped["Projeler"])
     assert (await client.get("/api/export/csv", params={"module": "expense"})).status_code == 200
     assert (await client.get("/api/export/ics")).status_code == 200
 

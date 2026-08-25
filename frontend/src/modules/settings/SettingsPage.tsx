@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useHashRoute } from "@/app/router";
@@ -8,7 +9,7 @@ import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import {Button, Checkbox, Chip, FileInput, Input, NumberInput, PageFrame, PageHeader, Section, Textarea, relativeTime, useTheme, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import type { Theme } from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
 type IntegrationStatus = { connected: boolean; login?: string | null };
 
@@ -28,7 +29,7 @@ export function SettingsPage() {
   const restoreBackup = useMutation({
     mutationFn: (file: File) => api.upload<{ restored: number }>("/backup/restore", file),
     onSuccess: (result) => {
-      invalidate("backup-status", "activity");
+      invalidateAfter("backup.write");
       toast.push(`${result.restored} kayıt geri yüklendi — çakışanlara dokunulmadı.`, { tone: "ok" });
     },
     onError: (error: Error) => toast.push(`Geri yükleme başarısız: ${error.message}`, { tone: "danger" }),
@@ -41,7 +42,6 @@ export function SettingsPage() {
     });
     if (ok) restoreBackup.mutate(file);
   }
-  const invalidate = useInvalidate(); const [githubLogin, setGithubLogin] = useState(""); const [githubToken, setGithubToken] = useState(""); const [mediaName, setMediaName] = useState(""); const [mediaUrl, setMediaUrl] = useState("");
   const [weatherLoc, setWeatherLoc] = useState<string | null>(null); const [widgetOrder, setWidgetOrder] = useState<string | null>(null); const [pomodoroDefaults, setPomodoroDefaults] = useState<string | null>(null); const [thresholdsText, setThresholdsText] = useState<string | null>(null); const [intervalsText, setIntervalsText] = useState<string | null>(null); const [retentionDays, setRetentionDays] = useState<number | null>(null); const [tmdbKey, setTmdbKey] = useState<string | null>(null); const [rawgKey, setRawgKey] = useState<string | null>(null);
   const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<AppSettings>("/settings") });
   const { data: sources = [] } = useQuery({ queryKey: ["sources", "health"], queryFn: () => api.get<SourceHealth[]>("/sources/health") });
@@ -70,12 +70,13 @@ export function SettingsPage() {
     await api.put("/settings/weather.location", { value: name });
     await api.put("/settings/weather.lat", { value: hit.latitude });
     await api.put("/settings/weather.lon", { value: hit.longitude });
-    invalidate("settings");
+    invalidateAfter("settings.write");
     toast.push("Hava durumu konumu kaydedildi.", { tone: "ok" });
   }
-  const save = useMutation({ mutationFn: ({ key, value }: { key: string; value: unknown }) => api.put(`/settings/${key}`, { value }), onSuccess: () => invalidate("settings") });
-  const connectGithub = useMutation({ mutationFn: () => api.post("/auth/github", { login: githubLogin, token: githubToken }), onSuccess: () => { setGithubToken(""); invalidate("github-status"); } });
-  const backup = useMutation({ mutationFn: () => api.post<{ path: string; size: number }>("/backup"), onSuccess: () => invalidate("backup-status", "activity") });
+  const save = useMutation({ mutationFn: ({ key, value }: { key: string; value: unknown }) => api.put(`/settings/${key}`, { value }), onSuccess: () => invalidateAfter("settings.write") });
+  const [githubLogin, setGithubLogin] = useState(""); const [githubToken, setGithubToken] = useState(""); const [mediaName, setMediaName] = useState(""); const [mediaUrl, setMediaUrl] = useState("");
+  const connectGithub = useMutation({ mutationFn: () => api.post("/auth/github", { login: githubLogin, token: githubToken }), onSuccess: () => { setGithubToken(""); invalidateAfter("settings.write"); } });
+  const backup = useMutation({ mutationFn: () => api.post<{ path: string; size: number }>("/backup"), onSuccess: () => invalidateAfter("backup.write") });
   if (!settings) return <div className="p-6 text-body text-muted">Ayarlar yükleniyor…</div>;
   const disabled = settings["modules.disabled"] ?? []; const media = settings["media.links"] ?? [];
   const toggleModule = (id: string) => save.mutate({ key: "modules.disabled", value: disabled.includes(id) ? disabled.filter(x => x !== id) : [...disabled, id] });

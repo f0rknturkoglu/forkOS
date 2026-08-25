@@ -1,12 +1,12 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Minimize2, Pause, Play, X } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, cx } from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { PomodoroSession } from "@/core/types";
 import { clock, remaining } from "./time";
-import { POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 
 /**
  * Odak modu: sayac disinda hicbir sey yok.
@@ -20,7 +20,6 @@ import { POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 export function FocusMode({ onClose }: { onClose: () => void }) {
   const [now, setNow] = useState(Date.now());
   const online = useOnline();
-  const invalidate = useInvalidate();
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -36,13 +35,13 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),
     onSuccess: () => {
-      invalidate(...POMODORO_TIMELINE_REFRESH_KEYS);
+      invalidateAfter("pomodoro.write");
       onClose();
     },
   });
   const togglePause = useMutation({
     mutationFn: () => api.post(`/pomodoro/${active?.id}/${active?.paused_at ? "resume" : "pause"}`),
-    onSuccess: () => invalidate("pomodoro-active"),
+    onSuccess: () => invalidateAfter("pomodoro.write"),
   });
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -6,7 +7,7 @@ import {
 } from "lucide-react";
 import { api } from "@/core/api";
 import {Chip, IconButton, Input, cx, useToast} from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { Todo } from "@/core/types";
 import { dueLabel, priorityOf, recurLabel } from "./priority";
 
@@ -36,11 +37,10 @@ export function TodoRow({
   const [subtask, setSubtask] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   const refresh = () => {
-    invalidate("todos", "activity", "review-preview");
+    invalidateAfter("todo.write");
     onChange?.();
   };
 

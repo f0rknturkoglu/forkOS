@@ -1,4 +1,10 @@
-"""Entity'ler arasi iliski."""
+"""Entity'ler arasi iliski.
+
+RELATIONS -- iliski (relation) sozlugu TEK yerde: ileri/geri etiket cifti.
+UI iki yonu de buradan yazar. Yeni iliski eklemek = buraya bir satir
+(AGENTS.md kural 13'ün link tarafi).
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -8,6 +14,18 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity, Link
+
+#: relation -> (ileri etiket, geri etiket). UI yonu duzeltir.
+RELATIONS: dict[str, tuple[str, str]] = {
+    "related": ("İlgili", "İlgili"),
+    "saved_from": ("Kaynağı", "Buradan kaydedildi"),
+    "belongs_to": ("Ait olduğu", "Alt kaydı"),
+    "application_step": ("Başvuru adımı", "Adımı olduğu başvuru"),
+    "paid_as": ("Ödemesi", "Ödendiği harcama"),
+    "media.collection_item": ("Koleksiyon", "Koleksiyon öğesi"),
+    "prepares_for": ("Hazırlık", "Hazırlanılan"),
+    "references": ("Kaynak", "Kaynak gösterilen"),
+}
 
 
 async def link(
@@ -31,13 +49,41 @@ async def unlink(
         await session.delete(row)
 
 
-async def related(session: AsyncSession, entity_id: uuid.UUID) -> list[Entity]:
-    """Yon fark etmeksizin bagli tum entity'ler."""
+async def related(session: AsyncSession, entity_id: uuid.UUID) -> list[dict]:
+    """Yon fark etmeksizin bagli tum entity'ler; her satir icin iliski ve yon.
+
+    direction: "outgoing" (bu kayittan disari), "incoming" (disaridan bu kayda).
+    label: iliski sozlugundeki ileri/geri etiket -- UI yonu duzeltir.
+    """
     links = (await session.execute(
         select(Link).where(or_(Link.from_id == entity_id, Link.to_id == entity_id))
     )).scalars()
-    other_ids = {lk.to_id if lk.from_id == entity_id else lk.from_id for lk in links}
-    if not other_ids:
-        return []
-    return list((await session.execute(
-        select(Entity).where(Entity.id.in_(other_ids)))).scalars())
+    rows: list[dict] = []
+    other_ids: set[uuid.UUID] = set()
+    for lk in links:
+        outgoing = lk.from_id == entity_id
+        other_ids.add(lk.to_id if outgoing else lk.from_id)
+        forward, backward = RELATIONS.get(lk.relation, (lk.relation, lk.relation))
+        rows.append({
+            "relation": lk.relation,
+            "direction": "outgoing" if outgoing else "incoming",
+            "label": forward if outgoing else backward,
+            "to_id": str(lk.to_id if outgoing else lk.from_id),
+        })
+    entities = {
+        e.id: e for e in (await session.execute(
+            select(Entity).where(Entity.id.in_(other_ids)))).scalars()
+    }
+    return [
+        {
+            **row,
+            "entity": {
+                "id": str(entity.id),
+                "type": entity.type,
+                "title": entity.title,
+                "updated_at": entity.updated_at.isoformat(),
+            },
+        }
+        for row in rows
+        if (entity := entities.get(uuid.UUID(row["to_id"])))
+    ]

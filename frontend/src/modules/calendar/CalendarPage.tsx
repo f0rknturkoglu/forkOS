@@ -1,10 +1,11 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { CalendarEvent } from "@/core/types";
 import {Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx} from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
 type View = "week" | "month";
 
@@ -71,7 +72,6 @@ function periodLabel(anchor: Date, view: View, days: number): string {
 export function CalendarPage() {
   const [view, setView] = useState<View>("month");
   const [anchor, setAnchor] = useState(() => new Date());
-  const invalidate = useInvalidate();
   const online = useOnline();
 
   const days = rangeDays(anchor, view);
@@ -87,11 +87,11 @@ export function CalendarPage() {
   });
   const sync = useMutation({
     mutationFn: () => api.post("/calendar/sync"),
-    onSuccess: () => invalidate("calendar-events", "activity"),
+    onSuccess: () => invalidateAfter("calendar.write"),
   });
   const push = useMutation({
     mutationFn: (id: string) => api.post(`/plan/${id}/push`),
-    onSuccess: () => invalidate("calendar-events", "plan", "activity"),
+    onSuccess: () => invalidateAfter("calendar.write"),
   });
 
   function step(delta: number) {

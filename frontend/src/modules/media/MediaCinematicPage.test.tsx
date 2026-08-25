@@ -1,3 +1,4 @@
+import { queryClient } from "@/core/queryClient";
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -64,7 +65,7 @@ function responseFor(path: string, method: string): Response {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  const invalidate = vi.spyOn(client, "invalidateQueries").mockResolvedValue(undefined);
+  const invalidate = vi.spyOn(queryClient(), "invalidateQueries").mockResolvedValue(undefined);
   const view = render(
     <QueryClientProvider client={client}>
       <ToastProvider>

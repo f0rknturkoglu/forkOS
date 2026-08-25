@@ -1,10 +1,10 @@
-from app.modules import ModuleSpec
+from app.modules import EntityTypeSpec, ModuleSpec
 from app.modules.document.router import router
 
 MODULE = ModuleSpec(
     id="document",
     title="Documents",
     router=router,
-    entity_types=["document"],
+    entity_types=[EntityTypeSpec('document', 'Belge', 'Belgeler', '/documents', 'FileText')],
     event_verbs=["document.synced"],
 )

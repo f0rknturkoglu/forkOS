@@ -11,6 +11,7 @@ from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Event, Link
+from app.modules import DeadlineRow
 from app.modules.project.models import Milestone, Project
 from app.modules.project.schemas import MilestoneIn, MilestonePatch, ProjectIn, ProjectPatch
 from app.modules.todo.models import Todo
@@ -332,3 +333,21 @@ async def timeline(session: AsyncSession, project_id: uuid.UUID, limit: int = 60
         }
         for event in rows
     ]
+
+
+async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
+    """Tamamlanmamis kilometre taslari (kural 16)."""
+    from app.core.deadlines import rows_with_titles
+    from app.modules.project.models import Milestone
+
+    milestones = (await session.execute(
+        select(Milestone).where(
+            Milestone.due_at.is_not(None),
+            Milestone.completed_at.is_(None),
+        )
+    )).scalars()
+    ids = [m.id for m in milestones]
+    due = {m.id: m.due_at for m in milestones}
+    return await rows_with_titles(
+        session, type_="milestone", module="project", ids=ids, due_at=due,
+    )

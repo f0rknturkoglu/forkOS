@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
@@ -6,24 +7,23 @@ import { api } from "@/core/api";
 import type { StudyArea, StudyTopic } from "@/core/types";
 import {Button, Chip, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select, cx} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
 type TopicStats = { minutes: number; sessions: number };
 
 export function StudyPage() {
   const [areaId, setAreaId] = useState(""); const [areaTitle, setAreaTitle] = useState("");
   const [topicTitle, setTopicTitle] = useState(""); const [selected, setSelected] = useState<StudyTopic | null>(null);
-  const invalidate = useInvalidate();
   const online = useOnline();
   const { data: areas = [] } = useQuery({ queryKey: ["study-areas"], queryFn: () => api.get<StudyArea[]>("/study/areas") });
   useEffect(() => { if (!areaId && areas[0]) setAreaId(areas[0].id); }, [areas, areaId]);
   const { data: topics = [] } = useQuery({ queryKey: ["study-topics", areaId], enabled: Boolean(areaId), queryFn: () => api.get<StudyTopic[]>(`/study/topics?area_id=${areaId}`) });
   const { data: stats } = useQuery({ queryKey: ["study-topic-stats", selected?.id], enabled: Boolean(selected), queryFn: () => api.get<TopicStats>(`/study/topics/${selected?.id}/stats`) });
-  const addArea = useMutation({ mutationFn: () => api.post("/study/areas", { title: areaTitle }), onSuccess: () => { setAreaTitle(""); invalidate("study-areas"); } });
-  const addTopic = useMutation({ mutationFn: () => api.post("/study/topics", { title: topicTitle, area_id: areaId }), onSuccess: () => { setTopicTitle(""); invalidate("study-topics", "activity"); } });
+  const addArea = useMutation({ mutationFn: () => api.post("/study/areas", { title: areaTitle }), onSuccess: () => { setAreaTitle(""); invalidateAfter("study.write"); } });
+  const addTopic = useMutation({ mutationFn: () => api.post("/study/topics", { title: topicTitle, area_id: areaId }), onSuccess: () => { setTopicTitle(""); invalidateAfter("study.write"); } });
   const removeTopic = useMutation({ mutationFn: (id: string) => api.del(`/study/topics/${id}`),
-    onSuccess: () => { setSelected(null); invalidate("study-topics", "study-areas", "activity"); } });
-  const patch = useMutation({ mutationFn: (body: Record<string, unknown>) => api.patch(`/study/topics/${selected?.id}`, body), onSuccess: () => invalidate("study-topics", "study-topic-stats", "activity", "review-preview") });
+    onSuccess: () => { setSelected(null); invalidateAfter("study.write"); } });
+  const patch = useMutation({ mutationFn: (body: Record<string, unknown>) => api.patch(`/study/topics/${selected?.id}`, body), onSuccess: () => invalidateAfter("study.write") });
   return <PageFrame className="space-y-5"><PageHeader eyebrow="Takip" title="Çalışma" /><p className="text-meta text-muted">Alan → konu ağacı; odak süreleri Pomodoro’dan türetilir.</p>
     <div className="grid min-w-0 divide-y divide-subtle border-y border-subtle lg:grid-cols-[15rem_minmax(0,1fr)_18rem] lg:divide-x lg:divide-y-0"><Section title="Alanlar" className="min-w-0 py-3 lg:pr-4"><div className="divide-y divide-subtle border-y border-subtle">{areas.map(a => <button key={a.id} onClick={() => { setAreaId(a.id); setSelected(null); }} className={cx("block w-full px-2 py-2 text-left text-body hover:bg-surface-hover", areaId === a.id && "bg-accent-surface text-primary")}>{a.title}</button>)}</div><form className="mt-3 flex gap-2" onSubmit={e => { e.preventDefault(); if (areaTitle.trim()) addArea.mutate(); }}><Input value={areaTitle} onChange={setAreaTitle} className="min-w-0 flex-1" placeholder="Yeni alan"/><Button type="submit" disabled={!online || addArea.isPending}>+</Button></form></Section>
       <Section title="Konu ağacı" className="min-w-0 py-3 lg:px-4">{topics.length ? <TopicTree items={topics} select={setSelected}/> : <Empty>Konu yok.</Empty>}<form className="mt-4 flex gap-2" onSubmit={e => { e.preventDefault(); if (topicTitle.trim() && areaId) addTopic.mutate(); }}><Input value={topicTitle} onChange={setTopicTitle} className="min-w-0 flex-1" placeholder="Yeni kök konu"/><Button type="submit" disabled={!online || addTopic.isPending}>Ekle</Button></form></Section>

@@ -1,9 +1,10 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Star, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import {Button, Chip, Empty, IconButton, Input, PageFrame, PageHeader, RowList, Section, Select, Toolbar, cx, hostOf, relativeTime} from "@/core/ui";
-import { useDebounced, useInvalidate, useOnline } from "@/lib/hooks";
+import {useDebounced, useOnline} from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, BookmarkStats, Collection, TagCount } from "@/core/types";
@@ -56,8 +57,7 @@ function FilterChip({
 
 function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boolean }) {
   const online = useOnline();
-  const invalidate = useInvalidate();
-  const refresh = () => invalidate("bookmarks", "bookmark-stats", "tags", "activity");
+  const refresh = () => invalidateAfter("bookmark.write");
 
   const patch = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/bookmarks/${bookmark.id}`, body),

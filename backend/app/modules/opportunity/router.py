@@ -6,7 +6,7 @@ from uuid import UUID
 import yaml
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
@@ -17,7 +17,6 @@ from app.modules.opportunity import service
 from app.modules.opportunity import sync as sync_service
 from app.modules.opportunity.models import Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
-    DeadlineOut,
     OpportunityIn,
     OpportunityOut,
     OpportunityPatch,
@@ -202,16 +201,6 @@ async def add_opportunity_todo(
     await link(session, item_id, todo.id, "application_step")
     await session.commit()
     return todo
-
-
-@router.get("/deadlines", response_model=list[DeadlineOut])
-async def deadlines(session: AsyncSession = Depends(get_session)):
-    rows = (
-        (await session.execute(text("select * from deadline_v order by due_at limit 200")))
-        .mappings()
-        .all()
-    )
-    return [dict(r) for r in rows]
 
 
 @router.get("/sources/runs")

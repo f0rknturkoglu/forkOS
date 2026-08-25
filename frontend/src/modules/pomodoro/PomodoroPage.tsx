@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Maximize2, Pause, Play, Plus, Trash2 } from "lucide-react";
@@ -7,9 +8,8 @@ import {
   PageFrame, PageHeader, RowList, Section, Select, cx, useToast,
 } from "@/core/ui";
 import type { PomodoroSession, PomodoroStats, Todo } from "@/core/types";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { FocusMode } from "./FocusMode";
-import { POMODORO_REFRESH_KEYS, POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./time";
 
 const KIND_LABELS: Record<string, string> = {
@@ -26,7 +26,6 @@ export function PomodoroPage() {
   const [topic, setTopic] = useState(params.get("title") ?? "");
   const [context, setContext] = useState(params.get("context") ?? "");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   useEffect(() => {
@@ -48,8 +47,8 @@ export function PomodoroPage() {
     queryFn: () => api.get<Todo[]>("/todos?status=open&limit=100"),
   });
 
-  const refresh = () => invalidate(...POMODORO_REFRESH_KEYS);
-  const refreshTimeline = () => invalidate(...POMODORO_TIMELINE_REFRESH_KEYS);
+  const refresh = () => invalidateAfter("pomodoro.write");
+  const refreshTimeline = () => invalidateAfter("pomodoro.write");
 
   const start = useMutation({
     mutationFn: (kind: "focus" | "short_break") =>

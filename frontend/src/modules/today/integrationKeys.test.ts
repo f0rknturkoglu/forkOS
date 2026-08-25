@@ -27,7 +27,12 @@ vi.mock("@/lib/hooks", () => ({
   useInvalidate: () => harness.invalidate,
   useOnline: () => true,
 }));
+vi.mock("@/core/invalidation", () => ({
+  invalidateAfter: (...events: string[]) => harness.invalidate(...events),
+}));
 vi.mock("@tanstack/react-query", () => ({
+  QueryClient: class { invalidateQueries() {} },
+  MutationCache: class {} ,
   useMutation: vi.fn((options: MutationOptions) => {
     harness.mutations.push(options);
     return { mutate: vi.fn(), isPending: false };
@@ -72,8 +77,6 @@ describe("cross-page query integration", () => {
     harness.apiPost.mockClear();
     save?.onSuccess?.({ id: "bookmark-1", title: "Kaydedilen yazı" });
 
-    expect(harness.invalidate).toHaveBeenCalledWith(
-      "rss-item", "items", "feeds", "rss-stats", "bookmarks", "bookmark-stats", "activity",
-    );
+    expect(harness.invalidate).toHaveBeenCalledWith("rss.write", "bookmark.write");
   });
 });

@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
@@ -5,7 +6,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Tag, Trash2 } from "lucide-react";
 import {Button, Chip, Empty, IconButton, Input, Kbd, PageFrame, PageHeader, RowList, Section, Toolbar, cx, hostOf, relativeTime, useToast} from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";
 
@@ -24,7 +25,6 @@ function InboxCard({
     id: bookmark.id,
     disabled,
   });
-  const invalidate = useInvalidate();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(bookmark.tags.join(", "));
@@ -34,14 +34,14 @@ function InboxCard({
   const remove = useMutation({
     mutationFn: () => api.del(`/bookmarks/${bookmark.id}`),
     onSuccess: () => {
-      invalidate("bookmarks", "bookmark-stats", "activity");
+      invalidateAfter("bookmark.write");
       toast.push("Yer imi silindi", { tone: "neutral" });
     },
   });
 
   const setTags = useMutation({
     mutationFn: (tags: string[]) => api.patch(`/bookmarks/${bookmark.id}`, { tags }),
-    onSuccess: () => invalidate("bookmarks", "tags"),
+    onSuccess: () => invalidateAfter("bookmark.write"),
   });
 
   return (
@@ -179,7 +179,6 @@ function QuickCapture() {
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const online = useOnline();
-  const invalidate = useInvalidate();
 
   const toast = useToast();
 
@@ -195,7 +194,7 @@ function QuickCapture() {
     onSuccess: (result) => {
       setUrl("");
       setTitle("");
-      invalidate("bookmarks", "bookmark-stats", "activity");
+      invalidateAfter("bookmark.write");
       toast.push(
         result.duplicate ? "Bu URL zaten kayıtlıydı — yine de eklendi." : "Gelen kutusuna eklendi",
         { tone: result.duplicate ? "warn" : "ok" },
@@ -232,7 +231,6 @@ function QuickCapture() {
 
 export function InboxPage() {
   const online = useOnline();
-  const invalidate = useInvalidate();
   const [dragging, setDragging] = useState<Bookmark | null>(null);
   /** Klavye yolunun oznesi: uzerinde islem yapilacak kart. */
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -258,7 +256,7 @@ export function InboxPage() {
   const move = useMutation({
     mutationFn: ({ id, collection }: { id: string; collection: Collection }) =>
       api.patch(`/bookmarks/${id}/collection${qs({ collection })}`),
-    onSuccess: () => invalidate("bookmarks", "bookmark-stats", "activity"),
+    onSuccess: () => invalidateAfter("bookmark.write"),
   });
 
   const onDragEnd = (event: DragEndEvent) => {

@@ -159,7 +159,9 @@ def ics_datetime(value: datetime) -> str:
 
 
 async def ics(session: AsyncSession) -> str:
-    deadlines = (await session.execute(text("select * from deadline_v"))).mappings()
+    from app.core.deadlines import collect_deadlines
+
+    deadline_rows = await collect_deadlines(session, limit=2000)
     slots = (
         await session.execute(
             text("""select p.id, e.title, p.day, p.start_min, p.duration_min
@@ -167,7 +169,7 @@ async def ics(session: AsyncSession) -> str:
         )
     ).mappings()
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//forkOS//EN"]
-    for row in deadlines:
+    for row in deadline_rows:
         lines.extend(
             [
                 "BEGIN:VEVENT",

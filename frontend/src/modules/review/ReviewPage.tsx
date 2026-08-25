@@ -1,10 +1,11 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import {Button, Chip, Empty, Input, Metric, MetricStrip, PageFrame, PageHeader, RowList, Section, Surface, Textarea} from "@/core/ui";
 import type { ReviewPreview } from "@/core/types";
 import { localDateKey } from "@/lib/date";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { reviewMetricRows } from "./reviewMetrics";
 
 function startOf(kind: "daily" | "weekly") {
@@ -17,7 +18,7 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
   const [step, setStep] = useState(1); const [note, setNote] = useState("");
   const [decisions, setDecisions] = useState<Record<string, "carry" | "drop">>({});
   const [priorities, setPriorities] = useState(["", "", ""]); const online = useOnline();
-  const invalidate = useInvalidate(); const period = useMemo(() => startOf(kind), [kind]);
+  const period = useMemo(() => startOf(kind), [kind]);
   const { data, isLoading } = useQuery({ queryKey: ["review-preview", kind, period],
     queryFn: () => api.get<ReviewPreview>(`/reviews/preview${qs({ kind, period_start: period })}`) });
   const save = useMutation({ mutationFn: () => api.post("/reviews", {
@@ -25,7 +26,7 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
     decisions: { carry_over: Object.entries(decisions).filter(([, v]) => v === "carry").map(([id]) => id),
       drop: Object.entries(decisions).filter(([, v]) => v === "drop").map(([id]) => id),
       priorities: priorities.filter(Boolean) },
-  }), onSuccess: () => { invalidate("review-preview", "reviews", "todos", "plan", "activity"); setStep(4); } });
+  }), onSuccess: () => { invalidateAfter("review.write"); setStep(4); } });
   if (isLoading || !data) return <p className="p-6 text-body text-muted">Değerlendirme hesaplanıyor…</p>;
   const stats = data.stats;
   return <PageFrame className="space-y-5"><div className="flex flex-wrap items-end justify-between gap-3"><PageHeader eyebrow="Takip" title={`${kind === "weekly" ? "Haftalık" : "Günlük"} Değerlendirme`} />

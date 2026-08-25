@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { entityRoute } from "./GlobalSearch";
 import { notificationRoute } from "./NotificationPanel";
+import { hydrateEntityRegistry } from "./entityRegistry";
 import type { Entity, Notification } from "./types";
 import {
   sourceSyncApiPath,
@@ -34,15 +35,23 @@ function notification(overrides: Partial<Notification>): Notification {
 }
 
 describe("media integration routing", () => {
-  it("routes searchable media entities to media focus targets", () => {
-    expect(entityRoute(entity("media_item"))).toBe("#/media?focus=media-1");
+  beforeEach(() => {
+    hydrateEntityRegistry([
+      { type: "media_item", label: "Medya", label_plural: "Medyalar", route: "/media/{id}", icon: "Film", searchable: true, linkable: true },
+      { type: "media_unit", label: "Bölüm", label_plural: "Bölümler", route: "/media", icon: "FileVideo", searchable: true, linkable: true },
+      { type: "opportunity", label: "Fırsat", label_plural: "Fırsatlar", route: "/opportunities?focus={id}", icon: "Target", searchable: true, linkable: true },
+    ]);
+  });
+
+  it("routes searchable media entities from the entity-type registry", () => {
+    expect(entityRoute(entity("media_item"))).toBe("#/media/media-1");
     expect(entityRoute(entity("media_unit", "unit-1"))).toBe("#/media");
   });
 
   it("routes media notifications by entity or kind", () => {
     expect(notificationRoute(notification({
       entity_type: "media_item", entity_id: "media-1",
-    }))).toBe("/media?focus=media-1");
+    }))).toBe("/media/media-1");
     expect(notificationRoute(notification({
       entity_type: "media_unit", entity_id: "unit-1",
     }))).toBe("/media");

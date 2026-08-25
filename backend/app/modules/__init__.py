@@ -2,13 +2,45 @@
 
 Yeni modul eklemek = modules/<ad>/ klasoru + buraya bir satir.
 main.py'ye, search'e, worker'a DOKUNMA -- hepsi bu listeyi okur.
+
+Entity tipi, etiketi ve rotasi YALNIZCA EntityTypeSpec'te tanimlanir
+(AGENTS.md kural 13). Frontend'de tip->rota sabiti yazilmaz.
 """
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from fastapi import APIRouter
+
+
+@dataclass(frozen=True)
+class EntityTypeSpec:
+    """Aranabilir/linklenebilir entity tipinin TEK kayit defteri girdisi.
+
+    route, frontend hash rotasidir; "{id}" varsa entity id'siyle degisir
+    (ornek: "/bookmarks?focus={id}"). Rota olmayan tip listeye yonlendirilir.
+    """
+
+    type: str
+    label: str
+    label_plural: str
+    route: str
+    icon: str
+    searchable: bool = True
+    linkable: bool = True
+
+
+@dataclass(frozen=True)
+class DeadlineRow:
+    entity_id: object
+    type: str
+    title: str
+    due_at: object
+    module: str
+    sub_kind: str | None = None
+    priority: int = 2
 
 
 @dataclass(frozen=True)
@@ -16,8 +48,11 @@ class ModuleSpec:
     id: str
     title: str
     router: APIRouter
-    entity_types: list[str] = field(default_factory=list)
+    entity_types: list[EntityTypeSpec] = field(default_factory=list)
     event_verbs: list[str] = field(default_factory=list)
+    #: Son tarih ureten modul istege bagli saglayici verir (kural 16).
+    #: deadline_v gibi elle SQL gorunumu YAZILMAZ -- /api/deadlines bunu toplar.
+    deadline_provider: Callable[..., Awaitable[list[DeadlineRow]]] | None = None
 
 
 from app.modules.bookmark import MODULE as bookmark_module  # noqa: E402

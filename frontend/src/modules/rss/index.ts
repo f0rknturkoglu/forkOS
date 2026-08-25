@@ -1,9 +1,10 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { lazy } from "react";
 import { Rss } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import { invalidate } from "@/core/queryClient";
+import {invalidate} from "@/core/queryClient";
 import { confirmDialog } from "@/core/dialog";
 import { RssStats } from "./RssStats";
 
@@ -27,7 +28,7 @@ registerModule({
         });
         if (!ok) return;
         await api.post("/rss/read-all");
-        invalidate("items", "rss-stats", "feeds", "activity");
+        invalidateAfter("rss.write");
       },
     },
   ],

@@ -5,13 +5,14 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.core.notifications import notify
+from app.modules import DeadlineRow
 from app.modules.document.models import Document
 from app.modules.opportunity.models import (
     Application,
@@ -378,22 +379,16 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
 
 
 async def deadline_ladder(session: AsyncSession) -> int:
-    rows = (
-        (
-            await session.execute(
-                text(
-                    "select entity_id, title, due_at from deadline_v "
-                    "where due_at >= now() and due_at < now() + interval '31 days'"
-                )
-            )
-        )
-        .mappings()
-        .all()
-    )
+    from app.core.deadlines import collect_deadlines
+
+    rows = await collect_deadlines(session)
     created = 0
     now = datetime.now(UTC)
     for row in rows:
-        days = (row["due_at"] - now).days
+        due = row["due_at"]
+        if due < now:
+            continue
+        days = (due - now).days
         rung = next((n for n in (30, 14, 7, 3, 1) if days <= n), None)
         if rung is None:
             continue
@@ -769,3 +764,36 @@ async def list_followups(
                     follow_up_at=o.follow_up_at, note=o.notes)
         for o, title in rows
     ]
+
+
+async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
+    """Firsat son tarihleri + mulakat saatleri (kural 16; deadline_v yerine)."""
+    from app.core.deadlines import rows_with_titles
+    from app.modules.opportunity.models import Interview, Opportunity
+
+    ACTIVE = ("discovered", "considering", "preparing", "applied", "interview", "offer")
+    opps = (await session.execute(
+        select(Opportunity).where(
+            Opportunity.deadline_at.is_not(None),
+            Opportunity.status.in_(ACTIVE),
+        )
+    )).scalars()
+    ids = [o.id for o in opps]
+    due = {o.id: o.deadline_at for o in opps}
+    sub = {o.id: o.kind for o in opps}
+    prio = {o.id: o.priority for o in opps}
+    rows = await rows_with_titles(
+        session, type_="opportunity", module="opportunity",
+        ids=ids, due_at=due, sub_kind=sub, priority=prio,
+    )
+
+    interviews = (await session.execute(
+        select(Interview).where(Interview.scheduled_at.is_not(None))
+    )).scalars()
+    ids = [i.id for i in interviews]
+    due = {i.id: i.scheduled_at for i in interviews}
+    rows += await rows_with_titles(
+        session, type_="opportunity", module="opportunity",
+        ids=ids, due_at=due, priority={i: 1 for i in ids},
+    )
+    return rows

@@ -1,3 +1,4 @@
+import { queryClient } from "@/core/queryClient";
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -116,7 +117,7 @@ describe("MediaSyncSummary", () => {
       return json({}, 404);
     };
     const { client } = renderSummary();
-    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const invalidate = vi.spyOn(queryClient(), "invalidateQueries");
     fireEvent.click(await screen.findByText("Kaynak ayrıntıları"));
     const sync = screen.getByRole("button", { name: "Şimdi tara" }) as HTMLButtonElement;
     fireEvent.click(sync);

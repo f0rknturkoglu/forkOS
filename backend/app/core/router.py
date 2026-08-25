@@ -12,15 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import contributions as contribution_svc
 from app.core import events as event_svc
 from app.core import links as link_svc
+from app.core import registry as registry_svc
 from app.core import runs as run_svc
 from app.core import search as search_svc
 from app.core import tags as tag_svc
+from app.core.events import log_event
 from app.core.models import Entity, Notification, SavedView
 from app.core.schemas import (
     EntityOut,
     EventOut,
     LinkIn,
     NotificationOut,
+    RelatedOut,
     SavedViewIn,
     SavedViewOut,
     SourceRunOut,
@@ -29,6 +32,41 @@ from app.core.schemas import (
 from app.db import get_session
 
 router = APIRouter(tags=["core"])
+
+
+@router.get("/registry/entity-types")
+async def registry_entity_types():
+    """Tip -> etiket/rota/ikon kayit defteri (AGENTS.md kural 13). Frontend
+    bu uctan beslenir; tip->rota sabiti YAZMAZ."""
+    return [
+        {
+            "type": spec.type,
+            "label": spec.label,
+            "label_plural": spec.label_plural,
+            "route": spec.route,
+            "icon": spec.icon,
+            "searchable": spec.searchable,
+            "linkable": spec.linkable,
+        }
+        for spec in registry_svc.all_entity_types()
+    ]
+
+
+@router.get("/registry/event-verbs")
+async def registry_event_verbs():
+    """Event verb -> etiket kayit defteri."""
+    return {"verbs": sorted(registry_svc.all_event_verbs())}
+
+
+@router.get("/deadlines")
+async def deadlines(
+    limit: int = Query(200, le=500),
+    session: AsyncSession = Depends(get_session),
+):
+    """Son tarihli kayitlar -- kayitli modul saglayicilarindan (kural 16)."""
+    from app.core.deadlines import collect_deadlines
+
+    return await collect_deadlines(session, limit=limit)
 
 
 @router.get("/notifications", response_model=list[NotificationOut])
@@ -146,14 +184,29 @@ async def activity_day(
     return await contribution_svc.day_detail(session, day)
 
 
-@router.get("/entities/{entity_id}/related", response_model=list[EntityOut])
+@router.get("/entities/{entity_id}", response_model=EntityOut)
+async def entity_detail(entity_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    entity = await session.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Kayıt bulunamadı")
+    return entity
+
+
+@router.get("/entities/{entity_id}/related", response_model=list[RelatedOut])
 async def related(entity_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Bagli kayitlar: iliski + yon (outgoing/incoming) + karsi entity ozeti."""
     return await link_svc.related(session, entity_id)
 
 
 @router.post("/links", status_code=201)
 async def create_link(body: LinkIn, session: AsyncSession = Depends(get_session)):
     await link_svc.link(session, body.from_id, body.to_id, body.relation)
+    await log_event(
+        session,
+        verb="link.created",
+        entity_id=body.from_id,
+        payload={"to_id": str(body.to_id), "relation": body.relation},
+    )
     await session.commit()
     return {"ok": True}
 

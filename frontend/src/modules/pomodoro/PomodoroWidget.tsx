@@ -1,14 +1,14 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Maximize2, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { Button, IconButton, Input, RowList, Section, cx, useToast } from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./time";
 import { FocusMode } from "./FocusMode";
-import { POMODORO_REFRESH_KEYS, POMODORO_TIMELINE_REFRESH_KEYS } from "./refreshKeys";
 
 /**
  * Bugun panelinden pomodoro'nun TAM kontrolu: baslat, duraklat, tamamla,
@@ -19,7 +19,6 @@ export function PomodoroWidget() {
   const [focusMode, setFocusMode] = useState(false);
   const [adding, setAdding] = useState(false);
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   useEffect(() => {
@@ -41,8 +40,8 @@ export function PomodoroWidget() {
     queryFn: () => api.get<PomodoroSession[]>("/pomodoro/sessions?limit=4"),
   });
 
-  const refresh = () => invalidate(...POMODORO_REFRESH_KEYS);
-  const refreshTimeline = () => invalidate(...POMODORO_TIMELINE_REFRESH_KEYS);
+  const refresh = () => invalidateAfter("pomodoro.write");
+  const refreshTimeline = () => invalidateAfter("pomodoro.write");
 
   const start = useMutation({
     mutationFn: (kind: "focus" | "short_break") =>

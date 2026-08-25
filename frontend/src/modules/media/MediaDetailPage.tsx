@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil } from "lucide-react";
@@ -5,9 +6,9 @@ import { useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { MediaDetail, MediaItem } from "@/core/types";
 import {Button, Chip, Field, Input, PageFrame, Section, Surface, Textarea, cx} from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import {KIND_LABELS, SiteLinks, externalLinks, mediaCoverUrl, mediaProvider, providerChip, providerLabel, statusLabel} from "./shared";
-import { MEDIA_PROGRESS_REFRESH_KEYS, MediaProgressActions, measureLabel } from "./MediaProgressActions";
+import { MediaProgressActions, measureLabel } from "./MediaProgressActions";
 
 function DetailCover({ item }: { item: MediaItem }) {
   const [broken, setBroken] = useState(false);
@@ -105,13 +106,12 @@ export function MediaDetailPage() {
   const route = useHashRoute("/media/:id");
   const itemId = route.params.get("id");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["media-detail", itemId],
     queryFn: () => api.get<MediaDetail>(`/media/${encodeURIComponent(itemId ?? "")}`),
     enabled: Boolean(itemId),
   });
-  const refresh = () => invalidate(...MEDIA_PROGRESS_REFRESH_KEYS);
+  const refresh = () => invalidateAfter("media.write");
 
   useEffect(() => {
     if (!itemId) return;

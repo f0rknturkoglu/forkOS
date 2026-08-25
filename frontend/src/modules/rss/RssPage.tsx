@@ -1,17 +1,15 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import {Button, Chip, Empty, FileInput, Input, PageFrame, PageHeader, Surface, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { navigate } from "@/app/router";
 import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
 import { RssReadingPane } from "./RssReadingPane";
 
-const RSS_SAVE_REFRESH_KEYS = [
-  "rss-item", "items", "feeds", "rss-stats", "bookmarks", "bookmark-stats", "activity",
-] as const;
 
 type SmartView = "unread" | "today" | "saved" | "all";
 
@@ -36,7 +34,6 @@ function AddFeed() {
   const [url, setUrl] = useState("");
   const [category, setCategory] = useState("");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const fileRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -45,7 +42,7 @@ function AddFeed() {
       api.post("/rss/feeds", { url: url.trim(), category: category.trim() || null }),
     onSuccess: () => {
       setUrl("");
-      invalidate("feeds", "rss-stats", "activity");
+      invalidateAfter("rss.write");
     },
     onError: (error: Error) => toast.push(`Besleme eklenemedi: ${error.message}`, { tone: "danger" }),
   });
@@ -54,7 +51,7 @@ function AddFeed() {
     mutationFn: (file: File) =>
       api.upload<{ added: number; skipped: number }>("/rss/import", file),
     onSuccess: (result) => {
-      invalidate("feeds", "rss-stats", "items", "activity");
+      invalidateAfter("rss.write");
       // import sonrasi arka plan cekimi worker'i beklemeden yazilari getirir
       toast.push(
         result.added > 0
@@ -253,7 +250,6 @@ function ItemRow({
 
 export function RssPage() {
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   const [smart, setSmart] = useState<SmartView>("unread");
@@ -304,14 +300,14 @@ export function RssPage() {
     enabled: Boolean(selectedId),
   });
 
-  const refreshAll = () => invalidate("items", "feeds", "rss-stats", "activity");
+  const refreshAll = () => invalidateAfter("rss.write");
 
   const markRead = useMutation({
     mutationFn: ({ id, read }: { id: string; read: boolean }) =>
       api.post(`/rss/items/${id}/read${qs({ read })}`),
     onSuccess: () => {
       refreshAll();
-      invalidate("rss-item"); // okuma bolmesi de guncelsin
+      invalidateAfter("rss.write"); // okuma bolmesi de guncelsin
     },
   });
 
@@ -319,7 +315,7 @@ export function RssPage() {
     mutationFn: ({ id, collection }: { id: string; collection: string }) =>
       api.post<Bookmark>(`/rss/items/${id}/save`, { collection }),
     onSuccess: (bookmark) => {
-      invalidate(...RSS_SAVE_REFRESH_KEYS);
+      invalidateAfter("rss.write", "bookmark.write");
       toast.push(`"${(bookmark.title || "").slice(0, 40)}" yer imlerine kaydedildi`, {
         tone: "ok",
         action: { label: "Yer iminde aç", run: () => navigate(`/bookmarks?focus=${bookmark.id}`) },
@@ -339,7 +335,7 @@ export function RssPage() {
   const refreshAllFeed = useMutation({
     mutationFn: () => api.post("/rss/refresh-all"),
     onSuccess: (result) => {
-      invalidate("feeds", "rss-stats");
+      invalidateAfter("rss.write");
       toast.push(
         (result as { started: number }).started > 0
           ? `${(result as { started: number }).started} besleme çekiliyor…`
@@ -358,7 +354,7 @@ export function RssPage() {
     mutationFn: (id: string) => api.del(`/rss/feeds/${id}`),
     onSuccess: () => {
       if (feedId) setFeedId(null);
-      invalidate("feeds", "items", "rss-stats", "activity");
+      invalidateAfter("rss.write");
     },
   });
 

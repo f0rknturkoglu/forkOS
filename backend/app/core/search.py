@@ -14,6 +14,14 @@ from app.core.models import Entity
 TRIGRAM_THRESHOLD = 0.2
 
 
+def group_label(entity_type: str) -> str:
+    """Grup etiketi kayit defterinden gelir (kural 13); burada sabit YAZILMAZ."""
+    from app.core.registry import type_spec
+
+    spec = type_spec(entity_type)
+    return spec.label_plural if spec else entity_type.replace("_", " ").title()
+
+
 def match_clause(query: str) -> ColumnElement[bool]:
     """Modul liste endpoint'leri de ayni eslesme mantigini kullansin diye ayri.
 
@@ -57,31 +65,11 @@ async def search_entities(
     return list((await session.execute(stmt)).scalars())
 
 
-SEARCH_LABELS = {
-    "bookmark": "Bookmarks",
-    "feed": "Feeds",
-    "feed_item": "RSS",
-    "todo": "Todos",
-    "opportunity": "Opportunities",
-    "study_area": "Study Areas",
-    "study_topic": "Study Topics",
-    "course": "Courses",
-    "book": "Books",
-    "document": "Documents",
-    "project": "Projects",
-    "expense": "Expenses",
-    "recurring_payment": "Recurring Payments",
-    "review": "Reviews",
-}
-
-
 async def grouped_search(
     session: AsyncSession, query: str, *, limit: int = 30
 ) -> dict[str, list[Entity]]:
     entities = await search_entities(session, query, limit=limit)
     grouped: dict[str, list[Entity]] = {}
     for entity in entities:
-        grouped.setdefault(
-            SEARCH_LABELS.get(entity.type, entity.type.replace("_", " ").title()), []
-        ).append(entity)
+        grouped.setdefault(group_label(entity.type), []).append(entity)
     return grouped

@@ -11,6 +11,7 @@ from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
+from app.modules import DeadlineRow
 from app.modules.todo.models import PlanSlot, Todo
 from app.modules.todo.schemas import (
     PlanSlotIn,
@@ -430,6 +431,25 @@ async def delete_slot(session: AsyncSession, slot_id: uuid.UUID) -> bool:
     await session.delete(slot)
     await session.commit()
     return True
+
+
+async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
+    """Son tarihli acik gorevler (kural 16 -- deadline_v yerine)."""
+    from app.core.deadlines import rows_with_titles
+
+    todos = (await session.execute(
+        select(Todo).where(
+            Todo.status.in_(("open", "doing")),
+            Todo.due_at.is_not(None),
+        )
+    )).scalars()
+    ids = [t.id for t in todos]
+    due = {t.id: t.due_at for t in todos}
+    prio = {t.id: t.priority for t in todos}
+    return await rows_with_titles(
+        session, type_="todo", module="todo", ids=ids,
+        due_at=due, priority=prio,
+    )
 
 
 async def _spawn_next_occurrence(session: AsyncSession, done: Todo) -> None:

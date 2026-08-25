@@ -1,3 +1,4 @@
+import { queryClient } from "@/core/queryClient";
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -5,11 +6,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MediaItem } from "@/core/types";
-import {
-  MEDIA_PROGRESS_REFRESH_KEYS,
-  MediaProgressActions,
-  consumptionBody,
-} from "./MediaProgressActions";
+import { AFTER } from "@/core/invalidation";
+import { MediaProgressActions, consumptionBody } from "./MediaProgressActions";
 
 const item = {
   id: "media/one",
@@ -27,7 +25,7 @@ function renderActions(online = true, mediaItem: MediaItem = item) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const invalidate = vi.spyOn(client, "invalidateQueries").mockResolvedValue(undefined);
+  const invalidate = vi.spyOn(queryClient(), "invalidateQueries").mockResolvedValue(undefined);
   const view = render(
     <QueryClientProvider client={client}>
       <MediaProgressActions item={mediaItem} online={online} onChanged={() => undefined} />
@@ -81,7 +79,7 @@ describe("append-only media progress", () => {
   });
 
   it("invalidates every media and cross-module read model after a command", () => {
-    expect(MEDIA_PROGRESS_REFRESH_KEYS).toEqual([
+    expect(AFTER["media.write"]).toEqual([
       "media",
       "media-detail",
       "media-stats",
@@ -153,7 +151,7 @@ describe("append-only media progress", () => {
     await user.click(start);
     await waitFor(() => expect(calls).toHaveLength(2));
     expect(invalidate.mock.calls.map(([filters]) => (filters as { queryKey: string[] }).queryKey)).toEqual(
-      MEDIA_PROGRESS_REFRESH_KEYS.map((key) => [key]),
+      AFTER["media.write"].map((key) => [key]),
     );
   });
 

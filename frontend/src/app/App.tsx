@@ -7,6 +7,8 @@ import { CommandPalette } from "@/core/CommandPalette";
 import { DialogHost } from "@/core/dialog";
 import { DropCapture } from "@/core/DropCapture";
 import { allRoutes, hydrateSettings } from "@/core/registry";
+import { hydrateEntityRegistry } from "@/core/entityRegistry";
+import type { EntityTypeSpec } from "@/core/entityRegistry";
 import { api } from "@/core/api";
 import { Kbd, ToastProvider, applyTheme, cx, readTheme } from "@/core/ui";
 import type { AppSettings, SourceHealth } from "@/core/types";
@@ -96,6 +98,12 @@ export default function App() {
   const online = useOnline();
   const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<AppSettings>("/settings") });
   if (settings) hydrateSettings(settings);
+  const { data: entityTypes } = useQuery({
+    queryKey: ["entity-types"],
+    queryFn: () => api.get<EntityTypeSpec[]>("/registry/entity-types"),
+    staleTime: 60 * 60_000,
+  });
+  if (entityTypes) hydrateEntityRegistry(entityTypes);
 
   useEffect(() => { applyTheme(readTheme()); }, []);
 

@@ -1,10 +1,12 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ExternalLink, X } from "lucide-react";
 import { api } from "@/core/api";
+import { RelatedPanel } from "@/core/RelatedPanel";
 import {Button, Chip, Empty, Input, SectionHeader, Select, Textarea, cx, relativeTime} from "@/core/ui";
 import type { Application, ApplicationHistoryRow, Document, Interview, Opportunity } from "@/core/types";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import {
   SCORE_TONE, STATUSES, STATUS_TONES,
   daysLeft, kindLabel, scoreBand, statusLabel,
@@ -20,7 +22,6 @@ type Requirement = {
 /** Sag taraftan acilan fırsat detayı: durum, skor ve gereksinimler. */
 export function OpportunityDetail({ id, close }: { id: string; close: () => void }) {
   const online = useOnline();
-  const invalidate = useInvalidate();
   const [requirement, setRequirement] = useState("");
   const [editingApp, setEditingApp] = useState(false);
   const [coverDraft, setCoverDraft] = useState("");
@@ -48,46 +49,46 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
 
   const patch = useMutation({
     mutationFn: (status: string) => api.patch(`/opportunities/${id}`, { status }),
-    onSuccess: () => invalidate("opportunity", "opportunities", "activity"),
+    onSuccess: () => invalidateAfter("opportunity.write"),
   });
   const addRequirement = useMutation({
     mutationFn: () => api.post(`/opportunities/${id}/requirements`, { name: requirement.trim() }),
-    onSuccess: () => { setRequirement(""); invalidate("opportunity-requirements"); },
+    onSuccess: () => { setRequirement(""); invalidateAfter("opportunity.write"); },
   });
   const bindDocument = useMutation({
     mutationFn: ({ requirementId, documentId }: { requirementId: string; documentId: string }) =>
       api.patch(`/requirements/${requirementId}/document`, { document_entity_id: documentId || null }),
-    onSuccess: () => invalidate("opportunity-requirements", "activity"),
+    onSuccess: () => invalidateAfter("opportunity.write"),
   });
 
   const transition = useMutation({
     mutationFn: ({ to, note, rejection_reason }: { to: string; note?: string; rejection_reason?: string }) =>
       api.post("/" + "opportunities/" + id + "/transition", { to, note, rejection_reason }),
-    onSuccess: () => invalidate("opportunity", "opportunities", "activity"),
+    onSuccess: () => invalidateAfter("opportunity.write"),
     onError: (error: Error) => window.alert("Geçiş başarısız: " + error.message),
   });
   const apply = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post("/" + "opportunities/" + id + "/apply", body),
-    onSuccess: () => invalidate("opportunity", "opportunities", "activity", "applications-funnel"),
+    onSuccess: () => invalidateAfter("opportunity.write"),
   });
   const updateApp = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.put("/" + "opportunities/" + id + "/application", body),
-    onSuccess: () => { invalidate("application"); setEditingApp(false); },
+    onSuccess: () => { invalidateAfter("opportunity.write"); setEditingApp(false); },
   });
   const followUp = useMutation({
     mutationFn: (follow_up_at: string | null) => api.patch("/" + "opportunities/" + id, { follow_up_at }),
-    onSuccess: () => invalidate("opportunity"),
+    onSuccess: () => invalidateAfter("opportunity.write"),
   });
   const addInterview = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post("/" + "opportunities/" + id + "/interviews", body),
     onSuccess: () => {
-      invalidate("interviews", "activity");
+      invalidateAfter("opportunity.write");
       setInterviewDraft({ stage: "", mode: "video", scheduled_at: "", notes: "" });
     },
   });
   const removeInterview = useMutation({
     mutationFn: (interviewId: string) => api.del("/interviews/" + interviewId),
-    onSuccess: () => invalidate("interviews"),
+    onSuccess: () => invalidateAfter("opportunity.write"),
   });
 
   const { data: app, refetch: refetchApp } = useQuery({
@@ -478,6 +479,8 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               <p className="whitespace-pre-line text-body text-secondary">{item.notes}</p>
             </section>
           )}
+
+          <RelatedPanel entityId={id} />
         </div>
       </aside>
     </div>

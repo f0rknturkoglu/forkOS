@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Check, RefreshCw, Search } from "lucide-react";
@@ -5,7 +6,7 @@ import { api } from "@/core/api";
 import { navigate } from "@/app/router";
 import { Button, Checkbox, Input, cx, relativeTime, useToast } from "@/core/ui";
 import type { SourceHealth, SourceRefreshResult, SourceSyncStatus } from "@/core/types";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import { sourceLabel } from "@/core/labels";
 
 type Catalog = { id: string; interval_minutes: number; kind: string };
@@ -19,7 +20,6 @@ const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: 
  */
 export function SourcePicker() {
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -56,7 +56,7 @@ export function SourcePicker() {
     onSuccess: (result) => {
       setPicked(new Set());
       setOpen(false);
-      invalidate("source-runs", "source-sync", "source-sync-history", "opportunities");
+      invalidateAfter("source.sync");
       toast.push(
         result.queued
           ? `${result.queued} kaynak kuyruğa alındı`

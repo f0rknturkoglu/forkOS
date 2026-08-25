@@ -1,20 +1,21 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
 import type { Document } from "@/core/types";
 import {Button, Chip, Empty, Input, PageFrame, PageHeader, RowList, Section, Select, Surface, Toolbar, useToast} from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
 type GoogleStatus = { connected: boolean; expires_at: string | null; scopes: string | null };
 export function DocumentsPage() {
-  const [folderId, setFolderId] = useState(""); const [category, setCategory] = useState("other"); const invalidate = useInvalidate(); const toast = useToast();
+  const [folderId, setFolderId] = useState(""); const [category, setCategory] = useState("other"); const toast = useToast();
   const online = useOnline();
   const { data: status } = useQuery({ queryKey: ["google-status"], queryFn: () => api.get<GoogleStatus>("/auth/google/status") });
   const { data: docs = [] } = useQuery({ queryKey: ["documents"], queryFn: () => api.get<Document[]>("/documents") });
   const sync = useMutation({
     mutationFn: () => api.post<{ synced: number }>("/documents/sync", { folder_id: folderId, category }),
     onSuccess: (result) => {
-      invalidate("documents", "activity");
+      invalidateAfter("document.write");
       toast.push(
         result.synced > 0
           ? `${result.synced} belge eşlendi`

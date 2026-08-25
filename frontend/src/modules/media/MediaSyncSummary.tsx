@@ -1,10 +1,11 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { MediaProviderStatus } from "@/core/types";
 import {Button, Chip, cx, relativeTime} from "@/core/ui";
-import { useInvalidate } from "@/lib/hooks";
+import {} from "@/lib/hooks";
 import { SyncProgress } from "@/modules/opportunity/SyncProgress";
 import { KIND_LABELS, providerLabel } from "./shared";
 
@@ -37,14 +38,14 @@ function providerKinds(provider: MediaProviderStatus): string {
 export function MediaSyncSummary({ online }: { online: boolean }) {
   const [open, setOpen] = useState(false);
   const wasProviderError = useRef(false);
-  const invalidate = useInvalidate();
+ 
   const providers = useQuery({
     queryKey: ["media-providers"],
     queryFn: () => api.get<MediaProviderStatus[]>("/media/providers"),
   });
   const sync = useMutation({
     mutationFn: () => api.post("/media/sync"),
-    onSuccess: () => invalidate("media-providers", "source-sync", "media"),
+    onSuccess: () => invalidateAfter("source.sync"),
   });
 
   const data = providers.data ?? [];

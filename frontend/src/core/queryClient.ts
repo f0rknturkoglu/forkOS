@@ -23,13 +23,25 @@ export function mutationErrorHandler(
  * DISINDA calisir (registerModule icindeki run()), yani useQueryClient
  * cagiramazlar. Yazma yapan bir komut bitince invalidate() ile ekrani
  * tazeler -- location.reload() yerine.
+ *
+ * Lazim olunca kurulur: testler @tanstack/react-query'i mock'ladiginda
+ * modul yuklemesi patlamasin diye (queryClient.ts'e dokunan her dosya
+ * test suiti tarafindan import edilebiliyor).
  */
-export const queryClient = new QueryClient({
-  mutationCache: new MutationCache({ onError: mutationErrorHandler }),
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
-});
+let _queryClient: QueryClient | undefined;
+
+export function queryClient(): QueryClient {
+  if (!_queryClient) {
+    _queryClient = new QueryClient({
+      mutationCache: new MutationCache({ onError: mutationErrorHandler }),
+      defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+    });
+  }
+  return _queryClient;
+}
 
 /** Yazma sonrasi tazeleme. useInvalidate ile ayni anahtarlari alir. */
 export function invalidate(...keys: string[]): void {
-  for (const key of keys) queryClient.invalidateQueries({ queryKey: [key] });
+  const client = queryClient();
+  for (const key of keys) client.invalidateQueries({ queryKey: [key] });
 }

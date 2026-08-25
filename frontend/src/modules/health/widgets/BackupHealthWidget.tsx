@@ -1,10 +1,11 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CloudUpload, Database, HardDriveDownload, UploadCloud } from "lucide-react";
 import { api } from "@/core/api";
 import {Button, Chip, FileInput, Section, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { BackupStatus } from "@/core/types";
 
 function formatBytes(bytes: number): string {
@@ -21,7 +22,6 @@ function topModules(counts: Record<string, number>, n: number): [string, number]
 
 /** Yedekleme durumu: son yedek, Drive yukleme gecmisi ve kapsam. */
 export function BackupHealthWidget() {
-  const invalidate = useInvalidate();
   const toast = useToast();
   const online = useOnline();
 
@@ -40,7 +40,7 @@ export function BackupHealthWidget() {
     mutationFn: (file: File) =>
       api.upload<{ restored: number }>("/backup/restore", file),
     onSuccess: (result) => {
-      invalidate("backup-status", "activity");
+      invalidateAfter("backup.write");
       toast.push(
         `${result.restored} kayıt geri yüklendi — çakışan kayıtlara dokunulmadı.`,
         { tone: "ok" },
@@ -64,7 +64,7 @@ export function BackupHealthWidget() {
   const runNow = useMutation({
     mutationFn: () => api.post<{ path: string; size: number }>("/backup"),
     onSuccess: (result) => {
-      invalidate("backup-status", "activity");
+      invalidateAfter("backup.write");
       toast.push(
         `Yedek alındı (${formatBytes(result.size)})${
           data?.drive_folder_id ? " — Drive'a da yükleniyor" : ""

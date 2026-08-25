@@ -21,12 +21,6 @@ export function useOnline(): boolean {
 }
 
 /** Yazma sonrasi hangi query'lerin tazelenecegini tek yerde tut. */
-export function useInvalidate() {
-  const client = useQueryClient();
-  return (...keys: string[]) => {
-    for (const key of keys) client.invalidateQueries({ queryKey: [key] });
-  };
-}
 
 /** Basit debounce -- arama kutulari icin. */
 export function useDebounced<T>(value: T, delay = 250): T {

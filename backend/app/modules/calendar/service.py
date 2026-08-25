@@ -14,6 +14,7 @@ from app.core.time import local_datetime, local_today
 from app.integrations.gcal import list_events, parse_google_time, upsert_event
 from app.integrations.google_auth import access_token
 from app.integrations.models import OAuthToken
+from app.modules import DeadlineRow
 from app.modules.calendar.models import ExternalEvent
 from app.modules.todo.models import PlanSlot
 
@@ -180,3 +181,25 @@ async def push_slot(session: AsyncSession, slot_id: uuid.UUID) -> dict | None:
         "google_event_id": slot.google_event_id,
         "url": result.get("htmlLink"),
     }
+
+
+async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
+    """Bugun + 3 gun icindeki takvim olaylari (kural 16)."""
+    from datetime import timedelta
+
+    from app.core.deadlines import rows_with_titles
+    from app.modules.calendar.models import ExternalEvent
+
+    now = datetime.now(UTC)
+    events = (await session.execute(
+        select(ExternalEvent).where(
+            ExternalEvent.starts_at >= now,
+            ExternalEvent.starts_at <= now + timedelta(days=3),
+        )
+    )).scalars()
+    ids = [e.id for e in events]
+    due = {e.id: e.starts_at for e in events}
+    return await rows_with_titles(
+        session, type_="external_event", module="calendar",
+        ids=ids, due_at=due, priority={e: 1 for e in ids},
+    )

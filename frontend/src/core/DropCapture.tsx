@@ -1,8 +1,9 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { Download, Link2, ListChecks } from "lucide-react";
 import { api } from "./api";
 import { useToast } from "./ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 
 /**
  * Pencereye birakilan seyi yakalar.
@@ -43,7 +44,7 @@ export function DropCapture() {
   // katman her cocuk gecisinde titriyor.
   const depth = useRef(0);
   const toast = useToast();
-  const invalidate = useInvalidate();
+ 
   const online = useOnline();
 
   useEffect(() => {
@@ -91,14 +92,14 @@ export function DropCapture() {
             source: "drop",
             client_uuid: crypto.randomUUID(),
           });
-          invalidate("bookmarks", "bookmark-stats", "activity");
+          invalidateAfter("bookmark.write");
           toast.push(
             result.duplicate ? "Zaten kayıtlıydı — yine de gelen kutusunda." : "Gelen kutusuna eklendi",
             { tone: result.duplicate ? "warn" : "ok", action: { label: "aç", run: () => { location.hash = "/inbox"; } } },
           );
         } else {
           await api.post("/todos", { title: dropped.value.slice(0, 500) });
-          invalidate("todos", "activity");
+          invalidateAfter("todo.write");
           toast.push("Görev olarak eklendi", {
             tone: "ok",
             action: { label: "aç", run: () => { location.hash = "/todos"; } },
@@ -121,7 +122,7 @@ export function DropCapture() {
       window.removeEventListener("dragleave", onLeave);
       window.removeEventListener("drop", onDrop);
     };
-  }, [online, toast, invalidate]);
+  }, [online, toast]);
 
   if (!active && !busy) return null;
 

@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Check, ChevronRight, RotateCcw, SlidersHorizontal } from "lucide-react";
@@ -5,19 +6,11 @@ import { api } from "@/core/api";
 import type { MediaItem } from "@/core/types";
 import type { components } from "@/generated/api-schema";
 import { Button, Field, NumberInput, cx } from "@/core/ui";
-import { useInvalidate } from "@/lib/hooks";
+import {} from "@/lib/hooks";
 
 export type MediaConsumptionIn = components["schemas"]["MediaConsumptionIn"];
 type ConsumptionAction = "quick" | "set" | "finish";
 
-export const MEDIA_PROGRESS_REFRESH_KEYS = [
-  "media",
-  "media-detail",
-  "media-stats",
-  "media-dashboard",
-  "today-agenda",
-  "activity",
-] as const;
 
 const MEASURE_LABELS: Record<string, string> = {
   chapter: "bölüm",
@@ -68,19 +61,18 @@ export function MediaProgressActions({
 }) {
   const [setting, setSetting] = useState(false);
   const [value, setValue] = useState(item.progress ?? 0);
-  const invalidate = useInvalidate();
   const mutation = useMutation({
     mutationFn: ({ action, value: next }: { action: ConsumptionAction; value?: number }) =>
       api.post(`/media/${encodeURIComponent(item.id)}/consumptions`, consumptionBody(action, item, next)),
     onSuccess: () => {
-      invalidate(...MEDIA_PROGRESS_REFRESH_KEYS);
+      invalidateAfter("media.write");
       onChanged();
     },
   });
   const cycle = useMutation({
     mutationFn: () => api.post(`/media/${encodeURIComponent(item.id)}/cycles`, {}),
     onSuccess: () => {
-      invalidate(...MEDIA_PROGRESS_REFRESH_KEYS);
+      invalidateAfter("media.write");
       onChanged();
     },
   });

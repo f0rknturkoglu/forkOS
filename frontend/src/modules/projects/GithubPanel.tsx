@@ -1,3 +1,4 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -5,7 +6,7 @@ import {
 } from "lucide-react";
 import { api } from "@/core/api";
 import { Empty, RowList, Section, cx, relativeTime, useToast } from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { GithubIssue, GithubRepoPanel, Project } from "@/core/types";
 
 type Tab = "issues" | "pulls" | "commits";
@@ -19,7 +20,6 @@ type Tab = "issues" | "pulls" | "commits";
 export function GithubPanel({ project }: { project: Project }) {
   const [tab, setTab] = useState<Tab>("issues");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -35,7 +35,7 @@ export function GithubPanel({ project }: { project: Project }) {
       api.post<{ duplicate: boolean; title: string }>(
         `/projects/${project.id}/github/issues`, { number }),
     onSuccess: (result) => {
-      invalidate("project-todos", "todos", "activity", "tags");
+      invalidateAfter("project.write");
       toast.push(result.duplicate ? "Bu issue zaten görev olarak duruyor." : "Görev oluşturuldu", {
         tone: result.duplicate ? "warn" : "ok",
       });

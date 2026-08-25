@@ -4,7 +4,8 @@ import { Search } from "lucide-react";
 import { allCommands } from "./registry";
 import type { Command as AppCommand } from "./types";
 import { Kbd } from "./ui";
-import { TYPE_LABELS, entityRoute, useGlobalSearch } from "./GlobalSearch";
+import { entityRoute, useGlobalSearch } from "./GlobalSearch";
+import { typeLabel } from "./entityRegistry";
 
 /** Ust seritteki arama kutusu da paleti bununla acar. */
 const OPEN_EVENT = "forkos:open-palette";
@@ -152,7 +153,7 @@ export function CommandPalette() {
                   >
                     <span className="truncate">{hit.title || "(başlıksız)"}</span>
                     <span className="shrink-0 text-micro uppercase tracking-wide text-muted">
-                      {TYPE_LABELS[hit.type] ?? hit.type}
+                      {typeLabel(hit.type)}
                     </span>
                   </Command.Item>
                 ))}

@@ -1,15 +1,13 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Empty, Input, RowList, Section, Select, cx, useToast } from "@/core/ui";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { Project, Todo } from "@/core/types";
 import { TodoRow } from "@/modules/todo/TodoRow";
 
-export const PROJECT_REFRESH_KEYS = [
-  "projects", "project-todos", "project-timeline", "todos", "activity",
-] as const;
 
 export function createProjectTodo(projectId: string, title: string, milestoneId: string) {
   return api.post<Todo>("/todos", {
@@ -27,7 +25,6 @@ export function ProjectTodos({ project }: { project: Project }) {
   const [title, setTitle] = useState("");
   const [milestone, setMilestone] = useState("");
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   const { data: todos = [] } = useQuery({
@@ -35,7 +32,7 @@ export function ProjectTodos({ project }: { project: Project }) {
     queryFn: () => api.get<Todo[]>(`/projects/${project.id}/todos`),
   });
 
-  const refresh = () => invalidate(...PROJECT_REFRESH_KEYS);
+  const refresh = () => invalidateAfter("project.write");
 
   const add = useMutation({
     mutationFn: () => createProjectTodo(project.id, title, milestone),

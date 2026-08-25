@@ -1,9 +1,10 @@
+import { invalidateAfter } from "@/core/invalidation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import {Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
-import { useInvalidate, useOnline } from "@/lib/hooks";
+import {useOnline} from "@/lib/hooks";
 import type { Feed, RssStats } from "@/core/types";
 
 function problemBadges(feed: Feed): { label: string; tone: "warn" | "danger" }[] {
@@ -18,7 +19,6 @@ function problemBadges(feed: Feed): { label: string; tone: "warn" | "danger" }[]
 /** RSS feed sagligi: sorunlu/kapatilmis/hic cekilmemis beslemeler + aksiyonlar. */
 export function RssHealthWidget() {
   const online = useOnline();
-  const invalidate = useInvalidate();
   const toast = useToast();
 
   const { data: feeds = [] } = useQuery({
@@ -36,7 +36,7 @@ export function RssHealthWidget() {
   const refreshAll = useMutation({
     mutationFn: () => api.post<{ started: number }>("/rss/refresh-all"),
     onSuccess: (result) => {
-      invalidate("feeds", "rss-stats");
+      invalidateAfter("rss.write");
       toast.push(
         result.started > 0
           ? `${result.started} besleme çekiliyor…`
@@ -47,7 +47,7 @@ export function RssHealthWidget() {
   });
   const refreshOne = useMutation({
     mutationFn: (id: string) => api.post(`/rss/feeds/${id}/refresh`),
-    onSuccess: () => invalidate("feeds", "rss-stats", "items", "activity"),
+    onSuccess: () => invalidateAfter("rss.write"),
   });
   // "Cevap vermeyen" feed'ler: hata biriktirmis ya da kapatilmis.
   const dead = feeds.filter((f) => f.error_count > 0 || !f.active);
@@ -65,7 +65,7 @@ export function RssHealthWidget() {
       return removed;
     },
     onSuccess: (removed) => {
-      invalidate("feeds", "items", "rss-stats", "activity");
+      invalidateAfter("rss.write");
       toast.push(
         removed > 0
           ? removed + " yanıt vermeyen besleme silindi."
