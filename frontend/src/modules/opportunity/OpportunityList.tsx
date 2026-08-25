@@ -1,10 +1,11 @@
 import { ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
-import { Badge, Button, cx } from "@/core/ui";
+import { Badge, Button, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
-  SCORE_LABEL, SCORE_TONE, STATUSES,
-  daysLeft, kindLabel, scoreBand, sourceLabel, statusLabel,
+  REMOTE_LABELS, SCORE_TONE, STATUSES,
+  daysLeft, kindLabel, remoteKind, scoreBand, sourceLabel, statusLabel,
 } from "./labels";
+import type { RemoteKind } from "./labels";
 
 export function FilterChip({
   label, count, active, onClick,
@@ -34,6 +35,7 @@ export function FilterChip({
 
 export function OpportunityCard({
   item, onOpen, onStatus, onTrash, onRestore, onDelete, disabled, isTrash,
+  layout = "rows", onSource, onRemote, onKind, sourceActive = false, remoteActive = false,
 }: {
   item: Opportunity;
   onOpen: () => void;
@@ -43,20 +45,41 @@ export function OpportunityCard({
   onDelete: () => void;
   disabled: boolean;
   isTrash: boolean;
+  /** "rows" yatay satir, "grid" karesel kart. */
+  layout?: "rows" | "grid";
+  onSource?: (source: string) => void;
+  onRemote?: (kind: RemoteKind) => void;
+  onKind?: (kind: string) => void;
+  sourceActive?: boolean;
+  remoteActive?: boolean;
 }) {
   const left = daysLeft(item.deadline_at);
   const urgent = left !== null && left <= 7;
   const band = scoreBand(item.score);
+  const rk = remoteKind(item.remote);
+
+  function chip(active: boolean) {
+    return cx(
+      "flex h-6 items-center rounded-control border px-1.5 text-[11px] transition",
+      active
+        ? "border-accent bg-accent-surface font-medium text-accent"
+        : "border-subtle text-secondary hover:bg-surface-hover hover:text-primary",
+    );
+  }
 
   return (
     <article className={cx(
-      "group grid min-w-0 grid-cols-[52px_minmax(0,1fr)] gap-3 px-1 py-3 transition hover:bg-surface-hover sm:grid-cols-[58px_minmax(0,1fr)_auto]",
+      "group min-w-0 px-1 py-3 transition hover:bg-surface-hover",
+      layout === "rows"
+        ? "grid grid-cols-[52px_minmax(0,1fr)] gap-3 sm:grid-cols-[58px_minmax(0,1fr)_auto]"
+        : "flex flex-col gap-2",
       band === "killed" && "opacity-60",
     )}>
-      <div className="text-center">
+      <div className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}>
         <div className={cx(
-          "numeral text-[24px] leading-none",
-          band === "strong" ? "text-ok" : band === "fair" ? "text-accent" : band === "killed" ? "text-danger" : "text-muted",
+          "numeral leading-none",
+          layout === "rows" ? "text-[24px]" : "text-[20px]",
+          band === "strong" ? "text-ok" : band === "fair" ? "text-warn" : band === "killed" ? "text-danger" : "text-muted",
         )}>
           {item.score === null ? "—" : Math.round(item.score)}
         </div>
@@ -69,15 +92,33 @@ export function OpportunityCard({
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
           {item.organization && <span className="truncate text-secondary">{item.organization}</span>}
           {item.location && <span className="inline-flex items-center gap-1"><MapPin size={12} />{item.location}</span>}
-          <Badge>{kindLabel(item.kind)}</Badge>
-          <span>{sourceLabel(item.source)}</span>
-          {item.remote && <span>{item.remote}</span>}
-          {band && <Badge tone={SCORE_TONE[band]}>{SCORE_LABEL[band]}</Badge>}
+          <span title={new Date(item.found_at).toLocaleString("tr-TR")}>⏱ {relativeTime(item.found_at)} · tarandı</span>
+          <button type="button" onClick={() => onKind?.(item.kind)} className={chip(false)} title="Türüne göre filtrele">
+            {kindLabel(item.kind)}
+          </button>
+          <button type="button" onClick={() => onSource?.(item.source)} className={chip(sourceActive)} title="Kaynağına göre filtrele">
+            {sourceLabel(item.source)}
+          </button>
+          {rk && (
+            <button
+              type="button"
+              onClick={() => onRemote?.(rk)}
+              title="Uzaktan/ofis durumuna göre filtrele"
+              className={cx(
+                chip(remoteActive),
+                rk === "remote" && !remoteActive && "border-accent-border text-accent",
+              )}
+            >
+              {REMOTE_LABELS[rk]}
+            </button>
+          )}
           {left !== null && <span className={urgent ? "text-warn" : "text-secondary"}>{left < 0 ? `${Math.abs(left)} gün geçti` : left === 0 ? "Son gün" : `${left} gün kaldı`}</span>}
         </div>
       </div>
-      <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1 sm:justify-end">
-        {isTrash ? (
+      <div className={cx(
+        "flex flex-wrap items-center gap-2",
+        layout === "rows" ? "col-span-2 sm:col-span-1 sm:justify-end" : "justify-start",
+      )}>        {isTrash ? (
           <>
             <Button size="sm" onClick={onRestore} disabled={disabled}>
               <RotateCcw size={13} /> Geri yükle

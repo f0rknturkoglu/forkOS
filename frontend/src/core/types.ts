@@ -303,12 +303,14 @@ export interface GithubActivity { day: string; repo: string; commit_count: numbe
 export interface Expense {
   id: string; title: string; amount: string; currency: string; category: string;
   spent_on: string; note: string | null;
+  sub: string | null;
 }
 
 export interface RecurringPayment {
   id: string; title: string; amount: string; currency: string; category: string;
   billing_day: number | null; frequency: string; next_due_at: string | null;
   active: boolean; note: string | null;
+  sub: string | null;
 }
 
 export type MediaLink = { name: string; url: string; icon?: string };

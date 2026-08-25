@@ -227,6 +227,67 @@
 - Canlı third-party credential/rate-limit davranışı mock test kapsamı dışında;
   bilinen backend/test bloklayıcısı yoktur.
 
+## Settings Source Health Disclosure — 2026-08-25
+
+### Status
+
+Implemented and verified.
+
+### Implementation
+
+- Added and exported `SettingsSourceHealth({ sources })` from `frontend/src/modules/settings/SettingsPage.tsx`.
+- The wrapper owns the disclosure state and delegates rendering to the shared `SourceHealthAccordion`.
+- Preserved the existing Settings label as `Kaynak sağlığı`.
+- Replaced the final always-visible source-health table with the collapsible wrapper.
+- Kept `Badge` and `relativeTime` imports because they remain used by integration and backup sections.
+
+### TDD evidence
+
+#### RED
+
+Added `frontend/src/modules/settings/SettingsSourceHealth.test.tsx` before the implementation. Ran:
+
+```bash
+cd frontend && npm test -- --run src/modules/settings/SettingsSourceHealth.test.tsx
+```
+
+Result: failed as expected because `SettingsSourceHealth` was not exported yet (React reported an invalid/undefined element type).
+
+#### GREEN
+
+After the minimal wrapper and table replacement, ran:
+
+```bash
+cd frontend && npm test -- --run src/core/SourceHealthAccordion.test.tsx src/modules/settings/SettingsSourceHealth.test.tsx
+```
+
+Result: 2 test files passed, 3 tests passed.
+
+Also ran:
+
+```bash
+cd frontend && npm run build
+```
+
+Result: TypeScript compile, Vite production build, PWA generation, and bundle check all exited successfully.
+
+### Files
+
+- Modified: `frontend/src/modules/settings/SettingsPage.tsx`
+- Added: `frontend/src/modules/settings/SettingsSourceHealth.test.tsx`
+
+### Self-review
+
+- The wrapper starts closed (`useState(false)`).
+- The test verifies `details[data-source-health]`, the `2 kayıt` summary, opening via `Kaynak sağlığı`, and both source names.
+- The shared accordion’s existing native disclosure behavior and status presentation are reused.
+- `git diff --check` passed.
+- No media files or unrelated modules were changed.
+
+### Concerns
+
+None. The wrapper passes an explicit lowercase title to preserve the existing Settings UI wording while the shared component remains reusable elsewhere.
+
 ## Duplicate occurrence ve concurrent cache edge — 2026-08-23
 
 ### RED kanıtı

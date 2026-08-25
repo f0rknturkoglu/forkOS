@@ -186,3 +186,49 @@ already-present scoped rendering.
   receiver for existing Task 4 links.
 - The generated-contract diff is intentionally large because it captures the previously
   deferred Task 2/3 media API surface as required by the review.
+
+---
+
+## Task 4 — Full verification and runtime check (2026-08-25)
+
+### Verification commands and results
+
+1. Command: `cd frontend && npm test`
+
+   Result: PASS — `27 passed | 1 skipped` test files; `64 passed | 9 skipped` tests. The
+   pre-existing Task 5 media contract remains skipped.
+
+2. Command: `cd frontend && node scripts/generate-api.mjs --check && npm run build`
+
+   Result: PASS — API schema check exited 0; TypeScript, Vite production build, PWA
+   generation, and bundle check all exited 0 (`1704 modules transformed`).
+
+3. Command: `git diff --check && git status --short`
+
+   Result: PASS — no whitespace errors. Status output contains only the pre-existing
+   ` M .superpowers/sdd/task-3-report.md` change.
+
+4. Runtime commands:
+
+   ```bash
+   docker compose restart web
+   docker compose ps web
+   curl -fsS http://127.0.0.1:5173/ | grep '<title>forkOS</title>'
+   ```
+
+   Results: restart exited 0 (`forkos-web-1` started); the immediate status was `Up 2
+   seconds (health: starting)`; curl exited 0 and matched `    <title>forkOS</title>`. A
+   fresh `docker compose ps web` after five seconds reported `Up 18 seconds (healthy)` on
+   `127.0.0.1:5173->5173/tcp`.
+
+### Commit and working-tree interpretation
+
+No verification adjustment was required, so no commit was created (`commit: none`). HEAD
+remains `c73dbf6 feat: collapse settings source health logs`; the only working-tree change
+is the pre-existing `.superpowers/sdd/task-3-report.md`, which was preserved and not
+modified by this task.
+
+### Concerns
+
+None. The web container briefly reported `health: starting` immediately after restart, then
+became `healthy`; the live curl check succeeded during that startup window.

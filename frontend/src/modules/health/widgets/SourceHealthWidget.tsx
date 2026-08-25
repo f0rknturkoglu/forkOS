@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import { api } from "@/core/api";
-import { Badge, Empty, Section as Panel, cx, relativeTime } from "@/core/ui";
+import { Badge, Button, Empty, Section as Panel, cx, relativeTime, useToast } from "@/core/ui";
+import { Copy } from "lucide-react";
 import type { SourceHealth } from "@/core/types";
 import { sourceLabel } from "@/modules/opportunity/labels";
 
@@ -32,11 +33,37 @@ export function SourceHealthWidget() {
     if (run.status in tally) tally[run.status as keyof typeof tally] += 1;
   }
   const broken = data.filter((run) => run.status === "error");
+  const toast = useToast();
+
+  /** Agent'a yapistirmak icin hata satirlarini TSV olarak panoya kopyala. */
+  async function copyErrors() {
+    const text = broken
+      .map((run) => [
+        sourceLabel(run.source),
+        run.status,
+        run.error ?? "",
+        new Date(run.started_at).toISOString(),
+      ].join("	"))
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(text || "hata yok");
+      toast.push(`${broken.length} hata panoya kopyalandı`, { tone: "ok" });
+    } catch {
+      toast.push("Pano erişilemedi — tarayıcı izni gerekiyor.", { tone: "warn" });
+    }
+  }
 
   return (
     <Panel
       title="Kaynak Sağlığı"
-      action={<a href="#/sources" className="shrink-0 text-meta text-accent hover:underline">tüm kaynaklar →</a>}
+      action={
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" onClick={copyErrors} disabled={broken.length === 0} title="Hata satırlarını panoya kopyala (agent a yapistirmak icin)">
+            <Copy size={13} /> Hataları kopyala
+          </Button>
+          <a href="#/sources" className="text-meta text-accent hover:underline">tüm kaynaklar →</a>
+        </div>
+      }
       bodyClassName="space-y-4"
     >
       <div className="grid grid-cols-3 gap-3">

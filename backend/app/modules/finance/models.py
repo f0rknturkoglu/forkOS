@@ -21,6 +21,7 @@ class Expense(EntityBacked, Base):
     category: Mapped[str] = mapped_column(Text)
     spent_on: Mapped[date] = mapped_column(Date, default=date.today)
     note: Mapped[str | None] = mapped_column(Text)
+    sub: Mapped[str | None] = mapped_column(Text)   # abonelik markasi (wow/youtube/spotify/prime/icloud)
 
 
 class RecurringPayment(EntityBacked, Base):
@@ -36,3 +37,4 @@ class RecurringPayment(EntityBacked, Base):
     next_due_at: Mapped[date | None] = mapped_column(Date)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str | None] = mapped_column(Text)
+    sub: Mapped[str | None] = mapped_column(Text)   # abonelik markasi (wow/youtube/spotify/prime/icloud)

@@ -117,6 +117,7 @@ async def pay_recurring(session: AsyncSession, item_id: uuid.UUID) -> dict | Non
         currency=payment.currency,
         category=payment.category,
         spent_on=paid_on,
+        sub=payment.sub,
         note=payment.note,
     )
     session.add(expense)

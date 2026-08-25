@@ -76,16 +76,31 @@ export function scoreBand(score: number | null): ScoreBand | null {
   return "low";
 }
 
-export const SCORE_TONE: Record<ScoreBand, "neutral" | "accent" | "ok" | "danger"> = {
+/** Skor renkleri: yeşil (>=70) · sarı (40-69) · kırmızı (<0) · gri (0-39). */
+export const SCORE_TONE: Record<ScoreBand, "neutral" | "warn" | "ok" | "danger"> = {
   killed: "danger",
   low: "neutral",
-  fair: "accent",
+  fair: "warn",
   strong: "ok",
 };
 
-export const SCORE_LABEL: Record<ScoreBand, string> = {
-  killed: "elendi",
-  low: "zayıf uyum",
-  fair: "orta uyum",
-  strong: "güçlü uyum",
+export type RemoteKind = "remote" | "hybrid" | "office";
+
+/** Ham remote metnini sinifa cevirir: "Remote - EU" -> remote, "Hybrid" -> hybrid. */
+export function remoteKind(remote: string | null): RemoteKind | null {
+  if (!remote) return null;
+  const t = remote.toLocaleLowerCase("tr");
+  if (t.includes("remote") || t.includes("uzaktan") || t.includes("wfh") || t.includes("uzak çalışma")) {
+    return "remote";
+  }
+  if (t.includes("hybrid") || t.includes("hibrit") || t.includes("karma")) {
+    return "hybrid";
+  }
+  return "office";
+}
+
+export const REMOTE_LABELS: Record<RemoteKind, string> = {
+  remote: "Uzaktan",
+  hybrid: "Hibrit",
+  office: "Ofis",
 };

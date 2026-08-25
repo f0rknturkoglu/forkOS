@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import { Badge, Button, Empty, Section as Panel, cx, relativeTime, useToast } from "@/core/ui";
+import { confirmDialog } from "@/core/dialog";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import type { Feed, RssStats } from "@/core/types";
 
@@ -62,15 +63,62 @@ export function RssHealthWidget() {
     mutationFn: (id: string) => api.post(`/rss/feeds/${id}/refresh`),
     onSuccess: () => invalidate("feeds", "rss-stats", "items", "activity"),
   });
+  // "Cevap vermeyen" feed'ler: hata biriktirmis ya da kapatilmis.
+  const dead = feeds.filter((f) => f.error_count > 0 || !f.active);
+  const deleteDead = useMutation({
+    mutationFn: async () => {
+      let removed = 0;
+      for (const feed of dead) {
+        try {
+          await api.del(`/rss/feeds/${feed.id}`);
+          removed += 1;
+        } catch {
+          // tek tek devam et; sonucta kullanici toplami gorur
+        }
+      }
+      return removed;
+    },
+    onSuccess: (removed) => {
+      invalidate("feeds", "items", "rss-stats", "activity");
+      toast.push(
+        removed > 0
+          ? removed + " yanıt vermeyen besleme silindi."
+          : "Silinecek besleme yok.",
+        { tone: removed > 0 ? "ok" : "neutral" },
+      );
+    },
+    onError: (error: Error) => toast.push("Silme başarısız: " + error.message, { tone: "danger" }),
+  });
+
+  async function confirmDeleteDead() {
+    if (dead.length === 0) {
+      toast.push("Yanıt vermeyen besleme yok.", { tone: "neutral" });
+      return;
+    }
+    const ok = await confirmDialog({
+      title: "Yanıt vermeyen beslemeler silinsin mi?",
+      body: (<><strong className="font-medium text-primary">{dead.length}</strong> besleme (hata biriktirmiş veya kapatılmış) ve bağlı yazıları listeden kalkar. Geri alınamaz.</>),
+      confirmLabel: "Sil",
+      tone: "danger",
+    });
+    if (ok) deleteDead.mutate();
+  }
+  
 
   return (
     <Panel
       title="RSS Sağlığı"
       action={
-        <Button size="sm" disabled={!online || refreshAll.isPending} onClick={() => refreshAll.mutate()}>
-          <RefreshCw size={13} className={refreshAll.isPending ? "animate-spin" : undefined} />
-          Tümünü tazele
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" disabled={!online || deleteDead.isPending} onClick={confirmDeleteDead} title="Hata biriktiren veya kapatılmış beslemeleri sil">
+            <Trash2 size={13} />
+            {dead.length > 0 ? `${dead.length} sorunlu sil` : "Sorunlu yok"}
+          </Button>
+          <Button size="sm" disabled={!online || refreshAll.isPending} onClick={() => refreshAll.mutate()}>
+            <RefreshCw size={13} className={refreshAll.isPending ? "animate-spin" : undefined} />
+            Tümünü tazele
+          </Button>
+        </div>
       }
       bodyClassName="space-y-4"
     >

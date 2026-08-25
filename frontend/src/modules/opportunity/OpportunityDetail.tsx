@@ -6,9 +6,11 @@ import { Badge, Button, Empty, Input, SectionHeader, cx } from "@/core/ui";
 import type { Document, Opportunity } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import {
-  SCORE_LABEL, SCORE_TONE, STATUSES, STATUS_TONES,
+  SCORE_TONE, STATUSES, STATUS_TONES,
   daysLeft, kindLabel, scoreBand, sourceLabel, statusLabel,
 } from "./labels";
+import type { ScoreBand } from "./labels";
+
 
 type Requirement = {
   id: string; name: string; status: string; required: boolean; document_entity_id: string | null;
@@ -81,8 +83,8 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                 {band && (
                   <Badge tone={SCORE_TONE[band]}>
                     {band === "killed"
-                      ? SCORE_LABEL.killed
-                      : `${Math.round(item!.score as number)} · ${SCORE_LABEL[band]}`}
+                      ? "elendi"
+                      : `${Math.round(item!.score as number)} puan`}
                   </Badge>
                 )}
               </div>
@@ -158,7 +160,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
             <section>
               <SectionHeader
                 label="Uyum puanı"
-                hint={band ? SCORE_LABEL[band] : undefined}
+                hint={band ? scoreBandLabel(band) : undefined}
               />
 
               <div className="flex items-baseline gap-3">
@@ -238,4 +240,14 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
       </aside>
     </div>
   );
+}
+
+/* Skor bandi -> tek kelime etiket (renk karttaki gibi gorselde). */
+function scoreBandLabel(band: ScoreBand): string {
+  switch (band) {
+    case "killed": return "elendi";
+    case "strong": return "güçlü";
+    case "fair": return "orta";
+    default: return "zayıf";
+  }
 }

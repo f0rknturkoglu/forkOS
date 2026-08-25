@@ -20,3 +20,7 @@ backend/data/cache/
 backend/data/media/
 output/
 .worktrees/
+
+# kisisel jobhunter uyum profili (Ayarlar panelinden uretilir)
+backend/config.yaml
+backend/app/sources/forkjob_core/data/linkedin-profiles.yaml.user

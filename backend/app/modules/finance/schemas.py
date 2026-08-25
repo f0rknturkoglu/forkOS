@@ -3,7 +3,16 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Abonelik markalari (ilk paket): WOW, YouTube, Spotify, Amazon Prime, iCloud+
+SUB_BRANDS = ["wow", "youtube", "spotify", "amazon_prime", "icloud"]
+
+
+def _check_sub(v: str | None) -> str | None:
+    if v is not None and v not in SUB_BRANDS:
+        raise ValueError(f"sub su olmali: {SUB_BRANDS}")
+    return v
 
 
 class ExpenseIn(BaseModel):
@@ -13,6 +22,12 @@ class ExpenseIn(BaseModel):
     category: str = "other"
     spent_on: date = Field(default_factory=date.today)
     note: str | None = None
+    sub: str | None = None
+
+    @field_validator("sub")
+    @classmethod
+    def sub_known(cls, v: str | None) -> str | None:
+        return _check_sub(v)
 
 
 class ExpensePatch(BaseModel):
@@ -22,6 +37,12 @@ class ExpensePatch(BaseModel):
     category: str | None = None
     spent_on: date | None = None
     note: str | None = None
+    sub: str | None = None
+
+    @field_validator("sub")
+    @classmethod
+    def sub_known(cls, v: str | None) -> str | None:
+        return _check_sub(v)
 
 
 class RecurringIn(BaseModel):
@@ -34,6 +55,12 @@ class RecurringIn(BaseModel):
     next_due_at: date | None = None
     active: bool = True
     note: str | None = None
+    sub: str | None = None
+
+    @field_validator("sub")
+    @classmethod
+    def sub_known(cls, v: str | None) -> str | None:
+        return _check_sub(v)
 
 
 class RecurringPatch(BaseModel):
@@ -45,3 +72,9 @@ class RecurringPatch(BaseModel):
     next_due_at: date | None = None
     active: bool | None = None
     note: str | None = None
+    sub: str | None = None
+
+    @field_validator("sub")
+    @classmethod
+    def sub_known(cls, v: str | None) -> str | None:
+        return _check_sub(v)

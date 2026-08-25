@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { LayoutGrid, List, Search, Settings2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { Button, Empty, Input, PageFrame, PageHeader, RowList, Section, Toolbar, cx, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
@@ -8,9 +8,11 @@ import { navigate } from "@/app/router";
 import type { Opportunity } from "@/core/types";
 import { useInvalidate, useOnline } from "@/lib/hooks";
 import {
-  STATUSES, statusLabel,
+  REMOTE_LABELS, STATUSES, remoteKind, sourceLabel, statusLabel,
+
 } from "./labels";
 import { OpportunityDetail } from "./OpportunityDetail";
+import { JobhunterSettings } from "./JobhunterSettings";
 import { FilterChip, OpportunityCard } from "./OpportunityList";
 import { SourcePicker } from "./SourcePicker";
 import { SyncProgress } from "./SyncProgress";
@@ -34,6 +36,12 @@ export function OpportunityPage() {
   /** "score" varsayilan: 645 kaydin cogu elenmis, en uygunlar one gelsin. */
   const [sort, setSort] = useState<"score" | "recent" | "deadline">("score");
   const [hideKilled, setHideKilled] = useState(true);
+  /** Yatay satir / karesel kart gorunumu */
+  const [view, setView] = useState<"rows" | "grid">("rows");
+  /** Tiklanabilir chip filtreleri: kaynak + uzaktan/ofis */
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [remoteFilter, setRemoteFilter] = useState<"" | "remote" | "hybrid" | "office">("");
+  const [showSettings, setShowSettings] = useState(false);
 
   // Tum kayitlar bir kere gelir; suzme ve arama istemcide. 500 satir icin
   // her suzgec degisiminde sunucuya gitmekten hizli ve sayilar tutarli kalir.
@@ -85,6 +93,8 @@ export function OpportunityPage() {
     const rows = data.filter((item) => {
       if (status && item.status !== status) return false;
       if (hideKilled && item.score !== null && item.score < 0) return false;
+      if (sourceFilter && item.source !== sourceFilter) return false;
+      if (remoteFilter && remoteKind(item.remote) !== remoteFilter) return false;
       if (!needle) return true;
       return [item.title, item.organization, item.location, item.source]
         .some((field) => field?.toLocaleLowerCase("tr").includes(needle));
@@ -99,7 +109,7 @@ export function OpportunityPage() {
         - (b.deadline_at ? new Date(b.deadline_at).getTime() : Infinity),
     }[sort];
     return [...rows].sort(by);
-  }, [data, status, search, sort, hideKilled]);
+  }, [data, status, search, sort, hideKilled, sourceFilter, remoteFilter]);
 
   const killedCount = useMemo(
     () => data.filter((item) => item.score !== null && item.score < 0).length,
@@ -146,7 +156,25 @@ export function OpportunityPage() {
           />
         </div>
         <span className="min-w-2 flex-1" />
+        <button
+          type="button"
+          onClick={() => setShowSettings(true)}
+          title="Jobhunter ayarları"
+          className="flex h-9 w-9 items-center justify-center rounded-control border border-subtle bg-surface text-muted transition hover:bg-surface-hover hover:text-primary"
+        >
+          <Settings2 size={15} />
+        </button>
         <SourcePicker />
+        <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5">
+          <button type="button" title="Yatay satırlar" onClick={() => setView("rows")}
+            className={cx("flex h-7 w-7 items-center justify-center rounded-control transition", view === "rows" ? "bg-surface-sunken text-primary" : "text-muted hover:text-primary")}>
+            <List size={14} />
+          </button>
+          <button type="button" title="Karesel kartlar" onClick={() => setView("grid")}
+            className={cx("flex h-7 w-7 items-center justify-center rounded-control transition", view === "grid" ? "bg-surface-sunken text-primary" : "text-muted hover:text-primary")}>
+            <LayoutGrid size={14} />
+          </button>
+        </span>
         <SyncProgress compact />
       </Toolbar>
 
@@ -194,6 +222,25 @@ export function OpportunityPage() {
       </Section>
 
       {/* ── Sıralama ── */}
+
+      {/* ── Kaynak ve konum filtreleri (tiklanabilir chip ler) ── */}
+      <Section title="Kaynak & konum">
+        <div className="flex flex-wrap gap-2">
+          <FilterChip label="Tümü" count={data.length} active={!sourceFilter && !remoteFilter}
+            onClick={() => { setSourceFilter(""); setRemoteFilter(""); resetPage(); }} />
+          {[...new Set(data.map((x) => x.source))].slice(0, 12).map((source) => (
+            <FilterChip key={source} label={sourceLabel(source)} count={data.filter((x) => x.source === source).length}
+              active={sourceFilter === source}
+              onClick={() => { setSourceFilter(sourceFilter === source ? "" : source); resetPage(); }} />
+          ))}
+          {(["remote", "hybrid", "office"] as const).filter((k) => data.some((x) => remoteKind(x.remote) === k)).map((k) => (
+            <FilterChip key={k} label={REMOTE_LABELS[k]} count={data.filter((x) => remoteKind(x.remote) === k).length}
+              active={remoteFilter === k}
+              onClick={() => { setRemoteFilter(remoteFilter === k ? "" : k); resetPage(); }} />
+          ))}
+        </div>
+      </Section>
+
       <Section title="Sıralama">
         <div className="flex flex-wrap items-center gap-2">
           {([
@@ -265,6 +312,20 @@ export function OpportunityPage() {
                   onOpen={() => setSelected(item.id)}
                   onStatus={(next) => patch.mutate({ id: item.id, status: next })}
                   isTrash={tab === "trash"}
+                  layout={view}
+                  sourceActive={sourceFilter === item.source}
+                  remoteActive={remoteFilter === remoteKind(item.remote)}
+                  onSource={(s) => { setSourceFilter(sourceFilter === s ? "" : s); resetPage(); }}
+                  onRemote={(k) => { setRemoteFilter(remoteFilter === k ? "" : k); resetPage(); }}
+                  onKind={(kind) => {
+                    setStatus("");
+                    setHideKilled(true);
+                    if (kind === "job") setTab("jobs");
+                    else if (kind === "exam") setTab("osym");
+                    else if (kind === "scholarship") setTab("ylsy");
+                    else setTab("announcements");
+                    resetPage();
+                  }}
                   onTrash={() => trash(item)}
                   onRestore={() => lifecycle.mutate({ action: "restore", id: item.id })}
                   onDelete={() => permanentlyDelete(item)}
@@ -286,6 +347,7 @@ export function OpportunityPage() {
         )}
       </Section>
 
+      {showSettings && <JobhunterSettings onClose={() => setShowSettings(false)} />}
       {selected && <OpportunityDetail id={selected} close={() => setSelected(null)} />}
     </PageFrame>
   );

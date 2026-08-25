@@ -1,7 +1,7 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +27,15 @@ from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
 from app.modules.todo.schemas import TodoIn, TodoOut
 from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
+import os
+from pathlib import Path
+
+import yaml
+
+from app.sources import forkjob_port
 from app.sources.forkjob_port import forkjob_sources
+from app.sources.forkjob_core.config import load_config
+from app.sources.forkjob_core.linkedin_profiles import LinkedInProfile, LinkedInProfiles
 
 router = APIRouter(tags=["opportunities"])
 
@@ -299,3 +307,109 @@ async def refresh_source(source_id: str, session: AsyncSession = Depends(get_ses
     except KeyError as exc:
         raise HTTPException(404, "kaynak bulunamadı") from exc
     return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
+
+# ═════════════════════════════════════════════════════════════════════
+# Jobhunter ayarlari — uyum profili (scoring), LinkedIn, ortam
+# ═════════════════════════════════════════════════════════════════════
+
+_JOBHUNTER_CONFIG = Path("config.yaml")
+
+
+def _scoring_payload(cfg) -> dict:
+    sc, bc = cfg.scoring, cfg.balance
+    return {
+        "scoring": {
+            "base": sc.base,
+            "skills": [{"name": s.name, "points": s.points, "aliases": s.aliases}
+                         for s in sc.skills],
+            "skill_max": sc.skill_max,
+            "skill_title_multiplier": sc.skill_title_multiplier,
+            "role_terms": sc.role_terms,
+            "role_mismatch_penalty": sc.role_mismatch_penalty,
+            "role_description_relief": sc.role_description_relief,
+            "level_words": sc.level_words,
+            "level_bonus": sc.level_bonus,
+            "level_description_factor": sc.level_description_factor,
+            "seniority_tiers": [{"label": t.label, "penalty": t.penalty, "words": t.words}
+                                  for t in sc.seniority_tiers],
+            "seniority_title_only": sc.seniority_title_only,
+            "visa_bonus": sc.visa_bonus,
+            "visa_penalty": sc.visa_penalty,
+            "visa_eu_only": sc.visa_eu_only,
+            "spanish_requirement_penalty": sc.spanish_requirement_penalty,
+            "english_working_bonus": sc.english_working_bonus,
+            "experience_bands": [{"max_years": b.max_years, "delta": b.delta, "label": b.label}
+                                   for b in sc.experience_bands],
+            "tr_office_cities": sc.tr_office_cities,
+            "tr_relocation_penalty": sc.tr_relocation_penalty,
+            "freshness_grace_days": sc.freshness_grace_days,
+            "freshness_penalty_per_day": sc.freshness_penalty_per_day,
+            "freshness_max_penalty": sc.freshness_max_penalty,
+            "freshness_factors": sc.freshness_factors,
+            "kill_words": sc.kill_words,
+            "kill_score": sc.kill_score,
+            "score_cap": sc.score_cap,
+            "score_floor": sc.score_floor,
+        },
+        "balance": {
+            "quotas": bc.quotas,
+            "quota_min_score": bc.quota_min_score,
+            "interleave": bc.interleave,
+            "floor": bc.floor,
+            "allow_overflow": bc.allow_overflow,
+        },
+    }
+
+
+@router.get("/sources/jobhunter/config")
+async def jobhunter_config():
+    cfg = load_config(_JOBHUNTER_CONFIG)
+    return _scoring_payload(cfg)
+
+
+@router.put("/sources/jobhunter/config")
+async def jobhunter_config_update(body: dict):
+    """Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.
+
+    Yeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING
+    aninda guncellenir).
+    """
+    if not isinstance(body.get("scoring"), dict):
+        raise HTTPException(422, "scoring objesi gerekli")
+    _JOBHUNTER_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    header = "# forkjob scoring & balance -- forkOS ayarlar panelinden yonetilir.\n\n"
+    _JOBHUNTER_CONFIG.write_text(
+        header + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100),
+        encoding="utf-8",
+    )
+    forkjob_port.SCORING = load_config(_JOBHUNTER_CONFIG)
+    return {"ok": True}
+
+
+@router.get("/sources/jobhunter/linkedin-profiles")
+async def jobhunter_linkedin_profiles():
+    return [p.to_dict() for p in LinkedInProfiles.load()]
+
+
+@router.put("/sources/jobhunter/linkedin-profiles")
+async def jobhunter_linkedin_profiles_save(body: list = Body(...)):
+    """Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi."""
+    if not isinstance(body, list):
+        raise HTTPException(422, "liste bekleniyor")
+    parsed: list[LinkedInProfile] = []
+    for entry in body:
+        if not isinstance(entry, dict) or not str(entry.get("term", "")).strip():
+            raise HTTPException(422, "her profil en az 'term' ister")
+        parsed.append(LinkedInProfile.from_dict(entry))
+    collection = LinkedInProfiles()
+    collection.profiles = parsed
+    collection.save()
+    return {"saved": len(parsed)}
+
+
+@router.get("/sources/jobhunter/env")
+async def jobhunter_env():
+    return {
+        "linkein_allow_direct": os.environ.get("LINKEDIN_ALLOW_DIRECT", ""),
+        "proxies_file": os.environ.get("FORKJOB_LINKEDIN_PROXIES_FILE", ""),
+    }
