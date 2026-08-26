@@ -56,6 +56,7 @@ describe("merkezi invalidation (kural 14)", () => {
       "opportunity.write",
       "project.write",
       "calendar.write",
+      "finance.write",
     ]) {
       expect(AFTER[event as keyof typeof AFTER], `${event} bugun-agenda icermeli`).toContain("today-agenda");
     }

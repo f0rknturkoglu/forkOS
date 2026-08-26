@@ -68,7 +68,7 @@ def _validate_transition(from_status: str, to_status: str) -> None:
         raise ValueError(f"{from_status} -> {to_status} gecisi gecersiz")
 
 
-def _record_status_change(
+async def _record_status_change(
     session: AsyncSession, item: Opportunity, to_status: str, *, note: str | None = None,
 ) -> None:
     """Gecis gecmisini ve event i yazar; item.status henuz degismemistir."""
@@ -76,7 +76,7 @@ def _record_status_change(
         id=uuid.uuid4(), opportunity_id=item.id,
         from_status=item.status, to_status=to_status, note=note,
     ))
-    log_event(
+    await log_event(
         session, verb="opportunity.status_changed", entity_id=item.id,
         entity_type="opportunity",
         payload={"from": item.status, "to": to_status, "note": note},
@@ -100,7 +100,7 @@ async def transition_status(
         item.applied_at = datetime.now(UTC)
     if to in TERMINAL_STATUSES:
         item.follow_up_at = None
-    _record_status_change(session, item, to, note=note)
+    await _record_status_change(session, item, to, note=note)
     item.status = to
     await touch_entity(session, item.id)
     await session.commit()
@@ -185,7 +185,7 @@ async def apply(
         _validate_transition(item.status, "applied")
         if item.applied_at is None:
             item.applied_at = datetime.now(UTC)
-        _record_status_change(session, item, "applied")
+        await _record_status_change(session, item, "applied")
         item.status = "applied"
     await session.commit()
     row = (

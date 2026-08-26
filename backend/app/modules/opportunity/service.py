@@ -291,7 +291,7 @@ async def patch(
     # Durum degisikligi her zaman akistan gecer: gecmis + event yazilir.
     if next_status is not None and next_status != old_status:
         _validate_transition(old_status, next_status)
-        _record_status_change(session, item, next_status, note=None)
+        await _record_status_change(session, item, next_status, note=None)
         item.status = next_status
     for key, value in changes.items():
         setattr(item, key, value)

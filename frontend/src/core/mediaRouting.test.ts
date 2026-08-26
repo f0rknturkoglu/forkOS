@@ -3,7 +3,7 @@ import { entityRoute } from "./GlobalSearch";
 import { notificationRoute } from "./NotificationPanel";
 import { hydrateEntityRegistry } from "./entityRegistry";
 import type { Entity, Notification } from "./types";
-import { sourceSyncApiPath, sourceSyncQueryKey, sourceSyncRoute } from "@/modules/opportunity/SyncProgress";
+import { sourceSyncApiPath, sourceSyncQueryKey, sourceSyncRoute } from "@/core/SyncProgress";
 
 function entity(type: string, id = "media-1"): Entity {
   return {

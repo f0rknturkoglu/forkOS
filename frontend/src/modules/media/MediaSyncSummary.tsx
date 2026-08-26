@@ -6,7 +6,7 @@ import { api } from "@/core/api";
 import type { MediaProviderStatus } from "@/core/types";
 import { Button, Chip, cx, relativeTime } from "@/core/ui";
 import {} from "@/lib/hooks";
-import { SyncProgress } from "@/modules/opportunity/SyncProgress";
+import { SyncProgress } from "@/core/SyncProgress";
 import { KIND_LABELS, providerLabel } from "./shared";
 
 type BadgeTone = "neutral" | "warn" | "ok" | "danger";

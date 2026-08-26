@@ -32,7 +32,7 @@ import {
   sourceSyncQueryKey,
   SyncProgress,
   type SourceSyncScope,
-} from "@/modules/opportunity/SyncProgress";
+} from "@/core/SyncProgress";
 
 type Catalog = { id: string; interval_minutes: number; kind: string };
 const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: "Duyuru" };

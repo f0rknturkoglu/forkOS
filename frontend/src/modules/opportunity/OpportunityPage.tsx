@@ -28,7 +28,7 @@ import { JobhunterSettings } from "./JobhunterSettings";
 import { FilterChip, OpportunityCard } from "./OpportunityList";
 import { SourcePicker } from "./SourcePicker";
 import { ApplicationCrmPanel } from "./ApplicationCrmPanel";
-import { SyncProgress } from "./SyncProgress";
+import { SyncProgress } from "@/core/SyncProgress";
 
 type OpportunityTab = "jobs" | "ylsy" | "osym" | "announcements" | "trash";
 
