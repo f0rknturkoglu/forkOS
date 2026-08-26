@@ -7,6 +7,7 @@ import subprocess
 import uuid
 
 import pytest
+import sqlalchemy
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -362,3 +363,121 @@ def test_downgrade_removes_new_domain_entities_and_their_links():
     finally:
         _alembic("head")
         asyncio.run(_execute("delete from entity where id=:id", {"id": media_id}))
+
+
+def test_book_to_media_item_roundtrip_preserves_links_and_events():
+    """Faz 11: learning.book -> media_item. entity.id KORUNUR; downgrade geri alir."""
+    book_revision = "0027_book_to_media_item"
+    entity_id = uuid.uuid4()
+    bookmark_id = uuid.uuid4()
+    _alembic(LEGACY_REVISION)
+    try:
+        # 1) Eski duzen: book entity + kayit + event + bookmark linki.
+        asyncio.run(
+            _execute(
+                "insert into entity (id,type,title) values (:id,'book','Faz11 Kitap')",
+                {"id": entity_id},
+            )
+        )
+        asyncio.run(
+            _execute(
+                """insert into book (id,author,status,total_pages,current_page,
+                                     started_at,finished_at,rating,notes)
+                   values (:id,'Yazar X','want',300,42,'2026-01-05','2026-02-01',4,'okunacak')""",
+                {"id": entity_id},
+            )
+        )
+        asyncio.run(
+            _execute(
+                """insert into event (verb,entity_id,entity_type,payload)
+                   values ('book.finished',:eid,'book','{}')""",
+                {"eid": entity_id},
+            )
+        )
+        asyncio.run(
+            _execute(
+                """insert into entity (id,type,title) values (:id,'bookmark','Kaynak sayfa')""",
+                {"id": bookmark_id},
+            )
+        )
+        asyncio.run(
+            _execute(
+                """insert into link (from_id,to_id,relation,created_at)
+                   values (:from,:to,'saved_from',now())""",
+                {"from": bookmark_id, "to": entity_id},
+            )
+        )
+
+        # 2) Upgrade: book -> media_item (0027, medya domain'inin ustune).
+        _alembic(book_revision)
+
+        row = asyncio.run(
+            _execute(
+                """select m.id, m.kind, m.status, m.progress::text, m.total::text,
+                          m.score, m.notes, m.meta ->> 'author' as author,
+                          m.progress_measure, m.meta ->> 'legacy_book' as legacy,
+                          e.type
+                   from media_item m join entity e on e.id = m.id
+                   where m.id = :id""",
+                {"id": entity_id},
+            )
+        )
+        assert row["id"] == entity_id, "entity.id korunmali"
+        assert row["kind"] == "book" and row["status"] == "planned", row
+        assert row["progress"] in ("42", "42.00") and row["total"] in ("300", "300.00")
+        assert row["score"] == 4 and row["notes"] == "okunacak"
+        assert row["author"] == "Yazar X" and row["progress_measure"] == "page"
+        assert row["legacy"] == "true" and row["type"] == "media_item"
+
+        # Gecmis event ve bookmark linki aynen duruyor.
+        event = asyncio.run(
+            _execute(
+                "select verb from event where entity_id = :id",
+                {"id": entity_id},
+            )
+        )
+        assert event["verb"] == "book.finished"
+        link = asyncio.run(
+            _execute(
+                "select relation from link where to_id = :id",
+                {"id": entity_id},
+            )
+        )
+        assert link["relation"] == "saved_from"
+
+        # 3) Downgrade: media_item -> book (yalniz legacy_book isaretliler).
+        _alembic(LEGACY_REVISION)
+
+        book = asyncio.run(
+            _execute(
+                """select b.author, b.status, b.current_page, b.total_pages,
+                          b.rating, b.notes, e.type
+                   from book b join entity e on e.id = b.id where b.id = :id""",
+                {"id": entity_id},
+            )
+        )
+        assert book["author"] == "Yazar X" and book["status"] == "want"
+        assert book["current_page"] == 42 and book["total_pages"] == 300
+        assert book["rating"] == 4 and book["notes"] == "okunacak"
+        assert book["type"] == "book"
+        try:
+            asyncio.run(_execute("select 1 from media_item where id = :id", {"id": entity_id}))
+            raise AssertionError("tasinan media_item kaydi silinmeli")
+        except sqlalchemy.exc.NoResultFound:
+            pass
+        # Gecmis veri downgrade'de de duruyor.
+        assert asyncio.run(
+            _execute("select 1 from event where entity_id = :id", {"id": entity_id})
+        )
+        assert asyncio.run(
+            _execute("select 1 from link where to_id = :id", {"id": entity_id})
+        )
+    finally:
+        # DB'yi her zaman HEAD'e birak (Faz 0 dersi: sonraki testler head ister).
+        _alembic(book_revision)
+        asyncio.run(
+            _execute(
+                "delete from entity where id in (:a, :b)",
+                {"a": entity_id, "b": bookmark_id},
+            )
+        )

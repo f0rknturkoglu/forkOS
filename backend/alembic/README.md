@@ -15,7 +15,8 @@ eklendi ve dosya adlarındaki sayılar zincir konumunu göstermiyor).
 → 0021_media_item → 0022_pomodoro_pause → 0023_todo_recur
 → 0024_todo_milestone → 0025_document_folder_source → 0026_media_domain
 → 0022_finance_sub → 0023_application_crm → 0024_remove_habit
-→ 0025_drop_deadline_v   ← head
+→ 0025_drop_deadline_v
+→ 0027_book_to_media_item   ← head
 ```
 
 ## Dosya adı / zincir konumu eşleşmesi

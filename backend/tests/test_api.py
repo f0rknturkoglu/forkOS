@@ -904,8 +904,7 @@ async def test_phase4_learning_flow(client: AsyncClient):
     assert stats == {"minutes": 1, "sessions": 1}
 
     course = (await client.post("/api/courses", json={"title": f"Course {suffix}"})).json()
-    book = (await client.post("/api/books", json={"title": f"Book {suffix}"})).json()
-    created_ids.extend([course["id"], book["id"]])
+    created_ids.append(course["id"])
     assert (await client.patch(f"/api/courses/{course['id']}", json={"progress_pct": 35})).json()[
         "progress_pct"
     ] == 35

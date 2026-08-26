@@ -308,42 +308,6 @@ export interface paths {
         patch: operations["move_bookmark_api_bookmarks__bookmark_id__collection_patch"];
         trace?: never;
     };
-    "/api/books": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Books */
-        get: operations["books_api_books_get"];
-        put?: never;
-        /** Add Book */
-        post: operations["add_book_api_books_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/books/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Book */
-        delete: operations["delete_book_api_books__id__delete"];
-        options?: never;
-        head?: never;
-        /** Patch Book */
-        patch: operations["patch_book_api_books__id__patch"];
-        trace?: never;
-    };
     "/api/calendar/events": {
         parameters: {
             query?: never;
@@ -2805,42 +2769,6 @@ export interface components {
         Body_restore_backup_api_backup_restore_post: {
             /** File */
             file: string;
-        };
-        /** BookIn */
-        BookIn: {
-            /** Author */
-            author?: string | null;
-            /**
-             * Current Page
-             * @default 0
-             */
-            current_page: number;
-            /** Notes */
-            notes?: string | null;
-            /** Rating */
-            rating?: number | null;
-            /**
-             * Status
-             * @default want
-             */
-            status: string;
-            /** Title */
-            title: string;
-            /** Total Pages */
-            total_pages?: number | null;
-        };
-        /** BookPatch */
-        BookPatch: {
-            /** Current Page */
-            current_page?: number | null;
-            /** Notes */
-            notes?: string | null;
-            /** Rating */
-            rating?: number | null;
-            /** Status */
-            status?: string | null;
-            /** Title */
-            title?: string | null;
         };
         /** BookmarkOut */
         BookmarkOut: {
@@ -5531,123 +5459,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookmarkOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    books_api_books_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    add_book_api_books_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BookIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_book_api_books__id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patch_book_api_books__id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BookPatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

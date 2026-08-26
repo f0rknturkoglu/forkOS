@@ -7,7 +7,7 @@ from app.core.models import Entity
 from app.core.time import local_today
 from app.modules.bookmark.models import Bookmark
 from app.modules.bookmark.service import _to_out
-from app.modules.learning.models import Book, Course
+from app.modules.learning.models import Course
 
 
 async def create_item(session, model, data):
@@ -63,15 +63,6 @@ async def patch_item(session, model, item_id, data):
         item.completed_at = local_today()
         await log_event(
             session, verb="course.completed", entity_id=item.id, entity_type="course", payload={}
-        )
-    if model is Book and item.status == "done" and old_status != "done":
-        item.finished_at = local_today()
-        await log_event(
-            session,
-            verb="book.finished",
-            entity_id=item.id,
-            entity_type="book",
-            payload={"author": item.author, "pages": item.total_pages},
         )
     await session.commit()
     return await out(session, item)

@@ -224,19 +224,6 @@ export interface Course {
   notes: string | null;
 }
 
-export interface Book {
-  id: string;
-  title: string;
-  author: string | null;
-  status: string;
-  total_pages: number | null;
-  current_page: number;
-  started_at: string | null;
-  finished_at: string | null;
-  rating: number | null;
-  notes: string | null;
-}
-
 export interface Document {
   id: string;
   title: string;

@@ -15,21 +15,3 @@ class CoursePatch(BaseModel):
     status: str | None = None
     progress_pct: int | None = Field(None, ge=0, le=100)
     notes: str | None = None
-
-
-class BookIn(BaseModel):
-    title: str = Field(min_length=1)
-    author: str | None = None
-    status: str = "want"
-    total_pages: int | None = None
-    current_page: int = 0
-    rating: int | None = Field(None, ge=1, le=5)
-    notes: str | None = None
-
-
-class BookPatch(BaseModel):
-    title: str | None = None
-    status: str | None = None
-    current_page: int | None = None
-    rating: int | None = Field(None, ge=1, le=5)
-    notes: str | None = None

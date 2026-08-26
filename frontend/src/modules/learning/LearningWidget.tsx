@@ -1,31 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
 import { Chip, Empty, RowList, Section } from "@/core/ui";
-import type { Book, Course } from "@/core/types";
+import type { Course } from "@/core/types";
 
-/** Devam eden kurs ve kitaplar. */
+/** Devam eden kurslar (kitaplar Faz 11'de Medya'da). */
 export function LearningWidget() {
   const { data: courses = [] } = useQuery({ queryKey: ["courses"], queryFn: () => api.get<Course[]>("/courses") });
-  const { data: books = [] } = useQuery({ queryKey: ["books"], queryFn: () => api.get<Book[]>("/books") });
 
   const activeCourses = courses.filter((c) => c.status === "in_progress").slice(0, 3);
-  const activeBooks = books.filter((b) => b.status === "reading").slice(0, 3);
-  const rows: { id: string; title: string; detail: string }[] = [
-    ...activeCourses.map((c) => ({
-      id: c.id,
-      title: c.title,
-      detail: `%${Math.round(c.progress_pct)}`,
-    })),
-    ...activeBooks.map((b) => ({
-      id: b.id,
-      title: b.title,
-      detail: b.total_pages ? `${b.current_page}/${b.total_pages} sf` : "",
-    })),
-  ];
+  const rows: { id: string; title: string; detail: string }[] = activeCourses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    detail: `%${Math.round(c.progress_pct)}`,
+  }));
   return (
     <Section title="Devam eden öğrenme">
       {rows.length === 0 ? (
-        <Empty>Devam eden kurs ya da kitap yok.</Empty>
+        <Empty>Devam eden kurs yok.</Empty>
       ) : (
         <RowList>
           {rows.map((row) => (

@@ -77,21 +77,6 @@ const courses = [
     notes: null,
   },
 ];
-const books = [
-  {
-    id: "b1",
-    title: "Yazılım Testi",
-    author: "K. Beck",
-    status: "reading",
-    total_pages: 250,
-    current_page: 80,
-    started_at: null,
-    finished_at: null,
-    rating: null,
-    notes: null,
-  },
-];
-
 describe("learning flow", () => {
   beforeEach(() => {
     harness.apiDel.mockReset();
@@ -106,10 +91,9 @@ describe("learning flow", () => {
     harness.stateValues = [];
   });
 
-  it("lists courses, books and the learning queue from their queries", async () => {
+  it("lists courses and the learning queue from their queries", async () => {
     harness.queryData = {
       courses,
-      books,
       "learning-queue": [{ id: "bm1", title: "Bir makale", url: "https://example.com/x" }],
     };
     harness.stateValues = ["courses", ""];
@@ -118,39 +102,30 @@ describe("learning flow", () => {
     expect(markup).toContain("React Temelleri");
     expect(markup).toContain("Udemy");
 
-    harness.stateCursor = 0;
-    harness.stateValues = ["books", ""];
-    const booksMarkup = renderToStaticMarkup(<LearningPage />);
-    expect(booksMarkup).toContain("Yazılım Testi");
-    expect(booksMarkup).toContain("K. Beck");
-
     const coursesQuery = harness.queries.find((query) => query.queryKey[0] === "courses");
-    const booksQuery = harness.queries.find((query) => query.queryKey[0] === "books");
     const queueQuery = harness.queries.find((query) => query.queryKey[0] === "learning-queue");
     await coursesQuery?.queryFn();
-    await booksQuery?.queryFn();
     await queueQuery?.queryFn();
     expect(harness.apiGet).toHaveBeenCalledWith("/courses");
-    expect(harness.apiGet).toHaveBeenCalledWith("/books");
     expect(harness.apiGet).toHaveBeenCalledWith("/learning/queue");
   });
 
-  it("creates a course or book in the active tab and invalidates learning.write", () => {
-    harness.stateValues = ["books", "  Yazılım Testi  "];
+  it("creates a course in the active tab and invalidates learning.write", () => {
+    harness.stateValues = ["courses", "  React Router  "];
     renderToStaticMarkup(<LearningPage />);
 
     const create = harness.mutations.find((mutation) => {
       harness.apiPost.mockClear();
       mutation.mutationFn?.();
-      return harness.apiPost.mock.calls.some(([url]) => url === "/books");
+      return harness.apiPost.mock.calls.some(([url]) => url === "/courses");
     });
     expect(create).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith("/books", { title: "  Yazılım Testi  " });
+    expect(harness.apiPost).toHaveBeenCalledWith("/courses", { title: "  React Router  " });
     create?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("learning.write");
   });
 
-  it("patches course progress to done at 100% and deletes entries via the right endpoints", () => {
+  it("patches course progress to done at 100% and deletes courses via the right endpoint", () => {
     harness.stateValues = ["courses", ""];
     renderToStaticMarkup(<LearningPage />);
 
@@ -170,11 +145,11 @@ describe("learning flow", () => {
     harness.invalidate.mockClear();
     const remove = harness.mutations.find((mutation) => {
       harness.apiDel.mockClear();
-      mutation.mutationFn?.({ id: "b1", kind: "books" });
-      return harness.apiDel.mock.calls.some(([url]) => url === "/books/b1");
+      mutation.mutationFn?.("c1");
+      return harness.apiDel.mock.calls.some(([url]) => url === "/courses/c1");
     });
     expect(remove).toBeDefined();
-    expect(harness.apiDel).toHaveBeenCalledWith("/books/b1");
+    expect(harness.apiDel).toHaveBeenCalledWith("/courses/c1");
     remove?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("learning.write");
   });

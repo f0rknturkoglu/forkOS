@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, SmallInteger, Text
+from sqlalchemy import Date, ForeignKey, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,20 +26,4 @@ class Course(EntityBacked, Base):
     certificate_entity_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="SET NULL")
     )
-    notes: Mapped[str | None] = mapped_column(Text)
-
-
-class Book(EntityBacked, Base):
-    __tablename__ = "book"
-    ENTITY_TYPE = "book"
-    id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
-    )
-    author: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(Text, default="want")
-    total_pages: Mapped[int | None] = mapped_column(Integer)
-    current_page: Mapped[int] = mapped_column(Integer, default=0)
-    started_at: Mapped[date | None] = mapped_column(Date)
-    finished_at: Mapped[date | None] = mapped_column(Date)
-    rating: Mapped[int | None] = mapped_column(SmallInteger)
     notes: Mapped[str | None] = mapped_column(Text)
