@@ -47,28 +47,15 @@ export default {
           reddit: "var(--feed-reddit)",
           gh: "var(--feed-gh)",
         },
-        // Grafik paleti -- kategorik dagilimlar; sabit sirayla atanir.
-        chart: {
-          1: "var(--chart-1)",
-          2: "var(--chart-2)",
-          3: "var(--chart-3)",
-          4: "var(--chart-4)",
-          5: "var(--chart-5)",
-          6: "var(--chart-6)",
-          7: "var(--chart-7)",
-          8: "var(--chart-8)",
-        },
-        // Medya türleri -- her türün kimlik rengi (chip, rozet, vurgu).
-        kind: {
-          movie: "var(--kind-movie)",
-          show: "var(--kind-show)",
-          anime: "var(--kind-anime)",
-          manga: "var(--kind-manga)",
-          book: "var(--kind-book)",
-          audiobook: "var(--kind-audiobook)",
-          podcast: "var(--kind-podcast)",
-          music: "var(--kind-music)",
-          game: "var(--kind-game)",
+        // Emek haritasi basamaklari -- semantik degil; 0..4 yogunluk kademesi.
+        // index.css'teki --heat-N degiskenlerine bagli (Faz 8: kaldirilmis,
+        // Heatmap STEP_BG siniflarinin uretilememesine yol aciyordu).
+        heat: {
+          0: "var(--heat-0)",
+          1: "var(--heat-1)",
+          2: "var(--heat-2)",
+          3: "var(--heat-3)",
+          4: "var(--heat-4)",
         },
       },
       borderColor: { DEFAULT: "var(--border)" },
