@@ -5,7 +5,7 @@ import { api, qs } from "@/core/api";
 import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
 import { Button, Chip, Empty, PageFrame, PageHeader, Toolbar, cx, relativeTime } from "@/core/ui";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
-import { ALERT_VERBS, describe } from "./verbs";
+import { ALERT_VERBS, describe } from "@/core/verbs";
 
 function localDayKey(iso: string): string {
   const date = new Date(iso);

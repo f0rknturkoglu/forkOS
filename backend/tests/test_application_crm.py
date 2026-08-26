@@ -92,6 +92,19 @@ async def test_transition_rules_and_terminal_lock(client: AsyncClient):
             f"/api/opportunities/{item_id}/transition", json={"to": "interview"}
         )
         assert locked.status_code == 400
+
+        # Kural 3: her gecis opportunity.status_changed event'i yazar (append-only).
+        events = (await client.get("/api/activity", params={"limit": 200})).json()
+        status_events = sorted(
+            (e for e in events
+             if e["verb"] == "opportunity.status_changed" and e["entity_id"] == str(item_id)),
+            key=lambda e: e["id"],
+        )
+        assert [(e["payload"].get("from"), e["payload"].get("to")) for e in status_events] == [
+            ("discovered", "applied"),
+            ("applied", "offer"),
+            ("offer", "accepted"),
+        ]
     finally:
         await _delete_entities(item_id)
 

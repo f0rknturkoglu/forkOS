@@ -3,7 +3,7 @@ import { api, qs } from "@/core/api";
 import { Empty, Section, cx, relativeTime } from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { ActivityEvent } from "@/core/types";
-import { ALERT_VERBS, describe } from "./verbs";
+import { ALERT_VERBS, describe } from "@/core/verbs";
 
 /**
  * Panelin en alt kosesindeki kucuk gunluk.

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Chip, Empty, Section, cx, relativeTime } from "@/core/ui";
 import type { ProjectEvent } from "@/core/types";
-import { VERB_LABELS } from "@/modules/activity/verbs";
+import { VERB_LABELS } from "@/core/verbs";
 
 /** Commit ve gorev olaylarini ayirt eden nokta rengi. */
 function toneOf(verb: string): string {

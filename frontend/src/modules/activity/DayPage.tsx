@@ -6,7 +6,7 @@ import { Chip, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx } 
 import { useHashRoute } from "@/app/router";
 import type { DayDetail } from "@/core/types";
 import { localDateKey } from "@/lib/date";
-import { ALERT_VERBS, VERB_LABELS, describe } from "./verbs";
+import { ALERT_VERBS, VERB_LABELS, describe } from "@/core/verbs";
 
 function shift(day: string, delta: number): string {
   const date = new Date(`${day}T12:00:00`); // ogle: yaz saati kaymasindan etkilenmez
