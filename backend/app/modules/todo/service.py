@@ -94,6 +94,25 @@ async def _context_for(session: AsyncSession, todos: list[Todo]) -> dict[uuid.UU
         out[parent_id]["subtask_total"] = int(total)
         out[parent_id]["subtask_done"] = int(done)
 
+    # Plan: tek sorguda tum gorevlerin gelecek slotlarini cek, en yakin gunu
+    # sec. Gecmis slotlar DONMEZ -- plan bilgisi gelecege donuktur, dune
+    # planlanan gorev bugun "planli" rozetini hak etmez. Bir gorevin birden
+    # fazla gunu varsa en yakin gelecek gorunur (o gunun akisi asil odaktir).
+    plan_rows = (
+        await session.execute(
+            select(PlanSlot.entity_id, PlanSlot.day, PlanSlot.start_min)
+            .where(PlanSlot.entity_id.in_(ids), PlanSlot.day >= date.today())
+            .order_by(PlanSlot.day)
+        )
+    ).all()
+    nearest: dict[uuid.UUID, tuple[date, int | None]] = {}
+    for entity_id, day, start_min in plan_rows:
+        if entity_id not in nearest:
+            nearest[entity_id] = (day, start_min)
+    for todo_id, (day, start_min) in nearest.items():
+        out[todo_id]["planned_day"] = day
+        out[todo_id]["planned_start_min"] = start_min
+
     return out
 
 

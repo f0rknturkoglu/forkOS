@@ -412,6 +412,64 @@ async def test_today_agenda_deduplicates_planned_due_todo(client: AsyncClient):
     await client.delete(f"/api/todos/{todo['id']}")
 
 
+async def test_todo_out_carries_plan_without_touching_due_at(client: AsyncClient):
+    '''Faz 9: plan gorunur olur, due_at'e DOKUNULMAZ (ayri kavramlar).'''
+    day = local_today()
+    yesterday = day - timedelta(days=1)
+    todo = (await client.post("/api/todos", json={
+        "title": f"Planned visibility {uuid.uuid4().hex[:8]}",
+    })).json()
+    assert todo["due_at"] is None
+    assert todo["planned_day"] is None
+
+    # Bugun icin plan + baslangic saati.
+    slot = (await client.post("/api/plan", json={
+        "entity_id": todo["id"], "day": day.isoformat(),
+        "start_min": 14 * 60 + 30, "duration_min": 60,
+    })).json()
+
+    listed = next(item for item in (await client.get(
+        "/api/todos", params={"status": "open", "limit": 500}
+    )).json() if item["id"] == todo["id"])
+    assert listed["planned_day"] == day.isoformat()
+    assert listed["planned_start_min"] == 14 * 60 + 30
+    # Regresyon korumasi: plan yazmak due_at'i DEGISTIRMEZ.
+    assert listed["due_at"] is None
+
+    # Gecmis gun plani: en yakin gelecek slot degismez (gecmis donmez).
+    await client.post("/api/plan", json={
+        "entity_id": todo["id"], "day": yesterday.isoformat(), "duration_min": 45,
+    })
+    listed = next(item for item in (await client.get(
+        "/api/todos", params={"status": "open", "limit": 500}
+    )).json() if item["id"] == todo["id"])
+    assert listed["planned_day"] == day.isoformat()
+    assert listed["planned_start_min"] == 14 * 60 + 30
+    assert listed["due_at"] is None
+
+    await client.delete(f"/api/todos/{todo['id']}")
+    assert slot["id"]  # slot olusturuldugu dogrulandi
+
+
+async def test_todo_out_shows_nearest_future_plan(client: AsyncClient):
+    '''Faz 9: birden fazla gun varsa en yakin gelecek slot gorunur.'''
+    day = local_today()
+    tomorrow = day + timedelta(days=1)
+    todo = (await client.post("/api/todos", json={
+        "title": f"Nearest plan {uuid.uuid4().hex[:8]}",
+    })).json()
+    await client.post("/api/plan", json={"entity_id": todo["id"], "day": tomorrow.isoformat(), "start_min": 60})
+    await client.post("/api/plan", json={"entity_id": todo["id"], "day": day.isoformat(), "start_min": 480})
+
+    listed = next(item for item in (await client.get(
+        "/api/todos", params={"status": "open", "limit": 500}
+    )).json() if item["id"] == todo["id"])
+    assert listed["planned_day"] == day.isoformat()
+    assert listed["planned_start_min"] == 480
+
+    await client.delete(f"/api/todos/{todo['id']}")
+
+
 async def test_today_agenda_nests_due_child_under_context_parent(client: AsyncClient):
     day = local_today()
     parent = (await client.post("/api/todos", json={

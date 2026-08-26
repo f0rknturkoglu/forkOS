@@ -35,7 +35,7 @@ export const AFTER = {
     "activity",
     "tags",
   ],
-  "plan.write": ["plan", "today-agenda", "calendar-events", "activity"],
+  "plan.write": ["plan", "today-agenda", "calendar-events", "activity", "todos"],
   "finance.write": ["expenses", "expense-summary", "recurring", "deadlines", "today-agenda", "activity"],
   "study.write": ["study-areas", "study-topics", "study-topic-stats", "activity", "review-preview"],
   "pomodoro.write": [

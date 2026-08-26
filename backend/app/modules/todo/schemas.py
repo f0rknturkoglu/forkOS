@@ -58,6 +58,11 @@ class TodoOut(BaseModel):
     project_id: uuid.UUID | None = None
     project_title: str | None = None
     milestone_id: uuid.UUID | None = None
+    #: Plan bilgisi (plan_slot'tan). Plan ile due_at FARKLI kavramlardir:
+    #: plan = "bugun yapmayi planliyorum", due_at = "bugun teslim".
+    #: En yakin gelecek slot dondurulur; gecmis slotlar listelenmez.
+    planned_day: date | None = None
+    planned_start_min: int | None = None
     milestone_title: str | None = None
     #: Alt gorev sayilari (parent_id ile baglananlar).
     subtask_total: int = 0

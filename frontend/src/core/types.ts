@@ -159,6 +159,10 @@ export interface Todo {
   milestone_title: string | null;
   subtask_total: number;
   subtask_done: number;
+  /** Plan bilgisi (plan_slot) -- due_at'ten ayri: "bugun yapmayi planliyorum".
+   *  En yakin gelecek slot doner; gecmis slotlar backend'de listelenmez. */
+  planned_day: string | null;
+  planned_start_min: number | null;
 }
 
 export interface PlanSlot {

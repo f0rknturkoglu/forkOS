@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
+  Calendar,
+  CalendarPlus,
   Check,
   CornerDownRight,
   FolderGit2,
@@ -18,12 +20,19 @@ import { Chip, IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { navigate } from "@/app/router";
 import type { Todo } from "@/core/types";
-import { dueLabel, priorityOf, recurLabel } from "./priority";
+import { dueLabel, planLabel, priorityOf, recurLabel } from "./priority";
 
 const DUE_CHIP = {
   muted: "border-subtle text-secondary",
   accent: "border-accent-border bg-accent-surface text-accent",
   danger: "border-danger-border bg-danger-surface text-danger",
+} as const;
+
+/** Plan cipi tonlari: gelecek plan bilgi, gecikmis plan uyari. */
+const PLAN_CHIP = {
+  muted: "border-subtle text-muted",
+  accent: "border-accent-border bg-accent-surface text-accent",
+  warn: "border-warn-border bg-warn-surface text-warn",
 } as const;
 
 /** Proje rozetinin gittigi adres -- secili proje acilsin diye focus tasinir. */
@@ -97,6 +106,7 @@ export function TodoRow({
   const priority = priorityOf(todo.priority);
   const due = dueLabel(todo.due_at);
   const recur = recurLabel(todo.recur);
+  const plan = planLabel(todo.planned_day ?? null, todo.planned_start_min ?? null);
 
   // Pomodoro sayfasi context/topic parametrelerini acilis aninda okur --
   // "odaklan" bu adrese gidip formu doldurur, kullanici baslat der.
@@ -179,6 +189,17 @@ export function TodoRow({
                 {due.text}
               </span>
             )}
+            {plan && (
+              <span
+                title="Plana alındı — son tarih değil"
+                className={cx(
+                  "flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro leading-4",
+                  PLAN_CHIP[plan.tone],
+                )}
+              >
+                <Calendar size={10} /> {plan.text}
+              </span>
+            )}
             {recur && todo.recur && (
               <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
                 <Repeat size={10} /> {recur}
@@ -237,6 +258,20 @@ export function TodoRow({
           {!done && !dropped && (
             <IconButton title="Odaklan — pomodoro başlat" disabled={!online} onClick={() => navigate(focusHref)}>
               <Timer size={14} />
+            </IconButton>
+          )}
+          {!done && !dropped && !compact && !todo.due_at && (
+            <IconButton
+              title="Son tarih ver (bugün) — plan değil"
+              disabled={!online}
+              onClick={() => {
+                // Yerel bugunun ogleni: gece yarisi TZ kaymasina dayanikli.
+                const now = new Date();
+                const due = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+                patch.mutate({ due_at: due.toISOString() });
+              }}
+            >
+              <CalendarPlus size={14} />
             </IconButton>
           )}
           {!done && !dropped && !compact && (

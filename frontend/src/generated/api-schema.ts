@@ -4860,6 +4860,10 @@ export interface components {
             milestone_title?: string | null;
             /** Parent Id */
             parent_id: string | null;
+            /** Planned Day */
+            planned_day?: string | null;
+            /** Planned Start Min */
+            planned_start_min?: number | null;
             /** Position */
             position: number;
             /** Priority */

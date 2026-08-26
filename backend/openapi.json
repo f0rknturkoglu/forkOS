@@ -6852,6 +6852,29 @@
             ],
             "title": "Parent Id"
           },
+          "planned_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Day"
+          },
+          "planned_start_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Start Min"
+          },
           "position": {
             "title": "Position",
             "type": "integer"

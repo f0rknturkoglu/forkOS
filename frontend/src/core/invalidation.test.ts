@@ -61,4 +61,8 @@ describe("merkezi invalidation (kural 14)", () => {
       expect(AFTER[event as keyof typeof AFTER], `${event} bugun-agenda icermeli`).toContain("today-agenda");
     }
   });
+
+  it("plan yazinca gorevler sayfasi da tazeleniyor (Faz 9)", () => {
+    expect(AFTER["plan.write"]).toContain("todos");
+  });
 });

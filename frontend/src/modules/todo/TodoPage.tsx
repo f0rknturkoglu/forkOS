@@ -7,7 +7,7 @@ import { Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx } from "@/c
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
 import { TodoRow } from "./TodoRow";
-import { dueLabel } from "./priority";
+import { dueLabel, planLabel } from "./priority";
 
 const FILTERS = [
   { value: "open", label: "açık" },
@@ -41,9 +41,12 @@ export function TodoPage() {
 
   // ?project=<id> filtre kipi: yalniz o projenin gorevleri listelenir.
   const projectFilter = params.get("project") ?? "";
+  // ?planned=today filtre kipi: bugune (veya yarina) planlanmis gorevler.
+  // Plan ile due_at ayni sey degil; bu filtre plan_slot'a bakar.
+  const plannedFilter = params.get("planned") === "today";
 
   const { data: todos = [], isLoading } = useQuery({
-    queryKey: ["todos", status, routineOnly ? "routines" : "all", projectFilter],
+    queryKey: ["todos", status, routineOnly ? "routines" : "all", projectFilter, plannedFilter],
     queryFn: () =>
       api.get<Todo[]>(
         `/todos${qs({
@@ -60,6 +63,11 @@ export function TodoPage() {
 
   let filtered = tag ? todos.filter((todo) => todo.tags.includes(tag)) : todos;
   if (projectFilter) filtered = filtered.filter((todo) => todo.project_id === projectFilter);
+  if (plannedFilter) {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    filtered = filtered.filter((todo) => todo.planned_day === todayKey || todo.planned_day === tomorrow);
+  }
   const projectTitle = todos.find((todo) => todo.project_id === projectFilter)?.project_title;
   // Alt gorevler kendi satirlarinda degil, ustlerinin altinda gorunur.
   const childrenOf = filtered.reduce<Record<string, Todo[]>>((acc, todo) => {

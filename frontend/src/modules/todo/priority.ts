@@ -47,3 +47,34 @@ export function dueLabel(iso: string | null): { text: string; tone: "muted" | "a
     tone: "muted",
   };
 }
+
+/**
+ * Plan etiketi (plan_slot) -- due_at'ten AYRI kavram: "bugun yapmayi
+ * planliyorum" diyen slotun gorunur hali. Gecmis gune planlanmis ama
+ * yapilmamis gorev uyari tonu alir; backend gecmis slot donmese de
+ * bu emniyet kolu geri gelirse bozulmadan kalir.
+ */
+export function planLabel(
+  plannedDay: string | null,
+  startMin: number | null,
+): { text: string; tone: "muted" | "accent" | "warn" } | null {
+  if (!plannedDay) return null;
+  const day = new Date(plannedDay + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000);
+
+  const time =
+    startMin != null
+      ? `${String(Math.floor(startMin / 60)).padStart(2, "0")}:${String(startMin % 60).padStart(2, "0")}`
+      : "";
+  const withTime = (label: string) => (time ? `${label} ${time}` : label);
+
+  if (diff < 0) return { text: withTime("gecikmiş plan"), tone: "warn" };
+  if (diff === 0) return { text: withTime("bugün planlı"), tone: "accent" };
+  if (diff === 1) return { text: withTime("yarın planlı"), tone: "muted" };
+  return {
+    text: withTime(day.toLocaleDateString("tr-TR", { day: "numeric", month: "short" }) + " planlı"),
+    tone: "muted",
+  };
+}
