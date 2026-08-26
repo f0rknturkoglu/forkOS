@@ -46,7 +46,7 @@ export const AFTER = {
     "review-preview",
     "project-timeline",
   ],
-  "learning.write": ["courses", "books", "learning-queue", "bookmarks", "activity"],
+  "learning.write": ["courses", "learning-queue", "bookmarks", "activity", "related"],
   "document.write": ["documents", "activity"],
   "calendar.write": ["calendar-events", "plan", "today-agenda", "activity"],
   "review.write": ["review-preview", "reviews", "todos", "plan", "activity"],

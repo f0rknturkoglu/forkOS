@@ -10,6 +10,7 @@ from app.core.entity import create_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.core.time import local_day_bounds, local_today
+from app.modules.learning.models import StudyTopic
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.pomodoro.schemas import (
     PomodoroManual,
@@ -17,7 +18,6 @@ from app.modules.pomodoro.schemas import (
     PomodoroStart,
     PomodoroStats,
 )
-from app.modules.study.models import StudyTopic
 
 KINDS = {"focus", "short_break", "long_break"}
 

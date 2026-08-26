@@ -30,12 +30,12 @@ const apiGet = vi.mocked(api.get);
 const apiPost = vi.mocked(api.post);
 const apiDel = vi.mocked(api.del);
 
-function renderPanel() {
+function renderPanel(props: { entityId?: string; relation?: string } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <RelatedPanel entityId="opp-1" />
+        <RelatedPanel entityId={props.entityId ?? "opp-1"} relation={props.relation} />
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -141,6 +141,55 @@ describe("RelatedPanel", () => {
 
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith("/links", { from_id: "opp-1", to_id: "bm-2", relation: "related" }),
+    );
+  });
+
+  it("relation prop'u verilirse yalniz o iliskiyi gosterir ve o iliskiyle baglar (Faz 12)", async () => {
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/entities/topic-1/related") {
+        return [
+          {
+            relation: "learns_from",
+            direction: "outgoing",
+            label: "Kaynakları",
+            entity: { id: "course-1", type: "course", title: "Lineer Cebir", updated_at: "2026-08-26T10:00:00Z" },
+          },
+          {
+            relation: "related",
+            direction: "outgoing",
+            label: "İlgili",
+            entity: { id: "topic-2", type: "study_topic", title: "Görünmemeli", updated_at: "2026-08-26T10:00:00Z" },
+          },
+        ];
+      }
+      return {};
+    });
+    apiPost.mockResolvedValue({ ok: true } as never);
+
+    renderPanel({ entityId: "topic-1", relation: "learns_from" });
+    expect(await screen.findByText("Lineer Cebir")).toBeTruthy();
+    expect(screen.queryByText("Görünmemeli")).toBeNull();
+
+    // Kaynak ekleme akisi: secilen kayit learns_from ile baglanir.
+    fireEvent.click(screen.getByRole("button", { name: /Bağla/ }));
+    apiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith("/entities/")) return [];
+      if (path.startsWith("/search")) {
+        return { Kurslar: [{ id: "course-2", type: "course", title: "Cebir 2" }] };
+      }
+      return {};
+    });
+    const input = screen.getByPlaceholderText("Kayıt ara…");
+    fireEvent.change(input, { target: { value: "cebir" } });
+    const candidate = await screen.findByText("Cebir 2");
+    fireEvent.click(candidate);
+
+    await waitFor(() =>
+      expect(apiPost).toHaveBeenCalledWith("/links", {
+        from_id: "topic-1",
+        to_id: "course-2",
+        relation: "learns_from",
+      }),
     );
   });
 });

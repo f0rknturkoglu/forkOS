@@ -11,7 +11,14 @@ registerModule({
   title: "Öğrenme",
   icon: GraduationCap,
   group: "track",
-  routes: [{ path: "/learning", element: LearningPage }],
+  // Faz 12: eski study rotasi ayni sayfaya gider (kurlma yok).
+  routes: [
+    { path: "/learning", element: LearningPage },
+    { path: "/study", element: LearningPage },
+  ],
   todayWidgets: [{ component: LearningWidget, slot: "left", order: 65 }],
-  commands: [{ id: "learning.open", label: "Kurs, kitap ve öğrenme kuyruğunu aç", run: () => navigate("/learning") }],
+  commands: [
+    { id: "learning.open", label: "Öğrenmeyi aç — konular, kurslar, kuyruk", run: () => navigate("/learning") },
+    { id: "study.open", label: "Çalışma ağacını aç", run: () => navigate("/study") },
+  ],
 });

@@ -1,22 +1,40 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
-import { Chip, Empty, RowList, Section } from "@/core/ui";
-import type { Course } from "@/core/types";
+import type { Course, StudyTopic } from "@/core/types";
+import { Empty, RowList, Section } from "@/core/ui";
 
-/** Devam eden kurslar (kitaplar Faz 11'de Medya'da). */
+/**
+ * Ogrenme widget'i (Faz 12: study + learning birlesik).
+ * Iki ayri kutu yerine tek liste: devam eden kurslar + tekrar bekleyen
+ * konular. Konu satirinin yaninda varsa bagli kaynak sayisi yok --
+ * tiklayinca sayfada RelatedPanel zaten kaynaklari gosterir.
+ */
 export function LearningWidget() {
-  const { data: courses = [] } = useQuery({ queryKey: ["courses"], queryFn: () => api.get<Course[]>("/courses") });
+  const { data: courses = [] } = useQuery({
+    queryKey: ["courses"],
+    queryFn: () => api.get<Course[]>("/courses"),
+  });
+  const { data: stale = [] } = useQuery({
+    queryKey: ["study-stale"],
+    queryFn: () => api.get<StudyTopic[]>("/study/stale?days=21"),
+  });
 
-  const activeCourses = courses.filter((c) => c.status === "in_progress").slice(0, 3);
-  const rows: { id: string; title: string; detail: string }[] = activeCourses.map((c) => ({
-    id: c.id,
-    title: c.title,
-    detail: `%${Math.round(c.progress_pct)}`,
-  }));
+  const rows: { id: string; title: string; detail: string }[] = [
+    ...courses
+      .filter((c) => c.status === "in_progress")
+      .slice(0, 3)
+      .map((c) => ({ id: c.id, title: c.title, detail: `%${Math.round(c.progress_pct)}` })),
+    ...stale.slice(0, 3).map((t) => ({
+      id: t.id,
+      title: t.title,
+      detail: t.last_studied_at ? new Date(t.last_studied_at).toLocaleDateString("tr-TR") : "yeni",
+    })),
+  ];
+
   return (
     <Section title="Devam eden öğrenme">
       {rows.length === 0 ? (
-        <Empty>Devam eden kurs yok.</Empty>
+        <Empty>Devam eden kurs ya da tekrar bekleyen konu yok.</Empty>
       ) : (
         <RowList>
           {rows.map((row) => (

@@ -66,7 +66,6 @@ from app.modules.pomodoro import MODULE as pomodoro_module  # noqa: E402
 from app.modules.project import MODULE as project_module  # noqa: E402
 from app.modules.review import MODULE as review_module  # noqa: E402
 from app.modules.rss import MODULE as rss_module  # noqa: E402
-from app.modules.study import MODULE as study_module  # noqa: E402
 from app.modules.system import MODULE as system_module  # noqa: E402
 from app.modules.today import MODULE as today_module  # noqa: E402
 from app.modules.todo import MODULE as todo_module  # noqa: E402
@@ -79,7 +78,6 @@ MODULES: list[ModuleSpec] = [
     pomodoro_module,
     review_module,
     opportunity_module,
-    study_module,
     learning_module,
     document_module,
     calendar_module,

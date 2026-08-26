@@ -14385,7 +14385,7 @@
         },
         "summary": "Areas",
         "tags": [
-          "study"
+          "learning"
         ]
       },
       "post": {
@@ -14422,7 +14422,7 @@
         },
         "summary": "Add Area",
         "tags": [
-          "study"
+          "learning"
         ]
       }
     },
@@ -14458,7 +14458,7 @@
         },
         "summary": "Delete Area",
         "tags": [
-          "study"
+          "learning"
         ]
       }
     },
@@ -14499,7 +14499,7 @@
         },
         "summary": "Stale",
         "tags": [
-          "study"
+          "learning"
         ]
       }
     },
@@ -14540,7 +14540,7 @@
         },
         "summary": "Topics",
         "tags": [
-          "study"
+          "learning"
         ]
       },
       "post": {
@@ -14577,7 +14577,7 @@
         },
         "summary": "Add Topic",
         "tags": [
-          "study"
+          "learning"
         ]
       }
     },
@@ -14613,7 +14613,7 @@
         },
         "summary": "Delete Topic",
         "tags": [
-          "study"
+          "learning"
         ]
       },
       "patch": {
@@ -14662,7 +14662,7 @@
         },
         "summary": "Patch Topic",
         "tags": [
-          "study"
+          "learning"
         ]
       }
     },
@@ -14703,7 +14703,7 @@
         },
         "summary": "Stats",
         "tags": [
-          "study"
+          "learning"
         ]
       }
     },

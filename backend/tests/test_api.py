@@ -458,8 +458,12 @@ async def test_todo_out_shows_nearest_future_plan(client: AsyncClient):
     todo = (await client.post("/api/todos", json={
         "title": f"Nearest plan {uuid.uuid4().hex[:8]}",
     })).json()
-    await client.post("/api/plan", json={"entity_id": todo["id"], "day": tomorrow.isoformat(), "start_min": 60})
-    await client.post("/api/plan", json={"entity_id": todo["id"], "day": day.isoformat(), "start_min": 480})
+    await client.post("/api/plan", json={
+        "entity_id": todo["id"], "day": tomorrow.isoformat(), "start_min": 60,
+    })
+    await client.post("/api/plan", json={
+        "entity_id": todo["id"], "day": day.isoformat(), "start_min": 480,
+    })
 
     listed = next(item for item in (await client.get(
         "/api/todos", params={"status": "open", "limit": 500}

@@ -23,7 +23,17 @@ interface RelatedRow {
   entity: { id: string; type: string; title: string; updated_at: string };
 }
 
-export function RelatedPanel({ entityId, title = "İlgili kayıtlar" }: { entityId: string; title?: string }) {
+export function RelatedPanel({
+  entityId,
+  title = "İlgili kayıtlar",
+  relation,
+}: {
+  entityId: string;
+  title?: string;
+  /** Yalniz bu iliskiyi gosterir ve yeni baglari bu iliskiyle kurar
+   *  (ornek: learning'de konu -> kaynak "learns_from"). */
+  relation?: string;
+}) {
   const online = useOnline();
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState("");
@@ -32,6 +42,7 @@ export function RelatedPanel({ entityId, title = "İlgili kayıtlar" }: { entity
   const { data: rows = [], refetch } = useQuery({
     queryKey: ["related", entityId],
     queryFn: () => api.get<RelatedRow[]>(`/entities/${entityId}/related`),
+    select: (all) => (relation ? all.filter((row) => row.relation === relation) : all),
     enabled: Boolean(entityId),
   });
 
@@ -42,7 +53,8 @@ export function RelatedPanel({ entityId, title = "İlgili kayıtlar" }: { entity
   });
 
   const link = useMutation({
-    mutationFn: (toId: string) => api.post("/links", { from_id: entityId, to_id: toId, relation: "related" }),
+    mutationFn: (toId: string) =>
+      api.post("/links", { from_id: entityId, to_id: toId, relation: relation ?? "related" }),
     onSuccess: () => {
       setPicking(false);
       setQuery("");

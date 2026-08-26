@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { StudyArea, StudyTopic } from "@/core/types";
 import { LearningPage } from "./LearningPage";
 
 type MutationOptions = {
@@ -52,6 +53,9 @@ vi.mock("@/lib/hooks", () => ({
 vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
+vi.mock("@/app/router", () => ({
+  navigate: vi.fn(),
+}));
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
     harness.mutations.push(options);
@@ -64,20 +68,23 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-const courses = [
+const areas = [{ id: "a1", title: "Matematik", color: null, active: true, position: 0 }] as StudyArea[];
+const topics = [
   {
-    id: "c1",
-    title: "React Temelleri",
-    platform: "Udemy",
-    url: null,
-    status: "active",
-    progress_pct: 40,
-    started_at: null,
-    completed_at: null,
-    notes: null,
+    id: "t1",
+    title: "Türev",
+    area_id: "a1",
+    parent_id: null,
+    status: "in_progress",
+    confidence: null,
+    target_min: null,
+    position: 0,
+    last_studied_at: null,
+    children: [],
   },
-];
-describe("learning flow", () => {
+] as StudyTopic[];
+
+describe("study flow", () => {
   beforeEach(() => {
     harness.apiDel.mockReset();
     harness.apiGet.mockReset();
@@ -91,66 +98,72 @@ describe("learning flow", () => {
     harness.stateValues = [];
   });
 
-  it("lists courses and the learning queue from their queries", async () => {
-    harness.queryData = {
-      courses,
-      "learning-queue": [{ id: "bm1", title: "Bir makale", url: "https://example.com/x" }],
-    };
-    harness.stateValues = ["courses", ""];
+  it("lists study areas and topics from their queries and hits the right GET endpoints", async () => {
+    harness.queryData = { "study-areas": areas, "study-topics": topics };
     const markup = renderToStaticMarkup(<LearningPage />);
 
-    expect(markup).toContain("React Temelleri");
-    expect(markup).toContain("Udemy");
+    expect(markup).toContain("Matematik");
+    expect(markup).toContain("Türev");
 
-    const coursesQuery = harness.queries.find((query) => query.queryKey[0] === "courses");
-    const queueQuery = harness.queries.find((query) => query.queryKey[0] === "learning-queue");
-    await coursesQuery?.queryFn();
-    await queueQuery?.queryFn();
-    expect(harness.apiGet).toHaveBeenCalledWith("/courses");
-    expect(harness.apiGet).toHaveBeenCalledWith("/learning/queue");
+    const areasQuery = harness.queries.find((query) => query.queryKey[0] === "study-areas");
+    const topicsQuery = harness.queries.find((query) => query.queryKey[0] === "study-topics");
+    await areasQuery?.queryFn();
+    await topicsQuery?.queryFn();
+    expect(harness.apiGet).toHaveBeenCalledWith("/study/areas");
+    expect(harness.apiGet).toHaveBeenCalledWith("/study/topics?area_id=");
   });
 
-  it("creates a course in the active tab and invalidates learning.write", () => {
-    harness.stateValues = ["courses", "  React Router  "];
+  it("creates a todo + prepares_for link for a topic and invalidates todo/study/link writes", async () => {
+    harness.apiPost.mockResolvedValue({ id: "todo-1" });
     renderToStaticMarkup(<LearningPage />);
 
-    const create = harness.mutations.find((mutation) => {
+    const createTask = harness.mutations.find((mutation) => {
+      harness.apiPost.mockClear();
+      mutation.mutationFn?.({ id: "t1", title: "Türev" });
+      return harness.apiPost.mock.calls.some(([url]) => url === "/todos");
+    });
+    expect(createTask).toBeDefined();
+
+    harness.apiPost.mockClear();
+    await (createTask?.mutationFn as (topic: StudyTopic) => Promise<void>)({ id: "t1", title: "Türev" } as StudyTopic);
+    expect(harness.apiPost).toHaveBeenCalledWith("/todos", {
+      title: "Türev",
+      description: "çalışma konusu",
+    });
+    expect(harness.apiPost).toHaveBeenCalledWith("/links", {
+      from_id: "todo-1",
+      to_id: "t1",
+      relation: "prepares_for",
+    });
+
+    createTask?.onSuccess?.();
+    expect(harness.invalidate).toHaveBeenCalledWith("todo.write", "study.write", "link.write");
+  });
+
+  it("adds a new study area and deletes one with the right API calls and study.write invalidation", () => {
+    harness.queryData = { "study-areas": areas };
+    harness.stateValues = ["", "Yeni alan", "", null];
+    renderToStaticMarkup(<LearningPage />);
+
+    const addArea = harness.mutations.find((mutation) => {
       harness.apiPost.mockClear();
       mutation.mutationFn?.();
-      return harness.apiPost.mock.calls.some(([url]) => url === "/courses");
+      return harness.apiPost.mock.calls.some(([url]) => url === "/study/areas");
     });
-    expect(create).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith("/courses", { title: "  React Router  " });
-    create?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("learning.write");
-  });
-
-  it("patches course progress to done at 100% and deletes courses via the right endpoint", () => {
-    harness.stateValues = ["courses", ""];
-    renderToStaticMarkup(<LearningPage />);
-
-    const patchCourse = harness.mutations.find((mutation) => {
-      harness.apiPatch.mockClear();
-      mutation.mutationFn?.({ id: "c1", progress_pct: 100 });
-      return harness.apiPatch.mock.calls.some(([url]) => url === "/courses/c1");
-    });
-    expect(patchCourse).toBeDefined();
-    expect(harness.apiPatch).toHaveBeenCalledWith("/courses/c1", {
-      progress_pct: 100,
-      status: "done",
-    });
-    patchCourse?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("learning.write");
+    expect(addArea).toBeDefined();
+    expect(harness.apiPost).toHaveBeenCalledWith("/study/areas", { title: "Yeni alan" });
+    addArea?.onSuccess?.();
+    expect(harness.invalidate).toHaveBeenCalledWith("study.write");
 
     harness.invalidate.mockClear();
-    const remove = harness.mutations.find((mutation) => {
+    const removeArea = harness.mutations.find((mutation) => {
       harness.apiDel.mockClear();
-      mutation.mutationFn?.("c1");
-      return harness.apiDel.mock.calls.some(([url]) => url === "/courses/c1");
+      mutation.mutationFn?.("a1");
+      return harness.apiDel.mock.calls.some(([url]) => url === "/study/areas/a1");
     });
-    expect(remove).toBeDefined();
-    expect(harness.apiDel).toHaveBeenCalledWith("/courses/c1");
-    remove?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("learning.write");
+    expect(removeArea).toBeDefined();
+    expect(harness.apiDel).toHaveBeenCalledWith("/study/areas/a1");
+    removeArea?.onSuccess?.(undefined, "a1");
+    expect(harness.invalidate).toHaveBeenCalledWith("study.write");
   });
 });

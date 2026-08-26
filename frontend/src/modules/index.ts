@@ -8,7 +8,6 @@ import "./todo";
 import "./pomodoro";
 import "./review";
 import "./opportunity";
-import "./study";
 import "./learning";
 import "./media";
 import "./documents";

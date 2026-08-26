@@ -77,3 +77,21 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - `down_revision` her zaman `alembic heads`'teki gerçek head'e verilir;
   dosya adı numarasına güvenilmez (gerçek zincir: `backend/alembic/README.md`).
 - View/trigger yazılmaz; son tarihler `deadline_provider` ile toplanır (kural 16).
+
+## 4. Faz 12: study + learning tek modül
+
+- `study` modülü `learning`'e birleştirildi (`backend/app/modules/learning/`).
+  Tablolar AYNEN durur (`study_area`, `study_topic`, `course`); birleşen
+  şey modül ve sayfa. `MODULES`'ta tek `learning` kaydı var.
+- Uç yolları korunur: `/study/*` (alanlar/konular) ve `/courses` aynı
+  router altında, yollar değişmedi. Frontend'de `/learning` ve `/study`
+  aynı sayfaya gider.
+- Konu ↔ kaynak bağı link üzerinden kurulur:
+  `link(from=study_topic, to=course|media_item, relation="learns_from")`.
+  İlişki sözlüğüne `RELATIONS["learns_from"]` eklendi; frontend'de
+  `RelatedPanel` `relation` prop'u ile yalnız o ilişkiyi gösterir ve
+  yeni bağları o ilişkiyle kurar.
+- Eski modül klasörleri tamamen silindi (`backend/app/modules/study/`,
+  `frontend/src/modules/study/`); sidebar "Takip" grubunda tek giriş var.
+- Not: `learning.write` invalidation'ı `related` anahtarını da tazeler
+  (bağ kurma konu detayına anında yansır).

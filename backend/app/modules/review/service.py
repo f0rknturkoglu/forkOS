@@ -10,10 +10,10 @@ from app.core.entity import create_entity
 from app.core.events import log_event
 from app.core.models import Entity, Event
 from app.core.time import local_datetime, local_day_bounds
+from app.modules.learning.models import StudyArea, StudyTopic
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
 from app.modules.review.schemas import ReviewIn, ReviewOut, ReviewPreview
-from app.modules.study.models import StudyArea, StudyTopic
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
 from app.modules.todo.schemas import PlanSlotIn, TodoIn, TodoUpdate
