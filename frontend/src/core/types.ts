@@ -600,6 +600,13 @@ export interface ModuleSpec {
   icon?: LucideIcon | ComponentType<{ size?: number | string; className?: string }>;
   /** Grup verilmezse modul "Sistem" altina duser. */
   group?: ModuleGroup;
+  /**
+   * Nav'da GORUNMEYEN modul. Rotalar, Today widget'lari ve Command Palette
+   * calismaya devam eder; yalniz sidebar girisini gizler. Ozellikle sik
+   * kullanilmayan ama veri yazan akislar icin (ornek: review) -- birinci
+   * giris noktasi Bugun widget'i, nav'da kalici yer tutmasin.
+   */
+  hidden?: boolean;
   /** title verilmezse ust seritte modulun adi gorunur. */
   routes: { path: string; element: ComponentType; title?: string }[];
   /** Today ust seridindeki sayi kutucuklari. */

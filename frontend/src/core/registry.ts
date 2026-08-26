@@ -33,8 +33,9 @@ function enabledModules(): ModuleSpec[] {
   return allModules().filter((m) => !disabled.has(m.id));
 }
 
-/** Header'in tek modul kaynagi; isimler App katmaninda tekrar edilmez. */
-export const navigationModules = (): ModuleSpec[] => enabledModules();
+/** Header'in tek modul kaynagi; isimler App katmaninda tekrar edilmez.
+ *  hidden moduller nav'da yer tutmaz (rotalar/widget'lar ayakta kalir). */
+export const navigationModules = (): ModuleSpec[] => enabledModules().filter((m) => !m.hidden);
 
 export function hydrateSettings(settings: Record<string, unknown>): void {
   const disabled = Array.isArray(settings["modules.disabled"]) ? settings["modules.disabled"] : [];

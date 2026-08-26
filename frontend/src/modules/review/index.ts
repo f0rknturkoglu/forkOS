@@ -11,7 +11,7 @@ registerModule({
   id: "review",
   title: "Değerlendirme",
   icon: ClipboardCheck,
-  group: "track",
+  hidden: true,
   routes: [
     { path: "/review/weekly", element: WeeklyReviewPage },
     { path: "/review/daily", element: DailyReviewPage },

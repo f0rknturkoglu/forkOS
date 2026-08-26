@@ -45,6 +45,10 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
     start_dt, end_dt = local_day_bounds(start)[0], local_day_bounds(end)[0]
     minutes_expr = Event.payload["minutes"].astext.cast(Integer)
     topic_expr = Event.payload["topic"].astext
+    # Tarihsel veri dalı: habit.checked event'leri Faz 1'de habit modulu
+    # kaldirilmasina ragmen event tablosunda DURUYOR (append-only, kural 3).
+    # Bu dal onlari rutin sayiminda tutar -- kaldirilirsa gecmis haftalarin
+    # ozet rakami degisir. Yeni kayitlar todo.recur uzerinden gelir.
     routine_title_expr = case(
         (Event.verb == "habit.checked", Event.payload["habit"].astext),
         else_=Event.payload["title"].astext,

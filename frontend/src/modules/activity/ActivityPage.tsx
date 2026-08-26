@@ -1,10 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ClipboardCheck } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
-import { Button, Chip, Empty, PageFrame, PageHeader, Toolbar, cx, relativeTime } from "@/core/ui";
+import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx, relativeTime } from "@/core/ui";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
+
+/** Geçmiş değerlendirmeler -- GET /reviews ucu. Etiket döneme gore. */
+interface ReviewOut {
+  id: string;
+  kind: "daily" | "weekly";
+  period_start: string;
+  period_end: string;
+  note: string | null;
+}
+
+function reviewLabel(start: string, end: string): string {
+  const s = new Date(start + "T00:00:00");
+  const e = new Date(end + "T00:00:00");
+  const month = (d: Date) => d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+  if (s.toDateString() === e.toDateString()) return month(s);
+  return `${month(s)} – ${month(e)}`;
+}
 import { ALERT_VERBS, describe } from "@/core/verbs";
 
 function localDayKey(iso: string): string {
@@ -41,6 +58,10 @@ export function ActivityPage() {
   const { data: health = [] } = useQuery({
     queryKey: ["sources", "health"],
     queryFn: () => api.get<SourceHealth[]>("/sources/health"),
+  });
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["reviews"],
+    queryFn: () => api.get<ReviewOut[]>("/reviews?limit=10"),
   });
 
   const events = useMemo(() => (onlyAlerts ? data.filter(isAlert) : data), [data, onlyAlerts]);
@@ -96,6 +117,28 @@ export function ActivityPage() {
 
       {problems.length > 0 && (
         <SourceHealthAccordion sources={problems} open={healthOpen} onOpenChange={setHealthOpen} />
+      )}
+
+      {reviews.length > 0 && (
+        <Section title="Değerlendirmeler">
+          <ul className="space-y-1">
+            {reviews.map((review) => (
+              <li key={review.id}>
+                <a
+                  href={`#/review/${review.kind}`}
+                  className="flex items-center gap-2.5 rounded-control border border-subtle bg-surface px-3 py-2 text-body text-secondary transition hover:border-strong hover:text-primary"
+                >
+                  <ClipboardCheck size={14} className="shrink-0 text-muted" />
+                  <span className="label-caps text-secondary">{review.kind === "weekly" ? "Haftalık" : "Günlük"}</span>
+                  <span className="min-w-0 flex-1 truncate text-meta text-muted">
+                    {reviewLabel(review.period_start, review.period_end)}
+                  </span>
+                  {review.note && <span className="truncate text-meta">{review.note}</span>}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </Section>
       )}
 
       {isLoading ? (
