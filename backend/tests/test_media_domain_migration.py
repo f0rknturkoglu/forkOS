@@ -481,3 +481,55 @@ def test_book_to_media_item_roundtrip_preserves_links_and_events():
                 {"a": entity_id, "b": bookmark_id},
             )
         )
+
+
+def test_book_downgrade_tolerates_null_media_progress():
+    """Downgrade: media_item.progress NULL ise current_page'e 0 yazilir.
+
+    progress nullable ama book.current_page NOT NULL -- medya arayuzunde
+    ilerlemesi temizlenmis kitap geri alinirken patlamamali (Faz 11 notu).
+    """
+    book_revision = "0027_book_to_media_item"
+    entity_id = uuid.uuid4()
+    _alembic(LEGACY_REVISION)
+    try:
+        asyncio.run(
+            _execute(
+                "insert into entity (id,type,title) values (:id,'book','Null progress')",
+                {"id": entity_id},
+            )
+        )
+        asyncio.run(
+            _execute(
+                """insert into book (id,author,status,total_pages,current_page,
+                                     started_at,finished_at,rating,notes)
+                   values (:id,'Yazar','want',200,42,null,null,null,null)""",
+                {"id": entity_id},
+            )
+        )
+
+        _alembic(book_revision)
+        # Medya arayuzunde ilerleme temizlendi (progress NULL).
+        asyncio.run(
+            _execute(
+                "update media_item set progress = null where id = :id",
+                {"id": entity_id},
+            )
+        )
+
+        _alembic(LEGACY_REVISION)
+        row = asyncio.run(
+            _execute(
+                "select current_page from book where id = :id",
+                {"id": entity_id},
+            )
+        )
+        assert row["current_page"] == 0, row
+    finally:
+        _alembic(book_revision)
+        asyncio.run(
+            _execute(
+                "delete from entity where id = :id",
+                {"id": entity_id},
+            )
+        )

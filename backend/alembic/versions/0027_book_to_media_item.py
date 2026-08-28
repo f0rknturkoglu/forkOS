@@ -91,7 +91,7 @@ def downgrade() -> None:
         insert into book (id, author, status, total_pages, current_page,
                           started_at, finished_at, rating, notes)
         select m.id, m.meta ->> 'author', {_REVERSE_STATUS_MAP},
-               m.total, m.progress,
+               m.total, coalesce(m.progress, 0),
                (m.started_at::timestamp at time zone 'UTC')::date,
                (m.finished_at::timestamp at time zone 'UTC')::date,
                m.score, m.notes
