@@ -25,6 +25,7 @@ Per-company fields: ``investors``, ``investorSlugs``, ``markets``, ``stages``,
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from ..geo import region_for
@@ -63,6 +64,13 @@ class ConsiderScraper(ScraperBase):
         seen: set[str] = set()
         meta: dict[str, Any] = {"size": PAGE_SIZE}
         page = 0
+        jobs_url = f"{self.base_url}/jobs"
+        csrf_token = _csrf_token(await client.get_html(jobs_url))
+        request_headers = {
+            "x-csrf-token": csrf_token,
+            "origin": self.base_url,
+            "referer": jobs_url,
+        }
 
         while True:
             body: dict[str, Any] = {
@@ -74,7 +82,9 @@ class ConsiderScraper(ScraperBase):
                 "query": {},
                 "grouped": True,
             }
-            payload = await client.post_json(f"{self.base_url}/api-boards/search-jobs", body)
+            payload = await client.post_json(
+                f"{self.base_url}/api-boards/search-jobs", body, headers=request_headers
+            )
             page += 1
 
             groups = self._parse_groups(payload)
@@ -277,3 +287,21 @@ class ConsiderScraper(ScraperBase):
             posted_at=posted_at,
             date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
         )
+
+
+def _csrf_token(body: str) -> str:
+    marker = "window.serverInitialData"
+    start = body.find(marker)
+    if start < 0:
+        raise ScraperPermanentError("consider: serverInitialData bulunamadı")
+    assignment = body.find("=", start + len(marker))
+    if assignment < 0:
+        raise ScraperPermanentError("consider: serverInitialData ataması bulunamadı")
+    try:
+        payload, _ = json.JSONDecoder().raw_decode(body[assignment + 1 :].lstrip())
+    except json.JSONDecodeError as exc:
+        raise ScraperPermanentError("consider: serverInitialData JSON bozuk") from exc
+    token = payload.get("csrfToken") if isinstance(payload, dict) else None
+    if not isinstance(token, str) or not token:
+        raise ScraperPermanentError("consider: csrfToken bulunamadı")
+    return token

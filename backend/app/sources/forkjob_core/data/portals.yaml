@@ -603,12 +603,10 @@ sources:
     label: a16z (portfolio)
     category: startup
     url: https://jobs.a16z.com
-    enabled: true
+    enabled: false
     status: >-
-      Verified 2026-08-09. consider.co board. POST /api-boards/search-jobs
-      with board id andreessen-horowitz, grouped by company. Carries
-      minYearsExp and structured salary. robots.txt: Allow: / for all agents
-      except LinkedInBot. 16,332 postings.
+      Disabled 2026-08-29: legacy /api-boards/search-jobs is gone; current
+      board no longer uses the public Consider contract.
     config:
       board_id: andreessen-horowitz
       board_label: a16z

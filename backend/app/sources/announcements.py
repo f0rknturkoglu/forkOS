@@ -10,6 +10,7 @@ import httpx
 from selectolax.parser import HTMLParser
 
 from app.sources.base import RawItem
+from app.modules.opportunity.taxonomy import parse_turkish_heading_date
 
 
 def _norm(value: str) -> str:
@@ -48,6 +49,7 @@ class AnnouncementSource:
                     external_id=hashlib.sha256(url.encode()).hexdigest(),
                     title=title,
                     url=url,
+                    published_at=parse_turkish_heading_date(title),
                     extra={"organization": self.id.upper(), "kind": self.kind},
                 )
             )
@@ -107,6 +109,48 @@ class YlsySource(AnnouncementSource):
         return items
 
 
+class YokAnnouncementSource(AnnouncementSource):
+    def __init__(self) -> None:
+        super().__init__(
+            "yok-msc",
+            "https://www.yok.gov.tr/tr/announcements",
+            ("yüksek lisans", "lisansüstü", "burs", "başvuru"),
+            "msc",
+        )
+
+    def parse_html(
+        self, body: str, *, base_url: str, year: int | None = None
+    ) -> list[RawItem]:
+        items: list[RawItem] = []
+        publication_year = year or datetime.now(UTC).year
+        for card in HTMLParser(body).css(".blog-item"):
+            anchor = next((node for node in card.css("a") if node.attributes.get("href")), None)
+            if anchor is None:
+                continue
+            title = " ".join(anchor.text(deep=True).split())
+            if not any(_norm(keyword) in _norm(title) for keyword in self.keywords):
+                continue
+            href = anchor.attributes.get("href")
+            month_node = card.css_first(".date-block .month")
+            day_node = card.css_first(".date-block .day")
+            published_at = None
+            if month_node is not None and day_node is not None:
+                published_at = parse_turkish_heading_date(
+                    f"{day_node.text(strip=True)} {month_node.text(strip=True)} {publication_year}"
+                )
+            url = urljoin(base_url, href)
+            items.append(
+                RawItem(
+                    external_id=hashlib.sha256(url.encode()).hexdigest(),
+                    title=title,
+                    url=url,
+                    published_at=published_at,
+                    extra={"organization": "YÖK", "kind": self.kind},
+                )
+            )
+        return list({item.external_id: item for item in items}.values())
+
+
 SOURCES = [
     AnnouncementSource(
         "osym",
@@ -120,10 +164,5 @@ SOURCES = [
         ("ylsy", "burs", "lisansüstü"),
         "scholarship",
     ),
-    AnnouncementSource(
-        "yok-msc",
-        "https://genel-sekreterlik.yok.gov.tr/gundem/duyurular",
-        ("yüksek lisans", "lisansüstü", "burs", "başvuru"),
-        "msc",
-    ),
+    YokAnnouncementSource(),
 ]

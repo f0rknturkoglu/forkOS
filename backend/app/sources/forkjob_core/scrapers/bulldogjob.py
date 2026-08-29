@@ -46,9 +46,6 @@ query {{
       remote
       contractB2b
       experienceLevel
-      salaryFrom
-      salaryTo
-      salaryCurrency
     }}
   }}
 }}
@@ -75,6 +72,11 @@ class BulldogjobScraper(ScraperBase):
             )
             if not isinstance(payload, dict):
                 break
+            errors = payload.get("errors")
+            if isinstance(errors, list) and errors:
+                first = errors[0]
+                message = first.get("message") if isinstance(first, dict) else str(first)
+                raise ScraperPermanentError(f"{self.source}: GraphQL: {message}")
             result = payload.get("data", {}).get("searchJobs") or {}
             page_jobs = self.parse(result)
             if not page_jobs:
@@ -122,9 +124,7 @@ class BulldogjobScraper(ScraperBase):
         level = entry.get("experienceLevel")
         if level:
             description_parts.append(f"Level: {level}")
-        salary = _salary(entry)
-        if salary:
-            description_parts.append(f"Salary: {salary}")
+        salary = None
         description = "\n".join(description_parts) or None
 
         work_mode = WorkMode.REMOTE if entry.get("remote") else WorkMode.UNKNOWN
@@ -148,18 +148,3 @@ class BulldogjobScraper(ScraperBase):
             posted_at=posted_at,
             date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
         )
-
-
-def _salary(entry: dict[str, Any]) -> str | None:
-    low, high = entry.get("salaryFrom"), entry.get("salaryTo")
-    if low is None and high is None:
-        return None
-    currency = (entry.get("salaryCurrency") or "").upper()
-    parts = []
-    if low is not None and high is not None and low != high:
-        parts.append(f"{low:g}-{high:g}")
-    else:
-        parts.append(f"{(low if low is not None else high):g}")
-    if currency:
-        parts.append(currency)
-    return " ".join(parts) or None
