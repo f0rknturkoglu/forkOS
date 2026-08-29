@@ -48,8 +48,20 @@ async def test_project_journal_upserts_one_entity_backed_note_per_day(
     today = next(group for group in journal if group["day"] == day)
     assert today["note"]["id"] == first_note["id"]
     assert today["note"]["body"] == "Güncellenmiş günlük"
-    assert "project.created" in {event["verb"] for event in today["events"]}
-    assert "note.updated" in {event["verb"] for event in today["events"]}
+    verbs = {event["verb"] for event in today["events"]}
+    assert "project.created" in verbs
+    assert not any(verb.startswith("note.") for verb in verbs)
+
+    activity = (await client.get("/api/activity", params={"limit": 100})).json()
+    note_events = [
+        event
+        for event in activity
+        if event["entity_id"] == first_note["id"] and event["verb"].startswith("note.")
+    ]
+    assert {event["verb"] for event in note_events} >= {
+        "note.created",
+        "note.updated",
+    }
 
     notes = (await client.get("/api/notes")).json()
     assert [note["id"] for note in notes].count(first_note["id"]) == 1
@@ -85,7 +97,17 @@ async def test_project_journal_rejects_future_and_empty_body_removes_note(
     journal = (await client.get(f"/api/projects/{project['id']}/journal")).json()
     today_group = next(group for group in journal if group["day"] == day)
     assert today_group["note"] is None
-    assert "note.deleted" in {event["verb"] for event in today_group["events"]}
+    assert not any(
+        event["verb"].startswith("note.")
+        for group in journal
+        for event in group["events"]
+    )
+    activity = (await client.get("/api/activity", params={"limit": 100})).json()
+    assert any(
+        event["verb"] == "note.deleted"
+        and event["payload"].get("project_id") == project["id"]
+        for event in activity
+    )
 
 
 async def test_project_journal_returns_404_for_unknown_project(client: AsyncClient) -> None:

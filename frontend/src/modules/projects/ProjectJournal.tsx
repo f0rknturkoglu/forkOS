@@ -4,7 +4,7 @@ import { CalendarDays } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { ProjectEvent, ProjectJournalDay } from "@/core/types";
-import { Chip, Empty, Field, Input, Section, Textarea, cx, relativeTime, useToast } from "@/core/ui";
+import { Empty, Field, Input, Section, SectionHeader, Textarea, cx, relativeTime, useToast } from "@/core/ui";
 import { VERB_LABELS } from "@/core/verbs";
 import { keyToUtc, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
@@ -33,6 +33,34 @@ function eventText(event: ProjectEvent): string | null {
   );
 }
 
+export function visibleProjectEvents(events: ProjectEvent[]): ProjectEvent[] {
+  return events.filter((event) => !event.verb.startsWith("note."));
+}
+
+export function projectEventLabel(verb: string): string {
+  return VERB_LABELS[verb] ?? "Proje hareketi";
+}
+
+function EventRows({ events }: { events: ProjectEvent[] }) {
+  return (
+    <ul className="divide-y divide-subtle">
+      {events.map((event) => {
+        const text = eventText(event);
+        return (
+          <li key={event.id} className="flex min-w-0 items-start gap-2 py-2 text-body">
+            <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", eventTone(event.verb))} aria-hidden />
+            <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-2">
+              <span className="block shrink-0 text-secondary">{projectEventLabel(event.verb)}</span>
+              {text && <span className="block min-w-0 truncate text-primary">{text}</span>}
+            </div>
+            <span className="shrink-0 text-meta text-muted">{relativeTime(event.occurred_at)}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function ProjectJournal({ projectId }: { projectId: string }) {
   const today = todayKey();
   const online = useOnline();
@@ -44,8 +72,10 @@ export function ProjectJournal({ projectId }: { projectId: string }) {
     queryFn: () => api.get<ProjectJournalDay[]>(`/projects/${projectId}/journal${qs({ limit: 60 })}`),
   });
   const groups = journalQuery.data ?? [];
-  const selected = groups.find((group) => group.day === selectedDay);
-  const savedBody = selected?.note?.body ?? "";
+  const activeGroup = groups.find((group) => group.day === selectedDay);
+  const activeEvents = visibleProjectEvents(activeGroup?.events ?? []);
+  const historyGroups = groups.filter((group) => group.day !== selectedDay);
+  const savedBody = activeGroup?.note?.body ?? "";
   const [draft, setDraft] = useState(savedBody);
 
   useEffect(() => {
@@ -63,104 +93,111 @@ export function ProjectJournal({ projectId }: { projectId: string }) {
 
   return (
     <Section title="Günlük" hint="günlük notlar ve proje hareketleri" bodyClassName="space-y-4">
-      <div className="grid gap-3 border-b border-subtle pb-4 sm:grid-cols-[180px_minmax(0,1fr)]">
-        <Field label="Gün">
-          <Input
-            type="date"
-            value={selectedDay}
-            max={today}
-            onChange={(value) => {
-              if (value && value <= today) setSelectedDay(value);
-            }}
-            ariaLabel="Gün"
-            className="w-full"
-          />
-        </Field>
-        <Field
-          label={dayLabel(selectedDay)}
-          hint={
-            !online
-              ? "Çevrimdışıyken günlük okunabilir; yazma kapalıdır."
-              : draft.trim() !== savedBody.trim()
-                ? "Kaydedilmedi; alandan çıkınca kaydedilir."
-                : "Her proje için günde tek düzenlenebilir not."
-          }
-        >
-          <Textarea
-            value={draft}
-            onChange={setDraft}
-            onBlur={(value) => {
-              const normalized = value.trim();
-              if (normalized !== savedBody.trim()) save.mutate(normalized);
-            }}
-            disabled={!online || save.isPending}
-            rows={6}
-            ariaLabel="Günlük notu"
-            placeholder="Bugün ne oldu, hangi karar alındı, sıradaki bağlam ne?"
-            className="font-mono text-meta leading-6"
-          />
-        </Field>
-      </div>
+      <article
+        data-testid="project-journal-active-day"
+        className="overflow-hidden rounded-control border border-accent bg-accent-surface"
+      >
+        <header className="flex flex-wrap items-end gap-3 border-b border-accent px-3 py-3">
+          <Field label="Gün" className="w-full sm:w-48">
+            <Input
+              type="date"
+              value={selectedDay}
+              max={today}
+              onChange={(value) => {
+                if (value && value <= today) setSelectedDay(value);
+              }}
+              ariaLabel="Gün"
+              className="w-full bg-surface"
+            />
+          </Field>
+          <div className="min-w-0 flex-1 pb-1">
+            <p className="text-meta text-muted">Seçili gün</p>
+            <h3 className="truncate text-body font-medium text-primary">{dayLabel(selectedDay)}</h3>
+          </div>
+          <span className="pb-1 text-meta text-muted">{activeEvents.length} hareket</span>
+        </header>
 
-      {journalQuery.isLoading ? (
-        <p className="py-2 text-meta text-muted">Yükleniyor…</p>
-      ) : journalQuery.isError ? (
-        <Empty>Proje günlüğü alınamadı.</Empty>
-      ) : groups.length === 0 ? (
-        <Empty>Henüz günlük kaydı yok. Bugünün notunu yazabilir veya projede bir hareket yapabilirsin.</Empty>
-      ) : (
-        <div className="space-y-3">
-          {groups.map((group) => {
-            const active = group.day === selectedDay;
-            return (
-              <article
-                key={group.day}
-                data-project-journal-day={group.day}
-                className={cx(
-                  "rounded-control border px-3 py-2.5",
-                  active ? "border-accent bg-accent-surface" : "border-subtle bg-surface",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => setSelectedDay(group.day)}
-                  aria-current={active ? "date" : undefined}
-                  className="flex w-full items-center gap-2 text-left"
-                >
-                  <CalendarDays size={14} className={active ? "text-accent" : "text-muted"} />
-                  <span className="text-body font-medium text-primary">{dayLabel(group.day)}</span>
-                  <span className="ml-auto text-meta text-muted">{group.events.length} hareket</span>
-                </button>
-
-                {group.note && (
-                  <p className="mt-2 whitespace-pre-wrap border-l-2 border-warn-border pl-3 text-body text-secondary">
-                    {group.note.body}
-                  </p>
-                )}
-
-                {group.events.length > 0 && (
-                  <ul className="mt-2 divide-y divide-subtle border-t border-subtle">
-                    {group.events.map((event) => {
-                      const text = eventText(event);
-                      return (
-                        <li key={event.id} className="flex min-w-0 items-baseline gap-2 py-2 text-body">
-                          <span className={cx("h-2 w-2 shrink-0 rounded-full", eventTone(event.verb))} aria-hidden />
-                          <span className="shrink-0 text-secondary">{VERB_LABELS[event.verb] ?? event.verb}</span>
-                          {text && <span className="min-w-0 truncate text-primary">{text}</span>}
-                          {event.entity_type && <Chip>{event.entity_type}</Chip>}
-                          <span className="ml-auto shrink-0 text-meta text-muted">
-                            {relativeTime(event.occurred_at)}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </article>
-            );
-          })}
+        <div className="bg-surface px-3 py-3">
+          <Field
+            label="Günlük notu"
+            hint={
+              !online
+                ? "Çevrimdışıyken günlük okunabilir; yazma kapalıdır."
+                : draft.trim() !== savedBody.trim()
+                  ? "Kaydedilmedi; alandan çıkınca kaydedilir."
+                  : "Her proje için günde tek düzenlenebilir not."
+            }
+          >
+            <Textarea
+              value={draft}
+              onChange={setDraft}
+              onBlur={(value) => {
+                const normalized = value.trim();
+                if (normalized !== savedBody.trim()) save.mutate(normalized);
+              }}
+              disabled={!online || save.isPending || journalQuery.isLoading || journalQuery.isError}
+              rows={4}
+              ariaLabel="Günlük notu"
+              placeholder="Bugün ne oldu, hangi karar alındı, sıradaki bağlam ne?"
+              className="font-mono text-meta leading-6"
+            />
+          </Field>
         </div>
-      )}
+
+        <div className="border-t border-subtle bg-surface px-3 py-2">
+          <SectionHeader label="Günün hareketleri" hint={`${activeEvents.length}`} />
+          {journalQuery.isLoading ? (
+            <p className="py-2 text-meta text-muted">Yükleniyor…</p>
+          ) : journalQuery.isError ? (
+            <p className="py-2 text-meta text-danger">Proje hareketleri alınamadı.</p>
+          ) : activeEvents.length === 0 ? (
+            <p className="py-2 text-meta text-muted">Bu gün henüz proje hareketi yok.</p>
+          ) : (
+            <EventRows events={activeEvents} />
+          )}
+        </div>
+      </article>
+
+      {journalQuery.isError ? (
+        <Empty>Proje günlüğü alınamadı.</Empty>
+      ) : historyGroups.length > 0 ? (
+        <div>
+          <SectionHeader label="Geçmiş günler" hint={`${historyGroups.length}`} />
+          <div className="space-y-3">
+            {historyGroups.map((group) => {
+              const events = visibleProjectEvents(group.events);
+              return (
+                <article
+                  key={group.day}
+                  data-project-journal-day={group.day}
+                  className="rounded-control border border-subtle bg-surface px-3 py-2.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDay(group.day)}
+                    className="flex w-full items-center gap-2 text-left"
+                  >
+                    <CalendarDays size={14} className="shrink-0 text-muted" />
+                    <span className="text-body font-medium text-primary">{dayLabel(group.day)}</span>
+                    <span className="ml-auto text-meta text-muted">{events.length} hareket</span>
+                  </button>
+
+                  {group.note && (
+                    <p className="mt-2 whitespace-pre-wrap border-l-2 border-warn-border pl-3 text-body text-secondary">
+                      {group.note.body}
+                    </p>
+                  )}
+                  {events.length > 0 && (
+                    <div className="mt-2 border-t border-subtle">
+                      <EventRows events={events} />
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </Section>
   );
 }

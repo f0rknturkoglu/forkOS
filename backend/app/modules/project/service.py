@@ -375,32 +375,9 @@ async def journal(
 ) -> list[dict]:
     """Proje olaylari ile guncel gun notlarini tarih basliklari altinda birlestirir."""
     project_events = await timeline(session, project_id, limit)
-    note_events = list(
-        (
-            await session.execute(
-                select(Event)
-                .where(Event.payload["project_id"].astext == str(project_id))
-                .order_by(Event.occurred_at.desc())
-                .limit(limit)
-            )
-        ).scalars()
-    )
-    event_rows = {
-        event["id"]: event for event in project_events
-    }
-    for event in note_events:
-        event_rows[event.id] = {
-            "id": event.id,
-            "verb": event.verb,
-            "entity_id": event.entity_id,
-            "entity_type": event.entity_type,
-            "title": event.payload.get("title"),
-            "payload": event.payload,
-            "occurred_at": event.occurred_at,
-        }
-    events = sorted(
-        event_rows.values(), key=lambda item: item["occurred_at"], reverse=True
-    )[:limit]
+    # Notun kendisi gun grubunda icerik olarak gorunur. note.* event'leri
+    # append-only global Aktivite'de kalir; burada ikinci kez listelenmez.
+    events = project_events[:limit]
 
     note_rows = (
         await session.execute(
