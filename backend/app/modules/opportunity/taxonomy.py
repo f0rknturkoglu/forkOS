@@ -119,9 +119,16 @@ def normalize_text(value: str) -> str:
 
 
 def classify_job(title: str, department: str | None, description: str | None = None) -> str:
-    haystack = normalize_text(" ".join(filter(None, (title, department, description))))
+    primary = normalize_text(" ".join(filter(None, (title, department))))
+    category = next(
+        (slug for slug, needles in CATEGORY_RULES if any(needle in primary for needle in needles)),
+        None,
+    )
+    if category is not None or not description:
+        return category or "other"
+    fallback = normalize_text(description)
     return next(
-        (slug for slug, needles in CATEGORY_RULES if any(needle in haystack for needle in needles)),
+        (slug for slug, needles in CATEGORY_RULES if any(needle in fallback for needle in needles)),
         "other",
     )
 

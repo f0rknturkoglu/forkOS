@@ -26,6 +26,17 @@ def test_classify_job(title: str, department: str | None, expected: str) -> None
     assert classify_job(title, department) == expected
 
 
+def test_title_category_is_not_overridden_by_generic_description_terms() -> None:
+    assert (
+        classify_job(
+            "Software Engineer",
+            "Engineering",
+            "Build a cloud SaaS platform with the product team",
+        )
+        == "software"
+    )
+
+
 @pytest.mark.parametrize(
     ("title", "expected"),
     [
