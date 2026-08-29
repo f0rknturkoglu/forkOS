@@ -258,6 +258,18 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   cozuldu" seridinde gosterilir, alanlar kullanici dokunmadikca
   on-doldurulur (kullanici override'i parserdan once gelir); onay olmadan
   kayit olusmaz. 12 parser testi (sinirlar dahil).
+## Faz 24: rutin gorev semantigi (dogrulama + UX)
+
+- Mevcut backend davranisi dogrulandi ve DEGISTIRILMEDI (testlerle
+  sabitlendi, `tests/test_todo_recur.py`): cuma->pazartesi (weekdays),
+  ay sonu kirpma (31 -> 28/30), gecikmis rutinin gelecege atlamasi,
+  duplicate completion guvenligi (recur_origin_id dedupe), context
+  kopyalama (proje/milestone/parent/tag/oncelik/aciklama) ve PlanSlot'un
+  KOPYALANMAMASI (yeni occurrence kullanici istemedikce plana dusmez).
+- TodoRow: rutin cipi "her gun" + sonraki tarihi gosterir; "Rutini
+  durdur" aksiyonu PATCH recur:'' yapar -- gorev SILINMEZ, yalnizca
+  gelecekte yeni occurrence uretimi kapanir (gecmis Activity'de kalir).
+
 
 
   ortak test DB'sini her zaman head'e birakiyor (son iki test book

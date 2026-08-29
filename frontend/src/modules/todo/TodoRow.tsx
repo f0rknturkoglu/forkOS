@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
+  Ban,
   Calendar,
   CalendarPlus,
   Check,
@@ -16,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/core/api";
+import { confirmDialog } from "@/core/dialog";
 import { createTask } from "@/core/tasks";
 import { Chip, IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
@@ -202,8 +204,14 @@ export function TodoRow({
               </span>
             )}
             {recur && todo.recur && (
-              <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
+              <span
+                title={
+                  todo.due_at ? `Rutin — sonraki: ${dueLabel(todo.due_at)?.text ?? ""}` : "Rutin — sonraki tarih yok"
+                }
+                className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted"
+              >
                 <Repeat size={10} /> {recur}
+                {todo.due_at && <span className="text-secondary">{dueLabel(todo.due_at)?.text}</span>}
               </span>
             )}
             {todo.project_title && (
@@ -273,6 +281,27 @@ export function TodoRow({
               }}
             >
               <CalendarPlus size={14} />
+            </IconButton>
+          )}
+          {!done && !dropped && !compact && todo.recur && (
+            <IconButton
+              title="Rutini durdur"
+              disabled={!online || patch.isPending}
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: "Rutin durdurulsun mu?",
+                  body:
+                    "Bu görev silinmez; yalnızca gelecekte yeni occurrence üretimi kapanır. " +
+                    "Geçmiş kayıtlar Activity'de kalır.",
+                  confirmLabel: "Rutini durdur",
+                });
+                if (ok) {
+                  patch.mutate({ recur: "" });
+                  toast.push("Rutin durduruldu — bu görev duruyor.", { tone: "ok" });
+                }
+              }}
+            >
+              <Ban size={14} />
             </IconButton>
           )}
           {!done && !dropped && !compact && (

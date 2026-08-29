@@ -21,6 +21,9 @@ vi.mock("@/core/api", () => ({
 }));
 vi.mock("@/core/invalidation", () => ({ invalidateAfter: vi.fn() }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
+vi.mock("@/core/dialog", () => ({
+  confirmDialog: () => Promise.resolve(true),
+}));
 
 import { api } from "@/core/api";
 
@@ -41,7 +44,7 @@ type TodoRowTestTodo = {
   parent_id: null;
   position: number;
   tags: string[];
-  recur: null;
+  recur: string | null;
   project_id: null;
   project_title: null;
   milestone_id: null;
@@ -91,6 +94,66 @@ beforeEach(() => {
   apiPatch.mockReset();
   apiPatch.mockResolvedValue({} as never);
 });
+
+describe("rutin kontrolleri (Faz 24)", () => {
+  it("rutin gorev 'her gun' + sonraki tarih gosterir ve 'Rutini durdur' sunar", () => {
+    const todo = {
+      id: "r1",
+      title: "Su iç",
+      description: null,
+      priority: 2,
+      status: "open" as const,
+      due_at: "2026-08-31T08:00:00Z",
+      reminder_at: null,
+      completed_at: null,
+      parent_id: null,
+      position: 0,
+      tags: [],
+      recur: "daily",
+      planned_day: null,
+      planned_start_min: null,
+      project_id: null,
+      project_title: null,
+      milestone_id: null,
+      milestone_title: null,
+      subtask_total: 0,
+      subtask_done: 0,
+    };
+    renderRow(todo);
+    expect(screen.getByText("her gün")).toBeTruthy();
+    expect(screen.getByTitle(/Rutin — sonraki/)).toBeTruthy();
+    expect(screen.getByTitle("Rutini durdur")).toBeTruthy();
+  });
+
+  it("rutini durdurma PATCH recur:'' ile olur (gorev silinmez)", async () => {
+    const todo = {
+      id: "r2",
+      title: "Koşu",
+      description: null,
+      priority: 2,
+      status: "open" as const,
+      due_at: "2026-08-31T08:00:00Z",
+      reminder_at: null,
+      completed_at: null,
+      parent_id: null,
+      position: 0,
+      tags: [],
+      recur: "weekly",
+      planned_day: null,
+      planned_start_min: null,
+      project_id: null,
+      project_title: null,
+      milestone_id: null,
+      milestone_title: null,
+      subtask_total: 0,
+      subtask_done: 0,
+    };
+    renderRow(todo);
+    fireEvent.click(screen.getByTitle("Rutini durdur"));
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/todos/r2", { recur: "" }));
+  });
+});
+
 afterEach(cleanup);
 
 describe("planLabel", () => {
