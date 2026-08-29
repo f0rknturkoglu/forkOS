@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import httpx
 
@@ -117,6 +118,7 @@ async def overview(repo: str, token: str | None, *, refresh: bool = False) -> di
             }
             for item in commits
         ],
+        "fetched_at": datetime.now(UTC).isoformat(),
         "authenticated": bool(token),
     }
     _cache[key] = _Entry(at=now, data=data)
