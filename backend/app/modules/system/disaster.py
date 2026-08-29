@@ -32,35 +32,46 @@ async def clean_schema(session: AsyncSession) -> None:
 
 
 async def disaster_restore(session: AsyncSession, payload: dict) -> dict:
-    """Temiz DB'ye yedek yukler + butunlugu dogrular.
+    """Temiz DB'ye yedek yukler + butunlugu ayni transaction icinde dogrular.
 
-    `clean_schema` -> `restore.restore` -> `restore.verify_restore`.
-    Dogrulama tutmazsa ValueError firlatilir (islem commit edilmez).
+    `clean_schema` -> `restore.restore(commit=False)` -> `verify_restore`.
+    Yalnizca tum dogrulama gecerse COMMIT eder; herhangi bir hata (insert
+    ihlali, count uyusmazligi, yetim) transaction'i ROLLBACK eder ve
+    orijinal veri yerinde kalir (Faz 28).
     """
-    await clean_schema(session)
-    summary = await restore.restore(session, payload)
-    verification = await restore.verify_restore(session, payload)
+    try:
+        await clean_schema(session)
+        summary = await restore.restore(session, payload, commit=False)
+        verification = await restore.verify_restore(session, payload)
 
-    expected = {
-        "entity": len(payload.get("entities", [])),
-        "link": len(payload.get("links", [])),
-    }
-    actual = verification["row_counts"]
-    for table, count in expected.items():
-        if actual.get(table) != count:
+        expected = {
+            "entity": len(payload.get("entities", [])),
+            "link": len(payload.get("links", [])),
+        }
+        actual = verification["row_counts"]
+        for table, count in expected.items():
+            if actual.get(table) != count:
+                raise ValueError(
+                    f"restore dogrulamasi basarisiz: {table} beklenen {count}, "
+                    f"gercek {actual.get(table)}"
+                )
+        # restore() kendi backup.restored event'ini yazar (kural 3): temiz
+        # DB'de event sayisi payload + 1 olmali (beklenen ekstra kayit).
+        if actual.get("event") != len(payload.get("events", [])) + 1:
             raise ValueError(
-                f"restore dogrulamasi basarisiz: {table} beklenen {count}, "
-                f"gercek {actual.get(table)}"
+                "restore dogrulamasi basarisiz: event beklenen "
+                f"{len(payload.get('events', [])) + 1}, gercek {actual.get('event')}"
             )
-    # restore() kendi backup.restored event'ini yazar (kural 3): temiz DB'de
-    # event sayisi payload + 1 olmali. Bu ekstra kayit beklenen ve istenendir.
-    if actual.get("event") != len(payload.get("events", [])) + 1:
-        raise ValueError(
-            "restore dogrulamasi basarisiz: event beklenen "
-            f"{len(payload.get('events', [])) + 1}, gercek {actual.get('event')}"
-        )
-    if verification["orphan_links"]:
-        raise ValueError(f"yetim link var: {verification['orphan_links']}")
-    if verification["orphan_parents"]:
-        raise ValueError(f"yetim todo parent var: {verification['orphan_parents']}")
-    return {"summary": summary, "verification": verification}
+        if verification["orphan_links"]:
+            raise ValueError(f"yetim link var: {verification['orphan_links']}")
+        if verification["orphan_parents"]:
+            raise ValueError(f"yetim todo parent var: {verification['orphan_parents']}")
+
+        # Yalnizca tum dogrulama gectikten sonra COMMIT.
+        await session.commit()
+        return {"summary": summary, "verification": verification}
+    except Exception:
+        # Truncate/import/dogrulama hatalarinda tum transaction geri alinir;
+        # orijinal veri yerinde kalir. CLI guvenlik yedegini raporlar.
+        await session.rollback()
+        raise

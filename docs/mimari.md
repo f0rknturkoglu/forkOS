@@ -230,6 +230,16 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   sidebar modulu YOK. Documents sayfasi "Yerel Notlar" + "Drive Belgeleri"
   ayrimini gosterir.
 - Migration `0028_note` (head). Not: `test_media_domain_migration` artik
+- Faz 28: disaster restore transaction-safe. `restore.restore(commit=False)`
+  yukleme islemini commit etmez; `disaster_restore` temizle+yukle+dogrula
+  akisini tek transaction'da yapar, yalnizca tum dogrulama gecerse COMMIT,
+  hata aninda ROLLBACK (orijinal veri yerinde kalir). Safety dump DB
+  konteynerinde pg_dump ile alinir (API imajinda pg_dump yok; `make backup`
+  deseni) ve CLI'ye `--safety-dump` olarak verilir -- yoksa CLI DB'ye
+  dokunmaz. CLI migration'lari head'e ceker (`alembic upgrade head`), kendi
+  engine'ini kullanir (app-disidir). Akis: durdur -> dump -> migrate ->
+  transactional restore+verify -> commit; hata -> rollback + dump yolu.
+
 ## Faz 22: evrensel yakalama kutusu
 
 - `core/capture.ts` TEK intent katmani: `capture({kind, text, ...})` --

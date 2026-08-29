@@ -182,8 +182,16 @@ async def _insert_batch(
     return inserted, skipped
 
 
-async def restore(session: AsyncSession, payload: dict) -> dict:
-    """Yedek yukler. Doner: tablo bazinda {inserted, skipped} ozeti."""
+async def restore(
+    session: AsyncSession, payload: dict, *, commit: bool = True,
+) -> dict:
+    """Yedek yukler. Doner: tablo bazinda {inserted, skipped} ozeti.
+
+    `commit=False`: yukleme islemi transaction'i commit ETMEZ -- cagiran
+    (disaster restore) dogrulamayi ayni transaction icinde yapip ya commit
+    ya rollback eder (Faz 28). Normal merge endpoint'i default True ile
+    onceki davranisi korur.
+    """
     summary: dict[str, dict[str, int]] = {}
 
     # 1. Asama: FK sirasiyla, cakisma olursa yok sayarak ekle.
@@ -252,7 +260,10 @@ async def restore(session: AsyncSession, payload: dict) -> dict:
         session, verb="backup.restored",
         payload={"restored": restored_total, "tables": summary},
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return summary
 
 

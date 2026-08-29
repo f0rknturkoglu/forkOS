@@ -113,6 +113,127 @@ async def test_verify_restore_catches_orphans() -> None:
         assert verification["orphan_links"] >= 1
 
 
+async def test_failed_restore_leaves_original_data_intact() -> None:
+    """Faz 28: restore ortasinda hata olursa (FK ihlali gibi) truncate/import
+    ROLLBACK olmali -- eski seed veri yerinde kalir."""
+    async with SessionLocal() as session:
+        todo_id = await _seed(session)
+        await session.commit()
+        payload = await export.full_json(session)
+
+        # Ebeveyni payload'dan dusur: cocugun parent_id'si sarkan kalir,
+        # restore ortasinda FK ihlali -> tum transaction rollback olmali.
+        parent_id = str(
+            (
+                await session.execute(
+                    text("select parent_id from todo where id=:id"), {"id": todo_id}
+                )
+            ).scalar_one()
+        )
+        payload["entities"] = [
+            row for row in payload["entities"] if row["id"] != parent_id
+        ]
+        payload["modules"]["todo"] = [
+            row for row in payload["modules"]["todo"] if row["id"] != parent_id
+        ]
+
+        with pytest.raises(Exception):  # noqa: B017 -- FK ihlali ture bagli
+            await disaster_restore(session, payload)
+
+        # Rollback sonrasi seed veri hala duruyor (gorev + ebeveyn).
+        remaining = (
+            await session.execute(text("select count(*) from todo where id=:id"), {"id": todo_id})
+        ).scalar_one()
+        parent_left = (
+            await session.execute(text("select count(*) from todo where id=:id"), {"id": parent_id})
+        ).scalar_one()
+        assert remaining == 1
+        assert parent_left == 1
+        await session.rollback()
+
+
+def test_cli_requires_safety_dump_before_any_db_write() -> None:
+    cli = _load_cli()
+    # --safety-dump verilmezse argparse istegi reddeder (DB'ye dokunmaz).
+    with pytest.raises(SystemExit):
+        cli.parse_args(["--file", str(CLI_PATH), "--confirm", cli.CONFIRM_VALUE])
+    # Safety dump yoksa/boşsa CLI kendi mesajiyla durur.
+    with pytest.raises(SystemExit, match="safety dump"):
+        cli.parse_args(
+            [
+                "--file", str(CLI_PATH),
+                "--confirm", cli.CONFIRM_VALUE,
+                "--safety-dump", "/yok/boyle.dump",
+            ]
+        )
+
+
+def test_cli_full_flow_safety_migrate_restore_verify_commit(tmp_path) -> None:
+    """Faz 28: CLI safety-dump dogrulamasi + migration + transactional restore + commit."""
+    import asyncio as _asyncio
+    import json as _json
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.config import settings
+
+    cli = _load_cli()
+
+    # Paylasilan engine pytest loop'una bagli olabilir; test icin ayri engine.
+    def _local_session():
+        local_engine = create_async_engine(settings.database_url)
+        return local_engine, async_sessionmaker(local_engine, expire_on_commit=False)
+
+    async def _seed_and_export():
+        local_engine, Session = _local_session()
+        try:
+            async with Session() as session:
+                todo_id = await _seed(session)
+                await session.commit()
+                payload = await export.full_json(session)
+                return str(todo_id), payload
+        finally:
+            await local_engine.dispose()
+
+    todo_id, payload = _asyncio.run(_seed_and_export())
+
+    backup_file = tmp_path / "yedek.json"
+    backup_file.write_text(_json.dumps(payload), encoding="utf-8")
+    safety = tmp_path / "pre-disaster.dump"
+    safety.write_bytes(b"pg_dump-placeholder")
+
+    code = cli.run(
+        ["--file", str(backup_file), "--safety-dump", str(safety),
+         "--confirm", cli.CONFIRM_VALUE]
+    )
+    assert code == 0
+
+    # Commit edildi: gorev yeni session'da gorunur.
+    async def _check():
+        local_engine, Session = _local_session()
+        try:
+            async with Session() as session:
+                return (
+                    await session.execute(
+                        text("select count(*) from todo where id=:id"), {"id": todo_id}
+                    )
+                ).scalar_one()
+        finally:
+            await local_engine.dispose()
+
+    assert _asyncio.run(_check()) == 1
+
+
+def test_makefile_dumps_from_db_container_not_api() -> None:
+    """Faz 28: pg_dump db konteynerinde alinir (API imajinda pg_dump yok)."""
+    makefile = (BACKEND_DIR.parent / "Makefile").read_text(encoding="utf-8")
+    target = makefile[makefile.index("disaster-restore:"):]
+    assert "exec -T db" in target and "pg_dump" in target
+    # CLI satirinda pg_dump cagrisi yok -- api konteyneri dump yapmaz.
+    cli_line = [line for line in target.splitlines() if "disaster_restore.py" in line]
+    assert cli_line and "pg_dump" not in cli_line[0]
+
+
 def test_inspect_payload_flags_problems() -> None:
     base = {
         "version": 2,
@@ -154,14 +275,24 @@ def test_parse_backup_versions() -> None:
 
 def test_cli_requires_explicit_file_and_confirmation() -> None:
     cli = _load_cli()
+    # Safety dump olarak CLI_PATH'in kendisi verilir (var olan dosya).
+    safety = str(CLI_PATH)
 
     with pytest.raises(SystemExit, match="onay"):
-        cli.parse_args(["--file", str(CLI_PATH), "--confirm", "wrong"])
+        cli.parse_args(["--file", str(CLI_PATH), "--confirm", "wrong", "--safety-dump", safety])
     with pytest.raises(SystemExit, match="glob"):
         cli.parse_args(
-            ["--file", str(BACKEND_DIR / "backups/*.gz"), "--confirm", cli.CONFIRM_VALUE]
+            [
+                "--file", str(BACKEND_DIR / "backups/*.gz"),
+                "--confirm", cli.CONFIRM_VALUE,
+                "--safety-dump", safety,
+            ]
         )
     with pytest.raises(SystemExit, match="bulunamadi"):
         cli.parse_args(
-            ["--file", "/yok/boyle-dosya.json.gz", "--confirm", cli.CONFIRM_VALUE]
+            [
+                "--file", "/yok/boyle-dosya.json.gz",
+                "--confirm", cli.CONFIRM_VALUE,
+                "--safety-dump", safety,
+            ]
         )
