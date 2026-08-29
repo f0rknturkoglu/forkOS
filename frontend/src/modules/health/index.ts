@@ -3,6 +3,7 @@ import { HeartPulse } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { SourceHealthMiniWidget } from "./SourceHealthMiniWidget";
+import { ServiceHealthWidget } from "./widgets/ServiceHealthWidget";
 
 const HealthPage = lazy(() => import("./HealthPage").then((module) => ({ default: module.HealthPage })));
 const SourceHealthPage = lazy(() =>

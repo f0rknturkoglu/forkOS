@@ -6,6 +6,7 @@ import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import { Input, NumberInput, PageFrame, PageHeader, Section, Textarea, useTheme, useToast } from "@/core/ui";
 import { TodayWidgetsSection } from "./TodayWidgetsSection";
+import { NotificationsSection } from "./NotificationsSection";
 import type { Theme } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import {
@@ -141,6 +142,7 @@ export function SettingsPage() {
           location={settings["weather.location"] as string | undefined}
           onSubmit={saveWeather}
         />
+        <NotificationsSection />
         <TodayWidgetsSection
           online={online}
           onPersist={(orderIds, hiddenIds) => {

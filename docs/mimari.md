@@ -282,6 +282,51 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Kullanici widget gizleme ile kapatabilir (Faz 19); gamification yok.
 - ReviewWidget'daki tam degerlendirme kartini tekrarlamaz (ritim yalniz
   durum satiri + yonlendirme verir).
+## Faz 26: PWA bildirimleri + servis sagligi
+
+- `core/desktopNotifications.ts`: mevcut `notification` tablosu + panel
+  kullanilir (ikinci tablo YOK). Yeni/okunmamis ve importance >= 2
+  bildirimler Web Notifications API ile OS bildirimi olur; teslim
+  localStorage'da tutulur (server truth degil) -- ayni id bir kez gonderilir.
+  Izin ilk acilista istenmez; ayarlardaki aciklamali aksiyonla istenir,
+  reddedilen izin tekrar sorulmaz. Tiklayinca EntityTypeSpec rotasina
+  gidilir. Tarayici tamamen kapaliyken yerel uygulama bildirim gosteremez
+  (dokumante edildi; SW push yok, Electron/Tauri eklenmez).
+- `DesktopNotificationBridge` panel ile AYNI query key'ini izler (dedupe).
+- `ServiceHealthWidget`: worker heartbeat (stale ise uyari) + yedek
+  bayatligi (48s+) -- mevcut endpoint'lerden, yeni uc yok.
+- Uygulama offline'da salt okunur; yazma kapali (OfflineWriteError).
+
+### macOS otomatik baslatma (launchd) -- KAYIT: dokuman, calistirilmaz
+
+Sistem durumunu DEGISTIRMEK icin bu betigi calistirmak gerekir; repo
+calistirma yapmaz. Mutlak proje yolu: `REPO=/Users/<kullanici>/forkOS`.
+
+`~/Library/LaunchAgents/com.forkos.stack.plist`:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.forkos.stack</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/make</string>
+    <string>-C</string>
+    <string>/Users/<kullanici>/forkOS</string>
+    <string>up</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+  <key>StandardOutPath</key><string>/tmp/forkos-launchd.log</string>
+  <key>StandardErrorPath</key><string>/tmp/forkos-launchd.err</string>
+</dict>
+</plist>
+```
+Kaldirma: `launchctl unload ~/Library/LaunchAgents/com.forkos.stack.plist` ve
+dosyayi sil. Docker/Podman'in de oturum acilisinda calismasi gerekir.
+
 
 
 
