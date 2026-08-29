@@ -10,7 +10,7 @@ MODULE = ModuleSpec(id="project",
         ),
         EntityTypeSpec(
             'milestone', 'Kilometre taşı', 'Kilometre taşları', '/projects?focus={id}', 'Flag',
-        )],
+        linkable=False)],
     event_verbs=["project.created", "project.updated", "github.commit"],
         deadline_provider=project_deadlines,
 )

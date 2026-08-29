@@ -6,7 +6,7 @@ def _spec():
     return ModuleSpec(id="review", title="Reviews", router=router,
                       entity_types=[EntityTypeSpec(
             'review', 'Değerlendirme', 'Değerlendirmeler', '/review/daily', 'ClipboardCheck',
-        )], event_verbs=["review.completed"])
+        linkable=False)], event_verbs=["review.completed"])
 
 
 MODULE = _spec()

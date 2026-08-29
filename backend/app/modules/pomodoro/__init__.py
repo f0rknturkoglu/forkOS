@@ -6,7 +6,7 @@ def _spec():
     return ModuleSpec(id="pomodoro", title="Pomodoro", router=router,
                       entity_types=[EntityTypeSpec(
             'pomodoro_session', 'Pomodoro seansı', 'Pomodoro seansları', '/pomodoro', 'Timer',
-        )],
+        linkable=False)],
                       event_verbs=["pomodoro.completed", "pomodoro.interrupted"])
 
 

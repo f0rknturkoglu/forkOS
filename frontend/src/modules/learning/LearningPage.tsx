@@ -2,7 +2,7 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ListTodo, Timer, Trash2 } from "lucide-react";
-import { navigate } from "@/app/router";
+import { navigate, useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { Bookmark, Course, StudyArea, StudyTopic } from "@/core/types";
 import { Button, Chip, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select, cx } from "@/core/ui";
@@ -21,6 +21,9 @@ type TopicStats = { minutes: number; sessions: number };
  * kaynak arasi bag link uzerinden (learns_from).
  */
 export function LearningPage() {
+  const route = useHashRoute();
+  // Deep-link: ?focus={id} konuyu acar (registry rotasi, Faz 32).
+  const focusId = route.params.get("focus") ?? "";
   const [areaId, setAreaId] = useState("");
   const [areaTitle, setAreaTitle] = useState("");
   const [topicTitle, setTopicTitle] = useState("");
@@ -38,6 +41,15 @@ export function LearningPage() {
     enabled: Boolean(areaId),
     queryFn: () => api.get<StudyTopic[]>(`/study/topics?area_id=${areaId}`),
   });
+  // Deep-link: focus konusu yuklendiginde sec (bulundugu alani da ac).
+  useEffect(() => {
+    if (!focusId) return;
+    const topic = topics.find((item) => item.id === focusId);
+    if (topic) {
+      setAreaId(topic.area_id ?? areaId);
+      setSelected(topic);
+    }
+  }, [focusId, topics, areaId]);
   const { data: stats } = useQuery({
     queryKey: ["study-topic-stats", selected?.id],
     enabled: Boolean(selected),

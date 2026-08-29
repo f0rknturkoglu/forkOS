@@ -7,7 +7,7 @@ MODULE = ModuleSpec(id="calendar",
     router=router,
     entity_types=[EntityTypeSpec(
             'external_event', 'Takvim etkinliği', 'Takvim etkinlikleri', '/calendar', 'Calendar',
-        )],
+        linkable=False)],
     event_verbs=["calendar.synced", "calendar.plan_pushed"],
         deadline_provider=calendar_deadlines,
 )

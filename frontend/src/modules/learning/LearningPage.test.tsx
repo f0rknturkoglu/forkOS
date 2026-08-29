@@ -55,6 +55,7 @@ vi.mock("@/core/invalidation", () => ({
 }));
 vi.mock("@/app/router", () => ({
   navigate: vi.fn(),
+  useHashRoute: () => ({ path: "/learning", params: new URLSearchParams() }),
 }));
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {

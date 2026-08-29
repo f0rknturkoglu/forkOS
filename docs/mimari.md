@@ -247,7 +247,15 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
   Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
   bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`
+- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`- Faz 32: registry tabanli iliski yuzeyleri. `linkable=False` bilincli
+  kararlarla kapatildi: feed, feed_item, review, milestone, course,
+  study_area, media_unit/cycle/consumption/collection, pomodoro_session,
+  external_event (liste-rotali, alt-varlik, kaynak ya da gecici icerik).
+  Project ve study_topic deep-link duzeltildi (`?focus` parametresi artik
+  secili nesneyi acar). Guardrail (`relatedSurfaces.test.ts`) backend
+  EntityTypeSpec'ten beslenir: her linkable tip yuzey esler, kapali tipler
+  listede yok -- manuel liste registry ile karsilastirilir.
+
   public; Opportunity adim gorevi ve Learning konu gorevi ayni tercihi
   plan_day olarak gonderir (due_at uretmez). Learning endpoint'i ortak
   `TopicTodoIn` sozlesmesini kabul eder (plan_day/priority/due/recur/tags;

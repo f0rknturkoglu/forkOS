@@ -1,15 +1,54 @@
 /**
- * Faz 18 guardrail: her linklenebilir entity tipi detay/focus yuzeyinde
- * RelatedPanel ile gorunur iliskilere sahip olmali.
+ * Faz 18/32 guardrail: linklenebilir her entity tipi gercek, navigable ve
+ * iliski gosteren bir yuzeye sahip olmali.
  *
- * Tip -> yuzey eslemesi backend EntityTypeSpec'teki rotalara dayanir
- * (kural 13); burada tip->rota sabiti YOKTUR, yalnizca hangi sayfa
- * dosyasinin paneli barindirdigi listelenir.
+ * Kaynak backend EntityTypeSpec'tir (kural 13): linkable=False tipler
+ * bilincli olarak kapatilmistir (liste-rotali, alt-varlik, kaynak ya da
+ * gecici icerik). Guardrail manuel SURFACES listesini backend registry ile
+ * karsilastirir -- yeni linkable tip eklenirse yuzey olmadan test kirmali,
+ * linkable=False yapilmadan listeden cikarmak da kirmali.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const ROOT = resolve(import.meta.dirname, "../../..");
+
+interface BackendSpec {
+  route: string;
+  linkable: boolean;
+}
+
+/** Backend EntityTypeSpec kayitlarini {type: {route, linkable}} olarak okur. */
+function backendEntitySpecs(): Record<string, BackendSpec> {
+  const specs: Record<string, BackendSpec> = {};
+  const moduleDirs = readdirSync(resolve(ROOT, "backend/app/modules"), {
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+  for (const dir of moduleDirs) {
+    const path = resolve(ROOT, `backend/app/modules/${dir}/__init__.py`);
+    let src: string;
+    try {
+      src = readFileSync(path, "utf8");
+    } catch {
+      continue;
+    }
+    const blocks = src.split("EntityTypeSpec(").slice(1);
+    for (const block of blocks) {
+      const quotes = block.match(/'([^']+)'/g) ?? [];
+      if (quotes.length < 4) continue;
+      const type = quotes[0]!.slice(1, -1);
+      const route = quotes[3]!.slice(1, -1);
+      const head = block.slice(0, block.indexOf(")"));
+      specs[type] = { route, linkable: !head.includes("linkable=False") };
+    }
+  }
+  return specs;
+}
+
+/** Linklenebilir tip -> yuzey dosyasi (RelatedPanel tasir). */
 const SURFACES: Record<string, string> = {
   todo: "src/modules/todo/TodoPage.tsx",
   project: "src/modules/projects/ProjectsPage.tsx",
@@ -18,15 +57,52 @@ const SURFACES: Record<string, string> = {
   media_item: "src/modules/media/MediaDetailPage.tsx",
   bookmark: "src/modules/bookmarks/BookmarksPage.tsx",
   document: "src/modules/documents/DocumentsPage.tsx",
+  note: "src/modules/documents/DocumentsPage.tsx",
   expense: "src/modules/finance/FinancePage.tsx",
   recurring_payment: "src/modules/finance/FinancePage.tsx",
 };
 
-describe("entity relation visibility (Faz 18)", () => {
-  it.each(Object.entries(SURFACES))("type %s has a RelatedPanel entry point in %s", (type, path) => {
-    const source = readFileSync(resolve(path), "utf8");
+describe("entity relation visibility (Faz 18/32)", () => {
+  const specs = backendEntitySpecs();
+
+  it("backend registry linklenebilir tipleri yuzeyle esler", () => {
+    const linkable = Object.entries(specs)
+      .filter(([, spec]) => spec.linkable)
+      .map(([type]) => type)
+      .sort();
+    expect(linkable).toEqual(Object.keys(SURFACES).sort());
+  });
+
+  it.each(Object.entries(SURFACES))("linklenebilir %s yuzeyinde RelatedPanel var (%s)", (type, path) => {
+    expect(specs[type]?.linkable).toBe(true);
+    const source = readFileSync(resolve(ROOT, "frontend", path), "utf8");
     expect(source).toContain("RelatedPanel");
-    // Iliskiler yalnizca panel uzerinden; dogrudan POST /links yok.
     expect(source).not.toContain('post("/links"');
+  });
+
+  it("linkable=False tipler yuzey listesinde YOK (gerekceli kapatilmis)", () => {
+    const disabled = Object.entries(specs)
+      .filter(([, spec]) => !spec.linkable)
+      .map(([type]) => type);
+    for (const type of disabled) {
+      expect(SURFACES[type]).toBeUndefined();
+    }
+    // Bilincli karar listesi -- yeni tip eklenirse bu test eslesmeli.
+    expect(disabled.sort()).toEqual(
+      [
+        "course",
+        "external_event",
+        "feed",
+        "feed_item",
+        "media_collection",
+        "media_consumption",
+        "media_cycle",
+        "media_unit",
+        "milestone",
+        "pomodoro_session",
+        "review",
+        "study_area",
+      ].sort(),
+    );
   });
 });

@@ -45,6 +45,8 @@ const statusOf = (value: string) => STATUSES.find((item) => item.value === value
  * her proje icin ayri sayfaya gidip geri gelmek is akisini kesiyordu.
  */
 export function ProjectsPage() {
+  const route = useHashRoute();
+  const focusId = route.params.get("focus") ?? "";
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const online = useOnline();
@@ -55,12 +57,17 @@ export function ProjectsPage() {
   });
 
   // Ilk yuklemede ilk projeyi ac; secili proje silinirse listeye don.
+  // Deep-link: ?focus={id} secili projeyi acar (registry rotasi, Faz 32).
   useEffect(() => {
     if (projects.length === 0) return;
+    if (focusId && projects.some((project) => project.id === focusId)) {
+      setSelected(focusId);
+      return;
+    }
     if (!selected || !projects.some((project) => project.id === selected)) {
       setSelected(projects[0].id);
     }
-  }, [projects, selected]);
+  }, [projects, selected, focusId]);
 
   const current = projects.find((project) => project.id === selected) ?? null;
 

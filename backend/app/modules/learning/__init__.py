@@ -6,9 +6,11 @@ MODULE = ModuleSpec(
     title="Learning",
     router=router,
     entity_types=[
-        EntityTypeSpec('course', 'Kurs', 'Kurslar', '/learning', 'GraduationCap'),
+        EntityTypeSpec('course', 'Kurs', 'Kurslar', '/learning', 'GraduationCap',
+        linkable=False),
         EntityTypeSpec('study_area', 'Çalışma alanı',
-                       'Çalışma alanları', '/learning', 'FolderOpen'),
+                       'Çalışma alanları', '/learning', 'FolderOpen',
+        linkable=False),
         EntityTypeSpec('study_topic', 'Çalışma konusu',
                        'Çalışma konuları', '/learning', 'BookOpen'),
     ],
