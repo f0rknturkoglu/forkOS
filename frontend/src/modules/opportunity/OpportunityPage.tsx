@@ -71,6 +71,13 @@ export function OpportunityPage() {
   const counts = overview?.section_counts ?? { jobs: 0, announcements: 0, trash: 0 };
   const facets = overview?.facets ?? {};
   const total = overview?.total ?? 0;
+  const hasActiveFilters = Boolean(
+    filters.search ||
+    filters.category ||
+    filters.source ||
+    filters.min_score !== undefined ||
+    filters.max_score !== undefined,
+  );
 
   const patch = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/opportunities/${id}`, { status }),
@@ -219,11 +226,9 @@ export function OpportunityPage() {
         ) : rows.length === 0 ? (
           <Empty
             variant="page"
-            title={
-              filters.search || filters.category || filters.source ? "Bu süzgece uyan kayıt yok" : "Henüz kayıt yok"
-            }
+            title={hasActiveFilters ? "Bu süzgece uyan kayıt yok" : "Henüz kayıt yok"}
             action={
-              filters.search || filters.category || filters.source ? (
+              hasActiveFilters ? (
                 <Button onClick={resetFilters}>Süzgeci temizle</Button>
               ) : (
                 <Button variant="primary" onClick={() => navigate("/sources")}>

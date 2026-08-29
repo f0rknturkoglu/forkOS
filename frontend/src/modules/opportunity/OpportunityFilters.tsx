@@ -1,4 +1,4 @@
-import { Select, Section } from "@/core/ui";
+import { Button, Field, NumberInput, Select, Section } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
 import { FilterChip } from "./OpportunityList";
 import { JOB_CATEGORY_LABELS, STATUSES, statusLabel } from "./labels";
@@ -10,6 +10,17 @@ interface Props {
   onChange: (next: OpportunityBrowseFilters) => void;
 }
 
+const SCORE_PRESETS = [
+  { label: "70–100", min: 70, max: 100 },
+  { label: "40–69", min: 40, max: 69.9 },
+  { label: "0–39", min: 0, max: 39.9 },
+  { label: "Elendi", min: -1, max: -1 },
+] as const;
+
+function clampScore(value: number): number {
+  return Math.max(-1, Math.min(100, value));
+}
+
 export function OpportunityFilters({ filters, facets, onChange }: Props) {
   const remoteLabels: Record<string, string> = {
     remote: "Uzaktan",
@@ -19,6 +30,7 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
     unknown: "Belirsiz",
   };
   const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
+  const scoreFilterActive = filters.min_score !== undefined || filters.max_score !== undefined;
   const chips = (
     values: Record<string, number> | undefined,
     selected: string | undefined,
@@ -54,6 +66,76 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
         <Section title="İş alanı">
           <div className="flex flex-wrap gap-2">
             {chips(facets.categories, filters.category, JOB_CATEGORY_LABELS, "category")}
+          </div>
+        </Section>
+      )}
+
+      {filters.section === "jobs" && (
+        <Section
+          title="Uyum skoru"
+          hint={scoreFilterActive ? `${filters.min_score ?? -1}–${filters.max_score ?? 100}` : "Tüm skorlar"}
+          action={
+            scoreFilterActive ? (
+              <Button size="sm" variant="ghost" onClick={() => update({ min_score: undefined, max_score: undefined })}>
+                Temizle
+              </Button>
+            ) : undefined
+          }
+        >
+          <div className="flex flex-wrap items-end gap-2">
+            {SCORE_PRESETS.map((preset) => {
+              const active = filters.min_score === preset.min && filters.max_score === preset.max;
+              return (
+                <FilterChip
+                  key={preset.label}
+                  label={preset.label}
+                  active={active}
+                  onClick={() =>
+                    update(
+                      active
+                        ? { min_score: undefined, max_score: undefined }
+                        : { min_score: preset.min, max_score: preset.max },
+                    )
+                  }
+                />
+              );
+            })}
+            <Field label="Minimum skor" className="w-32">
+              <NumberInput
+                ariaLabel="Minimum skor"
+                value={filters.min_score ?? -1}
+                min={-1}
+                max={100}
+                step={0.1}
+                className="w-full"
+                onChange={(value) => {
+                  const minScore = clampScore(value);
+                  update({
+                    min_score: minScore,
+                    max_score:
+                      filters.max_score !== undefined && minScore > filters.max_score ? minScore : filters.max_score,
+                  });
+                }}
+              />
+            </Field>
+            <Field label="Maksimum skor" className="w-32">
+              <NumberInput
+                ariaLabel="Maksimum skor"
+                value={filters.max_score ?? 100}
+                min={-1}
+                max={100}
+                step={0.1}
+                className="w-full"
+                onChange={(value) => {
+                  const maxScore = clampScore(value);
+                  update({
+                    min_score:
+                      filters.min_score !== undefined && maxScore < filters.min_score ? maxScore : filters.min_score,
+                    max_score: maxScore,
+                  });
+                }}
+              />
+            </Field>
           </div>
         </Section>
       )}
@@ -125,7 +207,12 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
             value={filters.sort}
             onChange={(sort) => update({ sort: sort as OpportunityBrowseFilters["sort"] })}
           >
-            {filters.section === "jobs" && <option value="score">En uygun</option>}
+            {filters.section === "jobs" && (
+              <>
+                <option value="score">Skor: yüksekten düşüğe</option>
+                <option value="score_asc">Skor: düşükten yükseğe</option>
+              </>
+            )}
             <option value="newest">En yeni</option>
             <option value="oldest">En eski</option>
             <option value="deadline">Son tarihe göre</option>
