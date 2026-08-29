@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
-from app.core.models import Entity
+from app.core.models import Entity, Link
 from app.core.notifications import notify
 
 # Application CRM -- service.py uzerinden dogrudan import edenler bu isimleri korur.
@@ -344,6 +346,133 @@ async def add_requirement(
     return req
 
 
+def canonical_cluster(rows: Sequence[Opportunity]) -> Opportunity:
+    """Bir duplicate kümesinin kullanıcı açısından en değerli kaydını seç."""
+    if not rows:
+        raise ValueError("Boş fırsat kümesinden canonical kayıt seçilemez")
+    return min(
+        rows,
+        key=lambda row: (
+            row.status == "discovered",
+            row.applied_at is None,
+            not bool(row.notes),
+            row.found_at,
+            str(row.id),
+        ),
+    )
+
+
+def _merge_cluster_sources(
+    canonical: Opportunity, rows: Sequence[Opportunity], incoming_source: str | None = None
+) -> None:
+    sources: list[str] = []
+    for row in rows:
+        for source in (row.raw or {}).get("sources", [row.source]):
+            if source and source not in sources:
+                sources.append(source)
+    if incoming_source and incoming_source not in sources:
+        sources.append(incoming_source)
+    canonical.raw = {**(canonical.raw or {}), "sources": sources}
+
+
+@dataclass(frozen=True)
+class DuplicateMergeSummary:
+    duplicate_groups: int = 0
+    safe_groups: int = 0
+    merged_groups: int = 0
+    removed_rows: int = 0
+    skipped_groups: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        return asdict(self)
+
+
+async def merge_duplicate_clusters(
+    session: AsyncSession, *, dry_run: bool = True
+) -> DuplicateMergeSummary:
+    """Kullanıcı verisi taşımayan duplicate iş kümelerini güvenle birleştir."""
+    cluster = Opportunity.raw["forkjob"]["cluster_key"].astext
+    keys = (
+        await session.execute(
+            select(cluster)
+            .where(cluster.is_not(None))
+            .group_by(cluster)
+            .having(func.count() > 1)
+        )
+    ).scalars().all()
+    safe_groups = merged_groups = removed_rows = skipped_groups = 0
+    for cluster_key in keys:
+        rows = list(
+            (
+                await session.execute(
+                    select(Opportunity).where(cluster == cluster_key)
+                )
+            ).scalars().all()
+        )
+        ids = [row.id for row in rows]
+        related_count = (
+            await session.execute(
+                select(func.count()).select_from(Link).where(
+                    or_(Link.from_id.in_(ids), Link.to_id.in_(ids))
+                )
+            )
+        ).scalar_one()
+        application_count = (
+            await session.execute(
+                select(func.count())
+                .select_from(Application)
+                .where(Application.opportunity_id.in_(ids))
+            )
+        ).scalar_one()
+        requirement_count = (
+            await session.execute(
+                select(func.count())
+                .select_from(OpportunityRequirement)
+                .where(OpportunityRequirement.opportunity_id.in_(ids))
+            )
+        ).scalar_one()
+        safe = (
+            all(row.status == "discovered" for row in rows)
+            and all(not row.notes and row.applied_at is None for row in rows)
+            and all(row.trashed_at is None for row in rows)
+            and related_count == 0
+            and application_count == 0
+            and requirement_count == 0
+        )
+        if not safe:
+            skipped_groups += 1
+            continue
+        safe_groups += 1
+        if dry_run:
+            continue
+        canonical = canonical_cluster(rows)
+        duplicates = [row for row in rows if row.id != canonical.id]
+        _merge_cluster_sources(canonical, rows)
+        await log_event(
+            session,
+            verb="opportunity.duplicates_merged",
+            entity_id=canonical.id,
+            entity_type="opportunity",
+            payload={
+                "cluster_key": cluster_key,
+                "merged_ids": [str(row.id) for row in duplicates],
+            },
+        )
+        for duplicate in duplicates:
+            await delete_entity(session, duplicate.id)
+        merged_groups += 1
+        removed_rows += len(duplicates)
+    if not dry_run:
+        await session.commit()
+    return DuplicateMergeSummary(
+        duplicate_groups=len(keys),
+        safe_groups=safe_groups,
+        merged_groups=merged_groups,
+        removed_rows=removed_rows,
+        skipped_groups=skipped_groups,
+    )
+
+
 async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str) -> int:
     """forkjob Job nesnelerini forkOS entity/opportunity kayıtlarına çevirir."""
     added = 0
@@ -355,7 +484,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                     Opportunity.source == source_label, Opportunity.external_id == external_id
                 )
             )
-        ).scalar_one_or_none()
+        ).scalars().first()
         raw = job.to_row()
         forkjob = raw.get("forkjob", raw)
         published_at = getattr(job, "published_at", None)
@@ -372,20 +501,24 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             else None
         )
         cluster_key = forkjob.get("cluster_key")
-        duplicate = None
+        cluster_matches: list[Opportunity] = []
         if cluster_key:
-            duplicate = (
-                await session.execute(
+            cluster_matches = list(
+                (
+                    await session.execute(
                     select(Opportunity).where(
                         Opportunity.raw["forkjob"]["cluster_key"].astext == cluster_key
                     )
-                )
-            ).scalar_one_or_none()
-        if duplicate is not None and duplicate.source != source_label:
-            sources = list(duplicate.raw.get("sources", [duplicate.source]))
-            if source_label not in sources:
-                sources.append(source_label)
-            duplicate.raw = {**duplicate.raw, "sources": sources}
+                    )
+                ).scalars().all()
+            )
+        if cluster_matches:
+            canonical = canonical_cluster(cluster_matches)
+            _merge_cluster_sources(canonical, cluster_matches, source_label)
+            if existing is not None:
+                existing.raw = raw if existing is canonical else existing.raw
+                existing.category = category
+                existing.published_at = published_at
             continue
         if existing:
             existing.raw = raw
@@ -400,7 +533,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         if job.url:
             by_url = (await session.execute(
                 select(Opportunity).where(Opportunity.url == job.url)
-            )).scalar_one_or_none()
+            )).scalars().first()
             if by_url is not None and by_url.source != source_label:
                 sources = list(by_url.raw.get("sources", [by_url.source]))
                 if source_label not in sources:

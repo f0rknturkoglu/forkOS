@@ -8,6 +8,11 @@ MODULE = ModuleSpec(id="opportunity",
     entity_types=[EntityTypeSpec(
             'opportunity', 'Fırsat', 'Fırsatlar', '/opportunities?focus={id}', 'Target',
         )],
-    event_verbs=["opportunity.created", "opportunity.updated", "opportunity.items_added"],
+    event_verbs=[
+        "opportunity.created",
+        "opportunity.updated",
+        "opportunity.items_added",
+        "opportunity.duplicates_merged",
+    ],
         deadline_provider=opportunity_deadlines,
 )
