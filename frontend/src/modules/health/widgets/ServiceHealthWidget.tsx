@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, DatabaseBackup, HeartPulse } from "lucide-react";
+import { Activity, DatabaseBackup } from "lucide-react";
 import { api } from "@/core/api";
 import { Chip, Empty, Section, relativeTime } from "@/core/ui";
 import type { BackupStatus } from "@/core/types";
@@ -66,11 +66,7 @@ export function ServiceHealthWidget() {
             <Chip tone="warn">henüz yok</Chip>
           )}
         </p>
-        {backup?.last_backup?.at && (
-          <p className="text-muted">
-            Son yedek: <HeartPulse size={0} /> {relativeTime(backup.last_backup.at)}
-          </p>
-        )}
+        {backup?.last_backup?.at && <p className="text-muted">Son yedek: {relativeTime(backup.last_backup.at)}</p>}
       </div>
     </Section>
   );

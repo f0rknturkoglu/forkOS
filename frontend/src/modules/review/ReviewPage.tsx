@@ -17,15 +17,13 @@ import {
   Textarea,
 } from "@/core/ui";
 import type { ReviewPreview } from "@/core/types";
-import { localDateKey } from "@/lib/date";
+import { appWeekStartKey, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { reviewMetricRows } from "./reviewMetrics";
 
 function startOf(kind: "daily" | "weekly") {
-  const day = new Date();
-  day.setHours(12, 0, 0, 0);
-  if (kind === "weekly") day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
-  return localDateKey(day);
+  // App gunu/hafta basi (Faz 34): tarayici yerel saati degil.
+  return kind === "weekly" ? appWeekStartKey() : todayKey();
 }
 
 function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {

@@ -14,7 +14,10 @@ def upgrade() -> None:
     op.execute("alter table opportunity add column region text")
     op.execute("alter table opportunity add column follow_up_at timestamptz")
     op.execute("alter table opportunity add column rejection_reason text")
-    op.execute("create index opportunity_followup_idx on opportunity (follow_up_at) where follow_up_at is not null")
+    op.execute(
+        "create index opportunity_followup_idx on opportunity (follow_up_at) "
+        "where follow_up_at is not null"
+    )
 
     # Basvuru kaydi (1:1) -- PK entity FK (kural 1)
     op.execute(
@@ -44,7 +47,10 @@ def upgrade() -> None:
           note text
         )"""
     )
-    op.execute("create index application_history_opp_idx on application_history (opportunity_id, at desc)")
+    op.execute(
+        "create index application_history_opp_idx on application_history "
+        "(opportunity_id, at desc)"
+    )
 
     # Gorusmeler (coklu)
     op.execute(

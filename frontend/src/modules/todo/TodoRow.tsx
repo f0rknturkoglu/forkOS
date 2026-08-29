@@ -23,7 +23,8 @@ import { Chip, IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { navigate } from "@/app/router";
 import type { Todo } from "@/core/types";
-import { dueLabel, planLabel, priorityOf, recurLabel } from "./priority";
+import { appLocalToUtc, todayKey } from "@/lib/date";
+import { RECURRENCES, dueLabel, planLabel, priorityOf, recurLabel } from "./priority";
 
 const DUE_CHIP = {
   muted: "border-subtle text-secondary",
@@ -64,6 +65,7 @@ export function TodoRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [subtask, setSubtask] = useState<string | null>(null);
+  const [editingRecur, setEditingRecur] = useState(false);
   const [draft, setDraft] = useState("");
   const online = useOnline();
   const toast = useToast();
@@ -204,14 +206,58 @@ export function TodoRow({
               </span>
             )}
             {recur && todo.recur && (
-              <span
+              <button
+                type="button"
                 title={
-                  todo.due_at ? `Rutin — sonraki: ${dueLabel(todo.due_at)?.text ?? ""}` : "Rutin — sonraki tarih yok"
+                  todo.due_at
+                    ? `Rutin — sonraki: ${dueLabel(todo.due_at)?.text ?? ""} (düzenlemek için tıkla)`
+                    : "Rutin — sonraki tarih yok (düzenlemek için tıkla)"
                 }
-                className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted"
+                onClick={() => setEditingRecur((value) => !value)}
+                className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted transition hover:border-strong"
               >
                 <Repeat size={10} /> {recur}
                 {todo.due_at && <span className="text-secondary">{dueLabel(todo.due_at)?.text}</span>}
+              </button>
+            )}
+
+            {editingRecur && todo.recur && (
+              <span className="flex flex-wrap items-center gap-1">
+                {RECURRENCES.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    aria-pressed={todo.recur === item.value}
+                    onClick={() => {
+                      if (item.value === "") {
+                        patch.mutate(
+                          { recur: "" },
+                          {
+                            onSuccess: () => toast.push("Rutin durduruldu — bu görev duruyor.", { tone: "ok" }),
+                            onError: () => toast.push("Rutin durdurulamadı.", { tone: "danger" }),
+                          },
+                        );
+                      } else {
+                        patch.mutate(
+                          { recur: item.value },
+                          {
+                            onSuccess: () => toast.push(`Rutin güncellendi: ${item.label}`, { tone: "ok" }),
+                            onError: () => toast.push("Rutin güncellenemedi.", { tone: "danger" }),
+                          },
+                        );
+                      }
+                      setEditingRecur(false);
+                    }}
+                    className={cx(
+                      "rounded-control border px-2 py-0.5 text-micro transition",
+                      todo.recur === item.value
+                        ? "border-accent-border bg-accent-surface text-accent"
+                        : "border-subtle text-muted hover:border-strong",
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </span>
             )}
             {todo.project_title && (
@@ -274,10 +320,9 @@ export function TodoRow({
               title="Son tarih ver (bugün) — plan değil"
               disabled={!online}
               onClick={() => {
-                // Yerel bugunun ogleni: gece yarisi TZ kaymasina dayanikli.
-                const now = new Date();
-                const due = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
-                patch.mutate({ due_at: due.toISOString() });
+                // App gununun ogleni (Faz 14/34): tarayicinin yerel saati
+                // degil; app tz wall time -> ISO UTC donusumu appLocalToUtc.
+                patch.mutate({ due_at: appLocalToUtc(todayKey(), 12, 0) });
               }}
             >
               <CalendarPlus size={14} />
@@ -296,8 +341,13 @@ export function TodoRow({
                   confirmLabel: "Rutini durdur",
                 });
                 if (ok) {
-                  patch.mutate({ recur: "" });
-                  toast.push("Rutin durduruldu — bu görev duruyor.", { tone: "ok" });
+                  patch.mutate(
+                    { recur: "" },
+                    {
+                      onSuccess: () => toast.push("Rutin durduruldu — bu görev duruyor.", { tone: "ok" }),
+                      onError: () => toast.push("Rutin durdurulamadı.", { tone: "danger" }),
+                    },
+                  );
                 }
               }}
             >

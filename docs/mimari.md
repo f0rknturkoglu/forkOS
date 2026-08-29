@@ -247,7 +247,17 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
   Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
   bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`- Faz 32: registry tabanli iliski yuzeyleri. `linkable=False` bilincli- Faz 33: ritim tek orkestrasyon yuzeyi. `review.widget` varsayilan gizli;
+- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`- Faz 32: registry tabanli iliski yuzeyleri. `linkable=False` bilincli- Faz 33: ritim tek orkestrasyon yuzeyi.- Faz 34: yasam-dongusu ve tarih dogrulugu. "Son tarih ver (bugun)" ve
+  haftalik degerlendirme periyodu tarayici yerel saati yerine app gunu/hafta
+  basi kullanir (appLocalToUtc/appWeekStartKey; dateUsage guardrail kapsar).
+  Rutin cipi tiklaninca recurrence secici acilir (degistir/durdur); "Rutini
+  durdur" toast'i API basarisindan SONRA cikar. Masaustu bildirim: delivered
+  id yalnizca constructor basarisindan sonra yazilir (hata -> sonraki turda
+  yeniden dener); `lifeos.desktopNotifEnabled` in-app ac/kapat tercihi
+  (izinden bagimsiz) Ayarlar -> Bildirimler'de. Not guncellemesinde body +
+  pinned ayni PATCH'te degisirse IKI event (note.updated changed_fields /
+  note.pinned); bos guncelleme event uretmez.
+ `review.widget` varsayilan gizli;
   gunluk degerlendirme durumu + giris noktasi `today.rhythm`'de, haftalik
   hatirlatma hafta donumunde kompakt satir olarak orada (route/command
   palette girisleri korunur). "Yarina tasi" artik tek istek: backend

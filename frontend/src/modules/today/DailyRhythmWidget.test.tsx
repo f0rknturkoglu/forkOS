@@ -25,10 +25,12 @@ vi.mock("@/core/invalidation", () => ({
 }));
 vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
 vi.mock("@tanstack/react-query", () => ({
-  useMutation: vi.fn((options: { mutationFn?: (variables: never) => unknown; onSuccess?: (result?: unknown) => void }) => {
-    harness.mutations.push(options);
-    return { isPending: false, mutate: (variables: never) => void options.mutationFn?.(variables) };
-  }),
+  useMutation: vi.fn(
+    (options: { mutationFn?: (variables: never) => unknown; onSuccess?: (result?: unknown) => void }) => {
+      harness.mutations.push(options);
+      return { isPending: false, mutate: (variables: never) => void options.mutationFn?.(variables) };
+    },
+  ),
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
     const key = String(options.queryKey[0]);

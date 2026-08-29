@@ -5,7 +5,9 @@ import {
   deliverDesktopNotification,
   desktopNotificationSupported,
   desktopPermission,
+  desktopNotificationsEnabled,
   enableDesktopNotifications,
+  setDesktopNotificationsEnabled,
 } from "./desktopNotifications";
 
 const store = new Map<string, string>();
@@ -51,6 +53,7 @@ beforeEach(() => {
   FakeNotification.permission = "granted";
   FakeNotification.requestPermission.mockReset();
   FakeNotification.requestPermission.mockResolvedValue("granted");
+  setDesktopNotificationsEnabled(true);
   vi.stubGlobal("Notification", FakeNotification);
   hydrateEntityRegistry([
     {
@@ -117,6 +120,33 @@ describe("masaustu bildirimler (Faz 26)", () => {
     FakeNotification.permission = "granted";
     expect(await enableDesktopNotifications()).toBe("granted");
     expect(FakeNotification.requestPermission).not.toHaveBeenCalled();
+  });
+
+  it("in-app teslimat kapaliyken OS bildirimi gonderilmez (izin dursa da)", () => {
+    setDesktopNotificationsEnabled(false);
+    expect(deliverDesktopNotification(item())).toBe(false);
+    expect(FakeNotification.instances).toHaveLength(0);
+  });
+
+  it("constructor hatasinda id delivered'a YAZILMAZ -- sonraki turda yeniden denenir", () => {
+    FakeNotification.permission = "granted";
+    const original = FakeNotification;
+    let failing = true;
+    // Hatayi simule et: ilk kurulum patlar, sonraki calisir.
+    vi.stubGlobal(
+      "Notification",
+      class extends original {
+        constructor(title: string, options?: NotificationOptions) {
+          if (failing) throw new Error("constructor fail");
+          super(title, options);
+        }
+      },
+    );
+    expect(deliverDesktopNotification(item())).toBe(false);
+    expect(FakeNotification.instances).toHaveLength(0);
+    failing = false;
+    expect(deliverDesktopNotification(item())).toBe(true);
+    expect(FakeNotification.instances).toHaveLength(1);
   });
 
   it("desteklenmeyen ortam 'unsupported' doner", async () => {

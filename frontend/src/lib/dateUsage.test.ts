@@ -10,8 +10,10 @@ import { describe, expect, it } from "vitest";
 const dayDecisionFiles = [
   "src/modules/activity/ActivityPage.tsx",
   "src/modules/calendar/CalendarPage.tsx",
+  "src/modules/review/ReviewPage.tsx",
   "src/modules/review/ReviewWidget.tsx",
   "src/modules/todo/OverdueTodosWidget.tsx",
+  "src/modules/todo/TodoRow.tsx",
   "src/modules/todo/TodoComposer.tsx",
   "src/modules/todo/TodoPage.tsx",
   "src/modules/todo/WeeklyPlannerPage.tsx",

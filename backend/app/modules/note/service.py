@@ -93,9 +93,12 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
         note.pinned = values["pinned"]
         await log_event(session, verb="note.pinned", entity_id=note_id,
                         entity_type="note", payload={"pinned": note.pinned})
-    elif body_changed:
+    if body_changed:
+        # Faz 34: body + pinned ayni PATCH'te degisse IKI event de yazilir;
+        # hicbiri degismediyse hicbir event uretilmez.
+        changed = [field for field in ("body",) if field in values]
         await log_event(session, verb="note.updated", entity_id=note_id,
-                        entity_type="note", payload={})
+                        entity_type="note", payload={"changed_fields": changed})
     await session.commit()
     if entity is not None:
         # touch_entity updated_at'i SQL ifadesiyle atar; flush sonrasi expire

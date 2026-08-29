@@ -24,7 +24,10 @@ def upgrade() -> None:
         )"""
     )
     op.execute("create index media_item_kind_idx on media_item (kind, status)")
-    op.execute("create index media_item_status_idx on media_item (status) where status <> 'completed'")
+    op.execute(
+        "create index media_item_status_idx on media_item (status) "
+        "where status <> 'completed'"
+    )
 
 
 def downgrade() -> None:

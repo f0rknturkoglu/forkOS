@@ -19,7 +19,8 @@ def upgrade() -> None:
     # 2) Todo kaydini olustur; rutin kadansi todo.recur'a tasinir.
     op.execute(
         """insert into todo (id, description, priority, status, due_at, reminder_at,
-                             completed_at, parent_id, position, recur, recur_origin_id, milestone_id)
+                             completed_at, parent_id, position, recur,
+                             recur_origin_id, milestone_id)
            select h.id, null, 2, 'open', null, null, null, null, h.position,
                   case when h.cadence = 'weekly' then 'weekly' else 'daily' end,
                   null, null

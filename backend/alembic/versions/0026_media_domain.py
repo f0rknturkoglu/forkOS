@@ -39,7 +39,8 @@ def upgrade() -> None:
     op.execute("alter table media_item add column last_synced_at timestamptz")
     op.execute(
         "alter table media_item add constraint media_item_kind_check "
-        "check (kind in ('movie','show','anime','manga','book','audiobook','podcast','music','game'))"
+"check (kind in ('movie','show','anime','manga','book','audiobook',"
+        "'podcast','music','game'))"
     )
     op.execute(
         "alter table media_item add constraint media_item_status_check "

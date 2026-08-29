@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Bell, BellOff } from "lucide-react";
-import { Button, Section, useToast } from "@/core/ui";
-import { desktopPermission, enableDesktopNotifications, hasAskedDesktopPermission } from "@/core/desktopNotifications";
+import { Button, Checkbox, Section, useToast } from "@/core/ui";
+import {
+  desktopNotificationsEnabled,
+  desktopPermission,
+  enableDesktopNotifications,
+  hasAskedDesktopPermission,
+  setDesktopNotificationsEnabled,
+} from "@/core/desktopNotifications";
 
 /**
  * Masaustu bildirim izni (Faz 26). Izin ilk acilista istenmez; bu
@@ -10,6 +16,7 @@ import { desktopPermission, enableDesktopNotifications, hasAskedDesktopPermissio
 export function NotificationsSection() {
   const toast = useToast();
   const [state, setState] = useState(() => desktopPermission());
+  const [enabled, setEnabled] = useState(() => desktopNotificationsEnabled());
 
   async function enable() {
     const result = await enableDesktopNotifications();
@@ -29,9 +36,29 @@ export function NotificationsSection() {
         Yeni ve yüksek önemli bildirimler işletim sistemi bildirimi olarak gelir; in-app panel ile aynı kaynağı
         kullanır. Tarayıcı tamamen kapalıyken yerel uygulama bildirim gösteremez.
       </p>
+      {state === "granted" && (
+        <div className="mb-2">
+          <Checkbox
+            checked={enabled}
+            onChange={(value) => {
+              setEnabled(value);
+              setDesktopNotificationsEnabled(value);
+              toast.push(
+                value
+                  ? "Masaüstü teslimatı açıldı."
+                  : "Masaüstü teslimatı durduruldu — in-app panel çalışmaya devam eder.",
+                {
+                  tone: value ? "ok" : "neutral",
+                },
+              );
+            }}
+            label="Masaüstü bildirim teslimatı"
+          />
+        </div>
+      )}
       {state === "granted" ? (
         <p className="flex items-center gap-1.5 text-meta text-ok">
-          <Bell size={13} /> İzin verildi — masaüstü bildirimleri açık.
+          <Bell size={13} /> İzin verildi{enabled ? " — teslimat açık" : " — teslimat kapalı"}.
         </p>
       ) : state === "denied" ? (
         <p className="flex items-center gap-1.5 text-meta text-warn">
