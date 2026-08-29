@@ -25,6 +25,8 @@ async def test_opportunity_trash_restore_and_permanent_delete(client: AsyncClien
     )
     assert created.status_code == 201
     item = created.json()
+    assert item["category"] == "other"
+    assert item["published_at"] is None
 
     trashed = await client.post(f"/api/opportunities/{item['id']}/trash")
     assert trashed.status_code == 200

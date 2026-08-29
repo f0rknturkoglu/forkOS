@@ -40,11 +40,13 @@ class OpportunityOut(BaseModel):
     id: UUID
     title: str
     kind: str
+    category: str | None
     organization: str | None
     url: str | None
     status: str
     priority: int
     found_at: datetime
+    published_at: datetime | None
     deadline_at: datetime | None
     applied_at: datetime | None
     location: str | None

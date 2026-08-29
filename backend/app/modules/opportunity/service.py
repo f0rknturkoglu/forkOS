@@ -53,6 +53,7 @@ from app.modules.opportunity.schemas import (
     OpportunityPatch,
     RequirementIn,
 )
+from app.modules.opportunity.taxonomy import classify_job
 
 
 def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> OpportunityOut:
@@ -75,11 +76,13 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
         id=o.id,
         title=title,
         kind=o.kind,
+        category=o.category,
         organization=o.organization,
         url=o.url,
         status=o.status,
         priority=o.priority,
         found_at=o.found_at,
+        published_at=o.published_at,
         deadline_at=o.deadline_at,
         applied_at=o.applied_at,
         location=o.location,
@@ -252,11 +255,15 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
     item = Opportunity(
         id=entity.id,
         kind=data.kind,
+        category=classify_job(data.title, data.organization, data.notes)
+        if data.kind == "job"
+        else None,
         organization=data.organization,
         url=str(data.url) if data.url else None,
         status=data.status,
         priority=data.priority,
         found_at=now,
+        published_at=None,
         deadline_at=data.deadline_at,
         applied_at=now if data.status == "applied" else None,
         location=data.location,
@@ -347,6 +354,19 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         ).scalar_one_or_none()
         raw = job.to_row()
         forkjob = raw.get("forkjob", raw)
+        published_at = getattr(job, "published_at", None)
+        department = forkjob.get("department") or forkjob.get("departments")
+        if isinstance(department, list):
+            department = " ".join(str(value) for value in department)
+        category = (
+            classify_job(
+                job.title,
+                department if isinstance(department, str) else None,
+                job.description,
+            )
+            if getattr(job, "kind", "job") == "job"
+            else None
+        )
         cluster_key = forkjob.get("cluster_key")
         duplicate = None
         if cluster_key:
@@ -365,6 +385,8 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             continue
         if existing:
             existing.raw = raw
+            existing.category = category
+            existing.published_at = published_at
             if existing.country is None and forkjob.get("country"):
                 existing.country = forkjob.get("country")
             if existing.region is None and forkjob.get("region"):
@@ -395,11 +417,13 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             Opportunity(
                 id=entity.id,
                 kind=getattr(job, "kind", "job"),
+                category=category,
                 organization=job.company,
                 url=job.url,
                 status="discovered",
                 priority=priority,
-                found_at=getattr(job, "published_at", None) or datetime.now(UTC),
+                found_at=datetime.now(UTC),
+                published_at=published_at,
                 location=job.location,
                 remote=job.work_mode.value,
                 compensation=job.salary,

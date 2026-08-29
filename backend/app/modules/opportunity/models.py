@@ -21,11 +21,13 @@ class Opportunity(EntityBacked, Base):
         PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
     kind: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str | None] = mapped_column(Text)
     organization: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, default="discovered")
     priority: Mapped[int] = mapped_column(SmallInteger, default=2)
     found_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     location: Mapped[str | None] = mapped_column(Text)
