@@ -18,7 +18,21 @@ registerModule({
   // orta = akis, sag = durum. Sira icin bkz. TodayWidget.order.
   todayWidgets: [
     { id: "today.agenda", title: "Günün akışı", component: TodayAgendaWidget, slot: "left", order: 10 },
-    { id: "today.feed-stream", title: "Akış", component: FeedStreamWidget, slot: "center", order: 10 },
-    { id: "today.quick-links", title: "Hızlı bağlantılar", component: QuickLinksWidget, slot: "right", order: 80 },
+    {
+      id: "today.feed-stream",
+      title: "Akış",
+      component: FeedStreamWidget,
+      slot: "center",
+      order: 10,
+      defaultVisible: false,
+    },
+    {
+      id: "today.quick-links",
+      title: "Hızlı bağlantılar",
+      component: QuickLinksWidget,
+      slot: "right",
+      order: 80,
+      defaultVisible: false,
+    },
   ],
 });

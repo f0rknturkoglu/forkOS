@@ -13,7 +13,14 @@ registerModule({
   group: "capture",
   routes: [{ path: "/bookmarks", element: BookmarksPage }],
   todayWidgets: [
-    { id: "bookmarks.queue", title: "Okuma kuyruğu", component: ReadingQueueWidget, slot: "right", order: 50 },
+    {
+      id: "bookmarks.queue",
+      title: "Okuma kuyruğu",
+      component: ReadingQueueWidget,
+      slot: "right",
+      order: 50,
+      defaultVisible: false,
+    },
   ],
   commands: [{ id: "bookmarks.open", label: "Yer İmleri’ni aç", run: () => navigate("/bookmarks") }],
 });

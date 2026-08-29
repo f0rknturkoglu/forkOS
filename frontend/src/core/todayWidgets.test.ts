@@ -12,11 +12,12 @@ import "@/modules"; // registerModule cagrilari
 import {
   allTodayWidgetViews,
   allTodayWidgets,
-  allTodayWidgetsIn,
+  allTodayWidgetViewsIncludingHidden,
   allRoutes,
   setTodayWidgetHidden,
   setTodayWidgetOrder,
 } from "./registry";
+import { focusedConfig, overviewConfig } from "./todayPresets";
 
 const store = new Map<string, string>();
 
@@ -47,10 +48,14 @@ beforeEach(() => {
 });
 
 describe("Bugun widget sozlesmesi", () => {
-  it("en az 14 widget katkisi ve benzersiz kalici id'ler", () => {
+  it("en az 14 kayitli widget, benzersiz kalici id'ler ve odakli varsayilan", () => {
     const widgets = allTodayWidgets();
     const ids = widgets.map((widget) => widget.id);
     expect(ids.length).toBeGreaterThanOrEqual(14);
+    // Faz 20: odakli varsayilan -- akis/ikincil gizli, plan widget'lari acik.
+    const visible = allTodayWidgetViews();
+    expect(visible.some((view) => view.id === "today.agenda")).toBe(true);
+    expect(visible.some((view) => view.id === "today.feed-stream")).toBe(false);
     expect(new Set(ids).size).toBe(ids.length);
     for (const widget of widgets) {
       expect(widget.id).toMatch(/^[a-z0-9.-]+$/);
@@ -84,19 +89,39 @@ describe("Bugun widget sozlesmesi", () => {
   it("bilinmeyen id uygulamayi bozmaz", () => {
     setTodayWidgetOrder(["bilinmeyen.widget", "ayrıca.yok"]);
     setTodayWidgetHidden(["bilinmeyen.widget"]);
-    expect(allTodayWidgetViews().length).toBeGreaterThanOrEqual(14);
-    expect(allTodayWidgetsIn("left").length).toBeGreaterThanOrEqual(0);
+    // Odakli varsayilan: akis/ikincil gizli, plan + durum widget'lari acik.
+    const visible = allTodayWidgetViews();
+    expect(visible.length).toBeGreaterThanOrEqual(8);
+    expect(visible.some((view) => view.id === "today.agenda")).toBe(true);
+  });
+
+  it("focused preset ikincil widget'lari gizler, overview temizler", () => {
+    const focused = focusedConfig();
+    expect(focused.hidden).toContain("today.feed-stream");
+    expect(focused.hidden).not.toContain("today.agenda");
+    setTodayWidgetHidden(focused.hidden);
+    setTodayWidgetOrder(focused.order);
+    expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(false);
+    // Gizliler ayar listesinde geri gosterilebilir durumda gorunur.
+    expect(allTodayWidgetViewsIncludingHidden().some((view) => view.id === "today.feed-stream")).toBe(true);
+
+    const overview = overviewConfig();
+    expect(overview.hidden).toEqual([]);
+    setTodayWidgetHidden(overview.hidden);
+    setTodayWidgetOrder(overview.order);
+    expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(true);
   });
 
   it("eski modul ID sirasi widget id'lerine goc eder", () => {
     // Faz 5 legacy: modul id'leri. Bugun modulunun 3 widget'i var.
     store.set("lifeos.widgetOrder", JSON.stringify(["today"]));
-    const todayWidgetIds = allTodayWidgetViews()
+    const todayWidgetIds = allTodayWidgetViewsIncludingHidden()
       .filter((view) => view.moduleId === "today")
       .map((view) => view.id);
     expect(todayWidgetIds.length).toBe(3);
-    // Kullanici sirasi yokken: widget'lar once kullanici sirasindadirlar --
-    // migration modul sirasini widget sirasina acar, hepsi listede kalir.
-    expect(allTodayWidgetViews().length).toBeGreaterThanOrEqual(14);
+    // Kullanici sirasi yokken: migration modul sirasini widget sirasina acar;
+    // odakli varsayilan yine uygulanir (tercih yok).
+    expect(allTodayWidgetViews().length).toBeGreaterThanOrEqual(8);
+    expect(allTodayWidgetViews().some((view) => view.id === "today.agenda")).toBe(true);
   });
 });

@@ -85,8 +85,9 @@ export interface TodayWidgetView {
 }
 
 /** Kullanicinin widget tercihleri (Faz 19): sirala + gizle. */
-function readWidgetPrefs(): { order: string[]; hidden: Set<string> } {
+function readWidgetPrefs(): { order: string[]; hidden: Set<string>; touched: boolean } {
   const known = new Set(allTodayWidgets().map((w) => w.id));
+  const touched = localStorage.getItem("lifeos.todayPrefsTouched") === "1";
   const rawOrder: unknown = JSON.parse(localStorage.getItem("lifeos.todayWidgetOrder") ?? "null");
   // Eski (Faz 5) deger: modul ID'leri. Widget id'lerinden hicbiri yoksa bu
   // hala modul sirasidir -- her modulun widget'larina acilir (migration).
@@ -101,7 +102,7 @@ function readWidgetPrefs(): { order: string[]; hidden: Set<string> } {
   const hidden = new Set<string>(
     (JSON.parse(localStorage.getItem("lifeos.todayWidgetHidden") ?? "[]") as string[]).filter((id) => known.has(id)),
   );
-  return { order: order.filter((id) => known.has(id)), hidden };
+  return { order: order.filter((id) => known.has(id)), hidden, touched };
 }
 
 /**
@@ -110,7 +111,7 @@ function readWidgetPrefs(): { order: string[]; hidden: Set<string> } {
  * slot/order'a duser. Bilinmeyen id'ler guvenle yok sayilir.
  */
 export function allTodayWidgetViews(): TodayWidgetView[] {
-  const { order, hidden } = readWidgetPrefs();
+  const { order, hidden, touched } = readWidgetPrefs();
   const userIndex = new Map(order.map((id, i) => [id, i]));
   const views: TodayWidgetView[] = [];
   for (const module of enabledModules()) {
@@ -118,8 +119,10 @@ export function allTodayWidgetViews(): TodayWidgetView[] {
       views.push({ id: widget.id, title: widget.title, widget, moduleId: module.id });
     }
   }
+  // Tercih yoksa (temiz kurulum) defaultVisible uygulanir = odakli varsayilan;
+  // kullanici/preset tercih yazdiysa ACIK liste gecerli olur (Faz 20).
   return views
-    .filter((view) => !hidden.has(view.id) && view.widget.defaultVisible !== false)
+    .filter((view) => !hidden.has(view.id) && (touched || view.widget.defaultVisible !== false))
     .sort((a, b) => {
       const ai = userIndex.has(a.id) ? userIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
       const bi = userIndex.has(b.id) ? userIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;
@@ -161,15 +164,18 @@ export function allTodayWidgetViewsIncludingHidden(): TodayWidgetView[] {
 
 /** Ayarlar ekrani: siralamayi kaydeder (backend'e yazma cagiran taraf). */
 export function setTodayWidgetOrder(ids: string[]): void {
+  localStorage.setItem("lifeos.todayPrefsTouched", "1");
   localStorage.setItem("lifeos.todayWidgetOrder", JSON.stringify(ids));
 }
 
 export function setTodayWidgetHidden(ids: string[]): void {
+  localStorage.setItem("lifeos.todayPrefsTouched", "1");
   localStorage.setItem("lifeos.todayWidgetHidden", JSON.stringify(ids));
 }
 
 /** Varsayilana don: kullanici sirasi/gizleme temizlenir. */
 export function resetTodayWidgetPrefs(): void {
+  localStorage.removeItem("lifeos.todayPrefsTouched");
   localStorage.removeItem("lifeos.todayWidgetOrder");
   localStorage.removeItem("lifeos.todayWidgetHidden");
 }

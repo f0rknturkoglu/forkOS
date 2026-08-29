@@ -13,7 +13,14 @@ registerModule({
   group: "track",
   routes: [{ path: "/finance", element: FinancePage }],
   todayWidgets: [
-    { id: "finance.recurring", title: "Düzenli ödemeler", component: RecurringWidget, slot: "right", order: 60 },
+    {
+      id: "finance.recurring",
+      title: "Düzenli ödemeler",
+      component: RecurringWidget,
+      slot: "right",
+      order: 60,
+      defaultVisible: false,
+    },
   ],
   commands: [{ id: "finance.open", label: "Finansı aç", run: () => navigate("/finance") }],
 });

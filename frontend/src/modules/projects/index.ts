@@ -12,6 +12,15 @@ registerModule({
   icon: Layers,
   group: "do",
   routes: [{ path: "/projects", element: ProjectsPage }],
-  todayWidgets: [{ id: "projects.widget", title: "Projeler", component: ProjectsWidget, slot: "right", order: 55 }],
+  todayWidgets: [
+    {
+      id: "projects.widget",
+      title: "Projeler",
+      component: ProjectsWidget,
+      slot: "right",
+      order: 55,
+      defaultVisible: false,
+    },
+  ],
   commands: [{ id: "projects.open", label: "Projeleri aç", run: () => navigate("/projects") }],
 });

@@ -205,5 +205,19 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   varsayilana don. React key = widget id.
 - Koruyan testler: `frontend/src/core/todayWidgets.test.ts` (benzersiz id,
   kullanici sirasi, gizleme, legacy goc, bilinmeyen id).
+## Faz 20: Today sadelestirme, performans ve dogrulama
+
+- Bilgi hiyerarsisi odakli varsayilanla saglanir: ikincil widget'lar
+  `defaultVisible: false` tasir (akis, emek haritasi, geciken/takvim --
+  agenda zaten kapsar --, belgeler, yer imleri, projeler, finans, medya,
+  hizli baglantilar, kaynak sagligi). Kullanici ayarlardan acabilir.
+- Hazir preset'ler: "Odakli" ve "Genel bakis" -- secmek kullanici ayarini
+  ACIKCA yazar (siralama + gizleme), sihirli davranis yok. Tablet
+  duzeninde plan sutunu akistan once gelir (feed gorevin onune gecmez).
+- Ilerk etkilesimde mevcut etkin durum acik tercihe cevrilir; odakli
+  varsayilan bozulmaz. React Query istekleri dedupe eder; Today yuklemesi
+  ~17 benzersiz kucuk uca bolunur -- aggregator endpoint gerekmedi.
+  Tek widget'in hatasi panoyu bozmaz (her widget kendi query'sini yonetir).
+
 
 

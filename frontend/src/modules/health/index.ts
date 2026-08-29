@@ -19,7 +19,14 @@ registerModule({
     { path: "/sources", element: SourceHealthPage, title: "Kaynaklar" },
   ],
   todayWidgets: [
-    { id: "health.sources", title: "Kaynak sağlığı", component: SourceHealthMiniWidget, slot: "right", order: 95 },
+    {
+      id: "health.sources",
+      title: "Kaynak sağlığı",
+      component: SourceHealthMiniWidget,
+      slot: "right",
+      order: 95,
+      defaultVisible: false,
+    },
   ],
   commands: [
     { id: "health.open", label: "Sağlık panelini aç", run: () => navigate("/health") },

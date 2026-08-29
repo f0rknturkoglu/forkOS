@@ -233,6 +233,7 @@ export function Button({
   size = "md",
   className,
   autoFocus,
+  ariaLabel,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -243,11 +244,14 @@ export function Button({
   size?: "sm" | "md";
   className?: string;
   autoFocus?: boolean;
+  /** Erisilebilir ad; title verilmezse title kullanilir. */
+  ariaLabel?: string;
 }) {
   return (
     <button
       type={type}
       title={title}
+      aria-label={ariaLabel ?? title}
       autoFocus={autoFocus}
       disabled={disabled}
       onClick={onClick}

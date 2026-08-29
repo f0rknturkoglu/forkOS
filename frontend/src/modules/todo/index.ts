@@ -22,7 +22,14 @@ registerModule({
     { path: "/planner", element: WeeklyPlannerPage },
   ],
   todayWidgets: [
-    { id: "todo.overdue", title: "Geciken görevler", component: OverdueTodosWidget, slot: "right", order: 15 },
+    {
+      id: "todo.overdue",
+      title: "Geciken görevler",
+      component: OverdueTodosWidget,
+      slot: "right",
+      order: 15,
+      defaultVisible: false,
+    },
   ],
   commands: [
     { id: "todo.open", label: "Görevleri aç", run: () => navigate("/todos") },
