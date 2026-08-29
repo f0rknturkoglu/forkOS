@@ -226,7 +226,12 @@ def test_cli_full_flow_safety_migrate_restore_verify_commit(tmp_path) -> None:
 
 def test_makefile_dumps_from_db_container_not_api() -> None:
     """Faz 28: pg_dump db konteynerinde alinir (API imajinda pg_dump yok)."""
-    makefile = (BACKEND_DIR.parent / "Makefile").read_text(encoding="utf-8")
+    # Konteynerde repo koku /app olarak mount edilir (BACKEND_DIR = /app);
+    # lokalde backend/ alti. Her iki durumda Makefile'i bul.
+    makefile_path = BACKEND_DIR.parent / "Makefile"
+    if not makefile_path.exists():
+        makefile_path = BACKEND_DIR / "Makefile"
+    makefile = makefile_path.read_text(encoding="utf-8")
     target = makefile[makefile.index("disaster-restore:"):]
     assert "exec -T db" in target and "pg_dump" in target
     # CLI satirinda pg_dump cagrisi yok -- api konteyneri dump yapmaz.

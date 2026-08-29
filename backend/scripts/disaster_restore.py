@@ -126,7 +126,7 @@ def run(argv: list[str]) -> int:
         print(f"      safety dump: {safety}")
         return 1
     finally:
-        engine.dispose()
+        asyncio.run(engine.dispose())
 
     verification = result["verification"]
     print("[4/5] Dogrulama tamam")

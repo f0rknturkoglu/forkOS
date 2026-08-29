@@ -117,12 +117,15 @@ Degerlendir**. Butun akis local; disari veri gidmez.
 - **Hizli yakala** (Ctrl+K → "Hizli yakala" ya da metni pencereye birak):
   ayni kutudan Gorev / Not / Baglanti. Metin otomatik cozumlenir ("yarin
   14:00 disciyi ara", "cuma projeyi gonder", "son tarih bugun rapor") --
-  onerileri onaylamadan once duzenleyebilirsin (Faz 22/23).
+  onerileri onaylamadan once duzenleyebilirsin; tekrar ve etiket
+extra formdan duzenlenebilir, metin veya form girdisine baglanabilir (Faz 22/23/29/30).
 - **Bugune al**: gorevi planlar, son tarih VERMEZ (plan != teslim). Tercih
-  hatirlanir; butun giris noktalarinda aynidir (Faz 13/17).
+  hatirlanir; butun giris noktalarinda aynidir (Faz 13/17/31).
 - **Gunun ritmi** (Today): sabah ilk 3 planli is + ilk odak; gun icinde
   siradaki is + aktif pomodoro; aksam degerlendirme + acik planli
-  gorevleri yarina tasi (Faz 25). Kapatmak istersen Ayarlar → Bugun
+  gorevleri yarina tasi (Faz 25/33; tasima tek istek, atomik). Gunluk
+  degerlendirme durumu ve haftalik hatirlatma da burada; degerlendirme
+  karti varsayilan gizli. Kapatmak istersen Ayarlar → Bugun
   widget'lari → gizle.
 - **Yerel notlar**: Documents sayfasinda "Yerel Notlar" (Drive belgeleri
   metadata aynasi olarak yaninda durur); herhangi bir kayda baglanabilir
@@ -131,13 +134,13 @@ Degerlendir**. Butun akis local; disari veri gidmez.
   tag kopyalanir, plan kopyalanmaz); "Rutini durdur" gelecekteki uretimi
   kapatir, gecmis Activity'de kalir (Faz 24).
 - **Masaustu bildirimler**: yeni + yuksek onemli bildirimler OS bildirimi
-  olur (izin Ayarlar'dan istenir). Tarayici tamamen kapaliyken bildirim
-  gelmez -- garanti icin makine acik ve tarayici calisiyor olmali
-  (Faz 26; macOS launchd tarifi `docs/mimari.md`'de).
+  olur (izin ve teslimat ac/kapat Ayarlar'dan). Tarayici tamamen kapaliyken
+  bildirim gelmez -- garanti icin makine acik ve tarayici calisiyor olmali
+  (Faz 26/34; macOS launchd tarifi `docs/mimari.md`'de).
 
 Yedek: gunluk gzip + istege bagli Drive; secret ayarlar yedekten cikar.
 `/backup/restore` "Birleştirerek içe aktar"dir (mevcut veriye dokunmaz);
-tam geri donus `make disaster-restore` (Faz 15/16).
+tam geri donus `make disaster-restore` (Faz 15/16/28; oncesinde otomatik safety dump, geri yukleme sonrasi schema migrate edilir).
 
 Local-only oldugu icin worker sadece makine acikken calisir.
 Sabah `make up` → catch-up turu kacirilan her seyi tek seferde toplar.
