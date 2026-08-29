@@ -32,6 +32,7 @@ from sqlalchemy.types import TypeEngine
 from app.core.events import log_event
 from app.db import Base
 from app.modules.system.export import backup_table_names
+from app.modules.system.secrets import is_secret_setting
 
 
 def insert_order() -> list[str]:
@@ -131,10 +132,22 @@ async def restore(session: AsyncSession, payload: dict) -> dict:
     # 1. Asama: FK sirasiyla, cakisma olursa yok sayarak ekle.
     for table_name in insert_order():
         rows = _rows(payload, table_name)
+        # Eski yedeklerde secret setting satiri olabilir (Faz 15): bunlar
+        # ICERI ALINMAZ -- secret'lar yalnizca canli DB'de yasamali.
+        secret_rows: list[dict] = []
+        if table_name == "setting":
+            secret_rows = [row for row in rows if is_secret_setting(str(row.get("key", "")))]
+            rows = [row for row in rows if not is_secret_setting(str(row.get("key", "")))]
         if not rows:
+            if secret_rows:
+                summary[table_name] = {"inserted": 0, "skipped": 0,
+                                       "secret_skipped": len(secret_rows)}
             continue
         inserted, skipped = await _insert_batch(session, table_name, rows)
-        summary[table_name] = {"inserted": inserted, "skipped": skipped}
+        entry: dict = {"inserted": inserted, "skipped": skipped}
+        if secret_rows:
+            entry["secret_skipped"] = len(secret_rows)
+        summary[table_name] = entry
 
     # 2. Asama: self-FK referanslarini geri bagla.
     for table_name, column in SELF_FK_TABLES.items():

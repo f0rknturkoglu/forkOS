@@ -119,3 +119,19 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - `TodoComposer` "bugüne al" onay kutusu gönderir: varsayılan KAPALI, son
   seçim `localStorage["todo.planToday"]`'da hatırlanır. Formda plan ile son
   tarih ayrı etiketlenir ("bugüne al" vs "Son tarih").
+
+## Faz 15: secret güvenli yedekleme
+
+- Secret ayar sınıflandırması TEK kaynakta: `backend/app/modules/system/
+  secrets.py::SECRET_SETTING_KEYS`. İsimde "key" geçmesine güvenilmez;
+  açık listedir. Yeni secret ayar eklenirken key bu listeye yazılmalıdır
+  (koruyan test `backend/tests/test_backup_secrets.py` kod taraması yapar).
+- Yedek/export aynı politikayı kullanır (`export.public_rows`): secret
+  setting satırları payload'a HİÇ yazılmaz — boş veya maskeli değer bile
+  değil. Tema, widget düzeni, Pomodoro ve kaynak aralıkları yedekte kalır.
+  `oauth_token` tablosu ayrıca dışlanmaya devam eder.
+- Eski yedeklerdeki secret satırları restore/import tarafından atlanır
+  (`restore` `secret_skipped` sayacı bildirir).
+- **Eski yedekler otomatik güvenli hâle gelmez**: diskteki dosya içeriği
+  değişmez. Geçmişte alınmış yedeklerdeki API anahtarlarının döndürülmesi
+  (rotation) önerilir.

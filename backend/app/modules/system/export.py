@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import local_datetime
 from app.db import Base
+from app.modules.system.secrets import is_secret_setting
 
 ROOT_TABLES = ("entity", "link", "event")
 BACKUP_EXCLUDED_TABLES = {"oauth_token"}  # erişim/yenileme tokenları yedeğe girmez
@@ -46,15 +47,24 @@ async def rows(session: AsyncSession, table_name: str) -> list[dict]:
     return [{key: json_value(value) for key, value in row.items()} for row in result]
 
 
+async def public_rows(session: AsyncSession, table_name: str) -> list[dict]:
+    """`rows` + secret politikasi: `setting` satirlarinda secret key'ler
+    payload'a HIC yazilmaz (bos/maskeli deger bile degil)."""
+    values = await rows(session, table_name)
+    if table_name != "setting":
+        return values
+    return [row for row in values if not is_secret_setting(str(row.get("key", "")))]
+
+
 async def full_json(session: AsyncSession) -> dict:
     return {
         "version": 1,
         "exported_at": datetime.now(UTC).isoformat(),
-        "entities": await rows(session, "entity"),
-        "links": await rows(session, "link"),
-        "events": await rows(session, "event"),
+        "entities": await public_rows(session, "entity"),
+        "links": await public_rows(session, "link"),
+        "events": await public_rows(session, "event"),
         "modules": {
-            name: await rows(session, name)
+            name: await public_rows(session, name)
             for name in module_table_names()
         },
     }
@@ -63,7 +73,7 @@ async def full_json(session: AsyncSession) -> dict:
 async def csv_export(session: AsyncSession, module: str) -> str:
     if module not in module_table_names():
         raise ValueError("desteklenmeyen export modülü")
-    values = await rows(session, module)
+    values = await public_rows(session, module)
     output = io.StringIO()
     fieldnames = list(Base.metadata.tables[module].columns.keys())
     writer = csv.DictWriter(output, fieldnames=fieldnames)
