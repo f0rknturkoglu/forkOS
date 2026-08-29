@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Collection
 from datetime import UTC, date, datetime
 
 from sqlalchemy import Text, cast, func, or_, select
@@ -207,6 +208,34 @@ async def project_todos(session: AsyncSession, project_id: uuid.UUID) -> list[di
 
 #: Issue'dan uretilen gorevlerin etiketi -- listede kaynagi belli olsun.
 ISSUE_TAG = "github"
+
+
+async def github_issue_todo_ids(
+    session: AsyncSession,
+    project: Project,
+    issue_numbers: Collection[int],
+) -> dict[int, uuid.UUID]:
+    """GitHub issue numaralarini mevcut gorev entity'leriyle tek sorguda eslestirir."""
+    numbers = set(issue_numbers)
+    if not project.github_repo or not numbers:
+        return {}
+
+    rows = (
+        await session.execute(
+            select(Entity.id, Entity.title).where(
+                Entity.type == Todo.ENTITY_TYPE,
+                Entity.title.startswith(f"{project.github_repo}#"),
+            )
+        )
+    ).all()
+    markers = {f"{project.github_repo}#{number} ": number for number in numbers}
+    matches: dict[int, uuid.UUID] = {}
+    for entity_id, title in rows:
+        for marker, number in markers.items():
+            if title.startswith(marker):
+                matches[number] = entity_id
+                break
+    return matches
 
 
 async def todo_from_issue(session: AsyncSession, project: Project, issue: dict) -> dict:

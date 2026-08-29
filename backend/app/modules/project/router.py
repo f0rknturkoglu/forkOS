@@ -177,9 +177,19 @@ async def project_github(
     if not project.github_repo:
         raise HTTPException(400, "Bu projeye bagli bir GitHub deposu yok")
     try:
-        return await github_repo.overview(
+        panel = await github_repo.overview(
             project.github_repo, await _github_token(session), refresh=refresh
         )
+        todo_ids = await service.github_issue_todo_ids(
+            session, project, [item["number"] for item in panel["issues"]]
+        )
+        return {
+            **panel,
+            "issues": [
+                {**item, "todo_id": todo_ids.get(item["number"])}
+                for item in panel["issues"]
+            ],
+        }
     except httpx.HTTPStatusError as exc:
         raise HTTPException(502, _github_error(exc)) from exc
     except httpx.HTTPError as exc:
