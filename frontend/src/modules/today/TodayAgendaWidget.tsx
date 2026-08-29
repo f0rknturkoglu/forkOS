@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarClock,
   Check,
+  ChevronDown,
   ChevronRight,
   Circle,
   CreditCard,
@@ -91,6 +92,7 @@ export function TodayAgendaWidget() {
   const [selected, setSelected] = useState("");
   const [start, setStart] = useState("");
   const [duration, setDuration] = useState("");
+  const [completedOpen, setCompletedOpen] = useState(false);
 
   const agendaQuery = useQuery({
     queryKey: ["today-agenda", day],
@@ -170,7 +172,7 @@ export function TodayAgendaWidget() {
   const rssOptions = (rssQuery.data ?? []).map((item) => pickerRow(item, "rss"));
   const options = [...todoOptions, ...rssOptions];
   const selectedRow = options.find((row) => `${row.kind}:${row.id}` === selected);
-  const suggestions = agenda ? [...agenda.suggestions.todos, ...agenda.suggestions.rss] : [];
+  const suggestions = agenda ? [...agenda.suggestions.todos, ...agenda.suggestions.rss].slice(0, 2) : [];
   const busy = complete.isPending || schedule.isPending || remove.isPending || toggleAuto.isPending;
 
   return (
@@ -303,18 +305,36 @@ export function TodayAgendaWidget() {
 
           {agenda.completed.length > 0 && (
             <div className="opacity-70">
-              <SectionHeader label="Tamamlananlar" hint={`${agenda.completed.length}`} />
-              <RowList>
-                {agenda.completed.map((row) => (
-                  <AgendaLine
-                    key={`${row.kind}:${row.id}`}
-                    row={row}
-                    online={online}
-                    complete={() => {}}
-                    remove={(item) => remove.mutate(item)}
-                  />
-                ))}
-              </RowList>
+              <button
+                type="button"
+                aria-expanded={completedOpen}
+                aria-controls="today-completed-list"
+                onClick={() => setCompletedOpen((value) => !value)}
+                className="flex w-full items-center justify-between rounded-control px-1 py-1 text-left transition hover:bg-surface-hover"
+              >
+                <span className="text-meta font-semibold uppercase tracking-wide text-muted">
+                  Tamamlananlar · {agenda.completed.length}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={cx("text-muted transition-transform", completedOpen && "rotate-180")}
+                />
+              </button>
+              {completedOpen && (
+                <div id="today-completed-list">
+                  <RowList>
+                    {agenda.completed.map((row) => (
+                      <AgendaLine
+                        key={`${row.kind}:${row.id}`}
+                        row={row}
+                        online={online}
+                        complete={() => {}}
+                        remove={(item) => remove.mutate(item)}
+                      />
+                    ))}
+                  </RowList>
+                </div>
+              )}
             </div>
           )}
 
@@ -439,6 +459,11 @@ function AgendaLine({
           </a>
         )}
         {suggestionAction}
+        {interactive && (
+          <IconButton title="Tamamla" disabled={!online} onClick={() => complete(row)}>
+            <Check size={14} />
+          </IconButton>
+        )}
         {row.slot_id && (
           <IconButton title="Bugünden çıkar" disabled={!online} onClick={() => remove(row)}>
             <Trash2 size={14} />

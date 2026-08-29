@@ -99,9 +99,13 @@ function readWidgetPrefs(): { order: string[]; hidden: Set<string>; touched: boo
     const byModule = new Map(enabledModules().map((m) => [m.id, (m.todayWidgets ?? []).map((w) => w.id)]));
     order = legacy.flatMap((mid) => byModule.get(mid) ?? []);
   }
-  const hidden = new Set<string>(
-    (JSON.parse(localStorage.getItem("lifeos.todayWidgetHidden") ?? "[]") as string[]).filter((id) => known.has(id)),
+  const storedHidden = (JSON.parse(localStorage.getItem("lifeos.todayWidgetHidden") ?? "[]") as string[]).filter((id) =>
+    known.has(id),
   );
+  // Eski odakli varsayilan, feed gibi sonradan temel deneyime alinan
+  // widget'lari hidden listesinde birakabilir. Kullanici Today duzenine henuz
+  // dokunmadiysa yeni defaultVisible sozlesmesi kazanir; acik tercihler korunur.
+  const hidden = new Set<string>(touched ? storedHidden : []);
   return { order: order.filter((id) => known.has(id)), hidden, touched };
 }
 

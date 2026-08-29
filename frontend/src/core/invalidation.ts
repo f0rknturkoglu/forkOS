@@ -29,6 +29,7 @@ export const AFTER = {
     "projects",
     "project-todos",
     "project-timeline",
+    "project-journal",
     "project-github",
     "todos",
     "today-agenda",
@@ -45,6 +46,7 @@ export const AFTER = {
     "activity",
     "review-preview",
     "project-timeline",
+    "project-journal",
   ],
   "learning.write": ["courses", "learning-queue", "bookmarks", "activity", "related"],
   "document.write": ["documents", "activity"],
@@ -65,7 +67,7 @@ export const AFTER = {
   ],
   "link.write": ["related", "activity"],
   "notification.write": ["notifications"],
-  "note.write": ["notes", "activity"],
+  "note.write": ["notes", "project-journal", "activity"],
 } as const;
 
 type AfterEvent = keyof typeof AFTER;

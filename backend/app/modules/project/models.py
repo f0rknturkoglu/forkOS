@@ -22,7 +22,6 @@ class Project(EntityBacked, Base):
     stack: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     next_action: Mapped[str | None] = mapped_column(Text)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    notes: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, default=0)
 
 

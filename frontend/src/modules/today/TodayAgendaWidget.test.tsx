@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgendaRow, TodayAgenda } from "@/core/types";
 import { localDateKey } from "@/lib/date";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
@@ -109,10 +112,13 @@ const agenda: TodayAgenda = {
     },
   ],
   checklist: [parent, todoRow, rssRow, mediaRow],
-  completed: [],
+  completed: [{ ...todoRow, id: "completed-1", title: "Biten görev", completed: true, action: null }],
   suggestions: {
-    todos: [{ ...todoRow, id: "suggested-1", source: "suggestion" }],
-    rss: [],
+    todos: [
+      { ...todoRow, id: "suggested-1", title: "Birinci öneri", source: "suggestion" },
+      { ...todoRow, id: "suggested-2", title: "İkinci öneri", source: "suggestion" },
+    ],
+    rss: [{ ...rssRow, id: "suggested-rss-1", title: "Üçüncü öneri", source: "suggestion" }],
     media: [],
   },
 };
@@ -144,7 +150,10 @@ vi.mock("@tanstack/react-query", () => ({
   MutationCache: class {},
   useMutation: vi.fn((options: MutationOptions) => {
     harness.mutations.push(options);
-    return { mutate: vi.fn(), isPending: false };
+    return {
+      mutate: vi.fn((variables: never) => options.mutationFn?.(variables)),
+      isPending: false,
+    };
   }),
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
@@ -159,6 +168,8 @@ function mutationNamed(name: string) {
 }
 
 describe("unified Today agenda", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     harness.apiDel.mockReset();
     harness.apiGet.mockReset();
@@ -228,5 +239,31 @@ describe("unified Today agenda", () => {
     expect(markup).toContain('href="#/media?focus=media-1"');
     expect(markup).toContain("120 / 400 sayfa");
     expect(markup).not.toContain("Dune tamamla");
+  });
+
+  it("shows at most two suggestions and keeps completed rows collapsed by default", () => {
+    render(<TodayAgendaWidget />);
+
+    expect(screen.getByText("Birinci öneri")).toBeTruthy();
+    expect(screen.getByText("İkinci öneri")).toBeTruthy();
+    expect(screen.queryByText("Üçüncü öneri")).toBeNull();
+
+    const completedToggle = screen.getByRole("button", { name: /Tamamlananlar/ });
+    expect(completedToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("Biten görev")).toBeNull();
+
+    fireEvent.click(completedToggle);
+    expect(completedToggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Biten görev")).toBeTruthy();
+  });
+
+  it("exposes a completion action on an actionable todo row", async () => {
+    const { container } = render(<TodayAgendaWidget />);
+    const todo = container.querySelector('[data-agenda-id="todo-1"]');
+
+    expect(todo).not.toBeNull();
+    fireEvent.click(within(todo as HTMLElement).getByRole("button", { name: "Tamamla" }));
+
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalledWith("/todos/todo-1/complete"));
   });
 });

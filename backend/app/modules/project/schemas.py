@@ -13,7 +13,6 @@ class ProjectIn(BaseModel):
     url: str | None = None
     stack: list[str] = []
     next_action: str | None = None
-    notes: str | None = None
     position: int = 0
 
 
@@ -24,8 +23,11 @@ class ProjectPatch(BaseModel):
     url: str | None = None
     stack: list[str] | None = None
     next_action: str | None = None
-    notes: str | None = None
     position: int | None = None
+
+
+class ProjectJournalNoteIn(BaseModel):
+    body: str = Field(max_length=200_000)
 
 
 class MilestoneIn(BaseModel):

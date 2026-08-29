@@ -52,10 +52,10 @@ describe("Bugun widget sozlesmesi", () => {
     const widgets = allTodayWidgets();
     const ids = widgets.map((widget) => widget.id);
     expect(ids.length).toBeGreaterThanOrEqual(14);
-    // Faz 20: odakli varsayilan -- akis/ikincil gizli, plan widget'lari acik.
+    // Akis gundelik Today deneyiminin parcasi; yalniz ikincil widget'lar gizli.
     const visible = allTodayWidgetViews();
     expect(visible.some((view) => view.id === "today.agenda")).toBe(true);
-    expect(visible.some((view) => view.id === "today.feed-stream")).toBe(false);
+    expect(visible.some((view) => view.id === "today.feed-stream")).toBe(true);
     expect(new Set(ids).size).toBe(ids.length);
     for (const widget of widgets) {
       expect(widget.id).toMatch(/^[a-z0-9.-]+$/);
@@ -105,11 +105,11 @@ describe("Bugun widget sozlesmesi", () => {
 
   it("focused preset ikincil widget'lari gizler, overview temizler", () => {
     const focused = focusedConfig();
-    expect(focused.hidden).toContain("today.feed-stream");
+    expect(focused.hidden).not.toContain("today.feed-stream");
     expect(focused.hidden).not.toContain("today.agenda");
     setTodayWidgetHidden(focused.hidden);
     setTodayWidgetOrder(focused.order);
-    expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(false);
+    expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(true);
     // Gizliler ayar listesinde geri gosterilebilir durumda gorunur.
     expect(allTodayWidgetViewsIncludingHidden().some((view) => view.id === "today.feed-stream")).toBe(true);
 
@@ -118,6 +118,14 @@ describe("Bugun widget sozlesmesi", () => {
     setTodayWidgetHidden(overview.hidden);
     setTodayWidgetOrder(overview.order);
     expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(true);
+  });
+
+  it("eski varsayilan gizleme kaydini yok sayar ama acik kullanici tercihini korur", () => {
+    store.set("lifeos.todayWidgetHidden", JSON.stringify(["today.feed-stream"]));
+    expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(true);
+
+    setTodayWidgetHidden(["today.feed-stream"]);
+    expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(false);
   });
 
   it("eski modul ID sirasi widget id'lerine goc eder", () => {

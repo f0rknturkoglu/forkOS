@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,5 +26,7 @@ class NoteOut(BaseModel):
     title: str
     body: str
     pinned: bool
+    project_id: uuid.UUID | None = None
+    journal_day: date | None = None
     created_at: datetime
     updated_at: datetime

@@ -15,7 +15,6 @@ import {
   PageHeader,
   Section,
   Select,
-  Textarea,
   cx,
   relativeTime,
   useToast,
@@ -27,7 +26,7 @@ import { RelatedPanel } from "@/core/RelatedPanel";
 import { GithubPanel } from "./GithubPanel";
 import { ProjectTodos } from "./ProjectTodos";
 import { Milestones } from "./Milestones";
-import { ProjectTimeline } from "./ProjectTimeline";
+import { ProjectJournal } from "./ProjectJournal";
 
 const STATUSES = [
   { value: "active", label: "aktif", tone: "ok", dot: "bg-ok" },
@@ -245,15 +244,7 @@ function ProjectDetail({ project }: { project: Project }) {
       <Milestones project={project} />
       <ProjectTodos project={project} />
 
-      <Section title="Notlar" hint="alandan çıkınca kaydedilir">
-        <SavedTextarea
-          value={project.notes ?? ""}
-          disabled={!online}
-          onSave={(value) => patch.mutate({ notes: value || null })}
-        />
-      </Section>
-
-      <ProjectTimeline projectId={project.id} />
+      <ProjectJournal projectId={project.id} />
       <RelatedPanel entityId={project.id} title="Bağlı kayıtlar" />
     </div>
   );
@@ -338,41 +329,5 @@ function SavedInput({
       ariaLabel={ariaLabel}
       className="w-full"
     />
-  );
-}
-
-function SavedTextarea({
-  value,
-  onSave,
-  disabled,
-}: {
-  value: string;
-  onSave: (value: string) => void;
-  disabled?: boolean;
-}) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-  const dirty = draft.trim() !== value.trim();
-
-  return (
-    <>
-      <Textarea
-        value={draft}
-        onChange={setDraft}
-        onBlur={(next) => {
-          if (next.trim() !== value) onSave(next.trim());
-        }}
-        rows={8}
-        placeholder={
-          "Karar kayıtları, açık sorular, bağlantılar…\n\n" + "Ne olduğu Günlük'te zaten duruyor; burası NEDEN'in yeri."
-        }
-        className={cx("font-mono text-meta leading-6", disabled && "opacity-60")}
-      />
-      <p className="mt-1 text-meta text-muted">
-        {dirty ? "kaydedilmedi — alandan çıkınca kaydedilir" : `${draft.length} karakter`}
-      </p>
-    </>
   );
 }

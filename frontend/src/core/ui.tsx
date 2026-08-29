@@ -316,6 +316,7 @@ export function Input({
   onKeyDown,
   onBlur,
   ariaLabel,
+  max,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -328,6 +329,7 @@ export function Input({
   /** Alandan cikinca kaydeden formlar icin -- ayri bir "kaydet" dugmesi gerekmesin. */
   onBlur?: (value: string) => void;
   ariaLabel?: string;
+  max?: string;
 }) {
   return (
     <input
@@ -338,6 +340,7 @@ export function Input({
       onKeyDown={onKeyDown}
       onBlur={(e) => onBlur?.(e.target.value)}
       aria-label={ariaLabel ?? placeholder}
+      max={max}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className={cx(

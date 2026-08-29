@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,14 +33,36 @@ def derive_title(body: str) -> str:
 
 def _out(note: Note, title: str, created_at, updated_at) -> NoteOut:
     # created/updated Entity'de yasar (modul tablosunda kolon yok).
-    return NoteOut(id=note.id, title=title, body=note.body, pinned=note.pinned,
-                   created_at=created_at, updated_at=updated_at)
+    return NoteOut(
+        id=note.id,
+        title=title,
+        body=note.body,
+        pinned=note.pinned,
+        project_id=note.project_id,
+        journal_day=note.journal_day,
+        created_at=created_at,
+        updated_at=updated_at,
+    )
 
 
-async def create(session: AsyncSession, data: NoteIn) -> NoteOut:
+async def create(
+    session: AsyncSession,
+    data: NoteIn,
+    *,
+    project_id: uuid.UUID | None = None,
+    journal_day: date | None = None,
+) -> NoteOut:
+    if (project_id is None) != (journal_day is None):
+        raise ValueError("proje gunlugu icin project_id ve journal_day birlikte gerekli")
     entity = await create_entity(session, type=Note.ENTITY_TYPE,
                                  title=derive_title(data.body), search_text=data.body)
-    note = Note(id=entity.id, body=data.body, pinned=data.pinned)
+    note = Note(
+        id=entity.id,
+        body=data.body,
+        pinned=data.pinned,
+        project_id=project_id,
+        journal_day=journal_day,
+    )
     session.add(note)
     if data.relate_to is not None:
         # Ayni transaction: iliski kurulamazsa not da olusmaz (Faz 29).
@@ -49,7 +72,9 @@ async def create(session: AsyncSession, data: NoteIn) -> NoteOut:
         await link(session, note.id, data.relate_to, "notes_about")
     await log_event(session, verb="note.created", entity_id=note.id, entity_type="note",
                     payload={"pinned": data.pinned,
-                             "relate_to": str(data.relate_to) if data.relate_to else None})
+                             "relate_to": str(data.relate_to) if data.relate_to else None,
+                             "project_id": str(project_id) if project_id else None,
+                             "journal_day": journal_day.isoformat() if journal_day else None})
     await session.commit()
     return _out(note, entity.title, entity.created_at, entity.updated_at)
 
@@ -98,7 +123,13 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
         # hicbiri degismediyse hicbir event uretilmez.
         changed = [field for field in ("body",) if field in values]
         await log_event(session, verb="note.updated", entity_id=note_id,
-                        entity_type="note", payload={"changed_fields": changed})
+                        entity_type="note", payload={
+                            "changed_fields": changed,
+                            "project_id": str(note.project_id) if note.project_id else None,
+                            "journal_day": (
+                                note.journal_day.isoformat() if note.journal_day else None
+                            ),
+                        })
     await session.commit()
     if entity is not None:
         # touch_entity updated_at'i SQL ifadesiyle atar; flush sonrasi expire
@@ -124,9 +155,16 @@ async def delete(session: AsyncSession, note_id: uuid.UUID) -> bool:
     if entity is None or entity.type != Note.ENTITY_TYPE:
         return False
     title = entity.title
+    note = await session.get(Note, note_id)
+    project_id = note.project_id if note else None
+    journal_day = note.journal_day if note else None
     if not await delete_entity(session, note_id):
         return False
     await log_event(session, verb="note.deleted", entity_type="note",
-                    payload={"title": title})
+                    payload={
+                        "title": title,
+                        "project_id": str(project_id) if project_id else None,
+                        "journal_day": journal_day.isoformat() if journal_day else None,
+                    })
     await session.commit()
     return True

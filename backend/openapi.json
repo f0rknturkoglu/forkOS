@@ -4354,9 +4354,33 @@
             "title": "Id",
             "type": "string"
           },
+          "journal_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Day"
+          },
           "pinned": {
             "title": "Pinned",
             "type": "boolean"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
           },
           "title": {
             "title": "Title",
@@ -5434,17 +5458,6 @@
             ],
             "title": "Next Action"
           },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
           "position": {
             "default": 0,
             "title": "Position",
@@ -5486,6 +5499,20 @@
         "title": "ProjectIn",
         "type": "object"
       },
+      "ProjectJournalNoteIn": {
+        "properties": {
+          "body": {
+            "maxLength": 200000,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "ProjectJournalNoteIn",
+        "type": "object"
+      },
       "ProjectPatch": {
         "properties": {
           "github_repo": {
@@ -5509,17 +5536,6 @@
               }
             ],
             "title": "Next Action"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
           },
           "position": {
             "anyOf": [
@@ -13077,6 +13093,118 @@
         ]
       }
     },
+    "/api/projects/{project_id}/journal": {
+      "get": {
+        "operationId": "project_journal_api_projects__project_id__journal_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Project Journal",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/journal/{day}": {
+      "put": {
+        "operationId": "put_project_journal_note_api_projects__project_id__journal__day__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectJournalNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Project Journal Note",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
     "/api/projects/{project_id}/milestones": {
       "post": {
         "operationId": "add_milestone_api_projects__project_id__milestones_post",
@@ -13123,58 +13251,6 @@
           }
         },
         "summary": "Add Milestone",
-        "tags": [
-          "projects"
-        ]
-      }
-    },
-    "/api/projects/{project_id}/timeline": {
-      "get": {
-        "description": "Projede ne olduysa -- kendi olaylari, gorev olaylari, commit'ler.",
-        "operationId": "project_timeline_api_projects__project_id__timeline_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "project_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Project Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 60,
-              "title": "Limit",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Project Timeline",
         "tags": [
           "projects"
         ]

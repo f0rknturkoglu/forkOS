@@ -277,7 +277,6 @@ export interface Project {
   stack: string[];
   next_action: string | null;
   last_activity_at: string | null;
-  notes: string | null;
   position: number;
   milestones: Milestone[];
 }
@@ -331,6 +330,23 @@ export interface ProjectEvent {
   title: string | null;
   payload: Record<string, unknown>;
   occurred_at: string;
+}
+
+export interface ProjectJournalNote {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  project_id: string;
+  journal_day: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectJournalDay {
+  day: string;
+  note: ProjectJournalNote | null;
+  events: ProjectEvent[];
 }
 
 export interface Expense {

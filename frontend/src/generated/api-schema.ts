@@ -1785,6 +1785,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{project_id}/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Journal */
+        get: operations["project_journal_api_projects__project_id__journal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/journal/{day}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Project Journal Note */
+        put: operations["put_project_journal_note_api_projects__project_id__journal__day__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{project_id}/milestones": {
         parameters: {
             query?: never;
@@ -1796,26 +1830,6 @@ export interface paths {
         put?: never;
         /** Add Milestone */
         post: operations["add_milestone_api_projects__project_id__milestones_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/projects/{project_id}/timeline": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Project Timeline
-         * @description Projede ne olduysa -- kendi olaylari, gorev olaylari, commit'ler.
-         */
-        get: operations["project_timeline_api_projects__project_id__timeline_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4126,8 +4140,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Journal Day */
+            journal_day?: string | null;
             /** Pinned */
             pinned: boolean;
+            /** Project Id */
+            project_id?: string | null;
             /** Title */
             title: string;
             /**
@@ -4450,8 +4468,6 @@ export interface components {
             github_repo?: string | null;
             /** Next Action */
             next_action?: string | null;
-            /** Notes */
-            notes?: string | null;
             /**
              * Position
              * @default 0
@@ -4472,14 +4488,17 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** ProjectJournalNoteIn */
+        ProjectJournalNoteIn: {
+            /** Body */
+            body: string;
+        };
         /** ProjectPatch */
         ProjectPatch: {
             /** Github Repo */
             github_repo?: string | null;
             /** Next Action */
             next_action?: string | null;
-            /** Notes */
-            notes?: string | null;
             /** Position */
             position?: number | null;
             /** Stack */
@@ -9053,23 +9072,21 @@ export interface operations {
             };
         };
     };
-    add_milestone_api_projects__project_id__milestones_post: {
+    project_journal_api_projects__project_id__journal_get: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+            };
             header?: never;
             path: {
                 project_id: string;
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MilestoneIn"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9088,21 +9105,59 @@ export interface operations {
             };
         };
     };
-    project_timeline_api_projects__project_id__timeline_get: {
+    put_project_journal_note_api_projects__project_id__journal__day__put: {
         parameters: {
-            query?: {
-                limit?: number;
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                day: string;
             };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectJournalNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_milestone_api_projects__project_id__milestones_post: {
+        parameters: {
+            query?: never;
             header?: never;
             path: {
                 project_id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MilestoneIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

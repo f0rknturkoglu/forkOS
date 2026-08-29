@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity, Event, Link
+from app.core.time import local_zone
 from app.modules import DeadlineRow
+from app.modules.note import service as note_service
+from app.modules.note.models import Note
+from app.modules.note.schemas import NoteIn, NoteUpdate
 from app.modules.project.models import Milestone, Project
 from app.modules.project.schemas import MilestoneIn, MilestonePatch, ProjectIn, ProjectPatch
 from app.modules.todo import service as todo_service
@@ -49,7 +53,6 @@ async def project_out(
             for changed_at in (entity_activity_at, project.last_activity_at, todo_activity_at)
             if changed_at is not None
         ),
-        "notes": project.notes,
         "position": project.position,
         "milestones": milestones,
     }
@@ -87,7 +90,7 @@ async def create(session: AsyncSession, data: ProjectIn) -> dict:
         session,
         type="project",
         title=title,
-        search_text=" ".join(data.stack) + " " + (data.notes or ""),
+        search_text=" ".join(data.stack),
     )
     project = Project(id=entity.id, **values)
     session.add(project)
@@ -110,7 +113,7 @@ async def patch(session: AsyncSession, project_id: uuid.UUID, data: ProjectPatch
         session,
         project.id,
         title=title,
-        search_text=" ".join(project.stack or []) + " " + (project.notes or ""),
+        search_text=" ".join(project.stack or []),
     )
     await log_event(
         session,
@@ -327,6 +330,104 @@ async def timeline(session: AsyncSession, project_id: uuid.UUID, limit: int = 60
         }
         for event in rows
     ]
+
+
+async def upsert_journal_note(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    day: date,
+    body: str,
+) -> dict:
+    """Ayni proje/gun icin tek entity-backed notu olusturur veya gunceller.
+
+    Bos govde kaydi siler; event gecmisi append-only kalir.
+    """
+    existing = (
+        await session.execute(
+            select(Note).where(
+                Note.project_id == project_id,
+                Note.journal_day == day,
+            )
+        )
+    ).scalar_one_or_none()
+    normalized = body.strip()
+    if not normalized:
+        if existing is not None:
+            await note_service.delete(session, existing.id)
+        return {"day": day, "note": None}
+
+    if existing is None:
+        note = await note_service.create(
+            session,
+            NoteIn(body=body, relate_to=project_id),
+            project_id=project_id,
+            journal_day=day,
+        )
+    else:
+        note = await note_service.update(
+            session, existing.id, NoteUpdate(body=body)
+        )
+    return {"day": day, "note": note}
+
+
+async def journal(
+    session: AsyncSession, project_id: uuid.UUID, limit: int = 60
+) -> list[dict]:
+    """Proje olaylari ile guncel gun notlarini tarih basliklari altinda birlestirir."""
+    project_events = await timeline(session, project_id, limit)
+    note_events = list(
+        (
+            await session.execute(
+                select(Event)
+                .where(Event.payload["project_id"].astext == str(project_id))
+                .order_by(Event.occurred_at.desc())
+                .limit(limit)
+            )
+        ).scalars()
+    )
+    event_rows = {
+        event["id"]: event for event in project_events
+    }
+    for event in note_events:
+        event_rows[event.id] = {
+            "id": event.id,
+            "verb": event.verb,
+            "entity_id": event.entity_id,
+            "entity_type": event.entity_type,
+            "title": event.payload.get("title"),
+            "payload": event.payload,
+            "occurred_at": event.occurred_at,
+        }
+    events = sorted(
+        event_rows.values(), key=lambda item: item["occurred_at"], reverse=True
+    )[:limit]
+
+    note_rows = (
+        await session.execute(
+            select(Note, Entity.title, Entity.created_at, Entity.updated_at)
+            .join(Entity, Entity.id == Note.id)
+            .where(Note.project_id == project_id, Note.journal_day.is_not(None))
+        )
+    ).all()
+    notes_by_day = {
+        note.journal_day: note_service._out(note, title, created_at, updated_at)
+        for note, title, created_at, updated_at in note_rows
+    }
+
+    groups: dict[date, dict] = {
+        day: {"day": day, "note": note, "events": []}
+        for day, note in notes_by_day.items()
+        if day is not None
+    }
+    zone = local_zone()
+    for event in events:
+        event_day = event["occurred_at"].astimezone(zone).date()
+        group = groups.setdefault(
+            event_day,
+            {"day": event_day, "note": notes_by_day.get(event_day), "events": []},
+        )
+        group["events"].append(event)
+    return [groups[day] for day in sorted(groups, reverse=True)]
 
 
 async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:

@@ -704,7 +704,8 @@ async def test_project_timeline_records_milestone_actions(client: AsyncClient):
     )).json()
     await client.patch(f"/api/milestones/{milestone['id']}", json={"completed": True})
     await client.delete(f"/api/milestones/{milestone['id']}")
-    timeline = (await client.get(f"/api/projects/{project['id']}/timeline")).json()
+    journal = (await client.get(f"/api/projects/{project['id']}/journal")).json()
+    timeline = [event for group in journal for event in group["events"]]
     verbs = {item["verb"] for item in timeline}
     assert {
         "project.milestone_added", "project.milestone_updated", "project.milestone_deleted",
@@ -722,7 +723,8 @@ async def test_project_timeline_includes_pomodoro_for_linked_todo(client: AsyncC
         "planned_min": 1, "context_entity_id": todo["id"],
     })).json()
     await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={"interrupted": False})
-    timeline = (await client.get(f"/api/projects/{project['id']}/timeline")).json()
+    journal = (await client.get(f"/api/projects/{project['id']}/journal")).json()
+    timeline = [event for group in journal for event in group["events"]]
     focus = [item for item in timeline if item["verb"] == "pomodoro.completed"]
     assert focus
     assert focus[0]["payload"]["context_entity_id"] == todo["id"]
@@ -750,7 +752,8 @@ async def test_project_timeline_excludes_pomodoro_for_linked_non_todo(client: As
         "planned_min": 1, "context_entity_id": topic["id"],
     })).json()
     await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={"interrupted": False})
-    timeline = (await client.get(f"/api/projects/{project['id']}/timeline")).json()
+    journal = (await client.get(f"/api/projects/{project['id']}/journal")).json()
+    timeline = [event for group in journal for event in group["events"]]
     assert not any(item["entity_id"] == pomo["id"] for item in timeline)
     await client.delete(f"/api/pomodoro/{pomo['id']}")
     await client.delete(f"/api/study/topics/{topic['id']}")

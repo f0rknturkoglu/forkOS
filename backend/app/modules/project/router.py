@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.links import link
+from app.core.time import local_today
 from app.db import get_session
 from app.integrations.models import OAuthToken
 from app.modules.project import github_repo, service
@@ -17,6 +19,7 @@ from app.modules.project.schemas import (
     MilestoneIn,
     MilestonePatch,
     ProjectIn,
+    ProjectJournalNoteIn,
     ProjectPatch,
     TodoLinkIn,
 )
@@ -88,16 +91,29 @@ async def project_todos(project_id: uuid.UUID, session: AsyncSession = Depends(g
     return await service.project_todos(session, project_id)
 
 
-@router.get("/projects/{project_id}/timeline")
-async def project_timeline(
+@router.get("/projects/{project_id}/journal")
+async def project_journal(
     project_id: uuid.UUID,
     limit: int = 60,
     session: AsyncSession = Depends(get_session),
 ):
-    """Projede ne olduysa -- kendi olaylari, gorev olaylari, commit'ler."""
     if await session.get(Project, project_id) is None:
         raise HTTPException(404)
-    return await service.timeline(session, project_id, limit)
+    return await service.journal(session, project_id, limit)
+
+
+@router.put("/projects/{project_id}/journal/{day}")
+async def put_project_journal_note(
+    project_id: uuid.UUID,
+    day: date,
+    body: ProjectJournalNoteIn,
+    session: AsyncSession = Depends(get_session),
+):
+    if await session.get(Project, project_id) is None:
+        raise HTTPException(404)
+    if day > local_today():
+        raise HTTPException(400, "Gelecek bir gun icin gunluk notu yazilamaz")
+    return await service.upsert_journal_note(session, project_id, day, body.body)
 
 
 @router.post("/projects/{project_id}/todos", status_code=201)

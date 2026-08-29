@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Flame, Github, MessageSquare, Rss, Star, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { RowList, Section, cx, hostOf, relativeTime } from "@/core/ui";
+import { Button, RowList, Section, cx, hostOf, relativeTime } from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { FeedItem, RedditPost, RssStats } from "@/core/types";
 
@@ -76,33 +76,44 @@ const FILTERS: { id: "all" | Origin; label: string }[] = [
 export function FeedStreamWidget() {
   const [filter, setFilter] = useState<"all" | Origin>("all");
 
-  const { data: rss = [] } = useQuery({
+  const rssQuery = useQuery({
     queryKey: ["items", "panel"],
     queryFn: () => api.get<FeedItem[]>(`/rss/items${qs({ limit: 15 })}`),
   });
+  const rss = rssQuery.data ?? [];
   const { data: stats } = useQuery({
     queryKey: ["rss-stats"],
     queryFn: () => api.get<RssStats>("/rss/stats"),
   });
-  const { data: reddit = [], isError: redditFailed } = useQuery({
+  const redditQuery = useQuery({
     queryKey: ["reddit-news"],
     queryFn: () => api.get<RedditPost[]>(`/news/reddit${qs({ limit: 15 })}`),
     refetchInterval: 15 * 60_000,
     staleTime: 10 * 60_000,
     retry: 1,
   });
-  const { data: hn = [], isError: hnFailed } = useQuery({
+  const reddit = redditQuery.data ?? [];
+  const hnQuery = useQuery({
     queryKey: ["hacker-news"],
     queryFn: () => api.get<HnStory[]>("/news/hacker-news?limit=15"),
     refetchInterval: 15 * 60_000,
     staleTime: 10 * 60_000,
   });
-  const { data: repos = [], isError: githubFailed } = useQuery({
+  const hn = hnQuery.data ?? [];
+  const githubQuery = useQuery({
     queryKey: ["github-trending"],
     queryFn: () => api.get<Repo[]>("/news/github-trending?limit=10"),
     refetchInterval: 6 * 3600_000,
     staleTime: 3 * 3600_000,
   });
+  const repos = githubQuery.data ?? [];
+
+  const failures = [
+    { origin: "rss" as const, label: "RSS", failed: rssQuery.isError, retry: () => rssQuery.refetch() },
+    { origin: "reddit" as const, label: "Reddit", failed: redditQuery.isError, retry: () => redditQuery.refetch() },
+    { origin: "hn" as const, label: "Hacker News", failed: hnQuery.isError, retry: () => hnQuery.refetch() },
+    { origin: "gh" as const, label: "GitHub", failed: githubQuery.isError, retry: () => githubQuery.refetch() },
+  ].filter((source) => source.failed && (filter === "all" || filter === source.origin));
 
   // Kaynak basina kota: RSS dakikada akarken otekiler saatlik/gunluk. Duz zaman
   // siralamasi yapinca digerleri listeden tamamen dusuyor -- once her
@@ -211,16 +222,26 @@ export function FeedStreamWidget() {
       }
       bodyClassName="px-3.5 py-1"
     >
+      {failures.length > 0 && (
+        <div className="mb-1 flex flex-wrap items-center gap-2 border-b border-warn-border px-2 py-2 text-meta text-warn">
+          {failures.map((source) => (
+            <span key={source.origin} className="inline-flex items-center gap-1.5">
+              {source.label} alınamadı.
+              <Button
+                size="sm"
+                variant="ghost"
+                ariaLabel={`${source.label}'i yeniden dene`}
+                onClick={() => void source.retry()}
+                className="h-auto px-1.5 py-0.5 text-warn"
+              >
+                yeniden dene
+              </Button>
+            </span>
+          ))}
+        </div>
+      )}
       {items.length === 0 ? (
-        <p className="px-2 py-4 text-center text-meta text-muted">
-          {redditFailed && filter === "reddit"
-            ? "Reddit'e ulaşılamadı."
-            : hnFailed && filter === "hn"
-              ? "Hacker News'e ulaşılamadı."
-              : githubFailed && filter === "gh"
-                ? "GitHub'a ulaşılamadı."
-                : "Yeni bir şey yok."}
-        </p>
+        <p className="px-2 py-4 text-center text-meta text-muted">Yeni bir şey yok.</p>
       ) : (
         <RowList>
           {items.map((item) => {

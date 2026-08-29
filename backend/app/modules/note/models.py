@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
-from sqlalchemy import Boolean, ForeignKey, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +20,15 @@ class Note(EntityBacked, Base):
     """
 
     __tablename__ = "note"
+    __table_args__ = (
+        CheckConstraint(
+            "project_id is null or journal_day is not null",
+            name="note_project_journal_day_ck",
+        ),
+        UniqueConstraint(
+            "project_id", "journal_day", name="note_project_journal_day_uniq"
+        ),
+    )
     ENTITY_TYPE = "note"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -26,3 +36,7 @@ class Note(EntityBacked, Base):
     )
     body: Mapped[str] = mapped_column(Text, nullable=False, default="")
     pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("project.id", ondelete="SET NULL"), nullable=True
+    )
+    journal_day: Mapped[date | None] = mapped_column(Date, nullable=True)

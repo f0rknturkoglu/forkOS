@@ -26,7 +26,7 @@ registerModule({
       component: FeedStreamWidget,
       slot: "center",
       order: 10,
-      defaultVisible: false,
+      defaultVisible: true,
     },
     {
       id: "today.quick-links",
