@@ -12,6 +12,6 @@ registerModule({
   icon: Calendar,
   group: "do",
   routes: [{ path: "/calendar", element: CalendarPage }],
-  todayWidgets: [{ component: CalendarWidget, slot: "right", order: 35 }],
+  todayWidgets: [{ id: "calendar.events", title: "Takvim", component: CalendarWidget, slot: "right", order: 35 }],
   commands: [{ id: "calendar.open", label: "Takvimi aç", run: () => navigate("/calendar") }],
 });

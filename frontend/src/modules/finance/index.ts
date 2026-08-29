@@ -12,6 +12,8 @@ registerModule({
   icon: Wallet,
   group: "track",
   routes: [{ path: "/finance", element: FinancePage }],
-  todayWidgets: [{ component: RecurringWidget, slot: "right", order: 60 }],
+  todayWidgets: [
+    { id: "finance.recurring", title: "Düzenli ödemeler", component: RecurringWidget, slot: "right", order: 60 },
+  ],
   commands: [{ id: "finance.open", label: "Finansı aç", run: () => navigate("/finance") }],
 });

@@ -13,9 +13,9 @@ registerModule({
   group: "track",
   routes: [{ path: "/opportunities", element: OpportunityPage }],
   todayWidgets: [
-    { component: DeadlineWidget, slot: "right", order: 20 },
-    { component: FollowupWidget, slot: "right", order: 25 },
-    { component: NotificationWidget, slot: "right", order: 30 },
+    { id: "opportunity.deadlines", title: "Son tarihler", component: DeadlineWidget, slot: "right", order: 20 },
+    { id: "opportunity.followups", title: "Takip", component: FollowupWidget, slot: "right", order: 25 },
+    { id: "opportunity.notifications", title: "Bildirimler", component: NotificationWidget, slot: "right", order: 30 },
   ],
   commands: [{ id: "opportunity.open", label: "Fırsatları aç", run: () => navigate("/opportunities") }],
 });

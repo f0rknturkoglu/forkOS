@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { allTodayStats, allTodayWidgetsIn } from "@/core/registry";
+import { allTodayStats, allTodayWidgetViews } from "@/core/registry";
 import { Empty, PageFrame } from "@/core/ui";
 import { TodayHero } from "./TodayHero";
 
@@ -19,10 +19,11 @@ const COLUMN_LABELS = { left: "Plan", center: "Akış", right: "Durum" } as cons
 
 export function TodayPage() {
   const stats = allTodayStats();
-  const left = allTodayWidgetsIn("left");
-  const center = allTodayWidgetsIn("center");
-  const right = allTodayWidgetsIn("right");
-  const empty = stats.length + left.length + center.length + right.length === 0;
+  const views = allTodayWidgetViews();
+  const left = views.filter((view) => (view.widget.slot ?? "center") === "left");
+  const center = views.filter((view) => (view.widget.slot ?? "center") === "center");
+  const right = views.filter((view) => (view.widget.slot ?? "center") === "right");
+  const empty = stats.length + views.length === 0;
 
   if (empty) {
     return (
@@ -44,15 +45,18 @@ export function TodayPage() {
           ))}
         />
       }
-      center={center.map((Widget, index) => (
-        <Widget key={index} />
-      ))}
-      left={left.map((Widget, index) => (
-        <Widget key={index} />
-      ))}
-      right={right.map((Widget, index) => (
-        <Widget key={index} />
-      ))}
+      center={center.map((view) => {
+        const Widget = view.widget.component;
+        return <Widget key={view.id} />;
+      })}
+      left={left.map((view) => {
+        const Widget = view.widget.component;
+        return <Widget key={view.id} />;
+      })}
+      right={right.map((view) => {
+        const Widget = view.widget.component;
+        return <Widget key={view.id} />;
+      })}
       labelled
     />
   );

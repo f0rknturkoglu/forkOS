@@ -20,8 +20,8 @@ registerModule({
   ],
   todayWidgets: [
     // Harita akisin altinda: gunun listesi once, yilin ozeti sonra.
-    { component: Heatmap, slot: "center", order: 30 },
-    { component: ActivityWidget, slot: "right", order: 90 },
+    { id: "activity.heatmap", title: "Emek haritası", component: Heatmap, slot: "center", order: 30 },
+    { id: "activity.widget", title: "Etkinlik", component: ActivityWidget, slot: "right", order: 90 },
   ],
   commands: [{ id: "activity.open", label: "Etkinliği aç", run: () => navigate("/activity") }],
 });

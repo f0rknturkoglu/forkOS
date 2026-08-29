@@ -40,8 +40,12 @@ export const navigationModules = (): ModuleSpec[] => enabledModules().filter((m)
 export function hydrateSettings(settings: Record<string, unknown>): void {
   const disabled = Array.isArray(settings["modules.disabled"]) ? settings["modules.disabled"] : [];
   const order = Array.isArray(settings["today.widget_order"]) ? settings["today.widget_order"] : [];
+  const widgetHidden = Array.isArray(settings["today.widget_hidden"]) ? settings["today.widget_hidden"] : [];
   localStorage.setItem("lifeos.disabledModules", JSON.stringify(disabled));
   localStorage.setItem("lifeos.widgetOrder", JSON.stringify(order));
+  // Faz 19: widget kimlikli siralama + gizleme (modul ID sirasi legacy kalir).
+  localStorage.setItem("lifeos.todayWidgetOrder", JSON.stringify(order));
+  localStorage.setItem("lifeos.todayWidgetHidden", JSON.stringify(widgetHidden));
   localStorage.setItem("lifeos.pomodoroDefaults", JSON.stringify(settings["pomodoro.defaults"] ?? {}));
   const lat = Number(settings["weather.lat"] ?? 0);
   const lon = Number(settings["weather.lon"] ?? 0);
@@ -71,16 +75,105 @@ function orderedModules(): ModuleSpec[] {
   });
 }
 
-export const allTodayWidgets = () => orderedModules().flatMap((m) => m.todayWidgets ?? []);
+export const allTodayWidgets = () => enabledModules().flatMap((m) => m.todayWidgets ?? []);
+
+export interface TodayWidgetView {
+  id: string;
+  title: string;
+  widget: TodayWidget;
+  moduleId: string;
+}
+
+/** Kullanicinin widget tercihleri (Faz 19): sirala + gizle. */
+function readWidgetPrefs(): { order: string[]; hidden: Set<string> } {
+  const known = new Set(allTodayWidgets().map((w) => w.id));
+  const rawOrder: unknown = JSON.parse(localStorage.getItem("lifeos.todayWidgetOrder") ?? "null");
+  // Eski (Faz 5) deger: modul ID'leri. Widget id'lerinden hicbiri yoksa bu
+  // hala modul sirasidir -- her modulun widget'larina acilir (migration).
+  const legacy: string[] = JSON.parse(localStorage.getItem("lifeos.widgetOrder") ?? "[]");
+  let order: string[] = [];
+  if (Array.isArray(rawOrder) && rawOrder.some((id) => known.has(String(id)))) {
+    order = rawOrder.map(String);
+  } else if (legacy.length > 0) {
+    const byModule = new Map(enabledModules().map((m) => [m.id, (m.todayWidgets ?? []).map((w) => w.id)]));
+    order = legacy.flatMap((mid) => byModule.get(mid) ?? []);
+  }
+  const hidden = new Set<string>(
+    (JSON.parse(localStorage.getItem("lifeos.todayWidgetHidden") ?? "[]") as string[]).filter((id) => known.has(id)),
+  );
+  return { order: order.filter((id) => known.has(id)), hidden };
+}
+
 /**
- * Panel sutunundaki widget'lar, `order` alanina gore sirali.
- * Esitlikte modul sirasi korunur (Array#sort kararli).
+ * Panelde gorunecek widget'lar, kullanici sirasi + gizleme uygulanmis.
+ * Kullanici sirasindaki widget'lar once gelir; sirasizlar varsayilan
+ * slot/order'a duser. Bilinmeyen id'ler guvenle yok sayilir.
+ */
+export function allTodayWidgetViews(): TodayWidgetView[] {
+  const { order, hidden } = readWidgetPrefs();
+  const userIndex = new Map(order.map((id, i) => [id, i]));
+  const views: TodayWidgetView[] = [];
+  for (const module of enabledModules()) {
+    for (const widget of module.todayWidgets ?? []) {
+      views.push({ id: widget.id, title: widget.title, widget, moduleId: module.id });
+    }
+  }
+  return views
+    .filter((view) => !hidden.has(view.id) && view.widget.defaultVisible !== false)
+    .sort((a, b) => {
+      const ai = userIndex.has(a.id) ? userIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
+      const bi = userIndex.has(b.id) ? userIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return a.widget.order - b.widget.order || a.id.localeCompare(b.id);
+    });
+}
+
+/**
+ * Panel sutunundaki widget'lar (kullanici sirasi + gizleme uygulanir).
+ * Esitlikte varsayilan order korunur (Array#sort kararli).
  */
 export const allTodayWidgetsIn = (slot: "left" | "center" | "right"): ComponentType[] =>
-  allTodayWidgets()
-    .filter((w) => (w.slot ?? "center") === slot)
-    .sort((a, b) => a.order - b.order)
-    .map((w) => w.component);
+  allTodayWidgetViews()
+    .filter((view) => (view.widget.slot ?? "center") === slot)
+    .map((view) => view.widget.component);
+
+/**
+ * Ayarlar ekrani icin: gizliler DAHIL tum widget'lar (siralama uygulanir).
+ * Gizli bir widget listede gorunur ki geri gosterilebilsin.
+ */
+export function allTodayWidgetViewsIncludingHidden(): TodayWidgetView[] {
+  const { order, hidden } = readWidgetPrefs();
+  const userIndex = new Map(order.map((id, i) => [id, i]));
+  const views: TodayWidgetView[] = [];
+  for (const module of enabledModules()) {
+    for (const widget of module.todayWidgets ?? []) {
+      views.push({ id: widget.id, title: widget.title, widget, moduleId: module.id });
+    }
+  }
+  void hidden;
+  return views.sort((a, b) => {
+    const ai = userIndex.has(a.id) ? userIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
+    const bi = userIndex.has(b.id) ? userIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;
+    if (ai !== bi) return ai - bi;
+    return a.widget.order - b.widget.order || a.id.localeCompare(b.id);
+  });
+}
+
+/** Ayarlar ekrani: siralamayi kaydeder (backend'e yazma cagiran taraf). */
+export function setTodayWidgetOrder(ids: string[]): void {
+  localStorage.setItem("lifeos.todayWidgetOrder", JSON.stringify(ids));
+}
+
+export function setTodayWidgetHidden(ids: string[]): void {
+  localStorage.setItem("lifeos.todayWidgetHidden", JSON.stringify(ids));
+}
+
+/** Varsayilana don: kullanici sirasi/gizleme temizlenir. */
+export function resetTodayWidgetPrefs(): void {
+  localStorage.removeItem("lifeos.todayWidgetOrder");
+  localStorage.removeItem("lifeos.todayWidgetHidden");
+}
+
 export const allTodayStats = () => orderedModules().flatMap((m) => m.todayStats ?? []);
 export const allRoutes = () => enabledModules().flatMap((m) => m.routes);
 

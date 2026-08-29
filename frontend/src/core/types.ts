@@ -567,6 +567,14 @@ export const MODULE_GROUPS: { id: ModuleGroup; label: string }[] = [
 ];
 
 export interface TodayWidget {
+  /**
+   * Moduller arasi benzersiz ve KALICI kimlik (Faz 19). Kullanicinin
+   * gizleme/siralama tercihlerinin anahtari oldugu icin yeniden
+   * adlandirilmaz.
+   */
+  id: string;
+  /** Ayarlar ekraninda gorunen ad. */
+  title: string;
   component: ComponentType;
   /**
    * Panel sutunu: "left" (plan), "center" (akis), "right" (durum).
@@ -574,10 +582,12 @@ export interface TodayWidget {
    */
   slot?: "left" | "center" | "right";
   /**
-   * Sutun icindeki sira; kucuk once. ZORUNLU: verilmezse cakisma uretir
-   * (eski varsayilan 50 kaldirildi).
+   * Sutun icindeki varsayilan sira; kucuk once. ZORUNLU: verilmezse
+   * cakisma uretir (eski varsayilan 50 kaldirildi).
    */
   order: number;
+  /** Varsayilan gorunurluk; verilmezse gorunur. */
+  defaultVisible?: boolean;
 }
 
 export interface ModuleSpec {

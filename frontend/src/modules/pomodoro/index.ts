@@ -12,6 +12,6 @@ registerModule({
   icon: Timer,
   group: "do",
   routes: [{ path: "/pomodoro", element: PomodoroPage }],
-  todayWidgets: [{ component: PomodoroWidget, slot: "left", order: 30 }],
+  todayWidgets: [{ id: "pomodoro.widget", title: "Pomodoro", component: PomodoroWidget, slot: "left", order: 30 }],
   commands: [{ id: "pomodoro.open", label: "Pomodoro başlat", run: () => navigate("/pomodoro") }],
 });

@@ -17,7 +17,7 @@ registerModule({
   group: "capture",
   routes: [{ path: "/inbox", element: InboxPage }],
   todayStats: [InboxStats],
-  todayWidgets: [{ component: InboxWidget, slot: "right", order: 40 }],
+  todayWidgets: [{ id: "inbox.widget", title: "Gelen kutusu", component: InboxWidget, slot: "right", order: 40 }],
   commands: [
     { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/inbox") },
     {

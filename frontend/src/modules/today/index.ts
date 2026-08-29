@@ -17,8 +17,8 @@ registerModule({
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.
   // orta = akis, sag = durum. Sira icin bkz. TodayWidget.order.
   todayWidgets: [
-    { component: TodayAgendaWidget, slot: "left", order: 10 },
-    { component: FeedStreamWidget, slot: "center", order: 10 },
-    { component: QuickLinksWidget, slot: "right", order: 80 },
+    { id: "today.agenda", title: "Günün akışı", component: TodayAgendaWidget, slot: "left", order: 10 },
+    { id: "today.feed-stream", title: "Akış", component: FeedStreamWidget, slot: "center", order: 10 },
+    { id: "today.quick-links", title: "Hızlı bağlantılar", component: QuickLinksWidget, slot: "right", order: 80 },
   ],
 });

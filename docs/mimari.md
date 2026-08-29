@@ -189,4 +189,21 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   bağlama ve duplicate (`link_uniq`) backend'de engellenir. Koruyan testler:
   `frontend/src/core/relatedSurfaces.test.ts` (tip→yüzey matrisi),
   `backend/tests/test_links_api.py` (self/duplicate/direction/labels).
+## Faz 19: Today widget sozlesmesi ve kisilestirme
+
+- Her Today widget'i benzersiz kalici `id` + gorunen `title` tasir
+  (moduller arasi; kullanici tercihlerinin anahtari oldugu icin yeniden
+  adlandirilmaz). `TodayWidget` tipi: id, title, component, varsayilan
+  slot/order, defaultVisible.
+- Kullanici sirasi (`today.widget_order`, widget id'leri) sabit order'dan
+  once gelir; sirasiz widget'lar varsayilan slot/order ile yerlesir.
+  Widget bazli gizleme (`today.widget_hidden`) ayridir; `modules.disabled`
+  modulu kapatir (rotalar + butun widget'lari).
+- Eski modul-ID sirasi widget id'lerine goc eder (bilinmeyen id'ler
+  guvenle yok sayilir). Ayarlar ekranindaki virgullu modul alani kaldirildi;
+  yerine gorsel yonetici: gizle/goster, yukari/asagi (klavye erisilebilir),
+  varsayilana don. React key = widget id.
+- Koruyan testler: `frontend/src/core/todayWidgets.test.ts` (benzersiz id,
+  kullanici sirasi, gizleme, legacy goc, bilinmeyen id).
+
 

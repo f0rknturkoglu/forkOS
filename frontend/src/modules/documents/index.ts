@@ -12,6 +12,6 @@ registerModule({
   icon: FileText,
   group: "capture",
   routes: [{ path: "/documents", element: DocumentsPage }],
-  todayWidgets: [{ component: DocumentsWidget, slot: "right", order: 45 }],
+  todayWidgets: [{ id: "documents.recent", title: "Belgeler", component: DocumentsWidget, slot: "right", order: 45 }],
   commands: [{ id: "documents.open", label: "Drive belgelerini aç", run: () => navigate("/documents") }],
 });

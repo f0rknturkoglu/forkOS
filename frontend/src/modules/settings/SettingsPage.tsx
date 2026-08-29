@@ -5,6 +5,7 @@ import { useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import { Input, NumberInput, PageFrame, PageHeader, Section, Textarea, useTheme, useToast } from "@/core/ui";
+import { TodayWidgetsSection } from "./TodayWidgetsSection";
 import type { Theme } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import {
@@ -38,7 +39,6 @@ export function SettingsPage() {
   const mediaLinksRef = useRef<HTMLDivElement>(null);
   const focusedSectionRef = useRef<string | null>(null);
   const [weatherLoc, setWeatherLoc] = useState<string | null>(null);
-  const [widgetOrder, setWidgetOrder] = useState<string | null>(null);
   const [pomodoroDefaults, setPomodoroDefaults] = useState<string | null>(null);
   const [thresholdsText, setThresholdsText] = useState<string | null>(null);
   const [intervalsText, setIntervalsText] = useState<string | null>(null);
@@ -141,24 +141,13 @@ export function SettingsPage() {
           location={settings["weather.location"] as string | undefined}
           onSubmit={saveWeather}
         />
-        <Section title="Bugün sırası">
-          <p className="mb-2 text-meta text-muted">Modül kimliklerini virgülle sırala.</p>
-          <Input
-            disabled={!online}
-            value={widgetOrder ?? (settings["today.widget_order"] ?? []).join(", ")}
-            onChange={setWidgetOrder}
-            onBlur={(v) =>
-              save.mutate({
-                key: "today.widget_order",
-                value: v
-                  .split(",")
-                  .map((x) => x.trim())
-                  .filter(Boolean),
-              })
-            }
-            className="w-full"
-          />
-        </Section>
+        <TodayWidgetsSection
+          online={online}
+          onPersist={(orderIds, hiddenIds) => {
+            save.mutate({ key: "today.widget_order", value: orderIds });
+            save.mutate({ key: "today.widget_hidden", value: hiddenIds });
+          }}
+        />
         <Section title="Pomodoro">
           <Textarea
             disabled={!online}

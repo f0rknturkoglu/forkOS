@@ -29,6 +29,8 @@ registerModule({
     { path: "/media/trash", element: MediaTrashPage },
     { path: "/media/:id", element: MediaDetailPage },
   ],
-  todayWidgets: [{ component: MediaContinueWidget, slot: "right", order: 70 }],
+  todayWidgets: [
+    { id: "media.continue", title: "Devam eden medya", component: MediaContinueWidget, slot: "right", order: 70 },
+  ],
   commands: [{ id: "media.open", label: "Medya kütüphanesini aç", run: () => navigate("/media") }],
 });

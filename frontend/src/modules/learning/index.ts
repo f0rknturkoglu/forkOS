@@ -16,7 +16,7 @@ registerModule({
     { path: "/learning", element: LearningPage },
     { path: "/study", element: LearningPage },
   ],
-  todayWidgets: [{ component: LearningWidget, slot: "left", order: 65 }],
+  todayWidgets: [{ id: "learning.widget", title: "Öğrenme", component: LearningWidget, slot: "left", order: 65 }],
   commands: [
     { id: "learning.open", label: "Öğrenmeyi aç — konular, kurslar, kuyruk", run: () => navigate("/learning") },
     { id: "study.open", label: "Çalışma ağacını aç", run: () => navigate("/study") },
