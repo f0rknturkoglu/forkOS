@@ -7,6 +7,8 @@ const calendarDayFiles = [
   "src/modules/finance/FinancePage.tsx",
   "src/modules/review/ReviewPage.tsx",
   "src/modules/todo/WeeklyPlannerPage.tsx",
+  "src/modules/todo/TodoComposer.tsx",
+  "src/modules/today/TodayAgendaWidget.tsx",
 ];
 
 describe("calendar-day call sites", () => {

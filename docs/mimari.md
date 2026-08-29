@@ -95,3 +95,27 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   `frontend/src/modules/study/`); sidebar "Takip" grubunda tek giriş var.
 - Not: `learning.write` invalidation'ı `related` anahtarını da tazeler
   (bağ kurma konu detayına anında yansır).
+
+## Faz 13: "bugüne al" — plan, son tarih değil
+
+- Plan (`plan_slot`) ile son tarih (`due_at`) ayrı kavramlardır:
+  plan = "bugün yapmayı planlıyorum", due_at = "teslim". Göreve plan
+  vermek ASLA `due_at` yazmaz — yarın gecikmiş görünmemesi için.
+- Görev eklerken `POST /todos` gövdesine `plan_day` (ISO tarihi) verilirse
+  `todo_service.create()` aynı transaction içinde o gün için plan slotu da
+  yazar (desen: `backend/app/modules/review/service.py` — `create()` +
+  `schedule()` tek commit). İki ayrı istek yoktur; ikincisi başarısız olursa
+  görev yarı yazılmış kalırdı. Event'ler ikisi de yazılır: `todo.created` +
+  `plan.scheduled` (kural 3), yeni verb uydurulmaz.
+- `plan_day` geçmiş bir gün olabilir — `schedule()` ile aynı semantik
+  (kısıt yok); planner geçmişe de yazabilir. "Bugün"ü FRONTEND üretir ve
+  tek kaynağı vardır: `frontend/src/lib/date.ts::localDateKey`
+  (Europe/Istanbul) — agenda'nın sorduğu günle aynı helper. Tarayıcının
+  yerel saatine göre gün üreten ikinci bir helper yoktur (Faz 13'te
+  `TodayAgendaWidget`'taki `localDay` kaldırıldı; koruyan test
+  `frontend/src/lib/dateUsage.test.ts`).
+- Mutation sonrası tazeleme, tek istek iki yazma içerdiği için
+  `invalidateAfter("todo.write", "plan.write")` ile yapılır (kural 14).
+- `TodoComposer` "bugüne al" onay kutusu gönderir: varsayılan KAPALI, son
+  seçim `localStorage["todo.planToday"]`'da hatırlanır. Formda plan ile son
+  tarih ayrı etiketlenir ("bugüne al" vs "Son tarih").

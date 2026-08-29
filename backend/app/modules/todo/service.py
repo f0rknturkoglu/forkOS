@@ -220,6 +220,11 @@ async def create(session: AsyncSession, data: TodoIn, *, commit: bool = True) ->
     await log_event(session, verb="todo.created", entity_id=entity.id, entity_type="todo",
                     payload={"priority": data.priority,
                              "due_at": data.due_at.isoformat() if data.due_at else None})
+    if data.plan_day is not None:
+        # Tek istekte atomik: gorev + plan ayni transaction'da yazilir
+        # (review/service.py:251'deki desen). schedule() kendi event'ini atar
+        # (plan.scheduled); todo.created ikisi de kalir (kural 3).
+        await schedule(session, PlanSlotIn(entity_id=todo.id, day=data.plan_day), commit=False)
     if commit:
         await session.commit()
     else:

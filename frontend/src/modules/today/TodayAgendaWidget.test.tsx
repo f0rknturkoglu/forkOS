@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgendaRow, TodayAgenda } from "@/core/types";
-import { localDay, TodayAgendaWidget } from "./TodayAgendaWidget";
+import { localDateKey } from "@/lib/date";
+import { TodayAgendaWidget } from "./TodayAgendaWidget";
 
 type MutationOptions = {
   mutationKey?: readonly unknown[];
@@ -177,7 +178,7 @@ describe("unified Today agenda", () => {
     expect(markup).not.toContain("Bugünün planı");
     expect(markup.indexOf("Ana görev")).toBeLessThan(markup.indexOf("Alt görev"));
     expect(markup.match(/data-agenda-id="child-1"/g)).toHaveLength(1);
-    expect(harness.queries[0].queryKey).toEqual(["today-agenda", localDay()]);
+    expect(harness.queries[0].queryKey).toEqual(["today-agenda", localDateKey(new Date())]);
   });
 
   it("uses the existing owners for completion, planning, removal and settings", async () => {

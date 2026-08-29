@@ -4732,6 +4732,8 @@ export interface components {
             milestone_id?: string | null;
             /** Parent Id */
             parent_id?: string | null;
+            /** Plan Day */
+            plan_day?: string | null;
             /**
              * Position
              * @default 0

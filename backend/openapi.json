@@ -6549,6 +6549,18 @@
             ],
             "title": "Parent Id"
           },
+          "plan_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Day"
+          },
           "position": {
             "default": 0,
             "title": "Position",

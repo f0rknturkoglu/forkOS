@@ -23,6 +23,12 @@ class TodoIn(BaseModel):
     recur: RECUR | None = None
     project_id: uuid.UUID | None = None
     milestone_id: uuid.UUID | None = None
+    #: "Bugune al" akisi: doluysa create() ayni transaction icinde bu gun icin
+    #: plan slotu da yazar (plan = "bu gun yapmayi planliyorum", due_at ayri bir
+    #: kavramdir -- teslim). Gecmis gun kisitlanmaz: schedule() ile ayni
+    #: semantik (planner gecmise de yazabilir); "bugun"u komposerlar Istanbul
+    #: gunune gore uretir, API bu alani genel plan gunu olarak gorur.
+    plan_day: date | None = None
 
 
 class TodoUpdate(BaseModel):

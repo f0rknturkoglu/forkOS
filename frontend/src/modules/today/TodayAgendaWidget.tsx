@@ -30,6 +30,7 @@ import {
   cx,
   useToast,
 } from "@/core/ui";
+import { localDateKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 
 const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
@@ -38,13 +39,6 @@ const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
   weekly: "her hafta",
   monthly: "her ay",
 };
-
-export function localDay(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function startMinute(value: string): number | null {
   if (!value) return null;
@@ -87,7 +81,10 @@ function pickerRow(item: Todo | FeedItem, kind: "todo" | "rss"): AgendaRow {
 }
 
 export function TodayAgendaWidget() {
-  const day = localDay();
+  // Tek "bugun" kaynagi: lib/date.ts::localDateKey (Europe/Istanbul).
+  // Tarayicinin yerel saati farkli bir gun uretebilir; planlama ve agenda
+  // ayni gunu sormali (Faz 13).
+  const day = localDateKey(new Date());
   const online = useOnline();
   const toast = useToast();
   const [adding, setAdding] = useState(false);
