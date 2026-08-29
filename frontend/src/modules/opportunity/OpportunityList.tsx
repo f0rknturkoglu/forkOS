@@ -1,7 +1,7 @@
-import { Bookmark, ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { Bookmark, CalendarDays, ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Button, Chip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
-import { REMOTE_LABELS, SCORE_TONE, STATUSES, daysLeft, kindLabel, remoteKind, scoreBand, statusLabel } from "./labels";
+import { REMOTE_LABELS, STATUSES, daysLeft, jobCategoryLabel, kindLabel, remoteKind, scoreBand, statusLabel } from "./labels";
 import { sourceLabel } from "@/core/labels";
 import type { RemoteKind } from "./labels";
 
@@ -31,6 +31,27 @@ export function FilterChip({
       <span>{label}</span>
       <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
     </button>
+  );
+}
+
+export function OpportunityCollection({
+  layout,
+  children,
+}: {
+  layout: "rows" | "grid";
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-layout={layout}
+      className={cx(
+        layout === "grid"
+          ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+          : "divide-y divide-subtle",
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -73,6 +94,8 @@ export function OpportunityCard({
   const urgent = left !== null && left <= 7;
   const band = scoreBand(item.score);
   const rk = remoteKind(item.remote);
+  const announcement = item.kind !== "job";
+  const publicationDate = item.published_at ?? item.found_at;
 
   function chip(active: boolean) {
     return cx(
@@ -86,31 +109,44 @@ export function OpportunityCard({
   return (
     <article
       className={cx(
-        "group min-w-0 px-1 py-3 transition hover:bg-surface-hover",
+        "group min-w-0 transition hover:bg-surface-hover",
         layout === "rows"
-          ? "grid grid-cols-[52px_minmax(0,1fr)] gap-3 sm:grid-cols-[58px_minmax(0,1fr)_auto]"
-          : "flex flex-col gap-2",
+          ? "grid grid-cols-[52px_minmax(0,1fr)] gap-3 px-1 py-3 sm:grid-cols-[58px_minmax(0,1fr)_auto]"
+          : "flex h-full flex-col gap-3 rounded-card border border-subtle bg-surface p-4",
         band === "killed" && "opacity-60",
       )}
     >
-      <div className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}>
-        <div
-          className={cx(
-            "numeral leading-none",
-            layout === "rows" ? "text-numeral-lg" : "text-title",
-            band === "strong"
-              ? "text-ok"
-              : band === "fair"
-                ? "text-warn"
-                : band === "killed"
-                  ? "text-danger"
-                  : "text-muted",
-          )}
-        >
-          {item.score === null ? "—" : Math.round(item.score)}
+      {announcement ? (
+        <div className={cx("text-center text-secondary", layout === "grid" && "flex items-center gap-2 text-left")}>
+          <CalendarDays size={18} className="mx-auto text-accent" />
+          <time dateTime={publicationDate} className="mt-1 block text-meta font-medium">
+            {new Date(publicationDate).toLocaleDateString("tr-TR", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          </time>
         </div>
-        <span className="text-micro uppercase tracking-wide text-muted">skor</span>
-      </div>
+      ) : (
+        <div className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}>
+          <div
+            className={cx(
+              "numeral leading-none",
+              layout === "rows" ? "text-numeral-lg" : "text-title",
+              band === "strong"
+                ? "text-ok"
+                : band === "fair"
+                  ? "text-warn"
+                  : band === "killed"
+                    ? "text-danger"
+                    : "text-muted",
+            )}
+          >
+            {item.score === null ? "—" : Math.round(item.score)}
+          </div>
+          <span className="text-micro uppercase tracking-wide text-muted">skor</span>
+        </div>
+      )}
       <div className="min-w-0">
         <button
           type="button"
@@ -127,7 +163,14 @@ export function OpportunityCard({
               {item.location}
             </span>
           )}
-          <span title={new Date(item.found_at).toLocaleString("tr-TR")}>{relativeTime(item.found_at)} · tarandı</span>
+          {!announcement && (
+            <span title={new Date(publicationDate).toLocaleString("tr-TR")}>
+              {relativeTime(publicationDate)} · {item.published_at ? "yayınlandı" : "tarandı"}
+            </span>
+          )}
+          {!announcement && item.category && (
+            <span className={chip(false)}>{jobCategoryLabel(item.category)}</span>
+          )}
           <button
             type="button"
             onClick={() => onKind?.(item.kind)}

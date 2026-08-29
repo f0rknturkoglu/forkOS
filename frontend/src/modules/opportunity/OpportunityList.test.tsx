@@ -1,17 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Opportunity } from "@/core/types";
-import { FilterChip, OpportunityCard } from "./OpportunityList";
+import { FilterChip, OpportunityCard, OpportunityCollection } from "./OpportunityList";
 
 const item = {
   id: "1",
   title: "Frontend Developer",
   kind: "job",
+  category: "software",
   organization: "forkOS",
   url: "https://example.com/job",
   status: "discovered",
   priority: 2,
   found_at: "2026-08-23T10:00:00Z",
+  published_at: "2026-08-22T10:00:00Z",
   deadline_at: null,
   applied_at: null,
   location: "İstanbul",
@@ -48,7 +50,34 @@ describe("opportunity list components", () => {
 
     expect(html).toContain("82");
     expect(html).toContain("Frontend Developer");
+    expect(html).toContain("Yazılım &amp; mühendislik");
     expect(html).toContain("Çöpe at");
+  });
+
+  it("uses a real responsive collection in grid mode", () => {
+    const html = renderToStaticMarkup(
+      <OpportunityCollection layout="grid"><span>card</span></OpportunityCollection>,
+    );
+    expect(html).toContain("grid-cols-1");
+    expect(html).toContain("md:grid-cols-2");
+    expect(html).toContain("xl:grid-cols-3");
+  });
+
+  it("renders announcements without a score", () => {
+    const html = renderToStaticMarkup(
+      <OpportunityCard
+        item={{ ...item, kind: "exam", category: null, score: null, published_at: "2026-08-26T00:00:00Z" }}
+        disabled={false}
+        isTrash={false}
+        onOpen={() => undefined}
+        onStatus={() => undefined}
+        onTrash={() => undefined}
+        onRestore={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+    expect(html).toContain("26 Ağu 2026");
+    expect(html).not.toContain("skor");
   });
 
   it("renders filter count and selected state", () => {
