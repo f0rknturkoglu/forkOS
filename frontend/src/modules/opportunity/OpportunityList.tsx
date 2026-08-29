@@ -12,7 +12,7 @@ export function FilterChip({
   onClick,
 }: {
   label: string;
-  count: number;
+  count?: number;
   active: boolean;
   onClick: () => void;
 }) {
@@ -29,7 +29,9 @@ export function FilterChip({
       )}
     >
       <span>{label}</span>
-      <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
+      {count !== undefined && (
+        <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
+      )}
     </button>
   );
 }

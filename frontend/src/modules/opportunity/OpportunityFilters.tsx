@@ -75,7 +75,6 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
                 <FilterChip
                   key={days}
                   label={days === 365 ? "Son 1 yıl" : `Son ${days} gün`}
-                  count={0}
                   active={filters.period_days === days}
                   onClick={() => update({ period_days: filters.period_days === days ? undefined : days })}
                 />
