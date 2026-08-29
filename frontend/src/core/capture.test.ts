@@ -63,14 +63,14 @@ describe("evrensel yakalama (Faz 22)", () => {
     expect(harness.apiPost.mock.calls[0][1]).not.toHaveProperty("plan_day");
   });
 
-  it("note: /notes yazar; relate_to varsa notes_about bagi kurar", async () => {
-    harness.apiPost.mockResolvedValueOnce({ id: "n1" }).mockResolvedValueOnce({ id: "l1" });
+  it("note: TEK istek /notes; relate_to ayni gövdede gider (Faz 29)", async () => {
+    harness.apiPost.mockResolvedValueOnce({ id: "n1" });
     await capture({ kind: "note", text: "Toplantı notu", note: { pinned: true, relate_to: "opp-1" } });
-    expect(harness.apiPost).toHaveBeenNthCalledWith(1, "/notes", { body: "Toplantı notu", pinned: true });
-    expect(harness.apiPost).toHaveBeenNthCalledWith(2, "/links", {
-      from_id: "n1",
-      to_id: "opp-1",
-      relation: "notes_about",
+    expect(harness.apiPost).toHaveBeenCalledTimes(1);
+    expect(harness.apiPost).toHaveBeenCalledWith("/notes", {
+      body: "Toplantı notu",
+      pinned: true,
+      relate_to: "opp-1",
     });
     expect(harness.invalidate).toHaveBeenCalledWith("note.write", "link.write");
   });

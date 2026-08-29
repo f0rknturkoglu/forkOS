@@ -27,7 +27,12 @@ vi.hoisted(() => {
   });
 });
 
-type MutationOptions = { mutationKey?: readonly unknown[]; mutationFn?: (variables: never) => unknown };
+type MutationOptions = {
+  mutationKey?: readonly unknown[];
+  mutationFn?: (variables: never) => Promise<unknown> | unknown;
+  onSuccess?: (result: unknown) => void;
+  onError?: () => void;
+};
 
 const harness = vi.hoisted(() => ({
   apiGet: vi.fn(),
@@ -38,7 +43,10 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("@/core/api", () => ({ api: { get: harness.apiGet, post: harness.apiPost } }));
-vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
+vi.mock("@/lib/hooks", () => ({
+  useOnline: () => true,
+  useDebounced: (value: string) => value,
+}));
 vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
@@ -48,13 +56,30 @@ vi.mock("@tanstack/react-query", () => ({
     harness.mutations.push(options);
     return {
       isPending: harness.pending,
-      mutate: (variables: never) => void options.mutationFn?.(variables),
+      // Gercek async davranis: mutationFn await edilir, onSuccess/onError
+      // ona gore calisir. Reject edilen promise asla unhandled kalmaz.
+      mutate: async (variables: never) => {
+        try {
+          const result = await options.mutationFn?.(variables);
+          options.onSuccess?.(result);
+        } catch {
+          options.onError?.();
+        }
+      },
     };
   }),
-  useQuery: vi.fn(() => ({ data: [] })),
+  useQuery: vi.fn((options: { queryKey: readonly unknown[]; queryFn: () => unknown }) => {
+    const key = String(options.queryKey[0]);
+    if (key === "search") {
+      return {
+        data: [{ id: "opp-1", type: "opportunity", title: "Fırsat A", created_at: "", updated_at: "" }],
+      };
+    }
+    return { data: [] };
+  }),
 }));
 
-describe("CaptureDialog (Faz 22)", () => {
+describe("CaptureDialog (Faz 22/29)", () => {
   beforeEach(() => {
     localStorage.clear();
     harness.apiGet.mockReset();
@@ -65,9 +90,13 @@ describe("CaptureDialog (Faz 22)", () => {
   });
   afterEach(() => cleanup());
 
-  it("acilinca tur sekmeleri gorunur; secilen tur gonderilmeden once belli", () => {
+  function openAs(prefill: { text?: string; kind?: "task" | "note" | "link" }) {
     render(<CaptureDialog />);
-    act(() => openCapture({ text: "Test metni" }));
+    act(() => openCapture(prefill));
+  }
+
+  it("acilinca tur sekmeleri gorunur; secilen tur gonderilmeden once belli", () => {
+    openAs({ text: "Test metni" });
     expect(screen.getByRole("dialog", { name: "Hızlı yakala" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Görev/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Not/ })).toBeTruthy();
@@ -75,28 +104,85 @@ describe("CaptureDialog (Faz 22)", () => {
     expect(screen.getByLabelText("Görev başlığı")).toBeTruthy();
   });
 
-  it("URL prefille gelirse baglanti onerilir ve /capture'a gider", async () => {
-    render(<CaptureDialog />);
-    act(() => openCapture({ text: "https://example.com/yazi" }));
+  it("URL prefill baglanti turunu ONERIR ama kullanici turu degistirebilir", async () => {
+    openAs({ text: "https://example.com/yazi" });
     expect(screen.getByLabelText("Bağlantı adresi")).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("Bağlantı adresi"), { target: { value: "https://example.com/yazi" } });
+    fireEvent.change(screen.getByLabelText("Bağlantı adresi"), {
+      target: { value: "https://example.com/yazi" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
     await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
     const [path, body] = harness.apiPost.mock.calls[0];
     expect(path).toBe("/capture");
     expect(body.url).toBe("https://example.com/yazi");
     expect(body.source).toBe("capture");
+
+    // Kullanici turu degistirebilir: Not sekmesine gec.
+    fireEvent.click(screen.getByRole("button", { name: /Not/ }));
+    expect(screen.getByLabelText("Not içeriği")).toBeTruthy();
   });
 
-  it("gonderim beklerken Yakala kilitlenir (double submit yok)", () => {
+  it("Enter tek kayit olusturur", async () => {
+    openAs({ text: "Enter ile gorev" });
+    const input = screen.getByLabelText("Görev başlığı");
+    fireEvent.change(input, { target: { value: "Enter ile gorev" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalledTimes(1));
+    expect(harness.apiPost.mock.calls[0][0]).toBe("/todos");
+  });
+
+  it("pending iken gonderim kilitlenir (ikinci kayit olusmaz)", () => {
     harness.pending = true;
-    const { unmount } = render(<CaptureDialog />);
-    act(() => openCapture({ text: "Metin" }));
-    // Pending iken etiket "Yakalanıyor…" ve buton kilitli (double submit yok).
-    const button = screen.getByRole("button", { name: "Yakalanıyor…" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    unmount();
-    harness.pending = false;
+    openAs({ text: "Bekleyen gorev" });
+    expect((screen.getByRole("button", { name: "Yakalanıyor…" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Yakalanıyor…" }));
+    expect(harness.apiPost).not.toHaveBeenCalled();
+  });
+
+  it("Escape kayit olusturmadan kapatir", () => {
+    openAs({ text: "Kapatilacak" });
+    // Keydown form'un icine (input) verilir; form'un onKeyDown'i yakalar.
+    fireEvent.keyDown(screen.getByLabelText("Görev başlığı"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(harness.apiPost).not.toHaveBeenCalled();
+  });
+
+  it("tekrar + etiketler gonderilen task intent'ine ulasir", async () => {
+    openAs({ text: "Rutin gorev" });
+    fireEvent.click(screen.getByRole("button", { name: "her gün" }));
+    const tagInput = screen.getByLabelText("Etiket");
+    fireEvent.change(tagInput, { target: { value: "is" } });
+    fireEvent.keyDown(tagInput, { key: "Enter" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
+    const [path, body] = harness.apiPost.mock.calls[0];
+    expect(path).toBe("/todos");
+    expect(body.recur).toBe("daily");
+    expect(body.tags).toEqual(["is"]);
+  });
+
+  it("not iliskilendirme: secilen kayit relate_to olarak TEK istekte gider", async () => {
+    openAs({ text: "Toplanti notu", kind: "note" });
+    const relate = screen.getByLabelText("İlişkilendirilecek kayıt");
+    fireEvent.change(relate, { target: { value: "Firsat" } });
+    await screen.findByText("Fırsat A");
+    fireEvent.click(screen.getByText("Fırsat A"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
+    const [path, body] = harness.apiPost.mock.calls[0];
+    expect(path).toBe("/notes");
+    expect(body.relate_to).toBe("opp-1");
+  });
+
+  it("unhandled rejection uretmez: hata onError'a gider, suite temiz cikar", async () => {
+    harness.apiPost.mockRejectedValueOnce(new Error("offline"));
+    openAs({ text: "Basarisiz gorev" });
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+    // Mutation reject eder; dialog acik kalir ve daha sonra yeniden denenebilir.
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
   });
 });

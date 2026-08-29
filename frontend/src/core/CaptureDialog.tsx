@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link2, ListChecks, StickyNote, X } from "lucide-react";
-import { api } from "@/core/api";
+import { api, qs } from "@/core/api";
 import { capture, readCaptureKindPreference, writeCaptureKindPreference, type CaptureKind } from "@/core/capture";
-import { Checkbox, Chip, Input, Select, Button, Kbd, cx, useToast } from "@/core/ui";
+import { Chip, Checkbox, Input, Select, Button, Kbd, cx, useToast } from "@/core/ui";
+import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { readPlanTodayPreference, writePlanTodayPreference } from "@/core/tasks";
-import { useOnline } from "@/lib/hooks";
-import { parseTaskText } from "@/lib/taskParser";
-import { todayKey } from "@/lib/date";
-import { PRIORITIES } from "@/modules/todo/priority";
-import type { Project } from "@/core/types";
+import { useDebounced, useOnline } from "@/lib/hooks";
+import { PRIORITIES, RECURRENCES } from "@/modules/todo/priority";
+import type { Entity as EntityRecord, Project } from "@/core/types";
 
 const OPEN_EVENT = "forkos:open-capture";
 
@@ -36,9 +35,13 @@ const COLLECTIONS = [
 ] as const;
 
 /**
- * Evrensel yakalama kutusu (Faz 22): gorev / not / baglanti tek pencerede.
- * Secilen tur gonderilmeden once gorunur -- sessiz yanlis siniflandirma yok.
- * Son kullanilan tur localStorage'da hatirlanir. Dosya yakalama yoktur.
+ * Evrensel yakalama kutusu (Faz 22, Faz 29).
+ *
+ * Gercek form: Enter gonderir, Esc kapatir (kayit olusmaz), pending iken
+ * ikinci gonderim engellenir. Task: oncelik + "bugune al" + son tarih +
+ * tekrar + etiketler. Not: pin + registry/search tabanli "iliskilendir"
+ * secici (not + notes_about TEK transaction, backend). Baglanti: baslik +
+ * koleksiyon + etiketler. Secilen tur gonderimden once gorunur.
  */
 export function CaptureDialog() {
   const toast = useToast();
@@ -49,20 +52,23 @@ export function CaptureDialog() {
   const [url, setUrl] = useState("");
   const [priority, setPriority] = useState(2);
   const [planToday, setPlanToday] = useState(() => readPlanTodayPreference());
-  // Faz 23: parser onerisi -- "yarin"/gun adi gibi acik plan gunu.
-  const [planDay, setPlanDay] = useState<string | undefined>(undefined);
   const [due, setDue] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [recur, setRecur] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [parsed, setParsed] = useState<ReturnType<typeof parseTaskText> | null>(null);
+  const [tagDraft, setTagDraft] = useState("");
   const [pinned, setPinned] = useState(false);
   const [collection, setCollection] = useState<string>("inbox");
+  const [title, setTitle] = useState("");
+  // Not iliskisi (Faz 29): registry/search tabanli secici.
+  const [relateTo, setRelateTo] = useState<{ id: string; type: string; title: string } | null>(null);
+  const [relateQuery, setRelateQuery] = useState("");
+  const debouncedRelate = useDebounced(relateQuery.trim(), 250);
 
   useEffect(() => {
     function onOpen(event: Event) {
       const detail = (event as CustomEvent<CapturePrefill>).detail ?? {};
       const value = detail.text ?? "";
-      // URL gorunuyorsa baglanti ONER ama kullanici turu degistirebilir.
       const looksUrl = /^https?:\/\//i.test(value.trim());
       setKind(detail.kind ?? (looksUrl ? "link" : readCaptureKindPreference()));
       if (looksUrl) {
@@ -85,55 +91,35 @@ export function CaptureDialog() {
     }
   }, [open, kind]);
 
-  // Faz 23: metin ayristirilir; kullanici alanlari HENUZ DEGISMEDISSE
-  // oneriler uygulanir (kullanici override'i parserdan once gelir).
-  useEffect(() => {
-    if (kind !== "task" || !text.trim()) {
-      setParsed(null);
-      return;
-    }
-    const result = parseTaskText(text);
-    setParsed(result);
-    if (result.plan_day && planDay === undefined && !planToday) {
-      setPlanDay(result.plan_day);
-      setPlanToday(result.plan_day === todayKey());
-    }
-    if (result.due_at && !due) {
-      const date = new Date(result.due_at);
-      setDue(
-        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(
-          2,
-          "0",
-        )}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
-      );
-    }
-    if (result.priority !== undefined && priority === 2) setPriority(result.priority);
-    if (result.tags.length > 0 && tags.length === 0) setTags(result.tags);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, kind]);
-
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
     queryFn: () => api.get<Project[]>("/projects"),
     enabled: open,
   });
 
+  const relateQueryState = useQuery<EntityRecord[]>({
+    queryKey: ["search", debouncedRelate],
+    queryFn: () => api.get<EntityRecord[]>(`/search${qs({ q: debouncedRelate, limit: 8 })}`),
+    enabled: open && kind === "note" && debouncedRelate.length >= 2,
+  });
+  const relateHits = (relateQueryState.data ?? []) as EntityRecord[];
+
   const submit = useMutation({
     mutationKey: ["capture-submit"],
     mutationFn: () =>
       capture({
         kind,
-        text: (kind === "link" ? url || text : text).trim(),
+        text: (kind === "link" ? title || url || text : text).trim(),
         url: url || (kind === "link" ? text : undefined),
         task: {
           priority,
           due_at: due ? new Date(due).toISOString() : undefined,
-          plan_day: planDay ?? (planToday ? todayKey() : undefined),
+          recur: recur || undefined,
           project_id: projectId || undefined,
           tags,
         },
-        note: { pinned },
-        link: { collection: collection as "inbox" | "reference" | "learning" },
+        note: { pinned, relate_to: relateTo?.id },
+        link: { collection: collection as "inbox" | "reference" | "learning", tags },
       }),
     onSuccess: (result) => {
       writeCaptureKindPreference(kind);
@@ -155,8 +141,11 @@ export function CaptureDialog() {
     setProjectId("");
     setPinned(false);
     setTags([]);
-    setPlanDay(undefined);
-    setParsed(null);
+    setTagDraft("");
+    setRecur("");
+    setRelateTo(null);
+    setRelateQuery("");
+    setTitle("");
   }
 
   function switchKind(next: CaptureKind) {
@@ -164,7 +153,16 @@ export function CaptureDialog() {
     writeCaptureKindPreference(next);
   }
 
-  const canSubmit = online && !submit.isPending && (kind === "link" ? (url || text).trim() : text.trim()).length > 0;
+  function addTag() {
+    const clean = tagDraft.trim().replace(/^#/, "");
+    if (clean && !tags.includes(clean)) setTags((current) => [...current, clean]);
+    setTagDraft("");
+  }
+
+  // Narrowing'den bagimsiz: iliski hedefinin id'si (Faz 29 secici).
+  const relateToId = relateTo?.id;
+  const canSubmit =
+    online && !submit.isPending && (kind === "link" ? (title || url || text).trim() : text.trim()).length > 0;
 
   if (!open) return null;
 
@@ -172,12 +170,29 @@ export function CaptureDialog() {
     <div
       role="dialog"
       aria-label="Hızlı yakala"
-      className="fixed inset-0 z-[70] flex items-start justify-center bg-black/30 pt-[12vh] px-4"
+      className="fixed inset-0 z-[70] flex items-start justify-center bg-black/30 px-4 pt-[12vh]"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}
     >
-      <div className="w-full max-w-md overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay">
+      <form
+        className="w-full max-w-md overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            close();
+          } else if (event.key === "Enter") {
+            // Enter gonderir (tag input'u kendi Enter'ini stopPropagation ile
+            // yakalar ve buraya ulasmaz). Implicit submission onlenir.
+            event.preventDefault();
+            if (canSubmit) submit.mutate();
+          }
+        }}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canSubmit) submit.mutate();
+        }}
+      >
         <div className="flex items-center border-b border-subtle">
           {KIND_TABS.map((tab) => {
             const Icon = tab.icon;
@@ -211,28 +226,21 @@ export function CaptureDialog() {
               className="w-full"
             />
           ) : (
-            <Input
-              value={url}
-              onChange={setUrl}
-              placeholder="https://…"
-              ariaLabel="Bağlantı adresi"
-              className="w-full"
-            />
-          )}
-
-          {kind === "task" && parsed && parsed.consumed.length > 0 && (
-            <div className="space-y-1 rounded-card border border-accent-border bg-accent-surface/40 px-3 py-2">
-              <p className="text-meta text-accent">Metinden çözüldü — onaylamadan önce düzenleyebilirsin:</p>
-              <div className="flex flex-wrap items-center gap-1">
-                {parsed.consumed.map((part) => (
-                  <Chip key={part}>{part}</Chip>
-                ))}
-              </div>
-              {parsed.warnings.map((warning) => (
-                <p key={warning} className="text-meta text-warn">
-                  {warning}
-                </p>
-              ))}
+            <div className="space-y-2">
+              <Input
+                value={title}
+                onChange={setTitle}
+                placeholder="Başlık (opsiyonel)"
+                ariaLabel="Bağlantı başlığı"
+                className="w-full"
+              />
+              <Input
+                value={url}
+                onChange={setUrl}
+                placeholder="https://…"
+                ariaLabel="Bağlantı adresi"
+                className="w-full"
+              />
             </div>
           )}
 
@@ -257,12 +265,30 @@ export function CaptureDialog() {
                   </button>
                 ))}
               </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-meta text-muted">Tekrar</span>
+                {RECURRENCES.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setRecur(item.value)}
+                    aria-pressed={recur === item.value}
+                    className={cx(
+                      "rounded-control border px-2 py-1 text-meta transition",
+                      recur === item.value
+                        ? "border-accent-border bg-accent-surface text-accent"
+                        : "border-subtle text-muted hover:border-strong",
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 <Checkbox
                   checked={planToday}
                   onChange={(value) => {
                     setPlanToday(value);
-                    setPlanDay(value ? todayKey() : undefined);
                     writePlanTodayPreference(value);
                   }}
                   label="bugüne al"
@@ -285,7 +311,92 @@ export function CaptureDialog() {
             </div>
           )}
 
-          {kind === "note" && <Checkbox checked={pinned} onChange={setPinned} label="sabitle" />}
+          {kind === "note" && (
+            <div className="space-y-2.5">
+              <Checkbox checked={pinned} onChange={setPinned} label="sabitle" />
+              <div>
+                <span className="mb-1 block text-meta text-muted">İlişkilendir (opsiyonel)</span>
+                {relateTo ? (
+                  <div className="flex items-center gap-2 rounded-card border border-accent-border bg-accent-surface px-3 py-1.5 text-meta text-accent">
+                    <span className="min-w-0 flex-1 truncate">
+                      <a href={`#${entityRoute(relateTo.type, relateTo.id).replace(/^#/, "")}`}>{relateTo.title}</a>
+                    </span>
+                    <button type="button" onClick={() => setRelateTo(null)} aria-label="İlişkiyi kaldır">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      value={relateQuery}
+                      onChange={setRelateQuery}
+                      placeholder="Kayıt ara…"
+                      ariaLabel="İlişkilendirilecek kayıt"
+                      className="w-full"
+                    />
+                    {debouncedRelate.length >= 2 && (
+                      <ul className="mt-1 max-h-40 overflow-y-auto rounded-card border border-subtle">
+                        {relateHits
+                          .filter((hit: EntityRecord) => hit.id !== relateToId)
+                          .slice(0, 6)
+                          .map((hit) => (
+                            <li key={hit.id}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRelateTo({ id: hit.id, type: hit.type, title: hit.title });
+                                  setRelateQuery("");
+                                }}
+                                className="flex w-full items-center justify-between gap-2 border-b border-subtle px-3 py-1.5 text-left text-meta last:border-b-0 hover:bg-surface-hover"
+                              >
+                                <span className="min-w-0 truncate">{hit.title}</span>
+                                <Chip>{typeLabel(hit.type)}</Chip>
+                              </button>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {(kind === "task" || kind === "link") && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="flex items-center gap-1 rounded-full border border-accent-border bg-accent-surface px-2 py-0.5 text-micro text-accent"
+                >
+                  #{tag}
+                  <button
+                    type="button"
+                    onClick={() => setTags((current) => current.filter((item) => item !== tag))}
+                    aria-label={`${tag} etiketini kaldır`}
+                    className="hover:opacity-70"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+              <Input
+                value={tagDraft}
+                onChange={setTagDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === ",") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    addTag();
+                  }
+                }}
+                onBlur={addTag}
+                placeholder="etiket ekle"
+                ariaLabel="Etiket"
+                className="min-w-24 flex-1"
+              />
+            </div>
+          )}
 
           {kind === "link" && (
             <Select value={collection} onChange={setCollection} ariaLabel="Koleksiyon" className="w-full">
@@ -301,12 +412,12 @@ export function CaptureDialog() {
             <span className="text-meta text-muted">
               <Kbd>↵</Kbd> yakala · <Kbd>esc</Kbd> vazgeç
             </span>
-            <Button type="submit" variant="primary" size="sm" disabled={!canSubmit} onClick={() => submit.mutate()}>
+            <Button type="submit" variant="primary" size="sm" disabled={!canSubmit}>
               {submit.isPending ? "Yakalanıyor…" : "Yakala"}
             </Button>
           </div>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

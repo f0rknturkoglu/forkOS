@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import archive_entity, create_entity, delete_entity, touch_entity
 from app.core.events import log_event
+from app.core.links import link
 from app.core.models import Entity
 from app.modules.note.models import Note
 from app.modules.note.schemas import NoteIn, NoteOut, NoteUpdate
@@ -40,8 +41,15 @@ async def create(session: AsyncSession, data: NoteIn) -> NoteOut:
                                  title=derive_title(data.body), search_text=data.body)
     note = Note(id=entity.id, body=data.body, pinned=data.pinned)
     session.add(note)
+    if data.relate_to is not None:
+        # Ayni transaction: iliski kurulamazsa not da olusmaz (Faz 29).
+        target = await session.get(Entity, data.relate_to)
+        if target is None:
+            raise ValueError("iliskilendirilecek kayit bulunamadi")
+        await link(session, note.id, data.relate_to, "notes_about")
     await log_event(session, verb="note.created", entity_id=note.id, entity_type="note",
-                    payload={"pinned": data.pinned})
+                    payload={"pinned": data.pinned,
+                             "relate_to": str(data.relate_to) if data.relate_to else None})
     await session.commit()
     return _out(note, entity.title, entity.created_at, entity.updated_at)
 

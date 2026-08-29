@@ -4071,6 +4071,8 @@ export interface components {
              * @default false
              */
             pinned: boolean;
+            /** Relate To */
+            relate_to?: string | null;
         };
         /** NoteOut */
         NoteOut: {

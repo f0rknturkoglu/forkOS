@@ -77,13 +77,12 @@ export async function capture(intent: CaptureIntent): Promise<CaptureResult> {
   }
 
   if (intent.kind === "note") {
+    // Tek istek: not + notes_about bagi backend'de ayni transaction'da (Faz 29).
     const note = await api.post<{ id: string }>("/notes", {
       body: intent.text,
       pinned: intent.note?.pinned ?? false,
+      ...(intent.note?.relate_to ? { relate_to: intent.note.relate_to } : {}),
     });
-    if (intent.note?.relate_to) {
-      await api.post("/links", { from_id: note.id, to_id: intent.note.relate_to, relation: "notes_about" });
-    }
     invalidateAfter("note.write", "link.write");
     return { kind: "note", id: note.id };
   }

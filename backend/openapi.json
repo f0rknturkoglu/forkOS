@@ -4298,6 +4298,18 @@
             "default": false,
             "title": "Pinned",
             "type": "boolean"
+          },
+          "relate_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relate To"
           }
         },
         "required": [

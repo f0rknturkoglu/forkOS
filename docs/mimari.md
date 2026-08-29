@@ -247,7 +247,13 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
   Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
   bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden
+- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi
+  Enter'ini durdurur), Esc kapatir, pending iken gonderim kilitlenir.
+  Task'a tekrar (recurrence) ve etiket duzenleyici; baglantiya baslik;
+  nota registry/search tabanli "iliskilendir" secici eklendi. Not +
+  `notes_about` bagi backend'de TEK transaction (`NoteIn.relate_to`) --
+  iliski basarisizsa not da olusmaz.
+
   once gorunur (sessiz siniflandirma yok). URL girilirse baglanti onerilir
   ama kullanici not olarak saklayabilir. Son kullanilan tur
   localStorage'da hatirlanir; double-submit buton kilidiyle engellenir.

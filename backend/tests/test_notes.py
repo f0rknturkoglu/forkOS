@@ -85,6 +85,33 @@ async def test_notes_about_relation_visible_on_both_sides(client: AsyncClient) -
     await client.delete(f"/api/todos/{todo['id']}")
 
 
+async def test_note_with_relate_to_is_one_transaction(client: AsyncClient) -> None:
+    """Faz 29: not + notes_about bagi tek transaction; iliski basarisizsa
+    not da olusmaz (yarim kayit yok)."""
+    todo = (await client.post("/api/todos", json={"title": "Notlanan"})).json()
+
+    response = await client.post("/api/notes", json={
+        "body": "Baglantili not", "relate_to": todo["id"],
+    })
+    assert response.status_code == 201, response.text
+    note = response.json()
+    related = (await client.get(f"/api/entities/{note['id']}/related")).json()
+    assert any(row["relation"] == "notes_about" and row["entity"]["id"] == todo["id"]
+               for row in related)
+
+    # Gecersiz relate_to -> not OLUSMAZ.
+    import uuid as _uuid
+    failed = await client.post("/api/notes", json={
+        "body": "Yarim kalmamali", "relate_to": str(_uuid.uuid4()),
+    })
+    assert failed.status_code == 400
+    notes = (await client.get("/api/notes")).json()
+    assert "Yarim kalmamali" not in {item["title"] for item in notes}
+
+    await client.delete(f"/api/notes/{note['id']}")
+    await client.delete(f"/api/todos/{todo['id']}")
+
+
 def test_derive_title_edge_cases() -> None:
     from app.modules.note.service import derive_title
 

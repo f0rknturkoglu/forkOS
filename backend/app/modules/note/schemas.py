@@ -9,6 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field
 class NoteIn(BaseModel):
     body: str = Field(min_length=1, max_length=200_000)
     pinned: bool = False
+    #: Opsiyonel iliski intent'i (Faz 29): doluysa not oluşturulurken AYNI
+    #: transaction icinde notes_about bagi kurulur. Iliski basarisizsa not
+    #: da olusmaz (yarim kayit yok). Geriye uyumlu: bos birakilabilir.
+    relate_to: uuid.UUID | None = None
 
 
 class NoteUpdate(BaseModel):
