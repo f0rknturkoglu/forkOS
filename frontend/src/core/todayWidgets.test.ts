@@ -95,6 +95,14 @@ describe("Bugun widget sozlesmesi", () => {
     expect(visible.some((view) => view.id === "today.agenda")).toBe(true);
   });
 
+  it("Faz 33: degerlendirme karti varsayilan Today'de TEK yuzeyden gelir", () => {
+    // review.widget varsayilan gizli -- gunluk degerlendirme yuzeyi
+    // DailyRhythmWidget'tir (haftalik giris noktasi orada korunur).
+    const review = allTodayWidgets().find((widget) => widget.id === "review.widget");
+    expect(review?.defaultVisible).toBe(false);
+    expect(allTodayWidgetViews().some((view) => view.id === "review.widget")).toBe(false);
+  });
+
   it("focused preset ikincil widget'lari gizler, overview temizler", () => {
     const focused = focusedConfig();
     expect(focused.hidden).toContain("today.feed-stream");

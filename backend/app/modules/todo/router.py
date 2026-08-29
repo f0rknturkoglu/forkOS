@@ -4,6 +4,7 @@ import uuid
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
@@ -65,6 +66,19 @@ async def complete_todo(todo_id: uuid.UUID, session: AsyncSession = Depends(get_
 async def delete_todo(todo_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
     if not await service.delete(session, todo_id):
         raise HTTPException(404, "todo bulunamadi")
+
+
+class CarryOverIn(BaseModel):
+    day: date
+    target: date
+
+
+@router.post("/plan/carry-over")
+async def carry_over(body: CarryOverIn, session: AsyncSession = Depends(get_session)):
+    """Bir gunun acik todo slotlarini hedef gune tasir (Faz 33) -- tek
+    transaction, atomik; tamamlanmis/dropped gorev slotlari tasinmaz."""
+    moved = await service.carry_over(session, body.day, body.target)
+    return {"moved": moved}
 
 
 @router.get("/plan", response_model=list[PlanSlotOut])

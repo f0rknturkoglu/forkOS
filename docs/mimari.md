@@ -247,7 +247,16 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
   Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
   bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`- Faz 32: registry tabanli iliski yuzeyleri. `linkable=False` bilincli
+- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`- Faz 32: registry tabanli iliski yuzeyleri. `linkable=False` bilincli- Faz 33: ritim tek orkestrasyon yuzeyi. `review.widget` varsayilan gizli;
+  gunluk degerlendirme durumu + giris noktasi `today.rhythm`'de, haftalik
+  hatirlatma hafta donumunde kompakt satir olarak orada (route/command
+  palette girisleri korunur). "Yarina tasi" artik tek istek: backend
+  `POST /plan/carry-over` (tek transaction; yalnizca ACIK todo slotlari;
+  tamamlanmis/dropped tasinmaz; hedef gunde mevcut slot duplicate olmaz;
+  `plan.carried_over` event'i). "Ilk odagi baslat" gorev baglamini
+  Pomodoro'ya tasir (context/topic). Takvim cakismasi mevcut agenda timed
+  verisinden turetilir (ikinci takvim mantigi yok).
+
   kararlarla kapatildi: feed, feed_item, review, milestone, course,
   study_area, media_unit/cycle/consumption/collection, pomodoro_session,
   external_event (liste-rotali, alt-varlik, kaynak ya da gecici icerik).

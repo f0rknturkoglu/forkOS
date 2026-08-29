@@ -389,6 +389,42 @@ async def list_plan(session: AsyncSession, week: date) -> list[PlanSlotOut]:
                         note=s.note, position=s.position) for s, typ, title in rows]
 
 
+async def carry_over(session: AsyncSession, day: date, target: date) -> int:
+    """Bir gunun ACIK todo slotlarini hedef gune tasir (Faz 33).
+
+    Tek transaction: tum tasima ya olur ya olmaz. Tamamlanmis/dropped
+    gorevlerin slotlari TASINMAZ. Hedef gunde ayni entity icin slot
+    zaten varsa eski slot dusurulur (yeni gun kazanir). `plan.carried_over`
+    event'i yazilir.
+    """
+    slots = list((await session.execute(
+        select(PlanSlot).where(PlanSlot.day == day)
+    )).scalars())
+    moved = 0
+    for slot in slots:
+        todo = await session.get(Todo, slot.entity_id)
+        if todo is None or todo.status not in ("open", "doing"):
+            continue
+        existing = (await session.execute(
+            select(PlanSlot).where(
+                PlanSlot.entity_id == slot.entity_id, PlanSlot.day == target
+            )
+        )).scalar_one_or_none()
+        if existing is not None:
+            # Hedef gunde zaten planli: eski slot gereksiz, yeni gun kazanir.
+            await session.delete(slot)
+        else:
+            slot.day = target
+        await log_event(
+            session, verb="plan.carried_over", entity_id=slot.entity_id,
+            entity_type="todo",
+            payload={"from": day.isoformat(), "to": target.isoformat()},
+        )
+        moved += 1
+    await session.commit()
+    return moved
+
+
 async def schedule(session: AsyncSession, data: PlanSlotIn, *, commit: bool = True) -> PlanSlotOut:
     entity = await session.get(Entity, data.entity_id)
     if entity is None:

@@ -77,3 +77,49 @@ async def test_planned_todo_lands_in_checklist_not_suggestions(client: AsyncClie
     assert todo["id"] in checklist_ids
     assert todo["id"] not in suggestion_ids
     await client.delete(f"/api/todos/{todo['id']}")
+
+
+
+async def test_carry_over_moves_only_open_todo_slots_atomically(client: AsyncClient) -> None:
+    """Faz 33: carry-over yalnizca ACIK todo slotlarini tasir; tamamlanmis
+    gorev slotu kalir; hedef gunde mevcut slot duplicate olusturmaz."""
+    from datetime import timedelta
+
+    from app.core.time import local_today
+
+    today = local_today()
+    tomorrow = today + timedelta(days=1)
+
+    open_todo = (await client.post("/api/todos", json={"title": "Acik"})).json()
+    done_todo = (await client.post("/api/todos", json={"title": "Bitmis"})).json()
+    await client.post("/api/todos/{}/complete".format(done_todo["id"]))
+    # Hedef gunde zaten slotu olan bir gorev.
+    preplanned = (await client.post("/api/todos", json={"title": "Onceden"})).json()
+
+    for todo in (open_todo, done_todo, preplanned):
+        r = await client.post("/api/plan", json={"entity_id": todo["id"], "day": today.isoformat()})
+        assert r.status_code == 201, r.text
+    r = await client.post(  # noqa: E501
+        "/api/plan", json={"entity_id": preplanned["id"], "day": tomorrow.isoformat()}
+    )
+    assert r.status_code == 201, r.text
+
+    response = await client.post("/api/plan/carry-over", json={
+        "day": today.isoformat(), "target": tomorrow.isoformat(),
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["moved"] == 2  # acik + onceden (hedef slot kazandi)
+
+    tomorrow_week = (await client.get("/api/plan", params={"week": tomorrow.isoformat()})).json()
+    tomorrow_entities = {row["entity_id"] for row in tomorrow_week}
+    assert open_todo["id"] in tomorrow_entities
+    assert preplanned["id"] in tomorrow_entities
+    # Bitmis gorevin slotu tasinmadi (bugun kalir).
+    today_week = (await client.get("/api/plan", params={"week": today.isoformat()})).json()
+    assert done_todo["id"] in {row["entity_id"] for row in today_week}
+    # Onceden planlanan gorev hedef gunde TEK slot.
+    dupes = [row for row in tomorrow_week if row["entity_id"] == preplanned["id"]]
+    assert len(dupes) == 1
+
+    for todo in (open_todo, done_todo, preplanned):
+        await client.delete(f"/api/todos/{todo['id']}")

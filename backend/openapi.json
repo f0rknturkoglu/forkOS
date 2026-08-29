@@ -945,6 +945,26 @@
         "title": "CaptureReviewStats",
         "type": "object"
       },
+      "CarryOverIn": {
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "target": {
+            "format": "date",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "target"
+        ],
+        "title": "CarryOverIn",
+        "type": "object"
+      },
       "CollectionCount": {
         "properties": {
           "collection": {
@@ -12230,6 +12250,46 @@
           }
         },
         "summary": "Create Slot",
+        "tags": [
+          "todo"
+        ]
+      }
+    },
+    "/api/plan/carry-over": {
+      "post": {
+        "description": "Bir gunun acik todo slotlarini hedef gune tasir (Faz 33) -- tek\ntransaction, atomik; tamamlanmis/dropped gorev slotlari tasinmaz.",
+        "operationId": "carry_over_api_plan_carry_over_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CarryOverIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Carry Over",
         "tags": [
           "todo"
         ]

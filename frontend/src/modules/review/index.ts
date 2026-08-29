@@ -16,7 +16,16 @@ registerModule({
     { path: "/review/weekly", element: WeeklyReviewPage },
     { path: "/review/daily", element: DailyReviewPage },
   ],
-  todayWidgets: [{ id: "review.widget", title: "Değerlendirme", component: ReviewWidget, slot: "left", order: 80 }],
+  todayWidgets: [
+    {
+      id: "review.widget",
+      title: "Değerlendirme",
+      component: ReviewWidget,
+      slot: "left",
+      order: 80,
+      defaultVisible: false,
+    },
+  ],
   commands: [
     { id: "review.weekly", label: "Haftalık değerlendirmeyi aç", run: () => navigate("/review/weekly") },
     { id: "review.daily", label: "Günlük değerlendirmeyi aç", run: () => navigate("/review/daily") },

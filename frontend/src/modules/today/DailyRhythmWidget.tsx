@@ -60,12 +60,13 @@ export function DailyRhythmWidget() {
   const inboxCount = stats?.inbox ?? 0;
 
   const carryOver = useMutation({
-    mutationFn: () => Promise.all(plannedTodos.map((slot) => api.patch(`/plan/${slot.id}`, { day: tomorrow }))),
-    onSuccess: () => {
+    // Tek istek, tek transaction (Faz 33): kismi tasima yok.
+    mutationFn: () => api.post<{ moved: number }>("/plan/carry-over", { day: today, target: tomorrow }),
+    onSuccess: (result) => {
       invalidateAfter("plan.write");
-      toast.push(`${plannedTodos.length} görev yarına taşındı.`, { tone: "ok" });
+      toast.push(`${result.moved} görev yarına taşındı.`, { tone: "ok" });
     },
-    onError: () => toast.push("Taşıma başarısız.", { tone: "danger" }),
+    onError: () => toast.push("Taşıma başarısız — hiçbir slot değişmedi.", { tone: "danger" }),
   });
 
   const firstFocus = plannedTodos.find((slot) => slot.start_min != null) ?? plannedTodos[0];

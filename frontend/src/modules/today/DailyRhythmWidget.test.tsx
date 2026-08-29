@@ -8,14 +8,15 @@ type QueryOptions = { queryKey: readonly unknown[]; queryFn: () => unknown };
 const harness = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPatch: vi.fn(),
+  apiPost: vi.fn(),
   invalidate: vi.fn(),
   queries: [] as QueryOptions[],
-  mutations: [] as { mutationFn?: (variables: never) => unknown; onSuccess?: () => void }[],
+  mutations: [] as { mutationFn?: (variables: never) => unknown; onSuccess?: (result?: unknown) => void }[],
   reviewEvents: [] as { occurred_at: string; verb: string }[],
 }));
 
 vi.mock("@/core/api", () => ({
-  api: { get: harness.apiGet, patch: harness.apiPatch, post: vi.fn(), del: vi.fn(), put: vi.fn() },
+  api: { get: harness.apiGet, patch: harness.apiPatch, post: harness.apiPost, del: vi.fn(), put: vi.fn() },
   qs: vi.fn(() => ""),
 }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
@@ -24,7 +25,7 @@ vi.mock("@/core/invalidation", () => ({
 }));
 vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
 vi.mock("@tanstack/react-query", () => ({
-  useMutation: vi.fn((options: { mutationFn?: (variables: never) => unknown; onSuccess?: () => void }) => {
+  useMutation: vi.fn((options: { mutationFn?: (variables: never) => unknown; onSuccess?: (result?: unknown) => void }) => {
     harness.mutations.push(options);
     return { isPending: false, mutate: (variables: never) => void options.mutationFn?.(variables) };
   }),
@@ -70,7 +71,17 @@ vi.mock("@tanstack/react-query", () => ({
               }
             : key === "activity"
               ? harness.reviewEvents
-              : [];
+              : key === "today-agenda"
+                ? {
+                    day: "2026-08-29",
+                    timed: [],
+                    checklist: [],
+                    completed: [],
+                    suggestions: { todos: [], rss: [], media: [] },
+                  }
+                : key === "reviews"
+                  ? []
+                  : [];
     return { data };
   }),
 }));
@@ -80,6 +91,7 @@ describe("DailyRhythmWidget (Faz 25)", () => {
     vi.useFakeTimers();
     harness.apiGet.mockReset();
     harness.apiPatch.mockReset();
+    harness.apiPost.mockReset();
     harness.invalidate.mockReset();
     harness.queries.length = 0;
     harness.mutations.length = 0;
@@ -105,7 +117,7 @@ describe("DailyRhythmWidget (Faz 25)", () => {
     expect(markup).toContain("Sıradaki");
   });
 
-  it("aksam: degerlendirme durumu + yarina tasi butonu PATCH /plan/{id} yapar", async () => {
+  it("aksam: degerlendirme durumu + yarina tasi butonu tek istek yapar", async () => {
     vi.setSystemTime(new Date("2026-08-29T17:30:00Z")); // Istanbul 20:30
     const markup = renderToStaticMarkup(<DailyRhythmWidget />);
     expect(markup).toContain("Akşam");
@@ -113,11 +125,15 @@ describe("DailyRhythmWidget (Faz 25)", () => {
     expect(markup).toContain("Yarına taşı");
 
     const carry = harness.mutations[0];
+    harness.apiPost.mockResolvedValueOnce({ moved: 2 });
     await carry?.mutationFn?.(undefined as never);
-    // Iki planli gorev yarina (2026-08-30) tasinir.
-    expect(harness.apiPatch).toHaveBeenCalledWith("/plan/s1", { day: "2026-08-30" });
-    expect(harness.apiPatch).toHaveBeenCalledWith("/plan/s2", { day: "2026-08-30" });
-    carry?.onSuccess?.();
+    // Tek istek, tek transaction (Faz 33): dagilmis PATCH yok.
+    expect(harness.apiPost).toHaveBeenCalledWith("/plan/carry-over", {
+      day: "2026-08-29",
+      target: "2026-08-30",
+    });
+    expect(harness.apiPatch).not.toHaveBeenCalled();
+    carry?.onSuccess?.({ moved: 2 });
     expect(harness.invalidate).toHaveBeenCalledWith("plan.write");
   });
 
