@@ -85,6 +85,39 @@ describe("Turkce gorev ayristirici (Faz 23)", () => {
     expect(due.toISOString()).toBe("2026-08-30T11:00:00.000Z");
   });
 
+  it("kayit basligi yalnizca temiz metin: 'yarin 14:00 disciyi ara' -> 'disciyi ara'", () => {
+    const result = parseTaskText("yarın 14:00 dişçiyi ara");
+    expect(result.title).toBe("dişçiyi ara");
+    expect(result.consumed).toContain("yarın");
+    expect(result.consumed).toContain("14:00");
+  });
+
+  it("'bugun calis' yalnizca plan_day uretir (deadline degil)", () => {
+    const result = parseTaskText("bugün çalış");
+    expect(result.plan_day).toBe(todayKey());
+    expect(result.due_at).toBeUndefined();
+  });
+
+  it("kisa ay: 'ayin 31'i' sessizce tasmaz -- gercek 31'e gider ve uyarir", () => {
+    // 2026-09-15 (Eylul 30 gun): 31 yok -> gelecek ayin gercek 31'i (Ekim).
+    // Eski davranis (Date overflow -> Ekim 1) yok; acik uyari uretilir.
+    const result = parseTaskText("ayın 31'i raporu bitir", new Date("2026-09-15T10:00:00Z"));
+    expect(result.plan_day).toBe("2026-10-31");
+    expect(result.warnings.some((w) => w.includes("bu ay yok"))).toBe(true);
+  });
+
+  it("subat: 'ayin 31'i' martin gercek 31'ine gider, tasmaz", () => {
+    const result = parseTaskText("ayın 31'i rapor", new Date("2026-02-10T10:00:00Z"));
+    expect(result.plan_day).toBe("2026-03-31");
+    expect(result.warnings.some((w) => w.includes("bu ay yok"))).toBe(true);
+  });
+
+  it("gun adi hesabi verilen now'a baglidir (makine gunune degil)", () => {
+    // 2026-09-01 Sali -> 'cuma' 2026-09-04; makine hangi gun olursa olsun.
+    const result = parseTaskText("cuma projeyi gönder", new Date("2026-09-01T10:00:00Z"));
+    expect(result.plan_day).toBe("2026-09-04");
+  });
+
   it("network cagrisi yok: parser saf bir fonksiyondur", () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);

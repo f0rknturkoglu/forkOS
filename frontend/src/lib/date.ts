@@ -92,3 +92,22 @@ export function appTimeParts(value: Date, timeZone = APP_TIME_ZONE): { hour: num
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return { hour: Number(values.hour) % 24, minute: Number(values.minute) };
 }
+
+/** App tz'deki yerel gun+saati ISO UTC'ye cevirir (Faz 30).
+ *
+ * Sabit offset yok: UTC adayini saat saat geriye tarayip app wall time'ina
+ * eslesen ani bulur (Faz 14 helper'larinin tersi). Parser due_at gibi
+ * kararlar buradan gecer.
+ */
+export function appLocalToUtc(dayKey: string, hour: number, minute: number, timeZone = APP_TIME_ZONE): string {
+  const day = keyToUtc(dayKey);
+  let candidate = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), hour, minute));
+  for (let i = 0; i < 25; i++) {
+    const parts = appTimeParts(candidate, timeZone);
+    if (localDateKey(candidate, timeZone) === dayKey && parts.hour === hour && parts.minute === minute) {
+      return candidate.toISOString();
+    }
+    candidate = new Date(candidate.getTime() - 3_600_000);
+  }
+  return candidate.toISOString();
+}

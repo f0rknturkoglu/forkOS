@@ -7,6 +7,8 @@ import { Chip, Checkbox, Input, Select, Button, Kbd, cx, useToast } from "@/core
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { readPlanTodayPreference, writePlanTodayPreference } from "@/core/tasks";
 import { useDebounced, useOnline } from "@/lib/hooks";
+import { parseTaskText } from "@/lib/taskParser";
+import { todayKey } from "@/lib/date";
 import { PRIORITIES, RECURRENCES } from "@/modules/todo/priority";
 import type { Entity as EntityRecord, Project } from "@/core/types";
 
@@ -52,6 +54,8 @@ export function CaptureDialog() {
   const [url, setUrl] = useState("");
   const [priority, setPriority] = useState(2);
   const [planToday, setPlanToday] = useState(() => readPlanTodayPreference());
+  // Faz 23: parser onerisi -- "yarin"/gun adi gibi acik plan gunu.
+  const [planDay, setPlanDay] = useState<string | undefined>(undefined);
   const [due, setDue] = useState("");
   const [projectId, setProjectId] = useState("");
   const [recur, setRecur] = useState("");
@@ -64,6 +68,8 @@ export function CaptureDialog() {
   const [relateTo, setRelateTo] = useState<{ id: string; type: string; title: string } | null>(null);
   const [relateQuery, setRelateQuery] = useState("");
   const debouncedRelate = useDebounced(relateQuery.trim(), 250);
+  // Faz 23: metin ayristirma -- oneriler kullanici alanlari bosken uygulanir.
+  const [parsed, setParsed] = useState<ReturnType<typeof parseTaskText> | null>(null);
 
   useEffect(() => {
     function onOpen(event: Event) {
@@ -91,6 +97,33 @@ export function CaptureDialog() {
     }
   }, [open, kind]);
 
+  // Faz 23/30: metin ayristirilir; kullanici alanlari HENUZ DEGISMEDISSE
+  // oneriler uygulanir (kullanici override'i parserdan once gelir).
+  useEffect(() => {
+    if (kind !== "task" || !text.trim()) {
+      setParsed(null);
+      return;
+    }
+    const result = parseTaskText(text);
+    setParsed(result);
+    if (result.plan_day && planDay === undefined && !planToday) {
+      setPlanDay(result.plan_day);
+      setPlanToday(result.plan_day === todayKey());
+    }
+    if (result.due_at && !due) {
+      const date = new Date(result.due_at);
+      setDue(
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(
+          2,
+          "0",
+        )}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+      );
+    }
+    if (result.priority !== undefined && priority === 2) setPriority(result.priority);
+    if (result.tags.length > 0 && tags.length === 0) setTags(result.tags);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, kind]);
+
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
     queryFn: () => api.get<Project[]>("/projects"),
@@ -109,11 +142,15 @@ export function CaptureDialog() {
     mutationFn: () =>
       capture({
         kind,
-        text: (kind === "link" ? title || url || text : text).trim(),
+        // Task: parser temiz basligi gonderir ("yarin 14:00 disciyi ara" ->
+        // "disciyi ara"). Kullanici metni her zaman kaynak: metni degistirirse
+        // parser yeni metinden turer (Faz 30).
+        text: kind === "link" ? title || url || text : kind === "task" ? (parsed?.title ?? text.trim()) : text.trim(),
         url: url || (kind === "link" ? text : undefined),
         task: {
           priority,
           due_at: due ? new Date(due).toISOString() : undefined,
+          plan_day: planDay ?? (planToday ? todayKey() : undefined),
           recur: recur || undefined,
           project_id: projectId || undefined,
           tags,
@@ -146,6 +183,8 @@ export function CaptureDialog() {
     setRelateTo(null);
     setRelateQuery("");
     setTitle("");
+    setParsed(null);
+    setPlanDay(undefined);
   }
 
   function switchKind(next: CaptureKind) {
@@ -244,6 +283,22 @@ export function CaptureDialog() {
             </div>
           )}
 
+          {kind === "task" && parsed && parsed.consumed.length > 0 && (
+            <div className="space-y-1 rounded-card border border-accent-border bg-accent-surface/40 px-3 py-2">
+              <p className="text-meta text-accent">Metinden çözüldü — onaylamadan önce düzenleyebilirsin:</p>
+              <div className="flex flex-wrap items-center gap-1">
+                {parsed.consumed.map((part) => (
+                  <Chip key={part}>{part}</Chip>
+                ))}
+              </div>
+              {parsed.warnings.map((warning) => (
+                <p key={warning} className="text-meta text-warn">
+                  {warning}
+                </p>
+              ))}
+            </div>
+          )}
+
           {kind === "task" && (
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -289,6 +344,7 @@ export function CaptureDialog() {
                   checked={planToday}
                   onChange={(value) => {
                     setPlanToday(value);
+                    setPlanDay(value ? todayKey() : undefined);
                     writePlanTodayPreference(value);
                   }}
                   label="bugüne al"

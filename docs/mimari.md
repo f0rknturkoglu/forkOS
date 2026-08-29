@@ -247,7 +247,15 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
   Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
   bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi
+- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari
+  verilen `now`'dan (real sistem gunu degil). Due_at dönüşümü sabit -3
+  yerine `lib/date.ts::appLocalToUtc` (app tz wall time -> ISO UTC, genel
+  offset taramasi). Kisa ayda "ayin 31'i" sessizce tasmaz: gercek gunun
+  gelecek ayine gider veya ay sonuna kirpilir -- her ikisinde de acik
+  uyari. CaptureDialog task gonderiminde parserin temiz basligini kullanir
+  ("yarin 14:00 disciyi ara" -> "disciyi ara"); kullanici metni her zaman
+  kaynak oldugu icin duzenleme parser sonucunu ezer.
+
   Enter'ini durdurur), Esc kapatir, pending iken gonderim kilitlenir.
   Task'a tekrar (recurrence) ve etiket duzenleyici; baglantiya baslik;
   nota registry/search tabanli "iliskilendir" secici eklendi. Not +

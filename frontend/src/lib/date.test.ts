@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addAppDays,
+  appLocalToUtc,
   appDayUtc,
   appTimeParts,
   appWeekKeys,
@@ -62,6 +63,12 @@ describe("ortak tarih/saat sozlesmesi (Faz 14)", () => {
     const monday = keyToUtc("2026-01-12");
     expect(addAppDays(monday, 6).toISOString().slice(0, 10)).toBe("2026-01-18");
     expect(appDayUtc(new Date("2026-01-14T21:30:00Z")).toISOString().slice(0, 10)).toBe("2026-01-15");
+  });
+
+  it("appLocalToUtc yerel gun+saati ISO UTC'ye cevirir (sabit offset yok)", () => {
+    expect(appLocalToUtc("2026-08-30", 14, 0)).toBe("2026-08-30T11:00:00.000Z");
+    expect(appLocalToUtc("2026-08-30", 23, 59)).toBe("2026-08-30T20:59:00.000Z");
+    expect(appLocalToUtc("2026-08-30", 0, 30)).toBe("2026-08-29T21:30:00.000Z");
   });
 
   it("appTimeParts app saat diliminde saat/dakika verir", () => {

@@ -51,6 +51,10 @@ vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
 vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
+vi.mock("@/core/ui", async (orig) => {
+  const actual = await orig<typeof import("@/core/ui")>();
+  return { ...actual, useToast: () => ({ push: vi.fn() }) };
+});
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
     harness.mutations.push(options);
@@ -176,6 +180,17 @@ describe("CaptureDialog (Faz 22/29)", () => {
     const [path, body] = harness.apiPost.mock.calls[0];
     expect(path).toBe("/notes");
     expect(body.relate_to).toBe("opp-1");
+  });
+
+  it("parser temiz basligi gonderir: 'yarin 14:00 disciyi ara' -> 'disciyi ara'", async () => {
+    openAs({ text: "yarın 14:00 dişçiyi ara" });
+    // "Metinden çözüldü" seridi gorunur (Faz 23/30).
+    expect(screen.getByText(/Metinden çözüldü/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
+    const [, body] = harness.apiPost.mock.calls[0];
+    expect(body.title).toBe("dişçiyi ara");
+    expect(body.plan_day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it("unhandled rejection uretmez: hata onError'a gider, suite temiz cikar", async () => {

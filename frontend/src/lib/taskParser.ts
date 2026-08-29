@@ -8,7 +8,7 @@
  *
  * Gun anahtarlari Faz 14 ortak helper'larindan (Europe/Istanbul) gelir.
  */
-import { addAppDays, appWeekStartKey, keyToUtc, localDateKey, todayKey, tomorrowKey } from "./date";
+import { addAppDays, appLocalToUtc, appWeekStartKey, keyToUtc, localDateKey, todayKey } from "./date";
 
 interface ParseResult {
   /** Temizlenmis baslik: tuketilen parcalar cikarilmis. */
@@ -67,7 +67,8 @@ function dayKeyForToken(token: string, now: Date): { day: string; warning?: stri
     return { day: localDateKey(nextMonday), warning: "gelecek hafta pazartesine planlandı" };
   }
   if (WEEKDAYS[lower] !== undefined) {
-    const todayDow = keyToUtc(todayKey()).getUTCDay();
+    // Gun adi hesabi VERILEN `now`'dan (real sistem gunu degil -- Faz 30).
+    const todayDow = keyToUtc(localDateKey(now)).getUTCDay();
     const targetDow = WEEKDAYS[lower];
     let diff = targetDow - todayDow;
     if (diff < 0) diff += 7;
@@ -77,12 +78,28 @@ function dayKeyForToken(token: string, now: Date): { day: string; warning?: stri
   const monthDay = lower.match(MONTH_DAY_PATTERN);
   if (monthDay) {
     const day = Number(monthDay[1]);
-    const today = keyToUtc(todayKey());
-    let candidate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), day));
-    if (candidate.getTime() < today.getTime()) {
-      candidate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, day));
+    const today = keyToUtc(localDateKey(now));
+    const year = today.getUTCFullYear();
+    let month = today.getUTCMonth();
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const monthBumped = day < today.getUTCDate() || day > daysInMonth;
+    if (monthBumped) month += 1;
+    // Kisa ay: gecersiz gun SESSIZCE baska aya tasmaz -- ya gercek gunun
+    // gelecek ayine gidilir (uyari ile) ya da ay sonuna kirpilir (uyari ile).
+    const targetDays = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    if (day > targetDays) {
+      return {
+        day: localDateKey(new Date(Date.UTC(year, month, targetDays))),
+        warning: `ayın ${day}'i bu ay yok — ay sonuna (${targetDays}) alındı`,
+      };
     }
-    return { day: localDateKey(candidate) };
+    if (monthBumped && day > daysInMonth) {
+      return {
+        day: localDateKey(new Date(Date.UTC(year, month, day))),
+        warning: `ayın ${day}'i bu ay yok — gelecek ayın ${day}'ine alındı`,
+      };
+    }
+    return { day: localDateKey(new Date(Date.UTC(year, month, day))) };
   }
   return { day: todayKey(), warning: "tarih çözülemedi" };
 }
@@ -134,12 +151,8 @@ export function parseTaskText(raw: string, now = new Date()): ParseResult {
       const { day, warning } = dayKeyForToken(token, now);
       if (warning) warnings.push(warning);
       const [hour, minute] = time ? time.split(":").map(Number) : [23, 59];
-      const dayDate = keyToUtc(day);
-      // App tz'de o gunun secilen saatini ISO'ya cevir (UTC'ye).
-      const iso = new Date(
-        Date.UTC(dayDate.getUTCFullYear(), dayDate.getUTCMonth(), dayDate.getUTCDate(), hour - 3, minute),
-      ).toISOString();
-      due_at = iso;
+      // App tz'deki yerel gun+saat -> ISO UTC (sabit offset yok, Faz 30).
+      due_at = appLocalToUtc(day, hour, minute);
       consumed.push(match[0]);
       text = text.replace(pattern, " ");
       break;
