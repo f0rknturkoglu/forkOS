@@ -4516,6 +4516,56 @@
         "title": "NotificationOut",
         "type": "object"
       },
+      "OpportunityBrowseOut": {
+        "properties": {
+          "facets": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Facets",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpportunityOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "section_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Section Counts",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit",
+          "section_counts",
+          "facets"
+        ],
+        "title": "OpportunityBrowseOut",
+        "type": "object"
+      },
       "OpportunityIn": {
         "properties": {
           "compensation": {
@@ -4642,6 +4692,17 @@
             ],
             "title": "Applied At"
           },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
           "compensation": {
             "anyOf": [
               {
@@ -4761,6 +4822,18 @@
           "priority": {
             "title": "Priority",
             "type": "integer"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
           },
           "raw": {
             "additionalProperties": true,
@@ -4886,11 +4959,13 @@
           "id",
           "title",
           "kind",
+          "category",
           "organization",
           "url",
           "status",
           "priority",
           "found_at",
+          "published_at",
           "deadline_at",
           "applied_at",
           "location",
@@ -11384,6 +11459,223 @@
           }
         },
         "summary": "Create",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/browse": {
+      "get": {
+        "operationId": "opportunity_browse_api_opportunities_browse_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "default": "jobs",
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "announcement_source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Announcement Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "region",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Region"
+            }
+          },
+          {
+            "in": "query",
+            "name": "remote",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remote"
+            }
+          },
+          {
+            "in": "query",
+            "name": "period_days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period Days"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "score",
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityBrowseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Opportunity Browse",
         "tags": [
           "opportunities"
         ]

@@ -1271,6 +1271,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/browse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Browse */
+        get: operations["opportunity_browse_api_opportunities_browse_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/followups": {
         parameters: {
             query?: never;
@@ -4185,6 +4202,27 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** OpportunityBrowseOut */
+        OpportunityBrowseOut: {
+            /** Facets */
+            facets: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Items */
+            items: components["schemas"]["OpportunityOut"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Section Counts */
+            section_counts: {
+                [key: string]: number;
+            };
+            /** Total */
+            total: number;
+        };
         /** OpportunityIn */
         OpportunityIn: {
             /** Compensation */
@@ -4223,6 +4261,8 @@ export interface components {
         OpportunityOut: {
             /** Applied At */
             applied_at: string | null;
+            /** Category */
+            category: string | null;
             /** Compensation */
             compensation: string | null;
             /** Country */
@@ -4255,6 +4295,8 @@ export interface components {
             organization: string | null;
             /** Priority */
             priority: number;
+            /** Published At */
+            published_at: string | null;
             /** Raw */
             raw: {
                 [key: string]: unknown;
@@ -7844,6 +7886,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    opportunity_browse_api_opportunities_browse_get: {
+        parameters: {
+            query?: {
+                section?: string;
+                announcement_source?: string | null;
+                category?: string | null;
+                search?: string | null;
+                status?: string | null;
+                source?: string | null;
+                region?: string | null;
+                remote?: string | null;
+                period_days?: number | null;
+                year?: number | null;
+                sort?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityBrowseOut"];
                 };
             };
             /** @description Validation Error */
