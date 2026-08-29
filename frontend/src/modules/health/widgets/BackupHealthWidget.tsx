@@ -1,10 +1,9 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CloudUpload, Database, HardDriveDownload, UploadCloud } from "lucide-react";
+import { CloudUpload, Database, HardDriveDownload } from "lucide-react";
 import { api } from "@/core/api";
-import { Button, Chip, FileInput, Section, cx, relativeTime, useToast } from "@/core/ui";
-import { confirmDialog } from "@/core/dialog";
+import { BackupMergeControl } from "@/core/BackupMergeControl";
+import { Button, Chip, Section, cx, relativeTime, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import type { BackupStatus } from "@/core/types";
 
@@ -35,27 +34,6 @@ export function BackupHealthWidget() {
     queryFn: () => api.get<{ connected: boolean }>("/auth/google/status"),
   });
 
-  const restoreRef = useRef<HTMLInputElement>(null);
-  const restoreBackup = useMutation({
-    mutationFn: (file: File) => api.upload<{ restored: number }>("/backup/restore", file),
-    onSuccess: (result) => {
-      invalidateAfter("backup.write");
-      toast.push(`${result.restored} kayıt geri yüklendi — çakışan kayıtlara dokunulmadı.`, { tone: "ok" });
-    },
-    onError: (error: Error) => toast.push(`Geri yükleme başarısız: ${error.message}`, { tone: "danger" }),
-  });
-
-  async function pickRestore(file: File) {
-    const ok = await confirmDialog({
-      title: "Yedek geri yüklensin mi?",
-      body:
-        "Yedekteki kayıtlar EKLENIR; mevcut veriye dokunulmaz (çakışanlar atlanır). " +
-        "İstediğin kadar tekrarlayabilirsin — işlem güvenli ve idempotent.",
-      confirmLabel: "Geri yükle",
-    });
-    if (ok) restoreBackup.mutate(file);
-  }
-
   const runNow = useMutation({
     mutationFn: () => api.post<{ path: string; size: number }>("/backup"),
     onSuccess: (result) => {
@@ -76,23 +54,11 @@ export function BackupHealthWidget() {
       title="Yedekleme"
       action={
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => restoreRef.current?.click()} disabled={!online || restoreBackup.isPending}>
-            <UploadCloud size={13} />
-            {restoreBackup.isPending ? "Yükleniyor…" : "Geri yükle"}
-          </Button>
+          <BackupMergeControl />
           <Button size="sm" disabled={!online || runNow.isPending} onClick={() => runNow.mutate()}>
             <HardDriveDownload size={13} className={runNow.isPending ? "animate-pulse" : undefined} />
             Şimdi yedekle
           </Button>
-          <FileInput
-            ref={restoreRef}
-            accept=".gz,.json,application/gzip,application/json"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) pickRestore(file);
-              e.target.value = "";
-            }}
-          />
         </div>
       }
       bodyClassName="space-y-4"
@@ -106,6 +72,14 @@ export function BackupHealthWidget() {
         <p className="mt-1 text-meta text-muted">
           entity · link · event (geçmiş akışı) + tüm modül tabloları (bookmark, feed/item, todo, pomodoro, habit,
           review, opportunity, study, course/book, document, project, expense…) + ayarlar (setting).
+        </p>
+        <p className="mt-1 text-meta text-muted">
+          "Birleştirerek içe aktar" yalnızca eksikleri ekler (tam geri dönüş değil). Gerçek felaket kurtarması uygulama
+          dışıdır:{" "}
+          <code className="text-secondary">
+            make disaster-restore FILE=backups/&lt;dosya&gt;.gz CONFIRM=DISASTER-RESTORE
+          </code>{" "}
+          (öncesinde API ve worker durur, güvenlik yedeği alınır, sonrasında bütünlük doğrulanır).
         </p>
       </div>
 

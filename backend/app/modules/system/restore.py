@@ -23,7 +23,18 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import BigInteger, Date, DateTime, Integer, Numeric, Uuid, text, update
+from sqlalchemy import (
+    BigInteger,
+    Date,
+    DateTime,
+    Integer,
+    Numeric,
+    Uuid,
+    func,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,18 +62,64 @@ CHUNK = 400  # asyncpg bind parametre limitine takilmamak icin parcali insert
 
 
 def parse_backup(content: bytes) -> dict:
-    """gzip ya da duz JSON kabul eder. Eksik/bilunmeyen surum -> ValueError."""
+    """gzip ya da duz JSON kabul eder. Eksik/bilinmeyen surum -> ValueError.
+
+    v1 (manifest'siz) ve v2 (manifest'li) desteklenir; bilinmeyen gelecek
+    surumler sessizce kabul edilmez.
+    """
     if content[:2] == b"\x1f\x8b":
         content = gzip.decompress(content)
     payload = json.loads(content.decode("utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("yedek ust seviye bir JSON objesi olmali")
-    if payload.get("version") != 1:
+    if payload.get("version") not in (1, 2):
         raise ValueError(f"desteklenmeyen yedek versiyonu: {payload.get('version')!r}")
     for key in ("entities", "links", "events", "modules"):
         if key not in payload:
             raise ValueError(f"yedek eksik: '{key}' bolumu yok")
     return payload
+
+
+def _counts_of(payload: dict) -> dict:
+    return {
+        "entities": len(payload.get("entities", [])),
+        "links": len(payload.get("links", [])),
+        "events": len(payload.get("events", [])),
+        "modules": {
+            name: len(rows)
+            for name, rows in payload.get("modules", {}).items()
+        },
+    }
+
+
+def inspect_payload(payload: dict) -> dict:
+    """Import oncesi preflight (Faz 16): hicbir sey yazmadan yedegi inceler.
+
+    Bilinmeyen tablolar, eksik zorunlu bolumler, secret setting satirlari ve
+    v2 manifest butunlugu raporlanir. Frontend bu raporu gosterip kullaniciya
+    onaylatir; ancak ondan sonra merge/import calisir.
+    """
+    known = set(Base.metadata.tables)
+    modules = payload.get("modules", {})
+    manifest = payload.get("manifest") or {}
+    reported = manifest.get("row_counts") or {}
+    actual = _counts_of(payload)
+    return {
+        "version": payload.get("version"),
+        "app": manifest.get("app"),
+        "exported_at": payload.get("exported_at") or manifest.get("exported_at"),
+        "table_counts": actual,
+        "unknown_tables": sorted(set(modules) - known),
+        "missing_sections": [
+            key for key in ("entities", "links", "events", "modules")
+            if key not in payload
+        ],
+        "secret_settings": sum(
+            1 for row in modules.get("setting", [])
+            if is_secret_setting(str(row.get("key", "")))
+        ),
+        "integrity_ok": reported == actual if reported else None,
+    }
 
 
 def _rows(payload: dict, table_name: str) -> list[dict]:
@@ -197,3 +254,41 @@ async def restore(session: AsyncSession, payload: dict) -> dict:
     )
     await session.commit()
     return summary
+
+
+async def verify_restore(session: AsyncSession, payload: dict) -> dict:
+    """Disaster restore sonrasi butunluk kontrolu (Faz 16).
+
+    Tablo sayilari yedekle birebir, link uclari entity'de, todo parent'lari
+    todo'da olmali. Herhangi biri tutmazsa restore sonucu guvenilir degildir.
+    """
+    tables = ["entity", "link", "event", *sorted(payload.get("modules", {}))]
+    row_counts: dict[str, int] = {}
+    for table_name in tables:
+        if table_name not in Base.metadata.tables:
+            continue
+        count = (
+            await session.execute(
+                select(func.count()).select_from(Base.metadata.tables[table_name])
+            )
+        ).scalar_one()
+        row_counts[table_name] = int(count)
+    orphan_links = (
+        await session.execute(text(
+            "select count(*) from link l "
+            "where not exists (select 1 from entity e where e.id = l.from_id) "
+            "or not exists (select 1 from entity e where e.id = l.to_id)"
+        ))
+    ).scalar_one()
+    orphan_parents = (
+        await session.execute(text(
+            "select count(*) from todo t "
+            "where t.parent_id is not null "
+            "and not exists (select 1 from todo p where p.id = t.parent_id)"
+        ))
+    ).scalar_one()
+    return {
+        "row_counts": row_counts,
+        "orphan_links": int(orphan_links),
+        "orphan_parents": int(orphan_parents),
+    }

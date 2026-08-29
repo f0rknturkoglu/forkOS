@@ -132,6 +132,25 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   `oauth_token` tablosu ayrıca dışlanmaya devam eder.
 - Eski yedeklerdeki secret satırları restore/import tarafından atlanır
   (`restore` `secret_skipped` sayacı bildirir).
-- **Eski yedekler otomatik güvenli hâle gelmez**: diskteki dosya içeriği
-  değişmez. Geçmişte alınmış yedeklerdeki API anahtarlarının döndürülmesi
-  (rotation) önerilir.
+ - **Eski yedekler otomatik güvenli hâle gelmez**: diskteki dosya içeriği
+   değişmez. Geçmişte alınmış yedeklerdeki API anahtarlarının döndürülmesi
+   (rotation) önerilir.
+
+## Faz 16: merge import ile gerçek disaster restore ayrımı
+
+- `/backup/restore` **birleştirerek içe aktarır**: `ON CONFLICT DO NOTHING`,
+  mevcut kayıtlara dokunulmaz, eksikler eklenir; idempotent. UI'da "Geri
+  yükle" değil "Birleştirerek içe aktar" olarak adlandırılır.
+- `/backup/inspect` preflight'tır: hiçbir şey yazmadan versiyon, tablo/satır
+  sayıları, bilinmeyen tablolar, eksik bölümler, secret setting satırları ve
+  manifest bütünlüğünü raporlar. Frontend bu raporu gösterip onaylatır.
+- Backup formatı v2: `manifest` (app, exported_at, row_counts) eklendi —
+  payload'ın kendi kendini doğrulaması. v1 yedekler okunmaya devam eder;
+  v3+ bilinmeyen sürümler reddedilir.
+- **Gerçek felaket kurtarması app dışıdır**: `make disaster-restore
+  FILE=... CONFIRM=DISASTER-RESTORE`. Sıra: API/worker durur → mevcut DB'nin
+  pg_dump güvenlik yedeği → temiz schema → migration → yedek yükleme →
+  entity/link/event + self-FK bütünlük doğrulaması. Hata durumunda güvenlik
+  yedeğinin yolu raporlanır. Normal FastAPI endpoint'inden tablo
+  truncate/event DELETE yapılmaz; bu CLI, dokümante edilmiş ayrı bir
+  disaster recovery sınırıdır. UI'da tek tık destructive buton yoktur.

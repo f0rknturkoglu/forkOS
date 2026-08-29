@@ -190,10 +190,11 @@ async def backup_status(session: AsyncSession = Depends(get_session)):
 async def restore_backup(
     file: UploadFile = File(...), session: AsyncSession = Depends(get_session),
 ):
-    """JSON yedegini geri yukler.
+    """Birleştirerek içe aktar (merge import) -- tam geri donus DEGILDIR.
 
-    Idempotent + cakismasiz: var olan kayitlara dokunulmaz, eksikler eklenir.
-    Ayni yedek defalarca yuklenebilir. (Opsiyonel: Yerel dosyayla cagirilir.)
+    Idempotent + cakismasiz: `ON CONFLICT DO NOTHING`, var olan kayitlara
+    dokunulmaz, eksikler eklenir. Ayni yedek defalarca yuklenebilir.
+    Gercek felaket kurtarmasi app disindadir: `make disaster-restore`.
     """
     content = await file.read()
     try:
@@ -205,7 +206,24 @@ async def restore_backup(
     except Exception as exc:
         raise HTTPException(500, f"geri yukleme hatasi: {type(exc).__name__}: {exc}") from exc
     restored = sum(entry.get("inserted", 0) for entry in summary.values())
-    return {"restored": restored, "tables": summary}
+    skipped = sum(entry.get("skipped", 0) for entry in summary.values())
+    return {"restored": restored, "skipped": skipped, "tables": summary}
+
+
+@router.post("/backup/inspect")
+async def inspect_backup(file: UploadFile = File(...)):
+    """Import oncesi preflight: yedegi hicbir sey yazmadan inceler.
+
+    Format versiyonu, tablo/satir sayilari, bilinmeyen tablolar, eksik
+    bolumler, secret setting satirlari ve manifest butunlugu raporlanir.
+    Kullanici raporu gorup onayladiktan sonra `/backup/restore` cagrilir.
+    """
+    content = await file.read()
+    try:
+        payload = restore.parse_backup(content)
+    except (ValueError, json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(422, f"yedek okunamadi: {exc}") from exc
+    return restore.inspect_payload(payload)
 
 
 @router.get("/news/reddit")

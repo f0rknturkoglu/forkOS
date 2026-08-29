@@ -192,6 +192,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/backup/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect Backup
+         * @description Import oncesi preflight: yedegi hicbir sey yazmadan inceler.
+         *
+         *     Format versiyonu, tablo/satir sayilari, bilinmeyen tablolar, eksik
+         *     bolumler, secret setting satirlari ve manifest butunlugu raporlanir.
+         *     Kullanici raporu gorup onayladiktan sonra `/backup/restore` cagrilir.
+         */
+        post: operations["inspect_backup_api_backup_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/backup/restore": {
         parameters: {
             query?: never;
@@ -203,10 +227,11 @@ export interface paths {
         put?: never;
         /**
          * Restore Backup
-         * @description JSON yedegini geri yukler.
+         * @description Birleştirerek içe aktar (merge import) -- tam geri donus DEGILDIR.
          *
-         *     Idempotent + cakismasiz: var olan kayitlara dokunulmaz, eksikler eklenir.
-         *     Ayni yedek defalarca yuklenebilir. (Opsiyonel: Yerel dosyayla cagirilir.)
+         *     Idempotent + cakismasiz: `ON CONFLICT DO NOTHING`, var olan kayitlara
+         *     dokunulmaz, eksikler eklenir. Ayni yedek defalarca yuklenebilir.
+         *     Gercek felaket kurtarmasi app disindadir: `make disaster-restore`.
          */
         post: operations["restore_backup_api_backup_restore_post"];
         delete?: never;
@@ -2765,6 +2790,11 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_inspect_backup_api_backup_inspect_post */
+        Body_inspect_backup_api_backup_inspect_post: {
+            /** File */
+            file: string;
+        };
         /** Body_restore_backup_api_backup_restore_post */
         Body_restore_backup_api_backup_restore_post: {
             /** File */
@@ -5231,6 +5261,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    inspect_backup_api_backup_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_inspect_backup_api_backup_inspect_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

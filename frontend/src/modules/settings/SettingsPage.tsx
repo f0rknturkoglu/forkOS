@@ -5,7 +5,6 @@ import { useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import { Input, NumberInput, PageFrame, PageHeader, Section, Textarea, useTheme, useToast } from "@/core/ui";
-import { confirmDialog } from "@/core/dialog";
 import type { Theme } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import {
@@ -36,27 +35,8 @@ export function SettingsPage() {
   const requestedSection = route.params.get("section");
   const toast = useToast();
   const online = useOnline();
-  const restoreRef = useRef<HTMLInputElement>(null);
   const mediaLinksRef = useRef<HTMLDivElement>(null);
   const focusedSectionRef = useRef<string | null>(null);
-  const restoreBackup = useMutation({
-    mutationFn: (file: File) => api.upload<{ restored: number }>("/backup/restore", file),
-    onSuccess: (result) => {
-      invalidateAfter("backup.write");
-      toast.push(`${result.restored} kayıt geri yüklendi — çakışanlara dokunulmadı.`, { tone: "ok" });
-    },
-    onError: (error: Error) => toast.push(`Geri yükleme başarısız: ${error.message}`, { tone: "danger" }),
-  });
-  async function pickRestore(file: File) {
-    const ok = await confirmDialog({
-      title: "Yedek geri yüklensin mi?",
-      body:
-        "Yedekteki kayıtlar eklenecek; mevcut veriye dokunulmaz (çakışanlar atlanır). " +
-        "Tekrar çalıştırmak güvenlidir.",
-      confirmLabel: "Geri yükle",
-    });
-    if (ok) restoreBackup.mutate(file);
-  }
   const [weatherLoc, setWeatherLoc] = useState<string | null>(null);
   const [widgetOrder, setWidgetOrder] = useState<string | null>(null);
   const [pomodoroDefaults, setPomodoroDefaults] = useState<string | null>(null);
@@ -270,9 +250,6 @@ export function SettingsPage() {
         />
         <BackupSection
           online={online}
-          restoreRef={restoreRef}
-          restorePending={restoreBackup.isPending}
-          onPickRestore={pickRestore}
           backupPending={backup.isPending}
           onBackup={() => backup.mutate()}
           backupData={backup.data}

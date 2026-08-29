@@ -545,6 +545,20 @@
         "title": "Body_import_opml_api_rss_import_post",
         "type": "object"
       },
+      "Body_inspect_backup_api_backup_inspect_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_inspect_backup_api_backup_inspect_post",
+        "type": "object"
+      },
       "Body_restore_backup_api_backup_restore_post": {
         "properties": {
           "file": {
@@ -7672,9 +7686,49 @@
         ]
       }
     },
+    "/api/backup/inspect": {
+      "post": {
+        "description": "Import oncesi preflight: yedegi hicbir sey yazmadan inceler.\n\nFormat versiyonu, tablo/satir sayilari, bilinmeyen tablolar, eksik\nbolumler, secret setting satirlari ve manifest butunlugu raporlanir.\nKullanici raporu gorup onayladiktan sonra `/backup/restore` cagrilir.",
+        "operationId": "inspect_backup_api_backup_inspect_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_inspect_backup_api_backup_inspect_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect Backup",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/api/backup/restore": {
       "post": {
-        "description": "JSON yedegini geri yukler.\n\nIdempotent + cakismasiz: var olan kayitlara dokunulmaz, eksikler eklenir.\nAyni yedek defalarca yuklenebilir. (Opsiyonel: Yerel dosyayla cagirilir.)",
+        "description": "Birleştirerek içe aktar (merge import) -- tam geri donus DEGILDIR.\n\nIdempotent + cakismasiz: `ON CONFLICT DO NOTHING`, var olan kayitlara\ndokunulmaz, eksikler eklenir. Ayni yedek defalarca yuklenebilir.\nGercek felaket kurtarmasi app disindadir: `make disaster-restore`.",
         "operationId": "restore_backup_api_backup_restore_post",
         "requestBody": {
           "content": {

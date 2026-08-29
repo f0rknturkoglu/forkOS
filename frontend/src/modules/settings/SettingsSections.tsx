@@ -1,7 +1,8 @@
 import type { FormEvent, RefObject } from "react";
 import { allModules } from "@/core/registry";
 import type { BackupStatus } from "@/core/types";
-import { Button, Checkbox, Chip, FileInput, Input, Section, relativeTime } from "@/core/ui";
+import { Button, Checkbox, Chip, Input, Section, relativeTime } from "@/core/ui";
+import { BackupMergeControl } from "@/core/BackupMergeControl";
 
 export type IntegrationStatus = { connected: boolean; login?: string | null };
 type MediaLink = { name: string; url: string; icon?: string };
@@ -222,18 +223,12 @@ export function MediaLinksSection({
 
 export function BackupSection({
   online,
-  restoreRef,
-  restorePending,
-  onPickRestore,
   backupPending,
   onBackup,
   backupData,
   backupStatus,
 }: {
   online: boolean;
-  restoreRef: RefObject<HTMLInputElement>;
-  restorePending: boolean;
-  onPickRestore: (file: File) => void;
   backupPending: boolean;
   onBackup: () => void;
   backupData: { path: string; size: number } | undefined;
@@ -265,21 +260,10 @@ export function BackupSection({
         <a href="/api/export/csv?module=expense" download className="rounded border border-strong px-2 py-1 text-meta">
           Expense CSV
         </a>
-        <Button onClick={() => restoreRef.current?.click()} disabled={!online || restorePending}>
-          {restorePending ? "yükleniyor…" : "geri yükle"}
-        </Button>
+        <BackupMergeControl />
         <Button variant="primary" onClick={onBackup} disabled={!online || backupPending}>
           şimdi yedekle
         </Button>
-        <FileInput
-          ref={restoreRef}
-          accept=".gz,.json,application/gzip,application/json"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onPickRestore(file);
-            e.target.value = "";
-          }}
-        />
       </div>
       {backupData && (
         <p className="mt-2 text-meta text-ok">

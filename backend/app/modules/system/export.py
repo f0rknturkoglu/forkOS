@@ -57,16 +57,36 @@ async def public_rows(session: AsyncSession, table_name: str) -> list[dict]:
 
 
 async def full_json(session: AsyncSession) -> dict:
+    """Backup/export payload'i (v2).
+    `manifest.row_counts`, payload'in kendisiyle dogrulanabilir butunluk
+    kontroludur: yedek bozulmus ya da elle degistirilmisse import oncesi
+    preflight bunu yakalar. v1 okuyucular icin `exported_at` koktepe korunur.
+    """
+    entities = await public_rows(session, "entity")
+    links = await public_rows(session, "link")
+    events = await public_rows(session, "event")
+    modules = {
+        name: await public_rows(session, name)
+        for name in module_table_names()
+    }
+    exported_at = datetime.now(UTC).isoformat()
     return {
-        "version": 1,
-        "exported_at": datetime.now(UTC).isoformat(),
-        "entities": await public_rows(session, "entity"),
-        "links": await public_rows(session, "link"),
-        "events": await public_rows(session, "event"),
-        "modules": {
-            name: await public_rows(session, name)
-            for name in module_table_names()
+        "version": 2,
+        "exported_at": exported_at,
+        "manifest": {
+            "app": "forkos",
+            "exported_at": exported_at,
+            "row_counts": {
+                "entities": len(entities),
+                "links": len(links),
+                "events": len(events),
+                "modules": {name: len(rows) for name, rows in modules.items()},
+            },
         },
+        "entities": entities,
+        "links": links,
+        "events": events,
+        "modules": modules,
     }
 
 
