@@ -3,6 +3,7 @@ import { CalendarCheck, ClipboardCheck } from "lucide-react";
 import { api } from "@/core/api";
 import { Section, cx } from "@/core/ui";
 import { navigate } from "@/app/router";
+import { appTimeParts, appWeekStartKey, isSameAppDay, keyToUtc, todayKey } from "@/lib/date";
 import type { ActivityEvent } from "@/core/types";
 
 interface ReviewOut {
@@ -11,18 +12,6 @@ interface ReviewOut {
   period_start: string;
   period_end: string;
 }
-
-/** Bu haftanin Pazartesi'si (haftalik degerlendirme donemi baslangici). */
-function mondayOf(date: Date): Date {
-  const day = date.getDay(); // 0 = Pazar
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(date);
-  monday.setDate(date.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
-
-const isoDay = (date: Date) => date.toLocaleDateString("sv-SE");
 
 /**
  * Gunu kapatma hatirlaticisi + haftalik degerlendirme giris noktasi.
@@ -42,20 +31,18 @@ export function ReviewWidget() {
     queryFn: () => api.get<ReviewOut[]>("/reviews?kind=weekly&limit=5"),
   });
 
-  const midnight = new Date();
-  midnight.setHours(0, 0, 0, 0);
-  const doneToday = events.some((event) => new Date(event.occurred_at) >= midnight);
+  // "Bugun" kararlari app tz'den (Faz 14): tarayicinin yerel saati degil.
+  const doneToday = events.some((event) => isSameAppDay(new Date(event.occurred_at), new Date()));
 
-  const now = new Date();
-  const hour = now.getHours();
+  const hour = appTimeParts(new Date()).hour;
   // Aksama kadar hatirlatmanin anlami yok; gun daha bitmedi.
   const evening = hour >= 18 || hour < 4;
 
   // Haftalik: bu haftanin donemi (Pazartesi) kayitli mi? Hafta donumu
   // Pazar/Pazartesi -- hatirlatma yalniz bu iki gunde cikar.
-  const weekStart = isoDay(mondayOf(now));
+  const weekStart = appWeekStartKey();
   const doneThisWeek = reviews.some((r) => r.period_start === weekStart);
-  const weekday = now.getDay();
+  const weekday = keyToUtc(todayKey()).getUTCDay();
   const weekTurn = weekday === 0 || weekday === 1;
 
   return (

@@ -8,6 +8,7 @@ import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
 import { TodoRow } from "./TodoRow";
 import { dueLabel, planLabel } from "./priority";
+import { todayKey, tomorrowKey } from "@/lib/date";
 
 const FILTERS = [
   { value: "open", label: "açık" },
@@ -64,9 +65,10 @@ export function TodoPage() {
   let filtered = tag ? todos.filter((todo) => todo.tags.includes(tag)) : todos;
   if (projectFilter) filtered = filtered.filter((todo) => todo.project_id === projectFilter);
   if (plannedFilter) {
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-    filtered = filtered.filter((todo) => todo.planned_day === todayKey || todo.planned_day === tomorrow);
+    // Gun anahtarlari app tz'den (Faz 14): tarayicinin UTC gunu degil.
+    const today = todayKey();
+    const tomorrow = tomorrowKey();
+    filtered = filtered.filter((todo) => todo.planned_day === today || todo.planned_day === tomorrow);
   }
   const projectTitle = todos.find((todo) => todo.project_id === projectFilter)?.project_title;
   // Alt gorevler kendi satirlarinda degil, ustlerinin altinda gorunur.

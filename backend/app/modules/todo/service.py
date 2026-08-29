@@ -11,6 +11,7 @@ from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
+from app.core.time import local_today
 from app.modules import DeadlineRow
 from app.modules.todo.models import PlanSlot, Todo
 from app.modules.todo.schemas import (
@@ -101,7 +102,7 @@ async def _context_for(session: AsyncSession, todos: list[Todo]) -> dict[uuid.UU
     plan_rows = (
         await session.execute(
             select(PlanSlot.entity_id, PlanSlot.day, PlanSlot.start_min)
-            .where(PlanSlot.entity_id.in_(ids), PlanSlot.day >= date.today())
+            .where(PlanSlot.entity_id.in_(ids), PlanSlot.day >= local_today())
             .order_by(PlanSlot.day)
         )
     ).all()

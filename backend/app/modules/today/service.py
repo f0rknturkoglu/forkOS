@@ -3,14 +3,13 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.config import settings
 from app.core.models import Entity, Link
+from app.core.time import local_zone
 from app.modules.calendar.models import ExternalEvent
 from app.modules.finance.models import RecurringPayment
 from app.modules.media.models import MediaItem
@@ -23,13 +22,13 @@ from app.modules.todo.models import PlanSlot, Todo
 
 
 def _bounds(day: date) -> tuple[datetime, datetime]:
-    zone = ZoneInfo(settings.timezone)
+    zone = local_zone()
     start = datetime.combine(day, time.min, tzinfo=zone)
     return start.astimezone(UTC), (start + timedelta(days=1)).astimezone(UTC)
 
 
 def _planned_start(day: date, minute: int) -> datetime:
-    zone = ZoneInfo(settings.timezone)
+    zone = local_zone()
     return datetime.combine(
         day, time(hour=minute // 60, minute=minute % 60), tzinfo=zone
     )

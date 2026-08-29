@@ -9,13 +9,13 @@ Yeni bir modul "bu da sayilsin" diyorsa fiilini buraya ekler.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.time import local_today
 
 # Kategori -> o kategoriyi olusturan event fiilleri.
 KINDS: dict[str, list[str]] = {
@@ -62,8 +62,8 @@ def _kind_for(
 
 
 def _today() -> date:
-    """Ayarlanan bolgedeki bugun."""
-    return datetime.now(ZoneInfo(settings.timezone)).date()
+    """Ayarlanan bolgedeki bugun -- tek kaynak app.core.time (Faz 14)."""
+    return local_today()
 
 
 async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:

@@ -4,6 +4,7 @@ import { ChevronDown, ClipboardCheck } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
 import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx, relativeTime } from "@/core/ui";
+import { localDateKey } from "@/lib/date";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
 
 /** Geçmiş değerlendirmeler -- GET /reviews ucu. Etiket döneme gore. */
@@ -23,13 +24,6 @@ function reviewLabel(start: string, end: string): string {
   return `${month(s)} – ${month(e)}`;
 }
 import { ALERT_VERBS, describe } from "@/core/verbs";
-
-function localDayKey(iso: string): string {
-  const date = new Date(iso);
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
 
 function dayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString("tr-TR", {
@@ -68,7 +62,8 @@ export function ActivityPage() {
   const dayEntries = useMemo(() => {
     const entries = new Map<string, { key: string; label: string; events: ActivityEvent[] }>();
     for (const event of events) {
-      const key = localDayKey(event.occurred_at);
+      // Gruplama app gunune gore (Faz 14) -- backend heatmap'i ile ayni gun.
+      const key = localDateKey(new Date(event.occurred_at));
       const entry = entries.get(key) ?? { key, label: dayLabel(event.occurred_at), events: [] };
       entry.events.push(event);
       entries.set(key, entry);

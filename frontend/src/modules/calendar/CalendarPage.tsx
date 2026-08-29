@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { CalendarEvent } from "@/core/types";
 import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
+import { addAppDays, appDayUtc, appWeekStartKey, keyToUtc, localDateKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 
 type View = "week" | "month";
@@ -13,70 +14,68 @@ const DAY_MS = 86_400_000;
 const WEEKDAYS = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
 
 function startOfDay(value: Date): Date {
-  const d = new Date(value);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  // App gununun UTC-projekte temsili (Faz 14) -- tarayici tz'den bagimsiz.
+  return appDayUtc(value);
 }
 
 /** Haftanin pazartesisi. getDay: 0=pazar, o yuzden +6 %7. */
 function monday(value: Date): Date {
-  const d = startOfDay(value);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return d;
+  return keyToUtc(appWeekStartKey(value));
 }
 
 function sameDay(a: Date, b: Date): boolean {
-  return a.toDateString() === b.toDateString();
+  return localDateKey(a) === localDateKey(b);
 }
 
 /** Gorunumun kapsadigi ilk gun: hafta = pazartesi, ay = ayin ilk haftasinin pazartesisi. */
 function rangeStart(anchor: Date, view: View): Date {
   if (view === "week") return monday(anchor);
-  return monday(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
+  return monday(new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1)));
 }
 
 /** Ay izgarasi TAM haftalardan olusur; ayin son gununu kapsayacak kadar hafta. */
 function rangeDays(anchor: Date, view: View): number {
   if (view === "week") return 7;
   const first = rangeStart(anchor, view);
-  const lastOfMonth = startOfDay(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0));
+  const lastOfMonth = startOfDay(new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0)));
   const span = Math.round((lastOfMonth.getTime() - first.getTime()) / DAY_MS) + 1;
   return Math.ceil(span / 7) * 7;
 }
 
 /** Gun ekleme setDate ile: yaz saati gecislerinde DAY_MS kayiyor. */
-function addDays(from: Date, count: number): Date {
-  const d = new Date(from);
-  d.setDate(d.getDate() + count);
-  return d;
-}
 
 /** Ust seritteki donem basligi -- "hangi aydayiz" sorusunun tek cevabi. */
 function periodLabel(anchor: Date, view: View, days: number): string {
   if (view === "month") {
-    return anchor.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+    return anchor.toLocaleDateString("tr-TR", { month: "long", year: "numeric", timeZone: "UTC" });
   }
   const first = rangeStart(anchor, view);
-  const last = addDays(first, days - 1);
-  const sameMonth = first.getMonth() === last.getMonth();
-  const sameYear = first.getFullYear() === last.getFullYear();
+  const last = addAppDays(first, days - 1);
+  const sameMonth = first.getUTCMonth() === last.getUTCMonth();
+  const sameYear = first.getUTCFullYear() === last.getUTCFullYear();
   const head = first.toLocaleDateString("tr-TR", {
+    timeZone: "UTC",
     day: "numeric",
     month: sameMonth ? undefined : "long",
     year: sameYear ? undefined : "numeric",
   });
-  const tail = last.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+  const tail = last.toLocaleDateString("tr-TR", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   return `${head} – ${tail}`;
 }
 
 export function CalendarPage() {
   const [view, setView] = useState<View>("month");
-  const [anchor, setAnchor] = useState(() => new Date());
+  const [anchor, setAnchor] = useState(() => appDayUtc(new Date()));
   const online = useOnline();
 
   const days = rangeDays(anchor, view);
   const start = useMemo(() => rangeStart(anchor, view), [anchor, view]);
-  const end = useMemo(() => addDays(start, days), [start, days]);
+  const end = useMemo(() => addAppDays(start, days), [start, days]);
 
   const { data: events = [] } = useQuery({
     queryKey: ["calendar-events", start.toISOString(), days],
@@ -96,13 +95,13 @@ export function CalendarPage() {
 
   function step(delta: number) {
     setAnchor((current) => {
-      if (view === "week") return addDays(current, delta * 7);
-      return new Date(current.getFullYear(), current.getMonth() + delta, 1);
+      if (view === "week") return addAppDays(current, delta * 7);
+      return new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + delta, 1));
     });
   }
 
-  const cells = Array.from({ length: days }, (_, i) => addDays(start, i));
-  const today = new Date();
+  const cells = Array.from({ length: days }, (_, i) => addAppDays(start, i));
+  const today = appDayUtc(new Date());
 
   return (
     <PageFrame className="space-y-5">
@@ -114,7 +113,7 @@ export function CalendarPage() {
           <Button size="sm" onClick={() => step(-1)} title="Önceki">
             <ChevronLeft size={14} />
           </Button>
-          <Button size="sm" onClick={() => setAnchor(new Date())}>
+          <Button size="sm" onClick={() => setAnchor(appDayUtc(new Date()))}>
             Bugün
           </Button>
           <Button size="sm" onClick={() => step(1)} title="Sonraki">
@@ -162,7 +161,7 @@ export function CalendarPage() {
               const rows = events.filter((event) => sameDay(new Date(event.starts_at), day));
               const isToday = sameDay(day, today);
               // Ay gorunumunde komsu aylarin gunleri soluk kalir.
-              const outside = view === "month" && day.getMonth() !== anchor.getMonth();
+              const outside = view === "month" && day.getUTCMonth() !== anchor.getUTCMonth();
 
               return (
                 <div
@@ -180,12 +179,12 @@ export function CalendarPage() {
                         isToday ? "bg-accent font-medium text-canvas" : outside ? "text-muted" : "text-secondary",
                       )}
                     >
-                      {day.getDate()}
+                      {day.getUTCDate()}
                     </span>
                     {/* Ayin ilk gunu: izgarada ay degisimini gorunur kilar. */}
-                    {day.getDate() === 1 && (
+                    {day.getUTCDate() === 1 && (
                       <span className="text-micro uppercase tracking-[0.08em] text-muted">
-                        {day.toLocaleDateString("tr-TR", { month: "short" })}
+                        {day.toLocaleDateString("tr-TR", { month: "short", timeZone: "UTC" })}
                       </span>
                     )}
                   </div>

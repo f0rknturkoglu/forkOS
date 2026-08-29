@@ -5,15 +5,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Button, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
 import type { PlanSlot, Todo } from "@/core/types";
-import { localDateKey } from "@/lib/date";
+import { addAppDays, appWeekStartKey, keyToUtc, localDateKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 
 const isoDay = localDateKey;
-function monday(value = new Date()) {
-  const copy = new Date(value);
-  copy.setHours(12, 0, 0, 0);
-  copy.setDate(copy.getDate() - ((copy.getDay() + 6) % 7));
-  return copy;
+/** App haftasinin Pazartesi'si -- UTC-projekte gun (Faz 14). */
+function monday(value = new Date()): Date {
+  return keyToUtc(appWeekStartKey(value));
 }
 
 function DraggableCard({ id, title, muted = false }: { id: string; title: string; muted?: boolean }) {
@@ -46,8 +44,8 @@ function DayColumn({ day, slots }: { day: Date; slots: PlanSlot[] }) {
       )}
     >
       <div className="mb-2 text-meta font-medium">
-        <span>{day.toLocaleDateString("tr-TR", { weekday: "short" })}</span>
-        <span className="ml-1 text-muted">{day.getDate()}</span>
+        <span>{day.toLocaleDateString("tr-TR", { weekday: "short", timeZone: "UTC" })}</span>
+        <span className="ml-1 text-muted">{day.getUTCDate()}</span>
       </div>
       <div className="space-y-2">
         {slots.map((slot) => (
@@ -68,9 +66,7 @@ export function WeeklyPlannerPage() {
   const days = useMemo(
     () =>
       Array.from({ length: 7 }, (_, i) => {
-        const day = new Date(week);
-        day.setDate(week.getDate() + i);
-        return day;
+        return addAppDays(week, i);
       }),
     [week],
   );
@@ -95,9 +91,7 @@ export function WeeklyPlannerPage() {
     move.mutate({ active: String(event.active.id), target: String(event.over.id) });
   }
   function shift(days: number) {
-    const next = new Date(week);
-    next.setDate(next.getDate() + days);
-    setWeek(next);
+    setWeek(addAppDays(week, days));
   }
   const planned = new Set(slots.map((slot) => slot.entity_id));
   return (

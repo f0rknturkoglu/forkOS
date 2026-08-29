@@ -1,75 +1,55 @@
-// @vitest-environment jsdom
-/**
- * Faz 10: ReviewWidget haftalik giris noktasi. Nav'da gizlenen review
- * modulunun ASIL giris yeri bu widget -- hafta donumu hatirlatmasi test edilir.
- */
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReviewWidget } from "./ReviewWidget";
 
-vi.mock("@/core/api", () => ({
-  api: {
-    get: vi.fn(),
-    post: vi.fn(),
-    del: vi.fn(),
-    patch: vi.fn(),
-    put: vi.fn(),
-  },
-  qs: vi.fn(() => ""),
+type QueryOptions = { queryKey: readonly unknown[]; queryFn: () => unknown };
+
+const harness = vi.hoisted(() => ({
+  apiGet: vi.fn(),
+  events: [] as { occurred_at: string; verb: string }[],
+  queries: [] as QueryOptions[],
 }));
+
+vi.mock("@/core/api", () => ({ api: { get: harness.apiGet } }));
 vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: vi.fn((options: QueryOptions) => {
+    harness.queries.push(options);
+    const key = String(options.queryKey[0]);
+    return { data: key.includes("activity") ? harness.events : [] };
+  }),
+}));
 
-import { api } from "@/core/api";
-
-const apiGet = vi.mocked(api.get);
-
-/** Yerel hafta basi (Pazartesi) anahtari -- backend period_start ile ayni. */
-function mondayKey(): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diff);
-  return monday.toLocaleDateString("sv-SE");
-}
-
-function renderWidget() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <ReviewWidget />
-    </QueryClientProvider>,
-  );
-}
-
-beforeEach(() => {
-  apiGet.mockReset();
-  apiGet.mockImplementation(async (path: string) => {
-    if (path.startsWith("/activity")) return [];
-    if (path.startsWith("/reviews")) return [];
-    return {};
+describe("ReviewWidget app gunu kontrolu (Faz 14)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    harness.apiGet.mockReset();
+    harness.events = [];
+    harness.queries.length = 0;
   });
-});
-afterEach(cleanup);
-
-describe("ReviewWidget haftalik giris", () => {
-  it("gunluk ve haftalik butonlarini gosterir, ikisi de acilir", async () => {
-    renderWidget();
-    expect(await screen.findByText("Günlük değerlendirme")).toBeTruthy();
-    expect(screen.getByText("Haftalık değerlendirme")).toBeTruthy();
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("bu hafta yapildiysa tek satira iner", async () => {
-    apiGet.mockImplementation(async (path: string) => {
-      if (path.startsWith("/activity")) return [];
-      if (path.startsWith("/reviews")) {
-        return [{ id: "r1", kind: "weekly", period_start: mondayKey(), period_end: mondayKey() }];
-      }
-      return {};
-    });
-    renderWidget();
-    expect(await screen.findByText("Haftalık değerlendirmeyi yaptın.")).toBeTruthy();
-    expect(screen.queryByText("Haftalık değerlendirme hazır")).toBeNull();
+  it("event app gununde tamamlandiysa 'Bugunu degerlendirdin' gosterir", () => {
+    // Istanbul 2026-01-15 00:30 -- tarayici/UTC gunu hala 2026-01-14.
+    vi.setSystemTime(new Date("2026-01-14T21:40:00Z"));
+    harness.events = [{ occurred_at: "2026-01-14T21:30:00Z", verb: "review.completed" }];
+
+    const markup = renderToStaticMarkup(<ReviewWidget />);
+
+    expect(markup).toContain("Bugünü değerlendirdin.");
+  });
+
+  it("event onceki app gununde tamamlandiysa hatirlatma hala gorunur", () => {
+    // Istanbul 2026-01-15 00:40; event dune (Istanbul 2026-01-14 23:50).
+    vi.setSystemTime(new Date("2026-01-14T21:50:00Z"));
+    harness.events = [{ occurred_at: "2026-01-14T20:50:00Z", verb: "review.completed" }];
+
+    const markup = renderToStaticMarkup(<ReviewWidget />);
+
+    expect(markup).not.toContain("Bugünü değerlendirdin.");
+    // Istanbul 00:50 -> aksam dilimi: gunu kapatma cagrisi gorunur.
+    expect(markup).toContain("Günü kapat — bugünü değerlendir");
   });
 });

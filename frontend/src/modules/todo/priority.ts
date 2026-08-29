@@ -4,6 +4,7 @@
  * Arayuzde "p2" gibi ic kodlar YAZILMAZ; kullanici duz Turkce gorur.
  * Renk semantik tonlardan gelir (index.css), marka rengi degil.
  */
+import { daysBetween, keyToUtc, localDateKey, todayKey } from "@/lib/date";
 export const PRIORITIES = [
   { value: 0, label: "yok", dot: "bg-icon", text: "text-muted", tone: "neutral" },
   { value: 1, label: "düşük", dot: "bg-ok", text: "text-ok", tone: "ok" },
@@ -28,11 +29,8 @@ export const recurLabel = (value: string | null): string | null =>
 export function dueLabel(iso: string | null): { text: string; tone: "muted" | "accent" | "danger" } | null {
   if (!iso) return null;
   const due = new Date(iso);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const day = new Date(due);
-  day.setHours(0, 0, 0, 0);
-  const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000);
+  // Gun karsilastirmasi app tz'de (Faz 14): tarayicinin yerel saati degil.
+  const diff = daysBetween(todayKey(), localDateKey(due));
 
   const time =
     due.getHours() || due.getMinutes() ? due.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -43,7 +41,13 @@ export function dueLabel(iso: string | null): { text: string; tone: "muted" | "a
   if (diff === 1) return { text: withTime("yarın"), tone: "muted" };
   if (diff < 7) return { text: withTime(due.toLocaleDateString("tr-TR", { weekday: "long" })), tone: "muted" };
   return {
-    text: withTime(due.toLocaleDateString("tr-TR", { day: "numeric", month: "short" })),
+    text: withTime(
+      keyToUtc(localDateKey(due)).toLocaleDateString("tr-TR", {
+        timeZone: "UTC",
+        day: "numeric",
+        month: "short",
+      }),
+    ),
     tone: "muted",
   };
 }
@@ -59,10 +63,8 @@ export function planLabel(
   startMin: number | null,
 ): { text: string; tone: "muted" | "accent" | "warn" } | null {
   if (!plannedDay) return null;
-  const day = new Date(plannedDay + "T00:00:00");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((day.getTime() - today.getTime()) / 86_400_000);
+  // Plan gunu karsilastirmasi app tz'de (Faz 14) -- plan_day zaten app gunudur.
+  const diff = daysBetween(todayKey(), plannedDay);
 
   const time =
     startMin != null
@@ -74,7 +76,13 @@ export function planLabel(
   if (diff === 0) return { text: withTime("bugün planlı"), tone: "accent" };
   if (diff === 1) return { text: withTime("yarın planlı"), tone: "muted" };
   return {
-    text: withTime(day.toLocaleDateString("tr-TR", { day: "numeric", month: "short" }) + " planlı"),
+    text: withTime(
+      keyToUtc(plannedDay).toLocaleDateString("tr-TR", {
+        timeZone: "UTC",
+        day: "numeric",
+        month: "short",
+      }) + " planlı",
+    ),
     tone: "muted",
   };
 }

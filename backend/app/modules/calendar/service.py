@@ -7,6 +7,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.entity import archive_entity, create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
@@ -161,10 +162,11 @@ async def push_slot(session: AsyncSession, slot_id: uuid.UUID) -> dict | None:
     payload = {
         "summary": title,
         "description": slot.note or "forkOS plan slot",
-        "start": {"dateTime": starts_at.isoformat(), "timeZone": "Europe/Istanbul"},
+        # Timezone backend config'inden (Faz 14) -- sabit string yok.
+        "start": {"dateTime": starts_at.isoformat(), "timeZone": settings.timezone},
         "end": {
             "dateTime": (starts_at + timedelta(minutes=slot.duration_min or 30)).isoformat(),
-            "timeZone": "Europe/Istanbul",
+            "timeZone": settings.timezone,
         },
     }
     result = await upsert_event(token, payload, slot.google_event_id)

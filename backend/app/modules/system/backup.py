@@ -4,13 +4,13 @@ import gzip
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import events as event_svc
 from app.core.events import log_event
+from app.core.time import local_today
 from app.integrations.google_auth import access_token
 from app.modules.system.export import backup_table_names, full_json
 from app.modules.system.models import Setting
@@ -36,7 +36,8 @@ def _counts(payload: dict) -> dict:
 
 async def create_backup(session: AsyncSession) -> Path:
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    local_day = datetime.now(ZoneInfo("Europe/Istanbul")).date().isoformat()
+    # Yedek gunu backend ortak zaman servisinden (Faz 14) -- sabit tz yok.
+    local_day = local_today().isoformat()
     target = BACKUP_DIR / f"lifeos-{local_day}.json.gz"
     payload = await full_json(session)
     with gzip.open(target, "wt", encoding="utf-8") as handle:
