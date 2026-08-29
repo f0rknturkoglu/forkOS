@@ -135,11 +135,6 @@ export function allTodayWidgetViews(): TodayWidgetView[] {
  * Panel sutunundaki widget'lar (kullanici sirasi + gizleme uygulanir).
  * Esitlikte varsayilan order korunur (Array#sort kararli).
  */
-export const allTodayWidgetsIn = (slot: "left" | "center" | "right"): ComponentType[] =>
-  allTodayWidgetViews()
-    .filter((view) => (view.widget.slot ?? "center") === slot)
-    .map((view) => view.widget.component);
-
 /**
  * Ayarlar ekrani icin: gizliler DAHIL tum widget'lar (siralama uygulanir).
  * Gizli bir widget listede gorunur ki geri gosterilebilsin.

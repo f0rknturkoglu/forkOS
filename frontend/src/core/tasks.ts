@@ -15,7 +15,7 @@ import { api } from "@/core/api";
 import { localDateKey } from "@/lib/date";
 import type { Todo } from "@/core/types";
 
-export interface TaskIntent {
+interface TaskIntent {
   title: string;
   description?: string;
   priority?: number;
@@ -30,7 +30,7 @@ export interface TaskIntent {
 }
 
 // Faz 13'te TodoComposer'da yasayan tercih; ortak capture katmanina tasindi.
-export const PLAN_KEY = "todo.planToday";
+const PLAN_KEY = "todo.planToday";
 
 export function readPlanTodayPreference(): boolean {
   return typeof localStorage !== "undefined" && localStorage.getItem(PLAN_KEY) === "1";
@@ -42,7 +42,7 @@ export function writePlanTodayPreference(checked: boolean): void {
 }
 
 /** "Bugune al" aciksa bugunun app gun anahtari; degilse undefined. */
-export function planDayForToday(): string | undefined {
+function planDayForToday(): string | undefined {
   return readPlanTodayPreference() ? localDateKey(new Date()) : undefined;
 }
 

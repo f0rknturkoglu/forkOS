@@ -6,6 +6,7 @@ import { AppHeader } from "@/core/AppHeader";
 import { CommandPalette } from "@/core/CommandPalette";
 import { DialogHost } from "@/core/dialog";
 import { DropCapture } from "@/core/DropCapture";
+import { CaptureDialog } from "@/core/CaptureDialog";
 import { allRoutes, hydrateSettings } from "@/core/registry";
 import { hydrateEntityRegistry } from "@/core/entityRegistry";
 import type { EntityTypeSpec } from "@/core/entityRegistry";
@@ -142,6 +143,7 @@ export default function App() {
         <CommandPalette />
         <DialogHost />
         <DropCapture />
+        <CaptureDialog />
       </div>
     </ToastProvider>
   );

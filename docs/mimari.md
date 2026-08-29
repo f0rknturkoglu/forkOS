@@ -230,6 +230,20 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   sidebar modulu YOK. Documents sayfasi "Yerel Notlar" + "Drive Belgeleri"
   ayrimini gosterir.
 - Migration `0028_note` (head). Not: `test_media_domain_migration` artik
+## Faz 22: evrensel yakalama kutusu
+
+- `core/capture.ts` TEK intent katmani: `capture({kind, text, ...})` --
+  task (Faz 17 createTask, "bugune al" tercihi uygulanir), note (Faz 21
+  /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
+  Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
+  bookmark).
+- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden
+  once gorunur (sessiz siniflandirma yok). URL girilirse baglanti onerilir
+  ama kullanici not olarak saklayabilir. Son kullanilan tur
+  localStorage'da hatirlanir; double-submit buton kilidiyle engellenir.
+- Girenler: Command Palette "Hizli yakala" (settings modulu), DropCapture
+  metin birakmasi (kutuya prefilled acilir). Extension outbox degismez.
+
   ortak test DB'sini her zaman head'e birakiyor (son iki test book
   revizyonunda kaliyordu ve yeni head tablolarini dusuruyordu).
 

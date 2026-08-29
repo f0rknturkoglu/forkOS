@@ -11,7 +11,7 @@ import { allTodayWidgets } from "./registry";
 
 export type TodayPreset = "focused" | "overview";
 
-export interface TodayPresetConfig {
+interface TodayPresetConfig {
   order: string[];
   hidden: string[];
 }
