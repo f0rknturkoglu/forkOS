@@ -73,6 +73,15 @@ class OpportunityOut(BaseModel):
     requirement_document_id: UUID | None = None
 
 
+class OpportunityBrowseOut(BaseModel):
+    items: list[OpportunityOut]
+    total: int
+    offset: int
+    limit: int
+    section_counts: dict[str, int]
+    facets: dict[str, dict[str, int]]
+
+
 class RequirementIn(BaseModel):
     name: str = Field(min_length=1)
     required: bool = True

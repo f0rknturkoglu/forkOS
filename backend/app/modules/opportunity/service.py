@@ -124,6 +124,11 @@ async def list_opportunities(
         if trashed_only
         else Opportunity.trashed_at.is_(None)
     )
+    if status:
+        stmt = stmt.where(Opportunity.status == status)
+    if kind:
+        stmt = stmt.where(Opportunity.kind == kind)
+    stmt = stmt.limit(limit)
     rows = (await session.execute(stmt)).all()
     outs = [_out(row, include_raw=False) for row in rows]
     if not outs:
@@ -162,7 +167,6 @@ async def list_opportunities(
         )
         for out in outs
     ]
-    return [_out(row, include_raw=False) for row in (await session.execute(stmt)).all()]
 
 
 async def trash_opportunity(

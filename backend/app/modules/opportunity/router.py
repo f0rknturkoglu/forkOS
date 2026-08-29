@@ -12,9 +12,11 @@ from app.core.links import link
 from app.core.models import Entity, Link
 from app.db import get_session
 from app.modules.opportunity import service
+from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
 from app.modules.opportunity.models import Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
     OpportunityIn,
+    OpportunityBrowseOut,
     OpportunityOut,
     OpportunityPatch,
     RequirementIn,
@@ -41,6 +43,47 @@ async def opportunities(
 ):
     return await service.list_opportunities(
         session, status, kind, min(limit, 2000), trashed_only=trashed_only
+    )
+
+
+@router.get("/opportunities/browse", response_model=OpportunityBrowseOut)
+async def opportunity_browse(
+    section: str = "jobs",
+    announcement_source: str | None = None,
+    category: str | None = None,
+    search: str | None = None,
+    status: str | None = None,
+    source: str | None = None,
+    region: str | None = None,
+    remote: str | None = None,
+    period_days: int | None = None,
+    year: int | None = None,
+    sort: str = "score",
+    offset: int = 0,
+    limit: int = 40,
+    session: AsyncSession = Depends(get_session),
+):
+    if section not in {"jobs", "announcements", "trash"}:
+        raise HTTPException(422, "Geçersiz fırsat bölümü")
+    if sort not in {"score", "newest", "oldest", "deadline"}:
+        raise HTTPException(422, "Geçersiz sıralama")
+    return await browse_opportunities(
+        session,
+        BrowseFilters(
+            section=section,
+            announcement_source=announcement_source,
+            category=category,
+            search=search,
+            status=status,
+            source=source,
+            region=region,
+            remote=remote,
+            period_days=min(period_days, 3650) if period_days else None,
+            year=year,
+            sort=sort,
+            offset=max(offset, 0),
+            limit=min(max(limit, 1), 120),
+        ),
     )
 
 
