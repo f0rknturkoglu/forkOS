@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +58,8 @@ async def opportunity_browse(
     remote: str | None = None,
     period_days: int | None = None,
     year: int | None = None,
+    min_score: float | None = Query(None, ge=-1, le=100),
+    max_score: float | None = Query(None, ge=-1, le=100),
     sort: str = "score",
     offset: int = 0,
     limit: int = 40,
@@ -65,8 +67,10 @@ async def opportunity_browse(
 ):
     if section not in {"jobs", "announcements", "trash"}:
         raise HTTPException(422, "Geçersiz fırsat bölümü")
-    if sort not in {"score", "newest", "oldest", "deadline"}:
+    if sort not in {"score", "score_asc", "newest", "oldest", "deadline"}:
         raise HTTPException(422, "Geçersiz sıralama")
+    if min_score is not None and max_score is not None and min_score > max_score:
+        raise HTTPException(422, "Minimum skor maksimum skordan büyük olamaz")
     return await browse_opportunities(
         session,
         BrowseFilters(
@@ -80,6 +84,8 @@ async def opportunity_browse(
             remote=remote,
             period_days=min(period_days, 3650) if period_days else None,
             year=year,
+            min_score=min_score if section == "jobs" else None,
+            max_score=max_score if section == "jobs" else None,
             sort=sort,
             offset=max(offset, 0),
             limit=min(max(limit, 1), 120),

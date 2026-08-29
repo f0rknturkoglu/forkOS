@@ -26,6 +26,8 @@ class BrowseFilters:
     remote: str | None = None
     period_days: int | None = None
     year: int | None = None
+    min_score: float | None = None
+    max_score: float | None = None
     sort: str = "score"
     offset: int = 0
     limit: int = 40
@@ -58,6 +60,11 @@ def _conditions(filters: BrowseFilters):
         conditions.append(Opportunity.region == filters.region)
     if filters.remote:
         conditions.append(Opportunity.remote == filters.remote)
+    score = _score_expression()
+    if filters.min_score is not None:
+        conditions.append(score >= filters.min_score)
+    if filters.max_score is not None:
+        conditions.append(score <= filters.max_score)
     effective_date = func.coalesce(Opportunity.published_at, Opportunity.found_at)
     if filters.period_days:
         conditions.append(
@@ -73,6 +80,10 @@ def _conditions(filters: BrowseFilters):
     return conditions
 
 
+def _score_expression():
+    return cast(Opportunity.raw["forkjob"]["score"].astext, Float)
+
+
 def _order(filters: BrowseFilters):
     effective_date = func.coalesce(Opportunity.published_at, Opportunity.found_at)
     stable = (Entity.title.asc(), Opportunity.id.asc())
@@ -82,7 +93,9 @@ def _order(filters: BrowseFilters):
         return (Opportunity.deadline_at.asc().nulls_last(), effective_date.desc(), *stable)
     if filters.sort == "newest" or filters.section == "announcements":
         return (effective_date.desc(), *stable)
-    score = cast(Opportunity.raw["forkjob"]["score"].astext, Float)
+    score = _score_expression()
+    if filters.sort == "score_asc":
+        return (score.asc().nulls_last(), effective_date.desc(), *stable)
     return (score.desc().nulls_last(), effective_date.desc(), *stable)
 
 
