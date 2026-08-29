@@ -7912,6 +7912,8 @@ export interface operations {
                 remote?: string | null;
                 period_days?: number | null;
                 year?: number | null;
+                min_score?: number | null;
+                max_score?: number | null;
                 sort?: string;
                 offset?: number;
                 limit?: number;

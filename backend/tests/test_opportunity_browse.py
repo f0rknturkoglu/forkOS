@@ -5,8 +5,8 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
 from app.db import SessionLocal
+from app.main import app
 from app.modules.opportunity.models import Opportunity
 
 
