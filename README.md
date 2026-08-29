@@ -111,6 +111,34 @@ Uyarilar Activity ekraninda ve her sayfanin ustundeki seritte gorunur --
 
 ## Gunluk ritmi
 
+Gunluk dongu: **Yakala → Ayristir → Bugune planla → Odaklan → Tamamla →
+Degerlendir**. Butun akis local; disari veri gidmez.
+
+- **Hizli yakala** (Ctrl+K → "Hizli yakala" ya da metni pencereye birak):
+  ayni kutudan Gorev / Not / Baglanti. Metin otomatik cozumlenir ("yarin
+  14:00 disciyi ara", "cuma projeyi gonder", "son tarih bugun rapor") --
+  onerileri onaylamadan once duzenleyebilirsin (Faz 22/23).
+- **Bugune al**: gorevi planlar, son tarih VERMEZ (plan != teslim). Tercih
+  hatirlanir; butun giris noktalarinda aynidir (Faz 13/17).
+- **Gunun ritmi** (Today): sabah ilk 3 planli is + ilk odak; gun icinde
+  siradaki is + aktif pomodoro; aksam degerlendirme + acik planli
+  gorevleri yarina tasi (Faz 25). Kapatmak istersen Ayarlar → Bugun
+  widget'lari → gizle.
+- **Yerel notlar**: Documents sayfasinda "Yerel Notlar" (Drive belgeleri
+  metadata aynasi olarak yaninda durur); herhangi bir kayda baglanabilir
+  ve o kaydin "Hakkında" panelinde gorunur (Faz 21).
+- **Rutin gorevler**: tamamlaninca bir sonraki olusur (proje/milestone/
+  tag kopyalanir, plan kopyalanmaz); "Rutini durdur" gelecekteki uretimi
+  kapatir, gecmis Activity'de kalir (Faz 24).
+- **Masaustu bildirimler**: yeni + yuksek onemli bildirimler OS bildirimi
+  olur (izin Ayarlar'dan istenir). Tarayici tamamen kapaliyken bildirim
+  gelmez -- garanti icin makine acik ve tarayici calisiyor olmali
+  (Faz 26; macOS launchd tarifi `docs/mimari.md`'de).
+
+Yedek: gunluk gzip + istege bagli Drive; secret ayarlar yedekten cikar.
+`/backup/restore` "Birleştirerek içe aktar"dir (mevcut veriye dokunmaz);
+tam geri donus `make disaster-restore` (Faz 15/16).
+
 Local-only oldugu icin worker sadece makine acikken calisir.
 Sabah `make up` → catch-up turu kacirilan her seyi tek seferde toplar.
 
