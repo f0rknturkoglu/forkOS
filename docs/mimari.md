@@ -218,6 +218,21 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   varsayilan bozulmaz. React Query istekleri dedupe eder; Today yuklemesi
   ~17 benzersiz kucuk uca bolunur -- aggregator endpoint gerekmedi.
   Tek widget'in hatasi panoyu bozmaz (her widget kendi query'sini yonetir).
+## Faz 21: yerel hizli notlar
+
+- Backend `note` modulu: PK entity.id'ye FK (kural 1); baslik Entity.title'da
+  (body'den turetilir: ilk satir, 60 karakter, bos ise "Not"); `search_text`
+  = body (global search bulur). Pin/arsiv/silme Entity yasam dongusunden;
+  her mutation event uretir (note.created/updated/pinned/archived/deleted).
+- Relation: `notes_about` ("Hakkında not" / "Notları") -- not herhangi bir
+  entity'ye baglanir; RelatedPanel iki tarafta da gosterir. Not gorunumu
+  Documents icindeki focused nota gider (EntityTypeSpec rotasi) -- ayri
+  sidebar modulu YOK. Documents sayfasi "Yerel Notlar" + "Drive Belgeleri"
+  ayrimini gosterir.
+- Migration `0028_note` (head). Not: `test_media_domain_migration` artik
+  ortak test DB'sini her zaman head'e birakiyor (son iki test book
+  revizyonunda kaliyordu ve yeni head tablolarini dusuruyordu).
+
 
 
 

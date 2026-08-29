@@ -4,8 +4,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
+import { NotesSection } from "./NotesSection";
 import { useHashRoute } from "@/app/router";
-import type { Document, Opportunity } from "@/core/types";
+import type { Document, Note, Opportunity } from "@/core/types";
 import {
   Button,
   Chip,
@@ -123,12 +124,40 @@ export function DocumentsPage() {
         onSync={() => sync.mutate()}
       />
       <DocumentsList docs={docs} usageByDoc={docOpportunities} openingId={openingId} online={online} onOpen={openDoc} />
-      {focusId && (
-        <Section title="Bağlı kayıtlar">
-          <RelatedPanel entityId={focusId} />
-        </Section>
-      )}
+
+      {/* Yerel notlar (Faz 21): Drive belgelerinin yaninda, ayri modul degil. */}
+      <NotesSection online={online} />
+
+      {focusId && <DocumentFocusPanel id={focusId} online={online} />}
     </PageFrame>
+  );
+}
+
+/**
+ * Secili kaydin iliskileri (Faz 18) + notsa govde gorunumu (Faz 21).
+ * Not EntityTypeSpec rotasi (/documents?focus={id}) buraya gider.
+ */
+function DocumentFocusPanel({ id, online }: { id: string; online: boolean }) {
+  const { data: note } = useQuery({
+    queryKey: ["note", id],
+    queryFn: () => api.get<Note>(`/notes/${id}`).catch(() => null),
+    enabled: Boolean(id),
+  });
+
+  if (!note) {
+    return (
+      <Section title="Bağlı kayıtlar">
+        <RelatedPanel entityId={id} />
+      </Section>
+    );
+  }
+  return (
+    <Section title={note.title} hint={note.pinned ? "sabit" : undefined}>
+      <p className="whitespace-pre-wrap text-body text-secondary">{note.body}</p>
+      <div className="mt-3">
+        <RelatedPanel entityId={id} relation="notes_about" title="Hakkında" />
+      </div>
+    </Section>
   );
 }
 

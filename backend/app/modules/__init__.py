@@ -61,6 +61,7 @@ from app.modules.document import MODULE as document_module  # noqa: E402
 from app.modules.finance import MODULE as finance_module  # noqa: E402
 from app.modules.learning import MODULE as learning_module  # noqa: E402
 from app.modules.media import MODULE as media_module  # noqa: E402
+from app.modules.note import MODULE as note_module  # noqa: E402
 from app.modules.opportunity import MODULE as opportunity_module  # noqa: E402
 from app.modules.pomodoro import MODULE as pomodoro_module  # noqa: E402
 from app.modules.project import MODULE as project_module  # noqa: E402
@@ -82,6 +83,7 @@ MODULES: list[ModuleSpec] = [
     document_module,
     calendar_module,
     media_module,
+    note_module,
     project_module,
     finance_module,
     system_module,

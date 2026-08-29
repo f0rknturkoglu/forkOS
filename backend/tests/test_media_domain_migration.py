@@ -474,7 +474,7 @@ def test_book_to_media_item_roundtrip_preserves_links_and_events():
         )
     finally:
         # DB'yi her zaman HEAD'e birak (Faz 0 dersi: sonraki testler head ister).
-        _alembic(book_revision)
+        _alembic("head")
         asyncio.run(
             _execute(
                 "delete from entity where id in (:a, :b)",
@@ -526,7 +526,7 @@ def test_book_downgrade_tolerates_null_media_progress():
         )
         assert row["current_page"] == 0, row
     finally:
-        _alembic(book_revision)
+        _alembic("head")
         asyncio.run(
             _execute(
                 "delete from entity where id = :id",

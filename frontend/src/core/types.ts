@@ -138,6 +138,15 @@ export interface RssStats {
   saved: number;
 }
 
+export interface Note {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Todo {
   id: string;
   title: string;

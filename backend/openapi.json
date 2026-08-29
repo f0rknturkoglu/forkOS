@@ -4286,6 +4286,97 @@
         "title": "MilestonePatch",
         "type": "object"
       },
+      "NoteIn": {
+        "properties": {
+          "body": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "pinned": {
+            "default": false,
+            "title": "Pinned",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "NoteIn",
+        "type": "object"
+      },
+      "NoteOut": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "body",
+          "pinned",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "NoteOut",
+        "type": "object"
+      },
+      "NoteUpdate": {
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 200000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "pinned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned"
+          }
+        },
+        "title": "NoteUpdate",
+        "type": "object"
+      },
       "NotificationOut": {
         "properties": {
           "body": {
@@ -10648,6 +10739,271 @@
         "summary": "Reddit News",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/notes": {
+      "get": {
+        "operationId": "list_notes_api_notes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NoteOut"
+                  },
+                  "title": "Response List Notes Api Notes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Notes",
+        "tags": [
+          "note"
+        ]
+      },
+      "post": {
+        "operationId": "create_note_api_notes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Note",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/{note_id}": {
+      "delete": {
+        "operationId": "delete_note_api_notes__note_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Note",
+        "tags": [
+          "note"
+        ]
+      },
+      "get": {
+        "operationId": "get_note_api_notes__note_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Note",
+        "tags": [
+          "note"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_note_api_notes__note_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Note",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/archive": {
+      "post": {
+        "operationId": "archive_note_api_notes__note_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/NoteOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Archive Note Api Notes  Note Id  Archive Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Note",
+        "tags": [
+          "note"
         ]
       }
     },

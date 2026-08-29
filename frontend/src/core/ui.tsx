@@ -415,6 +415,7 @@ export function Textarea({
   className,
   onBlur,
   disabled,
+  ariaLabel,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -423,12 +424,14 @@ export function Textarea({
   className?: string;
   onBlur?: (value: string) => void;
   disabled?: boolean;
+  ariaLabel?: string;
 }) {
   return (
     <textarea
       value={value}
       rows={rows}
       placeholder={placeholder}
+      aria-label={ariaLabel ?? placeholder}
       disabled={disabled}
       onBlur={(e) => onBlur?.(e.target.value)}
       onChange={(e) => onChange(e.target.value)}

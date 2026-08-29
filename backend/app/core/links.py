@@ -28,6 +28,8 @@ RELATIONS: dict[str, tuple[str, str]] = {
     # Faz 12: konu -> kurs/kitap/video (learning baglaminda).
     # from = konu (study_topic), to = kaynak (course | media_item).
     "learns_from": ("Kaynakları", "Çalışıldığı konu"),
+    # Faz 21: not -> konu/entity. from = not, to = hakkinda oldugu kayit.
+    "notes_about": ("Hakkında not", "Notları"),
 }
 
 

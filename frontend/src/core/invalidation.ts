@@ -65,6 +65,7 @@ export const AFTER = {
   ],
   "link.write": ["related", "activity"],
   "notification.write": ["notifications"],
+  "note.write": ["notes", "activity"],
 } as const;
 
 type AfterEvent = keyof typeof AFTER;
