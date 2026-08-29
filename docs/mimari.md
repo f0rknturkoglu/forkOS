@@ -243,6 +243,22 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   localStorage'da hatirlanir; double-submit buton kilidiyle engellenir.
 - Girenler: Command Palette "Hizli yakala" (settings modulu), DropCapture
   metin birakmasi (kutuya prefilled acilir). Extension outbox degismez.
+## Faz 23: yerel Turkce tarih/gorev ayristirma
+
+- `lib/taskParser.ts::parseTaskText` saf ve yan etkisizdir (network/LLM
+  yok): temiz baslik + onerilen plan_day / due_at / saat / oncelik /
+  etiketler + tuketilen parcaciklar + belirsizlik uyarilari doner.
+- Semantik: "bugun" PLAN anlamina gelir; "bugun teslim" / "son tarih X"
+  DUE anlamina -- ikisi birbirine CEVRILMEZ. Gun anahtarlari Faz 14
+  helper'larindan (Europe/Istanbul); "yarin" gecen `now`'dan hesaplanir.
+- Destek: bugun/yarin, gun adlari (Turkce karakterli), gelecek hafta
+  (onumuzdeki pazartesi + uyari), "ayin N", saat (14:00), oncelik
+  (yuksek/dusuk/acil), #etiket.
+- CaptureDialog task sekmesi metni ayristirir: oneriler "Metinden
+  cozuldu" seridinde gosterilir, alanlar kullanici dokunmadikca
+  on-doldurulur (kullanici override'i parserdan once gelir); onay olmadan
+  kayit olusmaz. 12 parser testi (sinirlar dahil).
+
 
   ortak test DB'sini her zaman head'e birakiyor (son iki test book
   revizyonunda kaliyordu ve yeni head tablolarini dusuruyordu).

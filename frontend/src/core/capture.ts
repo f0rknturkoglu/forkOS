@@ -31,6 +31,7 @@ interface TaskCaptureOptions {
   plan_day?: string;
   recur?: string;
   project_id?: string;
+  tags?: string[];
 }
 
 interface NoteCaptureOptions {
@@ -69,6 +70,7 @@ export async function capture(intent: CaptureIntent): Promise<CaptureResult> {
       plan_day: intent.task?.plan_day,
       recur: intent.task?.recur,
       project_id: intent.task?.project_id,
+      tags: intent.task?.tags,
     });
     invalidateTaskWrite();
     return { kind: "task", id: todo.id };
