@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api } from "@/core/api";
+import { useHashRoute } from "@/app/router";
+import { RelatedPanel } from "@/core/RelatedPanel";
 import type { Expense, RecurringPayment } from "@/core/types";
 import {
   Button,
@@ -115,6 +117,9 @@ function Donut({ segments }: { segments: { label: string; value: number; color: 
 }
 
 export function FinancePage() {
+  const route = useHashRoute();
+  // Kayit defteri rotasi (?focus={id}): secili harcama/odemenin iliskileri (Faz 18).
+  const focusId = route.params.get("focus") ?? "";
   const [tab, setTab] = useState<"budget" | "expenses" | "recurring">("budget");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -346,6 +351,11 @@ export function FinancePage() {
 
       {((tab === "expenses" && !expenses.length) || (tab === "recurring" && !recurring.length)) && (
         <Empty>Kayıt yok.</Empty>
+      )}
+      {focusId && (
+        <Section title="Bağlı kayıtlar">
+          <RelatedPanel entityId={focusId} />
+        </Section>
       )}
     </PageFrame>
   );

@@ -39,6 +39,10 @@ vi.mock("react", async (importOriginal) => {
     },
   };
 });
+vi.mock("@/app/router", () => ({
+  useHashRoute: () => ({ path: "/finance", params: new URLSearchParams() }),
+}));
+
 vi.mock("@/core/api", () => ({
   api: { del: harness.apiDel, get: harness.apiGet, patch: harness.apiPatch, post: harness.apiPost },
   qs: (params: Record<string, string | number | boolean | undefined | null>) => {

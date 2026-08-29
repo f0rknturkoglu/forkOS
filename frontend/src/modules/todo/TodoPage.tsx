@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
+import { RelatedPanel } from "@/core/RelatedPanel";
 import { Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
@@ -42,6 +43,8 @@ export function TodoPage() {
 
   // ?project=<id> filtre kipi: yalniz o projenin gorevleri listelenir.
   const projectFilter = params.get("project") ?? "";
+  // Kayit defteri rotasi (?focus={id}): secili gorevin iliskileri (Faz 18).
+  const focusId = params.get("focus") ?? "";
   // ?planned=today filtre kipi: bugune (veya yarina) planlanmis gorevler.
   // Plan ile due_at ayni sey degil; bu filtre plan_slot'a bakar.
   const plannedFilter = params.get("planned") === "today";
@@ -170,6 +173,24 @@ export function TodoPage() {
           </div>
         )}
       </Toolbar>
+
+      {focusId && (
+        <Section
+          title="Bağlı kayıtlar"
+          action={
+            <button
+              type="button"
+              onClick={() => navigate(path)}
+              className="text-meta text-muted hover:text-primary"
+              aria-label="İlişkileri kapat"
+            >
+              ✕
+            </button>
+          }
+        >
+          <RelatedPanel entityId={focusId} />
+        </Section>
+      )}
 
       {isLoading ? (
         <p className="text-body text-muted">Yükleniyor…</p>

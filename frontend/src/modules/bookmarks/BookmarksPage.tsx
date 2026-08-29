@@ -21,6 +21,7 @@ import {
 } from "@/core/ui";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
+import { RelatedPanel } from "@/core/RelatedPanel";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, BookmarkStats, Collection, SavedView, TagCount } from "@/core/types";
 
@@ -381,6 +382,7 @@ export function BookmarksPage() {
               </div>
             )}
           </Section>
+          {focus && <RelatedPanel entityId={focus} title="Bağlı kayıtlar" />}
         </aside>
       </div>
     </PageFrame>

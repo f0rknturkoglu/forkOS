@@ -39,12 +39,14 @@ export function RelatedPanel({
   const [query, setQuery] = useState("");
   const debounced = useDebounced(query.trim(), 250);
 
-  const { data: rows = [], refetch } = useQuery({
+  const { data = [], refetch } = useQuery({
     queryKey: ["related", entityId],
     queryFn: () => api.get<RelatedRow[]>(`/entities/${entityId}/related`),
     select: (all) => (relation ? all.filter((row) => row.relation === relation) : all),
     enabled: Boolean(entityId),
   });
+  // Savunma: gecersiz/eksik yanit paneli cokertmesin (Faz 18).
+  const rows = Array.isArray(data) ? data : [];
 
   const { data: hits = {} } = useQuery({
     queryKey: ["search", debounced],

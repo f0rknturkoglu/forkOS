@@ -79,6 +79,12 @@ describe("RelatedPanel", () => {
             label: "Buradan kaydedildi",
             entity: { id: "bm-1", type: "bookmark", title: "İlan sayfası", updated_at: "2026-08-26T10:00:00Z" },
           },
+          {
+            relation: "prepares_for",
+            direction: "outgoing",
+            label: "Hazırlık",
+            entity: { id: "tp-1", type: "study_topic", title: "Türev", updated_at: "2026-08-26T10:00:00Z" },
+          },
         ];
       }
       return {};
@@ -87,6 +93,9 @@ describe("RelatedPanel", () => {
     renderPanel();
     expect(await screen.findByText("İlan sayfası")).toBeTruthy();
     expect(screen.getByText("Buradan kaydedildi")).toBeTruthy();
+    // Yon dogru: outgoing satir kendi etiketiyle ayni grupta gorunur.
+    expect(screen.getByText("Türev")).toBeTruthy();
+    expect(screen.getByText("Hazırlık")).toBeTruthy();
     // Kayıt defterindeki rotaya giden link.
     const link = screen.getByRole("link", { name: /İlan sayfası/ });
     expect(link.getAttribute("href")).toBe("#/bookmarks?focus=bm-1");

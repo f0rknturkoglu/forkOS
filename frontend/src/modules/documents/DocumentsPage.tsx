@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { api, qs } from "@/core/api";
+import { RelatedPanel } from "@/core/RelatedPanel";
+import { useHashRoute } from "@/app/router";
 import type { Document, Opportunity } from "@/core/types";
 import {
   Button,
@@ -22,6 +24,9 @@ import { useOnline } from "@/lib/hooks";
 type GoogleStatus = { connected: boolean; expires_at: string | null; scopes: string | null };
 
 export function DocumentsPage() {
+  const route = useHashRoute();
+  // Kayit defteri rotasi (?focus={id}): secili belgenin iliskileri (Faz 18).
+  const focusId = route.params.get("focus") ?? "";
   const [folderId, setFolderId] = useState("");
   const [category, setCategory] = useState("other");
   const toast = useToast();
@@ -118,6 +123,11 @@ export function DocumentsPage() {
         onSync={() => sync.mutate()}
       />
       <DocumentsList docs={docs} usageByDoc={docOpportunities} openingId={openingId} online={online} onOpen={openDoc} />
+      {focusId && (
+        <Section title="Bağlı kayıtlar">
+          <RelatedPanel entityId={focusId} />
+        </Section>
+      )}
     </PageFrame>
   );
 }

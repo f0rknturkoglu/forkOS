@@ -23,6 +23,7 @@ import {
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import type { Project } from "@/core/types";
+import { RelatedPanel } from "@/core/RelatedPanel";
 import { GithubPanel } from "./GithubPanel";
 import { ProjectTodos } from "./ProjectTodos";
 import { Milestones } from "./Milestones";
@@ -246,6 +247,7 @@ function ProjectDetail({ project }: { project: Project }) {
       </Section>
 
       <ProjectTimeline projectId={project.id} />
+      <RelatedPanel entityId={project.id} title="Bağlı kayıtlar" />
     </div>
   );
 }

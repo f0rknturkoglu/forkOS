@@ -21,6 +21,10 @@ const harness = vi.hoisted(() => ({
   stateValues: [] as unknown[],
 }));
 
+vi.mock("@/app/router", () => ({
+  useHashRoute: () => ({ path: "/documents", params: new URLSearchParams() }),
+}));
+
 vi.mock("react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react")>();
   return {

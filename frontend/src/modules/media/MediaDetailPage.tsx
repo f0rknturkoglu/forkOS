@@ -9,6 +9,7 @@ import type { components } from "@/generated/api-schema";
 import { Button, Chip, Field, Input, PageFrame, Section, Surface, Textarea, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
+import { RelatedPanel } from "@/core/RelatedPanel";
 import {
   KIND_LABELS,
   SiteLinks,
@@ -401,6 +402,8 @@ export function MediaDetailPage() {
               <p className="text-body text-muted">Bu tür için kaynak kısayolu yok.</p>
             )}
           </Section>
+
+          <RelatedPanel entityId={item.id} title="Bağlı kayıtlar" />
         </div>
       </div>
     </PageFrame>

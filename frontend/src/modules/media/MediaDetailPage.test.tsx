@@ -63,11 +63,19 @@ describe("media detail page", () => {
 
   beforeEach(() => {
     calls = [];
-    responder = (_path, method) =>
-      new Response(JSON.stringify(method === "GET" ? detail : item), {
+    responder = (_path, method) => {
+      // RelatedPanel (Faz 18) iliskili kayit sorgusunu bos dondurur.
+      if (method === "GET" && _path.startsWith("/api/entities/")) {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(method === "GET" ? detail : item), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
+    };
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() },
@@ -170,6 +178,9 @@ describe("media detail page", () => {
     let gets = 0;
     responder = (_path, method) => {
       if (method !== "GET") return new Response(JSON.stringify(item), { status: 200 });
+      if (_path.startsWith("/api/entities/")) {
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
       gets += 1;
       return gets === 1
         ? new Response("detail unavailable", { status: 500 })
@@ -189,6 +200,9 @@ describe("media detail page", () => {
     let rejectPatch!: (response: Response) => void;
     responder = (_path, method) => {
       if (method === "GET") {
+        if (_path.startsWith("/api/entities/")) {
+          return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
         return new Response(JSON.stringify(detail), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       patchCount += 1;

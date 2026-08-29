@@ -176,3 +176,17 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   yönlendirmez; başarı toast'ı verir ("bugüne planlandı" rozetli).
 - Otomatik üretilen rutin occurrence'ları (`_spawn_next_occurrence`) bu
   katmandan geçmez ve kullanıcı istemedikçe plana yazılmaz.
+## Faz 18: sistem genelinde görünür entity ilişkileri
+
+- `RelatedPanel` (`frontend/src/core/RelatedPanel.tsx`) her linklenebilir
+  entity'nin detay/focus yüzeyinde ilişkileri gösterir: Todo (`?focus`),
+  Project (detay kolonu), Opportunity, Learning konu, Media detay,
+  Bookmark (`?focus`), Document (`?focus`), Finance harcama/ödeme (`?focus`).
+  Liste satırlarına büyük panel basılmaz; yalnız seçili/focused entity için.
+- İlişki etiketleri ve yönü yalnızca backend `RELATIONS` sözlüğünden gelir;
+  frontend'de relation/type→route sabiti yoktur (`entityRoute`/`typeLabel`).
+- Link ekleme/kaldırma `invalidateAfter("link.write")` kullanır; kendine
+  bağlama ve duplicate (`link_uniq`) backend'de engellenir. Koruyan testler:
+  `frontend/src/core/relatedSurfaces.test.ts` (tip→yüzey matrisi),
+  `backend/tests/test_links_api.py` (self/duplicate/direction/labels).
+
