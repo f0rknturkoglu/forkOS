@@ -11,6 +11,19 @@ export const KIND_LABELS: Record<string, string> = {
   other: "Diğer",
 };
 
+export const JOB_CATEGORY_LABELS: Record<string, string> = {
+  software: "Yazılım & mühendislik",
+  "data-ai": "Veri & yapay zekâ",
+  "product-design": "Ürün & tasarım",
+  "cloud-security": "Bulut, DevOps & güvenlik",
+  "business-ops": "İş, finans & operasyon",
+  "sales-marketing": "Satış & pazarlama",
+  other: "Diğer",
+};
+
+export const jobCategoryLabel = (category: string | null) =>
+  category ? (JOB_CATEGORY_LABELS[category] ?? category) : "Kategorisiz";
+
 export const STATUS_LABELS: Record<string, string> = {
   discovered: "Keşfedildi",
   considering: "Değerlendiriliyor",

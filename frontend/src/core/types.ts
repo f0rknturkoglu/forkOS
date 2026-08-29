@@ -93,7 +93,7 @@ export interface Feed {
   url: string;
   site_url: string | null;
   favicon_url: string | null;
-  category: string | null;
+  category?: string | null;
   active: boolean;
   error_count: number;
   last_status: string | null;
@@ -111,7 +111,7 @@ export interface FeedItem {
   summary: string | null;
   /** Okuma bolmesi detayinda dolu (liste hafif kalir). */
   content: string | null;
-  published_at: string | null;
+  published_at?: string | null;
   fetched_at: string;
   read_at: string | null;
   saved_bookmark_id: string | null;
@@ -452,11 +452,13 @@ export interface Opportunity {
   id: string;
   title: string;
   kind: string;
+  category: string | null;
   organization: string | null;
   url: string | null;
   status: string;
   priority: number;
   found_at: string;
+  published_at: string | null;
   deadline_at: string | null;
   applied_at: string | null;
   location: string | null;
