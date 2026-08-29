@@ -9,6 +9,8 @@ const filters: OpportunityBrowseFilters = {
   region: "EU",
   remote: "remote",
   search: "react",
+  min_score: 40,
+  max_score: 80,
   sort: "score",
   offset: 0,
   limit: 60,
@@ -17,12 +19,18 @@ const filters: OpportunityBrowseFilters = {
 describe("opportunity contextual filters", () => {
   it("only sends filters that belong to the active workspace", () => {
     expect(browseQuery(filters)).toContain("category=software");
+    expect(browseQuery(filters)).toContain("min_score=40");
+    expect(browseQuery(filters)).toContain("max_score=80");
     const announcements = switchOpportunitySection(filters, "announcements");
     const query = browseQuery({ ...announcements, announcement_source: "ylsy", year: 2026 });
     expect(query).toContain("announcement_source=ylsy");
     expect(query).toContain("year=2026");
     expect(query).not.toContain("category=");
     expect(query).not.toContain("remote=");
+    expect(query).not.toContain("min_score=");
+    expect(query).not.toContain("max_score=");
+    expect(announcements.min_score).toBeUndefined();
+    expect(announcements.max_score).toBeUndefined();
     expect(announcements.search).toBe("react");
     expect(announcements.sort).toBe("newest");
   });
