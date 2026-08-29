@@ -22,6 +22,7 @@ export function NotificationsSection() {
     const result = await enableDesktopNotifications();
     setState(result);
     if (result === "granted") {
+      setEnabled(true);
       toast.push("Masaüstü bildirimleri açıldı — yeni önemli bildirimler OS olarak gelir.", { tone: "ok" });
     } else if (result === "denied") {
       toast.push("İzin reddedildi — tarayıcının site ayarlarından açabilirsin.", { tone: "warn" });

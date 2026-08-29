@@ -117,8 +117,9 @@ Degerlendir**. Butun akis local; disari veri gidmez.
 - **Hizli yakala** (Ctrl+K → "Hizli yakala" ya da metni pencereye birak):
   ayni kutudan Gorev / Not / Baglanti. Metin otomatik cozumlenir ("yarin
   14:00 disciyi ara", "cuma projeyi gonder", "son tarih bugun rapor") --
-  onerileri onaylamadan once duzenleyebilirsin; tekrar ve etiket
-extra formdan duzenlenebilir, metin veya form girdisine baglanabilir (Faz 22/23/29/30).
+  onerileri onaylamadan once duzenleyebilirsin; tekrar ve etiketler formdan
+  duzenlenebilir, notlar arama ile baska kayitlara baglanabilir
+  (Faz 22/23/29/30).
 - **Bugune al**: gorevi planlar, son tarih VERMEZ (plan != teslim). Tercih
   hatirlanir; butun giris noktalarinda aynidir (Faz 13/17/31).
 - **Gunun ritmi** (Today): sabah ilk 3 planli is + ilk odak; gun icinde

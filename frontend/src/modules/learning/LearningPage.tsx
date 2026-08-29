@@ -33,23 +33,24 @@ export function LearningPage() {
     queryKey: ["study-areas"],
     queryFn: () => api.get<StudyArea[]>("/study/areas"),
   });
+  const { data: focusedTopic } = useQuery({
+    queryKey: ["study-topic-focus", focusId],
+    enabled: Boolean(focusId),
+    queryFn: () => api.get<StudyTopic>(`/study/topics/${focusId}`),
+  });
   useEffect(() => {
-    if (!areaId && areas[0]) setAreaId(areas[0].id);
-  }, [areas, areaId]);
+    if (!focusedTopic) return;
+    setAreaId(focusedTopic.area_id);
+    setSelected(focusedTopic);
+  }, [focusedTopic]);
+  useEffect(() => {
+    if (!focusId && !areaId && areas[0]) setAreaId(areas[0].id);
+  }, [areas, areaId, focusId]);
   const { data: topics = [] } = useQuery({
     queryKey: ["study-topics", areaId],
     enabled: Boolean(areaId),
     queryFn: () => api.get<StudyTopic[]>(`/study/topics?area_id=${areaId}`),
   });
-  // Deep-link: focus konusu yuklendiginde sec (bulundugu alani da ac).
-  useEffect(() => {
-    if (!focusId) return;
-    const topic = topics.find((item) => item.id === focusId);
-    if (topic) {
-      setAreaId(topic.area_id ?? areaId);
-      setSelected(topic);
-    }
-  }, [focusId, topics, areaId]);
   const { data: stats } = useQuery({
     queryKey: ["study-topic-stats", selected?.id],
     enabled: Boolean(selected),

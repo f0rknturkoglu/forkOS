@@ -185,6 +185,13 @@ async def topic_out(session: AsyncSession, topic: StudyTopic):
     }
 
 
+async def get_topic(session: AsyncSession, topic_id: UUID):
+    topic = await session.get(StudyTopic, topic_id)
+    if topic is None:
+        return None
+    return {**await topic_out(session, topic), "children": []}
+
+
 async def tree(session: AsyncSession, area_id: UUID):
     topics = list(
         (

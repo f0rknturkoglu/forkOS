@@ -33,7 +33,3 @@ export function entityRoute(type: string, id: string): string {
 export function typeLabel(type: string): string {
   return registry[type]?.label ?? type;
 }
-
-function typeSpec(type: string): EntityTypeSpec | undefined {
-  return registry[type];
-}

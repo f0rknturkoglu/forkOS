@@ -70,6 +70,14 @@ async def add_topic(body: TopicIn, session: AsyncSession = Depends(get_session))
     return await service.create_topic(session, body)
 
 
+@router.get("/study/topics/{topic_id}")
+async def topic(topic_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await service.get_topic(session, topic_id)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
 @router.patch("/study/topics/{topic_id}")
 async def patch_topic(
     topic_id: UUID, body: TopicPatch, session: AsyncSession = Depends(get_session)

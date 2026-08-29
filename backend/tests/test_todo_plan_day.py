@@ -123,3 +123,25 @@ async def test_carry_over_moves_only_open_todo_slots_atomically(client: AsyncCli
 
     for todo in (open_todo, done_todo, preplanned):
         await client.delete(f"/api/todos/{todo['id']}")
+
+
+async def test_carry_over_rejects_same_or_earlier_target_without_touching_slots(
+    client: AsyncClient,
+) -> None:
+    """Hedef ileri bir gun degilse ayni slotu existing sanip silmemeli."""
+    from datetime import timedelta
+
+    day = local_today()
+    todo = (await client.post("/api/todos", json={
+        "title": f"Korunacak {uuid.uuid4().hex[:6]}", "plan_day": day.isoformat(),
+    })).json()
+
+    for target in (day, day - timedelta(days=1)):
+        response = await client.post("/api/plan/carry-over", json={
+            "day": day.isoformat(), "target": target.isoformat(),
+        })
+        assert response.status_code == 400
+
+    week = (await client.get("/api/plan", params={"week": day.isoformat()})).json()
+    assert todo["id"] in {slot["entity_id"] for slot in week}
+    await client.delete(f"/api/todos/{todo['id']}")

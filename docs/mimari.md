@@ -235,8 +235,9 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   akisini tek transaction'da yapar, yalnizca tum dogrulama gecerse COMMIT,
   hata aninda ROLLBACK (orijinal veri yerinde kalir). Safety dump DB
   konteynerinde pg_dump ile alinir (API imajinda pg_dump yok; `make backup`
-  deseni) ve CLI'ye `--safety-dump` olarak verilir -- yoksa CLI DB'ye
-  dokunmaz. CLI migration'lari head'e ceker (`alembic upgrade head`), kendi
+  deseni), `pg_restore --list` ile dogrulanir ve CLI'ye `--safety-dump`
+  olarak verilir. Dump uretilemez veya dogrulanamazsa restore baslamaz ve
+  kismi dosya silinir. CLI migration'lari head'e ceker (`alembic upgrade head`), kendi
   engine'ini kullanir (app-disidir). Akis: durdur -> dump -> migrate ->
   transactional restore+verify -> commit; hata -> rollback + dump yolu.
 
@@ -247,60 +248,18 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
   Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
   bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`- Faz 32: registry tabanli iliski yuzeyleri. `linkable=False` bilincli- Faz 33: ritim tek orkestrasyon yuzeyi.- Faz 34: yasam-dongusu ve tarih dogrulugu. "Son tarih ver (bugun)" ve
-  haftalik degerlendirme periyodu tarayici yerel saati yerine app gunu/hafta
-  basi kullanir (appLocalToUtc/appWeekStartKey; dateUsage guardrail kapsar).
-  Rutin cipi tiklaninca recurrence secici acilir (degistir/durdur); "Rutini
-  durdur" toast'i API basarisindan SONRA cikar. Masaustu bildirim: delivered
-  id yalnizca constructor basarisindan sonra yazilir (hata -> sonraki turda
-  yeniden dener); `lifeos.desktopNotifEnabled` in-app ac/kapat tercihi
-  (izinden bagimsiz) Ayarlar -> Bildirimler'de. Not guncellemesinde body +
-  pinned ayni PATCH'te degisirse IKI event (note.updated changed_fields /
-  note.pinned); bos guncelleme event uretmez.
- `review.widget` varsayilan gizli;
-  gunluk degerlendirme durumu + giris noktasi `today.rhythm`'de, haftalik
-  hatirlatma hafta donumunde kompakt satir olarak orada (route/command
-  palette girisleri korunur). "Yarina tasi" artik tek istek: backend
-  `POST /plan/carry-over` (tek transaction; yalnizca ACIK todo slotlari;
-  tamamlanmis/dropped tasinmaz; hedef gunde mevcut slot duplicate olmaz;
-  `plan.carried_over` event'i). "Ilk odagi baslat" gorev baglamini
-  Pomodoro'ya tasir (context/topic). Takvim cakismasi mevcut agenda timed
-  verisinden turetilir (ikinci takvim mantigi yok).
-
-  kararlarla kapatildi: feed, feed_item, review, milestone, course,
-  study_area, media_unit/cycle/consumption/collection, pomodoro_session,
-  external_event (liste-rotali, alt-varlik, kaynak ya da gecici icerik).
-  Project ve study_topic deep-link duzeltildi (`?focus` parametresi artik
-  secili nesneyi acar). Guardrail (`relatedSurfaces.test.ts`) backend
-  EntityTypeSpec'ten beslenir: her linkable tip yuzey esler, kapali tipler
-  listede yok -- manuel liste registry ile karsilastirilir.
-
-  public; Opportunity adim gorevi ve Learning konu gorevi ayni tercihi
-  plan_day olarak gonderir (due_at uretmez). Learning endpoint'i ortak
-  `TopicTodoIn` sozlesmesini kabul eder (plan_day/priority/due/recur/tags;
-  title/description konudan sabit); opportunity zaten TodoIn. Guardrail:
-  gorev giris dosyalari ya createTask/planDayForToday'den gecer ya da
-  yakalama kutusuna delege eder -- farkli endpoint adiyla atlatilamaz.
-
-  verilen `now`'dan (real sistem gunu degil). Due_at dönüşümü sabit -3
-  yerine `lib/date.ts::appLocalToUtc` (app tz wall time -> ISO UTC, genel
-  offset taramasi). Kisa ayda "ayin 31'i" sessizce tasmaz: gercek gunun
-  gelecek ayine gider veya ay sonuna kirpilir -- her ikisinde de acik
-  uyari. CaptureDialog task gonderiminde parserin temiz basligini kullanir
-  ("yarin 14:00 disciyi ara" -> "disciyi ara"); kullanici metni her zaman
-  kaynak oldugu icin duzenleme parser sonucunu ezer.
-
-  Enter'ini durdurur), Esc kapatir, pending iken gonderim kilitlenir.
-  Task'a tekrar (recurrence) ve etiket duzenleyici; baglantiya baslik;
-  nota registry/search tabanli "iliskilendir" secici eklendi. Not +
-  `notes_about` bagi backend'de TEK transaction (`NoteIn.relate_to`) --
-  iliski basarisizsa not da olusmaz.
-
-  once gorunur (sessiz siniflandirma yok). URL girilirse baglanti onerilir
-  ama kullanici not olarak saklayabilir. Son kullanilan tur
-  localStorage'da hatirlanir; double-submit buton kilidiyle engellenir.
+- `CaptureDialog`: gorev / not / baglanti sekmeleri vardir; secilen tur
+  gonderimden once gorunur. URL girilirse baglanti onerilir ama kullanici
+  turu degistirebilir. Baglanti kaydi icin gecerli HTTP(S) adresi zorunludur.
+- Form Enter ile gonderilir, Esc ile kayitsiz kapanir ve pending durumda
+  ikinci gonderim engellenir. Gorevde tekrar/etiket, baglantida baslik ve
+  koleksiyon, notta registry/search tabanli iliskilendirme sunulur.
+- Not + `notes_about` bagi backend'de tek transaction'dir
+  (`NoteIn.relate_to`); iliski basarisizsa not da olusmaz.
+- Son kullanilan yakalama turu localStorage'da hatirlanir.
 - Girenler: Command Palette "Hizli yakala" (settings modulu), DropCapture
   metin birakmasi (kutuya prefilled acilir). Extension outbox degismez.
+
 ## Faz 23: yerel Turkce tarih/gorev ayristirma
 
 - `lib/taskParser.ts::parseTaskText` saf ve yan etkisizdir (network/LLM
@@ -336,7 +295,8 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   (Europe/Istanbul).
 - Orkestrasyon yalnizca Today'de; todo/review/pomodoro is mantigi
   yeniden yazilmaz -- hepsi mevcut endpoint/event'lerden turetilir,
-  yeni tablo YOK. Yarina tasima mevcut PATCH /plan/{slot} kullanir.
+  yeni tablo YOK. Yarina tasima `POST /plan/carry-over` ile tek transaction
+  icinde yalniz acik/doing todo slotlarini ileri bir gune tasir.
   Kullanici widget gizleme ile kapatabilir (Faz 19); gamification yok.
 - ReviewWidget'daki tam degerlendirme kartini tekrarlamaz (ritim yalniz
   durum satiri + yonlendirme verir).
@@ -354,6 +314,48 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - `ServiceHealthWidget`: worker heartbeat (stale ise uyari) + yedek
   bayatligi (48s+) -- mevcut endpoint'lerden, yeni uc yok.
 - Uygulama offline'da salt okunur; yazma kapali (OfflineWriteError).
+
+## Faz 29-30: yakalama formu ve tarih dogrulugu
+
+- Capture formunda kullanicinin dokundugu plan, son tarih, oncelik ve etiket
+  alanlari parser onerilerinden ayrilir. Metindeki acik tarih global
+  "bugune al" tercihinden once gelir; direktif silinirse parserin eski
+  degeri temizlenir, kullanici degeri korunur.
+- `datetime-local` degerleri tarayici saat dilimine gore degil uygulamanin
+  `Europe/Istanbul` sozlesmesine gore gosterilir ve UTC'ye cevrilir.
+- Parser temiz basligi gonderir; gecerli HTTP(S) URL olmadan baglanti
+  yakalanamaz.
+
+## Faz 31-32: ortak gorev intent'i ve registry deep-link'leri
+
+- Tum gorev girisleri `createTask` veya `planDayForToday` sozlesmesinden
+  gecer. Opportunity ve Learning baglamlari da `plan_day` kabul eder;
+  plan tarihi son tarihe donusturulmez.
+- Linklenebilir entity tiplerinin etiket ve rotalari `EntityTypeSpec`ten
+  gelir. Project ve study_topic `?focus` deep-link'leri secili kaydi acar;
+  Learning, konu kimligini `GET /study/topics/{id}` ile dogrudan cozer ve
+  alt konu baska bir alanda olsa bile dogru alani acar.
+
+## Faz 33: Today orkestrasyonu
+
+- `today.rhythm`, acik/doing plan slotlarini agenda ve todo verisiyle
+  birlestirir. Ilk odak aksiyonu todo context/topic bilgisini Pomodoro'ya
+  tasir; takvim cakismalari mevcut `today/agenda` timed verisinden turetilir.
+- Gunluk degerlendirme durumu burada gorunur. Pazar/Pazartesi gunleri o
+  haftanin degerlendirmesi yoksa kompakt haftalik hatirlatma gosterilir.
+- Carry-over hedefi kaynak gunden sonra olmak zorundadir; ayni/gecmis gun
+  reddedilir. Tamamlanmis/dropped gorevler tasinmaz ve hedef duplicate
+  olusturmaz.
+
+## Faz 34: yasam dongusu ve bildirim teslimati
+
+- Rutin durdurma bildirimi yalniz API basarisindan sonra gosterilir; notta
+  body ve pinned degisiklikleri ayri anlamli event'ler uretir, bos PATCH
+  event uretmez.
+- Masaustu bildirim izni verildiginde `lifeos.desktopNotifEnabled` teslimat
+  tercihi de acilir. Kullanici teslimati izinden bagimsiz kapatabilir.
+  Bildirim id'si yalniz Notification constructor basariliysa delivered
+  listesine yazilir; hata sonraki turda yeniden denenir.
 
 ### macOS otomatik baslatma (launchd) -- KAYIT: dokuman, calistirilmaz
 
@@ -384,14 +386,3 @@ calistirma yapmaz. Mutlak proje yolu: `REPO=/Users/<kullanici>/forkOS`.
 ```
 Kaldirma: `launchctl unload ~/Library/LaunchAgents/com.forkos.stack.plist` ve
 dosyayi sil. Docker/Podman'in de oturum acilisinda calismasi gerekir.
-
-
-
-
-
-  ortak test DB'sini her zaman head'e birakiyor (son iki test book
-  revizyonunda kaliyordu ve yeni head tablolarini dusuruyordu).
-
-
-
-

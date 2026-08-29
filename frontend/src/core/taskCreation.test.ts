@@ -35,6 +35,13 @@ vi.hoisted(() => {
   });
 });
 
+const harness = vi.hoisted(() => ({ apiPost: vi.fn() }));
+vi.mock("@/core/api", () => ({ api: { post: harness.apiPost } }));
+vi.mock("@/core/invalidation", () => ({
+  invalidateAfter: vi.fn(),
+}));
+vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
+
 /**
  * Faz 17 guardrail: gorev olusturma TEK intent katmanindan gecer.
  * Bilesenler daginik POST /todos body'si uretemez.
@@ -61,13 +68,6 @@ describe("task creation intent (Faz 17)", () => {
     // ya createTask/planDayForToday ya da yakalama kutusuna delege (DropCapture).
     expect(source).toMatch(/core\/(tasks|CaptureDialog)"|\.\/CaptureDialog"/);
   });
-
-  const harness = vi.hoisted(() => ({ apiPost: vi.fn() }));
-  vi.mock("@/core/api", () => ({ api: { post: harness.apiPost } }));
-  vi.mock("@/core/invalidation", () => ({
-    invalidateAfter: vi.fn(),
-  }));
-  vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
 
   beforeEach(() => {
     harness.apiPost.mockReset();

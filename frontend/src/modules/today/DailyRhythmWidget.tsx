@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowRight, CheckCircle2, Coffee, Moon, PlayCircle, Sun, Sunrise, Sunset } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Coffee, Moon, PlayCircle, Sun, Sunrise, Sunset } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
-import { appTimeParts, isSameAppDay, localDateKey, todayKey, tomorrowKey } from "@/lib/date";
+import { appTimeParts, appWeekStartKey, isSameAppDay, keyToUtc, localDateKey, todayKey, tomorrowKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { Button, Section, cx, useToast } from "@/core/ui";
-import type { ActivityEvent, BookmarkStats, PlanSlot, PomodoroSession, Todo } from "@/core/types";
+import type { ActivityEvent, BookmarkStats, PlanSlot, PomodoroSession, TodayAgenda, Todo } from "@/core/types";
 import { navigate } from "@/app/router";
 
 /**
@@ -25,7 +25,8 @@ export function DailyRhythmWidget() {
   const toast = useToast();
   const today = todayKey();
   const tomorrow = tomorrowKey();
-  const { hour } = appTimeParts(new Date());
+  const now = new Date();
+  const { hour, minute } = appTimeParts(now);
   const phase = hour >= 18 || hour < 4 ? "evening" : hour < 12 ? "morning" : "afternoon";
 
   const { data: stats = null } = useQuery({
@@ -44,19 +45,54 @@ export function DailyRhythmWidget() {
     queryKey: ["activity", "review-check"],
     queryFn: () => api.get<ActivityEvent[]>("/activity?limit=40&verbs=review.completed"),
   });
+  const { data: agenda } = useQuery({
+    queryKey: ["today-agenda", today],
+    queryFn: () => api.get<TodayAgenda>(`/today/agenda?day=${today}`),
+  });
+  const { data: weeklyReviews = [] } = useQuery({
+    queryKey: ["reviews", "weekly"],
+    queryFn: () => api.get<{ period_start: string }[]>("/reviews?kind=weekly&limit=5"),
+  });
   const { data: todos = [] } = useQuery({
     queryKey: ["todos", "rhythm"],
-    queryFn: () => api.get<Todo[]>("/todos?status=open&limit=200"),
+    queryFn: () => api.get<Todo[]>("/todos?limit=200"),
   });
 
   const todaySlots = useMemo(
     () => slots.filter((slot) => slot.day === today).sort((a, b) => (a.start_min ?? 999) - (b.start_min ?? 999)),
     [slots, today],
   );
-  const plannedTodos = todaySlots.filter((slot) => slot.entity_type === "todo");
+  const openTodoIds = useMemo(
+    () => new Set(todos.filter((todo) => todo.status === "open" || todo.status === "doing").map((todo) => todo.id)),
+    [todos],
+  );
+  const plannedTodos = todaySlots.filter((slot) => slot.entity_type === "todo" && openTodoIds.has(slot.entity_id));
   const firstThree = plannedTodos.slice(0, 3);
   const overdue = todos.filter((todo) => todo.due_at && localDateKey(new Date(todo.due_at)) < today).length;
   const reviewDone = events.some((event) => isSameAppDay(new Date(event.occurred_at), new Date()));
+  const weekStart = appWeekStartKey(now);
+  const weekDay = keyToUtc(today).getUTCDay();
+  const weeklyReviewDue =
+    (weekDay === 0 || weekDay === 1) && !weeklyReviews.some((review) => review.period_start === weekStart);
+  const conflictCount = useMemo(() => {
+    const calendarRows = (agenda?.timed ?? []).filter(
+      (row) => row.kind === "calendar" && row.starts_at && localDateKey(new Date(row.starts_at)) === today,
+    );
+    return plannedTodos.reduce((count, slot) => {
+      if (slot.start_min == null) return count;
+      const slotEnd = slot.start_min + (slot.duration_min ?? 30);
+      return (
+        count +
+        calendarRows.filter((row) => {
+          const startsAt = new Date(row.starts_at!);
+          const parts = appTimeParts(startsAt);
+          const eventStart = parts.hour * 60 + parts.minute;
+          const eventEnd = eventStart + (row.duration_min ?? 30);
+          return slot.start_min! < eventEnd && eventStart < slotEnd;
+        }).length
+      );
+    }, 0);
+  }, [agenda, plannedTodos, today]);
   const inboxCount = stats?.inbox ?? 0;
 
   const carryOver = useMutation({
@@ -70,7 +106,7 @@ export function DailyRhythmWidget() {
   });
 
   const firstFocus = plannedTodos.find((slot) => slot.start_min != null) ?? plannedTodos[0];
-  const nowMin = hour * 60 + appTimeParts(new Date()).minute;
+  const nowMin = hour * 60 + minute;
   const nextUp =
     plannedTodos.find((slot) => slot.start_min != null && slot.start_min >= nowMin) ??
     plannedTodos.find((slot) => slot.start_min == null) ??
@@ -112,6 +148,18 @@ export function DailyRhythmWidget() {
           )}
         </p>
 
+        {weeklyReviewDue && (
+          <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/weekly")}>
+            <ArrowRight size={13} /> Haftalık değerlendirme bekliyor
+          </Button>
+        )}
+
+        {conflictCount > 0 && (
+          <p className="flex items-center gap-1.5 text-meta text-warn">
+            <AlertTriangle size={13} /> {conflictCount} takvim çakışması
+          </p>
+        )}
+
         {phase !== "evening" && firstThree.length > 0 && (
           <ul className="space-y-1">
             {firstThree.map((slot) => (
@@ -135,7 +183,16 @@ export function DailyRhythmWidget() {
         )}
 
         {phase === "morning" && firstFocus && (
-          <Button size="sm" variant="primary" disabled={!online} onClick={() => navigate("/pomodoro")}>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!online}
+            onClick={() =>
+              navigate(
+                `/pomodoro?context=${encodeURIComponent(firstFocus.entity_id)}&topic=${encodeURIComponent(firstFocus.title)}`,
+              )
+            }
+          >
             <PlayCircle size={13} /> İlk odağı başlat
           </Button>
         )}

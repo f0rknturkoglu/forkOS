@@ -10,7 +10,6 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link2, Unlink, X } from "lucide-react";
 import { api, qs } from "./api";
-import { invalidate } from "./queryClient";
 import { entityRoute, typeLabel } from "./entityRegistry";
 import { Button, Chip, Empty, IconButton, Input, Section, cx, relativeTime } from "./ui";
 import { useDebounced, useOnline } from "@/lib/hooks";

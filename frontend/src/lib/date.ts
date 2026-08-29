@@ -93,6 +93,36 @@ export function appTimeParts(value: Date, timeZone = APP_TIME_ZONE): { hour: num
   return { hour: Number(values.hour) % 24, minute: Number(values.minute) };
 }
 
+/** Bir ISO ani datetime-local kontrolunde app saat dilimiyle gosterir. */
+export function appDateTimeInputValue(value: string | Date, timeZone = APP_TIME_ZONE): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const { hour, minute } = appTimeParts(date, timeZone);
+  return `${localDateKey(date, timeZone)}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+/** datetime-local wall time degerini app saat dilimindeki UTC anina cevirir. */
+export function appDateTimeInputToUtc(value: string, timeZone = APP_TIME_ZONE): string | undefined {
+  if (!value) return undefined;
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return undefined;
+  const [, dayKey, rawHour, rawMinute] = match;
+  const hour = Number(rawHour);
+  const minute = Number(rawMinute);
+  const projected = keyToUtc(dayKey);
+  if (
+    Number.isNaN(projected.getTime()) ||
+    projected.toISOString().slice(0, 10) !== dayKey ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return undefined;
+  }
+  return appLocalToUtc(dayKey, hour, minute, timeZone);
+}
+
 /** App tz'deki yerel gun+saati ISO UTC'ye cevirir (Faz 30).
  *
  * Sabit offset yok: UTC adayini saat saat geriye tarayip app wall time'ina

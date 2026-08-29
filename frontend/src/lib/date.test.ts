@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addAppDays,
+  appDateTimeInputToUtc,
+  appDateTimeInputValue,
   appLocalToUtc,
   appDayUtc,
   appTimeParts,
@@ -76,5 +78,11 @@ describe("ortak tarih/saat sozlesmesi (Faz 14)", () => {
     expect(appTimeParts(new Date("2026-01-14T21:30:00Z"))).toEqual({ hour: 0, minute: 30 });
     // 12:00 UTC = Istanbul 15:00.
     expect(appTimeParts(new Date("2026-01-14T12:00:00Z"))).toEqual({ hour: 15, minute: 0 });
+  });
+
+  it("datetime-local degerini tarayici saat diliminden bagimsiz app saatine cevirir", () => {
+    expect(appDateTimeInputValue("2026-08-30T11:00:00.000Z")).toBe("2026-08-30T14:00");
+    expect(appDateTimeInputToUtc("2026-08-30T14:00")).toBe("2026-08-30T11:00:00.000Z");
+    expect(appDateTimeInputToUtc("")).toBeUndefined();
   });
 });

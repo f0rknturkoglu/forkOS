@@ -239,6 +239,20 @@ def test_makefile_dumps_from_db_container_not_api() -> None:
     assert cli_line and "pg_dump" not in cli_line[0]
 
 
+def test_makefile_safety_dump_is_fail_closed_and_validated() -> None:
+    """Eksik/bozuk dump ile destructive restore akisi kesinlikle devam etmez."""
+    makefile_path = BACKEND_DIR.parent / "Makefile"
+    if not makefile_path.exists():
+        makefile_path = BACKEND_DIR / "Makefile"
+    makefile = makefile_path.read_text(encoding="utf-8")
+    target = makefile[makefile.index("disaster-restore:"):]
+
+    assert "if ! $(CO) exec -T db" in target
+    assert "pg_restore --list" in target
+    assert 'rm -f "$$DUMP"' in target
+    assert target.index("pg_restore --list") < target.index("disaster_restore.py")
+
+
 def test_inspect_payload_flags_problems() -> None:
     base = {
         "version": 2,

@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CaptureDialog, openCapture } from "./CaptureDialog";
+import { todayKey, tomorrowKey } from "@/lib/date";
 
 // jsdom 30 + Node 26 localStorage getter sorunu (TodoComposer.test ile ayni).
 vi.hoisted(() => {
@@ -127,6 +128,18 @@ describe("CaptureDialog (Faz 22/29)", () => {
     expect(screen.getByLabelText("Not içeriği")).toBeTruthy();
   });
 
+  it("baglanti icin baslik tek basina yetmez; gecerli HTTP(S) adresi zorunludur", () => {
+    openAs({ kind: "link" });
+    fireEvent.change(screen.getByLabelText("Bağlantı başlığı"), { target: { value: "Sadece başlık" } });
+    expect((screen.getByRole("button", { name: "Yakala" }) as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("Bağlantı adresi"), { target: { value: "javascript:alert(1)" } });
+    expect((screen.getByRole("button", { name: "Yakala" }) as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("Bağlantı adresi"), { target: { value: "https://example.com" } });
+    expect((screen.getByRole("button", { name: "Yakala" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("Enter tek kayit olusturur", async () => {
     openAs({ text: "Enter ile gorev" });
     const input = screen.getByLabelText("Görev başlığı");
@@ -191,6 +204,25 @@ describe("CaptureDialog (Faz 22/29)", () => {
     const [, body] = harness.apiPost.mock.calls[0];
     expect(body.title).toBe("dişçiyi ara");
     expect(body.plan_day).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("metindeki acik yarin ifadesi global bugune al tercihinden once gelir", async () => {
+    localStorage.setItem("todo.planToday", "1");
+    openAs({ text: "yarın raporu bitir" });
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
+    const [, body] = harness.apiPost.mock.calls[0];
+    expect(body.plan_day).toBe(tomorrowKey());
+    expect(body.plan_day).not.toBe(todayKey());
+  });
+
+  it("parser direktifi metinden silinince parsera ait eski plan gununu temizler", async () => {
+    openAs({ text: "yarın raporu bitir" });
+    fireEvent.change(screen.getByLabelText("Görev başlığı"), { target: { value: "raporu bitir" } });
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
+    const [, body] = harness.apiPost.mock.calls[0];
+    expect(body.plan_day).toBeUndefined();
   });
 
   it("unhandled rejection uretmez: hata onError'a gider, suite temiz cikar", async () => {

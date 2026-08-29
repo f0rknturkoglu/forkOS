@@ -8,7 +8,7 @@ import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { readPlanTodayPreference, writePlanTodayPreference } from "@/core/tasks";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { parseTaskText } from "@/lib/taskParser";
-import { todayKey } from "@/lib/date";
+import { appDateTimeInputToUtc, appDateTimeInputValue, todayKey } from "@/lib/date";
 import { PRIORITIES, RECURRENCES } from "@/modules/todo/priority";
 import type { Entity as EntityRecord, Project } from "@/core/types";
 
@@ -35,6 +35,15 @@ const COLLECTIONS = [
   { value: "reference", label: "Kaynak" },
   { value: "learning", label: "Öğrenme" },
 ] as const;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Evrensel yakalama kutusu (Faz 22, Faz 29).
@@ -70,6 +79,10 @@ export function CaptureDialog() {
   const debouncedRelate = useDebounced(relateQuery.trim(), 250);
   // Faz 23: metin ayristirma -- oneriler kullanici alanlari bosken uygulanir.
   const [parsed, setParsed] = useState<ReturnType<typeof parseTaskText> | null>(null);
+  const [planTouched, setPlanTouched] = useState(false);
+  const [dueTouched, setDueTouched] = useState(false);
+  const [priorityTouched, setPriorityTouched] = useState(false);
+  const [tagsTouched, setTagsTouched] = useState(false);
 
   useEffect(() => {
     function onOpen(event: Event) {
@@ -84,6 +97,15 @@ export function CaptureDialog() {
         setUrl("");
         setText(value);
       }
+      setPriority(2);
+      setPlanToday(readPlanTodayPreference());
+      setPlanDay(undefined);
+      setDue("");
+      setTags([]);
+      setPlanTouched(false);
+      setDueTouched(false);
+      setPriorityTouched(false);
+      setTagsTouched(false);
       setOpen(true);
     }
     window.addEventListener(OPEN_EVENT, onOpen);
@@ -102,27 +124,25 @@ export function CaptureDialog() {
   useEffect(() => {
     if (kind !== "task" || !text.trim()) {
       setParsed(null);
+      if (!planTouched) {
+        setPlanDay(undefined);
+        setPlanToday(readPlanTodayPreference());
+      }
+      if (!dueTouched) setDue("");
+      if (!priorityTouched) setPriority(2);
+      if (!tagsTouched) setTags([]);
       return;
     }
     const result = parseTaskText(text);
     setParsed(result);
-    if (result.plan_day && planDay === undefined && !planToday) {
+    if (!planTouched) {
       setPlanDay(result.plan_day);
-      setPlanToday(result.plan_day === todayKey());
+      setPlanToday(result.plan_day ? result.plan_day === todayKey() : readPlanTodayPreference());
     }
-    if (result.due_at && !due) {
-      const date = new Date(result.due_at);
-      setDue(
-        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(
-          2,
-          "0",
-        )}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
-      );
-    }
-    if (result.priority !== undefined && priority === 2) setPriority(result.priority);
-    if (result.tags.length > 0 && tags.length === 0) setTags(result.tags);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, kind]);
+    if (!dueTouched) setDue(result.due_at ? appDateTimeInputValue(result.due_at) : "");
+    if (!priorityTouched) setPriority(result.priority ?? 2);
+    if (!tagsTouched) setTags(result.tags);
+  }, [text, kind, planTouched, dueTouched, priorityTouched, tagsTouched]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
@@ -145,11 +165,12 @@ export function CaptureDialog() {
         // Task: parser temiz basligi gonderir ("yarin 14:00 disciyi ara" ->
         // "disciyi ara"). Kullanici metni her zaman kaynak: metni degistirirse
         // parser yeni metinden turer (Faz 30).
-        text: kind === "link" ? title || url || text : kind === "task" ? (parsed?.title ?? text.trim()) : text.trim(),
-        url: url || (kind === "link" ? text : undefined),
+        text:
+          kind === "link" ? title.trim() || url.trim() : kind === "task" ? (parsed?.title ?? text.trim()) : text.trim(),
+        url: kind === "link" ? url.trim() : undefined,
         task: {
           priority,
-          due_at: due ? new Date(due).toISOString() : undefined,
+          due_at: appDateTimeInputToUtc(due),
           plan_day: planDay ?? (planToday ? todayKey() : undefined),
           recur: recur || undefined,
           project_id: projectId || undefined,
@@ -162,7 +183,8 @@ export function CaptureDialog() {
       writeCaptureKindPreference(kind);
       const label =
         result.kind === "task" ? "Görev eklendi" : result.kind === "note" ? "Not eklendi" : "Bağlantı eklendi";
-      toast.push(readPlanTodayPreference() && result.kind === "task" ? `${label} — bugüne planlandı` : label, {
+      const plannedDay = planDay ?? (planToday ? todayKey() : undefined);
+      toast.push(result.kind === "task" && plannedDay === todayKey() ? `${label} — bugüne planlandı` : label, {
         tone: "ok",
       });
       close();
@@ -185,6 +207,10 @@ export function CaptureDialog() {
     setTitle("");
     setParsed(null);
     setPlanDay(undefined);
+    setPlanTouched(false);
+    setDueTouched(false);
+    setPriorityTouched(false);
+    setTagsTouched(false);
   }
 
   function switchKind(next: CaptureKind) {
@@ -194,14 +220,16 @@ export function CaptureDialog() {
 
   function addTag() {
     const clean = tagDraft.trim().replace(/^#/, "");
-    if (clean && !tags.includes(clean)) setTags((current) => [...current, clean]);
+    if (clean && !tags.includes(clean)) {
+      setTagsTouched(true);
+      setTags((current) => [...current, clean]);
+    }
     setTagDraft("");
   }
 
   // Narrowing'den bagimsiz: iliski hedefinin id'si (Faz 29 secici).
   const relateToId = relateTo?.id;
-  const canSubmit =
-    online && !submit.isPending && (kind === "link" ? (title || url || text).trim() : text.trim()).length > 0;
+  const canSubmit = online && !submit.isPending && (kind === "link" ? isHttpUrl(url) : text.trim().length > 0);
 
   if (!open) return null;
 
@@ -307,7 +335,10 @@ export function CaptureDialog() {
                   <button
                     key={item.value}
                     type="button"
-                    onClick={() => setPriority(item.value)}
+                    onClick={() => {
+                      setPriorityTouched(true);
+                      setPriority(item.value);
+                    }}
                     aria-pressed={priority === item.value}
                     className={cx(
                       "rounded-control border px-2 py-1 text-meta transition",
@@ -343,6 +374,7 @@ export function CaptureDialog() {
                 <Checkbox
                   checked={planToday}
                   onChange={(value) => {
+                    setPlanTouched(true);
                     setPlanToday(value);
                     setPlanDay(value ? todayKey() : undefined);
                     writePlanTodayPreference(value);
@@ -351,7 +383,15 @@ export function CaptureDialog() {
                 />
                 <label className="flex items-center gap-1.5 text-meta text-muted">
                   Son tarih
-                  <Input type="datetime-local" value={due} onChange={setDue} className="w-44" />
+                  <Input
+                    type="datetime-local"
+                    value={due}
+                    onChange={(value) => {
+                      setDueTouched(true);
+                      setDue(value);
+                    }}
+                    className="w-44"
+                  />
                 </label>
               </div>
               {projects.length > 0 && (
@@ -428,7 +468,10 @@ export function CaptureDialog() {
                   #{tag}
                   <button
                     type="button"
-                    onClick={() => setTags((current) => current.filter((item) => item !== tag))}
+                    onClick={() => {
+                      setTagsTouched(true);
+                      setTags((current) => current.filter((item) => item !== tag));
+                    }}
                     aria-label={`${tag} etiketini kaldır`}
                     className="hover:opacity-70"
                   >

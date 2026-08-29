@@ -33,13 +33,18 @@ disaster-restore:
 	@test -n "$(FILE)" || (echo "HATA: FILE=<mutlak yol> gerekli" && exit 1)
 	@test "$(CONFIRM)" = "DISASTER-RESTORE" || (echo "HATA: CONFIRM=DISASTER-RESTORE gerekli" && exit 1)
 	@$(CO) stop api worker
-	@TS=$$(date +%Y%m%dT%H%M%SZ); \
+	@TS=$$(date +%Y%m%dT%H%M%SZ); DUMP="backend/backups/pre-disaster-$$TS.dump"; \
 	mkdir -p backend/backups; \
-	$(CO) exec -T db sh -c 'pg_dump -U "$${POSTGRES_USER:-lifeos}" -d "$${POSTGRES_DB:-lifeos}" -Fc' > backend/backups/pre-disaster-$$TS.dump \
-		|| (echo "SAFETY DUMP BASARISIZ -- truncate/import baslamaz" && $(CO) start api worker && exit 1); \
-	echo "Safety dump: backend/backups/pre-disaster-$$TS.dump"; \
-	$(CO) run --rm --no-deps api python scripts/disaster_restore.py --file "$(FILE)" --safety-dump /app/backups/pre-disaster-$$TS.dump --confirm "$(CONFIRM)" \
-		|| (echo "RESTORE BASARISIZ -- safety dump: backend/backups/pre-disaster-$$TS.dump" && $(CO) start api worker && exit 1)
+	if ! $(CO) exec -T db sh -c 'pg_dump -U "$${POSTGRES_USER:-lifeos}" -d "$${POSTGRES_DB:-lifeos}" -Fc' > "$$DUMP"; then \
+		rm -f "$$DUMP"; echo "SAFETY DUMP BASARISIZ -- truncate/import baslamaz"; $(CO) start api worker; exit 1; \
+	fi; \
+	if ! $(CO) exec -T db sh -c 'tmp=/tmp/pre-disaster-validate.dump; cat > "$$tmp"; pg_restore --list "$$tmp" >/dev/null; status=$$?; rm -f "$$tmp"; exit $$status' < "$$DUMP"; then \
+		rm -f "$$DUMP"; echo "SAFETY DUMP GECERSIZ -- truncate/import baslamaz"; $(CO) start api worker; exit 1; \
+	fi; \
+	echo "Safety dump: $$DUMP"; \
+	if ! $(CO) run --rm --no-deps api python scripts/disaster_restore.py --file "$(FILE)" --safety-dump "/app/backups/pre-disaster-$$TS.dump" --confirm "$(CONFIRM)"; then \
+		echo "RESTORE BASARISIZ -- safety dump: $$DUMP"; $(CO) start api worker; exit 1; \
+	fi
 	@$(CO) start api worker
 	@echo "Disaster restore tamamlandi."
 

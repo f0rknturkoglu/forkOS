@@ -896,6 +896,11 @@ async def test_phase4_learning_flow(client: AsyncClient):
     topic = topic_response.json()
     created_ids.append(topic["id"])
 
+    # Registry deep-link'i alan agacini onceden bilmeden tek konuyu cozebilir.
+    focused_response = await client.get(f"/api/study/topics/{topic['id']}")
+    assert focused_response.status_code == 200
+    assert focused_response.json() == {**topic, "children": []}
+
     pomo = (
         await client.post(
             "/api/pomodoro/start",

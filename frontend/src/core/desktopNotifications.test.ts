@@ -122,6 +122,15 @@ describe("masaustu bildirimler (Faz 26)", () => {
     expect(FakeNotification.requestPermission).not.toHaveBeenCalled();
   });
 
+  it("izin verildiginde teslimat tercihini de acar", async () => {
+    setDesktopNotificationsEnabled(false);
+    FakeNotification.permission = "default";
+    FakeNotification.requestPermission.mockResolvedValueOnce("granted");
+
+    expect(await enableDesktopNotifications()).toBe("granted");
+    expect(desktopNotificationsEnabled()).toBe(true);
+  });
+
   it("in-app teslimat kapaliyken OS bildirimi gonderilmez (izin dursa da)", () => {
     setDesktopNotificationsEnabled(false);
     expect(deliverDesktopNotification(item())).toBe(false);

@@ -62,14 +62,19 @@ export function hasAskedDesktopPermission(): boolean {
  */
 export async function enableDesktopNotifications(): Promise<NotificationPermission | "unsupported"> {
   if (!desktopNotificationSupported()) return "unsupported";
-  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "granted") {
+    setDesktopNotificationsEnabled(true);
+    return "granted";
+  }
   if (Notification.permission === "denied") return "denied";
   try {
     localStorage.setItem(ASKED_KEY, "1");
   } catch {
     /* localStorage yoksa sorma bayragi hatirlanmaz; zararsiz */
   }
-  return Notification.requestPermission();
+  const result = await Notification.requestPermission();
+  if (result === "granted") setDesktopNotificationsEnabled(true);
+  return result;
 }
 
 function readDelivered(): Set<string> {

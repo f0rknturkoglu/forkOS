@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DailyRhythmWidget } from "./DailyRhythmWidget";
 
@@ -13,6 +14,9 @@ const harness = vi.hoisted(() => ({
   queries: [] as QueryOptions[],
   mutations: [] as { mutationFn?: (variables: never) => unknown; onSuccess?: (result?: unknown) => void }[],
   reviewEvents: [] as { occurred_at: string; verb: string }[],
+  weeklyReviews: [] as { kind: string; period_start: string }[],
+  agenda: null as null | Record<string, unknown>,
+  navigate: vi.fn(),
 }));
 
 vi.mock("@/core/api", () => ({
@@ -23,7 +27,7 @@ vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
 vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
-vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
+vi.mock("@/app/router", () => ({ navigate: (...args: unknown[]) => harness.navigate(...args) }));
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn(
     (options: { mutationFn?: (variables: never) => unknown; onSuccess?: (result?: unknown) => void }) => {
@@ -74,16 +78,21 @@ vi.mock("@tanstack/react-query", () => ({
             : key === "activity"
               ? harness.reviewEvents
               : key === "today-agenda"
-                ? {
+                ? (harness.agenda ?? {
                     day: "2026-08-29",
                     timed: [],
                     checklist: [],
                     completed: [],
                     suggestions: { todos: [], rss: [], media: [] },
-                  }
+                  })
                 : key === "reviews"
-                  ? []
-                  : [];
+                  ? harness.weeklyReviews
+                  : key === "todos"
+                    ? [
+                        { id: "t1", title: "Rapor", status: "open", due_at: null },
+                        { id: "t2", title: "E-posta", status: "doing", due_at: null },
+                      ]
+                    : [];
     return { data };
   }),
 }));
@@ -98,8 +107,14 @@ describe("DailyRhythmWidget (Faz 25)", () => {
     harness.queries.length = 0;
     harness.mutations.length = 0;
     harness.reviewEvents = [];
+    harness.weeklyReviews = [];
+    harness.agenda = null;
+    harness.navigate.mockReset();
   });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it("sabah: gelen kutusu + ilk 3 planli + ilk odak aksiyonu", () => {
     vi.setSystemTime(new Date("2026-08-29T06:00:00Z")); // Istanbul 09:00
@@ -117,6 +132,54 @@ describe("DailyRhythmWidget (Faz 25)", () => {
     expect(markup).toContain("Gün içinde");
     expect(markup).toContain("Odak devam ediyor — aç");
     expect(markup).toContain("Sıradaki");
+  });
+
+  it("ilk odagi planli gorev baglamiyla Pomodoro'ya tasir", () => {
+    vi.setSystemTime(new Date("2026-08-29T06:00:00Z"));
+    render(<DailyRhythmWidget />);
+    fireEvent.click(screen.getByRole("button", { name: "İlk odağı başlat" }));
+    expect(harness.navigate).toHaveBeenCalledWith("/pomodoro?context=t1&topic=Rapor");
+  });
+
+  it("Pazar/Pazartesi tamamlanmamis haftalik degerlendirmeyi hatirlatir", () => {
+    vi.setSystemTime(new Date("2026-08-30T08:00:00Z")); // Pazar, Istanbul 11:00
+    const markup = renderToStaticMarkup(<DailyRhythmWidget />);
+    expect(markup).toContain("Haftalık değerlendirme bekliyor");
+  });
+
+  it("planli gorevle takvim etkinligi cakisirsa uyarir", () => {
+    vi.setSystemTime(new Date("2026-08-29T06:00:00Z"));
+    harness.agenda = {
+      day: "2026-08-29",
+      timed: [
+        {
+          id: "calendar-1",
+          kind: "calendar",
+          source: "calendar",
+          title: "Toplantı",
+          starts_at: "2026-08-29T06:15:00Z",
+          duration_min: 30,
+          completed: false,
+          read_only: true,
+          context_only: false,
+          children: [],
+        },
+      ],
+      checklist: [],
+      completed: [],
+      suggestions: { todos: [], rss: [], media: [] },
+    };
+    const markup = renderToStaticMarkup(<DailyRhythmWidget />);
+    expect(markup).toContain("1 takvim çakışması");
+  });
+
+  it("agenda ve haftalik review endpointlerini app gunuyle sorgular", async () => {
+    vi.setSystemTime(new Date("2026-08-29T06:00:00Z"));
+    renderToStaticMarkup(<DailyRhythmWidget />);
+    await harness.queries.find((query) => query.queryKey[0] === "today-agenda")?.queryFn();
+    await harness.queries.find((query) => query.queryKey[0] === "reviews")?.queryFn();
+    expect(harness.apiGet).toHaveBeenCalledWith("/today/agenda?day=2026-08-29");
+    expect(harness.apiGet).toHaveBeenCalledWith("/reviews?kind=weekly&limit=5");
   });
 
   it("aksam: degerlendirme durumu + yarina tasi butonu tek istek yapar", async () => {

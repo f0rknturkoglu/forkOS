@@ -15173,6 +15173,45 @@
           "learning"
         ]
       },
+      "get": {
+        "operationId": "topic_api_study_topics__topic_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Topic Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Topic",
+        "tags": [
+          "learning"
+        ]
+      },
       "patch": {
         "operationId": "patch_topic_api_study_topics__topic_id__patch",
         "parameters": [

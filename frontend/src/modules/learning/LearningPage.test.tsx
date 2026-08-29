@@ -20,6 +20,7 @@ const harness = vi.hoisted(() => ({
   queryData: {} as Record<string, unknown>,
   stateCursor: 0,
   stateValues: [] as unknown[],
+  routeParams: "",
 }));
 
 vi.mock("react", async (importOriginal) => {
@@ -55,7 +56,7 @@ vi.mock("@/core/invalidation", () => ({
 }));
 vi.mock("@/app/router", () => ({
   navigate: vi.fn(),
-  useHashRoute: () => ({ path: "/learning", params: new URLSearchParams() }),
+  useHashRoute: () => ({ path: "/learning", params: new URLSearchParams(harness.routeParams) }),
 }));
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
@@ -97,6 +98,7 @@ describe("study flow", () => {
     harness.queryData = {};
     harness.stateCursor = 0;
     harness.stateValues = [];
+    harness.routeParams = "";
   });
 
   it("lists study areas and topics from their queries and hits the right GET endpoints", async () => {
@@ -134,6 +136,16 @@ describe("study flow", () => {
 
     createTask?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("todo.write", "study.write", "link.write");
+  });
+
+  it("focus deep-link'i secili alan disindaki veya alt konuyu dogrudan getirir", async () => {
+    harness.routeParams = "focus=child-42";
+    renderToStaticMarkup(<LearningPage />);
+
+    const focusQuery = harness.queries.find((query) => query.queryKey[0] === "study-topic-focus");
+    expect(focusQuery?.queryKey).toEqual(["study-topic-focus", "child-42"]);
+    await focusQuery?.queryFn();
+    expect(harness.apiGet).toHaveBeenCalledWith("/study/topics/child-42");
   });
 
   it("adds a new study area and deletes one with the right API calls and study.write invalidation", () => {

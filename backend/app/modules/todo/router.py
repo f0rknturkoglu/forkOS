@@ -77,6 +77,8 @@ class CarryOverIn(BaseModel):
 async def carry_over(body: CarryOverIn, session: AsyncSession = Depends(get_session)):
     """Bir gunun acik todo slotlarini hedef gune tasir (Faz 33) -- tek
     transaction, atomik; tamamlanmis/dropped gorev slotlari tasinmaz."""
+    if body.target <= body.day:
+        raise HTTPException(400, "hedef gun kaynak gunden sonra olmali")
     moved = await service.carry_over(session, body.day, body.target)
     return {"moved": moved}
 
