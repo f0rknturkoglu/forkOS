@@ -10,7 +10,7 @@
  */
 import { addAppDays, appWeekStartKey, keyToUtc, localDateKey, todayKey, tomorrowKey } from "./date";
 
-export interface ParseResult {
+interface ParseResult {
   /** Temizlenmis baslik: tuketilen parcalar cikarilmis. */
   title: string;
   /** Onerilen plan gunu (app tz anahtari). */

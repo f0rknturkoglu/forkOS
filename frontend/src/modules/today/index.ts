@@ -2,6 +2,7 @@ import { lazy } from "react";
 import { Sun } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
+import { DailyRhythmWidget } from "./DailyRhythmWidget";
 import { FeedStreamWidget } from "./widgets/FeedStreamWidget";
 import { QuickLinksWidget } from "./widgets/QuickLinksWidget";
 
@@ -17,6 +18,7 @@ registerModule({
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.
   // orta = akis, sag = durum. Sira icin bkz. TodayWidget.order.
   todayWidgets: [
+    { id: "today.rhythm", title: "Günün ritmi", component: DailyRhythmWidget, slot: "left", order: 5 },
     { id: "today.agenda", title: "Günün akışı", component: TodayAgendaWidget, slot: "left", order: 10 },
     {
       id: "today.feed-stream",

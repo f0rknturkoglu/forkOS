@@ -269,6 +269,20 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - TodoRow: rutin cipi "her gun" + sonraki tarihi gosterir; "Rutini
   durdur" aksiyonu PATCH recur:'' yapar -- gorev SILINMEZ, yalnizca
   gelecekte yeni occurrence uretimi kapanir (gecmis Activity'de kalir).
+## Faz 25: gunluk ritim orkestrasyonu
+
+- `Today` modulunde `today.rhythm` widget'i (sol, order 5): sabah
+  (gelen kutusu + ilk 3 planli is + ilk odak), gun icinde (siradaki
+  planli + aktif pomodoro + geciken), aksam (gunluk degerlendirme
+  durumu + acik planli gorevleri yarina tasi). Faz appTimeParts'ten
+  (Europe/Istanbul).
+- Orkestrasyon yalnizca Today'de; todo/review/pomodoro is mantigi
+  yeniden yazilmaz -- hepsi mevcut endpoint/event'lerden turetilir,
+  yeni tablo YOK. Yarina tasima mevcut PATCH /plan/{slot} kullanir.
+  Kullanici widget gizleme ile kapatabilir (Faz 19); gamification yok.
+- ReviewWidget'daki tam degerlendirme kartini tekrarlamaz (ritim yalniz
+  durum satiri + yonlendirme verir).
+
 
 
 
