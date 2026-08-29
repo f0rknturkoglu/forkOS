@@ -41,8 +41,11 @@ export function writePlanTodayPreference(checked: boolean): void {
   localStorage.setItem(PLAN_KEY, checked ? "1" : "0");
 }
 
-/** "Bugune al" aciksa bugunun app gun anahtari; degilse undefined. */
-function planDayForToday(): string | undefined {
+/**
+ * "Bugune al" aciksa bugunun app gun anahtari; degilse undefined.
+ * Context adapter'lari (opportunity/learning) da bu tercihi uygular (Faz 31).
+ */
+export function planDayForToday(): string | undefined {
   return readPlanTodayPreference() ? localDateKey(new Date()) : undefined;
 }
 

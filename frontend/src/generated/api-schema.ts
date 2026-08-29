@@ -2535,6 +2535,9 @@ export interface paths {
         /**
          * Create Topic Todo
          * @description Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).
+         *
+         *     Govde ortak TodoIn sozlesmesidir (Faz 31): "bugune al" tercihi
+         *     plan_day olarak buradan gelir; title/description konudan sabit kalir.
          */
         post: operations["create_topic_todo_api_study_topics__topic_id__todos_post"];
         delete?: never;
@@ -5056,6 +5059,29 @@ export interface components {
             minutes: number;
             /** Topic */
             topic: string;
+        };
+        /**
+         * TopicTodoIn
+         * @description Konu gorevi icin ortak alan sozlesmesi (Faz 31).
+         *
+         *     Title/description konudan sabit kalir; plan_day/oncelik/tekrar/etiket
+         *     gibi kullanici alanlari govdeden gelir -- "bugune al" tercihi plan_day
+         *     olarak buradan uygulanir.
+         */
+        TopicTodoIn: {
+            /** Due At */
+            due_at?: string | null;
+            /** Plan Day */
+            plan_day?: string | null;
+            /** Priority */
+            priority?: number | null;
+            /** Recur */
+            recur?: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
         };
         /** TransitionIn */
         TransitionIn: {
@@ -10510,7 +10536,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TopicTodoIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

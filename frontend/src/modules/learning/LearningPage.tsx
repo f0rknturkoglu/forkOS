@@ -8,6 +8,7 @@ import type { Bookmark, Course, StudyArea, StudyTopic } from "@/core/types";
 import { Button, Chip, Empty, Field, IconButton, Input, PageFrame, PageHeader, Section, Select, cx } from "@/core/ui";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { confirmDialog } from "@/core/dialog";
+import { planDayForToday } from "@/core/tasks";
 import { useOnline } from "@/lib/hooks";
 import { CoursesTab } from "./CoursesTab";
 import { QueueTab } from "./QueueTab";
@@ -79,8 +80,9 @@ export function LearningPage() {
     },
   });
   const createTask = useMutation({
-    // Gorev + prepares_for bagi tek istekte, ayni transaction'da (Faz 17).
-    mutationFn: (topic: StudyTopic) => api.post(`/study/topics/${topic.id}/todos`),
+    // Gorev + prepares_for bagi tek istekte (Faz 17); 'bugune al'
+    // tercihi plan_day olarak uygulanir (Faz 31).
+    mutationFn: (topic: StudyTopic) => api.post(`/study/topics/${topic.id}/todos`, { plan_day: planDayForToday() }),
     onSuccess: () => invalidateAfter("todo.write", "study.write", "link.write"),
   });
   const patch = useMutation({

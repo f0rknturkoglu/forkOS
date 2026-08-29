@@ -2,7 +2,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTask, invalidateTaskWrite, readPlanTodayPreference, writePlanTodayPreference } from "./tasks";
+import {
+  createTask,
+  invalidateTaskWrite,
+  planDayForToday,
+  readPlanTodayPreference,
+  writePlanTodayPreference,
+} from "./tasks";
 
 // jsdom 30 + Node 26'da window.localStorage getter'i undefined donuyor;
 // test icin bellek ici bir localStorage tanimliyoruz (TodoComposer.test ile ayni).
@@ -33,11 +39,15 @@ vi.hoisted(() => {
  * Faz 17 guardrail: gorev olusturma TEK intent katmanindan gecer.
  * Bilesenler daginik POST /todos body'si uretemez.
  */
+// Faz 31: butun gorev giris dosyalari. Farkli endpoint adi kullanarak
+// guardrail'den kacmak mumkun degil -- her giris ya createTask'tan gecer
+// ya da planDayForToday ile ortak tercihi uygular.
 const taskEntryFiles = [
   "src/modules/todo/TodoComposer.tsx",
   "src/modules/todo/TodoRow.tsx",
   "src/modules/projects/ProjectTodos.tsx",
   "src/modules/learning/LearningPage.tsx",
+  "src/modules/opportunity/OpportunityDetail.tsx",
   "src/core/DropCapture.tsx",
   "src/modules/todo/index.ts",
 ];
@@ -47,6 +57,9 @@ describe("task creation intent (Faz 17)", () => {
     const source = readFileSync(resolve(path), "utf8");
     expect(source).not.toContain('post("/todos"');
     expect(source).not.toContain('api.post("/todos"');
+    // Tek intent kaynagi: her giris ortak katmandan beslenir (Faz 31) --
+    // ya createTask/planDayForToday ya da yakalama kutusuna delege (DropCapture).
+    expect(source).toMatch(/core\/(tasks|CaptureDialog)"|\.\/CaptureDialog"/);
   });
 
   const harness = vi.hoisted(() => ({ apiPost: vi.fn() }));
@@ -89,6 +102,13 @@ describe("task creation intent (Faz 17)", () => {
     const { invalidateAfter } = vi.mocked(await import("@/core/invalidation"));
     invalidateTaskWrite();
     expect(invalidateAfter).toHaveBeenCalledWith("todo.write", "plan.write");
+  });
+
+  it("planDayForToday tercihe gore plan_day uretir, asla due_at degil", async () => {
+    writePlanTodayPreference(true);
+    expect(planDayForToday()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    writePlanTodayPreference(false);
+    expect(planDayForToday()).toBeUndefined();
   });
 
   it("preference localStorage'ta yasar", () => {

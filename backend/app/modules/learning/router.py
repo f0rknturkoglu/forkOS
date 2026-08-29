@@ -6,7 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_session
 from app.modules.learning import service
 from app.modules.learning.models import Course
-from app.modules.learning.schemas import AreaIn, CourseIn, CoursePatch, TopicIn, TopicPatch
+from app.modules.learning.schemas import (
+    AreaIn,
+    CourseIn,
+    CoursePatch,
+    TopicIn,
+    TopicPatch,
+    TopicTodoIn,
+)
 
 router = APIRouter(tags=["learning"])
 
@@ -96,9 +103,17 @@ async def delete_area(area_id: UUID, session: AsyncSession = Depends(get_session
 
 
 @router.post("/study/topics/{topic_id}/todos", status_code=201)
-async def create_topic_todo(topic_id: UUID, session: AsyncSession = Depends(get_session)):
-     """Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17)."""
-     try:
-         return await service.create_todo_for_topic(session, topic_id)
-     except ValueError as exc:
-         raise HTTPException(400, str(exc)) from exc
+async def create_topic_todo(
+    topic_id: UUID,
+    body: TopicTodoIn | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).
+
+    Govde ortak TodoIn sozlesmesidir (Faz 31): "bugune al" tercihi
+    plan_day olarak buradan gelir; title/description konudan sabit kalir.
+    """
+    try:
+        return await service.create_todo_for_topic(session, topic_id, body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc

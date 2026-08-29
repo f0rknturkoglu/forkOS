@@ -75,3 +75,41 @@ async def test_learning_topic_todo_is_one_transaction_with_link() -> None:
         await client.delete(f"/api/todos/{todo['id']}")
         await client.delete(f"/api/study/topics/{topic['id']}")
         await client.delete(f"/api/study/areas/{area['id']}")
+
+
+
+async def test_context_todos_accept_plan_day() -> None:
+    """Faz 31: opportunity ve learning context gorevleri plan_day kabul eder."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.core.time import local_today
+    from app.main import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        # Opportunity: TodoIn govdesi -> plan_day slot olusturur.
+        opp = (await c.post("/api/opportunities", json={
+            "title": "Is", "kind": "job",
+        })).json()
+        step = (await c.post(f"/api/opportunities/{opp['id']}/todos", json={
+            "title": "CV hazirla", "plan_day": local_today().isoformat(),
+        })).json()
+        week = (await c.get("/api/plan", params={"week": local_today().isoformat()})).json()
+        assert step["id"] in {row["entity_id"] for row in week}
+        assert step["due_at"] is None
+        await c.delete(f"/api/todos/{step['id']}")
+        await c.delete(f"/api/opportunities/{opp['id']}")
+
+        # Learning: konu gorevi + plan_day.
+        area = (await c.post("/api/study/areas", json={"title": "Alan2"})).json()
+        topic = (await c.post("/api/study/topics", json={
+            "title": "Konu", "area_id": area["id"],
+        })).json()
+        todo = (await c.post(f"/api/study/topics/{topic['id']}/todos", json={
+            "plan_day": local_today().isoformat(),
+        })).json()
+        week2 = (await c.get("/api/plan", params={"week": local_today().isoformat()})).json()
+        assert todo["id"] in {row["entity_id"] for row in week2}
+        assert todo["due_at"] is None
+        await c.delete(f"/api/todos/{todo['id']}")
+        await c.delete(f"/api/study/topics/{topic['id']}")
+        await c.delete(f"/api/study/areas/{area['id']}")

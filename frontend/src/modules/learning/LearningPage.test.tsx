@@ -127,8 +127,9 @@ describe("study flow", () => {
     harness.apiPost.mockClear();
     await (createTask?.mutationFn as (topic: StudyTopic) => Promise<void>)({ id: "t1", title: "Türev" } as StudyTopic);
     // Gorev + prepares_for bagi tek istekte (Faz 17); daginik /links yok.
+    // 'Bugune al' tercihi kapali (node ortami, localStorage yok) -> plan_day yok.
     expect(harness.apiPost).toHaveBeenCalledTimes(1);
-    expect(harness.apiPost).toHaveBeenCalledWith("/study/topics/t1/todos");
+    expect(harness.apiPost).toHaveBeenCalledWith("/study/topics/t1/todos", { plan_day: undefined });
 
     createTask?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("todo.write", "study.write", "link.write");

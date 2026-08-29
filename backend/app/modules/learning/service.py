@@ -13,16 +13,20 @@ from app.core.time import local_today
 from app.modules.bookmark.models import Bookmark
 from app.modules.bookmark.service import _to_out
 from app.modules.learning.models import Course, StudyArea, StudyTopic
-from app.modules.learning.schemas import AreaIn, TopicIn, TopicPatch
+from app.modules.learning.schemas import AreaIn, TopicIn, TopicPatch, TopicTodoIn
+from app.modules.todo.schemas import TodoIn
 
 
-async def create_todo_for_topic(session: AsyncSession, topic_id: UUID):
+async def create_todo_for_topic(
+    session: AsyncSession, topic_id: UUID, data: TopicTodoIn | None = None,
+):
     """Konudan gorev uretir + `prepares_for` bagini TEK transaction'da yazar
-    (Faz 17): gorev olusup bag kurulamazsa yari yazilmis kayit kalmaz.
+    (Faz 17/31): gorev olusup bag kurulamazsa yari yazilmis kayit kalmaz.
     Todo servisi ana sinirdir; bu adaptor yalnizca kendi iliskisini ekler.
+    `data`: ortak TodoIn sözleşmesi -- plan_day/priority/recur gibi alanlar
+    gövdeden gelir; title/description konudan sabit kalir (bağlam korunur).
     """
     from app.modules.todo import service as todo_service
-    from app.modules.todo.schemas import TodoIn
 
     topic = await session.get(StudyTopic, topic_id)
     if topic is None:
@@ -30,9 +34,10 @@ async def create_todo_for_topic(session: AsyncSession, topic_id: UUID):
     title = (
         await session.execute(select(Entity.title).where(Entity.id == topic_id))
     ).scalar_one()
+    extra = data.model_dump(exclude_unset=True) if data else {}
     todo = await todo_service.create(
         session,
-        TodoIn(title=title, description="çalışma konusu"),
+        TodoIn(title=title, description="çalışma konusu", **extra),
         commit=False,
     )
     await link(session, todo.id, topic_id, "prepares_for")

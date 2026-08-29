@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -24,6 +25,22 @@ class AreaIn(BaseModel):
     color: str | None = None
     position: int = 0
 
+
+
+
+
+class TopicTodoIn(BaseModel):
+    """Konu gorevi icin ortak alan sozlesmesi (Faz 31).
+
+    Title/description konudan sabit kalir; plan_day/oncelik/tekrar/etiket
+    gibi kullanici alanlari govdeden gelir -- "bugune al" tercihi plan_day
+    olarak buradan uygulanir.
+    """
+    plan_day: date | None = None
+    priority: int | None = Field(default=None, ge=0, le=3)
+    due_at: datetime | None = None
+    recur: str | None = None
+    tags: list[str] = []
 
 class TopicIn(BaseModel):
     title: str = Field(min_length=1)

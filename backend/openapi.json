@@ -7302,6 +7302,69 @@
         "title": "TopicReviewStats",
         "type": "object"
       },
+      "TopicTodoIn": {
+        "description": "Konu gorevi icin ortak alan sozlesmesi (Faz 31).\n\nTitle/description konudan sabit kalir; plan_day/oncelik/tekrar/etiket\ngibi kullanici alanlari govdeden gelir -- \"bugune al\" tercihi plan_day\nolarak buradan uygulanir.",
+        "properties": {
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "plan_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Day"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "maximum": 3.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "recur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recur"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "TopicTodoIn",
+        "type": "object"
+      },
       "TransitionIn": {
         "properties": {
           "note": {
@@ -15143,7 +15206,7 @@
     },
     "/api/study/topics/{topic_id}/todos": {
       "post": {
-        "description": "Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).",
+        "description": "Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).\n\nGovde ortak TodoIn sozlesmesidir (Faz 31): \"bugune al\" tercihi\nplan_day olarak buradan gelir; title/description konudan sabit kalir.",
         "operationId": "create_topic_todo_api_study_topics__topic_id__todos_post",
         "parameters": [
           {
@@ -15157,6 +15220,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TopicTodoIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {

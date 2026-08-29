@@ -247,7 +247,14 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
   Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
   bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari
+- `CaptureDialog`: gorev / not / baglanti sekmeleri; secilen tur gonderimden- Faz 29: CaptureDialog gercek form -- Enter gonderir (tag input'u kendi- Faz 30: parser deterministik + tz-safe. Gun adi/ayin N'i hesaplari- Faz 31: butun gorev girisleri ortak intent. `tasks.ts::planDayForToday`
+  public; Opportunity adim gorevi ve Learning konu gorevi ayni tercihi
+  plan_day olarak gonderir (due_at uretmez). Learning endpoint'i ortak
+  `TopicTodoIn` sozlesmesini kabul eder (plan_day/priority/due/recur/tags;
+  title/description konudan sabit); opportunity zaten TodoIn. Guardrail:
+  gorev giris dosyalari ya createTask/planDayForToday'den gecer ya da
+  yakalama kutusuna delege eder -- farkli endpoint adiyla atlatilamaz.
+
   verilen `now`'dan (real sistem gunu degil). Due_at dönüşümü sabit -3
   yerine `lib/date.ts::appLocalToUtc` (app tz wall time -> ISO UTC, genel
   offset taramasi). Kisa ayda "ayin 31'i" sessizce tasmaz: gercek gunun

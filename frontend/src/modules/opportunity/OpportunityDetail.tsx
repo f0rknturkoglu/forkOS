@@ -6,6 +6,7 @@ import { api } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { Button, Chip, Empty, Input, SectionHeader, Select, Textarea, cx, relativeTime } from "@/core/ui";
 import type { Application, ApplicationHistoryRow, Document, Interview, Opportunity } from "@/core/types";
+import { planDayForToday } from "@/core/tasks";
 import type { Todo } from "@/core/types";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import { useOnline } from "@/lib/hooks";
@@ -59,7 +60,11 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
     queryFn: () => api.get<Todo[]>(`/opportunities/${id}/todos`),
   });
   const addStep = useMutation({
-    mutationFn: () => api.post(`/opportunities/${id}/todos`, { title: stepTitle.trim() }),
+    mutationFn: () =>
+      api.post(`/opportunities/${id}/todos`, {
+        title: stepTitle.trim(),
+        plan_day: planDayForToday(),
+      }),
     onSuccess: () => {
       setStepTitle("");
       invalidateAfter("opportunity.write", "todo.write");
