@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import Text, cast, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
-from app.core.models import SourceRun
+from app.core.models import Entity, SourceRun
 
 EMPTY_STREAK_ALERT = 3      # ust uste bu kadar bos kosum -> bildirim
 OK = "ok"
@@ -78,11 +78,26 @@ async def check_stalled(session: AsyncSession, source: str, *, label: str = "") 
     return True
 
 
-async def health(session: AsyncSession, limit: int = 50) -> list[dict]:
+async def health(
+    session: AsyncSession, limit: int = 50, *, active_only: bool = True
+) -> list[dict]:
     """Her kaynagin son durumu -- Settings/Today icin ozet."""
+    active_source = or_(
+        SourceRun.source.not_like("rss:%"),
+        exists(
+            select(Entity.id).where(
+                Entity.type == "feed",
+                Entity.archived_at.is_(None),
+                cast(Entity.id, Text) == func.substr(SourceRun.source, 5),
+            )
+        ),
+    )
+    newest_conditions = [SourceRun.status != "running"]
+    if active_only:
+        newest_conditions.append(active_source)
     newest = (
         select(SourceRun.source, func.max(SourceRun.started_at).label("last_at"))
-        .where(SourceRun.status != "running")
+        .where(*newest_conditions)
         .group_by(SourceRun.source)
         .subquery()
     )
