@@ -9,8 +9,8 @@ from urllib.parse import urljoin
 import httpx
 from selectolax.parser import HTMLParser
 
-from app.sources.base import RawItem
 from app.modules.opportunity.taxonomy import parse_turkish_heading_date
+from app.sources.base import RawItem
 
 
 def _norm(value: str) -> str:
@@ -44,12 +44,17 @@ class AnnouncementSource:
             if not href or len(title) < 8 or not any(_norm(k) in normalized for k in self.keywords):
                 continue
             url = urljoin(base_url, href)
+            published_at = parse_turkish_heading_date(title)
+            # ÖSYM sayfasındaki menü bağlantıları da "sınav" kelimesi taşır;
+            # gerçek duyurular resmi gün/ay/yıl başlığıyla yayınlanır.
+            if self.id == "osym" and published_at is None:
+                continue
             items.append(
                 RawItem(
                     external_id=hashlib.sha256(url.encode()).hexdigest(),
                     title=title,
                     url=url,
-                    published_at=parse_turkish_heading_date(title),
+                    published_at=published_at,
                     extra={"organization": self.id.upper(), "kind": self.kind},
                 )
             )

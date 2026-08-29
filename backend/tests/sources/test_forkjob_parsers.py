@@ -7,8 +7,8 @@ import pytest
 
 from app.sources.announcements import AnnouncementSource, YokAnnouncementSource
 from app.sources.forkjob_core.models import Company, DateSource, WorkMode
+from app.sources.forkjob_core.scrapers.bulldogjob import _QUERY, BulldogjobScraper
 from app.sources.forkjob_core.scrapers.kariyernet import KariyerNetScraper
-from app.sources.forkjob_core.scrapers.bulldogjob import BulldogjobScraper, _QUERY
 from app.sources.forkjob_core.sources.adapters import GreenhouseAdapter
 
 pytestmark = pytest.mark.no_database

@@ -3,18 +3,7 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { LayoutGrid, List, Search, Settings2 } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
-import {
-  Button,
-  Empty,
-  IconButton,
-  Input,
-  PageFrame,
-  PageHeader,
-  Section,
-  Toolbar,
-  cx,
-  useToast,
-} from "@/core/ui";
+import { Button, Empty, IconButton, Input, PageFrame, PageHeader, Section, Toolbar, cx, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
@@ -70,8 +59,7 @@ export function OpportunityPage() {
   const browse = useInfiniteQuery({
     queryKey: ["opportunities", "browse", queryFilters],
     initialPageParam: 0,
-    queryFn: ({ pageParam }) =>
-      api.get<OpportunityBrowseResponse>(browseQuery({ ...queryFilters, offset: pageParam })),
+    queryFn: ({ pageParam }) => api.get<OpportunityBrowseResponse>(browseQuery({ ...queryFilters, offset: pageParam })),
     getNextPageParam: (lastPage) => {
       const next = lastPage.offset + lastPage.items.length;
       return next < lastPage.total ? next : undefined;
@@ -85,8 +73,7 @@ export function OpportunityPage() {
   const total = overview?.total ?? 0;
 
   const patch = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/opportunities/${id}`, { status }),
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/opportunities/${id}`, { status }),
     onSuccess: () => invalidateAfter("opportunity.write"),
   });
   const lifecycle = useMutation({
@@ -167,10 +154,18 @@ export function OpportunityPage() {
         </IconButton>
         <SourcePicker />
         <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5">
-          <IconButton title="Yatay satırlar" onClick={() => changeView("rows")} className={view === "rows" ? "bg-surface-sunken text-primary" : "border-transparent"}>
+          <IconButton
+            title="Yatay satırlar"
+            onClick={() => changeView("rows")}
+            className={view === "rows" ? "bg-surface-sunken text-primary" : "border-transparent"}
+          >
             <List size={14} />
           </IconButton>
-          <IconButton title="Karesel kartlar" onClick={() => changeView("grid")} className={view === "grid" ? "bg-surface-sunken text-primary" : "border-transparent"}>
+          <IconButton
+            title="Karesel kartlar"
+            onClick={() => changeView("grid")}
+            className={view === "grid" ? "bg-surface-sunken text-primary" : "border-transparent"}
+          >
             <LayoutGrid size={14} />
           </IconButton>
         </span>
@@ -198,9 +193,17 @@ export function OpportunityPage() {
       {showCrm && <ApplicationCrmPanel />}
       <OpportunityFilters filters={filters} facets={facets} onChange={setFilters} />
 
-      <Section title={filters.section === "jobs" ? "İş ilanları" : filters.section === "announcements" ? "Duyurular" : "Çöp"} hint={`${rows.length} / ${total} kayıt`}>
+      <Section
+        title={filters.section === "jobs" ? "İş ilanları" : filters.section === "announcements" ? "Duyurular" : "Çöp"}
+        hint={`${rows.length} / ${total} kayıt`}
+      >
         {browse.isLoading ? (
-          <div className={cx("animate-pulse", view === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3")}>
+          <div
+            className={cx(
+              "animate-pulse",
+              view === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3",
+            )}
+          >
             {Array.from({ length: view === "grid" ? 6 : 4 }, (_, index) => (
               <div key={index} className="h-24 rounded-card bg-surface-sunken" />
             ))}
@@ -216,12 +219,16 @@ export function OpportunityPage() {
         ) : rows.length === 0 ? (
           <Empty
             variant="page"
-            title={filters.search || filters.category || filters.source ? "Bu süzgece uyan kayıt yok" : "Henüz kayıt yok"}
+            title={
+              filters.search || filters.category || filters.source ? "Bu süzgece uyan kayıt yok" : "Henüz kayıt yok"
+            }
             action={
               filters.search || filters.category || filters.source ? (
                 <Button onClick={resetFilters}>Süzgeci temizle</Button>
               ) : (
-                <Button variant="primary" onClick={() => navigate("/sources")}>Kaynakları çek</Button>
+                <Button variant="primary" onClick={() => navigate("/sources")}>
+                  Kaynakları çek
+                </Button>
               )
             }
           >
@@ -242,9 +249,22 @@ export function OpportunityPage() {
                   isTrash={filters.section === "trash"}
                   layout={view}
                   sourceActive={filters.source === item.source}
-                  remoteActive={filters.remote === remoteKind(item.remote)}
-                  onSource={(source) => setFilters((current) => ({ ...current, source: current.source === source ? "" : source, offset: 0 }))}
-                  onRemote={(remote) => setFilters((current) => ({ ...current, remote: current.remote === remote ? "" : remote, offset: 0 }))}
+                  remoteActive={filters.remote === item.remote || filters.remote === remoteKind(item.remote)}
+                  onSource={(source) =>
+                    setFilters((current) => ({
+                      ...current,
+                      source: current.source === source ? "" : source,
+                      offset: 0,
+                    }))
+                  }
+                  onRemote={(remote) =>
+                    setFilters((current) => ({
+                      ...current,
+                      remote:
+                        current.remote === item.remote || current.remote === remote ? "" : (item.remote ?? remote),
+                      offset: 0,
+                    }))
+                  }
                   onKind={(kind) =>
                     setFilters((current) => {
                       const section = kind === "job" ? "jobs" : "announcements";
@@ -263,7 +283,9 @@ export function OpportunityPage() {
                 <Button onClick={() => void browse.fetchNextPage()} disabled={browse.isFetchingNextPage}>
                   {browse.isFetchingNextPage ? "Yükleniyor…" : "Daha fazla"}
                 </Button>
-                <span className="text-meta text-muted">{rows.length} / {total}</span>
+                <span className="text-meta text-muted">
+                  {rows.length} / {total}
+                </span>
               </div>
             )}
           </>

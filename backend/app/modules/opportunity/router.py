@@ -15,8 +15,8 @@ from app.modules.opportunity import service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
 from app.modules.opportunity.models import Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
-    OpportunityIn,
     OpportunityBrowseOut,
+    OpportunityIn,
     OpportunityOut,
     OpportunityPatch,
     RequirementIn,

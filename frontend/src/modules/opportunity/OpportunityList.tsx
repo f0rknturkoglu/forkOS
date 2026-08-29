@@ -1,7 +1,16 @@
 import { Bookmark, CalendarDays, ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
 import { Button, Chip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
-import { REMOTE_LABELS, STATUSES, daysLeft, jobCategoryLabel, kindLabel, remoteKind, scoreBand, statusLabel } from "./labels";
+import {
+  REMOTE_LABELS,
+  STATUSES,
+  daysLeft,
+  jobCategoryLabel,
+  kindLabel,
+  remoteKind,
+  scoreBand,
+  statusLabel,
+} from "./labels";
 import { sourceLabel } from "@/core/labels";
 import type { RemoteKind } from "./labels";
 
@@ -36,20 +45,12 @@ export function FilterChip({
   );
 }
 
-export function OpportunityCollection({
-  layout,
-  children,
-}: {
-  layout: "rows" | "grid";
-  children: React.ReactNode;
-}) {
+export function OpportunityCollection({ layout, children }: { layout: "rows" | "grid"; children: React.ReactNode }) {
   return (
     <div
       data-layout={layout}
       className={cx(
-        layout === "grid"
-          ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
-          : "divide-y divide-subtle",
+        layout === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "divide-y divide-subtle",
       )}
     >
       {children}
@@ -170,9 +171,7 @@ export function OpportunityCard({
               {relativeTime(publicationDate)} · {item.published_at ? "yayınlandı" : "tarandı"}
             </span>
           )}
-          {!announcement && item.category && (
-            <span className={chip(false)}>{jobCategoryLabel(item.category)}</span>
-          )}
+          {!announcement && item.category && <span className={chip(false)}>{jobCategoryLabel(item.category)}</span>}
           <button
             type="button"
             onClick={() => onKind?.(item.kind)}

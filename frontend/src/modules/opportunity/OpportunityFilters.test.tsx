@@ -29,11 +29,7 @@ describe("opportunity contextual filters", () => {
 
   it("renders job categories only in jobs", () => {
     const jobs = renderToStaticMarkup(
-      <OpportunityFilters
-        filters={filters}
-        facets={{ categories: { software: 12 } }}
-        onChange={() => undefined}
-      />,
+      <OpportunityFilters filters={filters} facets={{ categories: { software: 12 } }} onChange={() => undefined} />,
     );
     expect(jobs).toContain("Yazılım &amp; mühendislik");
     const announcements = renderToStaticMarkup(

@@ -60,7 +60,10 @@ async def test_legacy_list_enforces_kind_status_and_limit(client: AsyncClient):
         )
         assert response.status_code == 200
         assert len(response.json()) == 2
-        assert all(item["kind"] == "job" and item["status"] == "considering" for item in response.json())
+        assert all(
+            item["kind"] == "job" and item["status"] == "considering"
+            for item in response.json()
+        )
     finally:
         for item_id in created_ids:
             await client.post(f"/api/opportunities/{item_id}/trash")

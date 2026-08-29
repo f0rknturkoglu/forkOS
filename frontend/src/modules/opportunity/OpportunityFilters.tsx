@@ -1,7 +1,7 @@
 import { Select, Section } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
 import { FilterChip } from "./OpportunityList";
-import { JOB_CATEGORY_LABELS, REMOTE_LABELS, STATUSES, statusLabel } from "./labels";
+import { JOB_CATEGORY_LABELS, STATUSES, statusLabel } from "./labels";
 import type { OpportunityBrowseFilters } from "./opportunityBrowse";
 
 interface Props {
@@ -11,8 +11,14 @@ interface Props {
 }
 
 export function OpportunityFilters({ filters, facets, onChange }: Props) {
-  const update = (changes: Partial<OpportunityBrowseFilters>) =>
-    onChange({ ...filters, ...changes, offset: 0 });
+  const remoteLabels: Record<string, string> = {
+    remote: "Uzaktan",
+    hybrid: "Hibrit",
+    onsite: "Ofis",
+    office: "Ofis",
+    unknown: "Belirsiz",
+  };
+  const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
   const chips = (
     values: Record<string, number> | undefined,
     selected: string | undefined,
@@ -61,14 +67,22 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
               { TR: "Türkiye", EU: "Avrupa", OTHER: "Diğer", UNKNOWN: "Belirsiz" },
               "region",
             )}
-          {filters.section === "jobs" &&
-            chips(facets.remote, filters.remote, REMOTE_LABELS, "remote")}
-          {chips(
-            facets.sources,
-            filters.source,
-            Object.fromEntries(Object.keys(facets.sources ?? {}).map((key) => [key, sourceLabel(key)])),
-            "source",
-          )}
+          {filters.section === "jobs" && chips(facets.remote, filters.remote, remoteLabels, "remote")}
+          <Select
+            ariaLabel="Kaynak"
+            value={filters.source ?? ""}
+            onChange={(source) => update({ source })}
+            className="max-w-full"
+          >
+            <option value="">Tüm kaynaklar</option>
+            {Object.entries(facets.sources ?? {})
+              .sort(([left], [right]) => sourceLabel(left).localeCompare(sourceLabel(right), "tr"))
+              .map(([source, count]) => (
+                <option key={source} value={source}>
+                  {sourceLabel(source)} · {count}
+                </option>
+              ))}
+          </Select>
           {filters.section === "announcements" && (
             <>
               {[30, 90, 365].map((days) => (
@@ -100,8 +114,17 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
 
       <Section title="Durum & sıralama">
         <div className="flex flex-wrap items-center gap-2">
-          {chips(facets.statuses, filters.status, Object.fromEntries(STATUSES.map((s) => [s, statusLabel(s)])), "status")}
-          <Select ariaLabel="Sıralama" value={filters.sort} onChange={(sort) => update({ sort: sort as OpportunityBrowseFilters["sort"] })}>
+          {chips(
+            facets.statuses,
+            filters.status,
+            Object.fromEntries(STATUSES.map((s) => [s, statusLabel(s)])),
+            "status",
+          )}
+          <Select
+            ariaLabel="Sıralama"
+            value={filters.sort}
+            onChange={(sort) => update({ sort: sort as OpportunityBrowseFilters["sort"] })}
+          >
             {filters.section === "jobs" && <option value="score">En uygun</option>}
             <option value="newest">En yeni</option>
             <option value="oldest">En eski</option>

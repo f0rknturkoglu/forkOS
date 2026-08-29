@@ -56,7 +56,9 @@ describe("opportunity list components", () => {
 
   it("uses a real responsive collection in grid mode", () => {
     const html = renderToStaticMarkup(
-      <OpportunityCollection layout="grid"><span>card</span></OpportunityCollection>,
+      <OpportunityCollection layout="grid">
+        <span>card</span>
+      </OpportunityCollection>,
     );
     expect(html).toContain("grid-cols-1");
     expect(html).toContain("md:grid-cols-2");
