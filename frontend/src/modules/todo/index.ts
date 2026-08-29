@@ -1,11 +1,10 @@
-import { invalidateAfter } from "@/core/invalidation";
 import { lazy } from "react";
 import { ListChecks } from "lucide-react";
 import { OverdueTodosWidget } from "./OverdueTodosWidget";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
-import { api } from "@/core/api";
-import { invalidate } from "@/core/queryClient";
+import { createTask, invalidateTaskWrite, readPlanTodayPreference } from "@/core/tasks";
+import { emitGlobalToast } from "@/core/ui";
 
 const TodoPage = lazy(() => import("./TodoPage").then((module) => ({ default: module.TodoPage })));
 const WeeklyPlannerPage = lazy(() =>
@@ -33,9 +32,14 @@ registerModule({
       ask: { label: "Görev başlığı", placeholder: "Ne yapılacak?" },
       run: async (title) => {
         if (!title?.trim()) return;
-        await api.post("/todos", { title: title.trim() });
-        invalidateAfter("todo.write");
-        navigate("/todos");
+        // Ortak intent (Faz 17): "bugune al" tercihi uygulanir, kullaniciyi
+        // Todo sayfasina zorla tasimadan basari geri bildirimi verilir.
+        await createTask({ title });
+        invalidateTaskWrite();
+        emitGlobalToast({
+          message: readPlanTodayPreference() ? "Görev eklendi — bugüne planlandı" : "Görev eklendi",
+          options: { tone: "ok", action: { label: "aç", run: () => navigate("/todos") } },
+        });
       },
     },
   ],

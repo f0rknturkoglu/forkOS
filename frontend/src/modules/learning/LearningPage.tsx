@@ -79,17 +79,8 @@ export function LearningPage() {
     },
   });
   const createTask = useMutation({
-    mutationFn: async (topic: StudyTopic) => {
-      const todo = await api.post<{ id: string }>("/todos", {
-        title: topic.title,
-        description: "çalışma konusu",
-      });
-      await api.post("/links", {
-        from_id: todo.id,
-        to_id: topic.id,
-        relation: "prepares_for",
-      });
-    },
+    // Gorev + prepares_for bagi tek istekte, ayni transaction'da (Faz 17).
+    mutationFn: (topic: StudyTopic) => api.post(`/study/topics/${topic.id}/todos`),
     onSuccess: () => invalidateAfter("todo.write", "study.write", "link.write"),
   });
   const patch = useMutation({

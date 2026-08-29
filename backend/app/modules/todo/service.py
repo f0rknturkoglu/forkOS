@@ -198,7 +198,16 @@ async def _copy_project_links(
     return project_ids
 
 
-async def create(session: AsyncSession, data: TodoIn, *, commit: bool = True) -> TodoOut:
+async def create(
+    session: AsyncSession, data: TodoIn, *, commit: bool = True,
+    search_text: str | None = None,
+) -> TodoOut:
+    """Tek gorev olusturma siniri (Faz 17): tum context adapter'lari buraya
+    delege eder; kendi iliskisini ayni transaction'da yazar.
+
+    `search_text`: varsayilan `data.description`; GitHub issue gibi
+    adaptorler arama metnini govdeden ayri tutmak isterse verir.
+    """
     if data.status not in STATUSES:
         raise ValueError("gecersiz todo durumu")
     project_id, milestone_id = await _resolve_context(
@@ -208,7 +217,8 @@ async def create(session: AsyncSession, data: TodoIn, *, commit: bool = True) ->
         milestone_id=data.milestone_id,
     )
     entity = await create_entity(session, type=Todo.ENTITY_TYPE, title=data.title.strip(),
-                                 search_text=data.description or "")
+                                 search_text=search_text if search_text is not None
+                                 else (data.description or ""))
     todo = Todo(id=entity.id, description=data.description, priority=data.priority,
                 status=data.status, due_at=data.due_at, reminder_at=data.reminder_at,
                 parent_id=data.parent_id, position=data.position, recur=data.recur,

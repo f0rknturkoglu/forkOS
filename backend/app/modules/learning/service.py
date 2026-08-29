@@ -7,12 +7,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import tags as tag_svc
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
+from app.core.links import link
 from app.core.models import Entity
 from app.core.time import local_today
 from app.modules.bookmark.models import Bookmark
 from app.modules.bookmark.service import _to_out
 from app.modules.learning.models import Course, StudyArea, StudyTopic
 from app.modules.learning.schemas import AreaIn, TopicIn, TopicPatch
+
+
+async def create_todo_for_topic(session: AsyncSession, topic_id: UUID):
+    """Konudan gorev uretir + `prepares_for` bagini TEK transaction'da yazar
+    (Faz 17): gorev olusup bag kurulamazsa yari yazilmis kayit kalmaz.
+    Todo servisi ana sinirdir; bu adaptor yalnizca kendi iliskisini ekler.
+    """
+    from app.modules.todo import service as todo_service
+    from app.modules.todo.schemas import TodoIn
+
+    topic = await session.get(StudyTopic, topic_id)
+    if topic is None:
+        raise ValueError("konu bulunamadi")
+    title = (
+        await session.execute(select(Entity.title).where(Entity.id == topic_id))
+    ).scalar_one()
+    todo = await todo_service.create(
+        session,
+        TodoIn(title=title, description="çalışma konusu"),
+        commit=False,
+    )
+    await link(session, todo.id, topic_id, "prepares_for")
+    await session.commit()
+    return todo
 
 
 async def create_item(session, model, data):

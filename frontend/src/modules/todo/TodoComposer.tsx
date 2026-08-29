@@ -1,15 +1,11 @@
-import { invalidateAfter } from "@/core/invalidation";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { CalendarClock, CalendarDays, Plus, Repeat, Tag, X } from "lucide-react";
-import { api } from "@/core/api";
 import { Button, Checkbox, Input, cx, useToast } from "@/core/ui";
+import { createTask, invalidateTaskWrite, readPlanTodayPreference, writePlanTodayPreference } from "@/core/tasks";
 import { localDateKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { PRIORITIES, RECURRENCES } from "./priority";
-
-// "bugune al" son secimi -- kalici depolama yalnizca localStorage olabilir (kural).
-const PLAN_KEY = "todo.planToday";
 
 /**
  * Gorev ekleme.
@@ -28,18 +24,13 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
   const [tagDraft, setTagDraft] = useState("");
   // Varsayilan KAPALI ama son secim hatirlanir: her zaman bugune alan kullanici
   // bir kez isaretler, tercih kalir; istemeyen hic etkilenmez.
-  const [planToday, setPlanToday] = useState<boolean>(
-    () => typeof localStorage !== "undefined" && localStorage.getItem(PLAN_KEY) === "1",
-  );
+  const [planToday, setPlanToday] = useState<boolean>(() => readPlanTodayPreference());
   const online = useOnline();
   const toast = useToast();
 
   function togglePlan(checked: boolean) {
     setPlanToday(checked);
-    // SSR/node ortaminda localStorage yok; tarayicida her zaman var.
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(PLAN_KEY, checked ? "1" : "0");
-    }
+    writePlanTodayPreference(checked);
   }
 
   function reset() {
@@ -54,8 +45,8 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
 
   const create = useMutation({
     mutationFn: () =>
-      api.post("/todos", {
-        title: title.trim(),
+      createTask({
+        title,
         priority,
         // datetime-local yerel saat verir; ISO'ya cevirirken saat dilimi korunur.
         due_at: due ? new Date(due).toISOString() : undefined,
@@ -65,12 +56,11 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
         // Aksi halde gorev panelin gostermedigi bir gune planlanir. due_at degil:
         // plan = "bugune al", teslim tarihi ayri kavramdir. Işaretli degilken alan
         // gövdede HIC olmaz (backend "plan yok"u boyle ayirt eder).
-        ...(planToday ? { plan_day: localDateKey(new Date()) } : {}),
+        plan_day: planToday ? localDateKey(new Date()) : undefined,
       }),
     onSuccess: () => {
       reset();
-      // Tek istek iki yazma icerir: gorev + plan. Ikisi de bildirilir (kural 14).
-      invalidateAfter("todo.write", "plan.write");
+      invalidateTaskWrite();
       onCreated?.();
     },
     onError: () => toast.push("Görev eklenemedi.", { tone: "danger" }),

@@ -91,5 +91,14 @@ async def delete_topic(topic_id: UUID, session: AsyncSession = Depends(get_sessi
 
 @router.delete("/study/areas/{area_id}", status_code=204)
 async def delete_area(area_id: UUID, session: AsyncSession = Depends(get_session)):
-    if not await service.delete_area(session, area_id):
-        raise HTTPException(404, "alan bulunamadi")
+     if not await service.delete_area(session, area_id):
+         raise HTTPException(404, "alan bulunamadi")
+
+
+@router.post("/study/topics/{topic_id}/todos", status_code=201)
+async def create_topic_todo(topic_id: UUID, session: AsyncSession = Depends(get_session)):
+     """Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17)."""
+     try:
+         return await service.create_todo_for_topic(session, topic_id)
+     except ValueError as exc:
+         raise HTTPException(400, str(exc)) from exc

@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/core/api";
+import { createTask } from "@/core/tasks";
 import { Chip, IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { navigate } from "@/app/router";
@@ -87,7 +88,7 @@ export function TodoRow({
   });
   const addSubtask = useMutation({
     mutationFn: (title: string) =>
-      api.post("/todos", {
+      createTask({
         title,
         parent_id: todo.id,
         // Alt gorev ustunun onceligini ve kilometre tasini devralir --

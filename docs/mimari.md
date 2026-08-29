@@ -153,4 +153,26 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   entity/link/event + self-FK bütünlük doğrulaması. Hata durumunda güvenlik
   yedeğinin yolu raporlanır. Normal FastAPI endpoint'inden tablo
   truncate/event DELETE yapılmaz; bu CLI, dokümante edilmiş ayrı bir
-  disaster recovery sınırıdır. UI'da tek tık destructive buton yoktur.
+     disaster recovery sınırıdır. UI'da tek tık destructive buton yoktur.
+
+## Faz 17: ortak task creation intent'i
+
+- Backend'de görev oluşturmanın TEK sınırı `todo.service.create()`'dir.
+  Context adapter'ları delege eder ve kendi ilişkisini aynı transaction'da
+  yazar: opportunity (`application_step` link'i), learning
+  (`/study/topics/{id}/todos` → `prepares_for` link'i, tek istek), project
+  GitHub import (tag + proje bağı `search_text` kwarg'ı ile). Koruyan test
+  `backend/tests/test_todo_creation_boundary.py`: todo modülü dışında
+  `Todo(...)` kurulumu / `create_entity(type='todo')` yasaktır.
+- Frontend'de ortak katman `frontend/src/core/tasks.ts::createTask`:
+  intent (title, description, priority, due_at, plan_day, recur, tags,
+  parent/project/milestone) → tek POST /todos. "Bugüne al" tercihi burada
+  yaşar (`localStorage["todo.planToday"]`): `plan_day` üretir, ASLA `due_at`
+  üretmez. Koruyan test `frontend/src/core/taskCreation.test.ts` bileşen
+  dosyalarında dağınık `post("/todos"` kullanımını yasaklar.
+- Bütün manuel girişler (TodoComposer, alt görev, ProjectTodos, DropCapture,
+  `todo.quick`) aynı tercihi ve `invalidateTaskWrite()`'ı kullanır
+  (`todo.write` + `plan.write`). Command Palette artık zorla /todos'a
+  yönlendirmez; başarı toast'ı verir ("bugüne planlandı" rozetli).
+- Otomatik üretilen rutin occurrence'ları (`_spawn_next_occurrence`) bu
+  katmandan geçmez ve kullanıcı istemedikçe plana yazılmaz.

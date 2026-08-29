@@ -120,21 +120,15 @@ describe("study flow", () => {
     const createTask = harness.mutations.find((mutation) => {
       harness.apiPost.mockClear();
       mutation.mutationFn?.({ id: "t1", title: "Türev" });
-      return harness.apiPost.mock.calls.some(([url]) => url === "/todos");
+      return harness.apiPost.mock.calls.some(([url]) => url === "/study/topics/t1/todos");
     });
     expect(createTask).toBeDefined();
 
     harness.apiPost.mockClear();
     await (createTask?.mutationFn as (topic: StudyTopic) => Promise<void>)({ id: "t1", title: "Türev" } as StudyTopic);
-    expect(harness.apiPost).toHaveBeenCalledWith("/todos", {
-      title: "Türev",
-      description: "çalışma konusu",
-    });
-    expect(harness.apiPost).toHaveBeenCalledWith("/links", {
-      from_id: "todo-1",
-      to_id: "t1",
-      relation: "prepares_for",
-    });
+    // Gorev + prepares_for bagi tek istekte (Faz 17); daginik /links yok.
+    expect(harness.apiPost).toHaveBeenCalledTimes(1);
+    expect(harness.apiPost).toHaveBeenCalledWith("/study/topics/t1/todos");
 
     createTask?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("todo.write", "study.write", "link.write");

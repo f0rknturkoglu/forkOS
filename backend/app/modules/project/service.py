@@ -6,15 +6,15 @@ from datetime import UTC, datetime
 from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import tags as tag_svc
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
-from app.core.links import link
 from app.core.models import Entity, Event, Link
 from app.modules import DeadlineRow
 from app.modules.project.models import Milestone, Project
 from app.modules.project.schemas import MilestoneIn, MilestonePatch, ProjectIn, ProjectPatch
+from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
+from app.modules.todo.schemas import TodoIn
 from app.modules.todo.service import _todo_out
 
 
@@ -227,29 +227,23 @@ async def todo_from_issue(session: AsyncSession, project: Project, issue: dict) 
         return {**_todo_out(existing[0], existing[1]).model_dump(), "duplicate": True}
 
     body = (issue.get("body") or "").strip()
-    entity = await create_entity(
-        session, type=Todo.ENTITY_TYPE, title=title, search_text=body[:2000]
-    )
-    todo = Todo(
-        id=entity.id,
-        description=issue["url"],
-        priority=2,
-        status="open",
-    )
-    session.add(todo)
-    await tag_svc.add_tags(session, entity.id, [ISSUE_TAG, *issue.get("labels", [])[:3]])
-    await link(session, entity.id, project.id, "belongs_to")
-    await log_event(
+    # Tek gorev siniri todo_service.create (Faz 17): tag, proje bagi ve
+    # event ayni transaction'da yazilir; arama metni govde disinda tutulur.
+    todo = await todo_service.create(
         session,
-        verb="todo.created",
-        entity_id=entity.id,
-        entity_type="todo",
-        payload={"source": "github_issue", "repo": project.github_repo,
-                 "issue": issue["number"], "url": issue["url"]},
+        TodoIn(
+            title=title,
+            description=issue["url"],
+            priority=2,
+            status="open",
+            tags=[ISSUE_TAG, *issue.get("labels", [])[:3]],
+            project_id=project.id,
+        ),
+        search_text=body[:2000],
+        commit=False,
     )
     await session.commit()
-    return {**_todo_out(todo, title, [ISSUE_TAG, *issue.get("labels", [])[:3]]).model_dump(),
-            "duplicate": False}
+    return {**todo.model_dump(), "duplicate": False}
 
 
 async def delete(session: AsyncSession, project_id: uuid.UUID) -> bool:

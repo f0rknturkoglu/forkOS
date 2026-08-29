@@ -3,14 +3,15 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api } from "@/core/api";
+import { createTask } from "@/core/tasks";
 import { Button, Empty, Input, RowList, Section, Select, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import type { Project, Todo } from "@/core/types";
 import { TodoRow } from "@/modules/todo/TodoRow";
 
 export function createProjectTodo(projectId: string, title: string, milestoneId: string) {
-  return api.post<Todo>("/todos", {
-    title: title.trim(),
+  return createTask({
+    title,
     project_id: projectId,
     ...(milestoneId ? { milestone_id: milestoneId } : {}),
   });

@@ -112,6 +112,7 @@ describe("project todo integration", () => {
     expect(harness.apiPost).toHaveBeenCalledTimes(1);
     expect(harness.apiPost).toHaveBeenCalledWith("/todos", {
       title: "Görevi bitir",
+      priority: 2,
       project_id: "project-1",
       milestone_id: "milestone-1",
     });
@@ -128,6 +129,7 @@ describe("project todo integration", () => {
     expect(harness.apiPost).toHaveBeenCalledTimes(1);
     expect(harness.apiPost).toHaveBeenCalledWith("/todos", {
       title: "Görevi bitir",
+      priority: 2,
       project_id: "project-1",
     });
     expect(harness.apiPost.mock.calls[0][1]).not.toHaveProperty("milestone_id");

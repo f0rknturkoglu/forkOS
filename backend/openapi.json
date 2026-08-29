@@ -14773,6 +14773,48 @@
         ]
       }
     },
+    "/api/study/topics/{topic_id}/todos": {
+      "post": {
+        "description": "Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).",
+        "operationId": "create_topic_todo_api_study_topics__topic_id__todos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Topic Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Topic Todo",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
     "/api/system/stats": {
       "get": {
         "description": "Panel icin sunucu sagligi: CPU, RAM, disk, uptime.\n\nHarici bagimliliksiz -- /proc okunur. forkOS'un uzerinde kostugu\nmakineyi (Linux VM ya da host) yansitir, tek bir container'i degil.\n\nCPU yuzdesi /proc/stat farkindan hesaplanir. Onceden `loadavg[0]/cekirdek`\ngosteriliyordu; o bir kuyruk uzunlugu orani, kullanim yuzdesi degil --\nbos bir makinede bile yuksek, tam dolu bir makinede bile dusuk cikabilir.",

@@ -2,6 +2,7 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { Download, Link2, ListChecks } from "lucide-react";
 import { api } from "./api";
+import { createTask, invalidateTaskWrite, readPlanTodayPreference } from "./tasks";
 import { useToast } from "./ui";
 import { useOnline } from "@/lib/hooks";
 
@@ -106,9 +107,10 @@ export function DropCapture() {
             },
           });
         } else {
-          await api.post("/todos", { title: dropped.value.slice(0, 500) });
-          invalidateAfter("todo.write");
-          toast.push("Görev olarak eklendi", {
+          // Ortak task intent'i: "bugune al" tercihi burada da uygulanir (Faz 17).
+          await createTask({ title: dropped.value.slice(0, 500) });
+          invalidateTaskWrite();
+          toast.push(readPlanTodayPreference() ? "Görev eklendi — bugüne planlandı" : "Görev olarak eklendi", {
             tone: "ok",
             action: {
               label: "aç",
