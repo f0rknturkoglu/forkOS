@@ -294,6 +294,7 @@ export interface GithubIssue {
   updated_at: string | null;
   author: string | null;
   draft: boolean;
+  todo_id?: string | null;
 }
 
 export interface GithubRepoPanel {
@@ -307,6 +308,7 @@ export interface GithubRepoPanel {
   open_issues: number;
   default_branch: string | null;
   pushed_at: string | null;
+  fetched_at: string;
   private: boolean;
   issues: GithubIssue[];
   pulls: GithubIssue[];
