@@ -569,6 +569,12 @@ export interface Opportunity {
   cv_document_id?: string | null;
   /** Belge ters-bağı (DocumentsPage): gereksinime bağlanan ilk belge. */
   requirement_document_id?: string | null;
+  /** Profil ve CV beceri eşleşmesi */
+  skill_match?: {
+    match_ratio: number;
+    matched: string[];
+    missing: string[];
+  } | null;
 }
 
 export interface Application {

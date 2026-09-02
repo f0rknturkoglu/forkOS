@@ -22,6 +22,8 @@ from app.modules.opportunity.schemas import (
     RequirementIn,
     TransitionIn,
 )
+from app.modules.note import service as note_service
+from app.modules.note.schemas import NoteIn, NoteOut
 from app.modules.opportunity.sources_router import router as sources_router
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
@@ -232,6 +234,50 @@ async def add_opportunity_todo(
     await link(session, item_id, todo.id, "application_step")
     await session.commit()
     return todo
+
+
+@router.get("/opportunities/{item_id}/notes", response_model=list[NoteOut])
+async def opportunity_notes(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    if await session.get(Opportunity, item_id) is None:
+        raise HTTPException(404, "Fırsat bulunamadı")
+    return await note_service.list_notes(session, about=item_id)
+
+
+@router.post("/opportunities/{item_id}/research-note", response_model=NoteOut)
+async def get_or_create_research_note(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    item = await session.get(Opportunity, item_id)
+    if item is None:
+        raise HTTPException(404, "Fırsat bulunamadı")
+    existing = await note_service.list_notes(session, about=item_id)
+    if existing:
+        return existing[0]
+
+    entity = await session.get(Entity, item_id)
+    title = entity.title if entity else (item.organization or "Fırsat")
+    org = item.organization or "Kurum"
+    body = (
+        f"# {org} — {title}\n\n"
+        f"- **Pozisyon:** {title}\n"
+        f"- **Kurum:** {org}\n"
+        f"- **İlan:** {item.url or 'Yok'}\n"
+        f"- **Durum:** {item.status}\n\n"
+        f"## Şirket Araştırması\n"
+        f"- Faaliyet Alanı & Ürünler:\n"
+        f"- Teknoloji Yığını:\n"
+        f"- Kültür & Güncel Gelişmeler:\n\n"
+        f"## Mülakat Hazırlığı\n"
+        f"- Neden bu rol ve şirket?\n"
+        f"- Görüşmeciye Sorulacak Sorular:\n"
+        f"  1. \n"
+        f"  2. \n\n"
+        f"## Görüşme Notları\n"
+        f"- \n"
+    )
+    note = await note_service.create(
+        session,
+        NoteIn(body=body, relate_to=item_id, tags=["mülakat", "araştırma"]),
+    )
+    return note
 
 
 # Application CRM endpointleri

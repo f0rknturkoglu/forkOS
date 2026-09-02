@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
@@ -54,8 +55,57 @@ from app.modules.opportunity.schemas import (
     OpportunityOut,
     OpportunityPatch,
     RequirementIn,
+    SkillMatchOut,
 )
 from app.modules.opportunity.taxonomy import classify_job
+
+TECH_KEYWORDS = (
+    "python", "javascript", "typescript", "c#", ".net", "java", "go", "golang",
+    "rust", "c++", "ruby", "php", "swift", "kotlin", "sql", "postgresql",
+    "mysql", "mongodb", "redis", "elasticsearch", "kafka", "rabbitmq",
+    "react", "vue", "angular", "next.js", "node.js", "django", "fastapi",
+    "flask", "spring", "docker", "kubernetes", "aws", "azure", "gcp",
+    "terraform", "graphql", "rest", "ci/cd", "git", "linux",
+)
+
+
+def _calculate_skill_match(
+    o: Opportunity, title: str, reasons: dict | None
+) -> SkillMatchOut | None:
+    if o.kind != "job":
+        return None
+    matched: list[str] = []
+    if isinstance(reasons, dict):
+        skills = reasons.get("skills")
+        if isinstance(skills, list):
+            for s in skills:
+                if isinstance(s, dict) and "name" in s:
+                    name = str(s["name"]).strip().lower()
+                    if name and name not in matched:
+                        matched.append(name)
+
+    forkjob = (o.raw or {}).get("forkjob") or {}
+    description = str(forkjob.get("description") or o.notes or "").lower()
+    full_text = f"{title.lower()} {description}"
+
+    missing: list[str] = []
+    matched_set = {m.lower() for m in matched}
+    for tech in TECH_KEYWORDS:
+        if tech in matched_set:
+            continue
+        pattern = rf"(?:\b|\W){re.escape(tech)}(?:\b|\W)" if not tech.startswith(".") else rf"(?:^|\W){re.escape(tech)}(?:\b|\W)"
+        if re.search(pattern, full_text):
+            missing.append(tech)
+
+    total = len(matched) + len(missing)
+    if total == 0:
+        return None
+    ratio = round(len(matched) / total, 2)
+    return SkillMatchOut(
+        match_ratio=ratio,
+        matched=matched,
+        missing=missing[:8],
+    )
 
 
 def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> OpportunityOut:
@@ -102,6 +152,7 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
         region=o.region,
         follow_up_at=o.follow_up_at,
         rejection_reason=o.rejection_reason,
+        skill_match=_calculate_skill_match(o, title, reasons),
     )
 
 

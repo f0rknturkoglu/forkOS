@@ -1,10 +1,11 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bookmark, Check, ExternalLink, X } from "lucide-react";
+import { Bookmark, Check, ExternalLink, FileText, X } from "lucide-react";
 import { api } from "@/core/api";
+import { navigate } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { Button, Chip, Input, SectionHeader, Select, cx, relativeTime } from "@/core/ui";
+import { Button, Chip, Input, SectionHeader, Select, cx, relativeTime, useToast } from "@/core/ui";
 import type { ApplicationHistoryRow, Document, Opportunity } from "@/core/types";
 import { planDayForToday } from "@/core/tasks";
 import type { Todo } from "@/core/types";
@@ -18,6 +19,7 @@ import { ApplicationSection, FollowUpSection, InterviewsSection, RequirementsSec
 /** Sag taraftan acilan fırsat detayı: durum, skor ve gereksinimler. */
 export function OpportunityDetail({ id, close }: { id: string; close: () => void }) {
   const online = useOnline();
+  const toast = useToast();
   const [rejecting, setRejecting] = useState(false);
   const [rejectionDraft, setRejectionDraft] = useState("");
   const [stepTitle, setStepTitle] = useState("");
@@ -38,6 +40,20 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   const { data: steps = [] } = useQuery({
     queryKey: ["opportunity", id, "todos"],
     queryFn: () => api.get<Todo[]>(`/opportunities/${id}/todos`),
+  });
+  const { data: researchNotes = [] } = useQuery({
+    queryKey: ["opportunity-notes", id],
+    queryFn: () => api.get<Array<{ id: string; title: string }>>(`/opportunities/${id}/notes`),
+  });
+
+  const createResearchNote = useMutation({
+    mutationFn: () => api.post<{ id: string; title: string }>(`/opportunities/${id}/research-note`),
+    onSuccess: (note) => {
+      invalidateAfter("note.write", "opportunity.write");
+      toast.push("Şirket araştırma notu açıldı", { tone: "ok" });
+      navigate(`/notes?focus=${note.id}`);
+      close();
+    },
   });
   const addStep = useMutation({
     mutationFn: () =>
@@ -105,6 +121,11 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                     {band === "killed" ? "elendi" : `${Math.round(item!.score as number)} puan`}
                   </Chip>
                 )}
+                {item?.skill_match && (
+                  <Chip tone="ok">
+                    %{Math.round(item.skill_match.match_ratio * 100)} Uyum
+                  </Chip>
+                )}
               </div>
               <h2 className="font-serif text-title leading-snug text-primary">{item?.title ?? "Yükleniyor…"}</h2>
               <p className="mt-1 text-meta text-muted">
@@ -158,6 +179,15 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                 <Bookmark size={14} /> Kaydet
               </Button>
             )}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!online || createResearchNote.isPending}
+              title="Şirket araştırma ve mülakat notu"
+              onClick={() => createResearchNote.mutate()}
+            >
+              <FileText size={14} /> {researchNotes.length > 0 ? "Şirket Notu (1)" : "Şirket Notu"}
+            </Button>
             {left !== null && (
               <span className={cx("text-meta", left <= 7 ? "text-warn" : "text-muted")}>
                 {left < 0 ? `${Math.abs(left)} gün önce doldu` : `Son tarihe ${left} gün`}
@@ -256,6 +286,46 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
           )}
 
           <ApplicationSection id={id} online={online} documents={documents} />
+
+          {/* ── Yetenek ve Beceri Uyumu ── */}
+          {item?.skill_match && (
+            <section className="rounded-panel border border-subtle bg-surface-sunken/40 p-3.5">
+              <SectionHeader
+                label="Beceri ve Teknoloji Uyumu"
+                hint={`%${Math.round(item.skill_match.match_ratio * 100)} eşleşme`}
+              />
+              <div className="mt-2.5 space-y-2.5">
+                {item.skill_match.matched.length > 0 && (
+                  <div>
+                    <span className="mb-1.5 block text-micro font-medium text-secondary">
+                      Eşleşen Yetenekler ({item.skill_match.matched.length}):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.skill_match.matched.map((s) => (
+                        <Chip key={s} tone="ok">
+                          ✓ {s}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {item.skill_match.missing.length > 0 && (
+                  <div>
+                    <span className="mb-1.5 block text-micro font-medium text-muted">
+                      İlanda Geçen Diğer Teknolojiler ({item.skill_match.missing.length}):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.skill_match.missing.map((s) => (
+                        <Chip key={s} tone="neutral">
+                          {s}
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ── Başvuru adımları ── */}
           <section>

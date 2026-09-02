@@ -175,7 +175,23 @@ export function SourcePicker() {
                         {run && run.items_found > 0 && (
                           <span className="numeral shrink-0 text-body text-secondary">+{run.items_found}</span>
                         )}
-                        {run?.status === "ok" && !busy && <Check size={14} className="shrink-0 text-ok" />}
+                        {busy ? (
+                          <span className="shrink-0 rounded-control bg-accent-surface px-1.5 py-0.5 text-micro font-medium text-accent">
+                            çekiliyor
+                          </span>
+                        ) : run?.status === "ok" ? (
+                          <span className="shrink-0 rounded-control bg-ok-surface px-1.5 py-0.5 text-micro font-medium text-ok">
+                            aktif
+                          </span>
+                        ) : run?.status === "empty" ? (
+                          <span className="shrink-0 rounded-control bg-warn-surface px-1.5 py-0.5 text-micro font-medium text-warn">
+                            boş
+                          </span>
+                        ) : run?.status === "error" ? (
+                          <span className="shrink-0 rounded-control bg-danger-surface px-1.5 py-0.5 text-micro font-medium text-danger">
+                            hata
+                          </span>
+                        ) : null}
                       </>
                     }
                     className={cx(

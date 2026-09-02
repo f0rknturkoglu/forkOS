@@ -172,6 +172,11 @@ export function OpportunityCard({
             </span>
           )}
           {!announcement && item.category && <span className={chip(false)}>{jobCategoryLabel(item.category)}</span>}
+          {item.skill_match && (
+            <span className="rounded-control border border-ok/30 bg-ok-surface px-2 py-0.5 text-micro font-medium text-ok">
+              %{Math.round(item.skill_match.match_ratio * 100)} uyum
+            </span>
+          )}
           <button
             type="button"
             onClick={() => onKind?.(item.kind)}

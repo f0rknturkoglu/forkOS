@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
-import { LayoutGrid, List, Search, Settings2 } from "lucide-react";
+import { Kanban, LayoutGrid, List, Search, Settings2 } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
 import { Button, Empty, IconButton, Input, PageFrame, PageHeader, Section, Toolbar, cx, useToast } from "@/core/ui";
@@ -13,6 +13,7 @@ import { useOnline } from "@/lib/hooks";
 import { OpportunityDetail } from "./OpportunityDetail";
 import { JobhunterSettings } from "./JobhunterSettings";
 import { FilterChip, OpportunityCard, OpportunityCollection } from "./OpportunityList";
+import { OpportunityKanban } from "./OpportunityKanban";
 import { OpportunityFilters } from "./OpportunityFilters";
 import { SourcePicker } from "./SourcePicker";
 import { ApplicationCrmPanel } from "./ApplicationCrmPanel";
@@ -35,9 +36,11 @@ const INITIAL_FILTERS: OpportunityBrowseFilters = {
   limit: PAGE,
 };
 
-function initialView(): "rows" | "grid" {
+function initialView(): "rows" | "grid" | "kanban" {
   if (typeof window === "undefined") return "rows";
-  return window.localStorage.getItem("forkos:opportunity-view") === "grid" ? "grid" : "rows";
+  const saved = window.localStorage.getItem("forkos:opportunity-view");
+  if (saved === "grid" || saved === "kanban") return saved;
+  return "rows";
 }
 
 export function OpportunityPage() {
@@ -47,7 +50,7 @@ export function OpportunityPage() {
   const { params } = useHashRoute();
   const [filters, setFilters] = useState<OpportunityBrowseFilters>(INITIAL_FILTERS);
   const [selected, setSelected] = useState<string | null>(null);
-  const [view, setView] = useState<"rows" | "grid">(initialView);
+  const [view, setView] = useState<"rows" | "grid" | "kanban">(initialView);
   const [showSettings, setShowSettings] = useState(false);
   const [showCrm, setShowCrm] = useState(false);
 
@@ -101,7 +104,7 @@ export function OpportunityPage() {
     },
   });
 
-  const changeView = (next: "rows" | "grid") => {
+  const changeView = (next: "rows" | "grid" | "kanban") => {
     setView(next);
     if (typeof window !== "undefined") window.localStorage.setItem("forkos:opportunity-view", next);
   };
@@ -213,6 +216,13 @@ export function OpportunityPage() {
           >
             <LayoutGrid size={14} />
           </IconButton>
+          <IconButton
+            title="Kanban panosu"
+            onClick={() => changeView("kanban")}
+            className={view === "kanban" ? "bg-surface-sunken text-primary" : "border-transparent"}
+          >
+            <Kanban size={14} />
+          </IconButton>
         </span>
         <SyncProgress compact />
       </Toolbar>
@@ -281,45 +291,54 @@ export function OpportunityPage() {
           </Empty>
         ) : (
           <>
-            <OpportunityCollection layout={view}>
-              {rows.map((item) => (
-                <OpportunityCard
-                  key={item.id}
-                  item={item}
-                  disabled={!online}
-                  onOpen={() => setSelected(item.id)}
-                  onStatus={(status) => transition.mutate({ id: item.id, to: status })}
-                  isTrash={filters.section === "trash"}
-                  layout={view}
-                  sourceActive={filters.source === item.source}
-                  remoteActive={filters.remote === remoteKind(item.remote)}
-                  onSource={(source) =>
-                    setFilters((current) => ({
-                      ...current,
-                      source: current.source === source ? "" : source,
-                      offset: 0,
-                    }))
-                  }
-                  onRemote={(remote) =>
-                    setFilters((current) => ({
-                      ...current,
-                      remote: current.remote === remote ? "" : remote,
-                      offset: 0,
-                    }))
-                  }
-                  onKind={(kind) =>
-                    setFilters((current) => {
-                      const section = kind === "job" ? "jobs" : "announcements";
-                      return switchOpportunitySection(current, section);
-                    })
-                  }
-                  onTrash={() => void trash(item)}
-                  onRestore={() => lifecycle.mutate({ action: "restore", id: item.id })}
-                  onDelete={() => void permanentlyDelete(item)}
-                  onSave={() => saveItem(item)}
-                />
-              ))}
-            </OpportunityCollection>
+            {view === "kanban" ? (
+              <OpportunityKanban
+                items={rows}
+                disabled={!online}
+                onOpen={(id) => setSelected(id)}
+                onStatus={(id, status) => transition.mutate({ id, to: status })}
+              />
+            ) : (
+              <OpportunityCollection layout={view}>
+                {rows.map((item) => (
+                  <OpportunityCard
+                    key={item.id}
+                    item={item}
+                    disabled={!online}
+                    onOpen={() => setSelected(item.id)}
+                    onStatus={(status) => transition.mutate({ id: item.id, to: status })}
+                    isTrash={filters.section === "trash"}
+                    layout={view}
+                    sourceActive={filters.source === item.source}
+                    remoteActive={filters.remote === remoteKind(item.remote)}
+                    onSource={(source) =>
+                      setFilters((current) => ({
+                        ...current,
+                        source: current.source === source ? "" : source,
+                        offset: 0,
+                      }))
+                    }
+                    onRemote={(remote) =>
+                      setFilters((current) => ({
+                        ...current,
+                        remote: current.remote === remote ? "" : remote,
+                        offset: 0,
+                      }))
+                    }
+                    onKind={(kind) =>
+                      setFilters((current) => {
+                        const section = kind === "job" ? "jobs" : "announcements";
+                        return switchOpportunitySection(current, section);
+                      })
+                    }
+                    onTrash={() => void trash(item)}
+                    onRestore={() => lifecycle.mutate({ action: "restore", id: item.id })}
+                    onDelete={() => void permanentlyDelete(item)}
+                    onSave={() => saveItem(item)}
+                  />
+                ))}
+              </OpportunityCollection>
+            )}
             {browse.hasNextPage && (
               <div className="mt-5 flex items-center justify-center gap-3">
                 <Button onClick={() => void browse.fetchNextPage()} disabled={browse.isFetchingNextPage}>

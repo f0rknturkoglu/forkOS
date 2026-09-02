@@ -149,5 +149,42 @@ def jobs(
     console.print(table)
 
 
+@app.command("scraper-health")
+def scraper_health() -> None:
+    """Scraper sağlık durumu: katalog, son koşumlar ve çalışma başarısı."""
+    catalog = _call("GET", "/sources/catalog")
+    runs = _call("GET", "/sources/runs")
+
+    latest_run: dict[str, dict] = {}
+    for r in runs:
+        src = r.get("source") or r.get("source_id")
+        if src and src not in latest_run:
+            latest_run[src] = r
+
+    table = Table(title="Scraper Sağlık Durumu", box=None)
+    table.add_column("Kaynak ID", style="cyan")
+    table.add_column("Tür", style="magenta")
+    table.add_column("Kategori", style="yellow")
+    table.add_column("Son Durum", style="bold")
+    table.add_column("Yeni/Toplam", justify="right")
+    table.add_column("Son Koşum", style="dim")
+
+    for s in catalog:
+        src_id = s.get("id", "")
+        kind = s.get("kind", "job")
+        cat = s.get("category") or "—"
+        run = latest_run.get(src_id)
+        if not run:
+            table.add_row(src_id, kind, cat, "[dim]henüz çalışmadı[/dim]", "—", "—")
+        else:
+            status = run.get("status", "unknown")
+            color = "green" if status == "ok" else "yellow" if status == "empty" else "red"
+            counts = f"{run.get('items_new', 0)}/{run.get('items_found', run.get('items_total', 0))}"
+            started = (run.get("started_at") or "")[:19].replace("T", " ")
+            table.add_row(src_id, kind, cat, f"[{color}]{status}[/{color}]", counts, started)
+
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()

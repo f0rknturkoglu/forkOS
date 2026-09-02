@@ -71,6 +71,14 @@ class OpportunityOut(BaseModel):
     cv_document_id: UUID | None = None
     #: Belge ters-bağı (DocumentsPage): gereksinime bağlanan ilk belge.
     requirement_document_id: UUID | None = None
+    #: Profil ve CV beceri uyumu (eşleşen ve eksik teknolojiler)
+    skill_match: SkillMatchOut | None = None
+
+
+class SkillMatchOut(BaseModel):
+    match_ratio: float
+    matched: list[str]
+    missing: list[str]
 
 
 class OpportunityBrowseOut(BaseModel):
