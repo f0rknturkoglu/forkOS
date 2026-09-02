@@ -81,6 +81,40 @@ function pickerRow(item: Todo | FeedItem, kind: "todo" | "rss"): AgendaRow {
   };
 }
 
+function rowIds(rows: AgendaRow[]): Set<string> {
+  const ids = new Set<string>();
+  const visit = (row: AgendaRow) => {
+    ids.add(row.id);
+    row.children.forEach(visit);
+  };
+  rows.forEach(visit);
+  return ids;
+}
+
+function unplannedTodoRows(todos: Todo[], agenda: TodayAgenda): AgendaRow[] {
+  const agendaIds = rowIds([...agenda.timed, ...agenda.checklist, ...agenda.completed]);
+  const rows = todos
+    .filter(
+      (todo) =>
+        (todo.status === "open" || todo.status === "doing") &&
+        !todo.recur &&
+        !agendaIds.has(todo.id),
+    )
+    .map((todo) => pickerRow(todo, "todo"));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const roots: AgendaRow[] = [];
+  rows.forEach((row) => {
+    const parent = row.parent_id ? byId.get(row.parent_id) : undefined;
+    if (parent) parent.children.push(row);
+    else roots.push(row);
+  });
+  return roots;
+}
+
+function hasRoutine(row: AgendaRow): boolean {
+  return Boolean(row.recur) || row.children.some(hasRoutine);
+}
+
 export function TodayAgendaWidget() {
   // Tek "bugun" kaynagi: lib/date.ts::localDateKey (Europe/Istanbul).
   // Tarayicinin yerel saati farkli bir gun uretebilir; planlama ve agenda
@@ -101,9 +135,8 @@ export function TodayAgendaWidget() {
   const agenda = agendaQuery.data;
 
   const todosQuery = useQuery({
-    queryKey: ["todos", "today-picker"],
-    queryFn: () => api.get<Todo[]>("/todos?status=open&limit=300"),
-    enabled: adding,
+    queryKey: ["todos", "today-open"],
+    queryFn: () => api.get<Todo[]>("/todos?limit=300"),
   });
   const rssQuery = useQuery({
     queryKey: ["items", "today-picker"],
@@ -168,17 +201,26 @@ export function TodayAgendaWidget() {
     onError: failed,
   });
 
-  const todoOptions = (todosQuery.data ?? []).map((item) => pickerRow(item, "todo"));
+  const todoOptions = (todosQuery.data ?? [])
+    .filter((item) => item.status === "open" || item.status === "doing")
+    .map((item) => pickerRow(item, "todo"));
   const rssOptions = (rssQuery.data ?? []).map((item) => pickerRow(item, "rss"));
   const options = [...todoOptions, ...rssOptions];
   const selectedRow = options.find((row) => `${row.kind}:${row.id}` === selected);
-  const suggestions = agenda ? [...agenda.suggestions.todos, ...agenda.suggestions.rss].slice(0, 2) : [];
+  const openTodos = agenda ? unplannedTodoRows(todosQuery.data ?? [], agenda) : [];
+  const routineRows = agenda ? [...agenda.timed, ...agenda.checklist].filter(hasRoutine) : [];
+  const timedRows = agenda ? agenda.timed.filter((row) => !hasRoutine(row)) : [];
+  const checklistRows = agenda ? agenda.checklist.filter((row) => !hasRoutine(row)) : [];
+  // Açık görevler kendi grubunda; API sorgusu hata verirse öneriler geri dönüş olur.
+  const suggestions = agenda
+    ? [...(todosQuery.isError ? agenda.suggestions.todos : []), ...agenda.suggestions.rss].slice(0, 2)
+    : [];
   const busy = complete.isPending || schedule.isPending || remove.isPending || toggleAuto.isPending;
 
   return (
     <Section
-      title="Günün akışı"
-      hint={agenda ? `${agenda.timed.length + agenda.checklist.length} sırada` : undefined}
+      title="Bugünün planı"
+      hint={agenda ? `${agenda.timed.length + agenda.checklist.length + openTodos.length} öğe` : undefined}
       bodyClassName="space-y-4"
       action={
         <div className="flex items-center gap-2">
@@ -257,23 +299,37 @@ export function TodayAgendaWidget() {
             </Button>
           }
         >
-          Günün akışı alınamadı.
+          Bugünün planı alınamadı.
         </Empty>
       ) : (
         <>
           <AgendaGroup
             label="Saatli"
-            rows={agenda.timed}
+            rows={timedRows}
+            online={online}
+            complete={(row) => complete.mutate(row)}
+            remove={(row) => remove.mutate(row)}
+          />
+          <AgendaGroup
+            label="Rutinler"
+            rows={routineRows}
             online={online}
             complete={(row) => complete.mutate(row)}
             remove={(row) => remove.mutate(row)}
           />
           <AgendaGroup
             label="Yapılacaklar"
-            rows={agenda.checklist}
+            rows={checklistRows}
             online={online}
             complete={(row) => complete.mutate(row)}
             remove={(row) => remove.mutate(row)}
+          />
+          <AgendaGroup
+            label="Açık görevler"
+            rows={openTodos}
+            online={online}
+            complete={(row) => complete.mutate(row)}
+            remove={() => {}}
           />
 
           {suggestions.length > 0 && agenda.auto_suggestions && (
@@ -340,6 +396,7 @@ export function TodayAgendaWidget() {
 
           {agenda.timed.length === 0 &&
             agenda.checklist.length === 0 &&
+            openTodos.length === 0 &&
             suggestions.length === 0 &&
             agenda.completed.length === 0 && <Empty>Bugün için henüz bir şey yok.</Empty>}
         </>
@@ -423,15 +480,28 @@ function AgendaLine({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-baseline gap-2">
             {time && <span className="numeral shrink-0 text-meta text-accent">{time}</span>}
-            <span
-              className={cx(
-                "min-w-0 truncate text-body text-primary",
-                row.completed && "line-through text-muted",
-                row.context_only && "font-medium text-secondary",
-              )}
-            >
-              {row.title}
-            </span>
+            {row.kind === "todo" ? (
+              <a
+                href={`#/todos?focus=${encodeURIComponent(row.id)}`}
+                className={cx(
+                  "min-w-0 truncate text-body text-primary transition hover:text-accent hover:underline",
+                  row.completed && "line-through text-muted",
+                  row.context_only && "font-medium text-secondary",
+                )}
+              >
+                {row.title}
+              </a>
+            ) : (
+              <span
+                className={cx(
+                  "min-w-0 truncate text-body text-primary",
+                  row.completed && "line-through text-muted",
+                  row.context_only && "font-medium text-secondary",
+                )}
+              >
+                {row.title}
+              </span>
+            )}
             {row.duration_min && <span className="shrink-0 text-meta text-muted">{row.duration_min} dk</span>}
           </div>
           {(meta || row.recur) && (

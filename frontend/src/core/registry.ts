@@ -76,6 +76,7 @@ function orderedModules(): ModuleSpec[] {
 }
 
 export const allTodayWidgets = () => enabledModules().flatMap((m) => m.todayWidgets ?? []);
+export const allGlobalSurfaces = () => enabledModules().flatMap((m) => m.globalSurfaces ?? []);
 
 export interface TodayWidgetView {
   id: string;
@@ -144,7 +145,7 @@ export function allTodayWidgetViews(): TodayWidgetView[] {
  * Gizli bir widget listede gorunur ki geri gosterilebilsin.
  */
 export function allTodayWidgetViewsIncludingHidden(): TodayWidgetView[] {
-  const { order, hidden } = readWidgetPrefs();
+  const { order } = readWidgetPrefs();
   const userIndex = new Map(order.map((id, i) => [id, i]));
   const views: TodayWidgetView[] = [];
   for (const module of enabledModules()) {
@@ -152,7 +153,6 @@ export function allTodayWidgetViewsIncludingHidden(): TodayWidgetView[] {
       views.push({ id: widget.id, title: widget.title, widget, moduleId: module.id });
     }
   }
-  void hidden;
   return views.sort((a, b) => {
     const ai = userIndex.has(a.id) ? userIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
     const bi = userIndex.has(b.id) ? userIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;

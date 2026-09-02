@@ -1,6 +1,6 @@
 /**
  * Kural 14 guardrail'i: mutation sonrasi tazeleme invalidateAfter() ile yapilir;
- * ham invalidate("a","b") modul dosyalarinda yasak.
+ * ham invalidate("a","b") ve ham invalidateQueries({ ... }) modul/core dosyalarinda yasak.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -37,6 +37,11 @@ describe("merkezi invalidation (kural 14)", () => {
       // tanim ve yorum haric: cagri formu invalidate("...
       return /[^A-Za-z]invalidate\(\s*["']/.test(src);
     });
+    expect(hits).toEqual([]);
+  });
+
+  it("modul ve core dosyalarinda ham invalidateQueries({ cagrisi kullanmaz", () => {
+    const hits = files.filter((f) => /invalidateQueries\(\s*\{/.test(readFileSync(f, "utf8")));
     expect(hits).toEqual([]);
   });
 

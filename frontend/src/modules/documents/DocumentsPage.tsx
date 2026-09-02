@@ -2,6 +2,7 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
+import { Markdown } from "@/core/Markdown";
 import { api, qs } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { NotesSection } from "./NotesSection";
@@ -153,7 +154,8 @@ function DocumentFocusPanel({ id, online }: { id: string; online: boolean }) {
   }
   return (
     <Section title={note.title} hint={note.pinned ? "sabit" : undefined}>
-      <p className="whitespace-pre-wrap text-body text-secondary">{note.body}</p>
+      {/* Notlar markdown; [[baglanti]] ve #etiket burada da calisir. */}
+      <Markdown source={note.body} links={note.resolved_links ?? []} unresolved={note.unresolved_links ?? []} />
       <div className="mt-3">
         <RelatedPanel entityId={id} relation="notes_about" title="Hakkında" />
       </div>

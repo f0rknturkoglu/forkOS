@@ -2,8 +2,8 @@ import { qs } from "@/core/api";
 import type { Opportunity } from "@/core/types";
 
 export type OpportunitySection = "jobs" | "announcements" | "trash";
-export type AnnouncementSource = "ylsy" | "osym" | "other";
-export type OpportunitySort = "score" | "score_asc" | "newest" | "oldest" | "deadline";
+type AnnouncementSource = "ylsy" | "osym" | "other";
+type OpportunitySort = "score" | "score_asc" | "newest" | "oldest" | "deadline";
 
 export interface OpportunityBrowseFilters {
   section: OpportunitySection;

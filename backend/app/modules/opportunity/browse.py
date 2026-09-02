@@ -56,10 +56,8 @@ def _conditions(filters: BrowseFilters):
         conditions.append(Opportunity.status == filters.status)
     if filters.source:
         conditions.append(Opportunity.source == filters.source)
-    if filters.region:
-        conditions.append(Opportunity.region == filters.region)
     if filters.remote:
-        conditions.append(Opportunity.remote == filters.remote)
+        conditions.append(_remote_bucket() == filters.remote)
     score = _score_expression()
     if filters.min_score is not None:
         conditions.append(score >= filters.min_score)
@@ -82,6 +80,31 @@ def _conditions(filters: BrowseFilters):
 
 def _score_expression():
     return cast(Opportunity.raw["forkjob"]["score"].astext, Float)
+
+
+def _remote_bucket():
+    """Ham remote metnini kanonik kovalara indirger.
+
+    Frontend `remoteKind`'ın aynı semantiği: remote/hybrid anahtar kelimeleri
+    (TR + EN), bilinen ofis sözcükleri onsite; gerisi unknown. Facet ve filtre
+    aynı ifadeyi kullanır — chip'e tıklayınca liste o chip ile eşleşir.
+    """
+    raw = func.lower(func.coalesce(Opportunity.remote, ""))
+    return case(
+        (
+            raw.like("%remote%")
+            | raw.like("%uzaktan%")
+            | raw.like("%wfh%")
+            | raw.like("%uzak çalışma%"),
+            "remote",
+        ),
+        (
+            raw.like("%hybrid%") | raw.like("%hibrit%") | raw.like("%karma%"),
+            "hybrid",
+        ),
+        (raw.in_(["onsite", "office", "on-site", "ofis"]), "onsite"),
+        else_="unknown",
+    )
 
 
 def _order(filters: BrowseFilters):
@@ -159,7 +182,7 @@ async def browse_opportunities(
         "sources": await _facet(session, conditions, Opportunity.source, label="source"),
         "statuses": await _facet(session, conditions, Opportunity.status, label="status"),
         "regions": await _facet(session, conditions, Opportunity.region, label="region"),
-        "remote": await _facet(session, conditions, Opportunity.remote, label="remote"),
+        "remote": await _facet(session, conditions, _remote_bucket(), label="remote"),
         "years": await _facet(
             session,
             conditions,

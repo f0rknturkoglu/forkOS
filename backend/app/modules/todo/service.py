@@ -62,6 +62,24 @@ async def _context_for(session: AsyncSession, todos: list[Todo]) -> dict[uuid.UU
         out[todo_id]["project_id"] = project_id
         out[todo_id]["project_title"] = project_title
 
+    # Ogrenme kaynagi: learning topic -> todo olustururken yazilan
+    # todo --prepares_for--> study_topic bagi. Gorev listesindeki baslik bu
+    # sayede N+1 sorgu olmadan asil konu agacina geri donebilir.
+    learning_rows = (
+        await session.execute(
+            select(Link.from_id, Entity.id, Entity.title)
+            .join(Entity, Entity.id == Link.to_id)
+            .where(
+                Link.from_id.in_(ids),
+                Link.relation == "prepares_for",
+                Entity.type == "study_topic",
+            )
+        )
+    ).all()
+    for todo_id, topic_id, topic_title in learning_rows:
+        out[todo_id]["learning_topic_id"] = topic_id
+        out[todo_id]["learning_topic_title"] = topic_title
+
     milestone_ids = [todo.milestone_id for todo in todos if todo.milestone_id]
     if milestone_ids:
         # Yerel import: project.service zaten todo.service'i cagiriyor, modul
@@ -336,7 +354,10 @@ async def update(session: AsyncSession, todo_id: uuid.UUID, data: TodoUpdate, *,
         await session.commit()
     else:
         await session.flush()
-    return _todo_out(todo, entity.title if title is None else title.strip())
+    tag_map = await tag_svc.tags_for(session, [todo.id])
+    context = await _context_for(session, [todo])
+    return _todo_out(todo, entity.title if title is None else title.strip(),
+                     tag_map.get(todo.id, []), context.get(todo.id))
 
 
 async def _log_completed(session: AsyncSession, todo: Todo, title: str) -> None:
@@ -360,7 +381,8 @@ async def complete(session: AsyncSession, todo_id: uuid.UUID) -> TodoOut | None:
         await _spawn_next_occurrence(session, todo)
         await session.commit()
     tag_map = await tag_svc.tags_for(session, [todo.id])
-    return _todo_out(todo, entity.title, tag_map.get(todo.id, []))
+    context = await _context_for(session, [todo])
+    return _todo_out(todo, entity.title, tag_map.get(todo.id, []), context.get(todo.id))
 
 
 async def delete(session: AsyncSession, todo_id: uuid.UUID) -> bool:

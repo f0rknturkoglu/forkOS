@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
@@ -37,17 +37,23 @@ const BUCKETS = [
 
 export function TodoPage() {
   const { path, params } = useHashRoute();
-  const [status, setStatus] = useState<string>("open");
+  // Kayit defteri rotasi (?focus={id}): secili gorevin iliskileri (Faz 18).
+  const focusId = params.get("focus") ?? "";
+  // Focus rotasi tamamlanmis/birakilmis bir goreve de gelebilir; o durumda
+  // varsayilan "acik" filtresi hedef satiri saklamasin.
+  const [status, setStatus] = useState<string>(focusId ? "" : "open");
   const [tag, setTag] = useState<string>("");
   const [routineOnly, setRoutineOnly] = useState(path === "/habits");
 
   // ?project=<id> filtre kipi: yalniz o projenin gorevleri listelenir.
   const projectFilter = params.get("project") ?? "";
-  // Kayit defteri rotasi (?focus={id}): secili gorevin iliskileri (Faz 18).
-  const focusId = params.get("focus") ?? "";
   // ?planned=today filtre kipi: bugune (veya yarina) planlanmis gorevler.
   // Plan ile due_at ayni sey degil; bu filtre plan_slot'a bakar.
   const plannedFilter = params.get("planned") === "today";
+
+  useEffect(() => {
+    if (focusId) setStatus("");
+  }, [focusId]);
 
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ["todos", status, routineOnly ? "routines" : "all", projectFilter, plannedFilter],
@@ -207,9 +213,9 @@ export function TodoPage() {
           <Section key={bucket.id} title={bucket.label || undefined} hint={`${bucket.items.length} görev`}>
             <RowList as="ul">
               {bucket.items.map((todo) => (
-                <TodoRow key={todo.id} todo={todo}>
+                <TodoRow key={todo.id} todo={todo} focused={todo.id === focusId}>
                   {(childrenOf[todo.id] ?? []).map((child) => (
-                    <TodoRow key={child.id} todo={child} nested compact />
+                    <TodoRow key={child.id} todo={child} nested compact focused={child.id === focusId} />
                   ))}
                 </TodoRow>
               ))}

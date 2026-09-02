@@ -22,11 +22,11 @@ Verified 2026-08-09: 692 junior postings across 7 pages.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import parse_epoch_ms
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://nofluffjobs.com/api/search/posting"
@@ -143,14 +143,9 @@ class NoFluffJobsScraper(ScraperBase):
             if names:
                 details.append(f"Skills: {', '.join(names)}")
 
-        posted_at = self._timestamp(entry.get("posted"))
-        renewed_at = self._timestamp(entry.get("renewed"))
-        if posted_at is not None:
-            date_source = DateSource.EMPLOYER
-        elif renewed_at is not None:
-            posted_at, date_source = renewed_at, DateSource.UPDATED
-        else:
-            date_source = DateSource.DISCOVERED
+        posted_at = parse_epoch_ms(entry.get("posted"))
+        renewed_at = parse_epoch_ms(entry.get("renewed"))
+        posted_at, date_source = date_source_for(posted_at, renewed_at)
 
         return Job.build(
             url=url,
@@ -232,11 +227,4 @@ class NoFluffJobsScraper(ScraperBase):
             return f"{int(frm):,} - {int(to):,} {currency}"
         if frm:
             return f"{int(frm):,}+ {currency}"
-        return None
-
-    @staticmethod
-    def _timestamp(value: Any) -> datetime | None:
-        """Milliseconds since epoch, which is what `posted` and `renewed` are."""
-        if isinstance(value, (int, float)) and value > 1_000_000_000_000:
-            return datetime.fromtimestamp(value / 1000, tz=UTC)
         return None

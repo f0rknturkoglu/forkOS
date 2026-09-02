@@ -14,22 +14,19 @@ import {
   IntegrationsSection,
   MediaLinksSection,
   ModulesSection,
+  SettingsSourceHealth,
   WeatherSection,
   type IntegrationStatus,
 } from "./SettingsSections";
 
-export function SettingsSourceHealth({ sources }: { sources: SourceHealth[] }): JSX.Element {
-  const broken = sources.filter((source) => source.status === "error").length;
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-card border border-subtle bg-surface px-4 py-3">
-      <span className="text-body text-primary">
-        {broken === 0 ? "Tüm kaynaklar sağlıklı" : `${broken} kaynak hata veriyor`}
-      </span>
-      <a href="#/health" className="shrink-0 text-meta text-accent hover:underline">
-        kaynak sağlığı
-      </a>
-    </div>
-  );
+/** JSON metnini dogrular; gecersizse hata mesajini doner (gecerliyse null). */
+function jsonError(value: string): string | null {
+  try {
+    JSON.parse(value);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Geçersiz JSON";
+  }
 }
 
 export function SettingsPage() {
@@ -43,6 +40,9 @@ export function SettingsPage() {
   const [pomodoroDefaults, setPomodoroDefaults] = useState<string | null>(null);
   const [thresholdsText, setThresholdsText] = useState<string | null>(null);
   const [intervalsText, setIntervalsText] = useState<string | null>(null);
+  const [pomodoroError, setPomodoroError] = useState<string | null>(null);
+  const [thresholdsError, setThresholdsError] = useState<string | null>(null);
+  const [intervalsError, setIntervalsError] = useState<string | null>(null);
   const [retentionDays, setRetentionDays] = useState<number | null>(null);
   const [tmdbKey, setTmdbKey] = useState<string | null>(null);
   const [rawgKey, setRawgKey] = useState<string | null>(null);
@@ -154,45 +154,51 @@ export function SettingsPage() {
           <Textarea
             disabled={!online}
             value={pomodoroDefaults ?? JSON.stringify(settings["pomodoro.defaults"], null, 2)}
-            onChange={setPomodoroDefaults}
+            onChange={(v) => {
+              setPomodoroDefaults(v);
+              setPomodoroError(jsonError(v));
+            }}
             onBlur={(v) => {
-              try {
-                save.mutate({ key: "pomodoro.defaults", value: JSON.parse(v) });
-              } catch {
-                /* düzenlerken bekle */
-              }
+              const error = jsonError(v);
+              setPomodoroError(error);
+              if (!error) save.mutate({ key: "pomodoro.defaults", value: JSON.parse(v) });
             }}
             className="h-28 font-mono"
           />
+          {pomodoroError && <p className="mt-1 text-meta text-danger">{pomodoroError}</p>}
         </Section>
         <Section title="Bildirim eşikleri">
           <Textarea
             disabled={!online}
             value={thresholdsText ?? JSON.stringify(settings["notifications.thresholds"], null, 2)}
-            onChange={setThresholdsText}
+            onChange={(v) => {
+              setThresholdsText(v);
+              setThresholdsError(jsonError(v));
+            }}
             onBlur={(v) => {
-              try {
-                save.mutate({ key: "notifications.thresholds", value: JSON.parse(v) });
-              } catch {
-                /* düzenlerken bekle */
-              }
+              const error = jsonError(v);
+              setThresholdsError(error);
+              if (!error) save.mutate({ key: "notifications.thresholds", value: JSON.parse(v) });
             }}
             className="h-28 font-mono"
           />
+          {thresholdsError && <p className="mt-1 text-meta text-danger">{thresholdsError}</p>}
         </Section>
         <Section title="Kaynak aralıkları">
           <Textarea
             value={intervalsText ?? JSON.stringify(settings["sources.intervals"], null, 2)}
-            onChange={setIntervalsText}
+            onChange={(v) => {
+              setIntervalsText(v);
+              setIntervalsError(jsonError(v));
+            }}
             onBlur={(v) => {
-              try {
-                save.mutate({ key: "sources.intervals", value: JSON.parse(v) });
-              } catch {
-                /* düzenlerken bekle */
-              }
+              const error = jsonError(v);
+              setIntervalsError(error);
+              if (!error) save.mutate({ key: "sources.intervals", value: JSON.parse(v) });
             }}
             className="h-28 font-mono"
           />
+          {intervalsError && <p className="mt-1 text-meta text-danger">{intervalsError}</p>}
           <label
             className="mt-3 flex items-center justify-between text-meta text-muted"
             onBlur={() =>

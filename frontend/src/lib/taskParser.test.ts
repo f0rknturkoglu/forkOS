@@ -45,7 +45,8 @@ describe("Turkce gorev ayristirici (Faz 23)", () => {
   });
 
   it("Türkçe karakterli gun adlari ve etiketler", () => {
-    const result = parseTaskText("pazartesi #iş başvuruları kontrol et");
+    // 2026-08-29 Cumartesi (Istanbul) -> sonraki pazartesi 2026-08-31.
+    const result = parseTaskText("pazartesi #iş başvuruları kontrol et", new Date("2026-08-29T10:00:00Z"));
     expect(result.plan_day).toBe("2026-08-31");
     expect(result.tags).toEqual(["iş"]);
     expect(result.title).toBe("başvuruları kontrol et");

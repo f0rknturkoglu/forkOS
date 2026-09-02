@@ -375,7 +375,7 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
 
       {filtersOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-[rgb(26_24_21/0.28)] p-4 sm:items-center"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-canvas/60 p-4 sm:items-center"
           onClick={() => setFiltersOpen(false)}
         >
           <div

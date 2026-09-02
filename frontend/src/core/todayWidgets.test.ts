@@ -14,6 +14,7 @@ import {
   allTodayWidgets,
   allTodayWidgetViewsIncludingHidden,
   allRoutes,
+  allGlobalSurfaces,
   setTodayWidgetHidden,
   setTodayWidgetOrder,
 } from "./registry";
@@ -48,6 +49,10 @@ beforeEach(() => {
 });
 
 describe("Bugun widget sozlesmesi", () => {
+  it("Pomodoro'yu her rotada tek global yuzey olarak kaydeder", () => {
+    expect(allGlobalSurfaces().some((Surface) => Surface.name === "PomodoroDock")).toBe(true);
+  });
+
   it("en az 14 kayitli widget, benzersiz kalici id'ler ve odakli varsayilan", () => {
     const widgets = allTodayWidgets();
     const ids = widgets.map((widget) => widget.id);
@@ -56,6 +61,7 @@ describe("Bugun widget sozlesmesi", () => {
     const visible = allTodayWidgetViews();
     expect(visible.some((view) => view.id === "today.agenda")).toBe(true);
     expect(visible.some((view) => view.id === "today.feed-stream")).toBe(true);
+    expect(visible.some((view) => view.id === "activity.heatmap")).toBe(true);
     expect(new Set(ids).size).toBe(ids.length);
     for (const widget of widgets) {
       expect(widget.id).toMatch(/^[a-z0-9.-]+$/);

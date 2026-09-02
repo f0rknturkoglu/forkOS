@@ -10,7 +10,7 @@ import { queryClient } from "./queryClient";
 
 export const AFTER = {
   "todo.write": ["todos", "today-agenda", "plan", "deadlines", "activity", "review-preview", "tags"],
-  "bookmark.write": ["bookmarks", "bookmark-stats", "learning-queue", "tags", "activity"],
+  "bookmark.write": ["bookmarks", "bookmark-stats", "tags", "activity"],
   "rss.write": ["items", "rss-item", "feeds", "rss-stats", "today-agenda", "activity"],
   "media.write": ["media", "media-detail", "media-stats", "media-dashboard", "today-agenda", "activity"],
   "opportunity.write": [
@@ -22,6 +22,7 @@ export const AFTER = {
     "opportunity-requirements",
     "application",
     "interviews",
+    "notifications",
     "today-agenda",
     "activity",
   ],
@@ -37,8 +38,19 @@ export const AFTER = {
     "tags",
   ],
   "plan.write": ["plan", "today-agenda", "calendar-events", "activity", "todos"],
-  "finance.write": ["expenses", "expense-summary", "recurring", "deadlines", "today-agenda", "activity"],
-  "study.write": ["study-areas", "study-topics", "study-topic-stats", "activity", "review-preview"],
+  "finance.write": ["expenses", "incomes", "finance-overview", "finance-summary", "recurring", "deadlines", "today-agenda", "activity"],
+  "flashcard.write": ["flashcard"],
+  "study.write": [
+    "study-areas",
+    "study-topics",
+    "study-topic-stats",
+    "study-topic-focus",
+    "topic-resources",
+    "topic-progress",
+    "activity",
+    "review-preview",
+    "study-stale",
+  ],
   "pomodoro.write": [
     "pomodoro-active",
     "pomodoro-stats",
@@ -48,11 +60,22 @@ export const AFTER = {
     "project-timeline",
     "project-journal",
   ],
-  "learning.write": ["courses", "learning-queue", "bookmarks", "activity", "related"],
+  "learning.write": [
+    "courses",
+    "bookmarks",
+    "topic-resources",
+    "topic-progress",
+    "study-topics",
+    "activity",
+    "related",
+    "graph",
+    "study-stale",
+  ],
   "document.write": ["documents", "activity"],
   "calendar.write": ["calendar-events", "plan", "today-agenda", "activity"],
   "review.write": ["review-preview", "reviews", "todos", "plan", "activity"],
   "settings.write": ["settings", "github-status", "saved-views"],
+  "views.write": ["views"],
   "backup.write": ["backup-status", "activity"],
   "source.sync": [
     "source-runs",
@@ -67,7 +90,7 @@ export const AFTER = {
   ],
   "link.write": ["related", "activity"],
   "notification.write": ["notifications"],
-  "note.write": ["notes", "project-journal", "activity"],
+  "note.write": ["notes", "note", "project-journal", "activity", "tags", "backlinks", "graph", "related"],
 } as const;
 
 type AfterEvent = keyof typeof AFTER;

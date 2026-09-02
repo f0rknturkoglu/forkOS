@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { KeyboardEventHandler, ReactNode } from "react";
+import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -410,34 +410,43 @@ export function Field({
   );
 }
 
-export function Textarea({
-  value,
-  onChange,
-  placeholder,
-  rows = 3,
-  className,
-  onBlur,
-  disabled,
-  ariaLabel,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  rows?: number;
-  className?: string;
-  onBlur?: (value: string) => void;
-  disabled?: boolean;
-  ariaLabel?: string;
-}) {
+/** Cok satirli giris. `ref` iletilir ve `onCaret` imlec konumunu bildirir --
+ *  otomatik tamamlama gibi imlece bagli davranislar ham <textarea> yazmadan
+ *  kurulabilsin diye (kural 15). Iki alan da opsiyoneldir. */
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    rows?: number;
+    className?: string;
+    onBlur?: (value: string) => void;
+    disabled?: boolean;
+    ariaLabel?: string;
+    onKeyDown?: KeyboardEventHandler<HTMLTextAreaElement>;
+    /** Imlec konumu degistiginde (tiklama, ok tusu, yazma). */
+    onCaret?: (position: number) => void;
+  }
+>(function Textarea(
+  { value, onChange, placeholder, rows = 3, className, onBlur, disabled, ariaLabel, onCaret, onKeyDown },
+  ref,
+) {
   return (
     <textarea
+      ref={ref}
       value={value}
       rows={rows}
       placeholder={placeholder}
       aria-label={ariaLabel ?? placeholder}
       disabled={disabled}
+      onKeyDown={onKeyDown}
       onBlur={(e) => onBlur?.(e.target.value)}
-      onChange={(e) => onChange(e.target.value)}
+      onSelect={(e) => onCaret?.(e.currentTarget.selectionStart)}
+      onChange={(e) => {
+        onChange(e.target.value);
+        onCaret?.(e.target.selectionStart);
+      }}
       className={cx(
         "w-full resize-y rounded-control border border-subtle bg-surface px-3 py-2 text-body text-primary",
         "outline-none placeholder:text-muted focus:border-accent focus:ring-1 focus:ring-accent",
@@ -446,7 +455,7 @@ export function Textarea({
       )}
     />
   );
-}
+});
 
 /** Onay kutusu. Ham <input type="checkbox"> yasak — bu primitive kullanilir. */
 export function Checkbox({
@@ -517,6 +526,122 @@ export function Range({
   );
 }
 
+/**
+ * Iki uclu aralik secici. Filtrelerde minimum ve maksimum degeri ayni
+ * ray uzerinde gosterir; iki tutamac da klavyeyle ayarlanabilir.
+ */
+export function DualRange({
+  minValue,
+  maxValue,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  disabled,
+  minAriaLabel = "Minimum değer",
+  maxAriaLabel = "Maksimum değer",
+  className,
+}: {
+  minValue: number;
+  maxValue: number;
+  onChange: (minValue: number, maxValue: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+  minAriaLabel?: string;
+  maxAriaLabel?: string;
+  className?: string;
+}) {
+  const span = Math.max(1, max - min);
+  const low = Math.max(min, Math.min(minValue, maxValue));
+  const high = Math.min(max, Math.max(maxValue, minValue));
+  const left = ((low - min) / span) * 100;
+  const width = ((high - low) / span) * 100;
+  const dragging = useRef<"min" | "max" | null>(null);
+
+  const valueAt = (clientX: number, element: HTMLDivElement): number => {
+    const bounds = element.getBoundingClientRect();
+    const ratio = bounds.width > 0 ? Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width)) : 0;
+    const raw = min + ratio * span;
+    return Math.max(min, Math.min(max, min + Math.round((raw - min) / step) * step));
+  };
+
+  const changeFromPointer = (clientX: number, element: HTMLDivElement, target: "min" | "max") => {
+    const next = valueAt(clientX, element);
+    if (target === "min") onChange(Math.min(next, high), high);
+    else onChange(low, Math.max(next, low));
+  };
+
+  return (
+    <div
+      className={cx(
+        "relative h-6 touch-none rounded-full focus-within:ring-2 focus-within:ring-accent",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+        className,
+      )}
+      onPointerDown={(event) => {
+        if (disabled) return;
+        event.preventDefault();
+        const next = valueAt(event.clientX, event.currentTarget);
+        dragging.current = Math.abs(next - low) <= Math.abs(next - high) ? "min" : "max";
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        changeFromPointer(event.clientX, event.currentTarget, dragging.current);
+      }}
+      onPointerMove={(event) => {
+        if (!disabled && dragging.current) changeFromPointer(event.clientX, event.currentTarget, dragging.current);
+      }}
+      onPointerUp={(event) => {
+        dragging.current = null;
+        if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+      }}
+      onPointerCancel={() => {
+        dragging.current = null;
+      }}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-surface-sunken"
+      >
+        <span className="absolute inset-y-0 rounded-full bg-accent" style={{ left: `${left}%`, width: `${width}%` }} />
+      </span>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-surface"
+        style={{ left: `${left}%` }}
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-surface"
+        style={{ left: `${left + width}%` }}
+      />
+      <input
+        type="range"
+        value={low}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        aria-label={minAriaLabel}
+        onChange={(event) => onChange(Math.min(Number(event.target.value), high), high)}
+        className="pointer-events-none absolute inset-0 h-6 w-full opacity-0"
+      />
+      <input
+        type="range"
+        value={high}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        aria-label={maxAriaLabel}
+        onChange={(event) => onChange(low, Math.max(Number(event.target.value), low))}
+        className="pointer-events-none absolute inset-0 h-6 w-full opacity-0"
+      />
+    </div>
+  );
+}
+
 /** Sayisal giris; Input'un tipini degil, sayi semantigini tasir. */
 export function NumberInput({
   value,
@@ -569,11 +694,21 @@ export const FileInput = forwardRef<
   HTMLInputElement,
   {
     accept?: string;
+    multiple?: boolean;
     onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
     className?: string;
   }
->(function FileInput({ accept, onChange, className }, ref) {
-  return <input ref={ref} type="file" accept={accept} onChange={onChange} className={cx("hidden", className)} />;
+>(function FileInput({ accept, multiple, onChange, className }, ref) {
+  return (
+    <input
+      ref={ref}
+      type="file"
+      accept={accept}
+      multiple={multiple}
+      onChange={onChange}
+      className={cx("hidden", className)}
+    />
+  );
 });
 
 export function Kbd({ children }: { children: ReactNode }) {
@@ -688,6 +823,38 @@ export function Chip({ children, variant = "soft", tone, identity, icon, size = 
       {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </span>
+  );
+}
+
+/** Tek secimli filtre cipi. Sayi verilirse saga yazar (sayacsiz da olur). */
+export function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        "flex h-8 items-center gap-2 rounded-control border px-3 text-meta transition",
+        active
+          ? "border-accent bg-accent-surface font-medium text-accent"
+          : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
+      )}
+    >
+      <span>{label}</span>
+      {count !== undefined && (
+        <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
+      )}
+    </button>
   );
 }
 

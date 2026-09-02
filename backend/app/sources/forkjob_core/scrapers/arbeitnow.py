@@ -31,7 +31,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from ..models import DateSource, Job, Layer, WorkMode
+from ..models import date_source_for, Job, Layer, WorkMode
 from ..normalize import html_to_text, parse_location
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
@@ -50,15 +50,24 @@ class ArbeitnowScraper(ScraperBase):
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
+        seen: set[str] = set()
         for page in range(1, self.max_pages + 1):
             try:
                 payload = await client.get_json(f"{API_URL}?page={page}")
-            except ScraperPermanentError:
-                break
+            except ScraperPermanentError as exc:
+                if page == 1:
+                    # The source itself refused the first page — a failed run,
+                    # not an empty one.
+                    raise
+                if not jobs:
+                    raise ScraperPermanentError(
+                        f"{self.source}: no jobs before page {page} failed: {exc}"
+                    ) from exc
+                break  # partial success — keep what earlier pages gave
             page_jobs = self.parse(payload)
             if not page_jobs:
                 break
-            jobs.extend(page_jobs)
+            jobs.extend(self.dedup_seen(seen, page_jobs))
         return jobs
 
     def parse(self, payload: Any) -> list[Job]:
@@ -111,5 +120,5 @@ class ArbeitnowScraper(ScraperBase):
             department=", ".join(tags[:3]) or None,
             description=description,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )

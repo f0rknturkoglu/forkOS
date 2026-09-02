@@ -26,8 +26,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import parse_datetime
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import format_salary, parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://solid.jobs/public-api/offers/IT"
@@ -147,7 +147,7 @@ class SolidJobsScraper(ScraperBase):
             description=description,
             salary=primary or None,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -159,18 +159,11 @@ def _salary_text(sal: Any) -> str | None:
     low, high = sal.get("from"), sal.get("to")
     if low is None and high is None:
         return None
-    parts = []
-    if low is not None and high is not None and low != high:
-        parts.append(f"{low:g}-{high:g}")
-    else:
-        parts.append(f"{(low if low is not None else high):g}")
-    currency = (sal.get("currency") or "").upper()
-    if currency:
-        parts.append(currency)
+    parts = [format_salary(low, high, (sal.get("currency") or "").upper())]
     emp = sal.get("employmentType")
     if emp:
         parts.append(str(emp))
     period = sal.get("period")
     if period:
         parts.append(f"/{period}")
-    return " ".join(parts) or None
+    return " ".join(part for part in parts if part) or None

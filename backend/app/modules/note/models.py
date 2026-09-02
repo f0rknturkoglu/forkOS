@@ -4,6 +4,7 @@ import uuid
 from datetime import date
 
 from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,3 +41,8 @@ class Note(EntityBacked, Base):
         PgUUID(as_uuid=True), ForeignKey("project.id", ondelete="SET NULL"), nullable=True
     )
     journal_day: Mapped[date | None] = mapped_column(Date, nullable=True)
+    #: Notun yerel fotograf/ses ekleri. Icerik base64 olarak ayni satirda
+    #: tutulur; boylece mevcut JSON yedek/geri-yukleme akisi ekleri de tasir.
+    attachments: Mapped[list[dict]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )

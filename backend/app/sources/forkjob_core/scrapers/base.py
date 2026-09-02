@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha1
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable, ClassVar
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
 
@@ -32,7 +32,6 @@ from selectolax.parser import HTMLParser
 
 from ..models import Job
 
-CACHE_DIR = Path("data/cache")
 USER_AGENT = "forkjob/0.1 (personal job search bot; +https://github.com/f0rkjob)"
 
 
@@ -93,6 +92,9 @@ class ScraperConfig:
     cache: CacheMode = CacheMode.WRITE
     #: User-Agent header.
     user_agent: str = USER_AGENT
+    #: Where cached responses live for offline replay. Absolute so a run works
+    #: regardless of the process working directory.
+    cache_dir: Path = Path(__file__).resolve().parents[4] / "data" / "cache"
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +195,7 @@ class ScraperHttpClient:
                 response = await self._client.request(method, url, **kwargs)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = ScraperTransientError(f"{type(exc).__name__}: {exc}")
+                response = None
             else:
                 if response.status_code < 400:
                     # Cache write
@@ -203,8 +206,15 @@ class ScraperHttpClient:
                 if isinstance(last_error, ScraperPermanentError):
                     raise last_error
 
+            delay = self.config.backoff_base * (2**attempt)
+            if response is not None and response.status_code == 429:
+                retry_after = _retry_after_seconds(response.headers.get("Retry-After"))
+                if retry_after is not None:
+                    # The server said how long to wait; honour it, capped so a
+                    # bad header cannot stall the whole run.
+                    delay = min(retry_after, 300)
             if attempt < self.config.max_retries - 1:
-                await asyncio.sleep(self.config.backoff_base * (2**attempt))
+                await asyncio.sleep(delay)
 
         raise last_error or ScraperTransientError("request failed")
 
@@ -228,6 +238,7 @@ class ScraperHttpClient:
             return
 
         robots_url = f"https://{host}/robots.txt"
+        await self._rate_limit(host)
         try:
             resp = await self._client.get(robots_url, timeout=10.0)
             if resp.status_code == 200:
@@ -250,7 +261,7 @@ class ScraperHttpClient:
     def _cache_path(self, cache_key: str) -> Path:
         """Cache filename. `cache_key` is the URL, plus the body for a POST."""
         key = sha1(cache_key.encode()).hexdigest()[:16]
-        return CACHE_DIR / key
+        return self.config.cache_dir / key
 
     def _load_cache(self, url: str) -> dict[str, Any] | None:
         path = self._cache_path(url)
@@ -263,7 +274,7 @@ class ScraperHttpClient:
 
     def _save_cache(self, url: str, response: httpx.Response) -> None:
         try:
-            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            self.config.cache_dir.mkdir(parents=True, exist_ok=True)
             payload = {
                 "url": url,
                 "status": response.status_code,
@@ -297,6 +308,20 @@ def _classify_scraper(response: httpx.Response) -> ScraperError:
     if code == 429 or code >= 500:
         return ScraperTransientError(f"HTTP {code} for {url}")
     return ScraperPermanentError(f"HTTP {code} for {url}")
+
+
+def _retry_after_seconds(value: str | None) -> int | None:
+    """Seconds from a Retry-After header, or None when it is not a number.
+
+    Only the integer-seconds form is handled; the HTTP-date form is rare on
+    429s. Callers cap the result so a bad header cannot stall a run.
+    """
+    if not value:
+        return None
+    try:
+        return int(value.strip())
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -351,9 +376,15 @@ class ScraperBase(ABC):
     label: str = ""
     #: Base URL for the source (used for robots.txt and reporting).
     base_url: str = ""
+    #: Registry keys this class answers for. Defaults to `(source_key,)`; a
+    #: class that serves several portals (Consider) lists them all.
+    registry_keys: ClassVar[tuple[str, ...] | None] = None
 
     def __init__(self, config: ScraperConfig | None = None) -> None:
         self.config = config or ScraperConfig()
+        #: Permanent failures recorded by `isolate`, one entry per dead slice.
+        #: Read by the caller when a run returns fewer jobs than expected.
+        self.errors: list[str] = []
 
     @property
     def source(self) -> str:
@@ -363,6 +394,38 @@ class ScraperBase(ABC):
     @abstractmethod
     async def scrape(self, client: ScraperHttpClient) -> list[Job] | ScrapeBatch:
         """Fetch and parse all available jobs. Pure — no side effects."""
+
+    async def isolate(self, label: str, fn: Callable[[], Awaitable[Any]]) -> Any:
+        """Run one slice that may permanently fail; record the reason.
+
+        The "one dead page must not sink the run" pattern without every
+        scraper re-writing the try/except. `fn` is a zero-argument coroutine
+        (usually a fetch). On a ScraperPermanentError the reason is recorded
+        on `self.errors` under `label` and None comes back — the caller's
+        existing `if … is None: break/continue` keeps the old control flow.
+        Transient errors propagate because the client already retried them.
+        """
+        try:
+            return await fn()
+        except ScraperPermanentError as exc:
+            self.errors.append(f"{label}: {exc}")
+            return None
+
+    def dedup_seen(self, seen: set[str], jobs: list[Job]) -> list[Job]:
+        """The jobs in `jobs` whose key is not in `seen`; `seen` gains them.
+
+        The pagination dedup every scraper used to write by hand. The key is
+        `external_id`, falling back to the URL; `seen` is mutated in place
+        because the caller owns it across the loop.
+        """
+        fresh: list[Job] = []
+        for job in jobs:
+            key = job.external_id or job.url
+            if key in seen:
+                continue
+            seen.add(key)
+            fresh.append(job)
+        return fresh
 
     async def collect(self, client: ScraperHttpClient | None = None) -> list[Job] | ScrapeBatch:
         """Convenience wrapper that creates a client if one is not provided."""

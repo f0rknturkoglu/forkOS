@@ -3,17 +3,26 @@ from __future__ import annotations
 import calendar
 import uuid
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import extract, func, select
+from sqlalchemy import extract, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity
-from app.core.time import local_today
+from app.core.time import local_datetime, local_today
 from app.modules import DeadlineRow
-from app.modules.finance.models import Expense, RecurringPayment
+from app.modules.finance.models import Expense, Income, RecurringPayment
+
+#: Kaydin tarih kolonu -- gelir/gider ayni sekle sahip, kolon adi farkli.
+DATE_COLUMN = {Expense: Expense.spent_on, Income: Income.received_on}
+
+#: Tekrarlayan odemenin bir aya dusen payi (kur donusumu yok).
+MONTHS_PER_PERIOD = {"monthly": 1, "quarterly": 3, "yearly": 12}
+
+CENT = Decimal("0.01")
 
 
 async def out(session: AsyncSession, item) -> dict:
@@ -30,11 +39,10 @@ async def out(session: AsyncSession, item) -> dict:
 
 
 async def list_items(session: AsyncSession, model) -> list[dict]:
-    order = (
-        Expense.spent_on.desc()
-        if model is Expense
-        else RecurringPayment.next_due_at.asc().nullslast()
-    )
+    if model is RecurringPayment:
+        order = RecurringPayment.next_due_at.asc().nullslast()
+    else:
+        order = DATE_COLUMN[model].desc()
     items = list((await session.execute(select(model).join(Entity).order_by(order))).scalars())
     return [await out(session, item) for item in items]
 
@@ -71,32 +79,129 @@ async def patch_item(session: AsyncSession, model, item_id: uuid.UUID, data) -> 
     return await out(session, item)
 
 
-async def monthly_summary(session: AsyncSession, year: int, month: int) -> list[dict]:
+async def _month_totals(session: AsyncSession, model, year: int, month: int) -> list[tuple]:
+    """(currency, category, toplam) satirlari -- verilen ay icin."""
+    column = DATE_COLUMN[model]
     rows = (
         await session.execute(
-            select(Expense.currency, Expense.category, func.sum(Expense.amount))
-            .where(
-                extract("year", Expense.spent_on) == year,
-                extract("month", Expense.spent_on) == month,
-            )
-            .group_by(Expense.currency, Expense.category)
-            .order_by(Expense.currency, func.sum(Expense.amount).desc())
+            select(model.currency, model.category, func.sum(model.amount))
+            .where(extract("year", column) == year, extract("month", column) == month)
+            .group_by(model.currency, model.category)
+            .order_by(model.currency, func.sum(model.amount).desc())
         )
     ).all()
+    return [(currency.strip(), category, amount) for currency, category, amount in rows]
+
+
+def monthly_share(amount: Decimal, frequency: str) -> Decimal:
+    """Tekrarlayan odemenin bir aya dusen payi (yillik 1200 -> 100)."""
+    months = MONTHS_PER_PERIOD.get(frequency, 1)
+    return (Decimal(amount) / months).quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+async def month_overview(session: AsyncSession, year: int, month: int) -> dict:
+    """Bir ayin tam finans tablosu: gelir, gider, net, kategori dagilimi.
+
+    Kur donusumu YOK -- her para birimi kendi bloguna dusuyor. Arayuz basligi
+    tek cagriyla dolsun diye gelir/gider/abonelik ayni yanitta toplanir.
+    """
+    expenses = await _month_totals(session, Expense, year, month)
+    incomes = await _month_totals(session, Income, year, month)
+    recurring = (
+        await session.execute(
+            select(RecurringPayment.currency, RecurringPayment.frequency, RecurringPayment.amount)
+            .where(RecurringPayment.active.is_(True))
+        )
+    ).all()
+
+    buckets: dict[str, dict] = {}
+
+    def bucket(currency: str) -> dict:
+        return buckets.setdefault(
+            currency,
+            {
+                "currency": currency,
+                "income": Decimal(0),
+                "expense": Decimal(0),
+                "net": Decimal(0),
+                "recurring_monthly": Decimal(0),
+                "expense_by_category": [],
+                "income_by_category": [],
+            },
+        )
+
+    for currency, category, amount in expenses:
+        row = bucket(currency)
+        row["expense"] += amount
+        row["expense_by_category"].append({"category": category, "amount": amount})
+    for currency, category, amount in incomes:
+        row = bucket(currency)
+        row["income"] += amount
+        row["income_by_category"].append({"category": category, "amount": amount})
+    for currency, frequency, amount in recurring:
+        row = bucket(currency.strip())
+        row["recurring_monthly"] += monthly_share(amount, frequency)
+
+    for row in buckets.values():
+        row["net"] = row["income"] - row["expense"]
+
+    # Hareketi en yogun para birimi basta -- arayuz ilkini one cikarir.
+    order = sorted(
+        buckets.values(), key=lambda r: r["income"] + r["expense"], reverse=True
+    )
+    return {"year": year, "month": month, "currencies": order}
+
+
+async def monthly_summary(session: AsyncSession, months: int) -> list[dict]:
+    """Son `months` ayin gelir/gider toplamlari -- grafik serisi.
+
+    Eksen surekli olsun diye bos ay da sifirli satir olarak gelir; sira
+    eskiden yeniye, bugun dahil. Kur donusumu YOK; grafik basina tek seri
+    cizdigi icin ay icindeki tum para birimleri tek toplamda birlestirilir
+    (tek kur kullanan kullanicilar icin fark yoktur).
+    """
+    today = local_today()
+    end_index = today.year * 12 + today.month  # gelecek ayin basi (haric)
+    start_index = end_index - months
+    start = date(start_index // 12, start_index % 12 + 1, 1)
+    end = date(end_index // 12, end_index % 12 + 1, 1)
+
+    totals: dict[str, dict[str, Decimal]] = {}
+    for model, key in ((Expense, "expense"), (Income, "income")):
+        column = DATE_COLUMN[model]
+        # 'month' literal olmali: parametreli date_trunc($1, ...) SELECT ve
+        # GROUP BY'da farkli parametre indeksine duser, Postgres eslesmez.
+        month_trunc = func.date_trunc(literal("month"), column)
+        rows = (
+            await session.execute(
+                select(month_trunc, func.sum(model.amount))
+                .where(column >= start, column < end)
+                .group_by(month_trunc)
+            )
+        ).all()
+        for month_start, amount in rows:
+            month = month_start.strftime("%Y-%m")
+            totals.setdefault(month, {"income": Decimal(0), "expense": Decimal(0)})[key] += amount
+
     return [
-        {"currency": currency.strip(), "category": category, "amount": amount}
-        for currency, category, amount in rows
+        {
+            "month": f"{index // 12:04d}-{index % 12 + 1:02d}",
+            "income": totals.get(f"{index // 12:04d}-{index % 12 + 1:02d}", {}).get("income", Decimal(0)),
+            "expense": totals.get(f"{index // 12:04d}-{index % 12 + 1:02d}", {}).get("expense", Decimal(0)),
+        }
+        for index in range(start_index, end_index)
     ]
 
 
-def advance(value: date, frequency: str) -> date:
-    months = {"monthly": 1, "quarterly": 3, "yearly": 12}.get(frequency)
+def advance(value: date, frequency: str, billing_day: int | None = None) -> date:
+    """Bir sonraki odeme tarihi. billing_day verilmisse o gune sabitlenir."""
+    months = MONTHS_PER_PERIOD.get(frequency)
     if months is None:
         raise ValueError("geçersiz ödeme sıklığı")
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
     month = month_index % 12 + 1
-    day = min(value.day, calendar.monthrange(year, month)[1])
+    day = min(billing_day or value.day, calendar.monthrange(year, month)[1])
     return date(year, month, day)
 
 
@@ -123,7 +228,7 @@ async def pay_recurring(session: AsyncSession, item_id: uuid.UUID) -> dict | Non
     )
     session.add(expense)
     await link(session, payment.id, expense.id, "paid_as")
-    payment.next_due_at = advance(paid_on, payment.frequency)
+    payment.next_due_at = advance(paid_on, payment.frequency, payment.billing_day)
     await log_event(
         session,
         verb="recurring.paid",
@@ -153,17 +258,19 @@ async def delete_item(session: AsyncSession, model, item_id: uuid.UUID) -> bool:
 async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     """Aktif tekrarlayan odemelerin vadesi (kural 16)."""
     from app.core.deadlines import rows_with_titles
-    from app.modules.finance.models import RecurringPayment
 
-    payments = (await session.execute(
+    payments = list((await session.execute(
         select(RecurringPayment).where(
             RecurringPayment.active.is_(True),
             RecurringPayment.next_due_at.is_not(None),
         )
-    )).scalars()
-    ids = [x.id for x in payments]
-    due = {x.id: x.next_due_at for x in payments}
+    )).scalars())
+    # due_at sozlesmesi timezone-aware datetime'dir (todo/opportunity gibi):
+    # collect_deadlines satirlari birlikte siralar, ICS disa aktarimi
+    # astimezone() cagirir -- ciplak date ikisini de patlatir.
     return await rows_with_titles(
         session, type_="recurring_payment", module="recurring",
-        ids=ids, due_at=due, priority={x.id: 1 for x in payments},
+        ids=[x.id for x in payments],
+        due_at={x.id: local_datetime(x.next_due_at) for x in payments},
+        priority={x.id: 1 for x in payments},
     )

@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity, touch_entity
+from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity, Event, Link
 from app.core.time import local_zone
@@ -135,7 +135,16 @@ async def add_milestone(
 ) -> Milestone | None:
     if await session.get(Project, project_id) is None:
         return None
-    item = Milestone(project_id=project_id, **data.model_dump())
+    # Kural 2: entity helper'lari -- baslik Entity.title'da yasar.
+    entity = await create_entity(
+        session, type="milestone", title=data.title, search_text=data.title
+    )
+    item = Milestone(
+        id=entity.id,
+        project_id=project_id,
+        title=data.title,
+        **data.model_dump(exclude={"title"}),
+    )
     session.add(item)
     await session.flush()
     await log_event(
@@ -162,6 +171,9 @@ async def patch_milestone(
         setattr(item, key, value)
     if completed is not None:
         item.completed_at = datetime.now(UTC) if completed else None
+    # Baslik Entity.title'da yasar; degisince entity'yi de guncelle.
+    if "title" in values:
+        await touch_entity(session, item.id, title=values["title"])
     await log_event(
         session,
         verb="project.milestone_updated",
@@ -188,7 +200,8 @@ async def delete_milestone(session: AsyncSession, milestone_id: uuid.UUID) -> bo
         entity_type="project",
         payload={"milestone_id": str(item.id), "title": item.title},
     )
-    await session.delete(item)
+    # Kural 2: entity helper -- entity silinince milestone cascade gider.
+    await delete_entity(session, item.id)
     await session.commit()
     return True
 
@@ -441,12 +454,16 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     from app.core.deadlines import rows_with_titles
     from app.modules.project.models import Milestone
 
-    milestones = (await session.execute(
-        select(Milestone).where(
-            Milestone.due_at.is_not(None),
-            Milestone.completed_at.is_(None),
+    # Iterator'i bir kez tüket; iki kez gezmek due haritasini bos birakir
+    # ve milestone deadline'lari sessizce duser (kural 16 hatti).
+    milestones = list((
+        await session.execute(
+            select(Milestone).where(
+                Milestone.due_at.is_not(None),
+                Milestone.completed_at.is_(None),
+            )
         )
-    )).scalars()
+    ).scalars())
     ids = [m.id for m in milestones]
     due = {m.id: m.due_at for m in milestones}
     return await rows_with_titles(

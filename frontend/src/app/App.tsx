@@ -8,7 +8,7 @@ import { DialogHost } from "@/core/dialog";
 import { DropCapture } from "@/core/DropCapture";
 import { CaptureDialog } from "@/core/CaptureDialog";
 import { DesktopNotificationBridge } from "@/core/DesktopNotificationBridge";
-import { allRoutes, hydrateSettings } from "@/core/registry";
+import { allGlobalSurfaces, allRoutes, hydrateSettings } from "@/core/registry";
 import { hydrateEntityRegistry } from "@/core/entityRegistry";
 import type { EntityTypeSpec } from "@/core/entityRegistry";
 import { api } from "@/core/api";
@@ -107,19 +107,20 @@ export default function App() {
   const { path } = useHashRoute();
   const online = useOnline();
   const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<AppSettings>("/settings") });
-  if (settings) hydrateSettings(settings);
   const { data: entityTypes } = useQuery({
     queryKey: ["entity-types"],
     queryFn: () => api.get<EntityTypeSpec[]>("/registry/entity-types"),
     staleTime: 60 * 60_000,
   });
-  if (entityTypes) hydrateEntityRegistry(entityTypes);
 
   useEffect(() => {
     applyTheme(readTheme());
-  }, []);
+    if (settings) hydrateSettings(settings);
+    if (entityTypes) hydrateEntityRegistry(entityTypes);
+  }, [settings, entityTypes]);
 
   const routes = allRoutes();
+  const globalSurfaces = allGlobalSurfaces();
   const route = routeForPath(routes, path);
   const Page = route?.element ?? (path === "/" ? routes[0]?.element : NotFound) ?? NotFound;
 
@@ -146,6 +147,9 @@ export default function App() {
         <DropCapture />
         <CaptureDialog />
         <DesktopNotificationBridge />
+        {globalSurfaces.map((Surface, index) => (
+          <Surface key={`${Surface.displayName ?? Surface.name ?? "surface"}-${index}`} />
+        ))}
       </div>
     </ToastProvider>
   );

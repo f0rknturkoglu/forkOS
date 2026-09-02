@@ -54,12 +54,15 @@ const SURFACES: Record<string, string> = {
   project: "src/modules/projects/ProjectsPage.tsx",
   opportunity: "src/modules/opportunity/OpportunityDetail.tsx",
   study_topic: "src/modules/learning/LearningPage.tsx",
+  learning_resource: "src/modules/learning/LearningPage.tsx",
   media_item: "src/modules/media/MediaDetailPage.tsx",
   bookmark: "src/modules/bookmarks/BookmarksPage.tsx",
   document: "src/modules/documents/DocumentsPage.tsx",
-  note: "src/modules/documents/DocumentsPage.tsx",
+  note: "src/modules/notes/NotesPage.tsx",
   expense: "src/modules/finance/FinancePage.tsx",
+  income: "src/modules/finance/FinancePage.tsx",
   recurring_payment: "src/modules/finance/FinancePage.tsx",
+  flashcard_deck: "src/modules/flashcard/DeckDetail.tsx",
 };
 
 describe("entity relation visibility (Faz 18/32)", () => {
@@ -98,6 +101,7 @@ describe("entity relation visibility (Faz 18/32)", () => {
         "media_consumption",
         "media_cycle",
         "media_unit",
+        "flashcard_card",
         "milestone",
         "pomodoro_session",
         "review",

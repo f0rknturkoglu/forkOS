@@ -12,8 +12,11 @@ import type { Project, Todo } from "@/core/types";
  * panelde bir projenin yer kaplamasinin tek sebebi budur.
  */
 export function ProjectsWidget() {
+  // Widget yalnizca AKTIF projeleri ceker; sayfa tumunu. Ayni key iki farkli
+  // sorgu anlamina gelir -- aktif listesi kendi key'ini tasir (project.write
+  // "projects" on ekini tazeledigi icin burasi da guncellenir).
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", "active"],
     queryFn: () => api.get<Project[]>("/projects?status=active"),
   });
   // Gorevler zaten projesini tasiyor; ayri istek acmadan sayilar buradan.

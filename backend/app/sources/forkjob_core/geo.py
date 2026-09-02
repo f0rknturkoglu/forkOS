@@ -517,6 +517,21 @@ def country_from_name(text: str | None) -> str | None:
     return None
 
 
+def country_code(value: str | None) -> str | None:
+    """Resolve a country value that may already be an ISO alpha-2 code.
+
+    A two-letter code passes through unchanged ("ES" stays "ES"); anything
+    else is looked up by normalised name, so "Bahrain" resolves to "BH"
+    instead of the naive "BA". None when neither shape resolves.
+    """
+    if not value:
+        return None
+    text = value.strip()
+    if len(text) == 2 and text.isalpha():
+        return text.upper()
+    return COUNTRY_BY_NAME.get(norm_text(text))
+
+
 def city_from_name(text: str | None) -> str | None:
     """Return the fragment if it is a city we know, else None."""
     if not text:

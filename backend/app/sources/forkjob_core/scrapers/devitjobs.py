@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import date_source_for, Job, Layer, Region, WorkMode
 from ..normalize import html_to_text
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
@@ -38,6 +38,7 @@ class DevITJobsScraper(ScraperBase):
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
+        failed: list[str] = []
         for cc in self.countries:
             url = API_URLS.get(cc)
             if not url:
@@ -46,8 +47,14 @@ class DevITJobsScraper(ScraperBase):
                 payload = await client.get_json(url)
                 country_code = COUNTRY_MAP.get(cc, cc.upper())
                 jobs.extend(self.parse(payload, country_code))
-            except ScraperPermanentError:
-                continue
+            except ScraperPermanentError as exc:
+                failed.append(f"{cc}: {exc}")
+        if not jobs:
+            # Every country refused — a failed run must say so, not come back
+            # as an empty list that looks like "no postings anywhere".
+            raise ScraperPermanentError(
+                f"devitjobs: no country answered ({'; '.join(failed)})"
+            )
         return jobs
 
     def parse(self, payload: Any, country_code: str = "DE") -> list[Job]:
@@ -129,5 +136,5 @@ class DevITJobsScraper(ScraperBase):
             description=description,
             salary=salary,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )

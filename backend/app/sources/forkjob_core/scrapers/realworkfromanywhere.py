@@ -21,11 +21,10 @@ Field notes from the live response:
 from __future__ import annotations
 
 import re
-from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree as ET
 
-from ..models import DateSource, Job, Layer, WorkMode
-from ..normalize import html_to_text
+from ..models import date_source_for, Job, Layer, WorkMode
+from ..normalize import html_to_text, parse_rfc822
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 FEED_URL = "https://www.realworkfromanywhere.com/rss.xml"
@@ -82,13 +81,7 @@ class RealWorkFromAnywhereScraper(ScraperBase):
         match = _ID_RE.search(url)
         external_id = match.group(1) if match else None
 
-        posted_at = None
-        raw_date = item.findtext("pubDate")
-        if raw_date:
-            try:
-                posted_at = parsedate_to_datetime(raw_date)
-            except (TypeError, ValueError):
-                posted_at = None
+        posted_at = parse_rfc822(item.findtext("pubDate"))
 
         work_mode = WorkMode.REMOTE  # the board's premise
         salary = _salary(description)
@@ -105,7 +98,7 @@ class RealWorkFromAnywhereScraper(ScraperBase):
             description=description,
             salary=salary,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 

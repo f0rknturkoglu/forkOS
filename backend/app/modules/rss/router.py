@@ -11,7 +11,7 @@ from app.modules.bookmark import service as bookmark_svc
 from app.modules.bookmark.models import COLLECTIONS
 from app.modules.bookmark.schemas import BookmarkOut
 from app.modules.rss import service
-from app.modules.rss.models import Feed
+from app.modules.rss.models import Feed, FeedItem
 from app.modules.rss.schemas import (
     FeedIn,
     FeedItemOut,
@@ -114,6 +114,19 @@ async def get_item(item_id: uuid.UUID, session: AsyncSession = Depends(get_sessi
     if item is None:
         raise HTTPException(404)
     return item
+
+
+@router.get("/rss/items/{item_id}/fulltext")
+async def item_full_text(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Tam metin: cache'te varsa dondur, yoksa talebe bagli fetch edip kalicilastirir.
+
+    Fetch basarisiz / cikarilamazsa full_text: null doner (hata mesaji yok;
+    istemci butonu tekrar gosterir). Ayni item'a eszamanli cift istek null gorur.
+    """
+    item = await session.get(FeedItem, item_id)
+    if item is None:
+        raise HTTPException(404)
+    return {"full_text": await service.get_item_full_text(session, item_id)}
 
 
 @router.post("/rss/items/{item_id}/read", response_model=FeedItemOut)

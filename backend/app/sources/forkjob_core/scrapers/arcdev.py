@@ -29,10 +29,10 @@ Field notes from the live response:
 from __future__ import annotations
 
 import re
-from datetime import UTC
 from typing import Any
 
-from ..models import DateSource, Job, Layer, WorkMode
+from ..models import date_source_for, Job, Layer, WorkMode
+from ..normalize import parse_epoch_ms
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 LISTING_URL = "https://arc.dev/remote-jobs"
@@ -122,7 +122,7 @@ class ArcDevScraper(ScraperBase):
             description_parts.append("Skills: " + ", ".join(str(c) for c in categories))
         description = "\n".join(description_parts)
 
-        posted_at = _epoch(entry.get("postedAt"))
+        posted_at = parse_epoch_ms(entry.get("postedAt"))
 
         return Job.build(
             url=url or "",
@@ -136,7 +136,7 @@ class ArcDevScraper(ScraperBase):
             description=description,
             salary=hourly,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -147,14 +147,6 @@ def _hourly(entry: dict[str, Any]) -> str | None:
     if low is not None and high is not None and low != high:
         return f"${low:g}-{high:g}/hr"
     return f"${(low if low is not None else high):g}/hr"
-
-
-def _epoch(value: Any) -> Any:
-    from datetime import datetime
-
-    if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value, tz=UTC)
-    return None
 
 
 def _load_json(raw: str) -> Any:

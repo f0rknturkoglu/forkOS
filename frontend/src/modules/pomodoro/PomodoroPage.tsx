@@ -19,8 +19,9 @@ import {
   cx,
   useToast,
 } from "@/core/ui";
-import type { PomodoroSession, PomodoroStats, Todo } from "@/core/types";
+import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
+import { ContextChip, ContextPicker } from "./ContextPicker";
 import { FocusMode } from "./FocusMode";
 import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./time";
 
@@ -53,10 +54,6 @@ export function PomodoroPage() {
   const { data: stats } = useQuery({
     queryKey: ["pomodoro-stats"],
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=week"),
-  });
-  const { data: todos = [] } = useQuery({
-    queryKey: ["todos", "pomo-context"],
-    queryFn: () => api.get<Todo[]>("/todos?status=open&limit=100"),
   });
 
   const refresh = () => invalidateAfter("pomodoro.write");
@@ -112,8 +109,10 @@ export function PomodoroPage() {
                 >
                   {clock(left)}
                 </div>
-                <p className="mt-1.5 truncate text-meta text-muted">
-                  {active.topic || active.context_title || "Bağımsız"} · {active.planned_min} dk
+                <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                  <span className="truncate">{active.topic || active.context_title || "Bağımsız"}</span>
+                  <ContextChip type={active.context_type} />
+                  <span>· {active.planned_min} dk</span>
                 </p>
               </div>
 
@@ -164,16 +163,9 @@ export function PomodoroPage() {
               <Field label="Konu" className="sm:col-span-2">
                 <Input value={topic} onChange={setTopic} placeholder="Neye odaklanıyorsun?" className="w-full" />
               </Field>
-              <Field label="Bağlam" className="sm:col-span-3">
-                <Select value={context} onChange={setContext} className="w-full" ariaLabel="Bağlam görevi">
-                  <option value="">Bağımsız</option>
-                  {todos.map((todo) => (
-                    <option key={todo.id} value={todo.id}>
-                      {todo.title}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              <div className="sm:col-span-3">
+                <ContextPicker value={context} onChange={setContext} />
+              </div>
             </div>
           </Section>
         )}
@@ -186,7 +178,7 @@ export function PomodoroPage() {
           </MetricStrip>
         </Section>
 
-        <SessionHistory todos={todos} onChange={refresh} onManualDone={refreshTimeline} />
+        <SessionHistory onChange={refresh} onManualDone={refreshTimeline} />
       </PageFrame>
 
       {focusMode && active && <FocusMode onClose={() => setFocusMode(false)} />}
@@ -195,15 +187,7 @@ export function PomodoroPage() {
 }
 
 /** Gecmis seanslar: elle ekleme + silme. Sayac calismadan yapilan is de sayilir. */
-function SessionHistory({
-  todos,
-  onChange,
-  onManualDone,
-}: {
-  todos: Todo[];
-  onChange: () => void;
-  onManualDone: () => void;
-}) {
+function SessionHistory({ onChange, onManualDone }: { onChange: () => void; onManualDone: () => void }) {
   const [adding, setAdding] = useState(false);
   const online = useOnline();
   const toast = useToast();
@@ -236,7 +220,6 @@ function SessionHistory({
     >
       {adding && (
         <ManualForm
-          todos={todos}
           onDone={() => {
             setAdding(false);
             onManualDone();
@@ -254,6 +237,7 @@ function SessionHistory({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-body text-primary">
                   {item.topic || item.context_title || KIND_LABELS[item.kind] || "Odak"}
+                  <ContextChip type={item.context_type} />
                 </span>
                 <span className="block text-meta text-muted">
                   {new Date(item.started_at).toLocaleString("tr-TR", {
@@ -283,7 +267,7 @@ function SessionHistory({
   );
 }
 
-function ManualForm({ todos, onDone }: { todos: Todo[]; onDone: () => void }) {
+function ManualForm({ onDone }: { onDone: () => void }) {
   // datetime-local yerel saat bekler; ISO'ya cevirirken tarayici saat dilimi kullanilir.
   const [when, setWhen] = useState(() => {
     const d = new Date(Date.now() - FOCUS_MIN * 60_000);
@@ -333,16 +317,7 @@ function ManualForm({ todos, onDone }: { todos: Todo[]; onDone: () => void }) {
       <Field label="Konu">
         <Input value={topic} onChange={setTopic} placeholder="Ne üzerinde çalıştın?" className="w-full" />
       </Field>
-      <Field label="Bağlam">
-        <Select value={context} onChange={setContext} className="w-full" ariaLabel="Bağlam görevi">
-          <option value="">Bağımsız</option>
-          {todos.map((todo) => (
-            <option key={todo.id} value={todo.id}>
-              {todo.title}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <ContextPicker value={context} onChange={setContext} />
       <div className="sm:col-span-2">
         <Button type="submit" variant="primary" disabled={!online || add.isPending}>
           Seansı işle

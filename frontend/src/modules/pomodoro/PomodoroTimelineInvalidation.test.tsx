@@ -44,6 +44,7 @@ vi.mock("@/core/api", () => ({
 }));
 vi.mock("@/lib/hooks", () => ({
   useOnline: () => true,
+  useDebounced: (value: string) => value,
 }));
 vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),

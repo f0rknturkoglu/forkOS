@@ -116,6 +116,27 @@ describe("study flow", () => {
     expect(harness.apiGet).toHaveBeenCalledWith("/study/topics?area_id=");
   });
 
+  it("keeps the learning summary compact and exposes progress as an XP bar", () => {
+    harness.queryData = {
+      "study-areas": areas,
+      "study-topics": [
+        {
+          ...topics[0],
+          progress: { total: 8, done: 3, pct: 38 },
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(<LearningPage />);
+
+    expect(markup).toContain("Öğrenme seviyesi");
+    expect(markup).toContain("XP ilerlemesi");
+    expect(markup).toContain("300 / 800 XP");
+    expect(markup).toContain('role="progressbar"');
+    expect(markup).toContain('aria-valuenow="38"');
+    expect(markup).toContain("<details open=\"\"");
+  });
+
   it("creates a todo + prepares_for link for a topic and invalidates todo/study/link writes", async () => {
     harness.apiPost.mockResolvedValue({ id: "todo-1" });
     renderToStaticMarkup(<LearningPage />);

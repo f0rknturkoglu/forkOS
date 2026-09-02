@@ -35,9 +35,6 @@ const EXEMPT = new Set([
   "/api/auth/github/start",
   "/api/auth/github/callback",
   "/api/export/json",
-  "/api/export/markdown",
-  "/api/export/opml",
-  "/api/export/ics",
   // Kayit defteri sozlesmeleri (frontend tarafinda tüketilir ya da yedek etiket ureticisi var)
   "/api/registry/entity-types",
   "/api/registry/event-verbs",
@@ -77,11 +74,7 @@ const DYNAMIC_KNOWN = new Set([
   "/api/export/markdown",
   "/api/export/opml",
   "/api/export/ics",
-  "/api/opportunities/{item_id}/apply",      // api.post("/" + "opportunities/" + id + "/apply")
-  "/api/opportunities/{item_id}/application",
-  "/api/opportunities/{item_id}/history",
-  "/api/opportunities/{item_id}/interviews",
-  "/api/opportunities/{item_id}/transition",
+  // OpportunityPage: api.post(`/opportunities/${id}/${action}`) — eylem degisken.
   "/api/opportunities/{item_id}/trash",
   "/api/opportunities/{item_id}/restore",
 ]);

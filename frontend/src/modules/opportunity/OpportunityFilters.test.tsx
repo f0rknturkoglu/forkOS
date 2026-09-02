@@ -40,11 +40,12 @@ describe("opportunity contextual filters", () => {
     expect(announcements.sort).toBe("newest");
   });
 
-  it("renders job categories only in jobs", () => {
+  it("does not render the unused job category filter", () => {
     const jobs = renderToStaticMarkup(
       <OpportunityFilters filters={filters} facets={{ categories: { software: 12 } }} onChange={() => undefined} />,
     );
-    expect(jobs).toContain("Yazılım &amp; mühendislik");
+    expect(jobs).not.toContain("İş alanı");
+    expect(jobs).not.toContain("Yazılım &amp; mühendislik");
     const announcements = renderToStaticMarkup(
       <OpportunityFilters
         filters={switchOpportunitySection(filters, "announcements")}
@@ -53,7 +54,7 @@ describe("opportunity contextual filters", () => {
       />,
     );
     expect(announcements).toContain("YLSY");
-    expect(announcements).not.toContain("Yazılım &amp; mühendislik");
+    expect(announcements).not.toContain("İş alanı");
   });
 
   it("renders score range and both score sorts only for jobs", () => {
@@ -94,5 +95,30 @@ describe("opportunity contextual filters", () => {
       max_score: 100,
       offset: 0,
     });
+  });
+
+  it("changes the score interval from the two-ended slider", () => {
+    const onChange = vi.fn();
+    render(<OpportunityFilters filters={filters} facets={{}} onChange={onChange} />);
+
+    const minimum = screen.getByRole("slider", { name: "Minimum skor" });
+    fireEvent.change(minimum, { target: { value: "55" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.pointerUp(minimum);
+
+    expect(onChange).toHaveBeenCalledWith({ ...filters, min_score: 55, max_score: 80, offset: 0 });
+  });
+
+  it("distinguishes unknown location from unknown working mode", () => {
+    render(
+      <OpportunityFilters
+        filters={filters}
+        facets={{ regions: { UNKNOWN: 7 }, remote: { unknown: 11 } }}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Konum bilinmiyor\s*7/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Çalışma biçimi bilinmiyor\s*11/ })).toBeTruthy();
   });
 });

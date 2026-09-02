@@ -33,6 +33,7 @@ async def _out(session: AsyncSession, pomo: PomodoroSession) -> PomodoroOut:
         kind=pomo.kind,
         context_entity_id=pomo.context_entity_id,
         context_title=context.title if context else None,
+        context_type=context.type if context else None,
         topic=pomo.topic,
         interrupted=pomo.interrupted,
         paused_at=pomo.paused_at,
@@ -277,3 +278,46 @@ async def recent(session: AsyncSession, *, limit: int = 20) -> list[PomodoroOut]
         .all()
     )
     return [await _out(session, pomo) for pomo in rows]
+
+
+#: Odak seansina baglam olabilecek entity tipleri.
+#: Liste burada durur cunku "neye odaklanilir" pomodoro'nun kararidir;
+#: modul basina import etmek yerine entity tipiyle suzulur (tek sorgu).
+#: Firsat (is ilani) BILEREK yok -- ilanin kendisine odaklanilmaz; ona
+#: hazirlanan gorev zaten listede (todo -> prepares_for).
+FOCUS_CONTEXT_TYPES = ["todo", "study_topic", "learning_resource", "project"]
+
+
+async def contexts(
+    session: AsyncSession, query: str | None = None, limit: int = 40
+) -> list[dict]:
+    """Baglam secicisinin adaylari: en son dokunulanlar once.
+
+    Kapanmis gorevler listeye girmez -- bitmis bir ise odaklanilmaz. Diger
+    tiplerde boyle bir durum kavrami olmadigi icin suzme yapilmaz.
+    """
+    from sqlalchemy import func, or_
+
+    from app.core.search import match_clause, rank_expr
+    from app.modules.todo.models import Todo
+
+    stmt = (
+        select(Entity.id, Entity.type, Entity.title)
+        .outerjoin(Todo, Todo.id == Entity.id)
+        .where(Entity.type.in_(FOCUS_CONTEXT_TYPES), Entity.archived_at.is_(None))
+        .where(or_(Entity.type != "todo", Todo.status.in_(["open", "doing"])))
+    )
+    text_query = (query or "").strip()
+    if text_query:
+        # Arama varken siralama ALAKAYA gore olmali: global aramanin trigram
+        # esiği "rebase" icin "Release"i de yakaliyor; en son guncellenene
+        # gore dizersek gercek eslesme listenin dibinde kaliyor.
+        stmt = stmt.where(match_clause(text_query)).order_by(
+            (func.lower(Entity.title) == text_query.casefold()).desc(),
+            rank_expr(text_query).desc(),
+            Entity.updated_at.desc(),
+        )
+    else:
+        stmt = stmt.order_by(Entity.updated_at.desc())
+    rows = (await session.execute(stmt.limit(limit))).all()
+    return [{"id": id_, "type": type_, "title": title} for id_, type_, title in rows]

@@ -11,7 +11,7 @@ export const KIND_LABELS: Record<string, string> = {
   other: "Diğer",
 };
 
-export const JOB_CATEGORY_LABELS: Record<string, string> = {
+const JOB_CATEGORY_LABELS: Record<string, string> = {
   software: "Yazılım & mühendislik",
   "data-ai": "Veri & yapay zekâ",
   "product-design": "Ürün & tasarım",
@@ -100,9 +100,13 @@ export const SCORE_TONE: Record<ScoreBand, "neutral" | "warn" | "ok" | "danger">
   strong: "ok",
 };
 
-export type RemoteKind = "remote" | "hybrid" | "office";
+/** Kanonik remote kovalari — backend browse facet'i (_remote_bucket) ile ayni. */
+export type RemoteKind = "remote" | "hybrid" | "onsite" | "unknown";
 
-/** Ham remote metnini sinifa cevirir: "Remote - EU" -> remote, "Hybrid" -> hybrid. */
+/** Bilinen ofis sözcükleri (backend _remote_bucket ile ayni set). */
+const OFFICE_WORDS = ["onsite", "office", "on-site", "ofis"];
+
+/** Ham remote metnini kanonik kovaya cevirir: "Remote - EU" -> remote, "Hybrid" -> hybrid, "Onsite" -> onsite. Taninmayan metin -> null. */
 export function remoteKind(remote: string | null): RemoteKind | null {
   if (!remote) return null;
   const t = remote.toLocaleLowerCase("tr");
@@ -112,11 +116,15 @@ export function remoteKind(remote: string | null): RemoteKind | null {
   if (t.includes("hybrid") || t.includes("hibrit") || t.includes("karma")) {
     return "hybrid";
   }
-  return "office";
+  if (OFFICE_WORDS.includes(t)) {
+    return "onsite";
+  }
+  return null;
 }
 
 export const REMOTE_LABELS: Record<RemoteKind, string> = {
   remote: "Uzaktan",
   hybrid: "Hibrit",
-  office: "Ofis",
+  onsite: "Ofis",
+  unknown: "Çalışma biçimi bilinmiyor",
 };

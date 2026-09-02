@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * Offline durumu. Plan bolum 7: offline SADECE OKUMA.
@@ -19,8 +18,6 @@ export function useOnline(): boolean {
   }, []);
   return online;
 }
-
-/** Yazma sonrasi hangi query'lerin tazelenecegini tek yerde tut. */
 
 /** Basit debounce -- arama kutulari icin. */
 export function useDebounced<T>(value: T, delay = 250): T {

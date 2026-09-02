@@ -20,6 +20,7 @@ import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
+import { appDayUtc } from "@/lib/date";
 import { RssReadingPane } from "./RssReadingPane";
 
 type SmartView = "unread" | "today" | "saved" | "all";
@@ -34,9 +35,8 @@ const SMART_LABELS: Record<SmartView, string> = {
 const SMART_ORDER: SmartView[] = ["unread", "today", "saved", "all"];
 
 function todayIso(): string {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  return start.toISOString();
+  // App gununun UTC-projekte temsili (Faz 14) -- tarayici tz'den bagimsiz.
+  return appDayUtc(new Date()).toISOString();
 }
 
 /* ── Besleme ekle / OPML ─────────────────────────────────────────────── */
@@ -311,10 +311,7 @@ export function RssPage() {
 
   const markRead = useMutation({
     mutationFn: ({ id, read }: { id: string; read: boolean }) => api.post(`/rss/items/${id}/read${qs({ read })}`),
-    onSuccess: () => {
-      refreshAll();
-      invalidateAfter("rss.write"); // okuma bolmesi de guncelsin
-    },
+    onSuccess: refreshAll,
   });
 
   const save = useMutation({

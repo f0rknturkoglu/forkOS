@@ -152,12 +152,3 @@ async def test_global_search_runs_each_ready_registered_variant_once_and_dedupli
     registry.fallback_book.search.assert_awaited_once_with("dune")
     registry.fallback_audiobook.search.assert_awaited_once_with("dune")
 
-
-@pytest.mark.no_database
-async def test_single_kind_search_still_returns_kind(monkeypatch):
-    registry = FakeRegistry()
-    monkeypatch.setattr(service, "provider_registry", AsyncMock(return_value=registry))
-
-    rows = await service.search_metadata(SimpleNamespace(), "dune", "movie")
-
-    assert rows[0].kind == "movie"

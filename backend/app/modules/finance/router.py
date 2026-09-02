@@ -2,16 +2,43 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import local_today
 from app.db import get_session
 from app.modules.finance import service
-from app.modules.finance.models import Expense, RecurringPayment
-from app.modules.finance.schemas import ExpenseIn, ExpensePatch, RecurringIn, RecurringPatch
+from app.modules.finance.models import Expense, Income, RecurringPayment
+from app.modules.finance.schemas import (
+    ExpenseIn,
+    ExpensePatch,
+    IncomeIn,
+    IncomePatch,
+    RecurringIn,
+    RecurringPatch,
+)
 
 router = APIRouter(tags=["finance"])
+
+
+@router.get("/finance/overview")
+async def overview(
+    year: int | None = None,
+    month: int | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Bir ayin gelir/gider/net tablosu -- sayfa basligi tek cagriyla dolar."""
+    today = local_today()
+    return await service.month_overview(session, year or today.year, month or today.month)
+
+
+@router.get("/finance/summary")
+async def summary(
+    months: int = Query(default=6, ge=1, le=24),
+    session: AsyncSession = Depends(get_session),
+):
+    """Son `months` ayin gelir/gider toplamlari -- sayfa grafigi serisi."""
+    return await service.monthly_summary(session, months)
 
 
 @router.get("/expenses")
@@ -34,14 +61,36 @@ async def patch_expense(
     return result
 
 
-@router.get("/expenses/summary")
-async def summary(
-    year: int | None = None,
-    month: int | None = None,
-    session: AsyncSession = Depends(get_session),
+@router.delete("/expenses/{item_id}", status_code=204)
+async def delete_expense(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_item(session, Expense, item_id):
+        raise HTTPException(404)
+
+
+@router.get("/incomes")
+async def incomes(session: AsyncSession = Depends(get_session)):
+    return await service.list_items(session, Income)
+
+
+@router.post("/incomes", status_code=201)
+async def add_income(body: IncomeIn, session: AsyncSession = Depends(get_session)):
+    return await service.create_item(session, Income, body)
+
+
+@router.patch("/incomes/{item_id}")
+async def patch_income(
+    item_id: uuid.UUID, body: IncomePatch, session: AsyncSession = Depends(get_session)
 ):
-    today = local_today()
-    return await service.monthly_summary(session, year or today.year, month or today.month)
+    result = await service.patch_item(session, Income, item_id, body)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.delete("/incomes/{item_id}", status_code=204)
+async def delete_income(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_item(session, Income, item_id):
+        raise HTTPException(404)
 
 
 @router.get("/recurring-payments")
@@ -72,12 +121,6 @@ async def pay(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
     if result is None:
         raise HTTPException(404)
     return result
-
-
-@router.delete("/expenses/{item_id}", status_code=204)
-async def delete_expense(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    if not await service.delete_item(session, Expense, item_id):
-        raise HTTPException(404)
 
 
 @router.delete("/recurring-payments/{item_id}", status_code=204)

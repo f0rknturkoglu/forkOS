@@ -32,7 +32,7 @@ import re
 from typing import Any
 
 from ..geo import region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import date_source_for, Job, Layer, Region, WorkMode
 from ..normalize import html_to_text, parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
@@ -90,15 +90,13 @@ class FreelancermapScraper(ScraperBase):
         seen: set[str] = set()
         for page in range(1, self.max_pages + 1):
             url = LISTING_URL if page == 1 else f"{LISTING_URL}?pagenr={page}"
-            try:
-                html = await client.get_html(url)
-            except ScraperPermanentError:
+            html = await self.isolate(url, lambda: client.get_html(url))
+            if html is None:
                 break
             page_jobs = self.parse(html)
             if not page_jobs:
                 break
-            fresh = [j for j in page_jobs if j.external_id not in seen]
-            seen.update(j.external_id for j in fresh if j.external_id)
+            fresh = self.dedup_seen(seen, page_jobs)
             jobs.extend(fresh)
             if not fresh:
                 break  # paged past the end
@@ -160,5 +158,5 @@ class FreelancermapScraper(ScraperBase):
             remote=True if work_mode is WorkMode.REMOTE else None,
             description=description,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )

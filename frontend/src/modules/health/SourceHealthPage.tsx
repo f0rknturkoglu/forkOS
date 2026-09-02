@@ -8,6 +8,7 @@ import {
   Checkbox,
   Chip,
   Empty,
+  FilterChip,
   Input,
   Metric,
   MetricStrip,
@@ -202,21 +203,13 @@ export function SourceHealthPage() {
                 (value) => [value, KIND_LABELS[value], catalog.filter((s) => s.kind === value).length] as const,
               ),
             ].map(([value, label, count]) => (
-              <button
+              <FilterChip
                 key={value || "all"}
-                type="button"
+                label={label}
+                count={count}
+                active={kind === value}
                 onClick={() => setKind(value)}
-                aria-pressed={kind === value}
-                className={cx(
-                  "flex h-8 items-center gap-2 rounded-control border px-3 text-meta transition",
-                  kind === value
-                    ? "border-accent bg-accent-surface font-medium text-accent"
-                    : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
-                )}
-              >
-                <span>{label}</span>
-                <span className={cx("numeral text-meta", kind === value ? "text-accent" : "text-muted")}>{count}</span>
-              </button>
+              />
             ))}
           </div>
 

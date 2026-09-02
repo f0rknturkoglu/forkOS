@@ -4,7 +4,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity, touch_entity
+from app.core.entity import archive_entity, create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.integrations.google_auth import access_token
@@ -94,8 +94,7 @@ async def sync_folder(session: AsyncSession, folder_id: str, category: str):
     )
     for doc in existing:
         if doc.drive_file_id not in seen:
-            entity = await session.get(Entity, doc.id)
-            entity.archived_at = now
+            await archive_entity(session, doc.id)
     await log_event(
         session,
         verb="document.synced",

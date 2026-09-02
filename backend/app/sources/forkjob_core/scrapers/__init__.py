@@ -1,17 +1,18 @@
-"""Layer B scrapers — Spanish job portals and tech boards.
+"""Layer B scrapers — job portals and tech boards.
 
 Layer B is deliberately separate from Layer A. A broken HTML scraper must never
 affect the ATS adapters, and the sync orchestrator treats every Layer B source
 as its own failure domain.
 
 What lives here:
-  base.py        Rate-limited HTTP, robots.txt, response caching, mock replay.
+  base.py        Rate-limited HTTP, robots.txt, response caching, mock replay,
+                 and the ScraperBase/ScrapeBatch contracts every scraper shares.
+  index.py       Registry key -> scraper class, discovered automatically.
   registry.py    Layer B source registry (data/portals.yaml).
-  infojobs.py    InfoJobs REST API.
-  manfred.py     Manfred REST API (structured tech jobs, salary transparency).
-  jobfluent.py   JobFluent — HTML scraping.
-  tecnoempleo.py Tecnoempleo — HTML scraping (TODO: selectors).
-  ticjob.py      Ticjob Spain — HTML scraping (TODO: selectors).
+  schemaorg.py   Shared schema.org ld+json / microdata helpers.
+  <name>.py      One scraper per source (see the module docstrings).
+  blocked.py     Sources assessed and found blocked — honest _BlockedScraper
+                 subclasses that raise rather than fake an empty result.
 """
 
 from .base import (

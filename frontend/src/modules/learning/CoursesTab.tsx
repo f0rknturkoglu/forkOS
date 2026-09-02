@@ -1,6 +1,7 @@
 import { Trash2 } from "lucide-react";
 import type { Course } from "@/core/types";
 import { Chip, IconButton, Range, RowList, Section } from "@/core/ui";
+import { statusLabel, statusTone } from "./learningLabels";
 
 type Props = {
   courses: Course[];
@@ -31,7 +32,7 @@ export function CoursesTab({ courses, online, onProgress, onRemove }: Props) {
                 onChange={(n) => onProgress(c.id, n)}
                 className="min-w-0 flex-1"
               />
-              <Chip>{c.status}</Chip>
+              <Chip tone={statusTone(c.status)}>{statusLabel(c.status)}</Chip>
               <span className="text-meta">%{c.progress_pct}</span>
               <IconButton
                 title="Sil"

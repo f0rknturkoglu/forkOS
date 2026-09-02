@@ -22,16 +22,25 @@ interface RelatedRow {
   entity: { id: string; type: string; title: string; updated_at: string };
 }
 
+/** Not govdesinden TURETILEN iliskiler. Bu panelde gosterilmezler: buradan
+ *  "bagi kaldir" demek, not bir daha kaydedilince bag geri gelecegi icin
+ *  yalan olurdu. Backlink'ler BacklinksPanel'de; degistirmek icin not duzenlenir. */
+const DERIVED_RELATIONS = ["mentions"];
+
 export function RelatedPanel({
   entityId,
   title = "İlgili kayıtlar",
   relation,
+  exclude,
 }: {
   entityId: string;
   title?: string;
   /** Yalniz bu iliskiyi gosterir ve yeni baglari bu iliskiyle kurar
    *  (ornek: learning'de konu -> kaynak "learns_from"). */
   relation?: string;
+  /** Sayfada kendi ozel paneli olan iliskiler (ornek: learning'de kaynaklar
+   *  ve notlar) burada tekrar edilmesin diye disarida birakilir. */
+  exclude?: string[];
 }) {
   const online = useOnline();
   const [picking, setPicking] = useState(false);
@@ -41,7 +50,11 @@ export function RelatedPanel({
   const { data = [], refetch } = useQuery({
     queryKey: ["related", entityId],
     queryFn: () => api.get<RelatedRow[]>(`/entities/${entityId}/related`),
-    select: (all) => (relation ? all.filter((row) => row.relation === relation) : all),
+    select: (all) => {
+      const hidden = new Set([...DERIVED_RELATIONS, ...(exclude ?? [])]);
+      const visible = all.filter((row) => !hidden.has(row.relation));
+      return relation ? visible.filter((row) => row.relation === relation) : visible;
+    },
     enabled: Boolean(entityId),
   });
   // Savunma: gecersiz/eksik yanit paneli cokertmesin (Faz 18).

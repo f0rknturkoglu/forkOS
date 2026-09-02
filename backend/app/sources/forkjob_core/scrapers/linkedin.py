@@ -15,7 +15,7 @@ from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from ..linkedin_profiles import LinkedInProfiles
-from ..models import DateSource, Job, Layer, WorkMode, canonical_url
+from ..models import Job, Layer, WorkMode, canonical_url, date_source_for
 from ..normalize import html_to_text, parse_datetime, parse_location
 from .base import (
     ScrapeBatch,
@@ -296,7 +296,7 @@ def job_from_row(row: Mapping[str, Any]) -> Job | None:
         description=description,
         salary=_salary(row),
         posted_at=posted_at,
-        date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+        date_source=date_source_for(posted_at)[1],
     )
 
 

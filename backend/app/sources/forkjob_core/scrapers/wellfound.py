@@ -39,12 +39,11 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import UTC, datetime
 from typing import Any
 
-from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text
+from ..geo import region_for
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_epoch_ms, parse_single_country
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://wellfound.com"
@@ -86,16 +85,10 @@ class WellfoundScraper(ScraperBase):
         for role in self.roles:
             for location in self.locations:
                 url = ROLE_URL.format(role=role, location=location)
-                try:
-                    html = await client.get_html(url)
-                except ScraperPermanentError:
+                html = await self.isolate(url, lambda: client.get_html(url))
+                if html is None:
                     continue  # one role/location refused must not stop the rest
-
-                for job in self.parse(html):
-                    if job.external_id in seen:
-                        continue
-                    seen.add(job.external_id or job.url)
-                    jobs.append(job)
+                jobs.extend(self.dedup_seen(seen, self.parse(html)))
         return jobs
 
     # -- pure parsing -------------------------------------------------------
@@ -138,7 +131,7 @@ class WellfoundScraper(ScraperBase):
 
         locations = entry.get("locationNames")
         location = ", ".join(locations) if isinstance(locations, list) and locations else None
-        country = _single_country(locations)
+        country = parse_single_country(locations)
 
         work_mode, remote = _work_mode(entry)
 
@@ -149,7 +142,7 @@ class WellfoundScraper(ScraperBase):
             # experience rules will read it.
             description = f"Experience required: {years}+ years\n\n{description or ''}".strip()
 
-        posted_at = _epoch(entry.get("liveStartAt"))
+        posted_at = parse_epoch_ms(entry.get("liveStartAt"))
 
         return Job.build(
             url=url,
@@ -167,7 +160,7 @@ class WellfoundScraper(ScraperBase):
             description=description,
             salary=(entry.get("compensation") or "").strip() or None,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -204,16 +197,3 @@ def _work_mode(entry: dict[str, Any]) -> tuple[WorkMode, bool | None]:
     if entry.get("remote") is True:
         return WorkMode.REMOTE, True
     return WorkMode.UNKNOWN, None
-
-
-def _single_country(locations: Any) -> str | None:
-    """Resolve only when exactly one location is given and it is recognised."""
-    if not isinstance(locations, list) or len(locations) != 1:
-        return None
-    return country_from_name(locations[0]) if isinstance(locations[0], str) else None
-
-
-def _epoch(value: Any) -> datetime | None:
-    if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value, tz=UTC)
-    return None

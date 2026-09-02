@@ -9,6 +9,7 @@ from app.sources.announcements import AnnouncementSource, YokAnnouncementSource
 from app.sources.forkjob_core.models import Company, DateSource, WorkMode
 from app.sources.forkjob_core.scrapers.bulldogjob import _QUERY, BulldogjobScraper
 from app.sources.forkjob_core.scrapers.kariyernet import KariyerNetScraper
+from app.sources.forkjob_core.scrapers.schemaorg import place
 from app.sources.forkjob_core.sources.adapters import GreenhouseAdapter
 
 pytestmark = pytest.mark.no_database
@@ -85,6 +86,12 @@ def test_greenhouse_fixture_normalizes_an_ats_job():
     assert job.department == "Engineering"
     assert job.date_source is DateSource.EMPLOYER
     assert "Seniority: Associate" in (job.description or "")
+
+
+def test_schemaorg_place_resolves_country_names_not_just_prefixes():
+    """The old code took the first two letters ("Bahrain" -> "BA")."""
+    assert place({"address": {"addressCountry": "Bahrain"}})[1] == "BH"
+    assert place({"address": {"addressCountry": "ES"}})[1] == "ES"
 
 
 def test_kariyer_fixture_uses_stable_card_attributes():

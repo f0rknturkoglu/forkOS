@@ -32,13 +32,12 @@ inside the job title and cluster matching across sources would never fire.
 
 from __future__ import annotations
 
-from email.utils import parsedate_to_datetime
 from typing import Any
 from xml.etree import ElementTree as ET
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_rfc822
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://weworkremotely.com"
@@ -82,16 +81,11 @@ class WeWorkRemotelyScraper(ScraperBase):
         seen: set[str] = set()
 
         for category in self.categories:
-            try:
-                xml = await client.get_html(FEED_URL.format(category=category))
-            except ScraperPermanentError:
+            url = FEED_URL.format(category=category)
+            xml = await self.isolate(url, lambda: client.get_html(url))
+            if xml is None:
                 continue  # one dead category must not stop the rest
-
-            for job in self.parse(xml):
-                if job.url in seen:
-                    continue
-                seen.add(job.url)
-                jobs.append(job)
+            jobs.extend(self.dedup_seen(seen, self.parse(xml)))
         return jobs
 
     # -- pure parsing -------------------------------------------------------
@@ -120,7 +114,7 @@ class WeWorkRemotelyScraper(ScraperBase):
         region_text = (item.findtext("region") or "").strip() or None
         country = _country(region_text)
 
-        posted_at = _rfc822(item.findtext("pubDate"))
+        posted_at = parse_rfc822(item.findtext("pubDate"))
 
         return Job.build(
             url=url,
@@ -140,7 +134,7 @@ class WeWorkRemotelyScraper(ScraperBase):
             department=(item.findtext("category") or "").strip() or None,
             description=html_to_text(item.findtext("description")),
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -171,12 +165,3 @@ def _country(region_text: Any) -> str | None:
     if len(parts) != 1:
         return None
     return country_from_name(parts[0])
-
-
-def _rfc822(value: Any) -> Any:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    try:
-        return parsedate_to_datetime(value.strip())
-    except (TypeError, ValueError):
-        return None

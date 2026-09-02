@@ -45,8 +45,8 @@ from typing import Any
 from selectolax.parser import HTMLParser, Node
 
 from ..geo import region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_datetime, sitemap_locations
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://www.jobfluent.com"
@@ -57,7 +57,6 @@ DEFAULT_REGIONS = ("remote", "barcelona", "madrid", "valencia")
 DEFAULT_MAX_OFFERS = 40
 
 POSTING = '[itemtype*="JobPosting"]'
-_LOC_RE = re.compile(r"<loc>\s*(.*?)\s*</loc>", re.S | re.I)
 
 
 class JobFluentScraper(ScraperBase):
@@ -164,13 +163,13 @@ class JobFluentScraper(ScraperBase):
             department=_prop(card, "occupationalCategory") or _prop(card, "industry"),
             description=description,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
 def parse_offer_sitemap(xml: str) -> list[str]:
     """Posting URLs from an offers-list.xml."""
-    return [u for u in _LOC_RE.findall(xml or "") if "/jobs/" in u]
+    return [u for u in sitemap_locations(xml) if "/jobs/" in u]
 
 
 def _prop(node: Node, name: str) -> str | None:

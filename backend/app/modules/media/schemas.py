@@ -395,12 +395,6 @@ class MediaDashboardOut(BaseModel):
     stats: MediaStats
 
 
-class ProgressValidationOut(BaseModel):
-    valid: bool
-    actual: float
-    expected: float
-
-
 class MetadataResult(BaseModel):
     """Provider arama sonucunun ortak, kayda dönüştürülebilir biçimi."""
 

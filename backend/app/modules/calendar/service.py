@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.entity import archive_entity, create_entity, touch_entity
+from app.core.entity import archive_entity, create_entity, touch_entity, restore_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.core.time import local_datetime, local_today
@@ -123,9 +123,7 @@ async def sync_google(session: AsyncSession) -> int:
             await touch_entity(
                 session, existing.id, title=title, search_text=raw.get("location", "")
             )
-            entity = await session.get(Entity, existing.id)
-            if entity:
-                entity.archived_at = None
+            await restore_entity(session, existing.id)
         existing.calendar_id = raw.get("organizer", {}).get("email")
         existing.starts_at = starts_at
         existing.ends_at = ends_at

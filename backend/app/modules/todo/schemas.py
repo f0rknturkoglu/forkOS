@@ -63,6 +63,9 @@ class TodoOut(BaseModel):
     #: Gorev bir projeye bagliysa dolu -- arayuzde rozet olarak gosterilir.
     project_id: uuid.UUID | None = None
     project_title: str | None = None
+    #: Learning'den uretilen gorevin geri donus hedefi (`prepares_for`).
+    learning_topic_id: uuid.UUID | None = None
+    learning_topic_title: str | None = None
     milestone_id: uuid.UUID | None = None
     #: Plan bilgisi (plan_slot'tan). Plan ile due_at FARKLI kavramlardir:
     #: plan = "bugun yapmayi planliyorum", due_at = "bugun teslim".

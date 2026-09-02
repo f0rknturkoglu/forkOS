@@ -39,7 +39,7 @@ from typing import Any
 from selectolax.parser import HTMLParser, Node
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode, utcnow
+from ..models import Job, Layer, Region, WorkMode, date_source_for, utcnow
 from ..normalize import html_to_text
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
@@ -147,7 +147,7 @@ class EuroTechJobsScraper(ScraperBase):
             posted_at=posted_at,
             # Relative prose, never an absolute publish date — so this decays
             # at half weight rather than being trusted as `employer`.
-            date_source=DateSource.UPDATED if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

@@ -112,9 +112,14 @@ async def csv_export(session: AsyncSession, module: str) -> str:
 
 async def markdown_export(session: AsyncSession) -> str:
     lines = ["# forkOS Export", ""]
+    # p.notes 0029'da note tablosuna tasindi; proje notlarini oradan topla.
     project_rows = (
         await session.execute(
-            text("""select e.title, p.status, p.next_action, p.notes
+            text("""select e.title, p.status, p.next_action,
+                           (select string_agg(n.body, E'\\n\\n---\\n\\n'
+                                              order by n.journal_day nulls last, e2.created_at)
+                            from note n join entity e2 on e2.id = n.id
+                            where n.project_id = p.id and n.body <> '') as notes
                     from project p join entity e on e.id=p.id order by p.position""")
         )
     ).mappings()

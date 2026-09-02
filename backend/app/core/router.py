@@ -11,21 +11,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import contributions as contribution_svc
 from app.core import events as event_svc
+from app.core import graph as graph_svc
 from app.core import links as link_svc
+from app.core.events import log_event
 from app.core import registry as registry_svc
 from app.core import runs as run_svc
 from app.core import search as search_svc
 from app.core import tags as tag_svc
-from app.core.events import log_event
-from app.core.models import Entity, Notification, SavedView
+from app.core.models import Entity, Notification
 from app.core.schemas import (
     EntityOut,
     EventOut,
     LinkIn,
     NotificationOut,
     RelatedOut,
-    SavedViewIn,
-    SavedViewOut,
     SourceRunOut,
     TagOut,
 )
@@ -217,6 +216,23 @@ async def delete_link(body: LinkIn, session: AsyncSession = Depends(get_session)
     await session.commit()
 
 
+@router.get("/graph")
+async def knowledge_graph(
+    focus: uuid.UUID | None = None,
+    depth: int = Query(2, ge=1, le=4),
+    limit: int = Query(graph_svc.MAX_NODES, ge=1, le=graph_svc.MAX_NODES),
+    session: AsyncSession = Depends(get_session),
+):
+    """Bilgi grafi: dugum = entity, kenar = link. focus verilirse o kaydin cevresi."""
+    return await graph_svc.build(session, focus=focus, depth=depth, limit=limit)
+
+
+@router.get("/entities/{entity_id}/backlinks")
+async def entity_backlinks(entity_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Bu kayda [[...]] ile baglanan kayitlar."""
+    return await graph_svc.backlinks(session, entity_id)
+
+
 @router.get("/tags", response_model=list[TagOut])
 async def list_tags(session: AsyncSession = Depends(get_session)):
     return [TagOut(name=name, count=count) for name, count in await tag_svc.list_tags(session)]
@@ -230,29 +246,3 @@ async def source_health(
     """Her kaynagin son kosumu. 'empty' veya 'error' goruyorsan bir sey kirilmis."""
     return await run_svc.health(session, limit=limit)
 
-
-@router.get("/views", response_model=list[SavedViewOut])
-async def list_views(
-    module: str | None = None,
-    session: AsyncSession = Depends(get_session),
-):
-    stmt = select(SavedView).order_by(SavedView.position, SavedView.name)
-    if module:
-        stmt = stmt.where(SavedView.module == module)
-    return list((await session.execute(stmt)).scalars())
-
-
-@router.post("/views", response_model=SavedViewOut, status_code=201)
-async def create_view(body: SavedViewIn, session: AsyncSession = Depends(get_session)):
-    view = SavedView(**body.model_dump())
-    session.add(view)
-    await session.commit()
-    return view
-
-
-@router.delete("/views/{view_id}", status_code=204)
-async def delete_view(view_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    view = await session.get(SavedView, view_id)
-    if view is not None:
-        await session.delete(view)
-        await session.commit()

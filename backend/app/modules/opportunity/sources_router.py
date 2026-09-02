@@ -53,6 +53,9 @@ async def source_catalog():
             "id": source.id,
             "interval_minutes": source.interval_minutes,
             "kind": "announcement" if source in ANNOUNCEMENT_SOURCES else "job",
+            #: Portalin katalog kategorisi (startup/regional/...) — LayerB portal
+            #: kayitlarinda tanimli; ATS/duyuru kaynaklarinda yoktur.
+            "category": getattr(source, "category", None),
         }
         for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
     ]

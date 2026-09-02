@@ -78,7 +78,9 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   dosya adı numarasına güvenilmez (gerçek zincir: `backend/alembic/README.md`).
 - View/trigger yazılmaz; son tarihler `deadline_provider` ile toplanır (kural 16).
 
-## 4. Faz 12: study + learning tek modül
+## 8. Faz notları (değişiklik kaydı)
+
+### Faz 12: study + learning tek modül
 
 - `study` modülü `learning`'e birleştirildi (`backend/app/modules/learning/`).
   Tablolar AYNEN durur (`study_area`, `study_topic`, `course`); birleşen
@@ -96,7 +98,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - Not: `learning.write` invalidation'ı `related` anahtarını da tazeler
   (bağ kurma konu detayına anında yansır).
 
-## Faz 13: "bugüne al" — plan, son tarih değil
+### Faz 13: "bugüne al" — plan, son tarih değil
 
 - Plan (`plan_slot`) ile son tarih (`due_at`) ayrı kavramlardır:
   plan = "bugün yapmayı planlıyorum", due_at = "teslim". Göreve plan
@@ -120,7 +122,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   seçim `localStorage["todo.planToday"]`'da hatırlanır. Formda plan ile son
   tarih ayrı etiketlenir ("bugüne al" vs "Son tarih").
 
-## Faz 15: secret güvenli yedekleme
+### Faz 15: secret güvenli yedekleme
 
 - Secret ayar sınıflandırması TEK kaynakta: `backend/app/modules/system/
   secrets.py::SECRET_SETTING_KEYS`. İsimde "key" geçmesine güvenilmez;
@@ -136,7 +138,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
    değişmez. Geçmişte alınmış yedeklerdeki API anahtarlarının döndürülmesi
    (rotation) önerilir.
 
-## Faz 16: merge import ile gerçek disaster restore ayrımı
+### Faz 16: merge import ile gerçek disaster restore ayrımı
 
 - `/backup/restore` **birleştirerek içe aktarır**: `ON CONFLICT DO NOTHING`,
   mevcut kayıtlara dokunulmaz, eksikler eklenir; idempotent. UI'da "Geri
@@ -155,7 +157,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   truncate/event DELETE yapılmaz; bu CLI, dokümante edilmiş ayrı bir
      disaster recovery sınırıdır. UI'da tek tık destructive buton yoktur.
 
-## Faz 17: ortak task creation intent'i
+### Faz 17: ortak task creation intent'i
 
 - Backend'de görev oluşturmanın TEK sınırı `todo.service.create()`'dir.
   Context adapter'ları delege eder ve kendi ilişkisini aynı transaction'da
@@ -176,7 +178,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   yönlendirmez; başarı toast'ı verir ("bugüne planlandı" rozetli).
 - Otomatik üretilen rutin occurrence'ları (`_spawn_next_occurrence`) bu
   katmandan geçmez ve kullanıcı istemedikçe plana yazılmaz.
-## Faz 18: sistem genelinde görünür entity ilişkileri
+### Faz 18: sistem genelinde görünür entity ilişkileri
 
 - `RelatedPanel` (`frontend/src/core/RelatedPanel.tsx`) her linklenebilir
   entity'nin detay/focus yüzeyinde ilişkileri gösterir: Todo (`?focus`),
@@ -189,7 +191,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   bağlama ve duplicate (`link_uniq`) backend'de engellenir. Koruyan testler:
   `frontend/src/core/relatedSurfaces.test.ts` (tip→yüzey matrisi),
   `backend/tests/test_links_api.py` (self/duplicate/direction/labels).
-## Faz 19: Today widget sozlesmesi ve kisilestirme
+### Faz 19: Today widget sozlesmesi ve kisilestirme
 
 - Her Today widget'i benzersiz kalici `id` + gorunen `title` tasir
   (moduller arasi; kullanici tercihlerinin anahtari oldugu icin yeniden
@@ -205,7 +207,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   varsayilana don. React key = widget id.
 - Koruyan testler: `frontend/src/core/todayWidgets.test.ts` (benzersiz id,
   kullanici sirasi, gizleme, legacy goc, bilinmeyen id).
-## Faz 20: Today sadelestirme, performans ve dogrulama
+### Faz 20: Today sadelestirme, performans ve dogrulama
 
 - Bilgi hiyerarsisi odakli varsayilanla saglanir: ikincil widget'lar
   `defaultVisible: false` tasir (akis, emek haritasi, geciken/takvim --
@@ -218,7 +220,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   varsayilan bozulmaz. React Query istekleri dedupe eder; Today yuklemesi
   ~17 benzersiz kucuk uca bolunur -- aggregator endpoint gerekmedi.
   Tek widget'in hatasi panoyu bozmaz (her widget kendi query'sini yonetir).
-## Faz 21: yerel hizli notlar
+### Faz 21: yerel hizli notlar
 
 - Backend `note` modulu: PK entity.id'ye FK (kural 1); baslik Entity.title'da
   (body'den turetilir: ilk satir, 60 karakter, bos ise "Not"); `search_text`
@@ -229,7 +231,9 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Documents icindeki focused nota gider (EntityTypeSpec rotasi) -- ayri
   sidebar modulu YOK. Documents sayfasi "Yerel Notlar" + "Drive Belgeleri"
   ayrimini gosterir.
-- Migration `0028_note` (head). Not: `test_media_domain_migration` artik
+- Migration `0036_milestone_entity` (head). Not: `test_media_domain_migration` artik
+  ortak test DB'sini her zaman head'e birakiyor (son iki test book
+  revizyonunda kaliyordu ve yeni head tablolarini dusuruyordu).
 - Faz 28: disaster restore transaction-safe. `restore.restore(commit=False)`
   yukleme islemini commit etmez; `disaster_restore` temizle+yukle+dogrula
   akisini tek transaction'da yapar, yalnizca tum dogrulama gecerse COMMIT,
@@ -241,7 +245,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   engine'ini kullanir (app-disidir). Akis: durdur -> dump -> migrate ->
   transactional restore+verify -> commit; hata -> rollback + dump yolu.
 
-## Faz 22: evrensel yakalama kutusu
+### Faz 22: evrensel yakalama kutusu
 
 - `core/capture.ts` TEK intent katmani: `capture({kind, text, ...})` --
   task (Faz 17 createTask, "bugune al" tercihi uygulanir), note (Faz 21
@@ -260,7 +264,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - Girenler: Command Palette "Hizli yakala" (settings modulu), DropCapture
   metin birakmasi (kutuya prefilled acilir). Extension outbox degismez.
 
-## Faz 23: yerel Turkce tarih/gorev ayristirma
+### Faz 23: yerel Turkce tarih/gorev ayristirma
 
 - `lib/taskParser.ts::parseTaskText` saf ve yan etkisizdir (network/LLM
   yok): temiz baslik + onerilen plan_day / due_at / saat / oncelik /
@@ -275,7 +279,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   cozuldu" seridinde gosterilir, alanlar kullanici dokunmadikca
   on-doldurulur (kullanici override'i parserdan once gelir); onay olmadan
   kayit olusmaz. 12 parser testi (sinirlar dahil).
-## Faz 24: rutin gorev semantigi (dogrulama + UX)
+### Faz 24: rutin gorev semantigi (dogrulama + UX)
 
 - Mevcut backend davranisi dogrulandi ve DEGISTIRILMEDI (testlerle
   sabitlendi, `tests/test_todo_recur.py`): cuma->pazartesi (weekdays),
@@ -286,7 +290,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - TodoRow: rutin cipi "her gun" + sonraki tarihi gosterir; "Rutini
   durdur" aksiyonu PATCH recur:'' yapar -- gorev SILINMEZ, yalnizca
   gelecekte yeni occurrence uretimi kapanir (gecmis Activity'de kalir).
-## Faz 25: gunluk ritim orkestrasyonu
+### Faz 25: gunluk ritim orkestrasyonu
 
 - `Today` modulunde `today.rhythm` widget'i (sol, order 5): sabah
   (gelen kutusu + ilk 3 planli is + ilk odak), gun icinde (siradaki
@@ -300,7 +304,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Kullanici widget gizleme ile kapatabilir (Faz 19); gamification yok.
 - ReviewWidget'daki tam degerlendirme kartini tekrarlamaz (ritim yalniz
   durum satiri + yonlendirme verir).
-## Faz 26: PWA bildirimleri + servis sagligi
+### Faz 26: PWA bildirimleri + servis sagligi
 
 - `core/desktopNotifications.ts`: mevcut `notification` tablosu + panel
   kullanilir (ikinci tablo YOK). Yeni/okunmamis ve importance >= 2
@@ -315,7 +319,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   bayatligi (48s+) -- mevcut endpoint'lerden, yeni uc yok.
 - Uygulama offline'da salt okunur; yazma kapali (OfflineWriteError).
 
-## Faz 29-30: yakalama formu ve tarih dogrulugu
+### Faz 29-30: yakalama formu ve tarih dogrulugu
 
 - Capture formunda kullanicinin dokundugu plan, son tarih, oncelik ve etiket
   alanlari parser onerilerinden ayrilir. Metindeki acik tarih global
@@ -326,7 +330,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - Parser temiz basligi gonderir; gecerli HTTP(S) URL olmadan baglanti
   yakalanamaz.
 
-## Faz 31-32: ortak gorev intent'i ve registry deep-link'leri
+### Faz 31-32: ortak gorev intent'i ve registry deep-link'leri
 
 - Tum gorev girisleri `createTask` veya `planDayForToday` sozlesmesinden
   gecer. Opportunity ve Learning baglamlari da `plan_day` kabul eder;
@@ -336,7 +340,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Learning, konu kimligini `GET /study/topics/{id}` ile dogrudan cozer ve
   alt konu baska bir alanda olsa bile dogru alani acar.
 
-## Faz 33: Today orkestrasyonu
+### Faz 33: Today orkestrasyonu
 
 - `today.rhythm`, acik/doing plan slotlarini agenda ve todo verisiyle
   birlestirir. Ilk odak aksiyonu todo context/topic bilgisini Pomodoro'ya
@@ -347,7 +351,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   reddedilir. Tamamlanmis/dropped gorevler tasinmaz ve hedef duplicate
   olusturmaz.
 
-## Faz 34: yasam dongusu ve bildirim teslimati
+### Faz 34: yasam dongusu ve bildirim teslimati
 
 - Rutin durdurma bildirimi yalniz API basarisindan sonra gosterilir; notta
   body ve pinned degisiklikleri ayri anlamli event'ler uretir, bos PATCH
@@ -357,7 +361,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Bildirim id'si yalniz Notification constructor basariliysa delivered
   listesine yazilir; hata sonraki turda yeniden denenir.
 
-### macOS otomatik baslatma (launchd) -- KAYIT: dokuman, calistirilmaz
+#### macOS otomatik baslatma (launchd) -- KAYIT: dokuman, calistirilmaz
 
 Sistem durumunu DEGISTIRMEK icin bu betigi calistirmak gerekir; repo
 calistirma yapmaz. Mutlak proje yolu: `REPO=/Users/<kullanici>/forkOS`.

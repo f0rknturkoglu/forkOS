@@ -55,6 +55,7 @@ interface Repo {
 }
 
 const HN_ITEM = "https://news.ycombinator.com/item?id=";
+const STREAM_LIMIT = 15;
 
 const FILTERS: { id: "all" | Origin; label: string }[] = [
   { id: "all", label: "tümü" },
@@ -191,7 +192,7 @@ export function FeedStreamWidget() {
   ]
     .filter((item) => filter === "all" || item.origin === filter)
     .sort((a, b) => b.at - a.at)
-    .slice(0, 16);
+    .slice(0, STREAM_LIMIT);
 
   return (
     <Section

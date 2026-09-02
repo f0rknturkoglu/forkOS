@@ -25,10 +25,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urljoin
 
-from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime
-from .base import ScraperBase, ScraperConfig, ScraperHttpClient
+from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import find_type, ld_blocks, organisation_name, place, text
 
 BASE_URL = "https://www.gulftalent.com"
@@ -90,7 +89,7 @@ class GulfTalentScraper(ScraperBase):
 
                 try:
                     html = await client.get_html(card.url)
-                except Exception:
+                except ScraperPermanentError:
                     continue  # One dead detail page must not sink the whole run.
 
                 for job in self._parse_detail(html, card.url, cutoff):
@@ -119,7 +118,7 @@ class GulfTalentScraper(ScraperBase):
             url = f"{SEARCH_URL}?keyword={keyword.replace(' ', '+')}&sort=d&page={page}"
             try:
                 html = await client.get_html(url)
-            except Exception:
+            except ScraperPermanentError:
                 break
 
             page_cards = self._parse_listing(html, BASE_URL)
@@ -171,12 +170,9 @@ class GulfTalentScraper(ScraperBase):
         company = organisation_name(posting.get("hiringOrganization")) or "?"
 
         # Location via the shared helper: returns (city, ISO country).
-        city, country_code = place(posting.get("jobLocation"))
-        # `place()` does naive [:2] on the country name, which is wrong for
-        # multi-letter codes (e.g. Bahrain → BA instead of BH). Resolve properly.
-        country = country_code
+        city, country = place(posting.get("jobLocation"))
         if city and not country:
-            # Fall back: resolve country from the city name.
+            # Fall back: resolve country from the city name (e.g. "Manama" -> BH).
             country = country_from_name(city)
         loc_str = ", ".join(p for p in (city, country) if p) or None
 
@@ -238,5 +234,5 @@ class GulfTalentScraper(ScraperBase):
             work_mode=work_mode,
             description=description,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )

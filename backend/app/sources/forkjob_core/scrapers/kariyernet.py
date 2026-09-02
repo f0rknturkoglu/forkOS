@@ -114,17 +114,15 @@ class KariyerNetScraper(ScraperBase):
                 url = SEARCH_URL.format(keyword=keyword)
                 if page > 1:
                     url = f"{url}?sayfa={page}"
-                try:
-                    html = await client.get_html(url)
-                except ScraperPermanentError:
+                html = await self.isolate(url, lambda: client.get_html(url))
+                if html is None:
                     break  # blocked or gone — drop this keyword, keep the rest
 
                 page_jobs = self.parse(html)
                 if not page_jobs:
                     break  # ran past the last page
 
-                fresh = [j for j in page_jobs if j.url not in seen]
-                seen.update(j.url for j in fresh)
+                fresh = self.dedup_seen(seen, page_jobs)
                 jobs.extend(fresh)
 
                 # A keyword search returns the same postings under several

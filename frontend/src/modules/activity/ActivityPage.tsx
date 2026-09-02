@@ -4,7 +4,8 @@ import { ChevronDown, ClipboardCheck } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
 import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx, relativeTime } from "@/core/ui";
-import { localDateKey } from "@/lib/date";
+import { formatTrDate, localDateKey } from "@/lib/date";
+import { typeLabel } from "@/core/entityRegistry";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
 
 /** Geçmiş değerlendirmeler -- GET /reviews ucu. Etiket döneme gore. */
@@ -19,18 +20,14 @@ interface ReviewOut {
 function reviewLabel(start: string, end: string): string {
   const s = new Date(start + "T00:00:00");
   const e = new Date(end + "T00:00:00");
-  const month = (d: Date) => d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+  const month = (d: Date) => formatTrDate(d, { day: "numeric", month: "short" });
   if (s.toDateString() === e.toDateString()) return month(s);
   return `${month(s)} – ${month(e)}`;
 }
 import { ALERT_VERBS, describe } from "@/core/verbs";
 
 function dayLabel(iso: string): string {
-  return new Date(iso).toLocaleDateString("tr-TR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  return formatTrDate(iso, { weekday: "long", day: "numeric", month: "long" });
 }
 
 function isAlert(event: ActivityEvent): boolean {
@@ -179,7 +176,7 @@ export function ActivityPage() {
                           <span className="ml-2 text-meta text-muted">{relativeTime(event.occurred_at)}</span>
                           {event.entity_type && (
                             <span className="ml-2">
-                              <Chip>{event.entity_type}</Chip>
+                              <Chip>{typeLabel(event.entity_type)}</Chip>
                             </span>
                           )}
                         </div>

@@ -31,4 +31,11 @@ describe("responsive Today layout", () => {
     expect(source).not.toContain('fetch("https://hn.algolia.com');
     expect(source).not.toContain("fetch(\n        `https://api.github.com");
   });
+
+  it("keeps the reading stream to a compact 15 items", () => {
+    const source = readFileSync(new URL("./widgets/FeedStreamWidget.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("const STREAM_LIMIT = 15");
+    expect(source).toContain(".slice(0, STREAM_LIMIT)");
+  });
 });

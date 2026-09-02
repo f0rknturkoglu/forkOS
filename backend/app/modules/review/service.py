@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.entity import create_entity
 from app.core.events import log_event
 from app.core.models import Entity, Event
-from app.core.time import local_datetime, local_day_bounds
+from app.core.time import local_datetime, local_day_bounds, local_zone
 from app.modules.learning.models import StudyArea, StudyTopic
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
@@ -53,18 +53,23 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
         (Event.verb == "habit.checked", Event.payload["habit"].astext),
         else_=Event.payload["title"].astext,
     )
-    focus = (
+    focus_rows = (
         await session.execute(
-            select(
-                func.coalesce(func.sum(minutes_expr), 0),
-                func.count(),
-            ).where(
+            select(Event.occurred_at, minutes_expr).where(
                 Event.verb == "pomodoro.completed",
                 Event.occurred_at >= start_dt,
                 Event.occurred_at < end_dt,
             )
         )
-    ).one()
+    ).all()
+    focus_by_day: dict[date, int] = {}
+    focus_minutes: list[int] = []
+    for occurred_at, raw_minutes in focus_rows:
+        minutes = int(raw_minutes or 0)
+        focus_minutes.append(minutes)
+        day = occurred_at.astimezone(local_zone()).date()
+        focus_by_day[day] = focus_by_day.get(day, 0) + minutes
+    best_focus = max(focus_by_day.items(), key=lambda item: item[1], default=(None, 0))
     interrupted = await _event_count(session, "pomodoro.interrupted", start_dt, end_dt)
     topic_rows = (
         await session.execute(
@@ -146,6 +151,22 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             .order_by(Todo.priority.desc(), Todo.due_at.asc().nullslast())
         )
     ).all()
+    completed_rows = (
+        await session.execute(
+            select(
+                Event.entity_id,
+                Event.payload["title"].astext,
+                Event.occurred_at,
+            )
+            .where(
+                Event.verb == "todo.completed",
+                Event.occurred_at >= start_dt,
+                Event.occurred_at < end_dt,
+            )
+            .order_by(Event.occurred_at.desc())
+            .limit(100)
+        )
+    ).all()
     stats = {
         "todos": {
             "completed": await _event_count(session, "todo.completed", start_dt, end_dt),
@@ -153,7 +174,15 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             "dropped": await _event_count(session, "todo.dropped", start_dt, end_dt),
             "overdue_now": overdue,
         },
-        "focus": {"minutes": int(focus[0]), "sessions": int(focus[1]), "interrupted": interrupted},
+        "focus": {
+            "minutes": sum(focus_minutes),
+            "sessions": len(focus_rows),
+            "interrupted": interrupted,
+            "active_days": len(focus_by_day),
+            "best_day": best_focus[0],
+            "best_day_minutes": best_focus[1],
+            "longest_session": max(focus_minutes, default=0),
+        },
         "topics": [
             {"topic": topic or "Genel", "minutes": int(minutes or 0)}
             for topic, minutes in topic_rows
@@ -162,6 +191,7 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
         "capture": {
             "bookmarks": await _event_count(session, "bookmark.saved", start_dt, end_dt),
             "rss_read": await _event_count(session, "rss.item_read", start_dt, end_dt),
+            "notes": await _event_count(session, "note.created", start_dt, end_dt),
         },
         "applications": {
             "discovered": await _event_count(session, "opportunity.items_added", start_dt, end_dt),
@@ -182,8 +212,21 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
         }
         for row in unfinished_rows
     ]
+    completed = [
+        {
+            "id": str(row.entity_id) if row.entity_id else None,
+            "title": row[1] or "Görev",
+            "completed_at": row.occurred_at.isoformat(),
+        }
+        for row in completed_rows
+    ]
     return ReviewPreview(
-        kind=kind, period_start=start, period_end=end, stats=stats, unfinished_todos=unfinished
+        kind=kind,
+        period_start=start,
+        period_end=end,
+        stats=stats,
+        unfinished_todos=unfinished,
+        completed_todos=completed,
     )
 
 

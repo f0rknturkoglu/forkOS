@@ -40,12 +40,11 @@ from __future__ import annotations
 
 import html as html_lib
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_epoch_ms
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://europa.eu/eures"
@@ -285,17 +284,18 @@ class EuresScraper(ScraperBase):
             for country in search.countries:
                 for page in range(1, search.max_pages + 1):
                     payload = self.build_payload(search, country, page)
-                    try:
-                        data = await client.post_json(SEARCH_API, payload, headers=self.headers)
-                    except ScraperPermanentError:
+                    data = await self.isolate(
+                        f"{country} page {page}", lambda: client.post_json(
+                            SEARCH_API, payload, headers=self.headers
+                        )
+                    )
+                    if data is None:
                         break  # one slice failing must not sink the rest
 
                     page_jobs = self.parse(data)
                     # The searches overlap by design — an entry-level posting
                     # may also carry the EURES flag — so dedup across them.
-                    fresh = [j for j in page_jobs if j.external_id not in seen]
-                    seen.update(j.external_id for j in fresh if j.external_id)
-                    jobs.extend(fresh)
+                    jobs.extend(self.dedup_seen(seen, page_jobs))
 
                     total = data.get("numberRecords") if isinstance(data, dict) else None
                     if not page_jobs or (
@@ -336,7 +336,7 @@ class EuresScraper(ScraperBase):
         languages = entry.get("availableLanguages")
         language = languages[0] if isinstance(languages, list) and languages else None
 
-        posted_at = _epoch_ms(entry.get("creationDate"))
+        posted_at = parse_epoch_ms(entry.get("creationDate"))
 
         return Job.build(
             url=DETAIL_URL.format(id=posting_id),
@@ -356,7 +356,7 @@ class EuresScraper(ScraperBase):
             description=description,
             language=language,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -372,12 +372,6 @@ def _location(location_map: Any) -> tuple[str | None, str | None]:
         return None, None
     country = next(iter(location_map))
     return (country.upper()[:2] if isinstance(country, str) else None), None
-
-
-def _epoch_ms(value: Any) -> datetime | None:
-    if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value / 1000, tz=UTC)
-    return None
 
 
 def _country_codes(values: Any) -> tuple[str, ...]:

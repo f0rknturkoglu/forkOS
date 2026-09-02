@@ -23,8 +23,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import DateSource, Job, Layer, WorkMode
-from ..normalize import parse_datetime
+from ..models import date_source_for, Job, Layer, WorkMode
+from ..normalize import format_salary, parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://4dayweek.io/api/v2/jobs"
@@ -47,18 +47,14 @@ class FourDayWeekScraper(ScraperBase):
         jobs: list[Job] = []
         seen: set[str] = set()
         for page in range(1, self.max_pages + 1):
-            try:
-                payload = await client.get_json(f"{API_URL}?page={page}&limit={PAGE_SIZE}")
-            except ScraperPermanentError:
-                break
-            if not isinstance(payload, dict):
+            url = f"{API_URL}?page={page}&limit={PAGE_SIZE}"
+            payload = await self.isolate(url, lambda: client.get_json(url))
+            if payload is None or not isinstance(payload, dict):
                 break
             page_jobs = self.parse(payload)
             if not page_jobs:
                 break
-            fresh = [j for j in page_jobs if j.external_id not in seen]
-            seen.update(j.external_id for j in fresh if j.external_id)
-            jobs.extend(fresh)
+            jobs.extend(self.dedup_seen(seen, page_jobs))
             # The API says whether there is more; asking past the end would
             # just burn a request.
             if not payload.get("has_more"):
@@ -149,7 +145,7 @@ class FourDayWeekScraper(ScraperBase):
             description=description,
             salary=salary,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -174,13 +170,4 @@ def _salary(entry: dict[str, Any]) -> str | None:
         return None
     currency = (entry.get("salary_currency") or "").upper()
     period = entry.get("salary_period") or ""
-    parts = []
-    if low is not None and high is not None and low != high:
-        parts.append(f"{low:g}-{high:g}")
-    else:
-        parts.append(f"{(low if low is not None else high):g}")
-    if currency:
-        parts.append(currency)
-    if period:
-        parts.append(f"/{period}")
-    return " ".join(parts) or None
+    return format_salary(low, high, currency, suffix=f"/{period}" if period else "")

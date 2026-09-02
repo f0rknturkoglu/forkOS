@@ -51,15 +51,13 @@ class JavascriptJobsScraper(ScraperBase):
         seen: set[str] = set()
         for page in range(1, self.max_pages + 1):
             url = LISTING_URL if page == 1 else f"{LISTING_URL}?page={page}"
-            try:
-                html = await client.get_html(url)
-            except ScraperPermanentError:
+            html = await self.isolate(url, lambda: client.get_html(url))
+            if html is None:
                 break
             page_jobs = self.parse(html)
             if not page_jobs:
                 break
-            fresh = [j for j in page_jobs if j.url not in seen]
-            seen.update(j.url for j in fresh)
+            fresh = self.dedup_seen(seen, page_jobs)
             jobs.extend(fresh)
             if not fresh:
                 break

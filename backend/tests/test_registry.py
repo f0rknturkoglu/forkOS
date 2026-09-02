@@ -16,8 +16,10 @@ from app.modules import MODULES
 FRONTEND_ROUTES = {
     "/bookmarks", "/inbox", "/rss", "/todos", "/planner", "/today", "/",
     "/pomodoro", "/review/daily", "/review/weekly", "/opportunities", "/sources",
-    "/study", "/learning", "/documents", "/calendar", "/media", "/media/collections", "/media/{id}",
+    "/study", "/learning", "/documents", "/notes", "/calendar", "/media",
+    "/media/collections", "/media/{id}",
     "/projects", "/finance", "/health", "/settings", "/activity", "/day",
+    "/flashcard", "/statistics",
 }
 
 
@@ -50,3 +52,8 @@ def test_module_entity_types_are_registered_in_their_module():
     for module in MODULES:
         for spec in module.entity_types:
             assert spec.type, f"{module.id}: bossuz entity tipi"
+
+
+def test_study_topic_route_opens_the_exact_topic():
+    study_topic = next(spec for spec in all_entity_types() if spec.type == "study_topic")
+    assert study_topic.route == "/learning?focus={id}"

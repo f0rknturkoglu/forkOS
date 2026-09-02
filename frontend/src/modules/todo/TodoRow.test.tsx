@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TodoRow } from "./TodoRow";
 import { planLabel } from "./priority";
+import { POMODORO_OPEN_EVENT, type PomodoroOpenRequest } from "@/modules/pomodoro/dock";
 
 vi.mock("@/core/api", () => ({
   api: {
@@ -200,5 +201,34 @@ describe("TodoRow plan bilgisi", () => {
   it("due_at varsa 'bugune tarihle' gosterilmez", () => {
     renderRow(baseTodo({ due_at: new Date().toISOString() }));
     expect(screen.queryByTitle("Son tarih ver (bugün) — plan değil")).toBeNull();
+  });
+});
+
+describe("TodoRow kaynak entegrasyonlari", () => {
+  it("learning'den gelen gorevin basligini asil konu agacina baglar", () => {
+    renderRow(
+      baseTodo({
+        title: "Git Temelleri",
+        learning_topic_id: "topic-42",
+        learning_topic_title: "Git Temelleri",
+      }),
+    );
+
+    const link = screen.getByRole("link", { name: "Git Temelleri" });
+    expect(link.getAttribute("href")).toBe("#/learning?focus=topic-42");
+    expect(screen.getByText("Öğrenme")).toBeTruthy();
+  });
+
+  it("odak aksiyonu sayfa degistirmek yerine global Pomodoro'yu baglamla acar", () => {
+    let detail: PomodoroOpenRequest | undefined;
+    const listener = (event: Event) => {
+      detail = (event as CustomEvent<PomodoroOpenRequest>).detail;
+    };
+    window.addEventListener(POMODORO_OPEN_EVENT, listener);
+    renderRow(baseTodo({ id: "todo-42", title: "Git çalış" }));
+
+    fireEvent.click(screen.getByTitle("Odaklan — pomodoro seçeneklerini aç"));
+    expect(detail).toEqual({ context: "todo-42", topic: "Git çalış" });
+    window.removeEventListener(POMODORO_OPEN_EVENT, listener);
   });
 });

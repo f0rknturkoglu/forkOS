@@ -73,6 +73,48 @@ async def test_browse_filters_jobs_and_paginates(client: AsyncClient):
             await client.delete(f"/api/opportunities/{item_id}")
 
 
+async def test_browse_remote_facet_buckets_raw_values(client: AsyncClient):
+    """Remote facet ham metni degil kanonik kovalari doner; filtre ayni kovayla eslesir."""
+    marker = uuid.uuid4().hex[:10]
+    created_ids: list[str] = []
+    try:
+        for title, remote in (
+            (f"Remote Role {marker} 1", "Remote - EU"),
+            (f"Remote Role {marker} 2", "remote"),
+            (f"Hybrid Role {marker}", "hibrit"),
+            (f"Office Role {marker}", "Onsite"),
+            (f"Untagged Role {marker}", None),
+        ):
+            response = await client.post(
+                "/api/opportunities",
+                json={"title": title, "kind": "job", "remote": remote},
+            )
+            assert response.status_code == 201
+            created_ids.append(response.json()["id"])
+
+        response = await client.get(
+            "/api/opportunities/browse",
+            params={"section": "jobs", "search": marker},
+        )
+        assert response.status_code == 200
+        facets = response.json()["facets"]["remote"]
+        assert facets["remote"] == 2
+        assert facets["hybrid"] == 1
+        assert facets["onsite"] == 1
+        assert facets["unknown"] == 1
+
+        filtered = await client.get(
+            "/api/opportunities/browse",
+            params={"section": "jobs", "search": marker, "remote": "remote"},
+        )
+        assert filtered.status_code == 200
+        assert filtered.json()["total"] == 2
+    finally:
+        for item_id in created_ids:
+            await client.post(f"/api/opportunities/{item_id}/trash")
+            await client.delete(f"/api/opportunities/{item_id}")
+
+
 async def test_browse_filters_an_inclusive_score_range(client: AsyncClient):
     marker = uuid.uuid4().hex[:10]
     created_ids = await _create_scored_jobs(client, marker, (20, 40, 80, None))

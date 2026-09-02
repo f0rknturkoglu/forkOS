@@ -60,6 +60,11 @@ async def test_learning_topic_todo_is_one_transaction_with_link() -> None:
         todo = response.json()
         assert todo["title"] == "Türev"
 
+        listed = (await client.get("/api/todos", params={"limit": 100})).json()
+        linked_todo = next(item for item in listed if item["id"] == todo["id"])
+        assert linked_todo["learning_topic_id"] == topic["id"]
+        assert linked_todo["learning_topic_title"] == "Türev"
+
         # Bagi dogrula: todo -> topic, prepares_for (tek transaction kaniti).
         async with SessionLocal() as session:
             rows = (

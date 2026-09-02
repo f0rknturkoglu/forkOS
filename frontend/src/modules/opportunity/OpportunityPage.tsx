@@ -8,6 +8,7 @@ import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
+import { SavedViewPicker } from "@/core/SavedViewPicker";
 import { useOnline } from "@/lib/hooks";
 import { OpportunityDetail } from "./OpportunityDetail";
 import { JobhunterSettings } from "./JobhunterSettings";
@@ -61,6 +62,7 @@ export function OpportunityPage() {
     initialPageParam: 0,
     queryFn: ({ pageParam }) => api.get<OpportunityBrowseResponse>(browseQuery({ ...queryFilters, offset: pageParam })),
     getNextPageParam: (lastPage) => {
+      if (lastPage.items.length === 0) return undefined;
       const next = lastPage.offset + lastPage.items.length;
       return next < lastPage.total ? next : undefined;
     },
@@ -79,8 +81,8 @@ export function OpportunityPage() {
     filters.max_score !== undefined,
   );
 
-  const patch = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/opportunities/${id}`, { status }),
+  const transition = useMutation({
+    mutationFn: ({ id, to }: { id: string; to: string }) => api.post(`/opportunities/${id}/transition`, { to }),
     onSuccess: () => invalidateAfter("opportunity.write"),
   });
   const lifecycle = useMutation({
@@ -107,6 +109,41 @@ export function OpportunityPage() {
     setFilters((current) => switchOpportunitySection(current, section));
   const resetFilters = () =>
     setFilters((current) => switchOpportunitySection({ ...INITIAL_FILTERS, search: current.search }, current.section));
+
+  /** Kayıtlı görünümü uygula: tanınan anahtarları filtreye aktar, gerisini yok say. */
+  function applyView(raw: unknown) {
+    const data = (raw ?? {}) as Record<string, unknown>;
+    setFilters((current) => {
+      let next = { ...current, offset: 0 };
+      const section = data.section;
+      if (section === "jobs" || section === "announcements" || section === "trash") {
+        if (section !== current.section) next = switchOpportunitySection(next, section);
+      }
+      if (typeof data.search === "string") next.search = data.search;
+      if (typeof data.category === "string") next.category = data.category;
+      if (typeof data.status === "string") next.status = data.status;
+      if (typeof data.source === "string") next.source = data.source;
+      if (typeof data.region === "string") next.region = data.region;
+      if (typeof data.remote === "string") next.remote = data.remote;
+      if (data.announcement_source === "ylsy" || data.announcement_source === "osym" || data.announcement_source === "other") {
+        next.announcement_source = data.announcement_source;
+      }
+      if (typeof data.period_days === "number") next.period_days = data.period_days;
+      if (typeof data.year === "number") next.year = data.year;
+      if (typeof data.min_score === "number") next.min_score = data.min_score;
+      if (typeof data.max_score === "number") next.max_score = data.max_score;
+      if (
+        data.sort === "score" ||
+        data.sort === "score_asc" ||
+        data.sort === "newest" ||
+        data.sort === "oldest" ||
+        data.sort === "deadline"
+      ) {
+        next.sort = data.sort;
+      }
+      return next;
+    });
+  }
 
   const saveItem = (item: Opportunity) => {
     if (item.url) {
@@ -159,6 +196,7 @@ export function OpportunityPage() {
         <IconButton title="Jobhunter ayarları" onClick={() => setShowSettings(true)}>
           <Settings2 size={15} />
         </IconButton>
+        <SavedViewPicker module="opportunity" filters={filters} onApply={applyView} />
         <SourcePicker />
         <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5">
           <IconButton
@@ -250,11 +288,11 @@ export function OpportunityPage() {
                   item={item}
                   disabled={!online}
                   onOpen={() => setSelected(item.id)}
-                  onStatus={(status) => patch.mutate({ id: item.id, status })}
+                  onStatus={(status) => transition.mutate({ id: item.id, to: status })}
                   isTrash={filters.section === "trash"}
                   layout={view}
                   sourceActive={filters.source === item.source}
-                  remoteActive={filters.remote === item.remote || filters.remote === remoteKind(item.remote)}
+                  remoteActive={filters.remote === remoteKind(item.remote)}
                   onSource={(source) =>
                     setFilters((current) => ({
                       ...current,
@@ -265,8 +303,7 @@ export function OpportunityPage() {
                   onRemote={(remote) =>
                     setFilters((current) => ({
                       ...current,
-                      remote:
-                        current.remote === item.remote || current.remote === remote ? "" : (item.remote ?? remote),
+                      remote: current.remote === remote ? "" : remote,
                       offset: 0,
                     }))
                   }

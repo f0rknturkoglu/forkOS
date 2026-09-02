@@ -52,6 +52,7 @@ class FeedItem(EntityBacked, Base):
     author: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str | None] = mapped_column(Text)          # content:encoded (okuma bolmesi)
+    full_text: Mapped[str | None] = mapped_column(Text)       # talebe bagli readability cikarimi (0038)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now())

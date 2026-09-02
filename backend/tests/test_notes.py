@@ -33,6 +33,43 @@ async def test_create_derives_title_from_body(client: AsyncClient) -> None:
     await client.delete(f"/api/notes/{note['id']}")
 
 
+async def test_note_media_is_served_and_listed_in_graph(client: AsyncClient) -> None:
+    note = (await client.post("/api/notes", json={"body": "# Görsel günlük"})).json()
+    content = b"local-image-payload"
+    uploaded = await client.post(
+        f"/api/notes/{note['id']}/attachments",
+        files={"file": ("gunluk.png", content, "image/png")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    attachment = uploaded.json()
+    assert attachment["mime"] == "image/png"
+
+    fetched = await client.get(attachment["url"])
+    assert fetched.status_code == 200
+    assert fetched.content == content
+
+    refreshed = (await client.get(f"/api/notes/{note['id']}")).json()
+    assert refreshed["attachments"][0]["name"] == "gunluk.png"
+    graph = (await client.get("/api/graph")).json()
+    assert note["id"] in {node["id"] for node in graph["nodes"]}
+
+    removed = await client.delete(
+        f"/api/notes/{note['id']}/attachments/{attachment['id']}"
+    )
+    assert removed.status_code == 204
+    await client.delete(f"/api/notes/{note['id']}")
+
+
+async def test_note_attachment_rejects_unsupported_content(client: AsyncClient) -> None:
+    note = (await client.post("/api/notes", json={"body": "Dosya sınırı"})).json()
+    response = await client.post(
+        f"/api/notes/{note['id']}/attachments",
+        files={"file": ("script.svg", b"<svg></svg>", "image/svg+xml")},
+    )
+    assert response.status_code == 422
+    await client.delete(f"/api/notes/{note['id']}")
+
+
 async def test_update_touches_search_text(client: AsyncClient) -> None:
     note = (await client.post("/api/notes", json={"body": "Eski içerik"})).json()
     patched = await client.patch(f"/api/notes/{note['id']}", json={"body": "Yeni içerik burada"})

@@ -438,6 +438,24 @@
         "title": "ApplicationOut",
         "type": "object"
       },
+      "ApplicationReviewStats": {
+        "properties": {
+          "discovered": {
+            "title": "Discovered",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "discovered",
+          "updated"
+        ],
+        "title": "ApplicationReviewStats",
+        "type": "object"
+      },
       "ApplyIn": {
         "description": "Ilk basvuru: durum 'applied' yapar, snapshot'i birlikte alir.",
         "properties": {
@@ -531,6 +549,20 @@
         "title": "AreaIn",
         "type": "object"
       },
+      "Body_import_cards_api_flashcard_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_cards_api_flashcard_import_post",
+        "type": "object"
+      },
       "Body_import_opml_api_rss_import_post": {
         "properties": {
           "file": {
@@ -571,6 +603,20 @@
           "file"
         ],
         "title": "Body_restore_backup_api_backup_restore_post",
+        "type": "object"
+      },
+      "Body_upload_attachment_api_notes__note_id__attachments_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_attachment_api_notes__note_id__attachments_post",
         "type": "object"
       },
       "BookmarkOut": {
@@ -933,6 +979,10 @@
             "title": "Bookmarks",
             "type": "integer"
           },
+          "notes": {
+            "title": "Notes",
+            "type": "integer"
+          },
           "rss_read": {
             "title": "Rss Read",
             "type": "integer"
@@ -940,9 +990,143 @@
         },
         "required": [
           "bookmarks",
-          "rss_read"
+          "rss_read",
+          "notes"
         ],
         "title": "CaptureReviewStats",
+        "type": "object"
+      },
+      "CardIn": {
+        "properties": {
+          "back": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Back",
+            "type": "string"
+          },
+          "front": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Front",
+            "type": "string"
+          }
+        },
+        "required": [
+          "front",
+          "back"
+        ],
+        "title": "CardIn",
+        "type": "object"
+      },
+      "CardOut": {
+        "properties": {
+          "back": {
+            "title": "Back",
+            "type": "string"
+          },
+          "deck_id": {
+            "format": "uuid",
+            "title": "Deck Id",
+            "type": "string"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "ease": {
+            "title": "Ease",
+            "type": "number"
+          },
+          "front": {
+            "title": "Front",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interval_days": {
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "lapses": {
+            "title": "Lapses",
+            "type": "integer"
+          },
+          "reps": {
+            "title": "Reps",
+            "type": "integer"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "deck_id",
+          "front",
+          "back",
+          "interval_days",
+          "ease",
+          "due_at",
+          "reps",
+          "lapses",
+          "suspended"
+        ],
+        "title": "CardOut",
+        "type": "object"
+      },
+      "CardPatch": {
+        "properties": {
+          "back": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back"
+          },
+          "front": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Front"
+          },
+          "suspended": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspended"
+          }
+        },
+        "title": "CardPatch",
         "type": "object"
       },
       "CarryOverIn": {
@@ -981,6 +1165,87 @@
           "count"
         ],
         "title": "CollectionCount",
+        "type": "object"
+      },
+      "CompletedTodo": {
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "completed_at"
+        ],
+        "title": "CompletedTodo",
+        "type": "object"
+      },
+      "ContextOut": {
+        "description": "Odaklanilabilecek bir kayit: gorev, calisma konusu, kaynak, proje...",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title"
+        ],
+        "title": "ContextOut",
+        "type": "object"
+      },
+      "CounterBreakdown": {
+        "description": "Bir sayacin uc zaman dilimi: bugun (app gunu), son 7 gun, tum zamanlar.",
+        "properties": {
+          "today": {
+            "title": "Today",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "today",
+          "week",
+          "total"
+        ],
+        "title": "CounterBreakdown",
         "type": "object"
       },
       "CourseIn": {
@@ -1092,6 +1357,76 @@
           }
         },
         "title": "CoursePatch",
+        "type": "object"
+      },
+      "DeckIn": {
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "DeckIn",
+        "type": "object"
+      },
+      "DeckOut": {
+        "properties": {
+          "card_count": {
+            "title": "Card Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_count": {
+            "title": "Due Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "new_count": {
+            "title": "New Count",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "card_count",
+          "due_count",
+          "new_count",
+          "created_at"
+        ],
+        "title": "DeckOut",
+        "type": "object"
+      },
+      "DeckPatch": {
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "DeckPatch",
         "type": "object"
       },
       "EntityOut": {
@@ -1624,8 +1959,32 @@
       },
       "FocusReviewStats": {
         "properties": {
+          "active_days": {
+            "title": "Active Days",
+            "type": "integer"
+          },
+          "best_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Day"
+          },
+          "best_day_minutes": {
+            "title": "Best Day Minutes",
+            "type": "integer"
+          },
           "interrupted": {
             "title": "Interrupted",
+            "type": "integer"
+          },
+          "longest_session": {
+            "title": "Longest Session",
             "type": "integer"
           },
           "minutes": {
@@ -1640,7 +1999,11 @@
         "required": [
           "minutes",
           "sessions",
-          "interrupted"
+          "interrupted",
+          "active_days",
+          "best_day",
+          "best_day_minutes",
+          "longest_session"
         ],
         "title": "FocusReviewStats",
         "type": "object"
@@ -1769,6 +2132,27 @@
         "title": "GithubCredentialsIn",
         "type": "object"
       },
+      "GithubReviewStats": {
+        "properties": {
+          "commits": {
+            "title": "Commits",
+            "type": "integer"
+          },
+          "repos": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Repos",
+            "type": "object"
+          }
+        },
+        "required": [
+          "commits",
+          "repos"
+        ],
+        "title": "GithubReviewStats",
+        "type": "object"
+      },
       "GlobalMetadataSearchOut": {
         "properties": {
           "results": {
@@ -1853,6 +2237,35 @@
         "title": "HistoryOut",
         "type": "object"
       },
+      "ImportOut": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "deck_id": {
+            "format": "uuid",
+            "title": "Deck Id",
+            "type": "string"
+          },
+          "deck_title": {
+            "title": "Deck Title",
+            "type": "string"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deck_id",
+          "deck_title",
+          "added",
+          "skipped"
+        ],
+        "title": "ImportOut",
+        "type": "object"
+      },
       "ImportResult": {
         "properties": {
           "added": {
@@ -1877,6 +2290,142 @@
           "skipped"
         ],
         "title": "ImportResult",
+        "type": "object"
+      },
+      "IncomeIn": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category": {
+            "default": "salary",
+            "title": "Category",
+            "type": "string"
+          },
+          "currency": {
+            "default": "TRY",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "received_on": {
+            "format": "date",
+            "title": "Received On",
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "amount"
+        ],
+        "title": "IncomeIn",
+        "type": "object"
+      },
+      "IncomePatch": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "maxLength": 3,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "received_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received On"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "IncomePatch",
         "type": "object"
       },
       "InterviewIn": {
@@ -4306,6 +4855,83 @@
         "title": "MilestonePatch",
         "type": "object"
       },
+      "MonthlyPoint": {
+        "properties": {
+          "bookmarks": {
+            "title": "Bookmarks",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "integer"
+          },
+          "pomodoros": {
+            "title": "Pomodoros",
+            "type": "integer"
+          },
+          "reviews": {
+            "title": "Reviews",
+            "type": "integer"
+          },
+          "rss_read": {
+            "title": "Rss Read",
+            "type": "integer"
+          },
+          "todos": {
+            "title": "Todos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "pomodoros",
+          "todos",
+          "bookmarks",
+          "notes",
+          "rss_read",
+          "reviews"
+        ],
+        "title": "MonthlyPoint",
+        "type": "object"
+      },
+      "NoteAttachmentOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mime": {
+            "title": "Mime",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "mime",
+          "size",
+          "url"
+        ],
+        "title": "NoteAttachmentOut",
+        "type": "object"
+      },
       "NoteIn": {
         "properties": {
           "body": {
@@ -4330,6 +4956,13 @@
               }
             ],
             "title": "Relate To"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
           }
         },
         "required": [
@@ -4340,6 +4973,13 @@
       },
       "NoteOut": {
         "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/NoteAttachmentOut"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
           "body": {
             "title": "Body",
             "type": "string"
@@ -4382,9 +5022,30 @@
             ],
             "title": "Project Id"
           },
+          "resolved_links": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedLink"
+            },
+            "title": "Resolved Links",
+            "type": "array"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "unresolved_links": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unresolved Links",
+            "type": "array"
           },
           "updated_at": {
             "format": "date-time",
@@ -4428,6 +5089,20 @@
               }
             ],
             "title": "Pinned"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
           }
         },
         "title": "NoteUpdate",
@@ -5357,6 +6032,17 @@
             ],
             "title": "Context Title"
           },
+          "context_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Type"
+          },
           "ended_at": {
             "anyOf": [
               {
@@ -5824,6 +6510,19 @@
             ],
             "title": "Category"
           },
+          "currency": {
+            "anyOf": [
+              {
+                "maxLength": 3,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
           "frequency": {
             "anyOf": [
               {
@@ -5974,63 +6673,35 @@
         "title": "RequirementIn",
         "type": "object"
       },
-      "ReviewIn": {
+      "ResolvedLink": {
+        "description": "Govdedeki [[hedef]] -> gercek kayit.",
         "properties": {
-          "decisions": {
-            "additionalProperties": true,
-            "default": {},
-            "title": "Decisions",
-            "type": "object"
-          },
-          "kind": {
-            "enum": [
-              "daily",
-              "weekly"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "period_start": {
-            "format": "date",
-            "title": "Period Start",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "period_start"
-        ],
-        "title": "ReviewIn",
-        "type": "object"
-      },
-      "ReviewOut": {
-        "properties": {
-          "decisions": {
-            "additionalProperties": true,
-            "title": "Decisions",
-            "type": "object"
-          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
           },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "id",
+          "type"
+        ],
+        "title": "ResolvedLink",
+        "type": "object"
+      },
+      "ResourceIn": {
+        "properties": {
           "kind": {
-            "enum": [
-              "daily",
-              "weekly"
-            ],
+            "default": "link",
             "title": "Kind",
             "type": "string"
           },
@@ -6045,36 +6716,160 @@
             ],
             "title": "Note"
           },
-          "period_end": {
-            "format": "date",
-            "title": "Period End",
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
             "type": "string"
           },
-          "period_start": {
-            "format": "date",
-            "title": "Period Start",
-            "type": "string"
-          },
-          "stats": {
-            "additionalProperties": true,
-            "title": "Stats",
-            "type": "object"
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
           }
         },
         "required": [
-          "id",
-          "kind",
-          "period_start",
-          "period_end",
-          "stats",
-          "decisions",
-          "note"
+          "title"
         ],
-        "title": "ReviewOut",
+        "title": "ResourceIn",
+        "type": "object"
+      },
+      "ResourcePatch": {
+        "properties": {
+          "completed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "ResourcePatch",
+        "type": "object"
+      },
+      "ResourceSeed": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "default": "link",
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ResourceSeed",
         "type": "object"
       },
       "ReviewPreview": {
         "properties": {
+          "completed_todos": {
+            "items": {
+              "$ref": "#/components/schemas/CompletedTodo"
+            },
+            "title": "Completed Todos",
+            "type": "array"
+          },
           "kind": {
             "enum": [
               "daily",
@@ -6109,18 +6904,25 @@
           "period_start",
           "period_end",
           "stats",
-          "unfinished_todos"
+          "unfinished_todos",
+          "completed_todos"
         ],
         "title": "ReviewPreview",
         "type": "object"
       },
       "ReviewStats": {
         "properties": {
+          "applications": {
+            "$ref": "#/components/schemas/ApplicationReviewStats"
+          },
           "capture": {
             "$ref": "#/components/schemas/CaptureReviewStats"
           },
           "focus": {
             "$ref": "#/components/schemas/FocusReviewStats"
+          },
+          "github": {
+            "$ref": "#/components/schemas/GithubReviewStats"
           },
           "habits": {
             "additionalProperties": {
@@ -6128,6 +6930,9 @@
             },
             "title": "Habits",
             "type": "object"
+          },
+          "study": {
+            "$ref": "#/components/schemas/StudyReviewStats"
           },
           "todos": {
             "$ref": "#/components/schemas/TodoReviewStats"
@@ -6145,7 +6950,10 @@
           "focus",
           "topics",
           "habits",
-          "capture"
+          "capture",
+          "applications",
+          "study",
+          "github"
         ],
         "title": "ReviewStats",
         "type": "object"
@@ -6199,11 +7007,11 @@
         "title": "SaveItemIn",
         "type": "object"
       },
-      "SavedViewIn": {
+      "SavedViewCreate": {
+        "description": "POST /views govdesi: position sunucu tarafinda (max+1) hesaplanir.",
         "properties": {
           "filter": {
             "additionalProperties": true,
-            "default": {},
             "title": "Filter",
             "type": "object"
           },
@@ -6214,16 +7022,6 @@
           "name": {
             "title": "Name",
             "type": "string"
-          },
-          "pinned": {
-            "default": false,
-            "title": "Pinned",
-            "type": "boolean"
-          },
-          "position": {
-            "default": 0,
-            "title": "Position",
-            "type": "integer"
           },
           "sort": {
             "anyOf": [
@@ -6239,9 +7037,10 @@
         },
         "required": [
           "name",
-          "module"
+          "module",
+          "filter"
         ],
-        "title": "SavedViewIn",
+        "title": "SavedViewCreate",
         "type": "object"
       },
       "SavedViewOut": {
@@ -6293,6 +7092,58 @@
           "id"
         ],
         "title": "SavedViewOut",
+        "type": "object"
+      },
+      "SavedViewPatch": {
+        "description": "PATCH /views/{id} govdesi: verilen alanlar guncellenir.",
+        "properties": {
+          "filter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pinned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          }
+        },
+        "title": "SavedViewPatch",
         "type": "object"
       },
       "SettingIn": {
@@ -6649,6 +7500,65 @@
         "title": "SourceSyncStatusOut",
         "type": "object"
       },
+      "StatisticsSummary": {
+        "description": "Keyfi verb ailesine gore sayaclar: family adi -> dilimler.",
+        "properties": {
+          "applications": {
+            "$ref": "#/components/schemas/CounterBreakdown"
+          },
+          "counters": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CounterBreakdown"
+            },
+            "title": "Counters",
+            "type": "object"
+          },
+          "streak": {
+            "$ref": "#/components/schemas/StreakOut"
+          }
+        },
+        "required": [
+          "counters",
+          "applications",
+          "streak"
+        ],
+        "title": "StatisticsSummary",
+        "type": "object"
+      },
+      "StreakOut": {
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "integer"
+          },
+          "longest": {
+            "title": "Longest",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "current",
+          "longest"
+        ],
+        "title": "StreakOut",
+        "type": "object"
+      },
+      "StudyReviewStats": {
+        "properties": {
+          "minutes_by_area": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Minutes By Area",
+            "type": "object"
+          }
+        },
+        "required": [
+          "minutes_by_area"
+        ],
+        "title": "StudyReviewStats",
+        "type": "object"
+      },
       "SyncIn": {
         "properties": {
           "category": {
@@ -6923,6 +7833,29 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "learning_topic_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learning Topic Id"
+          },
+          "learning_topic_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learning Topic Title"
           },
           "milestone_id": {
             "anyOf": [
@@ -7252,6 +8185,88 @@
         "title": "TodoUpdate",
         "type": "object"
       },
+      "TopicImportIn": {
+        "additionalProperties": false,
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "area_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicSeed"
+            },
+            "minItems": 1,
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "topics"
+        ],
+        "title": "TopicImportIn",
+        "type": "object"
+      },
+      "TopicImportOut": {
+        "properties": {
+          "area_id": {
+            "format": "uuid",
+            "title": "Area Id",
+            "type": "string"
+          },
+          "area_title": {
+            "title": "Area Title",
+            "type": "string"
+          },
+          "resources_created": {
+            "title": "Resources Created",
+            "type": "integer"
+          },
+          "resources_skipped": {
+            "title": "Resources Skipped",
+            "type": "integer"
+          },
+          "topics_created": {
+            "title": "Topics Created",
+            "type": "integer"
+          },
+          "topics_matched": {
+            "title": "Topics Matched",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "area_id",
+          "area_title",
+          "topics_created",
+          "topics_matched",
+          "resources_created",
+          "resources_skipped"
+        ],
+        "title": "TopicImportOut",
+        "type": "object"
+      },
       "TopicIn": {
         "properties": {
           "area_id": {
@@ -7411,6 +8426,53 @@
           "minutes"
         ],
         "title": "TopicReviewStats",
+        "type": "object"
+      },
+      "TopicSeed": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/TopicSeed"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceSeed"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "status": {
+            "default": "not_started",
+            "title": "Status",
+            "type": "string"
+          },
+          "target_min": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "TopicSeed",
         "type": "object"
       },
       "TopicTodoIn": {
@@ -7586,6 +8648,139 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "app__modules__flashcard__schemas__ReviewIn": {
+        "properties": {
+          "grade": {
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Grade",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "grade"
+        ],
+        "title": "ReviewIn",
+        "type": "object"
+      },
+      "app__modules__flashcard__schemas__ReviewOut": {
+        "properties": {
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "interval_days": {
+            "title": "Interval Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "due_at",
+          "interval_days"
+        ],
+        "title": "ReviewOut",
+        "type": "object"
+      },
+      "app__modules__review__schemas__ReviewIn": {
+        "properties": {
+          "decisions": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Decisions",
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "daily",
+              "weekly"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "period_start"
+        ],
+        "title": "ReviewIn",
+        "type": "object"
+      },
+      "app__modules__review__schemas__ReviewOut": {
+        "properties": {
+          "decisions": {
+            "additionalProperties": true,
+            "title": "Decisions",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "daily",
+              "weekly"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "title": "Stats",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "period_start",
+          "period_end",
+          "stats",
+          "decisions",
+          "note"
+        ],
+        "title": "ReviewOut",
         "type": "object"
       }
     }
@@ -8885,6 +10080,48 @@
         ]
       }
     },
+    "/api/entities/{entity_id}/backlinks": {
+      "get": {
+        "description": "Bu kayda [[...]] ile baglanan kayitlar.",
+        "operationId": "entity_backlinks_api_entities__entity_id__backlinks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Backlinks",
+        "tags": [
+          "core"
+        ]
+      }
+    },
     "/api/entities/{entity_id}/related": {
       "get": {
         "description": "Bagli kayitlar: iliski + yon (outgoing/incoming) + karsi entity ozeti.",
@@ -8984,69 +10221,6 @@
           }
         },
         "summary": "Add Expense",
-        "tags": [
-          "finance"
-        ]
-      }
-    },
-    "/api/expenses/summary": {
-      "get": {
-        "operationId": "summary_api_expenses_summary_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "year",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Year"
-            }
-          },
-          {
-            "in": "query",
-            "name": "month",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Month"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Summary",
         "tags": [
           "finance"
         ]
@@ -9272,6 +10446,788 @@
         ]
       }
     },
+    "/api/finance/overview": {
+      "get": {
+        "description": "Bir ayin gelir/gider/net tablosu -- sayfa basligi tek cagriyla dolar.",
+        "operationId": "overview_api_finance_overview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Overview",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/summary": {
+      "get": {
+        "description": "Son `months` ayin gelir/gider toplamlari -- sayfa grafigi serisi.",
+        "operationId": "summary_api_finance_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Summary",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/flashcard/cards/{card_id}": {
+      "delete": {
+        "operationId": "delete_card_api_flashcard_cards__card_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Card",
+        "tags": [
+          "flashcard"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_card_api_flashcard_cards__card_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Card",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/flashcard/cards/{card_id}/review": {
+      "post": {
+        "operationId": "review_api_flashcard_cards__card_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__modules__flashcard__schemas__ReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__modules__flashcard__schemas__ReviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/flashcard/decks": {
+      "get": {
+        "operationId": "decks_api_flashcard_decks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeckOut"
+                  },
+                  "title": "Response Decks Api Flashcard Decks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Decks",
+        "tags": [
+          "flashcard"
+        ]
+      },
+      "post": {
+        "operationId": "add_deck_api_flashcard_decks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Deck",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/flashcard/decks/{deck_id}": {
+      "delete": {
+        "operationId": "delete_deck_api_flashcard_decks__deck_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deck_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deck Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Deck",
+        "tags": [
+          "flashcard"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_deck_api_flashcard_decks__deck_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deck_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deck Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeckPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Deck",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/flashcard/decks/{deck_id}/cards": {
+      "get": {
+        "description": "?due=1: tekrar sirasi (once vadesi gelen, sonra yeni; her biri 40 kart).",
+        "operationId": "cards_api_flashcard_decks__deck_id__cards_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deck_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deck Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "due",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Due",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CardOut"
+                  },
+                  "title": "Response Cards Api Flashcard Decks  Deck Id  Cards Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cards",
+        "tags": [
+          "flashcard"
+        ]
+      },
+      "post": {
+        "operationId": "add_card_api_flashcard_decks__deck_id__cards_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deck_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deck Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Card",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/flashcard/import": {
+      "post": {
+        "description": "Anki .apkg / .csv / .txt ic aktarim. `deck` = hedef destek adi (opsiyonel).",
+        "operationId": "import_cards_api_flashcard_import_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "deck",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deck"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_cards_api_flashcard_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Cards",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/graph": {
+      "get": {
+        "description": "Bilgi grafi: dugum = entity, kenar = link. focus verilirse o kaydin cevresi.",
+        "operationId": "knowledge_graph_api_graph_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "focus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Focus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 4,
+              "minimum": 1,
+              "title": "Depth",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 400,
+              "maximum": 400,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Knowledge Graph",
+        "tags": [
+          "core"
+        ]
+      }
+    },
+    "/api/incomes": {
+      "get": {
+        "operationId": "incomes_api_incomes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Incomes",
+        "tags": [
+          "finance"
+        ]
+      },
+      "post": {
+        "operationId": "add_income_api_incomes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Income",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/incomes/{item_id}": {
+      "delete": {
+        "operationId": "delete_income_api_incomes__item_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Income",
+        "tags": [
+          "finance"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_income_api_incomes__item_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Income",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/interviews/{interview_id}": {
       "delete": {
         "operationId": "delete_interview_api_interviews__interview_id__delete",
@@ -9359,27 +11315,65 @@
         ]
       }
     },
-    "/api/learning/queue": {
-      "get": {
-        "operationId": "queue_api_learning_queue_get",
+    "/api/learning/resources/{resource_id}": {
+      "delete": {
+        "operationId": "delete_resource_api_learning_resources__resource_id__delete",
         "parameters": [
           {
-            "in": "query",
-            "name": "kind",
-            "required": false,
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Kind"
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
             }
           }
         ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Resource",
+        "tags": [
+          "learning"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_resource_api_learning_resources__resource_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourcePatch"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -9400,7 +11394,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Queue",
+        "summary": "Patch Resource",
         "tags": [
           "learning"
         ]
@@ -10039,78 +12033,6 @@
           }
         },
         "summary": "Media Providers",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/api/media/search": {
-      "get": {
-        "operationId": "search_metadata_api_media_search_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "q",
-            "required": true,
-            "schema": {
-              "minLength": 2,
-              "title": "Q",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "kind",
-            "required": true,
-            "schema": {
-              "title": "Kind",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "provider",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Provider"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MetadataResult"
-                  },
-                  "title": "Response Search Metadata Api Media Search Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Search Metadata",
         "tags": [
           "media"
         ]
@@ -10941,6 +12863,23 @@
               "title": "Include Archived",
               "type": "boolean"
             }
+          },
+          {
+            "in": "query",
+            "name": "about",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "About"
+            }
           }
         ],
         "responses": {
@@ -11188,6 +13127,154 @@
           }
         },
         "summary": "Archive Note",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/attachments": {
+      "post": {
+        "operationId": "upload_attachment_api_notes__note_id__attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_attachment_api_notes__note_id__attachments_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteAttachmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Attachment",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/attachments/{attachment_id}": {
+      "delete": {
+        "operationId": "remove_attachment_api_notes__note_id__attachments__attachment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Attachment",
+        "tags": [
+          "note"
+        ]
+      },
+      "get": {
+        "operationId": "get_attachment_api_notes__note_id__attachments__attachment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Attachment",
         "tags": [
           "note"
         ]
@@ -12838,6 +14925,60 @@
         ]
       }
     },
+    "/api/pomodoro/contexts": {
+      "get": {
+        "description": "Odak seansina baglam olabilecek kayitlar (gorev, konu, kaynak...).",
+        "operationId": "contexts_api_pomodoro_contexts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContextOut"
+                  },
+                  "title": "Response Contexts Api Pomodoro Contexts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Contexts",
+        "tags": [
+          "pomodoro"
+        ]
+      }
+    },
     "/api/pomodoro/sessions": {
       "get": {
         "operationId": "sessions_api_pomodoro_sessions_get",
@@ -13986,7 +16127,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ReviewOut"
+                    "$ref": "#/components/schemas/app__modules__review__schemas__ReviewOut"
                   },
                   "title": "Response List Reviews Api Reviews Get",
                   "type": "array"
@@ -14017,7 +16158,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviewIn"
+                "$ref": "#/components/schemas/app__modules__review__schemas__ReviewIn"
               }
             }
           },
@@ -14028,7 +16169,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReviewOut"
+                  "$ref": "#/components/schemas/app__modules__review__schemas__ReviewOut"
                 }
               }
             },
@@ -14550,6 +16691,48 @@
           }
         },
         "summary": "Get Item",
+        "tags": [
+          "rss"
+        ]
+      }
+    },
+    "/api/rss/items/{item_id}/fulltext": {
+      "get": {
+        "description": "Tam metin: cache'te varsa dondur, yoksa talebe bagli fetch edip kalicilastirir.\n\nFetch basarisiz / cikarilamazsa full_text: null doner (hata mesaji yok;\nistemci butonu tekrar gosterir). Ayni item'a eszamanli cift istek null gorur.",
+        "operationId": "item_full_text_api_rss_items__item_id__fulltext_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Item Full Text",
         "tags": [
           "rss"
         ]
@@ -15331,6 +17514,76 @@
         ]
       }
     },
+    "/api/statistics/monthly": {
+      "get": {
+        "operationId": "statistics_monthly_api_statistics_monthly_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MonthlyPoint"
+                  },
+                  "title": "Response Statistics Monthly Api Statistics Monthly Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Statistics Monthly",
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
+    "/api/statistics/summary": {
+      "get": {
+        "operationId": "statistics_summary_api_statistics_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Statistics Summary",
+        "tags": [
+          "statistics"
+        ]
+      }
+    },
     "/api/study/areas": {
       "get": {
         "operationId": "areas_api_study_areas_get",
@@ -15418,6 +17671,48 @@
           }
         },
         "summary": "Delete Area",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/import": {
+      "post": {
+        "description": "Konu agacini JSON'dan kurar (disarida uretilmis olabilir).\n\nYeniden yuklenebilir: ayni baslik ayni ebeveyn altinda eslesir, kopya\nolusmaz. Var olan konulari SILMEZ -- ekler ve gunceller.",
+        "operationId": "import_topics_api_study_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicImportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Topics",
         "tags": [
           "learning"
         ]
@@ -15661,6 +17956,137 @@
           }
         },
         "summary": "Patch Topic",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/topics/{topic_id}/progress": {
+      "get": {
+        "operationId": "topic_progress_api_study_topics__topic_id__progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Topic Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Topic Progress",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/topics/{topic_id}/resources": {
+      "get": {
+        "operationId": "topic_resources_api_study_topics__topic_id__resources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Topic Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Topic Resources",
+        "tags": [
+          "learning"
+        ]
+      },
+      "post": {
+        "operationId": "add_resource_api_study_topics__topic_id__resources_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Topic Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Resource",
         "tags": [
           "learning"
         ]
@@ -16160,6 +18586,7 @@
     },
     "/api/views": {
       "get": {
+        "description": "Kayitli gorunumler. Sira: sabitlenenler once, sonra konum, sonra id.",
         "operationId": "list_views_api_views_get",
         "parameters": [
           {
@@ -16207,16 +18634,17 @@
         },
         "summary": "List Views",
         "tags": [
-          "core"
+          "system"
         ]
       },
       "post": {
+        "description": "Yeni gorunum. position = modul icindeki en buyuk + 1.",
         "operationId": "create_view_api_views_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SavedViewIn"
+                "$ref": "#/components/schemas/SavedViewCreate"
               }
             }
           },
@@ -16246,7 +18674,7 @@
         },
         "summary": "Create View",
         "tags": [
-          "core"
+          "system"
         ]
       }
     },
@@ -16282,7 +18710,59 @@
         },
         "summary": "Delete View",
         "tags": [
-          "core"
+          "system"
+        ]
+      },
+      "patch": {
+        "description": "Verilen alanlari gunceller; pinned=true ise view en on konuma cekilir.",
+        "operationId": "patch_view_api_views__view_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "view_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "View Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch View",
+        "tags": [
+          "system"
         ]
       }
     },

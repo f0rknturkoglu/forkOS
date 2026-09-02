@@ -20,7 +20,10 @@ chrome.alarms.onAlarm.addListener((alarm) => alarm.name === "flush" && flush());
 async function flash(text, color) {
   await chrome.action.setBadgeBackgroundColor({ color });
   await chrome.action.setBadgeText({ text });
-  setTimeout(() => flush(), 1500);   // rozet sayaci flush icinde yeniden yazilir
+  // Rozet sayaci flush icinde yeniden yazilir; gecikme geri bildirimi
+  // gosterir, hatalar burada yakalanir (unhandled rejection yok).
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await flush().catch((err) => console.error("forkOS: flush hatasi", err));
 }
 
 chrome.commands.onCommand.addListener(async (command) => {

@@ -6,6 +6,7 @@ import type { Command as AppCommand } from "./types";
 import { Kbd } from "./ui";
 import { entityRoute, useGlobalSearch } from "./GlobalSearch";
 import { typeLabel } from "./entityRegistry";
+import { navigate } from "@/app/router";
 
 /** Ust seritteki arama kutusu da paleti bununla acar. */
 const OPEN_EVENT = "forkos:open-palette";
@@ -89,7 +90,7 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-[rgb(26_24_21/0.28)] pt-32"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-[color:var(--overlay-scrim)] pt-32"
       onClick={() => setOpen(false)}
     >
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl">
@@ -166,7 +167,7 @@ export function CommandPalette() {
                       key={hit.id}
                       value={`hit-${hit.id}`}
                       onSelect={() => {
-                        location.hash = entityRoute(hit).replace(/^#/, "");
+                        navigate(entityRoute(hit));
                         setOpen(false);
                       }}
                       className={ITEM}

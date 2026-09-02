@@ -10,6 +10,10 @@ from app.modules.learning.schemas import (
     AreaIn,
     CourseIn,
     CoursePatch,
+    ResourceIn,
+    ResourcePatch,
+    TopicImportIn,
+    TopicImportOut,
     TopicIn,
     TopicPatch,
     TopicTodoIn,
@@ -34,11 +38,6 @@ async def patch_course(id: UUID, b: CoursePatch, s: AsyncSession = Depends(get_s
     if not r:
         raise HTTPException(404)
     return r
-
-
-@router.get("/learning/queue")
-async def queue(kind: str | None = None, s: AsyncSession = Depends(get_session)):
-    return await service.queue(s, kind)
 
 
 @router.delete("/courses/{id}", status_code=204)
@@ -123,5 +122,58 @@ async def create_topic_todo(
     """
     try:
         return await service.create_todo_for_topic(session, topic_id, body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+# Kaynaklar: konunun altindaki URL/materyal listesi. Tamamlananlar konunun
+# ilerlemesini uretir (service.topic_progress).
+
+
+@router.get("/study/topics/{topic_id}/resources")
+async def topic_resources(topic_id: UUID, session: AsyncSession = Depends(get_session)):
+    return await service.list_resources(session, topic_id)
+
+
+@router.post("/study/topics/{topic_id}/resources", status_code=201)
+async def add_resource(
+    topic_id: UUID, body: ResourceIn, session: AsyncSession = Depends(get_session)
+):
+    try:
+        return await service.create_resource(session, topic_id, body)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/study/topics/{topic_id}/progress")
+async def topic_progress(topic_id: UUID, session: AsyncSession = Depends(get_session)):
+    return await service.topic_progress(session, topic_id)
+
+
+@router.patch("/learning/resources/{resource_id}")
+async def patch_resource(
+    resource_id: UUID, body: ResourcePatch, session: AsyncSession = Depends(get_session)
+):
+    result = await service.patch_resource(session, resource_id, body)
+    if result is None:
+        raise HTTPException(404, "kaynak bulunamadi")
+    return result
+
+
+@router.delete("/learning/resources/{resource_id}", status_code=204)
+async def delete_resource(resource_id: UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.delete_resource(session, resource_id):
+        raise HTTPException(404, "kaynak bulunamadi")
+
+
+@router.post("/study/import", response_model=TopicImportOut, status_code=201)
+async def import_topics(body: TopicImportIn, session: AsyncSession = Depends(get_session)):
+    """Konu agacini JSON'dan kurar (disarida uretilmis olabilir).
+
+    Yeniden yuklenebilir: ayni baslik ayni ebeveyn altinda eslesir, kopya
+    olusmaz. Var olan konulari SILMEZ -- ekler ve gunceller.
+    """
+    try:
+        return await service.import_topics(session, body)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc

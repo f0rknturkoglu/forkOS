@@ -32,7 +32,6 @@ from app.modules.media.schemas import (
     MediaSyncBatchOut,
     MediaSyncIdleOut,
     MediaUnitOut,
-    MetadataResult,
 )
 
 router = APIRouter(tags=["media"])
@@ -115,20 +114,6 @@ async def search_all_metadata(
     session: AsyncSession = Depends(get_session),
 ):
     return await service.search_all_metadata(session, q)
-
-
-@router.get("/media/search", response_model=list[MetadataResult])
-async def search_metadata(
-    q: str = Query(min_length=2),
-    kind: str = Query(...),
-    provider: str | None = None,
-    session: AsyncSession = Depends(get_session),
-):
-    _check_kind(kind)
-    try:
-        return await service.search_metadata(session, q, kind, provider_id=provider)
-    except RuntimeError as exc:
-        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/media/providers", response_model=list[MediaProviderStatusOut])

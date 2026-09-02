@@ -25,12 +25,13 @@ class Project(EntityBacked, Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
 
 
-class Milestone(Base):
+class Milestone(EntityBacked, Base):
     __tablename__ = "milestone"
+    ENTITY_TYPE = "milestone"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    #: PK entity.id'ye FK (kural 1) -- deadline_provider entity tablosundan
+    #: baslik okur; milestone son tarihleri /api/deadlines'a boyle ulasir.
+    id: Mapped[uuid.UUID] = EntityBacked._entity_pk()
     project_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("project.id", ondelete="CASCADE")
     )

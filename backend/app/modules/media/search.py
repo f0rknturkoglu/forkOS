@@ -154,23 +154,6 @@ def _metadata_result(row: ProviderResult, kind: str) -> MetadataResult:
     )
 
 
-async def search_metadata(
-    session: AsyncSession, q: str, kind: str, *, provider_id: str | None = None
-) -> list[MetadataResult]:
-    # provider_registry, service modulu uzerinden cozulur: testler
-    # monkeypatch.setattr(service, "provider_registry", ...) ile degistirir.
-    from app.modules.media import service as _service
-
-    registry = await _service.provider_registry(session)
-    provider = registry.by_id(provider_id, kind=kind) if provider_id else registry.for_kind(kind)
-    if provider is None or not provider.ready:
-        missing = provider.missing_settings if provider else ()
-        suffix = f": {', '.join(missing)}" if missing else ""
-        raise RuntimeError(f"{kind} için hazır provider yok{suffix}")
-    results = await provider.search(q)
-    return [_metadata_result(row, kind) for row in results]
-
-
 async def search_all_metadata(session: AsyncSession, q: str) -> GlobalMetadataSearchOut:
     from app.modules.media import service as _service
 

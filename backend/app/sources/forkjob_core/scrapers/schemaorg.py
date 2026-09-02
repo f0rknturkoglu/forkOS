@@ -5,12 +5,12 @@ microdata (JobFluent). The parsing quirks are the same everywhere, so they live
 here rather than being rediscovered per site.
 """
 
-from __future__ import annotations
-
 import html as html_lib
 import json
 import re
 from typing import Any
+
+from ..geo import country_code
 
 _LD_JSON_RE = re.compile(
     r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', re.S | re.I
@@ -111,7 +111,7 @@ def place(node: Any) -> tuple[str | None, str | None]:
     country = address.get("addressCountry")
     if isinstance(country, dict):
         country = country.get("name")
-    country = country.strip().upper()[:2] or None if isinstance(country, str) else None
+    country = country_code(country) if isinstance(country, str) else None
 
     return (city.strip() if isinstance(city, str) and city.strip() else None), country
 

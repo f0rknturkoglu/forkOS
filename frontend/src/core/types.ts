@@ -76,7 +76,7 @@ export interface Bookmark {
   selection: string | null;
   saved_at: string;
   tags: string[];
-  queue_kind: "watch" | "read" | "listen" | "practice" | null;
+  queue_kind?: "watch" | "read" | "listen" | "practice" | null;
 }
 
 export interface BookmarkStats {
@@ -145,6 +145,21 @@ export interface Note {
   pinned: boolean;
   created_at: string;
   updated_at: string;
+  /** Govdedeki #etiketler + elle eklenenler (tek havuz). */
+  tags?: string[];
+  /** [[...]] yazilmis ama henuz o baslikta kayit olmayan hedefler. */
+  unresolved_links?: string[];
+  /** Cozulen [[hedef]] -> gercek kayit; tiklaninca oraya gidilir. */
+  resolved_links?: { target: string; id: string; type: string }[];
+  attachments?: NoteAttachment[];
+}
+
+export interface NoteAttachment {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+  url: string;
 }
 
 export interface Todo {
@@ -164,6 +179,9 @@ export interface Todo {
   /** Gorev bir projeye bagliysa dolu -- listede rozet olarak gorunur. */
   project_id: string | null;
   project_title: string | null;
+  /** Learning'den dogduysa asil konu agacina geri donus hedefi. */
+  learning_topic_id?: string | null;
+  learning_topic_title?: string | null;
   milestone_id: string | null;
   milestone_title: string | null;
   subtask_total: number;
@@ -219,6 +237,45 @@ export interface StudyTopic {
   position: number;
   last_studied_at: string | null;
   children: StudyTopic[];
+  /** Kaynak sayacindan turetilir (alt konular dahil); kolonda tutulmaz. */
+  progress?: TopicProgress;
+}
+
+export interface TopicProgress {
+  total: number;
+  done: number;
+  pct: number;
+}
+
+export interface LearningResource {
+  id: string;
+  title: string;
+  topic_id: string;
+  url: string | null;
+  kind: string;
+  position: number;
+  completed_at: string | null;
+  note: string | null;
+}
+
+/** Bilgi grafi: dugum = entity, kenar = link (mentions dahil). */
+interface GraphNode {
+  id: string;
+  type: string;
+  title: string;
+  degree: number;
+}
+
+interface GraphEdge {
+  from: string;
+  to: string;
+  relation: string;
+}
+
+export interface KnowledgeGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  focus: string | null;
 }
 
 export interface Course {
@@ -362,6 +419,33 @@ export interface Expense {
   sub: string | null;
 }
 
+export interface Income {
+  id: string;
+  title: string;
+  amount: string;
+  currency: string;
+  category: string;
+  received_on: string;
+  note: string | null;
+}
+
+/** Bir ayin tek para birimindeki gelir/gider tablosu (/finance/overview). */
+export interface CurrencyOverview {
+  currency: string;
+  income: string;
+  expense: string;
+  net: string;
+  recurring_monthly: string;
+  expense_by_category: { category: string; amount: string }[];
+  income_by_category: { category: string; amount: string }[];
+}
+
+export interface FinanceOverview {
+  year: number;
+  month: number;
+  currencies: CurrencyOverview[];
+}
+
 export interface RecurringPayment {
   id: string;
   title: string;
@@ -392,6 +476,8 @@ export interface PomodoroSession {
   kind: "focus" | "short_break" | "long_break";
   context_entity_id: string | null;
   context_title: string | null;
+  /** Baglamin entity tipi -- "nereden geldi" rozeti bundan cizilir. */
+  context_type: string | null;
   topic: string | null;
   interrupted: boolean;
   /** Dolu ise seans duraklatilmis -- kalan sure bu ana gore hesaplanir. */
@@ -642,5 +728,7 @@ export interface ModuleSpec {
    * duser; bolge secmek icin { component, zone } yaz.
    */
   todayWidgets?: TodayWidget[];
+  /** Uygulama kabugunda her rotada tek kez render edilen modul yuzeyleri. */
+  globalSurfaces?: ComponentType[];
   commands?: Command[];
 }

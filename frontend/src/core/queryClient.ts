@@ -21,7 +21,7 @@ export function mutationErrorHandler(
  *
  * Burada durmasinin sebebi: komut paletinin komutlari React agacinin
  * DISINDA calisir (registerModule icindeki run()), yani useQueryClient
- * cagiramazlar. Yazma yapan bir komut bitince invalidate() ile ekrani
+ * cagiramazlar. Yazma yapan bir komut bitince invalidateAfter() ile ekrani
  * tazeler -- location.reload() yerine.
  *
  * Lazim olunca kurulur: testler @tanstack/react-query'i mock'ladiginda
@@ -38,10 +38,4 @@ export function queryClient(): QueryClient {
     });
   }
   return _queryClient;
-}
-
-/** Yazma sonrasi tazeleme. useInvalidate ile ayni anahtarlari alir. */
-export function invalidate(...keys: string[]): void {
-  const client = queryClient();
-  for (const key of keys) client.invalidateQueries({ queryKey: [key] });
 }

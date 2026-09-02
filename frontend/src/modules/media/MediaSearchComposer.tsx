@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { ApiError, api } from "@/core/api";
 import { Button, Chip, Input, RowList, cx } from "@/core/ui";
 import { useDebounced } from "@/lib/hooks";
 import type { GlobalMetadataSearch, MediaItem, MediaPage, MediaProviderStatus, MetadataResult } from "@/core/types";
 import { Cover, KIND_LABELS, mediaCoverUrl, mediaProvider, providerChip, providerLabel } from "./shared";
+import { invalidateAfter } from "@/core/invalidation";
 
 type DuplicateState = { href: string; term: string; identity: string };
 type AddRequest = { hit: MetadataResult; term: string };
@@ -29,8 +30,10 @@ export function providerCreateBody(hit: MetadataResult): Record<string, unknown>
 
 function existingId(error: Error): string | null {
   if (!(error instanceof ApiError) || error.status !== 409) return null;
+  // Ham govdeden existing_id cikar; `message` kullaniciya gosterilen detail
+  // metnidir ve id tasimaz.
   try {
-    const body = JSON.parse(error.message) as { existing_id?: unknown };
+    const body = JSON.parse(error.rawBody ?? "") as { existing_id?: unknown };
     return typeof body.existing_id === "string" && body.existing_id ? body.existing_id : null;
   } catch {
     return null;
@@ -76,7 +79,6 @@ export function MediaSearchComposer({
   onAdded: () => void;
   onActiveChange?: (active: boolean) => void;
 }) {
-  const client = useQueryClient();
   const [search, setSearch] = useState("");
   const searchRef = useRef(search);
   searchRef.current = search;
@@ -109,7 +111,7 @@ export function MediaSearchComposer({
     onMutate: () => setAddError(null),
     onSuccess: () => {
       setDuplicate(null);
-      client.invalidateQueries({ queryKey: ["media"] });
+      invalidateAfter("media.write");
       onAdded();
     },
     onError: (error: Error, { hit, term: initiatedTerm }: AddRequest) => {

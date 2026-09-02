@@ -4,7 +4,6 @@ import { Inbox } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import { invalidate } from "@/core/queryClient";
 import { InboxWidget } from "./InboxWidget";
 import { InboxStats } from "./InboxStats";
 

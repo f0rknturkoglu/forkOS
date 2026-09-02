@@ -26,7 +26,10 @@ async def test_review_counts_recurring_todo_completions(client: AsyncClient) -> 
     )
 
     assert response.status_code == 200
-    assert response.json()["stats"]["habits"] == {"Su iç": 1}
+    preview = response.json()
+    assert preview["stats"]["habits"] == {"Su iç": 1}
+    assert preview["stats"]["focus"]["active_days"] >= 0
+    assert {item["id"] for item in preview["completed_todos"]} >= {routine["id"], normal["id"]}
 
     created = await client.post(
         "/api/reviews",

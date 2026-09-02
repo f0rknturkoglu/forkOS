@@ -1,15 +1,23 @@
 """Layer B scraper index — maps source keys to scraper classes.
 
+Scraper classes are discovered, not listed: every module in this package is
+imported and every `ScraperBase` subclass registers itself under
+`cls.registry_keys` (or `(cls.source_key,)`). The old explicit module list
+rotted — a renamed class or a deleted file silently dropped the source.
+
 Import errors are contained here on purpose: Layer B is the fragile half, and
 one broken scraper file must never stop the others from loading, let alone
 break a Layer A sync. What is *not* done here is swallowing the reason — a
 failure is recorded and reported, because a scraper that vanishes silently is
-indistinguishable from one that found nothing.
+indistinguishable from one that found nothing. A module that fails to import
+cannot say which source keys it owns, so the reason is recorded under the
+module's own name.
 """
 
 from __future__ import annotations
 
 import importlib
+import pkgutil
 from dataclasses import fields, replace
 from typing import Any
 
@@ -23,78 +31,46 @@ _CONSTRUCTION_ERRORS: dict[str, str] = {}
 #: source key -> (class or None, reason it is unavailable)
 _REGISTRY: dict[str, tuple[type[ScraperBase] | None, str]] = {}
 
-_MODULES = [
-    ("app.sources.forkjob_core.scrapers.manfred", "ManfredScraper", "manfred"),
-    ("app.sources.forkjob_core.scrapers.kariyernet", "KariyerNetScraper", "kariyernet"),
-    ("app.sources.forkjob_core.scrapers.arbeitnow", "ArbeitnowScraper", "arbeitnow"),
-    ("app.sources.forkjob_core.scrapers.bebee", "BebeeScraper", "bebee"),
-    ("app.sources.forkjob_core.scrapers.linkedin", "LinkedInScraper", "linkedin"),
-    ("app.sources.forkjob_core.scrapers.jobfluent", "JobFluentScraper", "jobfluent"),
-    ("app.sources.forkjob_core.scrapers.tecnoempleo", "TecnoempleoScraper", "tecnoempleo"),
-    ("app.sources.forkjob_core.scrapers.ticjob", "TicjobScraper", "ticjob"),
-    ("app.sources.forkjob_core.scrapers.jobicy", "JobicyScraper", "jobicy"),
-    ("app.sources.forkjob_core.scrapers.remoteok", "RemoteOkScraper", "remoteok"),
-    ("app.sources.forkjob_core.scrapers.eures", "EuresScraper", "eures"),
-    ("app.sources.forkjob_core.scrapers.jobgether", "JobgetherScraper", "jobgether"),
-    ("app.sources.forkjob_core.scrapers.remotive", "RemotiveScraper", "remotive"),
-    ("app.sources.forkjob_core.scrapers.himalayas", "HimalayasScraper", "himalayas"),
-    ("app.sources.forkjob_core.scrapers.justjoinit", "JustJoinItScraper", "justjoinit"),
-    ("app.sources.forkjob_core.scrapers.pending", "RemoteRocketshipScraper", "remoterocketship"),
-    ("app.sources.forkjob_core.scrapers.eurotechjobs", "EuroTechJobsScraper", "eurotechjobs"),
-    (
-        "app.sources.forkjob_core.scrapers.wearedevelopers",
-        "WeAreDevelopersScraper",
-        "wearedevelopers",
-    ),
-    ("app.sources.forkjob_core.scrapers.weworkremotely", "WeWorkRemotelyScraper", "weworkremotely"),
-    ("app.sources.forkjob_core.scrapers.wellfound", "WellfoundScraper", "wellfound"),
-    ("app.sources.forkjob_core.scrapers.devitjobs", "DevITJobsScraper", "devitjobs"),
-    ("app.sources.forkjob_core.scrapers.workingnomads", "WorkingNomadsScraper", "workingnomads"),
-    ("app.sources.forkjob_core.scrapers.nofluffjobs", "NoFluffJobsScraper", "nofluffjobs"),
-    ("app.sources.forkjob_core.scrapers.relocateme", "RelocateMeScraper", "relocateme"),
-    ("app.sources.forkjob_core.scrapers.landingjobs", "LandingJobsScraper", "landingjobs"),
-    ("app.sources.forkjob_core.scrapers.honeypot", "HoneypotScraper", "honeypot"),
-    ("app.sources.forkjob_core.scrapers.offerzen", "OfferZenScraper", "offerzen"),
-    ("app.sources.forkjob_core.scrapers.hackernews", "HackerNewsScraper", "hackernews"),
-    ("app.sources.forkjob_core.scrapers.jobspresso", "JobspressoScraper", "jobspresso"),
-    ("app.sources.forkjob_core.scrapers.jobtech", "JobTechScraper", "jobtech"),
-    ("app.sources.forkjob_core.scrapers.customfeeds", "CustomFeedsScraper", "customfeeds"),
-    ("app.sources.forkjob_core.scrapers.consider", "ConsiderScraper", "consider-sequoia"),
-    ("app.sources.forkjob_core.scrapers.consider", "ConsiderScraper", "consider-a16z"),
-    ("app.sources.forkjob_core.scrapers.gulftalent", "GulfTalentScraper", "gulftalent"),
-    ("app.sources.forkjob_core.scrapers.fourdayweek", "FourDayWeekScraper", "fourdayweek"),
-    ("app.sources.forkjob_core.scrapers.solidjobs", "SolidJobsScraper", "solidjobs"),
-    ("app.sources.forkjob_core.scrapers.bulldogjob", "BulldogjobScraper", "bulldogjob"),
-    ("app.sources.forkjob_core.scrapers.arcdev", "ArcDevScraper", "arcdev"),
-    ("app.sources.forkjob_core.scrapers.freelancermap", "FreelancermapScraper", "freelancermap"),
-    ("app.sources.forkjob_core.scrapers.web3career", "Web3CareerScraper", "web3career"),
-    (
-        "app.sources.forkjob_core.scrapers.realworkfromanywhere",
-        "RealWorkFromAnywhereScraper",
-        "realworkfromanywhere",
-    ),
-    ("app.sources.forkjob_core.scrapers.dailyremote", "DailyRemoteScraper", "dailyremote"),
-    ("app.sources.forkjob_core.scrapers.javascriptjobs", "JavascriptJobsScraper", "javascriptjobs"),
-    ("app.sources.forkjob_core.scrapers.dynamitejobs", "DynamiteJobsScraper", "dynamitejobs"),
-    ("app.sources.forkjob_core.scrapers.blocked", "CryptoJobsListScraper", "cryptojobslist"),
-    ("app.sources.forkjob_core.scrapers.blocked", "RubyOnRemoteScraper", "rubyonremote"),
-    ("app.sources.forkjob_core.scrapers.blocked", "NodeskScraper", "nodesk"),
-]
+#: Modules that are scaffolding, not scrapers.
+_SKIP_MODULES = frozenset({"base", "index", "__init__"})
 
 
-def _load(module_name: str, class_name: str) -> tuple[type[ScraperBase] | None, str]:
-    try:
-        module = importlib.import_module(module_name)
-    except Exception as exc:
-        return None, f"import {module_name} failed: {type(exc).__name__}: {exc}"
-    scraper_cls = getattr(module, class_name, None)
-    if scraper_cls is None:
-        return None, f"{module_name} has no {class_name}"
-    return scraper_cls, ""
+def _scraper_classes(module: Any) -> list[type[ScraperBase]]:
+    """Every ScraperBase subclass defined in a module, in definition order."""
+    return [
+        obj
+        for obj in vars(module).values()
+        if isinstance(obj, type) and issubclass(obj, ScraperBase) and obj is not ScraperBase
+    ]
 
 
-for _module, _class, _key in _MODULES:
-    _REGISTRY[_key] = _load(_module, _class)
+def _discover() -> None:
+    """Import every module in this package and register its scraper classes.
+
+    A module with no ScraperBase subclass (e.g. schemaorg.py) registers
+    nothing. A module that fails to import keeps the (None, reason) contract
+    under its module name — the only key knowable before the import runs.
+    """
+    package = importlib.import_module(__package__)
+    for info in pkgutil.iter_modules(package.__path__):
+        if info.name in _SKIP_MODULES:
+            continue
+        module_name = f"{__package__}.{info.name}"
+        try:
+            module = importlib.import_module(module_name)
+        except Exception as exc:
+            _REGISTRY[info.name] = (
+                None,
+                f"import {module_name} failed: {type(exc).__name__}: {exc}",
+            )
+            continue
+        for scraper_cls in _scraper_classes(module):
+            for key in scraper_cls.registry_keys or (scraper_cls.source_key,):
+                if key:
+                    _REGISTRY[key] = (scraper_cls, "")
+
+
+_discover()
 
 
 def get_scraper(source: LayerBSource, config: ScraperConfig | None = None) -> ScraperBase | None:
@@ -124,12 +100,12 @@ def get_scraper(source: LayerBSource, config: ScraperConfig | None = None) -> Sc
         config = replace(base, **overrides)
 
     try:
-        return scraper_cls(config=config, **kwargs)
+        scraper = scraper_cls(config=config, **kwargs)
     except TypeError:
         # Scraper does not take these settings — better a working scraper on
         # defaults than none at all.
         try:
-            return scraper_cls(config=config)
+            scraper = scraper_cls(config=config)
         except Exception as exc:
             _CONSTRUCTION_ERRORS[source.key] = f"{type(exc).__name__}: {exc}"
             return None
@@ -140,6 +116,12 @@ def get_scraper(source: LayerBSource, config: ScraperConfig | None = None) -> Sc
         # vanished from the run without a word.
         _CONSTRUCTION_ERRORS[source.key] = f"{type(exc).__name__}: {exc}"
         return None
+
+    # A registry entry without a base URL gets the portal's own URL — the
+    # scraper needs it for robots.txt and reporting.
+    if not scraper.base_url and source.url:
+        scraper.base_url = source.url
+    return scraper
 
 
 def unavailable_reason(key: str) -> str:

@@ -24,3 +24,10 @@ output/
 # kisisel jobhunter uyum profili (Ayarlar panelinden uretilir)
 backend/config.yaml
 backend/app/sources/forkjob_core/data/linkedin-profiles.yaml.user
+
+# buyuk yedekler ve yerel audit dosyalari
+*.zip
+forkOS-drive-backup*
+design-audit-*
+design-reference-*
+*.png

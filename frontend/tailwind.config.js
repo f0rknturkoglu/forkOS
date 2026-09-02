@@ -81,7 +81,6 @@ export default {
         "display-2xl": ["72px", { lineHeight: "76px", letterSpacing: "-0.02em" }],
       },
       borderRadius: { control: "4px", card: "5px", overlay: "6px" },
-      borderRadius: { control: "4px", card: "5px", overlay: "6px" },
       spacing: { control: "34px", touch: "44px" },
       boxShadow: {
         // Katman yuzeyleri (komut paleti, popover).

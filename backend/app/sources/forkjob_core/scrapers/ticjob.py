@@ -30,8 +30,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_datetime, sitemap_locations
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import find_type, ld_blocks, organisation_name, place, text
 
@@ -45,7 +45,6 @@ DEFAULT_MAX_OFFERS = 40
 
 #: Posting URLs look like /{lang}/job/{slug}/{id}
 _JOB_URL_RE = re.compile(r"/(?:eng|esp|cat)/job/[^/]+/(\d+)/?$")
-_LOC_RE = re.compile(r"<loc>\s*(.*?)\s*</loc>", re.S | re.I)
 
 
 class TicjobScraper(ScraperBase):
@@ -140,13 +139,13 @@ class TicjobScraper(ScraperBase):
             description=description,
             language="es",
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
 def parse_sitemap(xml: str) -> list[str]:
     """Posting URLs from a language sitemap, ignoring category pages."""
-    return [u for u in _LOC_RE.findall(xml or "") if _JOB_URL_RE.search(u)]
+    return [u for u in sitemap_locations(xml) if _JOB_URL_RE.search(u)]
 
 
 def external_id_from_url(url: str) -> str | None:

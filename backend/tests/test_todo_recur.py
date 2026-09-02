@@ -48,7 +48,11 @@ async def _todos(client: AsyncClient) -> list[dict]:
 
 
 async def test_weekdays_friday_completes_to_monday(client: AsyncClient) -> None:
-    friday = datetime(2026, 8, 28, 9, 0, tzinfo=UTC)
+    now = datetime.now(UTC)
+    days_until_next_friday = (4 - now.weekday()) % 7 + 7
+    friday = (now + timedelta(days=days_until_next_friday)).replace(
+        hour=9, minute=0, second=0, microsecond=0
+    )
     todo = await _make_routine(client, "weekdays", _iso(friday))
     await client.post(f"/api/todos/{todo['id']}/complete")
 
@@ -57,7 +61,7 @@ async def test_weekdays_friday_completes_to_monday(client: AsyncClient) -> None:
     ]
     assert len(spawned) == 1
     due = datetime.fromisoformat(spawned[0]["due_at"])
-    assert due.date().isoformat() == "2026-08-31"  # Pazartesi
+    assert due.date() == (friday + timedelta(days=3)).date()
     assert due.weekday() == 0
 
 
@@ -103,6 +107,39 @@ async def test_duplicate_completion_is_safe(client: AsyncClient) -> None:
         t for t in await _todos(client) if t["title"] == todo["title"] and t["id"] != todo["id"]
     ]
     assert len(spawned) == 1
+
+
+async def test_next_occurrence_stays_out_of_today_until_due(client: AsyncClient) -> None:
+    from app.core.time import local_today
+
+    todo = await _make_routine(
+        client,
+        "daily",
+        _iso(datetime.now(UTC) + timedelta(hours=2)),
+        priority=3,
+    )
+    await client.post(f"/api/todos/{todo['id']}/complete")
+
+    spawned = [
+        item
+        for item in await _todos(client)
+        if item["title"] == todo["title"] and item["id"] != todo["id"]
+    ]
+    assert len(spawned) == 1
+
+    agenda = (
+        await client.get("/api/today/agenda", params={"day": local_today().isoformat()})
+    ).json()
+    visible_open_ids = {
+        row["id"]
+        for group in (agenda["timed"], agenda["checklist"], agenda["suggestions"]["todos"])
+        for row in group
+    }
+    assert spawned[0]["id"] not in visible_open_ids
+    assert todo["id"] in {row["id"] for row in agenda["completed"]}
+
+    await client.delete(f"/api/todos/{spawned[0]['id']}")
+    await client.delete(f"/api/todos/{todo['id']}")
 
 
 async def test_context_is_copied_but_plan_slot_is_not(  # noqa: E501

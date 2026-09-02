@@ -1,7 +1,8 @@
-import { Button, Field, NumberInput, Select, Section } from "@/core/ui";
+import { useEffect, useState } from "react";
+import { Button, DualRange, Select, Section } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
 import { FilterChip } from "./OpportunityList";
-import { JOB_CATEGORY_LABELS, STATUSES, statusLabel } from "./labels";
+import { REMOTE_LABELS, STATUSES, statusLabel } from "./labels";
 import type { OpportunityBrowseFilters } from "./opportunityBrowse";
 
 interface Props {
@@ -17,18 +18,67 @@ const SCORE_PRESETS = [
   { label: "Elendi", min: -1, max: -1 },
 ] as const;
 
-function clampScore(value: number): number {
-  return Math.max(-1, Math.min(100, value));
+function scoreLabel(value: number): string {
+  return value === -1 ? "Elendi" : String(value);
+}
+
+function ScoreSlider({
+  minValue,
+  maxValue,
+  onCommit,
+}: {
+  minValue: number;
+  maxValue: number;
+  onCommit: (minValue: number, maxValue: number) => void;
+}) {
+  const [draftMin, setDraftMin] = useState(minValue);
+  const [draftMax, setDraftMax] = useState(maxValue);
+
+  useEffect(() => setDraftMin(minValue), [minValue]);
+  useEffect(() => setDraftMax(maxValue), [maxValue]);
+
+  const commit = () => {
+    if (draftMin !== minValue || draftMax !== maxValue) onCommit(draftMin, draftMax);
+  };
+
+  return (
+    <div
+      className="rounded-control border border-subtle bg-surface-sunken/40 px-4 py-2.5"
+      onPointerUp={commit}
+      onPointerCancel={commit}
+      onKeyUp={commit}
+      onBlur={commit}
+    >
+      <div className="mb-1 flex items-center justify-between gap-4 text-meta">
+        <span className="text-secondary">
+          Minimum <strong className="numeral text-primary">{scoreLabel(draftMin)}</strong>
+        </span>
+        <span className="text-secondary">
+          Maksimum <strong className="numeral text-primary">{scoreLabel(draftMax)}</strong>
+        </span>
+      </div>
+      <DualRange
+        min={-1}
+        max={100}
+        minValue={draftMin}
+        maxValue={draftMax}
+        minAriaLabel="Minimum skor"
+        maxAriaLabel="Maksimum skor"
+        onChange={(nextMin, nextMax) => {
+          setDraftMin(nextMin);
+          setDraftMax(nextMax);
+        }}
+      />
+      <div className="flex justify-between text-micro text-muted" aria-hidden>
+        <span>Elendi</span>
+        <span>50</span>
+        <span>100</span>
+      </div>
+    </div>
+  );
 }
 
 export function OpportunityFilters({ filters, facets, onChange }: Props) {
-  const remoteLabels: Record<string, string> = {
-    remote: "Uzaktan",
-    hybrid: "Hibrit",
-    onsite: "Ofis",
-    office: "Ofis",
-    unknown: "Belirsiz",
-  };
   const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
   const scoreFilterActive = filters.min_score !== undefined || filters.max_score !== undefined;
   const chips = (
@@ -63,14 +113,6 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
       )}
 
       {filters.section === "jobs" && (
-        <Section title="İş alanı">
-          <div className="flex flex-wrap gap-2">
-            {chips(facets.categories, filters.category, JOB_CATEGORY_LABELS, "category")}
-          </div>
-        </Section>
-      )}
-
-      {filters.section === "jobs" && (
         <Section
           title="Uyum skoru"
           hint={scoreFilterActive ? `${filters.min_score ?? -1}–${filters.max_score ?? 100}` : "Tüm skorlar"}
@@ -82,89 +124,74 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
             ) : undefined
           }
         >
-          <div className="flex flex-wrap items-end gap-2">
-            {SCORE_PRESETS.map((preset) => {
-              const active = filters.min_score === preset.min && filters.max_score === preset.max;
-              return (
-                <FilterChip
-                  key={preset.label}
-                  label={preset.label}
-                  active={active}
-                  onClick={() =>
-                    update(
-                      active
-                        ? { min_score: undefined, max_score: undefined }
-                        : { min_score: preset.min, max_score: preset.max },
-                    )
-                  }
-                />
-              );
-            })}
-            <Field label="Minimum skor" className="w-32">
-              <NumberInput
-                ariaLabel="Minimum skor"
-                value={filters.min_score ?? -1}
-                min={-1}
-                max={100}
-                step={0.1}
-                className="w-full"
-                onChange={(value) => {
-                  const minScore = clampScore(value);
-                  update({
-                    min_score: minScore,
-                    max_score:
-                      filters.max_score !== undefined && minScore > filters.max_score ? minScore : filters.max_score,
-                  });
-                }}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {SCORE_PRESETS.map((preset) => {
+                const active = filters.min_score === preset.min && filters.max_score === preset.max;
+                return (
+                  <FilterChip
+                    key={preset.label}
+                    label={preset.label}
+                    active={active}
+                    onClick={() =>
+                      update(
+                        active
+                          ? { min_score: undefined, max_score: undefined }
+                          : { min_score: preset.min, max_score: preset.max },
+                      )
+                    }
+                  />
+                );
+              })}
+            </div>
+            <div className="min-w-0 flex-1">
+              <ScoreSlider
+                minValue={filters.min_score ?? -1}
+                maxValue={filters.max_score ?? 100}
+                onCommit={(minScore, maxScore) => update({ min_score: minScore, max_score: maxScore })}
               />
-            </Field>
-            <Field label="Maksimum skor" className="w-32">
-              <NumberInput
-                ariaLabel="Maksimum skor"
-                value={filters.max_score ?? 100}
-                min={-1}
-                max={100}
-                step={0.1}
-                className="w-full"
-                onChange={(value) => {
-                  const maxScore = clampScore(value);
-                  update({
-                    min_score:
-                      filters.min_score !== undefined && maxScore < filters.min_score ? maxScore : filters.min_score,
-                    max_score: maxScore,
-                  });
-                }}
-              />
-            </Field>
+            </div>
           </div>
         </Section>
       )}
 
       <Section title={filters.section === "jobs" ? "Çalışma biçimi & konum" : "Kurum & tarih"}>
-        <div className="flex flex-wrap items-center gap-2">
-          {filters.section === "jobs" &&
-            chips(
-              facets.regions,
-              filters.region,
-              { TR: "Türkiye", EU: "Avrupa", OTHER: "Diğer", UNKNOWN: "Belirsiz" },
-              "region",
-            )}
-          {filters.section === "jobs" && chips(facets.remote, filters.remote, remoteLabels, "remote")}
-          <Select
-            ariaLabel="Kaynak"
-            value={filters.source ?? ""}
-            onChange={(source) => update({ source })}
-            className="max-w-full"
-          >
-            <option value="">Tüm kaynaklar</option>
-            {Object.entries(facets.sources ?? {})
-              .sort(([left], [right]) => sourceLabel(left).localeCompare(sourceLabel(right), "tr"))
-              .map(([source, count]) => (
-                <option key={source} value={source}>
-                  {sourceLabel(source)} · {count}
-                </option>
-              ))}
-          </Select>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          {filters.section === "jobs" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="label-caps mr-1">Konum</span>
+              {chips(
+                facets.regions,
+                filters.region,
+                { TR: "Türkiye", EU: "Avrupa", OTHER: "Diğer", UNKNOWN: "Konum bilinmiyor" },
+                "region",
+              )}
+            </div>
+          )}
+          {filters.section === "jobs" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="label-caps mr-1">Çalışma biçimi</span>
+              {chips(facets.remote, filters.remote, REMOTE_LABELS, "remote")}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="label-caps">Kaynak</span>
+            <Select
+              ariaLabel="Kaynak"
+              value={filters.source ?? ""}
+              onChange={(source) => update({ source })}
+              className="max-w-full"
+            >
+              <option value="">Tüm kaynaklar</option>
+              {Object.entries(facets.sources ?? {})
+                .sort(([left], [right]) => sourceLabel(left).localeCompare(sourceLabel(right), "tr"))
+                .map(([source, count]) => (
+                  <option key={source} value={source}>
+                    {sourceLabel(source)} · {count}
+                  </option>
+                ))}
+            </Select>
+          </div>
           {filters.section === "announcements" && (
             <>
               {[30, 90, 365].map((days) => (

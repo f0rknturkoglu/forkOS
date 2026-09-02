@@ -26,7 +26,7 @@ from datetime import datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import date_source_for, Job, Layer, Region, WorkMode
 from ..normalize import html_to_text
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
@@ -152,7 +152,7 @@ class JobTechScraper(ScraperBase):
             language=self._language(f"{title} {text[:1500]}"),
             posted_at=posted_at,
             # publication_date is when the employer published the ad.
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
     @staticmethod

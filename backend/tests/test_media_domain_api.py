@@ -317,9 +317,8 @@ async def test_backdated_quick_uses_arrival_order_for_progress_reconstruction(
         )
         assert response.status_code == 201, response.text
     async with SessionLocal() as session:
-        validation = await service.validate_progress(session, item_id)
-    assert validation.valid is True
-    assert validation.actual == validation.expected == 2
+        item_row = await session.get(MediaItem, item_id)
+        assert float(item_row.progress) == 2
 
 
 async def test_movie_quick_uses_item_measure_and_finishes_the_cycle(client: AsyncClient):
@@ -466,9 +465,8 @@ async def test_backdated_complete_and_uncomplete_use_command_arrival_order(
         results.append(response.json()["progress_after"])
     assert results == [1, 0, 1]
     async with SessionLocal() as session:
-        validation = await service.validate_progress(session, item_id)
-    assert validation.valid is True
-    assert validation.expected == 1
+        item_row = await session.get(MediaItem, item_id)
+        assert float(item_row.progress) == 1
 
 
 @pytest.mark.parametrize(
@@ -600,7 +598,7 @@ async def test_concurrent_explicit_cycle_start_has_one_winner_and_one_conflict(
     assert len(cycles) == 1
 
 
-async def test_collection_crud_membership_detail_dashboard_and_rebuild(client: AsyncClient):
+async def test_collection_crud_membership_detail_dashboard(client: AsyncClient):
     item = await _create(client, title="Collection title", kind="game", progress=0)
     item_id = item["id"]
     collection = await client.post(
@@ -634,16 +632,6 @@ async def test_collection_crud_membership_detail_dashboard_and_rebuild(client: A
     assert dashboard["recent_consumptions"]
     assert dashboard["stats"]["total_duration_min"] == 30
 
-    async with SessionLocal() as session:
-        media = await session.get(MediaItem, uuid.UUID(item_id))
-        media.progress = 99
-        await session.commit()
-        result = await service.validate_progress(session, uuid.UUID(item_id), rebuild=True)
-        assert result.valid is False
-        assert result.expected == 2.25
-        await session.refresh(media)
-        assert media.progress == 2.25
-
     assert (await client.delete(member_path)).status_code == 204
     assert (await client.delete(f"/api/media/collections/{collection_id}")).status_code == 204
     async with SessionLocal() as session:
@@ -665,10 +653,8 @@ async def test_nonzero_create_builds_matching_initial_cycle_and_consumption(
         assert detail["consumptions"][0]["action"] == "set"
         assert detail["consumptions"][0]["progress_after"] == 12.5
         async with SessionLocal() as session:
-            validation = await service.validate_progress(
-                session, uuid.UUID(item["id"])
-            )
-            assert validation.valid is True
+            media = await session.get(MediaItem, uuid.UUID(item["id"]))
+            assert float(media.progress) == 12.5
 
 
 @pytest.mark.parametrize(
@@ -701,11 +687,8 @@ async def test_create_nonplanned_statuses_build_consistent_cycle_and_history(
         assert detail["cycles"][0]["completed_at"] is not None
     assert [row["action"] for row in reversed(detail["consumptions"])] == history_actions
     async with SessionLocal() as session:
-        validation = await service.validate_progress(
-            session, uuid.UUID(item["id"])
-        )
-    assert validation.valid is True
-    assert validation.expected == expected
+        media = await session.get(MediaItem, uuid.UUID(item["id"]))
+        assert float(media.progress) == expected
 
 
 async def test_completed_create_without_total_uses_finish_history(client: AsyncClient):

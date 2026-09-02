@@ -7,10 +7,12 @@ bookmark uretir ve aralarina link(feed_item -> bookmark, 'saved_from') kurar.
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from selectolax.parser import HTMLParser, Node
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -242,6 +244,148 @@ async def _saved_bookmarks(
         .where(Link.from_id.in_(item_ids), Link.relation == SAVED_FROM)
     )).all()
     return {from_id: to_id for from_id, to_id in rows}
+
+
+# ── Tam metin (talebe bagli) ────────────────────────────────────────────────
+
+_fetching: set[str] = set()          # ayni item'a eszamanli cift fetch kilidi
+
+_FULL_TEXT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html",
+}
+_FULL_TEXT_MIN_CHARS = 200           # bundan kisa metin kaydedilmez
+_FULL_TEXT_SELECTORS = ("article", "[role=main]", "[itemprop=articleBody]", "main")
+_FULL_TEXT_DROP = ("script", "style", "nav", "aside", "form", "header", "footer")
+_FULL_TEXT_KEEP = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "li",
+                   "blockquote", "code", "pre", "img")
+
+_OPEN_TAG = re.compile(r"<([a-zA-Z][a-zA-Z0-9]*)([^<>]*)>")
+
+
+def _strip_attributes(html: str) -> str:
+    """Basit HTML'e indir: yalnizca img.src korunur, diger attribute'lar duser."""
+
+    def fix(match: re.Match) -> str:
+        tag, attrs = match.group(1).lower(), match.group(2)
+        if tag == "img":
+            src = re.search(r'\bsrc\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)', attrs, re.I)
+            return f"<img src={src.group(1)}>" if src else "<img>"
+        return f"<{tag}>"
+
+    return _OPEN_TAG.sub(fix, html)
+
+
+def _text_length(node) -> int:
+    return len(node.text(deep=True, separator=" ").strip())
+
+
+def _prune(candidate) -> None:
+    """Korunan etiket disindakileri ac (text kalir); lazy-load img'leri at."""
+    self_id = candidate.mem_id
+    for node in candidate.css("*"):
+        if node.mem_id == self_id:
+            continue                    # css("*") kokenin kendisini de doner
+        if node.tag not in _FULL_TEXT_KEEP:
+            node.unwrap()
+        elif node.tag == "img":
+            src = node.attributes.get("src", "").strip()
+            if not src.lower().startswith(("http://", "https://")):
+                node.decompose()      # lazy-load placeholder'i (data:, bos, goreceli)
+
+
+def _densest_paragraph_section(root) -> Node | None:
+    """article/main yoksa: en cok <p> iceren bolum secilir."""
+    best, best_count = None, 0
+    for node in root.css("article, section, div"):
+        count = len(node.css("p"))
+        if count > best_count:
+            best_count, best = count, node
+    return best
+
+
+def extract_full_text(html: str | bytes) -> str | None:
+    """Sayfa HTML'inden okunabilir bolumu cikarir.
+
+    article / [role=main] / [itemprop=articleBody] / main onceliklidir; hicbiri
+    yoksa <p> yogunlugu skorlanir. Gurdurultu etiketleri silinir, sonuc basit
+    HTML'dir (p, h1-h6, li, blockquote, code, pre, img). Kisa/cikarilamayan
+    sayfada None doner (kaydedilmez).
+    """
+    parser = HTMLParser(html)
+    root = parser.root
+    if root is None:
+        return None
+
+    for tag in _FULL_TEXT_DROP:
+        for node in root.css(tag):
+            node.decompose()
+
+    candidate = None
+    for selector in _FULL_TEXT_SELECTORS:
+        candidate = root.css_first(selector)
+        if candidate is not None:
+            break
+    if candidate is None:
+        candidate = _densest_paragraph_section(root)
+    if candidate is None:
+        return None
+
+    _prune(candidate)
+    if _text_length(candidate) < _FULL_TEXT_MIN_CHARS:
+        return None
+    return _strip_attributes(candidate.html)
+
+
+async def fetch_full_text(session: AsyncSession, item: FeedItem) -> str | None:
+    """item.url'den makale HTML'ini ceker ve readability cikarimi yapar.
+
+    Ag hatasi veya cikarilamayan sayfa -> None (kaydedilmez). session parametresi
+    imza uyumu icindir; DB isi cagiran tarafta biter.
+    """
+    if not item.url:
+        return None
+    try:
+        async with httpx.AsyncClient(
+            timeout=15.0, follow_redirects=True, headers=_FULL_TEXT_HEADERS,
+        ) as client:
+            response = await client.get(item.url)
+            response.raise_for_status()
+        return extract_full_text(response.content)
+    except Exception:
+        return None
+
+
+async def get_item_full_text(session: AsyncSession, item_id: uuid.UUID) -> str | None:
+    """Tam metni dondurur; yoksa fetch edip kalicilastirir (istek icinde).
+
+    Dolu cache varsa aga cikilmaz. Ayni item'a eszamanli cift fetch null gorur.
+    """
+    item = await session.get(FeedItem, item_id)
+    if item is None or not item.url:
+        return None
+    if item.full_text:
+        return item.full_text
+
+    key = str(item_id)
+    if key in _fetching:
+        return None
+    _fetching.add(key)
+    try:
+        text = await fetch_full_text(session, item)
+        if text:
+            item.full_text = text
+            await session.commit()
+            return text
+        return None
+    except Exception:
+        await session.rollback()
+        return None
+    finally:
+        _fetching.discard(key)
 
 
 async def mark_read(

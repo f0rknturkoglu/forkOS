@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { CalendarEvent } from "@/core/types";
 import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
-import { addAppDays, appDayUtc, appWeekStartKey, keyToUtc, localDateKey } from "@/lib/date";
+import { addAppDays, appDayUtc, appWeekStartKey, formatTrDate, formatTrDateTime, keyToUtc, localDateKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 
 type View = "week" | "month";
@@ -47,19 +47,19 @@ function rangeDays(anchor: Date, view: View): number {
 /** Ust seritteki donem basligi -- "hangi aydayiz" sorusunun tek cevabi. */
 function periodLabel(anchor: Date, view: View, days: number): string {
   if (view === "month") {
-    return anchor.toLocaleDateString("tr-TR", { month: "long", year: "numeric", timeZone: "UTC" });
+    return formatTrDate(anchor, { month: "long", year: "numeric", timeZone: "UTC" });
   }
   const first = rangeStart(anchor, view);
   const last = addAppDays(first, days - 1);
   const sameMonth = first.getUTCMonth() === last.getUTCMonth();
   const sameYear = first.getUTCFullYear() === last.getUTCFullYear();
-  const head = first.toLocaleDateString("tr-TR", {
+  const head = formatTrDate(first, {
     timeZone: "UTC",
     day: "numeric",
     month: sameMonth ? undefined : "long",
     year: sameYear ? undefined : "numeric",
   });
-  const tail = last.toLocaleDateString("tr-TR", {
+  const tail = formatTrDate(last, {
     timeZone: "UTC",
     day: "numeric",
     month: "long",
@@ -84,6 +84,17 @@ export function CalendarPage() {
         `/calendar/events?from=${encodeURIComponent(start.toISOString())}&to=${encodeURIComponent(end.toISOString())}`,
       ),
   });
+  // Gun basina etkinlik haritasi: hucere basina filter yerine tek gecis.
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const event of events) {
+      const key = localDateKey(new Date(event.starts_at));
+      const list = map.get(key);
+      if (list) list.push(event);
+      else map.set(key, [event]);
+    }
+    return map;
+  }, [events]);
   const sync = useMutation({
     mutationFn: () => api.post("/calendar/sync"),
     onSuccess: () => invalidateAfter("calendar.write"),
@@ -158,7 +169,7 @@ export function CalendarPage() {
 
           <div className="grid grid-cols-7">
             {cells.map((day) => {
-              const rows = events.filter((event) => sameDay(new Date(event.starts_at), day));
+              const rows = eventsByDay.get(localDateKey(day)) ?? [];
               const isToday = sameDay(day, today);
               // Ay gorunumunde komsu aylarin gunleri soluk kalir.
               const outside = view === "month" && day.getUTCMonth() !== anchor.getUTCMonth();
@@ -184,7 +195,7 @@ export function CalendarPage() {
                     {/* Ayin ilk gunu: izgarada ay degisimini gorunur kilar. */}
                     {day.getUTCDate() === 1 && (
                       <span className="text-micro uppercase tracking-[0.08em] text-muted">
-                        {day.toLocaleDateString("tr-TR", { month: "short", timeZone: "UTC" })}
+                        {formatTrDate(day, { month: "short", timeZone: "UTC" })}
                       </span>
                     )}
                   </div>
@@ -204,10 +215,7 @@ export function CalendarPage() {
                         <p className="text-micro leading-4 text-muted">
                           {event.all_day
                             ? "tüm gün"
-                            : new Date(event.starts_at).toLocaleTimeString("tr-TR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
+                            : formatTrDateTime(event.starts_at, { hour: "2-digit", minute: "2-digit" })}
                         </p>
                         {view === "week" && !event.read_only && !event.google_event_id && (
                           <Button

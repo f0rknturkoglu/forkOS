@@ -27,12 +27,11 @@ Field notes:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_datetime, parse_epoch_ms
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://remoteok.com"
@@ -77,7 +76,7 @@ class RemoteOkScraper(ScraperBase):
         location = (entry.get("location") or "").strip() or None
         country = country_from_name(location) if location else None
 
-        posted_at = parse_datetime(entry.get("date")) or _epoch(entry.get("epoch"))
+        posted_at = parse_datetime(entry.get("date")) or parse_epoch_ms(entry.get("epoch"))
 
         return Job.build(
             url=url,
@@ -95,7 +94,7 @@ class RemoteOkScraper(ScraperBase):
             description=description,
             salary=_salary(entry),
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -103,10 +102,4 @@ def _salary(entry: dict[str, Any]) -> str | None:
     low, high = entry.get("salary_min"), entry.get("salary_max")
     if isinstance(low, (int, float)) and isinstance(high, (int, float)) and low > 0:
         return f"${int(low):,}-${int(high):,}"
-    return None
-
-
-def _epoch(value: Any) -> datetime | None:
-    if isinstance(value, (int, float)) and value > 0:
-        return datetime.fromtimestamp(value, tz=UTC)
     return None

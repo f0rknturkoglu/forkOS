@@ -141,3 +141,15 @@ export function appLocalToUtc(dayKey: string, hour: number, minute: number, time
   }
   return candidate.toISOString();
 }
+
+/** ISO ani tr-TR yerel tarih olarak bicimlendirir (gorunum amacli). */
+export function formatTrDate(value: string | Date, options?: Intl.DateTimeFormatOptions): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toLocaleDateString("tr-TR", options);
+}
+
+/** ISO ani tr-TR yerel tarih+saat olarak bicimlendirir (gorunum amacli). */
+export function formatTrDateTime(value: string | Date, options?: Intl.DateTimeFormatOptions): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toLocaleString("tr-TR", options);
+}

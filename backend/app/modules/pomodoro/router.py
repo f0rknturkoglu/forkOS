@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_session
 from app.modules.pomodoro import service
 from app.modules.pomodoro.schemas import (
+    ContextOut,
     PomodoroManual,
     PomodoroOut,
     PomodoroStart,
@@ -35,6 +36,15 @@ async def stop(pomo_id: uuid.UUID, body: PomodoroStop,
     if result is None:
         raise HTTPException(404, "pomodoro bulunamadi")
     return result
+
+
+@router.get("/pomodoro/contexts", response_model=list[ContextOut])
+async def contexts(
+    q: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Odak seansina baglam olabilecek kayitlar (gorev, konu, kaynak...)."""
+    return await service.contexts(session, q)
 
 
 @router.get("/pomodoro/active", response_model=PomodoroOut | None)

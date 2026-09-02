@@ -3,20 +3,31 @@ import type { ReviewPreview } from "@/core/types";
 import { reviewMetricRows } from "./reviewMetrics";
 
 describe("review metrics", () => {
-  it("presents recurring and legacy completions as routines", () => {
+  it("presents the primary weekly outcome and focus metrics", () => {
     const stats = {
       todos: { completed: 4, created: 1, dropped: 0, overdue_now: 0 },
-      focus: { minutes: 50, sessions: 2, interrupted: 0 },
+      focus: {
+        minutes: 50,
+        sessions: 2,
+        interrupted: 0,
+        active_days: 2,
+        best_day: "2026-08-24",
+        best_day_minutes: 30,
+        longest_session: 25,
+      },
       topics: [],
       habits: { "Su iç": 2, "Eski yürüyüş": 1 },
-      capture: { bookmarks: 3, rss_read: 1 },
+      capture: { bookmarks: 3, rss_read: 1, notes: 1 },
+      applications: { discovered: 0, updated: 0 },
+      study: { minutes_by_area: {} },
+      github: { commits: 0, repos: {} },
     } satisfies ReviewPreview["stats"];
 
     expect(reviewMetricRows(stats)).toEqual([
       ["Tamamlanan", 4],
       ["Odak", "50 dk"],
-      ["Rutin", 3],
-      ["Yakalanan", 3],
+      ["Pomodoro", 2],
+      ["Aktif gün", 2],
     ]);
   });
 });

@@ -3,7 +3,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgendaRow, TodayAgenda } from "@/core/types";
+import type { AgendaRow, TodayAgenda, Todo } from "@/core/types";
 import { localDateKey } from "@/lib/date";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
 
@@ -95,6 +95,13 @@ const mediaRow: AgendaRow = {
   cover_url: "/api/media/assets/dune.webp",
   project_title: null,
 };
+const routineRow: AgendaRow = {
+  ...todoRow,
+  source: "routine",
+  id: "routine-today",
+  title: "Bugünün rutini",
+  recur: "daily",
+};
 
 const agenda: TodayAgenda = {
   day: "2026-08-23",
@@ -111,7 +118,7 @@ const agenda: TodayAgenda = {
       starts_at: "2026-08-23T09:30:00+03:00",
     },
   ],
-  checklist: [parent, todoRow, rssRow, mediaRow],
+  checklist: [parent, todoRow, routineRow, rssRow, mediaRow],
   completed: [{ ...todoRow, id: "completed-1", title: "Biten görev", completed: true, action: null }],
   suggestions: {
     todos: [
@@ -121,6 +128,37 @@ const agenda: TodayAgenda = {
     rss: [{ ...rssRow, id: "suggested-rss-1", title: "Üçüncü öneri", source: "suggestion" }],
     media: [],
   },
+};
+
+const openTodo: Todo = {
+  id: "open-1",
+  title: "Tarihsiz açık görev",
+  description: null,
+  priority: 2,
+  status: "open",
+  due_at: null,
+  reminder_at: null,
+  completed_at: null,
+  parent_id: null,
+  position: 0,
+  tags: [],
+  recur: null,
+  project_id: null,
+  project_title: null,
+  milestone_id: null,
+  milestone_title: null,
+  subtask_total: 0,
+  subtask_done: 0,
+  planned_day: null,
+  planned_start_min: null,
+};
+
+const futureRoutine: Todo = {
+  ...openTodo,
+  id: "routine-future",
+  title: "Yarının rutini",
+  recur: "daily",
+  due_at: "2026-08-24T09:00:00Z",
 };
 
 const harness = vi.hoisted(() => ({
@@ -157,9 +195,18 @@ vi.mock("@tanstack/react-query", () => ({
   }),
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
-    return options.queryKey[0] === "today-agenda"
-      ? { data: agenda, isLoading: false, isError: false, refetch: vi.fn() }
-      : { data: [], isLoading: false, isError: false, refetch: vi.fn() };
+    if (options.queryKey[0] === "today-agenda") {
+      return { data: agenda, isLoading: false, isError: false, refetch: vi.fn() };
+    }
+    if (options.queryKey[0] === "todos") {
+      return {
+        data: [openTodo, futureRoutine, { ...openTodo, id: "todo-1", title: "Görevi tamamla" }],
+        isLoading: false,
+        isError: false,
+        refetch: vi.fn(),
+      };
+    }
+    return { data: [], isLoading: false, isError: false, refetch: vi.fn() };
   }),
 }));
 
@@ -183,12 +230,18 @@ describe("unified Today agenda", () => {
   it("shows one hierarchy-aware flow and registers the local-day agenda query", () => {
     const markup = renderToStaticMarkup(<TodayAgendaWidget />);
 
-    expect(markup).toContain("Günün akışı");
+    expect(markup).toContain("Bugünün planı");
     expect(markup).not.toContain("Bugünün programı");
     expect(markup).not.toContain("Bugünün görevleri");
-    expect(markup).not.toContain("Bugünün planı");
     expect(markup.indexOf("Ana görev")).toBeLessThan(markup.indexOf("Alt görev"));
     expect(markup.match(/data-agenda-id="child-1"/g)).toHaveLength(1);
+    expect(markup).toContain("Açık görevler");
+    expect(markup).toContain("Tarihsiz açık görev");
+    expect(markup).toContain("Rutinler");
+    expect(markup).toContain("Bugünün rutini");
+    expect(markup).not.toContain("Yarının rutini");
+    expect(markup.match(/data-agenda-id="todo-1"/g)).toHaveLength(1);
+    expect(markup).toContain('href="#/todos?focus=open-1"');
     expect(harness.queries[0].queryKey).toEqual(["today-agenda", localDateKey(new Date())]);
   });
 
@@ -241,12 +294,12 @@ describe("unified Today agenda", () => {
     expect(markup).not.toContain("Dune tamamla");
   });
 
-  it("shows at most two suggestions and keeps completed rows collapsed by default", () => {
+  it("does not duplicate open todos in suggestions and keeps completed rows collapsed", () => {
     render(<TodayAgendaWidget />);
 
-    expect(screen.getByText("Birinci öneri")).toBeTruthy();
-    expect(screen.getByText("İkinci öneri")).toBeTruthy();
-    expect(screen.queryByText("Üçüncü öneri")).toBeNull();
+    expect(screen.queryByText("Birinci öneri")).toBeNull();
+    expect(screen.queryByText("İkinci öneri")).toBeNull();
+    expect(screen.getByText("Üçüncü öneri")).toBeTruthy();
 
     const completedToggle = screen.getByRole("button", { name: /Tamamlananlar/ });
     expect(completedToggle.getAttribute("aria-expanded")).toBe("false");

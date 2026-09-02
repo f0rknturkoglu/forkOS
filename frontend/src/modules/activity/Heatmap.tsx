@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Section, cx } from "@/core/ui";
 import type { Heatmap as HeatmapData, HeatmapDay } from "@/core/types";
+import { formatTrDate } from "@/lib/date";
 
 /**
  * Emek haritasi: son bir yilin gunluk kutulari.
@@ -29,11 +30,7 @@ const STEP_BG = ["bg-heat-0", "bg-heat-1", "bg-heat-2", "bg-heat-3", "bg-heat-4"
 const WEEKDAYS = ["Pzt", "", "Çar", "", "Cum", "", "Paz"];
 
 function tooltip(entry: HeatmapDay, labels: Record<string, string>): string {
-  const date = new Date(entry.day).toLocaleDateString("tr-TR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const date = formatTrDate(entry.day, { day: "numeric", month: "long", year: "numeric" });
   if (entry.total === 0) return `${date} — kayıt yok`;
   const parts = Object.entries(entry.kinds)
     .sort((a, b) => b[1] - a[1])
@@ -162,7 +159,7 @@ function monthLabels(days: HeatmapDay[], pad: number): { week: number; span: num
       ticks.push({
         week,
         span: 0,
-        label: new Date(entry.day).toLocaleDateString("tr-TR", { month: "short" }),
+        label: formatTrDate(entry.day, { month: "short" }),
       });
     }
   });

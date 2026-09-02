@@ -118,7 +118,11 @@ describe("bookmarks flow", () => {
 
     const patch = harness.mutations.find((mutation) => {
       harness.apiPatch.mockClear();
-      mutation.mutationFn?.({ favorite: true });
+      try {
+        mutation.mutationFn?.({ favorite: true });
+      } catch {
+        return false;
+      }
       return harness.apiPatch.mock.calls.some(([url]) => url === "/bookmarks/b1");
     });
     expect(patch).toBeDefined();
@@ -129,7 +133,11 @@ describe("bookmarks flow", () => {
     harness.invalidate.mockClear();
     const remove = harness.mutations.find((mutation) => {
       harness.apiDel.mockClear();
-      mutation.mutationFn?.();
+      try {
+        mutation.mutationFn?.();
+      } catch {
+        return false;
+      }
       return harness.apiDel.mock.calls.some(([url]) => url === "/bookmarks/b1");
     });
     expect(remove).toBeDefined();
@@ -138,36 +146,65 @@ describe("bookmarks flow", () => {
     expect(harness.invalidate).toHaveBeenCalledWith("bookmark.write");
   });
 
-  it("saves and deletes saved views with settings.write invalidation", () => {
+  it("renders the saved-view picker and drives save/apply/delete through it", async () => {
     harness.queryData = {
       bookmarks,
-      "saved-views": [{ id: "v1", name: "Okunmamış", module: "bookmarks", filter: { read_status: "unread" } }],
+      views: [
+        {
+          id: "v1",
+          name: "Okunmamış",
+          module: "bookmark",
+          filter: { read_status: "unread" },
+          sort: null,
+          pinned: false,
+          position: 1,
+        },
+      ],
     };
-    renderToStaticMarkup(<BookmarksPage />);
+    const markup = renderToStaticMarkup(<BookmarksPage />);
+    expect(markup).toContain("Görünümler");
 
+    // Picker'ın görünüm sorgusu modül anahtarıyla koşar.
+    const views = harness.queries.find(
+      (query) => query.queryKey[0] === "views" && query.queryKey[1] === "bookmark",
+    );
+    expect(views).toBeDefined();
+    await views?.queryFn();
+    expect(harness.apiGet).toHaveBeenCalledWith("/views?module=bookmark");
+
+    // Kaydetme: picker adı body'ye taşır, temiz filtreyi gönderir.
     const saveView = harness.mutations.find((mutation) => {
       harness.apiPost.mockClear();
-      mutation.mutationFn?.();
+      try {
+        mutation.mutationFn?.({ name: "Okunmamış" });
+      } catch {
+        return false;
+      }
       return harness.apiPost.mock.calls.some(([url]) => url === "/views");
     });
     expect(saveView).toBeDefined();
     expect(harness.apiPost).toHaveBeenCalledWith("/views", {
-      name: "Filtre",
-      module: "bookmarks",
+      name: "Okunmamış",
+      module: "bookmark",
       filter: {},
     });
     saveView?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("settings.write");
+    expect(harness.invalidate).toHaveBeenCalledWith("views.write");
 
+    // Silme: picker id ile DELETE atar.
     harness.invalidate.mockClear();
     const removeView = harness.mutations.find((mutation) => {
       harness.apiDel.mockClear();
-      mutation.mutationFn?.("v1");
+      try {
+        mutation.mutationFn?.("v1");
+      } catch {
+        return false;
+      }
       return harness.apiDel.mock.calls.some(([url]) => url === "/views/v1");
     });
     expect(removeView).toBeDefined();
     expect(harness.apiDel).toHaveBeenCalledWith("/views/v1");
     removeView?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("settings.write");
+    expect(harness.invalidate).toHaveBeenCalledWith("views.write");
   });
 });

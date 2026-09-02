@@ -62,7 +62,7 @@ export function DialogHost() {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgb(26_24_21/0.28)] p-6"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-[color:var(--overlay-scrim)] p-6"
       onClick={() => close(false)}
     >
       <div

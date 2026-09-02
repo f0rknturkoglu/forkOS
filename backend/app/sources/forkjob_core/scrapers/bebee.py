@@ -31,8 +31,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..geo import region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..geo import country_code, region_for
+from ..models import date_source_for, Job, Layer, Region, WorkMode
 from ..normalize import html_to_text, parse_datetime, parse_location
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import ld_blocks
@@ -81,9 +81,8 @@ class BebeeScraper(ScraperBase):
                     return jobs
 
                 listing_url = f"{BASE_URL}/{country}/{path}"
-                try:
-                    listing = await client.get_html(listing_url)
-                except ScraperPermanentError:
+                listing = await self.isolate(listing_url, lambda: client.get_html(listing_url))
+                if listing is None:
                     continue  # one country blocked must not sink the rest
 
                 remote_hint = path.endswith("remote")
@@ -94,9 +93,8 @@ class BebeeScraper(ScraperBase):
                         continue
                     seen.add(url)
 
-                    try:
-                        page = await client.get_html(url)
-                    except ScraperPermanentError:
+                    page = await self.isolate(url, lambda: client.get_html(url))
+                    if page is None:
                         continue
                     job = self.parse_offer(page, url, remote_hint=remote_hint)
                     if job is not None:
@@ -172,7 +170,7 @@ class BebeeScraper(ScraperBase):
             department=posting.get("employmentType") or None,
             description=description,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -189,6 +187,5 @@ def _place(node: Any) -> tuple[str | None, str | None]:
     country = address.get("addressCountry")
     if isinstance(country, dict):
         country = country.get("name")
-    if isinstance(country, str):
-        country = country.strip().upper()[:2] or None
+    country = country_code(country) if isinstance(country, str) else None
     return (city.strip() if isinstance(city, str) else None), country

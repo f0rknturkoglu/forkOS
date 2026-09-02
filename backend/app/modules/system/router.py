@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -9,9 +10,11 @@ import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.models import SavedView
+from app.core.schemas import SavedViewCreate, SavedViewOut, SavedViewPatch
 from app.db import get_session
 from app.modules.system import backup, export, news, restore, stats
 from app.modules.system.models import Setting
@@ -265,3 +268,59 @@ async def github_trending(
         return await news.github_trending(session, limit)
     except (httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(502, f"GitHub okunamadı: {exc}") from exc
+
+
+@router.get("/views", response_model=list[SavedViewOut])
+async def list_views(
+    module: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Kayitli gorunumler. Sira: sabitlenenler once, sonra konum, sonra id."""
+    stmt = select(SavedView).order_by(
+        SavedView.pinned.desc(), SavedView.position.asc(), SavedView.id.asc())
+    if module:
+        stmt = stmt.where(SavedView.module == module)
+    return list((await session.execute(stmt)).scalars())
+
+
+@router.post("/views", response_model=SavedViewOut, status_code=201)
+async def create_view(body: SavedViewCreate, session: AsyncSession = Depends(get_session)):
+    """Yeni gorunum. position = modul icindeki en buyuk + 1."""
+    max_pos = (
+        await session.execute(
+            select(func.max(SavedView.position)).where(SavedView.module == body.module)
+        )
+    ).scalar()
+    view = SavedView(**body.model_dump(), position=(max_pos or 0) + 1)
+    session.add(view)
+    await session.commit()
+    return view
+
+
+@router.patch("/views/{view_id}", response_model=SavedViewOut)
+async def patch_view(
+    view_id: uuid.UUID,
+    body: SavedViewPatch,
+    session: AsyncSession = Depends(get_session),
+):
+    """Verilen alanlari gunceller; pinned=true ise view en on konuma cekilir."""
+    view = await session.get(SavedView, view_id)
+    if view is None:
+        raise HTTPException(404, "gorunum bulunamadi")
+    updates = body.model_dump(exclude_unset=True)
+    for key, value in updates.items():
+        setattr(view, key, value)
+    if updates.get("pinned") is True:
+        view.position = 0
+    await session.commit()
+    await session.refresh(view)
+    return view
+
+
+@router.delete("/views/{view_id}", status_code=204)
+async def delete_view(view_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    view = await session.get(SavedView, view_id)
+    if view is None:
+        raise HTTPException(404, "gorunum bulunamadi")
+    await session.delete(view)
+    await session.commit()

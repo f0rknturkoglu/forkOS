@@ -29,7 +29,7 @@ import json
 from typing import Any
 
 from ..geo import region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import date_source_for, Job, Layer, Region, WorkMode
 from ..normalize import parse_datetime, parse_location
 from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
 
@@ -40,6 +40,8 @@ class ConsiderScraper(ScraperBase):
     """One VC portfolio board running on consider.co."""
 
     source_key = "consider"
+    #: The registry lists this class twice — once per board it serves.
+    registry_keys = ("consider-sequoia", "consider-a16z")
     label = "Consider"
 
     def __init__(
@@ -91,19 +93,16 @@ class ConsiderScraper(ScraperBase):
             if not groups:
                 break
 
+            page_jobs: list[Job] = []
             for group in groups:
                 company_info = group.get("company", {}) if isinstance(group, dict) else {}
                 for entry in group.get("jobs") or []:
                     if not isinstance(entry, dict):
                         continue
                     job = self._build_job(entry, company_info)
-                    if job is None:
-                        continue
-                    dedup_key = job.external_id or job.url
-                    if dedup_key in seen:
-                        continue
-                    seen.add(dedup_key)
-                    jobs.append(job)
+                    if job is not None:
+                        page_jobs.append(job)
+            jobs.extend(self.dedup_seen(seen, page_jobs))
 
             # Pagination: the server returns a `sequence` token in meta.
             new_meta = payload.get("meta") if isinstance(payload, dict) else None
@@ -285,7 +284,7 @@ class ConsiderScraper(ScraperBase):
             description=description,
             salary=salary_text,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 

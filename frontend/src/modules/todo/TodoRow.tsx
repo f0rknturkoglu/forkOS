@@ -1,6 +1,6 @@
 import { invalidateAfter } from "@/core/invalidation";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Ban,
@@ -9,6 +9,7 @@ import {
   Check,
   CornerDownRight,
   FolderGit2,
+  GraduationCap,
   ListTree,
   Milestone as MilestoneIcon,
   Repeat,
@@ -21,7 +22,7 @@ import { confirmDialog } from "@/core/dialog";
 import { createTask } from "@/core/tasks";
 import { Chip, IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
-import { navigate } from "@/app/router";
+import { openPomodoro } from "@/modules/pomodoro/dock";
 import type { Todo } from "@/core/types";
 import { appLocalToUtc, todayKey } from "@/lib/date";
 import { RECURRENCES, dueLabel, planLabel, priorityOf, recurLabel } from "./priority";
@@ -51,6 +52,7 @@ export function TodoRow({
   todo,
   compact = false,
   nested = false,
+  focused = false,
   onChange,
   children,
 }: {
@@ -59,6 +61,8 @@ export function TodoRow({
   compact?: boolean;
   /** Alt gorev olarak, ust gorevin altinda girintili gosteriliyor. */
   nested?: boolean;
+  /** ?focus= rotasindan acilan hedef satir. */
+  focused?: boolean;
   onChange?: () => void;
   /** Alt gorev satirlari -- ayni bilesenin `nested` hali. */
   children?: ReactNode;
@@ -67,6 +71,7 @@ export function TodoRow({
   const [subtask, setSubtask] = useState<string | null>(null);
   const [editingRecur, setEditingRecur] = useState(false);
   const [draft, setDraft] = useState("");
+  const rowRef = useRef<HTMLLIElement>(null);
   const online = useOnline();
   const toast = useToast();
 
@@ -113,12 +118,20 @@ export function TodoRow({
   const recur = recurLabel(todo.recur);
   const plan = planLabel(todo.planned_day ?? null, todo.planned_start_min ?? null);
 
-  // Pomodoro sayfasi context/topic parametrelerini acilis aninda okur --
-  // "odaklan" bu adrese gidip formu doldurur, kullanici baslat der.
-  const focusHref = `#/pomodoro?context=${encodeURIComponent(todo.id)}&topic=${encodeURIComponent(todo.title)}`;
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView({ block: "center" });
+  }, [focused]);
 
   return (
-    <li className={cx("group", nested && "pl-6")}>
+    <li
+      ref={rowRef}
+      data-focused={focused || undefined}
+      className={cx(
+        "group scroll-mt-24",
+        nested && "pl-6",
+        focused && "rounded-card bg-accent-surface ring-1 ring-inset ring-accent",
+      )}
+    >
       <div className={cx("flex items-start gap-2.5", compact ? "py-1.5" : "py-2.5")}>
         {nested && <CornerDownRight size={13} className="mt-1 shrink-0 text-icon" aria-hidden />}
         <button
@@ -160,6 +173,17 @@ export function TodoRow({
                 className="min-w-0 flex-1"
               />
             </form>
+          ) : todo.learning_topic_id ? (
+            <a
+              href={`#/learning?focus=${encodeURIComponent(todo.learning_topic_id)}`}
+              title={`${todo.learning_topic_title ?? todo.title} konu ağacını aç`}
+              className={cx(
+                "block w-full truncate text-left text-body transition",
+                done || dropped ? "text-muted line-through" : "text-primary hover:text-accent hover:underline",
+              )}
+            >
+              {todo.title}
+            </a>
           ) : (
             <button
               type="button"
@@ -269,6 +293,16 @@ export function TodoRow({
                 <FolderGit2 size={10} /> {todo.project_title}
               </a>
             )}
+            {todo.learning_topic_id && (
+              <a
+                href={`#/learning?focus=${encodeURIComponent(todo.learning_topic_id)}`}
+                title="Öğrenme konu ağacını aç"
+              >
+                <Chip tone="accent" icon={<GraduationCap size={10} />}>
+                  Öğrenme
+                </Chip>
+              </a>
+            )}
             {todo.milestone_title && (
               <a href={projectHref(todo)} title={`${todo.milestone_title} kilometre taşı`}>
                 <Chip icon={<MilestoneIcon size={10} />}>{todo.milestone_title}</Chip>
@@ -311,7 +345,11 @@ export function TodoRow({
             </IconButton>
           )}
           {!done && !dropped && (
-            <IconButton title="Odaklan — pomodoro başlat" disabled={!online} onClick={() => navigate(focusHref)}>
+            <IconButton
+              title="Odaklan — pomodoro seçeneklerini aç"
+              disabled={!online}
+              onClick={() => openPomodoro({ context: todo.id, topic: todo.title })}
+            >
               <Timer size={14} />
             </IconButton>
           )}

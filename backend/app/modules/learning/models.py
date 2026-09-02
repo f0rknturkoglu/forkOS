@@ -56,3 +56,27 @@ class StudyTopic(EntityBacked, Base):
     target_min: Mapped[int | None] = mapped_column(Integer)
     position: Mapped[int] = mapped_column(Integer, default=0)
     last_studied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class LearningResource(EntityBacked, Base):
+    """Bir konunun altindaki ogrenme materyali (URL, video, kitap bolumu...).
+
+    Tamamlanma isareti `completed_at`; konunun ilerleme yuzdesi bu satirlardan
+    (alt konular dahil) hesaplanir -- ayri bir yuzde kolonu TUTULMAZ ki
+    kaynaklarla ilerleme birbirinden kaymasin.
+    """
+
+    __tablename__ = "learning_resource"
+    ENTITY_TYPE = "learning_resource"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
+    )
+    topic_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("study_topic.id", ondelete="CASCADE")
+    )
+    url: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text, default="link")
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str | None] = mapped_column(Text)

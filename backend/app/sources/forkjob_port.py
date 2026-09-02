@@ -73,6 +73,15 @@ class PortalSource:
     def id(self) -> str:
         return f"jobhunter:{self.portal.key}"
 
+    @property
+    def category(self) -> str:
+        """Registry category of the portal (remote, regional, startup, ...).
+
+        Mirrors LayerBSource.category so the catalog can group sources the
+        same way the registry does.
+        """
+        return self.portal.category
+
     async def fetch(self) -> list[RawItem]:
         scraper = get_scraper(self.portal)
         if scraper is None:

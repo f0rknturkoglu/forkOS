@@ -30,6 +30,9 @@ RELATIONS: dict[str, tuple[str, str]] = {
     "learns_from": ("Kaynakları", "Çalışıldığı konu"),
     # Faz 21: not -> konu/entity. from = not, to = hakkinda oldugu kayit.
     "notes_about": ("Hakkında not", "Notları"),
+    # Govde metnindeki [[wikilink]]'ten uretilir (core/refs.py). Backlink
+    # paneli ve graf bu iliskiyi okur; elle kurulmaz, metinden turer.
+    "mentions": ("Bahsettikleri", "Buraya bağlananlar"),
 }
 
 

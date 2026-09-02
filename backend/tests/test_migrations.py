@@ -1,4 +1,4 @@
-"""Migration'lar elle yaziliyor (kural 9) -- model ile ayrisirsa burada patlar.
+"""Migration'lar elle yaziliyor (kural 10) -- model ile ayrisirsa burada patlar.
 
 Postgres'e ihtiyac duymaz: migration dosyalarindaki SQL string'lerini okuyup
 SQLAlchemy metadata'siyla karsilastirir.

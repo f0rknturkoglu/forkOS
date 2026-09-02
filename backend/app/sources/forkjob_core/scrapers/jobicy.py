@@ -30,13 +30,12 @@ applications go to the original URL; the stored `url` is that link.
 
 from __future__ import annotations
 
-from email.utils import parsedate_to_datetime
 from typing import Any
 from xml.etree import ElementTree as ET
 
-from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text
+from ..geo import region_for
+from ..models import Job, Layer, Region, WorkMode, date_source_for
+from ..normalize import html_to_text, parse_rfc822, parse_single_country
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://jobicy.com"
@@ -85,17 +84,11 @@ class JobicyScraper(ScraperBase):
 
         for geo in self.geos:
             for industry in self.industries:
-                try:
-                    xml = await client.get_html(self.feed_url(geo, industry))
-                except ScraperPermanentError:
+                url = self.feed_url(geo, industry)
+                xml = await self.isolate(url, lambda: client.get_html(url))
+                if xml is None:
                     continue  # one slice failing must not stop the rest
-
-                for job in self.parse(xml):
-                    key = job.external_id or job.url
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    jobs.append(job)
+                jobs.extend(self.dedup_seen(seen, self.parse(xml)))
         return jobs
 
     # -- pure parsing -------------------------------------------------------
@@ -121,13 +114,15 @@ class JobicyScraper(ScraperBase):
             return None
 
         location = (item.findtext("jobicy:location", namespaces=NS) or "").strip() or None
-        country = _single_country(location)
+        country = parse_single_country(location)
 
         body = item.findtext("content:encoded", namespaces=NS) or item.findtext("description")
         description = html_to_text(body)
 
         category = item.findtext("jobicy:category", namespaces=NS)
         job_type = item.findtext("jobicy:job_type", namespaces=NS)
+
+        posted_at = parse_rfc822(item.findtext("pubDate"))
 
         return Job.build(
             url=url,
@@ -145,33 +140,8 @@ class JobicyScraper(ScraperBase):
             remote=True,
             department=", ".join(p for p in (category, job_type) if p) or None,
             description=description,
-            posted_at=_rfc822(item.findtext("pubDate")),
-            date_source=(
-                DateSource.EMPLOYER if _rfc822(item.findtext("pubDate")) else DateSource.DISCOVERED
-            ),
+            posted_at=posted_at,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
-def _rfc822(value: Any) -> Any:
-    """RSS dates are RFC 822: "Fri, 07 Aug 2026 04:40:08 +0000"."""
-    if not isinstance(value, str) or not value.strip():
-        return None
-    try:
-        return parsedate_to_datetime(value.strip())
-    except (TypeError, ValueError):
-        return None
-
-
-def _single_country(location: Any) -> str | None:
-    """Resolve the location only when it names exactly one known country.
-
-    "UK" resolves; "USA, Canada, EMEA, LATAM" does not, and neither do "EMEA"
-    or "Anywhere". Taking the first of a list would invent a location the
-    posting never claimed.
-    """
-    if not isinstance(location, str) or not location.strip():
-        return None
-    parts = [p.strip() for p in location.split(",") if p.strip()]
-    if len(parts) != 1:
-        return None
-    return country_from_name(parts[0])

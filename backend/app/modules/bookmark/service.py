@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import search as search_svc
 from app.core import tags as tag_svc
-from app.core.entity import archive_entity, create_entity, touch_entity
+from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.core.time import local_day_bounds, local_today
@@ -128,8 +128,6 @@ async def move(session: AsyncSession, bookmark_id: uuid.UUID, collection: str) -
     if bookmark is None:
         return None
     previous, bookmark.collection = bookmark.collection, collection
-    if collection == "archive":
-        await archive_entity(session, bookmark_id)
     await touch_entity(session, bookmark_id)
     if previous != collection:
         await log_event(

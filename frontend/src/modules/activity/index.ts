@@ -26,7 +26,7 @@ registerModule({
       component: Heatmap,
       slot: "center",
       order: 30,
-      defaultVisible: false,
+      defaultVisible: true,
     },
     {
       id: "activity.widget",

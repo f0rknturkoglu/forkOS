@@ -21,8 +21,22 @@ class Expense(EntityBacked, Base):
     category: Mapped[str] = mapped_column(Text)
     spent_on: Mapped[date] = mapped_column(Date, default=date.today)
     note: Mapped[str | None] = mapped_column(Text)
-    # abonelik markasi (wow/youtube/spotify/prime/icloud)
+    # abonelik markasi (netflix/spotify/...) -- gorsel rozet icin serbest slug
     sub: Mapped[str | None] = mapped_column(Text)
+
+
+class Income(EntityBacked, Base):
+    """Gelir kaydi. Gider ile ayni sekle sahip; net hesabi ikisinden cikar."""
+
+    __tablename__ = "income"
+    ENTITY_TYPE = "income"
+
+    id: Mapped[uuid.UUID] = EntityBacked._entity_pk()
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(CHAR(3), default="TRY")
+    category: Mapped[str] = mapped_column(Text, default="salary")
+    received_on: Mapped[date] = mapped_column(Date, default=date.today)
+    note: Mapped[str | None] = mapped_column(Text)
 
 
 class RecurringPayment(EntityBacked, Base):
@@ -38,5 +52,5 @@ class RecurringPayment(EntityBacked, Base):
     next_due_at: Mapped[date | None] = mapped_column(Date)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str | None] = mapped_column(Text)
-    # abonelik markasi (wow/youtube/spotify/prime/icloud)
+    # abonelik markasi (netflix/spotify/...) -- gorsel rozet icin serbest slug
     sub: Mapped[str | None] = mapped_column(Text)

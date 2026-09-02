@@ -8,8 +8,7 @@ ps:        ; $(CO) ps
 build:     ; $(CO) build
 sh:        ; $(CO) exec api bash
 psql:      ; $(CO) exec db psql -U lifeos -d lifeos
-migrate:   ; $(CO) exec api alembic upgrade head
-revision:  ; $(CO) exec api alembic revision --autogenerate -m "$(m)"
+cli:       ; cd backend && .venv/bin/python -m app.cli $(ARGS)
 TEST_PROJECT ?= forkos-test
 test:
 	@status=0; \
@@ -17,8 +16,16 @@ test:
 		up --build --abort-on-container-exit --exit-code-from backend-test backend-test || status=$$?; \
 	$(CO) -p $(TEST_PROJECT) -f compose.yaml -f compose.test.yaml down -v; \
 	exit $$status
-backup:    ; mkdir -p backend/backups && $(CO) exec -T db sh -c 'pg_dump -U lifeos -d lifeos -Fc > /tmp/forkos.dump' && $(CO) cp db:/tmp/forkos.dump ./backend/backups/forkos.dump
- reset:     ; $(CO) down -v && $(CO) up -d && sleep 5 && $(MAKE) migrate
+backup:    ; mkdir -p backend/backups && $(CO) exec -T db sh -c 'pg_dump -U "$${POSTGRES_USER:-lifeos}" -d "$${POSTGRES_DB:-lifeos}" -Fc > /tmp/forkos.dump' && $(CO) cp db:/tmp/forkos.dump ./backend/backups/forkos.dump
+  reset:
+	$(CO) down -v
+	$(CO) up -d
+	@i=0; until $(CO) exec -T db sh -c 'pg_isready -U "$${POSTGRES_USER:-lifeos}" -d "$${POSTGRES_DB:-lifeos}"' >/dev/null 2>&1; do \
+		i=$$((i+1)); \
+		if [ $$i -ge 60 ]; then echo "HATA: db healthcheck zamani asildi (60s)" >&2; exit 1; fi; \
+		sleep 1; \
+	done
+	$(MAKE) migrate
 
 # GERCEK FELAKET KURTARMASI -- tum veritabanini degistirir (Faz 16/28).
 # Normal /backup/restore merge eder; bu hedef yalnizca tam geri donus icindir.
@@ -53,7 +60,7 @@ backend-lint:
 		run --rm --no-deps backend-test ruff check app tests scripts
 
 frontend-verify:
-	cd frontend && npm ci && npm audit --audit-level=moderate && npm run api:check && npm test && npm run build
+	cd frontend && npm ci && npm audit --audit-level=moderate && npm run api:check && npm test && npm run format:check && node scripts/check-endpoint-coverage.mjs && node scripts/check-dead-exports.mjs && npm run build
 
 extension-verify:
 	cd extension && npm ci && npm test

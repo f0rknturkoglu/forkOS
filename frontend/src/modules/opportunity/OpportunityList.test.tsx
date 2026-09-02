@@ -65,6 +65,16 @@ describe("opportunity list components", () => {
     expect(html).toContain("xl:grid-cols-3");
   });
 
+  it("keeps rows one-dimensional", () => {
+    const html = renderToStaticMarkup(
+      <OpportunityCollection layout="rows">
+        <article>row</article>
+      </OpportunityCollection>,
+    );
+    expect(html).toContain("divide-y");
+    expect(html).not.toContain("grid-cols-3");
+  });
+
   it("renders announcements without a score", () => {
     const html = renderToStaticMarkup(
       <OpportunityCard

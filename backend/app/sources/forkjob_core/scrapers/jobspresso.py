@@ -17,12 +17,11 @@ from __future__ import annotations
 
 import html
 import re
-from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree as ET
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_rfc822
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 FEED_URL = "https://jobspresso.co/jobs/feed/"
@@ -39,17 +38,16 @@ class JobspressoScraper(ScraperBase):
     base_url = "https://jobspresso.co"
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
-        try:
-            xml = await client.get_html(FEED_URL)
-        except ScraperPermanentError:
-            return []
+        xml = await client.get_html(FEED_URL)
         return self.parse(xml)
 
     def parse(self, xml: str) -> list[Job]:
         try:
             root = ET.fromstring(xml or "")
-        except ET.ParseError:
-            return []
+        except ET.ParseError as exc:
+            raise ScraperPermanentError(
+                f"jobspresso: feed is not valid XML: {exc}"
+            ) from exc
         jobs: list[Job] = []
         for item in root.iter("item"):
             job = self._parse_item(item)
@@ -65,13 +63,7 @@ class JobspressoScraper(ScraperBase):
 
         company, location = self._creator(item.findtext(DC) or "")
 
-        posted_at = None
-        raw_date = item.findtext("pubDate")
-        if raw_date:
-            try:
-                posted_at = parsedate_to_datetime(raw_date)
-            except (TypeError, ValueError):
-                posted_at = None
+        posted_at = parse_rfc822(item.findtext("pubDate"))
 
         country = self._country_of(location)
 
@@ -90,7 +82,7 @@ class JobspressoScraper(ScraperBase):
             remote=True,
             description=html_to_text(item.findtext("description") or ""),
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
     @staticmethod

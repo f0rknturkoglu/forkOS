@@ -1,4 +1,4 @@
-"""Sources assessed 2026-08-18 and found blocked — no parser is written.
+"""Sources assessed and found blocked — no parser is written.
 
 Each raises rather than guessing, so the registry stays honest: `sync` skips
 the source and `portals.yaml` records why. Details are in the status lines.
@@ -62,3 +62,61 @@ class NodeskScraper(_BlockedScraper):
         "fetch) with no verified public listing API, and detail pages carry "
         "no stable id. Revisit if a public listing endpoint appears."
     )
+
+
+class JustJoinItScraper(_BlockedScraper):
+    source_key = "justjoinit"
+    label = "JustJoin.it"
+    base_url = "https://justjoin.it"
+
+    _blocked_reason = (
+        "justjoinit: blocked by robots.txt, checked 2026-08-09. /api/ is "
+        "disallowed for every agent, and the scraper correctly refuses rather "
+        "than fetching. There is a permitted route — /sitemaps/active-jobs.xml, "
+        "which redirects to public.justjoin.com and indexes per-posting "
+        "sitemaps — but using it means fetching each posting page one by one, "
+        "which is a different scraper than the one written here. Keep off "
+        "until then."
+    )
+
+
+class LandingJobsScraper(_BlockedScraper):
+    source_key = "landingjobs"
+    label = "Landing.jobs"
+    base_url = "https://landing.jobs"
+
+    _blocked_reason = (
+        "landingjobs: blocked by robots.txt, checked 2026-08-09. /api/, /jobs? "
+        "and /jobs/search are all disallowed for every agent, so the internal "
+        "API the scraper was written against is off limits. The permitted "
+        "sitemap holds only 2069 category and city pages — not one individual "
+        "posting — so there is no allowed path to the listings. Keep off."
+    )
+
+
+class HoneypotScraper(_BlockedScraper):
+    source_key = "honeypot"
+    label = "Honeypot.io"
+    base_url = "https://www.honeypot.io"
+
+    _blocked_reason = (
+        "honeypot: site unreachable, checked 2026-08-09. www.honeypot.io does "
+        "not accept connections at all — robots.txt included — so this is not "
+        "a wrong API URL but a host that is no longer serving. Was reverse "
+        "recruiting for DE/NL/AT with explicit visa status. Keep off."
+    )
+
+
+class OfferZenScraper(_BlockedScraper):
+    source_key = "offerzen"
+    label = "OfferZen"
+    base_url = "https://www.offerzen.com"
+
+    _blocked_reason = (
+        "offerzen: no public postings to read, checked 2026-08-09. The guessed "
+        "/api/v1/jobs is a 404, /jobs redirects to marketing pages, and neither "
+        "the landing page nor a category page carries a JobPosting, ld+json or "
+        "__NEXT_DATA__ block. OfferZen is a reverse marketplace — companies "
+        "approach candidates behind a login — so there is no listing to scrape."
+    )
+

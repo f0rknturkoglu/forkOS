@@ -41,6 +41,24 @@ class SavedViewOut(SavedViewIn):
     id: uuid.UUID
 
 
+class SavedViewCreate(BaseModel):
+    """POST /views govdesi: position sunucu tarafinda (max+1) hesaplanir."""
+
+    name: str
+    module: str
+    filter: dict
+    sort: str | None = None
+
+
+class SavedViewPatch(BaseModel):
+    """PATCH /views/{id} govdesi: verilen alanlar guncellenir."""
+
+    name: str | None = None
+    filter: dict | None = None
+    sort: str | None = None
+    pinned: bool | None = None
+
+
 class RelatedOut(BaseModel):
     """GET /entities/{id}/related satiri: iliski + yon + karsi entity ozeti."""
 

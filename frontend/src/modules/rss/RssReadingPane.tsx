@@ -1,13 +1,31 @@
 import { ExternalLink } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api } from "@/core/api";
 import { Button, Empty, Select, relativeTime } from "@/core/ui";
 import { COLLECTIONS, COLLECTION_LABELS } from "@/core/types";
 import type { Collection, FeedItem } from "@/core/types";
 
+/** Tam metin ucu yaniti. Tip tanimlari modul icinde tutulur (core/types.ts'a dokunulmaz). */
+interface FullTextResult {
+  full_text: string | null;
+}
+
+/** href/src degerini denetler: yalnizca http/https/mailto semalari gecer. */
+function safeUrl(raw: string): string {
+  const value = raw.replace(/["'`]/g, "").replace(/&#x?[0-9a-f]+;/gi, "");
+  const scheme = value.match(/^\s*([a-z][a-z0-9+.-]*)\s*:/i)?.[1] ?? "";
+  return /^(?:http|https|mailto)$/i.test(scheme) ? value.trim() : "";
+}
+
 /** Feed HTML'ini okuma bölmesi için temizler. */
 function sanitizeHtml(html: string): string {
   return html
-    .replace(/<(script|style|iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+    .replace(/<(script|style|iframe|object|embed|form|svg|math)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, (_, attr: string, raw: string) => {
+      const value = safeUrl(raw);
+      return value ? ` ${attr}="${value}"` : "";
+    });
 }
 
 function stripHtml(html: string): string {
@@ -52,6 +70,20 @@ export function RssReadingPane({
   hasPrev,
   hasNext,
 }: RssReadingPaneProps) {
+  // Tam metin durumu -- yazi degistiginde sifirlanir.
+  const [view, setView] = useState<"summary" | "full">("summary");
+  const [fullText, setFullText] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [notice, setNotice] = useState(false);
+  const itemId = detail?.id ?? null;
+
+  useEffect(() => {
+    setView("summary");
+    setFullText(null);
+    setFetching(false);
+    setNotice(false);
+  }, [itemId]);
+
   if (!detail) {
     return (
       <Empty variant="page" title="Bir yazı seç">
@@ -65,6 +97,26 @@ export function RssReadingPane({
   }
 
   const hasBody = Boolean((detail.content || detail.summary || "").trim());
+  const current = detail;               // guard sonrasi daraltma closure'lara islemez
+
+  /** Tam metni uctan ister: dolarsa tam metin moduna gecer, yoksa bilgi notu. */
+  async function fetchFullText() {
+    setFetching(true);
+    setNotice(false);
+    try {
+      const result = await api.get<FullTextResult>(`/rss/items/${current.id}/fulltext`);
+      if (result.full_text) {
+        setFullText(result.full_text);
+        setView("full");
+      } else {
+        setNotice(true);
+      }
+    } catch {
+      setNotice(true);
+    } finally {
+      setFetching(false);
+    }
+  }
 
   return (
     <>
@@ -129,7 +181,12 @@ export function RssReadingPane({
           )}
         </div>
 
-        {hasBody ? (
+        {view === "full" && fullText ? (
+          <div
+            className="article-content mt-5 text-secondary"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullText) }}
+          />
+        ) : hasBody ? (
           detail.content ? (
             <div
               className="article-content mt-5 text-secondary"
@@ -149,6 +206,26 @@ export function RssReadingPane({
               </a>
             )}
           </p>
+        )}
+
+        {detail.url && view === "summary" && !fullText && (
+          <div className="mt-4 flex items-center gap-3">
+            <Button size="sm" disabled={!online || fetching} onClick={fetchFullText}>
+              {fetching ? "Getiriliyor…" : "Tam metni getir"}
+            </Button>
+            {notice && <span className="text-meta text-muted">Tam metin alınamadı</span>}
+          </div>
+        )}
+
+        {fullText && (
+          <div className="mt-4 flex items-center gap-2">
+            <Button size="sm" variant={view === "summary" ? "primary" : "ghost"} onClick={() => setView("summary")}>
+              Özet
+            </Button>
+            <Button size="sm" variant={view === "full" ? "primary" : "ghost"} onClick={() => setView("full")}>
+              Tam metin
+            </Button>
+          </div>
         )}
       </div>
     </>

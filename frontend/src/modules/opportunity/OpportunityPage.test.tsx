@@ -31,6 +31,8 @@ vi.mock("@tanstack/react-query", () => ({
     };
   }),
   useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  // SavedViewPicker'ın görünüm sorgusu: boş liste döner.
+  useQuery: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 vi.mock("@/core/api", () => ({
   api: { get: harness.get, patch: vi.fn(), post: vi.fn(), del: vi.fn() },
@@ -65,7 +67,8 @@ describe("categorical opportunity page", () => {
     expect(html).toContain("İş ilanları");
     expect(html).toContain("Duyurular");
     expect(html).toContain("Çöp");
-    expect(html).toContain("Yazılım &amp; mühendislik");
+    expect(html).not.toContain("İş alanı");
+    expect(html).toContain("Uyum skoru");
     await harness.query?.queryFn({ pageParam: 60 });
     expect(harness.get).toHaveBeenCalledWith(expect.stringContaining("/opportunities/browse?"));
     expect(harness.get).toHaveBeenCalledWith(expect.stringContaining("offset=60"));

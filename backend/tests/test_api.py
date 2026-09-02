@@ -902,7 +902,12 @@ async def test_phase4_learning_flow(client: AsyncClient):
     # Registry deep-link'i alan agacini onceden bilmeden tek konuyu cozebilir.
     focused_response = await client.get(f"/api/study/topics/{topic['id']}")
     assert focused_response.status_code == 200
-    assert focused_response.json() == {**topic, "children": []}
+    # Faz 35: konu detayi kaynak sayacindan turetilen ilerlemeyi de tasir.
+    assert focused_response.json() == {
+        **topic,
+        "children": [],
+        "progress": {"total": 0, "done": 0, "pct": 0},
+    }
 
     pomo = (
         await client.post(

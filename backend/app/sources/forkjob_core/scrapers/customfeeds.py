@@ -26,9 +26,9 @@ from selectolax.parser import HTMLParser
 
 from ..feeds import Feed, Feeds
 from ..geo import country_from_location, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import DateSource, Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime
-from .base import ScrapeBatch, ScraperBase, ScraperError, ScraperHttpClient
+from .base import ScrapeBatch, ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import job_posting_nodes, organisation_name
 from .schemaorg import place as schema_place
 from .schemaorg import text as schema_text
@@ -136,7 +136,7 @@ class CustomFeedsScraper(ScraperBase):
             description=description,
             posted_at=posted,
             # datePosted is the employer's own field, unlike a feed's pubDate.
-            date_source=DateSource.EMPLOYER if posted else DateSource.DISCOVERED,
+            date_source=date_source_for(posted)[1],
         )
 
     def _from_node(self, node: Any, feed: Feed) -> Job | None:
@@ -224,8 +224,12 @@ class CustomFeedsScraper(ScraperBase):
     def parse(self, xml: str, feed: Feed) -> list[Job]:
         try:
             root = ET.fromstring(xml or "")
-        except ET.ParseError:
-            return []
+        except ET.ParseError as exc:
+            # Reported per-feed by scrape()'s isolation; a malformed feed must
+            # not come back as the misleading "no postings found".
+            raise ScraperPermanentError(
+                f"customfeeds: {feed.label} is not valid XML: {exc}"
+            ) from exc
 
         items = list(root.iter("item")) or list(root.iter(f"{ATOM}entry"))
         jobs: list[Job] = []
@@ -278,7 +282,7 @@ class CustomFeedsScraper(ScraperBase):
             posted_at=posted_at,
             # A feed's date is when the feed published it, which for a job board
             # is the listing date, not an employer-stated one.
-            date_source=DateSource.UPDATED if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(None, posted_at)[1],
         )
 
     # -- element helpers -----------------------------------------------------

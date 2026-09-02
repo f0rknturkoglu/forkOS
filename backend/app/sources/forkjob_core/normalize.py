@@ -5,12 +5,13 @@ UNKNOWN and an undated posting stays `discovered`: a wrong guess quietly moves
 a job into the wrong quota bucket or fakes a freshness the data cannot support.
 """
 
-from __future__ import annotations
-
 import html
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from typing import Any
+from xml.etree import ElementTree as ET
 
 from selectolax.parser import HTMLParser
 
@@ -281,25 +282,124 @@ _ES_STOPWORDS = {
     "equipo",
     "empresa",
 }
-_EN_STOPWORDS = {
-    "the",
-    "and",
-    "of",
-    "to",
-    "in",
-    "for",
-    "with",
-    "you",
-    "we",
-    "our",
-    "your",
-    "are",
-    "is",
-    "will",
-    "have",
-    "as",
-    "on",
-    "that",
-    "experience",
-    "team",
-}
+# --------------------------------------------------------------------------
+# Dates
+# --------------------------------------------------------------------------
+
+
+def parse_epoch_ms(value: Any) -> datetime | None:
+    """Unix epoch timestamp -> UTC datetime, or None.
+
+    The five copies this replaces disagreed on the unit: wellfound, RemoteOK
+    and Arc.dev publish seconds, EURES and No Fluff Jobs publish milliseconds.
+    Values above 1e12 are milliseconds (year 33658+ in seconds), everything
+    else is seconds — the same threshold No Fluff Jobs already used.
+    """
+    if not isinstance(value, (int, float)) or value <= 0:
+        return None
+    seconds = value / 1000 if value > 1_000_000_000_000 else value
+    return datetime.fromtimestamp(seconds, tz=UTC)
+
+
+def parse_rfc822(value: Any) -> datetime | None:
+    """RFC 822 date ("Fri, 07 Aug 2026 04:40:08 +0000") -> datetime, else None.
+
+    The standard RSS pubDate shape; parsing quirks (None, empty, malformed)
+    are the caller's "no date" case, never an exception.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return parsedate_to_datetime(value.strip())
+    except (TypeError, ValueError):
+        return None
+
+
+# --------------------------------------------------------------------------
+# Sitemaps
+# --------------------------------------------------------------------------
+
+_LOC_RE = re.compile(r"<loc>\s*(.*?)\s*</loc>", re.S | re.I)
+_SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+
+
+def sitemap_locations(text: str) -> list[str]:
+    """Every `<loc>` URL from a sitemap body, stripped, in document order.
+
+    Sitemaps pretty-print their XML (`<loc>\n  https://…\n</loc>`), so the
+    captured URL is stripped here once instead of per scraper.
+    """
+    return [loc.strip() for loc in _LOC_RE.findall(text or "")]
+
+
+def sitemap_child(node: Any, tag: str) -> Any | None:
+    """Find a child with or without the sitemap namespace.
+
+    Written out rather than chained with `or`: an ElementTree element with no
+    children is falsy, so `find(ns) or find(plain)` discards every match that
+    has no sub-elements — which is every <lastmod> there is.
+    """
+    found = node.find(f"sm:{tag}", _SITEMAP_NS)
+    return found if found is not None else node.find(tag)
+
+
+# --------------------------------------------------------------------------
+# Salary display
+# --------------------------------------------------------------------------
+
+
+def format_salary(
+    low: Any,
+    high: Any,
+    currency: str | None = None,
+    *,
+    suffix: str = "",
+) -> str | None:
+    """One display string for a salary band: "32-35 €K".
+
+    The scrapers that feed this disagree on units (hourly rates, thousands,
+    monthly periods), so they extract their own min/max/currency/suffix and
+    this only joins them: a range renders as "low-high", a single-sided band
+    as that value, then currency and suffix. None when neither side has a
+    value.
+    """
+    if low in (None, 0) and high in (None, 0):
+        return None
+    if low is not None and high is not None and low != high:
+        band = f"{low:g}-{high:g}"
+    else:
+        band = f"{low if low not in (None, 0) else high:g}"
+    out = [band]
+    if currency:
+        out.append(currency)
+    text = " ".join(out)
+    return f"{text} {suffix}".strip() if suffix else text
+
+
+# --------------------------------------------------------------------------
+# Location
+# --------------------------------------------------------------------------
+
+
+def parse_single_country(value: Any) -> str | None:
+    """Resolve a location only when it names exactly one known country.
+
+    "UK" resolves; "USA, Canada, EMEA, LATAM" does not, and neither do "EMEA"
+    or "Anywhere". Taking the first of a list would invent a location the
+    posting never claimed. Accepts either a list of location names (Wellfound)
+    or a comma-separated string (Jobicy, Jobgether).
+    """
+    if isinstance(value, list):
+        if len(value) != 1 or not isinstance(value[0], str):
+            return None
+        text = value[0].strip()
+    elif isinstance(value, str):
+        text = value.strip()
+    else:
+        return None
+    if not text:
+        return None
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if len(parts) != 1:
+        return None
+    return country_from_name(parts[0])

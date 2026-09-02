@@ -1,12 +1,13 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Star, Trash2, X } from "lucide-react";
+import { Star, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import {
   Button,
   Chip,
   Empty,
+  FilterChip,
   IconButton,
   Input,
   PageFrame,
@@ -22,8 +23,9 @@ import {
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
+import { SavedViewPicker } from "@/core/SavedViewPicker";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
-import type { Bookmark, BookmarkStats, Collection, SavedView, TagCount } from "@/core/types";
+import type { Bookmark, BookmarkStats, Collection, TagCount } from "@/core/types";
 
 interface Filter {
   collection?: Collection | "";
@@ -41,64 +43,6 @@ const READ_STATUS_LABELS: Record<(typeof READ_STATUSES)[number], string> = {
   reading: "Okuyor",
   read: "Okundu",
 };
-/** Filtre aktif mi? Kayıtlı görünüm çubuğu ve kaydet düğmesi buna bağlı. */
-function filterActive(f: Filter): boolean {
-  return Boolean(f.collection || f.read_status || f.favorite || f.source || f.tag);
-}
-
-/** Kaydedilecek filtre: boş/undefined alanlar atılır (view.filter DSL'i). */
-function cleanFilter(f: Filter): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  if (f.collection) out.collection = f.collection;
-  if (f.read_status) out.read_status = f.read_status;
-  if (f.favorite) out.favorite = true;
-  if (f.source) out.source = f.source;
-  if (f.tag) out.tag = f.tag;
-  return out;
-}
-
-/** Görünüm adı -- aktif filtre parçalarından türetilir. */
-function viewName(f: Filter): string {
-  const parts: string[] = [];
-  if (f.collection) parts.push(COLLECTION_LABELS[f.collection]);
-  if (f.read_status) parts.push(READ_STATUS_LABELS[f.read_status as (typeof READ_STATUSES)[number]]);
-  if (f.favorite) parts.push("Favoriler");
-  if (f.source) parts.push("RSS");
-  if (f.tag) parts.push(`#${f.tag}`);
-  return parts.join(" + ") || "Filtre";
-}
-
-/** Basit tek secimli filtre cipi. Sayi verilirse saga yazar (sayaçsız da olur). */
-function FilterChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cx(
-        "flex h-8 items-center gap-2 rounded-control border px-3 text-meta transition",
-        active
-          ? "border-accent bg-accent-surface font-medium text-accent"
-          : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
-      )}
-    >
-      <span>{label}</span>
-      {count !== undefined && (
-        <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
-      )}
-    </button>
-  );
-}
 
 function BookmarkRow({ bookmark, focused }: { bookmark: Bookmark; focused: boolean }) {
   const online = useOnline();
@@ -219,33 +163,19 @@ export function BookmarksPage() {
     queryFn: () => api.get<TagCount[]>("/tags"),
   });
   const online = useOnline();
-  const { data: views = [] } = useQuery({
-    queryKey: ["saved-views", "bookmarks"],
-    queryFn: () => api.get<SavedView[]>("/views?module=bookmarks"),
-  });
-  const saveView = useMutation({
-    mutationFn: () =>
-      api.post<SavedView>("/views", { name: viewName(filter), module: "bookmarks", filter: cleanFilter(filter) }),
-    onSuccess: () => invalidateAfter("settings.write"),
-  });
-  const removeView = useMutation({
-    mutationFn: (id: string) => api.del(`/views/${id}`),
-    onSuccess: () => invalidateAfter("settings.write"),
-  });
 
-  /** Kayıtlı görünümü uygula: temiz filtre + aramayı sıfırla. */
-  function applyView(v: SavedView) {
+  /** Kayıtlı görünümü uygula: tanınan anahtarları filtreye aktar, gerisini yok say. */
+  function applyView(raw: unknown) {
+    const data = (raw ?? {}) as Record<string, unknown>;
     const next: Filter = { collection: "" };
-    const raw = v.filter ?? {};
-    if (typeof raw.collection === "string") next.collection = raw.collection as Collection;
-    if (typeof raw.read_status === "string") next.read_status = raw.read_status;
-    if (raw.favorite === true) next.favorite = true;
-    if (typeof raw.source === "string") next.source = raw.source;
-    if (typeof raw.tag === "string") next.tag = raw.tag;
+    if (typeof data.collection === "string") next.collection = data.collection as Collection;
+    if (typeof data.read_status === "string") next.read_status = data.read_status;
+    if (data.favorite === true) next.favorite = true;
+    if (typeof data.source === "string") next.source = data.source;
+    if (typeof data.tag === "string") next.tag = data.tag;
     setFilter(next);
     setSearch("");
   }
-  const currentViewJson = JSON.stringify(cleanFilter(filter));
 
   return (
     <PageFrame className="space-y-5">
@@ -313,43 +243,9 @@ export function BookmarksPage() {
                 />
               ))}
             </div>
+
+            <SavedViewPicker module="bookmark" filters={filter} onApply={applyView} />
           </Toolbar>
-          {(views.length > 0 || filterActive(filter)) && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-card border border-subtle bg-surface px-3 py-2">
-              <Star size={13} className="text-icon" />
-              <span className="text-meta text-muted">Görünümler</span>
-              {views.map((v) => (
-                <span key={v.id} className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => applyView(v)}
-                    className={cx(
-                      "h-7 rounded-control border px-2 text-meta transition",
-                      JSON.stringify(v.filter ?? {}) === currentViewJson
-                        ? "border-accent bg-accent-surface font-medium text-accent"
-                        : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
-                    )}
-                  >
-                    {v.name}
-                  </button>
-                  <button
-                    type="button"
-                    title="Görünümü sil"
-                    aria-label={`"${v.name}" görünümünü sil`}
-                    onClick={() => removeView.mutate(v.id)}
-                    className="flex h-7 w-6 items-center justify-center rounded-control text-muted opacity-60 transition hover:bg-surface-sunken hover:text-danger"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-              {filterActive(filter) && !views.some((v) => JSON.stringify(v.filter ?? {}) === currentViewJson) && (
-                <Button size="sm" disabled={!online || saveView.isPending} onClick={() => saveView.mutate()}>
-                  Görünümü kaydet
-                </Button>
-              )}
-            </div>
-          )}
 
           {isLoading ? (
             <p className="text-body text-muted">Yükleniyor…</p>

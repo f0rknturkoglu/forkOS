@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DailyRhythmWidget } from "./DailyRhythmWidget";
 
@@ -116,29 +116,23 @@ describe("DailyRhythmWidget (Faz 25)", () => {
     vi.useRealTimers();
   });
 
-  it("sabah: gelen kutusu + ilk 3 planli + ilk odak aksiyonu", () => {
+  it("sabah: yalnız günün özetini verir, görev listesini tekrarlamaz", () => {
     vi.setSystemTime(new Date("2026-08-29T06:00:00Z")); // Istanbul 09:00
     const markup = renderToStaticMarkup(<DailyRhythmWidget />);
-    expect(markup).toContain("Günün ritmi");
+    expect(markup).toContain("Gün özeti");
     expect(markup).toContain("Sabah");
-    expect(markup).toContain("Gelen kutusunda");
-    expect(markup).toContain("Rapor");
-    expect(markup).toContain("İlk odağı başlat");
+    expect(markup).toContain("2</strong> planlı");
+    expect(markup).not.toContain("Rapor");
+    expect(markup).not.toContain("İlk odağı başlat");
   });
 
-  it("gun icinde: aktif pomodoro 'Odak devam ediyor' gosterir", () => {
+  it("gün içinde: durum sayıları dışında görev içeriğini tekrar etmez", () => {
     vi.setSystemTime(new Date("2026-08-29T12:00:00Z")); // Istanbul 15:00
     const markup = renderToStaticMarkup(<DailyRhythmWidget />);
     expect(markup).toContain("Gün içinde");
-    expect(markup).toContain("Odak devam ediyor — aç");
-    expect(markup).toContain("Sıradaki");
-  });
-
-  it("ilk odagi planli gorev baglamiyla Pomodoro'ya tasir", () => {
-    vi.setSystemTime(new Date("2026-08-29T06:00:00Z"));
-    render(<DailyRhythmWidget />);
-    fireEvent.click(screen.getByRole("button", { name: "İlk odağı başlat" }));
-    expect(harness.navigate).toHaveBeenCalledWith("/pomodoro?context=t1&topic=Rapor");
+    expect(markup).not.toContain("Odak devam ediyor — aç");
+    expect(markup).not.toContain("Sıradaki");
+    expect(markup).not.toContain("Rapor");
   });
 
   it("Pazar/Pazartesi tamamlanmamis haftalik degerlendirmeyi hatirlatir", () => {

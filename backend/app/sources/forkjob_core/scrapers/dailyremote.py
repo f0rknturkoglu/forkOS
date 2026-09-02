@@ -22,8 +22,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ..models import DateSource, Job, Layer, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..models import date_source_for, Job, Layer, WorkMode
+from ..normalize import format_salary, html_to_text, parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import find_type, ld_blocks, organisation_name, text
 
@@ -104,7 +104,7 @@ class DailyRemoteScraper(ScraperBase):
             description=html_to_text(posting.get("description")),
             salary=salary,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
 
 
@@ -127,14 +127,4 @@ def _salary(sal: Any) -> str | None:
         low, high = value.get("minValue"), value.get("maxValue")
     else:
         low = high = None
-    if low in (None, 0) and high in (None, 0):
-        return None
-    currency = (sal.get("currency") or "").upper()
-    parts = []
-    if low is not None and high is not None and low != high:
-        parts.append(f"{low:g}-{high:g}")
-    else:
-        parts.append(f"{(low if low not in (None, 0) else high):g}")
-    if currency:
-        parts.append(currency)
-    return " ".join(parts) or None
+    return format_salary(low, high, (sal.get("currency") or "").upper())

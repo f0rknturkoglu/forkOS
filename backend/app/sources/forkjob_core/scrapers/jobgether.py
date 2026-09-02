@@ -34,9 +34,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..geo import region_for
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_datetime, parse_single_country
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://jobgether.com"
@@ -157,7 +157,7 @@ class JobgetherScraper(ScraperBase):
             return None
 
         location = (entry.get("location") or "").strip() or None
-        country = _single_country(location)
+        country = parse_single_country(location)
 
         remote = (entry.get("remote") or "").strip().lower()
         work_mode = WorkMode.UNKNOWN
@@ -191,18 +191,5 @@ class JobgetherScraper(ScraperBase):
             description=description,
             salary=(entry.get("salaryRange") or "").strip() or None,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )
-
-
-def _single_country(location: Any) -> str | None:
-    """Resolve only when the location names exactly one known country.
-
-    "Germany" resolves; "Spain, France" does not, and neither does "Europe".
-    """
-    if not isinstance(location, str) or not location.strip():
-        return None
-    parts = [p.strip() for p in location.split(",") if p.strip()]
-    if len(parts) != 1:
-        return None
-    return country_from_name(parts[0])

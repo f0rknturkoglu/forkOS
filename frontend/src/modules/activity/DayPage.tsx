@@ -5,7 +5,8 @@ import { api, qs } from "@/core/api";
 import { Chip, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx } from "@/core/ui";
 import { useHashRoute } from "@/app/router";
 import type { DayDetail } from "@/core/types";
-import { localDateKey } from "@/lib/date";
+import { formatTrDate, formatTrDateTime, localDateKey } from "@/lib/date";
+import { typeLabel } from "@/core/entityRegistry";
 import { ALERT_VERBS, VERB_LABELS, describe } from "@/core/verbs";
 
 function shift(day: string, delta: number): string {
@@ -33,12 +34,7 @@ export function DayPage() {
     queryFn: () => api.get<DayDetail>(`/activity/day${qs({ day })}`),
   });
 
-  const label = new Date(day).toLocaleDateString("tr-TR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const label = formatTrDate(day, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const isToday = day === today();
   const isFuture = day > today();
 
@@ -120,13 +116,10 @@ export function DayPage() {
                     </span>
                     <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                       <span className="numeral shrink-0 text-meta tabular-nums text-muted">
-                        {new Date(event.occurred_at).toLocaleTimeString("tr-TR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatTrDateTime(event.occurred_at, { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <span className="min-w-0 text-secondary">{describe(event.verb, event.payload)}</span>
-                      {event.entity_type && <Chip>{event.entity_type}</Chip>}
+                      {event.entity_type && <Chip>{typeLabel(event.entity_type)}</Chip>}
                     </div>
                   </li>
                 ))}

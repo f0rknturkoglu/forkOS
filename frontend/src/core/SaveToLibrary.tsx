@@ -12,6 +12,7 @@ import { invalidateAfter } from "./invalidation";
 import { COLLECTION_LABELS } from "./types";
 import { useToast } from "./ui";
 import { useOnline } from "@/lib/hooks";
+import { navigate } from "@/app/router";
 
 interface SaveInput {
   url: string;
@@ -48,7 +49,7 @@ export function useSaveToLibrary() {
         action: {
           label: "Aç",
           run: () => {
-            window.location.hash = `/bookmarks?focus=${result.id}`;
+            navigate(`/bookmarks?focus=${result.id}`);
           },
         },
       });

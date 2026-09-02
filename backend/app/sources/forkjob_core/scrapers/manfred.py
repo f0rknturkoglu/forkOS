@@ -36,8 +36,8 @@ import re
 from typing import Any
 from xml.etree import ElementTree
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime, parse_location
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_datetime, parse_location, sitemap_child
 from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
 
 SITEMAP_URL = "https://www.getmanfred.com/sitemap-offers.xml"
@@ -103,12 +103,11 @@ class ManfredScraper(ScraperBase):
 
         jsonld = _load_jsonld(offer.get("jsonld"))
 
-        # A real publish date, not an edit timestamp.
-        posted_at = parse_datetime(jsonld.get("datePosted"))
-        date_source = DateSource.EMPLOYER
-        if posted_at is None:
-            posted_at = parse_datetime(offer.get("updatedAt"))
-            date_source = DateSource.UPDATED if posted_at else DateSource.DISCOVERED
+        # A real publish date, not an edit timestamp; fall back to the edit
+        # timestamp at half weight when the employer date is absent.
+        posted_at, date_source = date_source_for(
+            parse_datetime(jsonld.get("datePosted")), parse_datetime(offer.get("updatedAt"))
+        )
 
         work_mode, remote = _work_mode(offer, jsonld)
         location_text = _location_text(offer, jsonld)
@@ -161,25 +160,14 @@ def parse_sitemap(xml: str) -> list[tuple[str, str | None]]:
 
     entries: list[tuple[str, str | None]] = []
     for node in root.findall("sm:url", _SITEMAP_NS) or root.findall("url"):
-        loc = _child(node, "loc")
+        loc = sitemap_child(node, "loc")
         if loc is None or not (loc.text or "").strip():
             continue
-        lastmod = _child(node, "lastmod")
+        lastmod = sitemap_child(node, "lastmod")
         entries.append(
             (loc.text.strip(), (lastmod.text or "").strip() if lastmod is not None else None)
         )
     return entries
-
-
-def _child(node: ElementTree.Element, tag: str) -> ElementTree.Element | None:
-    """Find a child with or without the sitemap namespace.
-
-    Written out rather than chained with `or`: an ElementTree element with no
-    children is falsy, so `find(ns) or find(plain)` discards every match that
-    has no sub-elements — which is every <lastmod> there is.
-    """
-    found = node.find(f"sm:{tag}", _SITEMAP_NS)
-    return found if found is not None else node.find(tag)
 
 
 def extract_next_data(html: str) -> dict[str, Any] | None:

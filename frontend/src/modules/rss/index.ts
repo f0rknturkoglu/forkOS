@@ -4,7 +4,6 @@ import { Rss } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import { invalidate } from "@/core/queryClient";
 import { confirmDialog } from "@/core/dialog";
 import { RssStats } from "./RssStats";
 

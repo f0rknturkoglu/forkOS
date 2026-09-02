@@ -29,7 +29,7 @@ from typing import Any
 
 from selectolax.parser import HTMLParser, Node
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
+from ..models import date_source_for, Job, Layer, Region, WorkMode
 from ..normalize import parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
@@ -126,5 +126,5 @@ class Web3CareerScraper(ScraperBase):
             remote=True if work_mode is WorkMode.REMOTE else None,
             salary=salary,
             posted_at=posted_at,
-            date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+            date_source=date_source_for(posted_at)[1],
         )

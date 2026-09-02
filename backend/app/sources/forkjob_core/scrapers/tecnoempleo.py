@@ -35,8 +35,8 @@ from xml.etree import ElementTree
 
 from selectolax.parser import HTMLParser
 
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from ..normalize import html_to_text, parse_datetime
+from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..normalize import html_to_text, parse_datetime, sitemap_child
 from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import find_type, ld_blocks, organisation_name, place, text
 
@@ -122,7 +122,7 @@ class TecnoempleoScraper(ScraperBase):
         posted_at = parse_datetime(posting.get("datePosted"))
         if posted_at is None:
             posted_at = _badge_date(html)  # same day, shown as DD/MM/YYYY
-        date_source = DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED
+        date_source = date_source_for(posted_at)[1]
 
         detail = _detail_map(html)
         location = detail.get("Ubicación") or ", ".join(p for p in (city, country) if p) or None
@@ -174,13 +174,13 @@ def offer_entries(
     cutoff = today - timedelta(days=max_age_days)
     entries: list[tuple[str, date]] = []
     for node in root.findall("sm:url", _SITEMAP_NS) or root.findall("url"):
-        loc = _child(node, "loc")
+        loc = sitemap_child(node, "loc")
         if loc is None or not (loc.text or "").strip():
             continue
         url = loc.text.strip()
         if _RF_URL_RE.search(url) is None:
             continue
-        lastmod = _child(node, "lastmod")
+        lastmod = sitemap_child(node, "lastmod")
         if lastmod is None or not (lastmod.text or "").strip():
             continue
         try:
@@ -192,17 +192,6 @@ def offer_entries(
 
     entries.sort(key=lambda e: e[1], reverse=True)
     return entries
-
-
-def _child(node: ElementTree.Element, tag: str) -> ElementTree.Element | None:
-    """Find a child with or without the sitemap namespace.
-
-    Written out rather than chained with `or`: an ElementTree element with no
-    children is falsy, so `find(ns) or find(plain)` discards every match that
-    has no sub-elements — which is every <lastmod> there is.
-    """
-    found = node.find(f"sm:{tag}", _SITEMAP_NS)
-    return found if found is not None else node.find(tag)
 
 
 def _external_id(url: str) -> str | None:

@@ -55,13 +55,8 @@ class RelocateMeScraper(ScraperBase):
             page_jobs = self.parse(html)
             if not page_jobs:
                 break
-            fresh = 0
-            for job in page_jobs:
-                if job.url in seen:
-                    continue
-                seen.add(job.url)
-                jobs.append(job)
-                fresh += 1
+            fresh = self.dedup_seen(seen, page_jobs)
+            jobs.extend(fresh)
             # Paging past the end re-serves the last page rather than an empty
             # one, so a page that adds nothing new is the real stop condition.
             if not fresh:

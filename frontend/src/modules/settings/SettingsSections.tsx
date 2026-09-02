@@ -1,11 +1,26 @@
 import type { FormEvent, RefObject } from "react";
 import { allModules } from "@/core/registry";
-import type { BackupStatus } from "@/core/types";
+import type { BackupStatus, SourceHealth } from "@/core/types";
 import { Button, Checkbox, Chip, Input, Section, relativeTime } from "@/core/ui";
 import { BackupMergeControl } from "@/core/BackupMergeControl";
+import { EXPORT_MODULE } from "@/modules/finance";
 
 export type IntegrationStatus = { connected: boolean; login?: string | null };
 type MediaLink = { name: string; url: string; icon?: string };
+/** Ayarlar sayfasinin alt seridi: bozuk kaynak ozeti + saglik sayfasi linki. */
+export function SettingsSourceHealth({ sources }: { sources: SourceHealth[] }) {
+  const broken = sources.filter((source) => source.status === "error").length;
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-card border border-subtle bg-surface px-4 py-3">
+      <span className="text-body text-primary">
+        {broken === 0 ? "Tüm kaynaklar sağlıklı" : `${broken} kaynak hata veriyor`}
+      </span>
+      <a href="#/health" className="shrink-0 text-meta text-accent hover:underline">
+        kaynak sağlığı
+      </a>
+    </div>
+  );
+}
 
 export function ModulesSection({
   online,
@@ -257,7 +272,11 @@ export function BackupSection({
             {label}
           </a>
         ))}
-        <a href="/api/export/csv?module=expense" download className="rounded border border-strong px-2 py-1 text-meta">
+        <a
+          href={`/api/export/csv?module=${EXPORT_MODULE}`}
+          download
+          className="rounded border border-strong px-2 py-1 text-meta"
+        >
           Expense CSV
         </a>
         <BackupMergeControl />

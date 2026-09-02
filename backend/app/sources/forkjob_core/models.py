@@ -42,6 +42,23 @@ class DateSource(StrEnum):
     DISCOVERED = "discovered"  # no date at all, first_seen stands in -> no decay
 
 
+def date_source_for(
+    posted_at: datetime | None, updated_at: datetime | None = None
+) -> tuple[datetime | None, DateSource]:
+    """Pick the most honest (timestamp, provenance) pair a source can claim.
+
+    The tiered freshness ladder: a real publish date decays at full rate
+    (`employer`), an edit/refresh timestamp at half rate (`updated`), and a
+    posting with no date at all is `discovered`. The caller decides which
+    timestamps are publish dates and which are edits — this only orders them.
+    """
+    if posted_at is not None:
+        return posted_at, DateSource.EMPLOYER
+    if updated_at is not None:
+        return updated_at, DateSource.UPDATED
+    return None, DateSource.DISCOVERED
+
+
 #: Ranking suffix shown in the `list` age column, so a date is never read as
 #: more trustworthy than it is.
 DATE_SOURCE_MARK = {

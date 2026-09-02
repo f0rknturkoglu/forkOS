@@ -255,6 +255,9 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             Entity.archived_at.is_(None),
             Todo.status.in_(("open", "doing")),
             Todo.parent_id.is_(None),
+            # Rutinler yalniz vadeleri gelen gunun akimina girer. Gelecek
+            # occurrence normal gorev onerisi olarak bugune geri sizmaz.
+            Todo.recur.is_(None),
         )
     )).all()
     all_todo_ids = list({todo.id for todo, *_ in rows + candidate_rows} | {

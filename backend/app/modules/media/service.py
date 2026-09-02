@@ -65,7 +65,6 @@ from app.modules.media.schemas import (
     MediaItemUpdate,
     MediaStats,
     MediaUnitOut,
-    ProgressValidationOut,
 )
 from app.modules.media.search import (  # noqa: F401 (re-export: router service.X ile erisir)
     _item_search_text,
@@ -74,7 +73,6 @@ from app.modules.media.search import (  # noqa: F401 (re-export: router service.
     list_items,
     provider_registry,
     search_all_metadata,
-    search_metadata,
 )
 
 
@@ -533,40 +531,6 @@ async def dashboard(session: AsyncSession) -> MediaDashboardOut:
         recent_consumptions=[_to_consumption_out(row) for row in recent],
         stats=await stats(session),
     )
-
-
-async def validate_progress(
-    session: AsyncSession, item_id: uuid.UUID, *, rebuild: bool = False
-) -> ProgressValidationOut:
-    item = await session.get(MediaItem, item_id)
-    if item is None:
-        raise MediaCommandError("Medya bulunamadi")
-    latest_cycle_id = (
-        await session.execute(
-            select(MediaCycle.id)
-            .where(MediaCycle.media_id == item_id)
-            .order_by(MediaCycle.ordinal.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    expected = 0.0
-    if latest_cycle_id:
-        progress_after = (
-            await session.execute(
-                select(MediaConsumption.progress_after)
-                .where(MediaConsumption.cycle_id == latest_cycle_id)
-                .order_by(MediaConsumption.created_at.desc(), MediaConsumption.id.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        expected = float(progress_after or 0)
-    actual = float(item.progress or 0)
-    valid = abs(actual - expected) < 0.001
-    if rebuild and not valid:
-        item.progress = expected
-        await touch_entity(session, item.id)
-        await session.commit()
-    return ProgressValidationOut(valid=valid, actual=actual, expected=expected)
 
 
 async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:

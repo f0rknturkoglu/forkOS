@@ -31,7 +31,7 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Fixture'siz tam src taramasi: modules (walk) + core ve diger kok klasorler.
+/** Fixture'siz tam src taramasi: modules (walk) + core, app, lib (walkDir).
  *  Test fixture'lari kendi yasak orneklerini tasirlar (bg-blue-500 vb.), o
  *  yuzden *.test.* disarida. */
 function walkDir(dir: string, out: string[] = []): string[] {
@@ -49,12 +49,29 @@ function walkDir(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const files = walk(MODULES_ROOT);
-const allSourceFiles = files.concat(walkDir(join(SRC_ROOT, "core")));
+const files = walk(MODULES_ROOT)
+  .concat(walkDir(join(SRC_ROOT, "core")))
+  .concat(walkDir(join(SRC_ROOT, "app")))
+  .concat(walkDir(join(SRC_ROOT, "lib")));
+const allSourceFiles = files;
+
+/** Ham kontrol testi istisnalari: ui.tsx primitivelerin TANIMIDIR, CommandPalette
+ *  girdi adiminda bilincli olarak ham <input> kullanir (cmdk entegrasyonu). */
+const RAW_CONTROL_EXEMPT = new Set([
+  join(SRC_ROOT, "core", "ui.tsx"),
+  join(SRC_ROOT, "core", "CommandPalette.tsx"),
+]);
 
 /** Ham tailwind palet sinifi: bg-blue-500, text-gray-400, border-red-200 ... */
 const RAW_PALETTE =
   /(?:^|["'\s`])(?:bg|text|border|ring|from|to|via|fill|stroke|divide|shadow)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
+
+/** Sabit renk literalleri: #RRGGBB ve rgb()/hsl() fonksiyonlari. */
+const RAW_COLOR = /(?:#[0-9a-fA-F]{6}|rgba?\(|hsla?\()/;
+
+/** Renk utility'sinde arbitrary deger; token referansi haric. */
+const ARBITRARY_COLOR_CLASS =
+  /(?:bg|text|border|ring|fill|stroke|from|to|via|divide|shadow|outline|accent)-\[(?!color:var)[^\]]*(?:#[0-9a-fA-F]{6}|rgba?\(|hsla?\()/;
 
 describe("tasarım sistemi (modüller)", () => {
   it("keyfi tipografi (olcek disi boyut) kullanmaz", () => {
@@ -63,13 +80,17 @@ describe("tasarım sistemi (modüller)", () => {
     expect(hits).toEqual([]);
   });
 
-  it("JSX'te sabit hex (#RRGGBB) kullanmaz", () => {
-    const hits = files.filter((f) => /#[0-9a-fA-F]{6}/.test(readFileSync(f, "utf8")));
+  it("JSX'te sabit renk (hex, rgb()/hsl() ya da arbitrary sinif) kullanmaz", () => {
+    const hits = files.filter(
+      (f) => RAW_COLOR.test(readFileSync(f, "utf8")) || ARBITRARY_COLOR_CLASS.test(readFileSync(f, "utf8")),
+    );
     expect(hits).toEqual([]);
   });
 
   it("ham <input>/<select>/<textarea> kullanmaz", () => {
-    const hits = files.filter((f) => /<(input|select|textarea)\b/.test(readFileSync(f, "utf8")));
+    const hits = files.filter(
+      (f) => !RAW_CONTROL_EXEMPT.has(f) && /<(input|select|textarea)\b/.test(readFileSync(f, "utf8")),
+    );
     expect(hits).toEqual([]);
   });
 

@@ -46,34 +46,40 @@ $("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage
 
 $("save").addEventListener("click", async () => {
   $("save").disabled = true;
-  const result = await enqueue({
-    url: $("url").value,
-    title: $("title").value,
-    note: $("note").value || null,
-    tags: $("tags").value.split(",").map((t) => t.trim()).filter(Boolean),
-    collection: $("collection").value,
-  });
-
-  const rejected = result.rejected.find((entry) => entry.url === $("url").value);
-  if (rejected) {
-    $("status").textContent = `Kaydedilemedi: ${rejected.message}`;
-    $("save").disabled = false;
-    return;
-  }
-
-  const duplicate = result.duplicates.find((d) => d.url === $("url").value);
-  if (duplicate) {
-    // Hata degil: ayni sayfayi ikinci kez kaydetmek serbest, sadece haber veriyoruz.
-    $("status").textContent = "Kaydedildi";
-    $("duplicate").hidden = false;
-    $("move-learning").addEventListener("click", async () => {
-      const ok = await moveTo(duplicate.existing_id, "learning");
-      $("status").textContent = ok ? "Learning'e tasindi" : "Tasinamadi";
-      setTimeout(() => window.close(), 600);
+  try {
+    const result = await enqueue({
+      url: $("url").value,
+      title: $("title").value,
+      note: $("note").value || null,
+      tags: $("tags").value.split(",").map((t) => t.trim()).filter(Boolean),
+      collection: $("collection").value,
     });
-    return;
-  }
 
-  $("status").textContent = result.pending ? "Kuyruga alindi (forkOS kapali)" : "Kaydedildi";
-  setTimeout(() => window.close(), 700);
+    const rejected = result.rejected.find((entry) => entry.url === $("url").value);
+    if (rejected) {
+      $("status").textContent = `Kaydedilemedi: ${rejected.message}`;
+      $("save").disabled = false;
+      return;
+    }
+
+    const duplicate = result.duplicates.find((d) => d.url === $("url").value);
+    if (duplicate) {
+      // Hata degil: ayni sayfayi ikinci kez kaydetmek serbest, sadece haber veriyoruz.
+      $("status").textContent = "Kaydedildi";
+      $("duplicate").hidden = false;
+      $("move-learning").addEventListener("click", async () => {
+        const ok = await moveTo(duplicate.existing_id, "learning");
+        $("status").textContent = ok ? "Learning'e tasindi" : "Tasinamadi";
+        setTimeout(() => window.close(), 600);
+      });
+      return;
+    }
+
+    $("status").textContent = result.pending ? "Kuyruga alindi (forkOS kapali)" : "Kaydedildi";
+    setTimeout(() => window.close(), 700);
+  } catch (err) {
+    // enqueue hatali: buton kalici disabled kalmaz, kullaniciya mesaj gosterilir.
+    $("save").disabled = false;
+    $("status").textContent = `Kaydedilemedi: ${err?.message ?? err}`;
+  }
 });

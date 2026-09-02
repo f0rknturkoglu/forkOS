@@ -37,6 +37,8 @@ class PomodoroOut(BaseModel):
     kind: str
     context_entity_id: uuid.UUID | None
     context_title: str | None = None
+    #: Baglamin entity tipi -- arayuz "nereden geldi" rozetini bundan cizer.
+    context_type: str | None = None
     topic: str | None
     interrupted: bool
     #: Dolu ise seans duraklatilmis; kalan sure bu ana gore donuyor.
@@ -49,3 +51,11 @@ class PomodoroStats(BaseModel):
     minutes: int
     sessions: int
     interrupted: int
+
+
+class ContextOut(BaseModel):
+    """Odaklanilabilecek bir kayit: gorev, calisma konusu, kaynak, proje..."""
+
+    id: uuid.UUID
+    type: str
+    title: str

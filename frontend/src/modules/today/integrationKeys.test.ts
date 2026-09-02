@@ -24,7 +24,6 @@ vi.mock("@/core/api", () => ({
   qs: vi.fn(() => ""),
 }));
 vi.mock("@/lib/hooks", () => ({
-  useInvalidate: () => harness.invalidate,
   useOnline: () => true,
 }));
 vi.mock("@/core/invalidation", () => ({

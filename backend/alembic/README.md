@@ -15,8 +15,10 @@ eklendi ve dosya adlarındaki sayılar zincir konumunu göstermiyor).
 → 0021_media_item → 0022_pomodoro_pause → 0023_todo_recur
 → 0024_todo_milestone → 0025_document_folder_source → 0026_media_domain
 → 0022_finance_sub → 0023_application_crm → 0024_remove_habit
-→ 0025_drop_deadline_v
-→ 0027_book_to_media_item   ← head
+→ 0025_drop_deadline_v → 0027_book_to_media_item → 0028_note
+→ 0029_project_journal → 0030_opportunity_category_dates → 0031_osym_publication_dates
+→ 0032_refine_categories → 0033_finance_income → 0034_learning_resource
+→ 0035_note_attachments → 0036_milestone_entity   ← head
 ```
 
 ## Dosya adı / zincir konumu eşleşmesi
@@ -27,6 +29,7 @@ eklendi ve dosya adlarındaki sayılar zincir konumunu göstermiyor).
 | `0023_application_crm.py` | `0022_finance_sub`'dan sonra |
 | `0024_remove_habit.py` | `0023_application_crm`'dan sonra |
 | `0025_drop_deadline_v.py` | `0024_remove_habit`'ten sonra |
+| `0032_refine_opportunity_categories.py` | zincirde `0031_osym_publication_dates`'dan sonra; `revision` string'i `0032_refine_categories` (dosya adı revizyon adıyla uyuşmaz) |
 
 ## Yeni migration eklerken
 

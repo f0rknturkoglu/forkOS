@@ -2,13 +2,13 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Maximize2, Pause, Play, Plus, Trash2 } from "lucide-react";
-import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { Button, IconButton, Input, RowList, Section, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { BREAK_MIN, FOCUS_MIN, clock, remaining } from "./time";
 import { FocusMode } from "./FocusMode";
+import { openPomodoro } from "./dock";
 
 /**
  * Bugun panelinden pomodoro'nun TAM kontrolu: baslat, duraklat, tamamla,
@@ -84,11 +84,7 @@ export function PomodoroWidget() {
             >
               <Plus size={13} /> {adding ? "kapat" : "elle"}
             </button>
-            <button
-              type="button"
-              onClick={() => navigate("/pomodoro")}
-              className="text-meta text-muted hover:text-primary"
-            >
+            <button type="button" onClick={() => openPomodoro()} className="text-meta text-muted hover:text-primary">
               aç →
             </button>
           </span>
