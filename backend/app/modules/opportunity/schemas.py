@@ -1,8 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
+
+
+class SkillMatchOut(BaseModel):
+    match_ratio: float
+    matched: list[str]
+    missing: list[str]
 
 
 class OpportunityIn(BaseModel):
@@ -73,12 +81,6 @@ class OpportunityOut(BaseModel):
     requirement_document_id: UUID | None = None
     #: Profil ve CV beceri uyumu (eşleşen ve eksik teknolojiler)
     skill_match: SkillMatchOut | None = None
-
-
-class SkillMatchOut(BaseModel):
-    match_ratio: float
-    matched: list[str]
-    missing: list[str]
 
 
 class OpportunityBrowseOut(BaseModel):
