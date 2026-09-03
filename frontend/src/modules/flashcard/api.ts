@@ -3,8 +3,7 @@ import type { FlashcardCard, FlashcardDeck, ImportResult, ReviewResult } from ".
 
 export const listDecks = () => api.get<FlashcardDeck[]>("/flashcard/decks");
 export const createDeck = (title: string) => api.post<FlashcardDeck>("/flashcard/decks", { title });
-export const renameDeck = (id: string, title: string) =>
-  api.patch<FlashcardDeck>(`/flashcard/decks/${id}`, { title });
+export const renameDeck = (id: string, title: string) => api.patch<FlashcardDeck>(`/flashcard/decks/${id}`, { title });
 export const deleteDeck = (id: string) => api.del(`/flashcard/decks/${id}`);
 
 /** `due` true: tekrar sirasi (once vadesi gelen, sonra yeni; her biri 40 kart). */
@@ -14,10 +13,8 @@ export const listCards = (deckId: string, due = false) =>
 export const addCard = (deckId: string, front: string, back: string) =>
   api.post<FlashcardCard>(`/flashcard/decks/${deckId}/cards`, { front, back });
 
-export const patchCard = (
-  cardId: string,
-  patch: { front?: string; back?: string; suspended?: boolean },
-) => api.patch<FlashcardCard>(`/flashcard/cards/${cardId}`, patch);
+export const patchCard = (cardId: string, patch: { front?: string; back?: string; suspended?: boolean }) =>
+  api.patch<FlashcardCard>(`/flashcard/cards/${cardId}`, patch);
 
 export const deleteCard = (cardId: string) => api.del(`/flashcard/cards/${cardId}`);
 

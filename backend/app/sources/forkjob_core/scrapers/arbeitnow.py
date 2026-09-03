@@ -31,7 +31,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from ..models import date_source_for, Job, Layer, WorkMode
+from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_location
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 

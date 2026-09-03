@@ -4,9 +4,7 @@ import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { StatisticsWidget } from "./StatisticsWidget";
 
-const StatisticsPage = lazy(() =>
-  import("./StatisticsPage").then((module) => ({ default: module.StatisticsPage })),
-);
+const StatisticsPage = lazy(() => import("./StatisticsPage").then((module) => ({ default: module.StatisticsPage })));
 
 registerModule({
   id: "statistics",
@@ -26,7 +24,5 @@ registerModule({
       defaultVisible: true,
     },
   ],
-  commands: [
-    { id: "statistics.open", label: "İstatistikleri aç", run: () => navigate("/statistics") },
-  ],
+  commands: [{ id: "statistics.open", label: "İstatistikleri aç", run: () => navigate("/statistics") }],
 });

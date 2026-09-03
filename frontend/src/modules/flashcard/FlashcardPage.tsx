@@ -12,11 +12,7 @@ export function FlashcardPage() {
   return (
     <PageFrame>
       <PageHeader title="Kartlar" />
-      {deckId ? (
-        <DeckDetail deckId={deckId} onBack={() => setDeckId("")} />
-      ) : (
-        <DeckList onOpen={setDeckId} />
-      )}
+      {deckId ? <DeckDetail deckId={deckId} onBack={() => setDeckId("")} /> : <DeckList onOpen={setDeckId} />}
     </PageFrame>
   );
 }

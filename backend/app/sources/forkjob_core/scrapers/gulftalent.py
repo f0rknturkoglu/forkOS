@@ -25,6 +25,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urljoin
 
+from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime
 from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError

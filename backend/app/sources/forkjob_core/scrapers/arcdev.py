@@ -31,7 +31,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ..models import date_source_for, Job, Layer, WorkMode
+from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import parse_epoch_ms
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 

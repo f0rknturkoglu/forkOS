@@ -115,7 +115,9 @@ async def test_patch_updates_fields(client: AsyncClient) -> None:
     # Dokunulmayan alanlar korunur.
     assert body["module"] == "bookmark"
 
-    missing = await client.patch("/api/views/00000000-0000-0000-0000-000000000000", json={"name": "x"})
+    missing = await client.patch(
+        "/api/views/00000000-0000-0000-0000-000000000000", json={"name": "x"}
+    )
     assert missing.status_code == 404
 
 

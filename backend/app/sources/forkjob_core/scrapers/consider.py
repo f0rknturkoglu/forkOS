@@ -29,7 +29,7 @@ import json
 from typing import Any
 
 from ..geo import region_for
-from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import parse_datetime, parse_location
 from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
 

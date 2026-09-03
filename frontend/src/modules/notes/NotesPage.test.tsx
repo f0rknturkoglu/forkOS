@@ -86,9 +86,7 @@ describe("NotesPage draft korumasi", () => {
     expect(textarea.value).toBe("KAYDEDİLMEMİŞ TASLAK");
 
     // Refetch ayni notun YENI nesnesini getirir (sunucudan guncel govde).
-    const refetched = notes.map((note, index) =>
-      index === 0 ? { ...note, body: "# Birinci\n\ngüncel gövde" } : note,
-    );
+    const refetched = notes.map((note, index) => (index === 0 ? { ...note, body: "# Birinci\n\ngüncel gövde" } : note));
     apiGet.mockImplementation(async (path: string) => (path === "/notes" ? refetched : []));
     await act(async () => {
       await client.refetchQueries({ queryKey: ["notes"] });

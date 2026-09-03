@@ -121,7 +121,10 @@ export function ApplicationCrmPanel({ onSelect, onStatusFilter }: ApplicationCrm
                 >
                   <span className="min-w-0 flex-1 truncate text-body text-primary font-medium">{f.title}</span>
                   <Chip tone="warn">{relativeTime(f.follow_up_at)}</Chip>
-                  <ArrowRight size={13} className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-primary" />
+                  <ArrowRight
+                    size={13}
+                    className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-primary"
+                  />
                 </button>
               </li>
             ))}

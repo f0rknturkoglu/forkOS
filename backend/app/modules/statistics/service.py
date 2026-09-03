@@ -7,7 +7,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.modules.statistics.schemas import CounterBreakdown, MonthlyPoint, StatisticsSummary, StreakOut
+from app.modules.statistics.schemas import (
+    CounterBreakdown,
+    MonthlyPoint,
+    StatisticsSummary,
+    StreakOut,
+)
 
 #: Sayac adi -> sayan event verb'u. Bu liste bittikce buyur; isimler API sozlesmesi.
 VERB_COUNTERS: dict[str, str] = {
@@ -128,7 +133,9 @@ async def summary(session: AsyncSession) -> StatisticsSummary:
 
     return StatisticsSummary(
         counters=counters,
-        applications=CounterBreakdown(today=int(app_today), week=int(app_week), total=int(app_total)),
+        applications=CounterBreakdown(
+            today=int(app_today), week=int(app_week), total=int(app_total)
+        ),
         streak=_streak(list(day_rows), today),
     )
 

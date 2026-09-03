@@ -97,7 +97,7 @@ export function RssReadingPane({
   }
 
   const hasBody = Boolean((detail.content || detail.summary || "").trim());
-  const current = detail;               // guard sonrasi daraltma closure'lara islemez
+  const current = detail; // guard sonrasi daraltma closure'lara islemez
 
   /** Tam metni uctan ister: dolarsa tam metin moduna gecer, yoksa bilgi notu. */
   async function fetchFullText() {

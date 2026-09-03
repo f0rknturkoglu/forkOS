@@ -134,7 +134,7 @@ describe("study flow", () => {
     expect(markup).toContain("300 / 800 XP");
     expect(markup).toContain('role="progressbar"');
     expect(markup).toContain('aria-valuenow="38"');
-    expect(markup).toContain("<details open=\"\"");
+    expect(markup).toContain('<details open=""');
   });
 
   it("creates a todo + prepares_for link for a topic and invalidates todo/study/link writes", async () => {

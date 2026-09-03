@@ -146,7 +146,9 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
           {scoreFilterActive && (
             <Chip tone="accent">
               <span className="inline-flex items-center gap-1">
-                <span>Uyum: {filters.min_score ?? -1}–{filters.max_score ?? 100}p</span>
+                <span>
+                  Uyum: {filters.min_score ?? -1}–{filters.max_score ?? 100}p
+                </span>
                 <button
                   type="button"
                   onClick={() => update({ min_score: undefined, max_score: undefined })}
@@ -259,18 +261,10 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
           {/* KATMAN 1: UYUM SKORU & CV EŞLEŞME SINIFLANDIRMASI */}
           <Section
             title="Uyum skoru"
-            hint={
-              scoreFilterActive
-                ? `${filters.min_score ?? -1}–${filters.max_score ?? 100}p`
-                : "Tüm skorlar"
-            }
+            hint={scoreFilterActive ? `${filters.min_score ?? -1}–${filters.max_score ?? 100}p` : "Tüm skorlar"}
             action={
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowAdvancedScore((prev) => !prev)}
-                >
+                <Button size="sm" variant="ghost" onClick={() => setShowAdvancedScore((prev) => !prev)}>
                   <SlidersHorizontal size={12} /> {showAdvancedScore ? "Sliderı Gizle" : "Hassas Aralık"}
                 </Button>
                 {scoreFilterActive && (

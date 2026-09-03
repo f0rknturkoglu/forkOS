@@ -32,9 +32,9 @@ import re
 from typing import Any
 
 from ..geo import region_for
-from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperHttpClient
 
 LISTING_URL = "https://www.freelancermap.com/projects"
 DEFAULT_MAX_PAGES = 5

@@ -28,7 +28,7 @@ from typing import Any
 from selectolax.parser import HTMLParser, Node
 
 from ..models import DateSource, Job, Layer, WorkMode
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperHttpClient
 
 LISTING_URL = "https://javascript.jobs/remote"
 BASE_URL = "https://javascript.jobs"

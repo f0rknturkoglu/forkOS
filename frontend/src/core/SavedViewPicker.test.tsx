@@ -54,12 +54,7 @@ function renderPicker(props?: Partial<ComponentProps<typeof SavedViewPicker>>) {
   const onApply = vi.fn();
   render(
     <QueryClientProvider client={client}>
-      <SavedViewPicker
-        module="bookmark"
-        filters={{ read_status: "unread", q: "" }}
-        onApply={onApply}
-        {...props}
-      />
+      <SavedViewPicker module="bookmark" filters={{ read_status: "unread", q: "" }} onApply={onApply} {...props} />
     </QueryClientProvider>,
   );
   return { onApply };

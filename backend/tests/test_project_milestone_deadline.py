@@ -55,7 +55,10 @@ async def test_milestone_deadline_appears_in_api_deadlines():
 
             # Deadline hatti: /api/deadlines milestone'u gorur.
             deadlines = (await client.get("/api/deadlines")).json()
-            match = [d for d in deadlines if d["type"] == "milestone" and d["entity_id"] == milestone_id]
+            match = [
+                d for d in deadlines
+                if d["type"] == "milestone" and d["entity_id"] == milestone_id
+            ]
             assert len(match) == 1, deadlines
             assert match[0]["module"] == "project"
             assert match[0]["title"] == f"Milestone {marker}"

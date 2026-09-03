@@ -30,7 +30,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, sitemap_locations
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import find_type, ld_blocks, organisation_name, place, text

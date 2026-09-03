@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.entity import archive_entity, create_entity, touch_entity, restore_entity
+from app.core.entity import archive_entity, create_entity, restore_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.core.time import local_datetime, local_today

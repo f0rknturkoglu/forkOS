@@ -13,13 +13,7 @@ const GRADES = [
   { grade: 3, label: "Kolay", key: "4" },
 ] as const;
 
-export function ReviewSession({
-  deckId,
-  onClose,
-}: {
-  deckId: string;
-  onClose: () => void;
-}) {
+export function ReviewSession({ deckId, onClose }: { deckId: string; onClose: () => void }) {
   const online = useOnline();
   // Sıradaki kartlar (due once, sonra yeni). Veri gelince donuyor: oturum
   // boyunca yeniden cekim listeyi kaydirmasin.
@@ -113,12 +107,8 @@ export function ReviewSession({
           onClick={() => setRevealed(true)}
         >
           <p className="font-serif text-xl text-primary">{current.front}</p>
-          {revealed && (
-            <p className="mt-4 border-t border-subtle pt-4 text-body text-secondary">{current.back}</p>
-          )}
-          {!revealed && (
-            <p className="mt-4 text-meta text-muted">Çevirmek için tıkla ya da boşluk</p>
-          )}
+          {revealed && <p className="mt-4 border-t border-subtle pt-4 text-body text-secondary">{current.back}</p>}
+          {!revealed && <p className="mt-4 text-meta text-muted">Çevirmek için tıkla ya da boşluk</p>}
         </div>
 
         <div className={cx("flex flex-wrap justify-center gap-2", !revealed && "invisible")} aria-hidden={!revealed}>

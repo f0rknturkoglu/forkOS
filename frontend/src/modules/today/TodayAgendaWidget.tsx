@@ -94,12 +94,7 @@ function rowIds(rows: AgendaRow[]): Set<string> {
 function unplannedTodoRows(todos: Todo[], agenda: TodayAgenda): AgendaRow[] {
   const agendaIds = rowIds([...agenda.timed, ...agenda.checklist, ...agenda.completed]);
   const rows = todos
-    .filter(
-      (todo) =>
-        (todo.status === "open" || todo.status === "doing") &&
-        !todo.recur &&
-        !agendaIds.has(todo.id),
-    )
+    .filter((todo) => (todo.status === "open" || todo.status === "doing") && !todo.recur && !agendaIds.has(todo.id))
     .map((todo) => pickerRow(todo, "todo"));
   const byId = new Map(rows.map((row) => [row.id, row]));
   const roots: AgendaRow[] = [];

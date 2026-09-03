@@ -5,7 +5,15 @@ import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { CalendarEvent } from "@/core/types";
 import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
-import { addAppDays, appDayUtc, appWeekStartKey, formatTrDate, formatTrDateTime, keyToUtc, localDateKey } from "@/lib/date";
+import {
+  addAppDays,
+  appDayUtc,
+  appWeekStartKey,
+  formatTrDate,
+  formatTrDateTime,
+  keyToUtc,
+  localDateKey,
+} from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 
 type View = "week" | "month";

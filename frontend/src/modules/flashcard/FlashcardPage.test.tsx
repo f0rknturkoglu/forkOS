@@ -131,9 +131,7 @@ describe("FlashcardPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /İyi/ }));
 
-    await waitFor(() =>
-      expect(apiPost).toHaveBeenCalledWith("/flashcard/cards/card-1/review", { grade: 2 }),
-    );
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/flashcard/cards/card-1/review", { grade: 2 }));
     // Tek kartli kuyruk bitince ozet.
     expect(await screen.findByText(/1 kart tekrar edildi/)).toBeTruthy();
   });

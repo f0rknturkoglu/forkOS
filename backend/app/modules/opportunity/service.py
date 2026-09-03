@@ -79,7 +79,7 @@ def _calculate_skill_match(
     if isinstance(reasons, dict):
         skills = reasons.get("skills")
         if isinstance(skills, dict):
-            for k in skills.keys():
+            for k in skills:
                 name = str(k).strip().lower()
                 if name and name not in matched:
                     matched.append(name)
@@ -103,7 +103,10 @@ def _calculate_skill_match(
     for tech in TECH_KEYWORDS:
         if tech in matched_set:
             continue
-        pattern = rf"(?:\b|\W){re.escape(tech)}(?:\b|\W)" if not tech.startswith(".") else rf"(?:^|\W){re.escape(tech)}(?:\b|\W)"
+        if tech.startswith("."):
+            pattern = rf"(?:^|\W){re.escape(tech)}(?:\b|\W)"
+        else:
+            pattern = rf"(?:\b|\W){re.escape(tech)}(?:\b|\W)"
         if re.search(pattern, full_text):
             missing.append(tech)
 

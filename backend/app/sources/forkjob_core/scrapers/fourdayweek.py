@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import date_source_for, Job, Layer, WorkMode
+from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import format_salary, parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 

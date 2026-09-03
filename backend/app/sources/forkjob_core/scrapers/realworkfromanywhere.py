@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from xml.etree import ElementTree as ET
 
-from ..models import date_source_for, Job, Layer, WorkMode
+from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_rfc822
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.service import _calculate_skill_match
 

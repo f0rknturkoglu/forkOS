@@ -15,15 +15,7 @@ type Requirement = {
 };
 
 /** Gereksinimler: belge baglama ve yeni gereksinim ekleme. */
-export function RequirementsSection({
-  id,
-  online,
-  documents,
-}: {
-  id: string;
-  online: boolean;
-  documents: Document[];
-}) {
+export function RequirementsSection({ id, online, documents }: { id: string; online: boolean; documents: Document[] }) {
   const [requirement, setRequirement] = useState("");
   const { data: requirements = [] } = useQuery({
     queryKey: ["opportunity-requirements", id],
@@ -105,15 +97,7 @@ export function RequirementsSection({
 }
 
 /** Başvuru: ilk basvuru formu, guncelleme ve basvuru anindaki ilan ozeti. */
-export function ApplicationSection({
-  id,
-  online,
-  documents,
-}: {
-  id: string;
-  online: boolean;
-  documents: Document[];
-}) {
+export function ApplicationSection({ id, online, documents }: { id: string; online: boolean; documents: Document[] }) {
   const [editingApp, setEditingApp] = useState(false);
   const [coverDraft, setCoverDraft] = useState("");
   const [cvDraft, setCvDraft] = useState("");
@@ -314,7 +298,10 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
       {interviews.length > 0 && (
         <ul className="mb-3 space-y-1.5">
           {interviews.map((iv) => (
-            <li key={iv.id} className="flex items-center gap-2 rounded-control border border-subtle px-3 py-2 text-meta">
+            <li
+              key={iv.id}
+              className="flex items-center gap-2 rounded-control border border-subtle px-3 py-2 text-meta"
+            >
               <span className="min-w-0 flex-1">
                 <strong className="text-primary">{iv.stage}</strong>
                 <span className="ml-2 text-muted">

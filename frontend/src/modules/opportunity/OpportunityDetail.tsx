@@ -1,17 +1,7 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  Bookmark,
-  CalendarClock,
-  Check,
-  ExternalLink,
-  FileText,
-  Plus,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Bookmark, CalendarClock, Check, ExternalLink, FileText, Plus, Save, Trash2, X } from "lucide-react";
 import { api } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { Button, Chip, Empty, Input, SectionHeader, Select, Textarea, cx, relativeTime, useToast } from "@/core/ui";
@@ -22,7 +12,12 @@ import { useOnline } from "@/lib/hooks";
 import { SCORE_TONE, STATUSES, STATUS_TONES, daysLeft, kindLabel, scoreBand, statusLabel } from "./labels";
 import { sourceLabel } from "@/core/labels";
 import type { ScoreBand } from "./labels";
-import { ApplicationSection, FollowUpSection, InterviewsSection, RequirementsSection } from "./OpportunityDetailSections";
+import {
+  ApplicationSection,
+  FollowUpSection,
+  InterviewsSection,
+  RequirementsSection,
+} from "./OpportunityDetailSections";
 
 type DetailTab = "overview" | "crm" | "notes";
 
@@ -154,7 +149,11 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-canvas/60 backdrop-blur-xs" onClick={close} role="presentation">
+    <div
+      className="fixed inset-0 z-40 flex justify-end bg-canvas/60 backdrop-blur-xs"
+      onClick={close}
+      role="presentation"
+    >
       <aside
         role="dialog"
         aria-label={item?.title ?? "Fırsat Detayı"}
@@ -174,14 +173,17 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                   </Chip>
                 )}
                 {item?.skill_match && (
-                  <Chip tone="ok">
-                    CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}
-                  </Chip>
+                  <Chip tone="ok">CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}</Chip>
                 )}
               </div>
               <h2 className="text-heading font-semibold text-primary leading-snug">{item?.title ?? "Yükleniyor…"}</h2>
               <p className="mt-1 text-meta text-muted">
-                {[item?.organization, item?.location, item?.remote ? (item.remote === "remote" ? "Uzaktan" : item.remote) : null, item?.compensation]
+                {[
+                  item?.organization,
+                  item?.location,
+                  item?.remote ? (item.remote === "remote" ? "Uzaktan" : item.remote) : null,
+                  item?.compensation,
+                ]
                   .filter(Boolean)
                   .join(" · ") || "—"}
               </p>
@@ -248,9 +250,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               )}
             >
               <span>Süreç & CRM</span>
-              {item?.status && item.status !== "discovered" && (
-                <span className="h-2 w-2 rounded-full bg-accent" />
-              )}
+              {item?.status && item.status !== "discovered" && <span className="h-2 w-2 rounded-full bg-accent" />}
             </button>
             <button
               type="button"
@@ -351,7 +351,16 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                     ["Kurum", item?.organization || "—"],
                     ["Kaynak", item ? sourceLabel(item.source) : "—"],
                     ["Lokasyon", item?.location || "Belirtilmemiş"],
-                    ["Çalışma", item?.remote ? (item.remote === "remote" ? "100% Uzaktan" : item.remote === "hybrid" ? "Hibrit" : "Ofis") : "—"],
+                    [
+                      "Çalışma",
+                      item?.remote
+                        ? item.remote === "remote"
+                          ? "100% Uzaktan"
+                          : item.remote === "hybrid"
+                            ? "Hibrit"
+                            : "Ofis"
+                        : "—",
+                    ],
                     ["Ücret / Maaş", item?.compensation || "Belirtilmemiş"],
                     ["Tarama Tarihi", item ? new Date(item.found_at).toLocaleDateString("tr-TR") : "—"],
                   ].map(([label, value]) => (
@@ -432,7 +441,12 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                     </Button>
                   )}
                   {item?.status !== "rejected" && (
-                    <Button size="sm" variant="ghost" onClick={() => setRejecting(true)} className="text-danger hover:bg-danger-surface">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setRejecting(true)}
+                      className="text-danger hover:bg-danger-surface"
+                    >
                       Reddedildi
                     </Button>
                   )}
@@ -517,7 +531,10 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                 ) : (
                   <ul className="my-3 flex flex-col gap-2">
                     {steps.map((step) => (
-                      <li key={step.id} className="flex items-center gap-2 rounded-control border border-subtle bg-surface-sunken/20 px-3 py-2">
+                      <li
+                        key={step.id}
+                        className="flex items-center gap-2 rounded-control border border-subtle bg-surface-sunken/20 px-3 py-2"
+                      >
                         <button
                           type="button"
                           role="checkbox"
@@ -527,7 +544,9 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                           title={step.status === "done" ? "Adımı aç" : "Adımı tamamla"}
                           className={cx(
                             "flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded border transition",
-                            step.status === "done" ? "border-ok bg-ok text-canvas" : "border-strong bg-surface hover:border-accent",
+                            step.status === "done"
+                              ? "border-ok bg-ok text-canvas"
+                              : "border-strong bg-surface hover:border-accent",
                           )}
                         >
                           {step.status === "done" && <Check size={11} />}
@@ -617,7 +636,8 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                   </div>
                   <h3 className="text-body font-semibold text-primary">Henüz Şirket Notu Oluşturulmadı</h3>
                   <p className="mx-auto mt-1 max-w-sm text-meta text-muted">
-                    {item?.organization || "Şirket"} hakkında faaliyet alanı, teknoloji yığını ve mülakat soruları için tek tıkla şablon not oluştur.
+                    {item?.organization || "Şirket"} hakkında faaliyet alanı, teknoloji yığını ve mülakat soruları için
+                    tek tıkla şablon not oluştur.
                   </p>
                   <Button
                     variant="primary"

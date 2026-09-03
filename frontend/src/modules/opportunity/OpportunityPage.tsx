@@ -77,9 +77,7 @@ export function OpportunityPage() {
       list = list.filter((it) => (it.skill_match?.match_ratio ?? 0) >= filters.min_skill_match!);
     }
     if (filters.sort === "skill_match") {
-      list = [...list].sort(
-        (a, b) => (b.skill_match?.match_ratio ?? 0) - (a.skill_match?.match_ratio ?? 0),
-      );
+      list = [...list].sort((a, b) => (b.skill_match?.match_ratio ?? 0) - (a.skill_match?.match_ratio ?? 0));
     }
     return list;
   }, [pages, filters.min_skill_match, filters.sort]);
@@ -140,7 +138,11 @@ export function OpportunityPage() {
       if (typeof data.source === "string") next.source = data.source;
       if (typeof data.region === "string") next.region = data.region;
       if (typeof data.remote === "string") next.remote = data.remote;
-      if (data.announcement_source === "ylsy" || data.announcement_source === "osym" || data.announcement_source === "other") {
+      if (
+        data.announcement_source === "ylsy" ||
+        data.announcement_source === "osym" ||
+        data.announcement_source === "other"
+      ) {
         next.announcement_source = data.announcement_source;
       }
       if (typeof data.period_days === "number") next.period_days = data.period_days;

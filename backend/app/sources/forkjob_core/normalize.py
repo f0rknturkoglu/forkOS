@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
-from xml.etree import ElementTree as ET
 
 from selectolax.parser import HTMLParser
 
@@ -253,6 +252,30 @@ def detect_language(text: str | None, *, declared: str | None = None) -> str | N
         return "en"
     return None
 
+
+_EN_STOPWORDS = {
+    "the",
+    "and",
+    "in",
+    "of",
+    "to",
+    "a",
+    "is",
+    "for",
+    "with",
+    "as",
+    "on",
+    "at",
+    "by",
+    "from",
+    "an",
+    "our",
+    "team",
+    "experience",
+    "company",
+    "you",
+    "will",
+}
 
 _ES_STOPWORDS = {
     "de",

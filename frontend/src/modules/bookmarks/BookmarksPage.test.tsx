@@ -165,9 +165,7 @@ describe("bookmarks flow", () => {
     expect(markup).toContain("Görünümler");
 
     // Picker'ın görünüm sorgusu modül anahtarıyla koşar.
-    const views = harness.queries.find(
-      (query) => query.queryKey[0] === "views" && query.queryKey[1] === "bookmark",
-    );
+    const views = harness.queries.find((query) => query.queryKey[0] === "views" && query.queryKey[1] === "bookmark");
     expect(views).toBeDefined();
     await views?.queryFn();
     expect(harness.apiGet).toHaveBeenCalledWith("/views?module=bookmark");

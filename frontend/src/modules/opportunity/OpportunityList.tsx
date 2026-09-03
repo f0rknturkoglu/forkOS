@@ -39,9 +39,7 @@ export function FilterChip({
     >
       <span>{label}</span>
       {count !== undefined && (
-        <span className={cx("tabular-nums text-meta font-normal", active ? "text-accent" : "text-muted")}>
-          {count}
-        </span>
+        <span className={cx("tabular-nums text-meta font-normal", active ? "text-accent" : "text-muted")}>{count}</span>
       )}
     </button>
   );

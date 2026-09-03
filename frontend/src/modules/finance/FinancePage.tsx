@@ -319,12 +319,7 @@ function MonthlyBarChart({ summary, currency }: { summary: MonthlySummary[]; cur
           Gider
         </span>
       </div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="Son 6 ayın gelir ve gider çubuk grafiği"
-        className="w-full"
-      >
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Son 6 ayın gelir ve gider çubuk grafiği" className="w-full">
         {summary.map((row, index) => {
           const center = slot * index + slot / 2;
           const incomeH = (row.income / peak) * plotH;

@@ -29,9 +29,7 @@ const preview = {
   kind: "daily",
   period_start: "2026-08-31",
   period_end: "2026-08-31",
-  completed_todos: [
-    { id: "t1", title: "Bitirilen görev", completed_at: "2026-08-31T14:00:00Z", priority: 1 },
-  ],
+  completed_todos: [{ id: "t1", title: "Bitirilen görev", completed_at: "2026-08-31T14:00:00Z", priority: 1 }],
   unfinished_todos: [
     { id: "u1", title: "Açık görev 1", due_at: "2026-09-01", priority: 3 },
     { id: "u2", title: "Açık görev 2", due_at: null, priority: 1 },
@@ -128,7 +126,9 @@ describe("ReviewPage temel akis", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Değerlendirmeyi tamamla" }));
 
-    expect(await screen.findByText("Kararların plana işlendi; seçtiğin öncelikler yeni haftanın başlangıcına eklendi.")).toBeTruthy();
+    expect(
+      await screen.findByText("Kararların plana işlendi; seçtiğin öncelikler yeni haftanın başlangıcına eklendi."),
+    ).toBeTruthy();
     expect(navigate).toHaveBeenCalledWith("/review/daily");
   });
 });

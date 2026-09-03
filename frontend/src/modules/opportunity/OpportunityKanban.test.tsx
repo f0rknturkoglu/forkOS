@@ -40,13 +40,7 @@ describe("OpportunityKanban", () => {
   };
 
   it("renders pipeline columns and places items into matching column", () => {
-    const html = renderToStaticMarkup(
-      <OpportunityKanban
-        items={[dummyItem]}
-        onOpen={vi.fn()}
-        onStatus={vi.fn()}
-      />,
-    );
+    const html = renderToStaticMarkup(<OpportunityKanban items={[dummyItem]} onOpen={vi.fn()} onStatus={vi.fn()} />);
 
     expect(html).toContain("Keşfedildi");
     expect(html).toContain("İnceleniyor");

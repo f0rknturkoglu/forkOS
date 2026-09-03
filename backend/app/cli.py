@@ -10,7 +10,6 @@ birakilir. Veri terminalden cikmaz, her sey local kalir (AGENTS.md).
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 import httpx

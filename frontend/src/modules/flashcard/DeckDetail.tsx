@@ -54,13 +54,7 @@ function CardRow({
   );
 }
 
-export function DeckDetail({
-  deckId,
-  onBack,
-}: {
-  deckId: string;
-  onBack: () => void;
-}) {
+export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => void }) {
   const online = useOnline();
   const toast = useToast();
   const [front, setFront] = useState("");
@@ -160,9 +154,7 @@ export function DeckDetail({
             </div>
           ) : (
             <>
-              <h1 className="min-w-0 truncate font-serif text-title text-primary">
-                {deck?.title ?? "Kartlar"}
-              </h1>
+              <h1 className="min-w-0 truncate font-serif text-title text-primary">{deck?.title ?? "Kartlar"}</h1>
               <IconButton
                 title="Destek adını değiştir"
                 onClick={() => {
@@ -178,11 +170,7 @@ export function DeckDetail({
         <div className="flex flex-wrap items-center gap-2">
           {deck && deck.due_count > 0 && <Chip tone="danger">{deck.due_count} tekrar</Chip>}
           {deck && deck.new_count > 0 && <Chip tone="accent">{deck.new_count} yeni</Chip>}
-          <Button
-            variant="primary"
-            disabled={!online || cards.length === 0}
-            onClick={() => setReviewing(true)}
-          >
+          <Button variant="primary" disabled={!online || cards.length === 0} onClick={() => setReviewing(true)}>
             <Play size={14} /> Tekrar başlat
           </Button>
         </div>

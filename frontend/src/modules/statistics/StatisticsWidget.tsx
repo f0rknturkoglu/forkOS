@@ -48,8 +48,8 @@ function monthLabel(month: string): string {
 }
 
 function MonthlyBars({ points }: { points: MonthlyPoint[] }) {
-  const totals = points.map((point) =>
-    point.pomodoros + point.todos + point.bookmarks + point.notes + point.rss_read + point.reviews,
+  const totals = points.map(
+    (point) => point.pomodoros + point.todos + point.bookmarks + point.notes + point.rss_read + point.reviews,
   );
   const max = Math.max(1, ...totals);
   const height = 88;
@@ -57,7 +57,11 @@ function MonthlyBars({ points }: { points: MonthlyPoint[] }) {
   return (
     <div className="flex h-28 items-end gap-2" role="img" aria-label="Son 6 ayın toplam hareketi">
       {points.map((point, index) => (
-        <div key={point.month} className="flex min-w-0 flex-1 flex-col items-center gap-1" title={`${monthLabel(point.month)}: ${totals[index]} hareket`}>
+        <div
+          key={point.month}
+          className="flex min-w-0 flex-1 flex-col items-center gap-1"
+          title={`${monthLabel(point.month)}: ${totals[index]} hareket`}
+        >
           <span className="text-micro text-muted">{totals[index] > 0 ? totals[index] : ""}</span>
           <div
             className={cx("w-full rounded-sm", totals[index] > 0 ? "bg-accent" : "bg-border")}

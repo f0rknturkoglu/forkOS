@@ -13,11 +13,11 @@ from app.core import contributions as contribution_svc
 from app.core import events as event_svc
 from app.core import graph as graph_svc
 from app.core import links as link_svc
-from app.core.events import log_event
 from app.core import registry as registry_svc
 from app.core import runs as run_svc
 from app.core import search as search_svc
 from app.core import tags as tag_svc
+from app.core.events import log_event
 from app.core.models import Entity, Notification
 from app.core.schemas import (
     EntityOut,

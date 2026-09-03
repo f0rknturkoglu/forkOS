@@ -67,8 +67,7 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
     },
   });
   const togglePin = useMutation({
-    mutationFn: (view: SavedViewRow) =>
-      api.patch<SavedViewRow>(`/views/${view.id}`, { pinned: !view.pinned }),
+    mutationFn: (view: SavedViewRow) => api.patch<SavedViewRow>(`/views/${view.id}`, { pinned: !view.pinned }),
     onSuccess: refresh,
   });
   const removeView = useMutation({
@@ -96,11 +95,7 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
 
   return (
     <div ref={rootRef} className="relative">
-      <Button
-        size="sm"
-        ariaLabel="Kayıtlı görünümler"
-        onClick={() => setOpen((value) => !value)}
-      >
+      <Button size="sm" ariaLabel="Kayıtlı görünümler" onClick={() => setOpen((value) => !value)}>
         <Bookmark size={14} className="text-icon" />
         Görünümler
         {views.length > 0 && (

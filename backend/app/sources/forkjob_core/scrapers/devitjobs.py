@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any
 
 from ..geo import country_from_name, region_for
-from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 

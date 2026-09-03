@@ -57,10 +57,7 @@ const allSourceFiles = files;
 
 /** Ham kontrol testi istisnalari: ui.tsx primitivelerin TANIMIDIR, CommandPalette
  *  girdi adiminda bilincli olarak ham <input> kullanir (cmdk entegrasyonu). */
-const RAW_CONTROL_EXEMPT = new Set([
-  join(SRC_ROOT, "core", "ui.tsx"),
-  join(SRC_ROOT, "core", "CommandPalette.tsx"),
-]);
+const RAW_CONTROL_EXEMPT = new Set([join(SRC_ROOT, "core", "ui.tsx"), join(SRC_ROOT, "core", "CommandPalette.tsx")]);
 
 /** Ham tailwind palet sinifi: bg-blue-500, text-gray-400, border-red-200 ... */
 const RAW_PALETTE =

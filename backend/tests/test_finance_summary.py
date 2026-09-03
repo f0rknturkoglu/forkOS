@@ -59,7 +59,12 @@ async def test_summary_aggregates_two_months(client: AsyncClient) -> None:
         {"title": "Maaş", "amount": "45000.00", "category": "salary", "received_on": prev},
         # Bu ay: 1 gider + 2 gelir.
         {"title": "Ulaşım", "amount": "300.25", "category": "transport", "spent_on": current},
-        {"title": "Serbest iş", "amount": "1200.00", "category": "freelance", "received_on": current},
+        {
+            "title": "Serbest iş",
+            "amount": "1200.00",
+            "category": "freelance",
+            "received_on": current,
+        },
         {"title": "Hediye", "amount": "500.00", "category": "gift", "received_on": current},
     ]:
         endpoint = "/api/incomes" if "received_on" in payload else "/api/expenses"

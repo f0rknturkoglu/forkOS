@@ -38,7 +38,16 @@ export const AFTER = {
     "tags",
   ],
   "plan.write": ["plan", "today-agenda", "calendar-events", "activity", "todos"],
-  "finance.write": ["expenses", "incomes", "finance-overview", "finance-summary", "recurring", "deadlines", "today-agenda", "activity"],
+  "finance.write": [
+    "expenses",
+    "incomes",
+    "finance-overview",
+    "finance-summary",
+    "recurring",
+    "deadlines",
+    "today-agenda",
+    "activity",
+  ],
   "flashcard.write": ["flashcard"],
   "study.write": [
     "study-areas",

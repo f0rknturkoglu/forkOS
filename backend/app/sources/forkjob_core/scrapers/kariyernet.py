@@ -40,7 +40,7 @@ from selectolax.parser import HTMLParser, Node
 
 from ..models import DateSource, Job, Layer, Region, WorkMode, utcnow
 from ..normalize import html_to_text
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperHttpClient
 
 BASE_URL = "https://www.kariyer.net"
 #: Listing path. Robots permits /is-ilanlari/; the keyword is a path segment.

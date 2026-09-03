@@ -177,11 +177,7 @@ function UploadPanel({ online }: { online: boolean }) {
             <option value="certificates">Sertifikalar</option>
             <option value="other">Diğer</option>
           </Select>
-          <Button
-            variant="primary"
-            disabled={!online || upload.isPending}
-            onClick={() => fileRef.current?.click()}
-          >
+          <Button variant="primary" disabled={!online || upload.isPending} onClick={() => fileRef.current?.click()}>
             <Upload size={14} /> {upload.isPending ? "Yükleniyor…" : "Dosya Seç ve Yükle"}
           </Button>
         </div>

@@ -32,9 +32,9 @@ from __future__ import annotations
 from typing import Any
 
 from ..geo import country_code, region_for
-from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, parse_location
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperHttpClient
 from .schemaorg import ld_blocks
 
 BASE_URL = "https://bebee.com"

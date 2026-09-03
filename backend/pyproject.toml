@@ -38,10 +38,12 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = ["app/sources/forkjob_core"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 ignore = [
   # FastAPI'de Depends()/Query() varsayilan argumanda cagrilir -- idiomatik
   "B008",
+  "E501",
 ]

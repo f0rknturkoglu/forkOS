@@ -11,6 +11,8 @@ from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
 from app.db import get_session
+from app.modules.note import service as note_service
+from app.modules.note.schemas import NoteIn, NoteOut
 from app.modules.opportunity import service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
 from app.modules.opportunity.models import Opportunity, OpportunityRequirement
@@ -22,8 +24,6 @@ from app.modules.opportunity.schemas import (
     RequirementIn,
     TransitionIn,
 )
-from app.modules.note import service as note_service
-from app.modules.note.schemas import NoteIn, NoteOut
 from app.modules.opportunity.sources_router import router as sources_router
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo

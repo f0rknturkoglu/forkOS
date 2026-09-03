@@ -114,19 +114,11 @@ export function DeckList({ onOpen }: { onOpen: (deckId: string) => void }) {
         {isLoading ? (
           <p className="py-6 text-center text-meta text-muted">Yükleniyor…</p>
         ) : decks.length === 0 ? (
-          <Empty title="Henüz destek yok">
-            İlk kart desteni oluştur ya da Anki (.apkg) / CSV dosyası içe aktar.
-          </Empty>
+          <Empty title="Henüz destek yok">İlk kart desteni oluştur ya da Anki (.apkg) / CSV dosyası içe aktar.</Empty>
         ) : (
           <RowList as="ul">
             {decks.map((deck) => (
-              <DeckRow
-                key={deck.id}
-                deck={deck}
-                online={online}
-                onOpen={onOpen}
-                onDelete={confirmRemove}
-              />
+              <DeckRow key={deck.id} deck={deck} online={online} onOpen={onOpen} onDelete={confirmRemove} />
             ))}
           </RowList>
         )}
@@ -156,8 +148,8 @@ export function DeckList({ onOpen }: { onOpen: (deckId: string) => void }) {
 
       <Section title="İçe aktar" flat>
         <p className="mb-2.5 text-meta text-muted">
-          Anki paketi (.apkg) ya da CSV/TXT (front,back veya sekme ayraçlı) dosyası. Aynı isimli
-          destek varsa kartlar oraya eklenir; medya dosyaları atlanır.
+          Anki paketi (.apkg) ya da CSV/TXT (front,back veya sekme ayraçlı) dosyası. Aynı isimli destek varsa kartlar
+          oraya eklenir; medya dosyaları atlanır.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -175,11 +167,7 @@ export function DeckList({ onOpen }: { onOpen: (deckId: string) => void }) {
           <Button onClick={() => fileRef.current?.click()}>
             <FileUp size={14} /> Dosya seç
           </Button>
-          <Button
-            variant="primary"
-            disabled={!online || !file || doImport.isPending}
-            onClick={() => doImport.mutate()}
-          >
+          <Button variant="primary" disabled={!online || !file || doImport.isPending} onClick={() => doImport.mutate()}>
             {file ? `Aktar: ${file.name}` : "Aktar"}
           </Button>
         </div>

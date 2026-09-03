@@ -19,11 +19,12 @@ import json
 import sys
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from hashlib import sha1
 from pathlib import Path
-from typing import Any, Awaitable, Callable, ClassVar
+from typing import Any, ClassVar
 from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
 

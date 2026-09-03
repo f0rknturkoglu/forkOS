@@ -23,10 +23,9 @@ Field notes:
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-from ..models import date_source_for, Job, Layer, WorkMode
+from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import format_salary, html_to_text, parse_datetime, sitemap_locations
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 from .schemaorg import find_type, ld_blocks, organisation_name, text

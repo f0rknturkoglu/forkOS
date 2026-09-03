@@ -27,12 +27,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "terminal", title: "Sonuçlandı", statuses: ["accepted", "rejected", "withdrawn", "closed"], tone: "neutral" },
 ];
 
-export function OpportunityKanban({
-  items,
-  disabled = false,
-  onOpen,
-  onStatus,
-}: OpportunityKanbanProps) {
+export function OpportunityKanban({ items, disabled = false, onOpen, onStatus }: OpportunityKanbanProps) {
   const grouped = useMemo(() => {
     const map = new Map<string, Opportunity[]>();
     for (const col of COLUMNS) {
@@ -99,16 +94,12 @@ export function OpportunityKanban({
                           {item.organization || "Bilinmeyen kurum"}
                         </span>
                         {item.score !== null && item.score !== undefined && (
-                          <Chip tone={tone}>
-                            {band === "killed" ? "Elendi" : `${item.score.toFixed(0)}p`}
-                          </Chip>
+                          <Chip tone={tone}>{band === "killed" ? "Elendi" : `${item.score.toFixed(0)}p`}</Chip>
                         )}
                       </div>
 
                       {/* Başlık */}
-                      <h4 className="mb-2 line-clamp-2 text-body font-medium text-primary">
-                        {item.title}
-                      </h4>
+                      <h4 className="mb-2 line-clamp-2 text-body font-medium text-primary">{item.title}</h4>
 
                       {/* Etiketler */}
                       <div className="mb-3 flex flex-wrap items-center gap-1.5 text-micro">
@@ -123,13 +114,9 @@ export function OpportunityKanban({
                           </Chip>
                         )}
                         {item.skill_match && (
-                          <Chip tone="ok">
-                            CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}
-                          </Chip>
+                          <Chip tone="ok">CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}</Chip>
                         )}
-                        {item.status !== col.statuses[0] && (
-                          <Chip tone="accent">{statusLabel(item.status)}</Chip>
-                        )}
+                        {item.status !== col.statuses[0] && <Chip tone="accent">{statusLabel(item.status)}</Chip>}
                       </div>
 
                       {/* Hızlı Aksiyonlar */}

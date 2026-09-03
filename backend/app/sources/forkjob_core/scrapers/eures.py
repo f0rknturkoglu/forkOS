@@ -43,7 +43,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from ..geo import region_for
-from ..models import date_source_for, Job, Layer, Region, WorkMode
+from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_epoch_ms
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 

@@ -86,9 +86,7 @@ describe("RSS tam metin", () => {
   /** Ozet gorunumunde acilir: content yok, summary var, URL mevcut. */
   function renderPane() {
     return render(
-      <RssReadingPane
-        {...paneProps({ detail: { ...detail, content: null, summary: "Özet metni burada." } })}
-      />,
+      <RssReadingPane {...paneProps({ detail: { ...detail, content: null, summary: "Özet metni burada." } })} />,
     );
   }
 
@@ -119,9 +117,11 @@ describe("RSS tam metin", () => {
 
   it("fetch sürerken buton yükleniyor durumunda kilitlenir", async () => {
     let settle!: (value: { full_text: string | null }) => void;
-    harness.apiGet.mockReturnValue(new Promise<{ full_text: string | null }>((resolve) => {
-      settle = resolve;
-    }));
+    harness.apiGet.mockReturnValue(
+      new Promise<{ full_text: string | null }>((resolve) => {
+        settle = resolve;
+      }),
+    );
     renderPane();
 
     fireEvent.click(screen.getByRole("button", { name: "Tam metni getir" }));
