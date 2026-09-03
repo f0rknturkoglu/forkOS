@@ -584,10 +584,10 @@ async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
     await record_fetch(session, feed, result)
 
     # 304 = degisiklik yok; 'bos' saymayiz, yoksa saglikli feed'ler uyari uretir.
+    # Benzer sekilde feed 200 donup ogeleri dondurmus ama hepsi zaten ekliyse (added == 0),
+    # bu durum feed'in saglikli oldugunu gosterir; EMPTY (olu feed) sayilmaz.
     run_status = {OK: run_svc.OK, EMPTY: run_svc.EMPTY,
                   NOT_MODIFIED: run_svc.OK, ERROR: run_svc.ERROR}[result.status]
-    if result.status == OK and added == 0:
-        run_status = run_svc.EMPTY          # feed 200 donuyor ama yeni bir sey yok
     await run_svc.finish_run(session, run, status=run_status, items_found=added,
                              error=result.error)
     await session.commit()

@@ -618,14 +618,23 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             if existing.region is None and forkjob.get("region"):
                 existing.region = forkjob.get("region")
             continue
-        # Ikinci savunma: ayni URL farkli kaynaktan geliyorsa birlestir.
+        # Ikinci savunma: ayni URL farkli kaynaktan geliyorsa birlestir; ayni kaynaktan geliyorsa guncelle.
         if job.url:
             by_url = existing_by_url.get(job.url)
-            if by_url is not None and by_url.source != source_label:
-                sources = list(by_url.raw.get("sources", [by_url.source]))
-                if source_label not in sources:
-                    sources.append(source_label)
-                by_url.raw = {**by_url.raw, "sources": sources}
+            if by_url is not None:
+                if by_url.source != source_label:
+                    sources = list(by_url.raw.get("sources", [by_url.source]))
+                    if source_label not in sources:
+                        sources.append(source_label)
+                    by_url.raw = {**by_url.raw, "sources": sources}
+                else:
+                    by_url.raw = raw
+                    by_url.category = category
+                    by_url.published_at = published_at
+                    if by_url.country is None and forkjob.get("country"):
+                        by_url.country = forkjob.get("country")
+                    if by_url.region is None and forkjob.get("region"):
+                        by_url.region = forkjob.get("region")
                 continue
         entity = await create_entity(
             session,

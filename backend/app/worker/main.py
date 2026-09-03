@@ -115,17 +115,23 @@ async def main() -> None:
         settings.rss_retention_days,
     )
 
-    try:
-        await record_worker_heartbeat()
-        await catch_up()
-        await catch_up_media()
-        await deadlines()
-        await morning_digest()
-        await sync_calendar()
-        await sync_github()
-        await nightly_backup()
-    except Exception:
-        log.exception("catch-up basarisiz -- zamanlanmis turlar devam ediyor")
+    startup_tasks = [
+        ("heartbeat", record_worker_heartbeat),
+        ("catch_up_feeds", catch_up),
+        ("catch_up_media", catch_up_media),
+        ("deadlines", deadlines),
+        ("morning_digest", morning_digest),
+        ("sync_calendar", sync_calendar),
+        ("sync_github", sync_github),
+        ("nightly_backup", nightly_backup),
+    ]
+    for task_name, task_fn in startup_tasks:
+        try:
+            await task_fn()
+        except Exception:
+            log.exception(
+                "startup gorevi basarisiz oldu (%s) -- diger gorevler devam ediyor", task_name
+            )
 
     await asyncio.Event().wait()
 

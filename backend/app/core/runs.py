@@ -63,17 +63,38 @@ async def last_statuses(session: AsyncSession, source: str, limit: int) -> list[
 
 
 async def check_stalled(session: AsyncSession, source: str, *, label: str = "") -> bool:
-    """Son N kosum bos mu? Oyleyse bir kere bildirim event'i uretir.
+    """Son N kosum bos mu? Oyleyse bildirim ve event uretir (Kural 6).
 
-    Bildirim 'event' tablosuna yazilir; Today/Activity ekrani buradan besleniyor.
+    Ust uste 3 empty -> bildirim. Sessiz olum kabul edilemez.
+    Ayni bos serinin 4., 5. kosumlarinda tekrar bildirim spam'i yapmaz.
     """
-    statuses = await last_statuses(session, source, EMPTY_STREAK_ALERT)
-    if len(statuses) < EMPTY_STREAK_ALERT or any(s != EMPTY for s in statuses):
+    statuses = await last_statuses(session, source, EMPTY_STREAK_ALERT + 1)
+    if len(statuses) < EMPTY_STREAK_ALERT or any(s != EMPTY for s in statuses[:EMPTY_STREAK_ALERT]):
         return False
+    # Onceki turda da zaten 3'luk streak tamamlanmissa tekrar bildirim/event atma
+    if len(statuses) > EMPTY_STREAK_ALERT and all(s == EMPTY for s in statuses[1 : EMPTY_STREAK_ALERT + 1]):
+        return False
+
+    display = label or source
+    message = f"{display}: üst üste {EMPTY_STREAK_ALERT} koşum boş döndü"
     await log_event(
-        session, verb="source.stalled",
-        payload={"source": source, "label": label, "streak": EMPTY_STREAK_ALERT,
-                 "message": f"{label or source}: ust uste {EMPTY_STREAK_ALERT} kosum bos dondu"},
+        session,
+        verb="source.stalled",
+        payload={"source": source, "label": label, "streak": EMPTY_STREAK_ALERT, "message": message},
+    )
+
+    from app.core.notifications import notify
+    from app.core.time import local_today
+
+    today_str = local_today().isoformat()
+    dedup_key = f"source_stalled:{source}:{today_str}"
+    await notify(
+        session,
+        kind="source_stalled",
+        title=f"Kaynak duraksadı: {display}",
+        body=f"{display} kaynağı üst üste {EMPTY_STREAK_ALERT} kez boş döndü. Kaynak ölmüş veya sayfa yapısı değişmiş olabilir.",
+        dedup_key=dedup_key,
+        importance=2,
     )
     return True
 

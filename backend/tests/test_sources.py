@@ -1,6 +1,10 @@
 """RSS parse ve OPML testleri. Ag'a cikmaz."""
+import pytest
+
 from app.sources.opml import parse_opml
 from app.sources.rss_source import item_guid, parse_entries
+
+pytestmark = pytest.mark.no_database
 
 RSS = b"""<?xml version="1.0"?>
 <rss version="2.0"><channel>

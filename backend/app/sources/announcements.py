@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import html
 import unicodedata
@@ -18,6 +19,33 @@ def _norm(value: str) -> str:
     return "".join(c for c in value if not unicodedata.combining(c)).replace("ı", "i")
 
 
+async def _request_with_retry(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    *,
+    max_retries: int = 3,
+    **kwargs,
+) -> httpx.Response:
+    last_exc: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            response = await client.request(method, url, **kwargs)
+            if response.status_code < 500 and response.status_code != 429:
+                response.raise_for_status()
+                return response
+            last_exc = httpx.HTTPStatusError(
+                f"HTTP {response.status_code}", request=response.request, response=response
+            )
+        except (httpx.TransportError, httpx.TimeoutException) as exc:
+            last_exc = exc
+        if attempt < max_retries - 1:
+            await asyncio.sleep(1.0 * (2**attempt))
+    if last_exc:
+        raise last_exc
+    raise RuntimeError(f"Request failed for {url}")
+
+
 class AnnouncementSource:
     interval_minutes = 720
 
@@ -30,8 +58,9 @@ class AnnouncementSource:
             follow_redirects=True,
             headers={"User-Agent": "forkOS/0.1 local announcement monitor"},
         ) as client:
-            response = await client.get(self.url, headers={"Accept": "text/html"})
-            response.raise_for_status()
+            response = await _request_with_retry(
+                client, "GET", self.url, headers={"Accept": "text/html"}
+            )
         return self.parse_html(response.text, base_url=str(response.url))
 
     def parse_html(self, body: str, *, base_url: str) -> list[RawItem]:
@@ -82,11 +111,13 @@ class YlsySource(AnnouncementSource):
             "columns[2][data]": "SIRAID",
         }
         async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=headers) as client:
-            await client.get(self.url)
-            response = await client.post(
-                "https://yyegm.meb.gov.tr/www/icerik_listele_ajax.php", data=form
+            await _request_with_retry(client, "GET", self.url)
+            response = await _request_with_retry(
+                client,
+                "POST",
+                "https://yyegm.meb.gov.tr/www/icerik_listele_ajax.php",
+                data=form,
             )
-            response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
             raise RuntimeError(f"YLSY duyuru API beklenmeyen cevap: {payload!r}")

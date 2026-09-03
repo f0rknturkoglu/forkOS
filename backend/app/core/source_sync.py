@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, text, update
+from sqlalchemy import and_, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
@@ -165,10 +165,29 @@ async def pending_source_ids(session: AsyncSession, batch: SourceSyncBatch) -> l
     ]
 
 
-async def reconcile_stale_runs(session: AsyncSession, *, older_than: datetime) -> int:
+async def reconcile_stale_runs(
+    session: AsyncSession,
+    *,
+    older_than: datetime,
+    long_running_sources: tuple[str, ...] = ("jobhunter:eures",),
+    long_older_than: datetime | None = None,
+) -> int:
+    long_cutoff = long_older_than or (datetime.now(UTC) - timedelta(minutes=60))
     result = await session.execute(
         update(SourceRun)
-        .where(SourceRun.status == "running", SourceRun.started_at < older_than)
+        .where(
+            SourceRun.status == "running",
+            or_(
+                and_(
+                    SourceRun.source.in_(long_running_sources),
+                    SourceRun.started_at < long_cutoff,
+                ),
+                and_(
+                    SourceRun.source.not_in(long_running_sources),
+                    SourceRun.started_at < older_than,
+                ),
+            ),
+        )
         .values(
             status="abandoned",
             finished_at=datetime.now(UTC),
