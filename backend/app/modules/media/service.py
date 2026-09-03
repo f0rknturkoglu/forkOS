@@ -63,6 +63,7 @@ from app.modules.media.schemas import (
     MediaItemIn,
     MediaItemOut,
     MediaItemUpdate,
+    MediaRecentConsumptionOut,
     MediaStats,
     MediaUnitOut,
 )
@@ -557,3 +558,35 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
         ids=unit_ids, due_at=unit_due, priority={i: 1 for i in unit_ids},
     )
     return rows
+
+
+async def recent_consumptions(
+    session: AsyncSession, limit: int = 10
+) -> list[MediaRecentConsumptionOut]:
+    """Arsivlenmemis medyanin en son tuketimleri; baslik ve tur birlikte."""
+    live_ids = select(Entity.id).where(Entity.archived_at.is_(None))
+    rows = (
+        await session.execute(
+            select(MediaConsumption, MediaItem.kind, Entity.title)
+            .join(MediaItem, MediaItem.id == MediaConsumption.media_id)
+            .join(Entity, Entity.id == MediaConsumption.media_id)
+            .where(MediaConsumption.media_id.in_(live_ids))
+            .order_by(MediaConsumption.occurred_at.desc())
+            .limit(limit)
+        )
+    ).all()
+    return [
+        MediaRecentConsumptionOut(
+            id=consumption.id,
+            media_id=consumption.media_id,
+            title=title,
+            kind=kind,
+            action=consumption.action,
+            measure=consumption.measure,
+            amount=_number(consumption.amount),
+            progress_after=_number(consumption.progress_after),
+            occurred_at=consumption.occurred_at,
+            duration_min=consumption.duration_min,
+        )
+        for consumption, kind, title in rows
+    ]

@@ -470,3 +470,18 @@ class MediaSyncIdleOut(BaseModel):
     status: Literal["idle"]
     source_ids: list[str]
     total_sources: Literal[0]
+
+
+class MediaRecentConsumptionOut(BaseModel):
+    """Global son tüketim listesi satırı: medya başlığı ve türüyle birlikte."""
+
+    id: uuid.UUID
+    media_id: uuid.UUID
+    title: str
+    kind: str
+    action: str
+    measure: str | None = None
+    amount: float | None = None
+    progress_after: float | None = None
+    occurred_at: datetime
+    duration_min: int | None = None

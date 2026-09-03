@@ -28,6 +28,7 @@ from app.modules.media.schemas import (
     MediaItemUpdate,
     MediaPageOut,
     MediaProviderStatusOut,
+    MediaRecentConsumptionOut,
     MediaStats,
     MediaSyncBatchOut,
     MediaSyncIdleOut,
@@ -306,3 +307,14 @@ async def media_consumptions(item_id: uuid.UUID, session: AsyncSession = Depends
     if await service.get_item(session, item_id) is None:
         raise HTTPException(404)
     return await service.list_consumptions(session, item_id)
+
+
+@router.get(
+    "/media/consumptions/recent",
+    response_model=list[MediaRecentConsumptionOut],
+)
+async def recent_media_consumptions(
+    limit: int = Query(10, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    return await service.recent_consumptions(session, limit=limit)

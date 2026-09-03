@@ -1134,3 +1134,64 @@ def test_media_registers_complete_event_contract_and_restoration_helper():
     from app.core import entity
 
     assert callable(entity.restore_entity)
+
+
+async def test_recent_consumptions_route_returns_newest_with_title_kind_and_openapi(
+    client: AsyncClient,
+):
+    movie = await _create(client, kind="movie", progress=0, total=1)
+    book = await _create(client, kind="book", progress=0, total=300)
+    movie_id = uuid.UUID(movie["id"])
+    book_id = uuid.UUID(book["id"])
+    old_time = datetime.now(UTC) - timedelta(hours=2)
+    await client.post(
+        f"/api/media/{movie_id}/consumptions",
+        json={
+            "client_uuid": str(uuid.uuid4()),
+            "action": "finish",
+            "occurred_at": old_time.isoformat(),
+        },
+    )
+    await client.post(
+        f"/api/media/{book_id}/consumptions",
+        json={
+            "client_uuid": str(uuid.uuid4()),
+            "action": "quick",
+            "duration_min": 35,
+        },
+    )
+
+    recent = (await client.get("/api/media/consumptions/recent")).json()
+    assert recent, recent
+    assert [row["media_id"] for row in recent] == [str(book_id), str(movie_id)]
+    assert [row["title"] for row in recent] == [book["title"], movie["title"]]
+    assert {row["kind"] for row in recent} == {"book", "movie"}
+    book_row = recent[0]
+    assert book_row["action"] == "quick"
+    assert book_row["duration_min"] == 35
+    assert book_row["occurred_at"]
+
+    limited = (await client.get("/api/media/consumptions/recent", params={"limit": 1})).json()
+    assert [row["media_id"] for row in limited] == [str(book_id)]
+    assert (await client.get("/api/media/consumptions/recent", params={"limit": 0})).status_code == 422
+
+    operation = app.openapi()["paths"]["/api/media/consumptions/recent"]["get"]
+    schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
+    assert schema["type"] == "array"
+    assert schema["items"]["$ref"].endswith("/MediaRecentConsumptionOut")
+
+
+async def test_recent_consumptions_exclude_archived_media(client: AsyncClient):
+    item = await _create(client, kind="show", progress=0, total=10)
+    item_id = uuid.UUID(item["id"])
+    await client.post(
+        f"/api/media/{item_id}/consumptions",
+        json={
+            "client_uuid": str(uuid.uuid4()),
+            "action": "quick",
+            "duration_min": 44,
+        },
+    )
+    assert len((await client.get("/api/media/consumptions/recent")).json()) == 1
+    assert (await client.delete(f"/api/media/{item_id}")).status_code == 200
+    assert (await client.get("/api/media/consumptions/recent")).json() == []
