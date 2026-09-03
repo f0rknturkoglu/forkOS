@@ -1,13 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, CalendarClock } from "lucide-react";
+import { CalendarClock, ArrowRight } from "lucide-react";
 import { api } from "@/core/api";
 import { Chip, Empty, Section, cx, relativeTime } from "@/core/ui";
-import { navigate } from "@/app/router";
 import type { ApplicationFunnel, Followup } from "@/core/types";
 import { STATUS_TONES, statusLabel } from "./labels";
 
+interface ApplicationCrmPanelProps {
+  onSelect?: (id: string) => void;
+  onStatusFilter?: (status: string) => void;
+}
+
 /** Basvuru CRM ozeti: funnel, donusum oranlari, red nedenleri, yaklasan takipler. */
-export function ApplicationCrmPanel() {
+export function ApplicationCrmPanel({ onSelect, onStatusFilter }: ApplicationCrmPanelProps = {}) {
   const { data: funnel } = useQuery({
     queryKey: ["applications-funnel"],
     queryFn: () => api.get<ApplicationFunnel>("/applications/funnel"),
@@ -32,12 +36,18 @@ export function ApplicationCrmPanel() {
             {funnel!.by_status.map((row) => {
               const tone = STATUS_TONES[row.status] ?? "neutral";
               return (
-                <div key={row.status} className="flex items-center gap-3">
+                <button
+                  type="button"
+                  key={row.status}
+                  onClick={() => onStatusFilter?.(row.status)}
+                  className="flex w-full items-center gap-3 rounded-control p-1 text-left transition hover:bg-surface-hover"
+                  title={`${statusLabel(row.status)} durumundaki ilanları filtrele`}
+                >
                   <span className="w-28 shrink-0 truncate text-meta text-secondary">{statusLabel(row.status)}</span>
                   <div className="h-4 min-w-0 flex-1 overflow-hidden rounded-control bg-surface-sunken">
                     <div
                       className={cx(
-                        "h-full rounded-control",
+                        "h-full rounded-control transition-all",
                         tone === "ok"
                           ? "bg-ok"
                           : tone === "danger"
@@ -49,8 +59,10 @@ export function ApplicationCrmPanel() {
                       style={{ width: (row.count / maxCount) * 100 + "%" }}
                     />
                   </div>
-                  <span className="numeral w-10 shrink-0 text-right text-meta text-primary">{row.count}</span>
-                </div>
+                  <span className="w-10 shrink-0 text-right text-meta tabular-nums font-medium text-primary">
+                    {row.count}
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -68,8 +80,8 @@ export function ApplicationCrmPanel() {
               ["offer_to_accepted", "Teklif → Kabul"],
               ["applied_to_rejected", "Başvuru → Red"],
             ].map(([key, label]) => (
-              <div key={key} className="rounded-control border border-subtle px-3 py-2">
-                <div className="numeral text-title leading-tight text-primary">
+              <div key={key} className="rounded-control border border-subtle bg-surface-sunken/30 px-3 py-2">
+                <div className="text-title leading-tight tabular-nums font-semibold text-primary">
                   {conv[key] == null ? "—" : conv[key] + "%"}
                 </div>
                 <div className="text-meta text-muted">{label}</div>
@@ -99,17 +111,17 @@ export function ApplicationCrmPanel() {
         {followups.length === 0 ? (
           <Empty>Takipli başvuru yok.</Empty>
         ) : (
-          <ul className="space-y-1">
+          <ul className="space-y-1.5">
             {followups.slice(0, 8).map((f) => (
               <li key={f.id}>
                 <button
                   type="button"
-                  onClick={() => navigate("/opportunities")}
-                  className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left transition hover:bg-surface-hover"
+                  onClick={() => onSelect?.(f.id)}
+                  className="group flex w-full items-center gap-2 rounded-control border border-subtle bg-surface px-3 py-2 text-left transition hover:border-strong hover:bg-surface-hover"
                 >
-                  <BarChart3 size={13} className="shrink-0 text-icon" />
-                  <span className="min-w-0 flex-1 truncate text-body text-primary">{f.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-body text-primary font-medium">{f.title}</span>
                   <Chip tone="warn">{relativeTime(f.follow_up_at)}</Chip>
+                  <ArrowRight size={13} className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-primary" />
                 </button>
               </li>
             ))}

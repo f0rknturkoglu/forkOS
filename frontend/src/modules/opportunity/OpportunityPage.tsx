@@ -258,7 +258,18 @@ export function OpportunityPage() {
         ))}
       </nav>
 
-      {showCrm && <ApplicationCrmPanel />}
+      {showCrm && (
+        <ApplicationCrmPanel
+          onSelect={(id) => setSelected(id)}
+          onStatusFilter={(status) =>
+            setFilters((prev) => ({
+              ...prev,
+              status: prev.status === status ? undefined : status,
+              offset: 0,
+            }))
+          }
+        />
+      )}
       <OpportunityFilters filters={filters} facets={facets} onChange={setFilters} />
 
       <Section
