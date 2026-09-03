@@ -25,8 +25,7 @@ MONTHS_PER_PERIOD = {"monthly": 1, "quarterly": 3, "yearly": 12}
 CENT = Decimal("0.01")
 
 
-async def out(session: AsyncSession, item) -> dict:
-    title = (await session.execute(select(Entity.title).where(Entity.id == item.id))).scalar_one()
+def _serialize_item(item, title: str) -> dict:
     return {
         "id": item.id,
         "title": title,
@@ -38,13 +37,22 @@ async def out(session: AsyncSession, item) -> dict:
     }
 
 
+async def out(session: AsyncSession, item) -> dict:
+    title = (await session.execute(select(Entity.title).where(Entity.id == item.id))).scalar_one()
+    return _serialize_item(item, title)
+
+
 async def list_items(session: AsyncSession, model) -> list[dict]:
     if model is RecurringPayment:
         order = RecurringPayment.next_due_at.asc().nullslast()
     else:
         order = DATE_COLUMN[model].desc()
-    items = list((await session.execute(select(model).join(Entity).order_by(order))).scalars())
-    return [await out(session, item) for item in items]
+    rows = (
+        await session.execute(
+            select(model, Entity.title).join(Entity, Entity.id == model.id).order_by(order)
+        )
+    ).all()
+    return [_serialize_item(item, title) for item, title in rows]
 
 
 async def create_item(session: AsyncSession, model, data) -> dict:
