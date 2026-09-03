@@ -237,7 +237,7 @@ export function CaptureDialog() {
     <div
       role="dialog"
       aria-label="Hızlı yakala"
-      className="fixed inset-0 z-[70] flex items-start justify-center bg-black/30 px-4 pt-[12vh]"
+      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] px-4 pt-[12vh]"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}

@@ -87,7 +87,7 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
     <div
       role="dialog"
       aria-label="Odak modu"
-      className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-8 bg-canvas p-6"
+      className="fixed inset-0 z-fullscreen flex flex-col items-center justify-center gap-8 bg-canvas p-6"
     >
       <button
         type="button"

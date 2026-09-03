@@ -95,7 +95,7 @@ export function PomodoroDock() {
         <aside
           role="dialog"
           aria-label="Pomodoro seçenekleri"
-          className="fixed bottom-20 left-4 right-4 z-50 max-h-screen overflow-y-auto rounded-overlay border border-strong bg-surface shadow-overlay sm:left-auto sm:right-5 sm:w-96"
+          className="fixed bottom-20 left-4 right-4 z-popover max-h-screen overflow-y-auto rounded-overlay border border-strong bg-surface shadow-overlay sm:left-auto sm:right-5 sm:w-96"
         >
           <header className="flex items-center gap-3 border-b border-subtle px-4 py-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-control bg-accent-surface text-accent">
@@ -218,7 +218,7 @@ export function PomodoroDock() {
         aria-label={active ? `Pomodoro ${clock(left)}` : "Pomodoro seçeneklerini aç"}
         onClick={() => setOpen((value) => !value)}
         className={cx(
-          "fixed bottom-5 right-5 z-50 flex h-11 items-center gap-2 rounded-full border px-4 shadow-overlay transition",
+          "fixed bottom-5 right-5 z-popover flex h-11 items-center gap-2 rounded-full border px-4 shadow-overlay transition",
           active
             ? "border-accent-border bg-accent-surface text-accent hover:brightness-95"
             : "border-strong bg-surface text-secondary hover:bg-surface-hover hover:text-primary",

@@ -45,16 +45,16 @@ export function NavigationRows({
   )?.module;
 
   return (
-    <header className="relative z-40 shrink-0 border-b border-subtle bg-canvas/95 backdrop-blur">
+    <header className="relative z-header shrink-0 border-b border-subtle bg-canvas/95 backdrop-blur">
       {/* backdrop-blur stacking context yaratiyor; z yokken bildirim dropdown'i
-          (iceride z-50) sayfa ici sticky toolbar'larin (z-10) ALTINDA kaliyor.
-          Header'i z-40 yap: toolbar'larin ustune, palette/dialog/toast'larin altina. */}
+          (iceride z-popover) sayfa ici sticky toolbar'larin (z-sticky) ALTINDA kaliyor.
+          Header'i z-header yap: toolbar'larin (sticky) ustune, drawer/modal/toast'larin altina. */}
       <div className="mx-auto flex h-12 w-full max-w-[1600px] items-center gap-1.5 px-4 sm:gap-3 sm:px-5 lg:px-6">
         <a href="#/" className="flex shrink-0 items-center gap-2" aria-label="forkOS Bugün">
-          <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-primary font-serif text-meta text-canvas">
+          <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-primary  text-meta text-canvas">
             f
           </span>
-          <span className="hidden font-serif text-heading text-primary sm:inline">forkOS</span>
+          <span className="hidden  text-heading text-primary sm:inline">forkOS</span>
         </a>
 
         <nav

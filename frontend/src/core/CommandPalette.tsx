@@ -90,7 +90,7 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-[color:var(--overlay-scrim)] pt-32"
+      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] pt-32"
       onClick={() => setOpen(false)}
     >
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl">

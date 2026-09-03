@@ -62,7 +62,7 @@ export function DialogHost() {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-[color:var(--overlay-scrim)] p-6"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-[color:var(--overlay-scrim)] p-6"
       onClick={() => close(false)}
     >
       <div
@@ -72,7 +72,7 @@ export function DialogHost() {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-overlay border border-strong bg-surface p-6 shadow-overlay"
       >
-        <h2 className={cx("font-serif text-title", pending.tone === "danger" ? "text-danger" : "text-primary")}>
+        <h2 className={cx(" text-title", pending.tone === "danger" ? "text-danger" : "text-primary")}>
           {pending.title}
         </h2>
         {pending.body && <div className="mt-2 text-body text-secondary">{pending.body}</div>}

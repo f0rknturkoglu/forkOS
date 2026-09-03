@@ -375,7 +375,7 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
 
       {filtersOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-canvas/60 p-4 sm:items-center"
+          className="fixed inset-0 z-modal flex items-end justify-center bg-canvas/60 p-4 sm:items-center"
           onClick={() => setFiltersOpen(false)}
         >
           <div
@@ -386,7 +386,7 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
             className="w-full max-w-md rounded-overlay border border-strong bg-surface p-5 shadow-overlay"
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-serif text-title text-primary">Kütüphane filtreleri</h2>
+              <h2 className=" text-title text-primary">Kütüphane filtreleri</h2>
               <button
                 type="button"
                 aria-label="Filtreleri kapat"

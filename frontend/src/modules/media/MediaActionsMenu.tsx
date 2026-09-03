@@ -149,7 +149,7 @@ export function MediaActionsMenu({
           role="menu"
           aria-label={`${item.title} işlemleri menüsü`}
           onKeyDown={moveMenuFocus}
-          className="fixed z-20 rounded-control border border-subtle bg-surface p-1 shadow-lg"
+          className="fixed z-popover rounded-control border border-subtle bg-surface p-1 shadow-overlay"
           style={
             position
               ? {

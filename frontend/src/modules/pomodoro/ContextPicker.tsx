@@ -107,7 +107,7 @@ export function ContextPicker({
       </button>
 
       {open && (
-        <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-overlay border border-subtle bg-surface shadow-overlay">
+        <div className="absolute inset-x-0 top-full z-popover mt-1 overflow-hidden rounded-overlay border border-subtle bg-surface shadow-overlay">
           <div className="flex items-center gap-2 border-b border-subtle px-2.5 py-2">
             <Search size={13} className="shrink-0 text-muted" />
             <Input

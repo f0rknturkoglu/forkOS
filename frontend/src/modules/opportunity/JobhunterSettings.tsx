@@ -129,13 +129,13 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-modal flex items-center justify-center bg-canvas/60 p-4" onClick={onClose}>
       <div
         className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-card border border-subtle bg-surface shadow-overlay"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-subtle px-4 py-3">
-          <h2 className="font-serif text-title text-primary">Jobhunter ayarları</h2>
+          <h2 className=" text-title text-primary">Jobhunter ayarları</h2>
           <button
             type="button"
             onClick={onClose}

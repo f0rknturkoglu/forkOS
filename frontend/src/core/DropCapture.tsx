@@ -135,11 +135,11 @@ export function DropCapture() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-canvas/80 p-6 backdrop-blur-sm"
+      className="pointer-events-none fixed inset-0 z-fullscreen flex items-center justify-center bg-canvas/80 p-6 backdrop-blur-sm"
     >
       <div className="rounded-overlay border-2 border-dashed border-accent bg-surface px-8 py-7 text-center shadow-overlay">
         <Download size={26} className="mx-auto text-accent" />
-        <p className="mt-3 font-serif text-title text-primary">{busy ? "Kaydediliyor…" : "Bırak, yakalayayım"}</p>
+        <p className="mt-3  text-title text-primary">{busy ? "Kaydediliyor…" : "Bırak, yakalayayım"}</p>
         <ul className="mt-3 space-y-1 text-meta text-secondary">
           <li className="flex items-center justify-center gap-1.5">
             <Link2 size={13} className="text-icon" /> Bağlantı → gelen kutusu

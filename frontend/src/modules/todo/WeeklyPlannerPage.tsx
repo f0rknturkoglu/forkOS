@@ -25,7 +25,7 @@ function DraggableCard({ id, title, muted = false }: { id: string; title: string
       className={cx(
         "w-full cursor-grab border-l-2 border-strong bg-surface px-2 py-2 text-left text-meta",
         muted && "border-subtle text-muted",
-        drag.isDragging && "z-20 opacity-70",
+        drag.isDragging && "z-popover opacity-70",
       )}
     >
       {title}

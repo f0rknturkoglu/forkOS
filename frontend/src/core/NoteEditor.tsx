@@ -124,7 +124,7 @@ export function NoteEditor({
             className="w-full font-mono"
           />
           {query !== null && candidates.length > 0 && (
-            <div className="absolute inset-x-0 bottom-2 z-10 mx-2 overflow-hidden rounded-overlay border border-subtle bg-surface shadow-overlay">
+            <div className="absolute inset-x-0 bottom-2 z-popover mx-2 overflow-hidden rounded-overlay border border-subtle bg-surface shadow-overlay">
               {candidates.map((entity) => (
                 <button
                   key={entity.id}
