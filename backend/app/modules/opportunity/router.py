@@ -62,6 +62,8 @@ async def opportunity_browse(
     year: int | None = None,
     min_score: float | None = Query(None, ge=-1, le=100),
     max_score: float | None = Query(None, ge=-1, le=100),
+    skill: str | None = None,
+    min_skill_match: float | None = Query(None, ge=0, le=1),
     sort: str = "score",
     offset: int = 0,
     limit: int = 40,
@@ -69,7 +71,7 @@ async def opportunity_browse(
 ):
     if section not in {"jobs", "announcements", "trash"}:
         raise HTTPException(422, "Geçersiz fırsat bölümü")
-    if sort not in {"score", "score_asc", "newest", "oldest", "deadline"}:
+    if sort not in {"score", "score_asc", "skill_match", "newest", "oldest", "deadline"}:
         raise HTTPException(422, "Geçersiz sıralama")
     if min_score is not None and max_score is not None and min_score > max_score:
         raise HTTPException(422, "Minimum skor maksimum skordan büyük olamaz")
@@ -88,6 +90,8 @@ async def opportunity_browse(
             year=year,
             min_score=min_score if section == "jobs" else None,
             max_score=max_score if section == "jobs" else None,
+            skill=skill if section == "jobs" else None,
+            min_skill_match=min_skill_match if section == "jobs" else None,
             sort=sort,
             offset=max(offset, 0),
             limit=min(max(limit, 1), 120),

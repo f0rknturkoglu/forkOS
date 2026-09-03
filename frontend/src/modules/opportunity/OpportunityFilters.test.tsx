@@ -121,4 +121,54 @@ describe("opportunity contextual filters", () => {
     expect(screen.getByRole("button", { name: /Konum bilinmiyor\s*7/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Çalışma biçimi bilinmiyor\s*11/ })).toBeTruthy();
   });
+
+  it("filters by CV match tier and popular technology", () => {
+    const onChange = vi.fn();
+    render(<OpportunityFilters filters={filters} facets={{}} onChange={onChange} />);
+
+    // Click CV Match preset
+    fireEvent.click(screen.getByRole("button", { name: /%70\+ Yüksek/ }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        min_skill_match: 0.7,
+        skill_tier: "high",
+        offset: 0,
+      }),
+    );
+
+    // Click Technology chip
+    fireEvent.click(screen.getByRole("button", { name: "Python" }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skill: "python",
+        offset: 0,
+      }),
+    );
+  });
+
+  it("renders active filter chips and clears all filters on click", () => {
+    const onChange = vi.fn();
+    render(
+      <OpportunityFilters
+        filters={{ ...filters, skill: "python", min_skill_match: 0.7, skill_tier: "high" }}
+        facets={{}}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByText("Aktif Filtreler:")).toBeTruthy();
+    expect(screen.getByText(/Yetenek: python/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Tümünü Temizle/ }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skill: undefined,
+        min_skill_match: undefined,
+        skill_tier: undefined,
+        min_score: undefined,
+        max_score: undefined,
+        offset: 0,
+      }),
+    );
+  });
 });

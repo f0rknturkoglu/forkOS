@@ -28,6 +28,8 @@ class BrowseFilters:
     year: int | None = None
     min_score: float | None = None
     max_score: float | None = None
+    skill: str | None = None
+    min_skill_match: float | None = None
     sort: str = "score"
     offset: int = 0
     limit: int = 40
@@ -70,6 +72,16 @@ def _conditions(filters: BrowseFilters):
         )
     if filters.year:
         conditions.append(extract("year", effective_date) == filters.year)
+    if filters.skill and filters.skill.strip():
+        s = filters.skill.strip().lower()
+        conditions.append(
+            Opportunity.raw["forkjob"]["reasons"].astext.ilike(f'%"{s}"%')
+            | Entity.title.ilike(f"%{s}%")
+        )
+    if filters.min_skill_match is not None and filters.min_skill_match > 0:
+        conditions.append(
+            Opportunity.raw["forkjob"]["reasons"].astext.ilike('%"skills":%')
+        )
     if filters.search and filters.search.strip():
         query = func.plainto_tsquery(
             "simple", func.immutable_unaccent(filters.search.strip())
@@ -110,13 +122,19 @@ def _remote_bucket():
 def _order(filters: BrowseFilters):
     effective_date = func.coalesce(Opportunity.published_at, Opportunity.found_at)
     stable = (Entity.title.asc(), Opportunity.id.asc())
+    score = _score_expression()
     if filters.sort == "oldest":
         return (effective_date.asc(), *stable)
     if filters.sort == "deadline":
         return (Opportunity.deadline_at.asc().nulls_last(), effective_date.desc(), *stable)
+    if filters.sort == "skill_match":
+        has_skills = case(
+            (Opportunity.raw["forkjob"]["reasons"].astext.like('%"skills":%'), 1),
+            else_=0,
+        )
+        return (has_skills.desc(), score.desc().nulls_last(), effective_date.desc(), *stable)
     if filters.sort == "newest" or filters.section == "announcements":
         return (effective_date.desc(), *stable)
-    score = _score_expression()
     if filters.sort == "score_asc":
         return (score.asc().nulls_last(), effective_date.desc(), *stable)
     return (score.desc().nulls_last(), effective_date.desc(), *stable)

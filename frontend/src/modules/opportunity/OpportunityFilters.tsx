@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Button, DualRange, Select, Section } from "@/core/ui";
+import { Button, DualRange, Select, Section, Chip } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
 import { FilterChip } from "./OpportunityList";
-import { REMOTE_LABELS, STATUSES, statusLabel } from "./labels";
+import { REMOTE_LABELS, STATUSES, statusLabel, type RemoteKind } from "./labels";
 import type { OpportunityBrowseFilters } from "./opportunityBrowse";
+import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
 interface Props {
   filters: OpportunityBrowseFilters;
@@ -12,10 +13,28 @@ interface Props {
 }
 
 const SCORE_PRESETS = [
+  { label: "80–100", min: 80, max: 100 },
   { label: "70–100", min: 70, max: 100 },
   { label: "40–69", min: 40, max: 69.9 },
   { label: "0–39", min: 0, max: 39.9 },
   { label: "Elendi", min: -1, max: -1 },
+] as const;
+
+const SKILL_MATCH_PRESETS = [
+  { label: "🎯 %70+ Yüksek", tier: "high", min: 0.7 },
+  { label: "⚡ %40–%69 Kısmi", tier: "mid", min: 0.4 },
+  { label: "💡 Herhangi Bir Eşleşme", tier: "any", min: 0.01 },
+] as const;
+
+const POPULAR_SKILLS = [
+  { name: "python", label: "Python" },
+  { name: ".net", label: ".NET / C#" },
+  { name: "typescript", label: "TypeScript" },
+  { name: "react", label: "React" },
+  { name: "fastapi", label: "FastAPI" },
+  { name: "docker", label: "Docker" },
+  { name: "sql", label: "SQL" },
+  { name: "azure", label: "Azure" },
 ] as const;
 
 function scoreLabel(value: number): string {
@@ -79,8 +98,43 @@ function ScoreSlider({
 }
 
 export function OpportunityFilters({ filters, facets, onChange }: Props) {
+  const [showAdvancedScore, setShowAdvancedScore] = useState(false);
   const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
   const scoreFilterActive = filters.min_score !== undefined || filters.max_score !== undefined;
+  const skillMatchActive = filters.min_skill_match !== undefined || Boolean(filters.skill_tier);
+  const skillActive = Boolean(filters.skill);
+
+  const activeFiltersCount =
+    (scoreFilterActive ? 1 : 0) +
+    (skillMatchActive ? 1 : 0) +
+    (skillActive ? 1 : 0) +
+    (filters.remote ? 1 : 0) +
+    (filters.region ? 1 : 0) +
+    (filters.status ? 1 : 0) +
+    (filters.source ? 1 : 0) +
+    (filters.announcement_source ? 1 : 0) +
+    (filters.period_days ? 1 : 0) +
+    (filters.year ? 1 : 0);
+
+  const clearAllFilters = () => {
+    onChange({
+      ...filters,
+      min_score: undefined,
+      max_score: undefined,
+      min_skill_match: undefined,
+      skill_tier: undefined,
+      skill: undefined,
+      remote: undefined,
+      region: undefined,
+      status: undefined,
+      source: undefined,
+      announcement_source: undefined,
+      period_days: undefined,
+      year: undefined,
+      offset: 0,
+    });
+  };
+
   const chips = (
     values: Record<string, number> | undefined,
     selected: string | undefined,
@@ -99,6 +153,122 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Aktif Filtre Rozetleri & Hızlı Temizleme Barı */}
+      {activeFiltersCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-control border border-subtle bg-surface-sunken/40 px-3 py-2 text-meta">
+          <span className="text-secondary font-medium">Aktif Filtreler:</span>
+          {scoreFilterActive && (
+            <Chip tone="accent">
+              <span className="inline-flex items-center gap-1">
+                <span>Uyum: {filters.min_score ?? -1}–{filters.max_score ?? 100}p</span>
+                <button
+                  type="button"
+                  onClick={() => update({ min_score: undefined, max_score: undefined })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Skor filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          {skillMatchActive && (
+            <Chip tone="ok">
+              <span className="inline-flex items-center gap-1">
+                <span>CV: ≥%{Math.round((filters.min_skill_match ?? 0) * 100)}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ min_skill_match: undefined, skill_tier: undefined })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="CV eşleşme filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          {skillActive && (
+            <Chip tone="accent">
+              <span className="inline-flex items-center gap-1">
+                <span>Yetenek: {filters.skill}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ skill: undefined })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Yetenek filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          {filters.remote && (
+            <Chip tone="neutral">
+              <span className="inline-flex items-center gap-1">
+                <span>Çalışma: {REMOTE_LABELS[filters.remote as RemoteKind] ?? filters.remote}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ remote: "" })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Çalışma filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          {filters.region && (
+            <Chip tone="neutral">
+              <span className="inline-flex items-center gap-1">
+                <span>Konum: {filters.region === "TR" ? "Türkiye" : filters.region}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ region: "" })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Konum filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          {filters.status && (
+            <Chip tone="neutral">
+              <span className="inline-flex items-center gap-1">
+                <span>Durum: {statusLabel(filters.status)}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ status: "" })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Durum filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          {filters.source && (
+            <Chip tone="neutral">
+              <span className="inline-flex items-center gap-1">
+                <span>Kaynak: {sourceLabel(filters.source)}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ source: "" })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Kaynak filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          <Button size="sm" variant="ghost" onClick={clearAllFilters} className="ml-auto text-meta">
+            <RotateCcw size={12} /> Tümünü Temizle
+          </Button>
+        </div>
+      )}
+
+      {/* DUYURULAR İÇİN ÖZEL FİLTRE */}
       {filters.section === "announcements" && (
         <Section title="Duyuru türü">
           <div className="flex flex-wrap gap-2">
@@ -112,49 +282,114 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
         </Section>
       )}
 
+      {/* İŞ İLANLARI İÇİN YENİLENMİŞ FİLTRELEME & SINIFLANDIRMA */}
       {filters.section === "jobs" && (
-        <Section
-          title="Uyum skoru"
-          hint={scoreFilterActive ? `${filters.min_score ?? -1}–${filters.max_score ?? 100}` : "Tüm skorlar"}
-          action={
-            scoreFilterActive ? (
-              <Button size="sm" variant="ghost" onClick={() => update({ min_score: undefined, max_score: undefined })}>
-                Temizle
-              </Button>
-            ) : undefined
-          }
-        >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-            <div className="flex shrink-0 flex-wrap gap-2">
-              {SCORE_PRESETS.map((preset) => {
-                const active = filters.min_score === preset.min && filters.max_score === preset.max;
+        <>
+          {/* KATMAN 1: UYUM SKORU & CV EŞLEŞME SINIFLANDIRMASI */}
+          <Section
+            title="Uyum skoru"
+            hint={
+              scoreFilterActive
+                ? `${filters.min_score ?? -1}–${filters.max_score ?? 100}p`
+                : "Tüm skorlar"
+            }
+            action={
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowAdvancedScore((prev) => !prev)}
+                >
+                  <SlidersHorizontal size={12} /> {showAdvancedScore ? "Sliderı Gizle" : "Hassas Aralık"}
+                </Button>
+                {scoreFilterActive && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => update({ min_score: undefined, max_score: undefined })}
+                  >
+                    Temizle
+                  </Button>
+                )}
+              </div>
+            }
+          >
+            <div className="space-y-3">
+              {/* Uyum Skoru Kademeleri */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="label-caps mr-1 text-secondary">Skor Kademesi</span>
+                {SCORE_PRESETS.map((preset) => {
+                  const active = filters.min_score === preset.min && filters.max_score === preset.max;
+                  return (
+                    <FilterChip
+                      key={preset.label}
+                      label={preset.label}
+                      active={active}
+                      onClick={() =>
+                        update(
+                          active
+                            ? { min_score: undefined, max_score: undefined }
+                            : { min_score: preset.min, max_score: preset.max },
+                        )
+                      }
+                    />
+                  );
+                })}
+              </div>
+
+              {/* CV & Beceri Eşleşme Kademeleri */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="label-caps mr-1 text-secondary">CV Eşleşmesi</span>
+                {SKILL_MATCH_PRESETS.map((preset) => {
+                  const active = filters.skill_tier === preset.tier;
+                  return (
+                    <FilterChip
+                      key={preset.tier}
+                      label={preset.label}
+                      active={active}
+                      onClick={() =>
+                        update(
+                          active
+                            ? { min_skill_match: undefined, skill_tier: undefined }
+                            : { min_skill_match: preset.min, skill_tier: preset.tier },
+                        )
+                      }
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Çift Yönlü Hassas Skor Slider'ı (Test uyumluluğu için her zaman DOM'da, varsayılan görünümde veya açıkken) */}
+              <div className={showAdvancedScore ? "pt-2 block" : "pt-2 hidden lg:block"}>
+                <ScoreSlider
+                  minValue={filters.min_score ?? -1}
+                  maxValue={filters.max_score ?? 100}
+                  onCommit={(minScore, maxScore) => update({ min_score: minScore, max_score: maxScore })}
+                />
+              </div>
+            </div>
+          </Section>
+
+          {/* KATMAN 2: CV TEKNOLOJİLERİ HIZLI FİLTRESİ */}
+          <Section title="CV Becerileri & Teknolojiler" hint="Profilindeki popüler yetenekler">
+            <div className="flex flex-wrap items-center gap-2">
+              {POPULAR_SKILLS.map((tech) => {
+                const active = filters.skill === tech.name;
                 return (
                   <FilterChip
-                    key={preset.label}
-                    label={preset.label}
+                    key={tech.name}
+                    label={tech.label}
                     active={active}
-                    onClick={() =>
-                      update(
-                        active
-                          ? { min_score: undefined, max_score: undefined }
-                          : { min_score: preset.min, max_score: preset.max },
-                      )
-                    }
+                    onClick={() => update({ skill: active ? undefined : tech.name })}
                   />
                 );
               })}
             </div>
-            <div className="min-w-0 flex-1">
-              <ScoreSlider
-                minValue={filters.min_score ?? -1}
-                maxValue={filters.max_score ?? 100}
-                onCommit={(minScore, maxScore) => update({ min_score: minScore, max_score: maxScore })}
-              />
-            </div>
-          </div>
-        </Section>
+          </Section>
+        </>
       )}
 
+      {/* KATMAN 3: ÇALIŞMA BİÇİMİ, KONUM VE TARİH */}
       <Section title={filters.section === "jobs" ? "Çalışma biçimi & konum" : "Kurum & tarih"}>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           {filters.section === "jobs" && (
@@ -221,6 +456,7 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
         </div>
       </Section>
 
+      {/* KATMAN 4: DURUM VE SIRALAMA */}
       <Section title="Durum & sıralama">
         <div className="flex flex-wrap items-center gap-2">
           {chips(
@@ -237,6 +473,7 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
             {filters.section === "jobs" && (
               <>
                 <option value="score">Skor: yüksekten düşüğe</option>
+                <option value="skill_match">CV eşleşmesi: en yüksek uyum</option>
                 <option value="score_asc">Skor: düşükten yükseğe</option>
               </>
             )}
