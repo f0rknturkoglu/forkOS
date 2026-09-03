@@ -21,20 +21,9 @@ const SCORE_PRESETS = [
 ] as const;
 
 const SKILL_MATCH_PRESETS = [
-  { label: "🎯 %70+ Yüksek", tier: "high", min: 0.7 },
-  { label: "⚡ %40–%69 Kısmi", tier: "mid", min: 0.4 },
-  { label: "💡 Herhangi Bir Eşleşme", tier: "any", min: 0.01 },
-] as const;
-
-const POPULAR_SKILLS = [
-  { name: "python", label: "Python" },
-  { name: ".net", label: ".NET / C#" },
-  { name: "typescript", label: "TypeScript" },
-  { name: "react", label: "React" },
-  { name: "fastapi", label: "FastAPI" },
-  { name: "docker", label: "Docker" },
-  { name: "sql", label: "SQL" },
-  { name: "azure", label: "Azure" },
+  { label: "%70+ Uyum", tier: "high", min: 0.7 },
+  { label: "%40–%69 Uyum", tier: "mid", min: 0.4 },
+  { label: "Tüm Eşleşmeler", tier: "any", min: 0.01 },
 ] as const;
 
 function scoreLabel(value: number): string {
@@ -70,10 +59,10 @@ function ScoreSlider({
     >
       <div className="mb-1 flex items-center justify-between gap-4 text-meta">
         <span className="text-secondary">
-          Minimum <strong className="numeral text-primary">{scoreLabel(draftMin)}</strong>
+          Minimum <strong className="font-medium text-primary">{scoreLabel(draftMin)}</strong>
         </span>
         <span className="text-secondary">
-          Maksimum <strong className="numeral text-primary">{scoreLabel(draftMax)}</strong>
+          Maksimum <strong className="font-medium text-primary">{scoreLabel(draftMax)}</strong>
         </span>
       </div>
       <DualRange
@@ -102,12 +91,10 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
   const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
   const scoreFilterActive = filters.min_score !== undefined || filters.max_score !== undefined;
   const skillMatchActive = filters.min_skill_match !== undefined || Boolean(filters.skill_tier);
-  const skillActive = Boolean(filters.skill);
 
   const activeFiltersCount =
     (scoreFilterActive ? 1 : 0) +
     (skillMatchActive ? 1 : 0) +
-    (skillActive ? 1 : 0) +
     (filters.remote ? 1 : 0) +
     (filters.region ? 1 : 0) +
     (filters.status ? 1 : 0) +
@@ -123,7 +110,6 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
       max_score: undefined,
       min_skill_match: undefined,
       skill_tier: undefined,
-      skill: undefined,
       remote: undefined,
       region: undefined,
       status: undefined,
@@ -175,27 +161,12 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
           {skillMatchActive && (
             <Chip tone="ok">
               <span className="inline-flex items-center gap-1">
-                <span>CV: ≥%{Math.round((filters.min_skill_match ?? 0) * 100)}</span>
+                <span>CV Uyumu: ≥%{Math.round((filters.min_skill_match ?? 0) * 100)}</span>
                 <button
                   type="button"
                   onClick={() => update({ min_skill_match: undefined, skill_tier: undefined })}
                   className="hover:opacity-75 cursor-pointer ml-1"
                   title="CV eşleşme filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </Chip>
-          )}
-          {skillActive && (
-            <Chip tone="accent">
-              <span className="inline-flex items-center gap-1">
-                <span>Yetenek: {filters.skill}</span>
-                <button
-                  type="button"
-                  onClick={() => update({ skill: undefined })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Yetenek filtresini kaldır"
                 >
                   <X size={12} />
                 </button>
@@ -367,23 +338,6 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
                   onCommit={(minScore, maxScore) => update({ min_score: minScore, max_score: maxScore })}
                 />
               </div>
-            </div>
-          </Section>
-
-          {/* KATMAN 2: CV TEKNOLOJİLERİ HIZLI FİLTRESİ */}
-          <Section title="CV Becerileri & Teknolojiler" hint="Profilindeki popüler yetenekler">
-            <div className="flex flex-wrap items-center gap-2">
-              {POPULAR_SKILLS.map((tech) => {
-                const active = filters.skill === tech.name;
-                return (
-                  <FilterChip
-                    key={tech.name}
-                    label={tech.label}
-                    active={active}
-                    onClick={() => update({ skill: active ? undefined : tech.name })}
-                  />
-                );
-              })}
             </div>
           </Section>
         </>

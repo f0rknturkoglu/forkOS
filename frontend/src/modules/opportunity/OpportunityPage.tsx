@@ -71,7 +71,18 @@ export function OpportunityPage() {
     },
   });
   const pages = browse.data?.pages ?? [];
-  const rows = pages.flatMap((page) => page.items);
+  const rows = useMemo(() => {
+    let list = pages.flatMap((page) => page.items);
+    if (filters.min_skill_match !== undefined && filters.min_skill_match > 0) {
+      list = list.filter((it) => (it.skill_match?.match_ratio ?? 0) >= filters.min_skill_match!);
+    }
+    if (filters.sort === "skill_match") {
+      list = [...list].sort(
+        (a, b) => (b.skill_match?.match_ratio ?? 0) - (a.skill_match?.match_ratio ?? 0),
+      );
+    }
+    return list;
+  }, [pages, filters.min_skill_match, filters.sort]);
   const overview = pages[0];
   const counts = overview?.section_counts ?? { jobs: 0, announcements: 0, trash: 0 };
   const facets = overview?.facets ?? {};
@@ -81,7 +92,8 @@ export function OpportunityPage() {
     filters.category ||
     filters.source ||
     filters.min_score !== undefined ||
-    filters.max_score !== undefined,
+    filters.max_score !== undefined ||
+    filters.min_skill_match !== undefined,
   );
 
   const transition = useMutation({
@@ -138,6 +150,7 @@ export function OpportunityPage() {
       if (
         data.sort === "score" ||
         data.sort === "score_asc" ||
+        data.sort === "skill_match" ||
         data.sort === "newest" ||
         data.sort === "oldest" ||
         data.sort === "deadline"

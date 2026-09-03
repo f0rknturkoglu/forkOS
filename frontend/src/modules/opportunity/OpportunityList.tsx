@@ -39,7 +39,9 @@ export function FilterChip({
     >
       <span>{label}</span>
       {count !== undefined && (
-        <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
+        <span className={cx("tabular-nums text-meta font-normal", active ? "text-accent" : "text-muted")}>
+          {count}
+        </span>
       )}
     </button>
   );
@@ -174,7 +176,7 @@ export function OpportunityCard({
           {!announcement && item.category && <span className={chip(false)}>{jobCategoryLabel(item.category)}</span>}
           {item.skill_match && (
             <span className="rounded-control border border-ok/30 bg-ok-surface px-2 py-0.5 text-micro font-medium text-ok">
-              %{Math.round(item.skill_match.match_ratio * 100)} uyum
+              CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}
             </span>
           )}
           <button

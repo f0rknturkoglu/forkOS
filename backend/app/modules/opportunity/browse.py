@@ -164,9 +164,14 @@ async def browse_opportunities(
         .join(Entity, Entity.id == Opportunity.id)
         .where(*conditions)
     )
+    fetch_limit = (
+        filters.limit * 3
+        if (filters.min_skill_match or filters.sort == "skill_match")
+        else filters.limit
+    )
     rows = (
         await session.execute(
-            base.order_by(*_order(filters)).offset(filters.offset).limit(filters.limit)
+            base.order_by(*_order(filters)).offset(filters.offset).limit(fetch_limit)
         )
     ).all()
     total = (
@@ -212,9 +217,20 @@ async def browse_opportunities(
         facets["announcement_sources"] = await _facet(
             session, conditions, announcement_group, label="announcement_source"
         )
+    out_items = [_out(row, include_raw=False) for row in rows]
+    if filters.min_skill_match is not None and filters.min_skill_match > 0:
+        out_items = [
+            it for it in out_items
+            if it.skill_match and it.skill_match.match_ratio >= filters.min_skill_match
+        ]
+    if filters.sort == "skill_match":
+        out_items.sort(
+            key=lambda it: (it.skill_match.match_ratio if it.skill_match else 0.0, it.score or 0.0),
+            reverse=True,
+        )
     return OpportunityBrowseOut(
-        items=[_out(row, include_raw=False) for row in rows],
-        total=total,
+        items=out_items[:filters.limit],
+        total=total if filters.min_skill_match is None else len(out_items),
         offset=filters.offset,
         limit=filters.limit,
         section_counts={

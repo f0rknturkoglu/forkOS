@@ -124,7 +124,7 @@ export function OpportunityKanban({
                         )}
                         {item.skill_match && (
                           <Chip tone="ok">
-                            %{Math.round(item.skill_match.match_ratio * 100)} uyum
+                            CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}
                           </Chip>
                         )}
                         {item.status !== col.statuses[0] && (
