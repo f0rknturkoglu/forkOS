@@ -100,14 +100,14 @@ export function DocumentsPage() {
   async function openDoc(doc: Document) {
     setOpeningId(doc.id);
     try {
-      const { url } = await api.get<{ url: string | null }>(`/documents/${doc.id}/open`);
-      if (!url) {
-        toast.push("Bu belge için Drive bağlantısı yok", { tone: "warn" });
-        return;
+      const { url } = await api.get<{ url: string | null }>(`/documents/${doc.id}/open`).catch(() => ({ url: null }));
+      if (url) {
+        window.open(url, "_blank", "noreferrer");
+      } else {
+        window.open(`/api/documents/${doc.id}/file`, "_blank", "noreferrer");
       }
-      window.open(url, "_blank", "noreferrer");
-    } catch (error: unknown) {
-      toast.push(`Belge açılamadı: ${error instanceof Error ? error.message : String(error)}`, { tone: "danger" });
+    } catch {
+      window.open(`/api/documents/${doc.id}/file`, "_blank", "noreferrer");
     } finally {
       setOpeningId(null);
     }
