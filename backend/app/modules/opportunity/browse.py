@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Float, case, cast, extract, func, select
+from sqlalchemy import Float, String, case, cast, extract, func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
@@ -75,12 +75,12 @@ def _conditions(filters: BrowseFilters):
     if filters.skill and filters.skill.strip():
         s = filters.skill.strip().lower()
         conditions.append(
-            Opportunity.raw["forkjob"]["reasons"].astext.ilike(f'%"{s}"%')
+            Opportunity.raw["forkjob"]["reasons"]["skills"].has_key(s)
             | Entity.title.ilike(f"%{s}%")
         )
     if filters.min_skill_match is not None and filters.min_skill_match > 0:
         conditions.append(
-            Opportunity.raw["forkjob"]["reasons"].astext.ilike('%"skills":%')
+            Opportunity.raw["forkjob"]["reasons"].has_key("skills")
         )
     if filters.search and filters.search.strip():
         query = func.plainto_tsquery(
@@ -140,19 +140,104 @@ def _order(filters: BrowseFilters):
     return (score.desc().nulls_last(), effective_date.desc(), *stable)
 
 
-async def _facet(
-    session: AsyncSession, conditions, expression, *, label: str
-) -> dict[str, int]:
-    rows = (
-        await session.execute(
-            select(expression.label(label), func.count())
+async def _all_facets(
+    session: AsyncSession, conditions, *, include_announcements: bool
+) -> dict[str, dict[str, int]]:
+    """Tüm facet boyutlarını tek bir SQL UNION ALL sorgusunda birleştirerek çeker."""
+    announcement_group = case(
+        (Opportunity.source == "ylsy", "ylsy"),
+        (Opportunity.source == "osym", "osym"),
+        else_="other",
+    )
+    year_expr = cast(
+        extract("year", func.coalesce(Opportunity.published_at, Opportunity.found_at)),
+        String,
+    )
+    queries = [
+        select(
+            literal("categories").label("dim"),
+            cast(Opportunity.category, String).label("val"),
+            func.count().label("cnt"),
+        )
+        .select_from(Opportunity)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(*conditions, Opportunity.category.is_not(None))
+        .group_by(Opportunity.category),
+        select(
+            literal("sources").label("dim"),
+            cast(Opportunity.source, String).label("val"),
+            func.count().label("cnt"),
+        )
+        .select_from(Opportunity)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(*conditions, Opportunity.source.is_not(None))
+        .group_by(Opportunity.source),
+        select(
+            literal("statuses").label("dim"),
+            cast(Opportunity.status, String).label("val"),
+            func.count().label("cnt"),
+        )
+        .select_from(Opportunity)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(*conditions, Opportunity.status.is_not(None))
+        .group_by(Opportunity.status),
+        select(
+            literal("regions").label("dim"),
+            cast(Opportunity.region, String).label("val"),
+            func.count().label("cnt"),
+        )
+        .select_from(Opportunity)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(*conditions, Opportunity.region.is_not(None))
+        .group_by(Opportunity.region),
+        select(
+            literal("remote").label("dim"),
+            cast(_remote_bucket(), String).label("val"),
+            func.count().label("cnt"),
+        )
+        .select_from(Opportunity)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(*conditions, _remote_bucket().is_not(None))
+        .group_by(_remote_bucket()),
+        select(
+            literal("years").label("dim"),
+            year_expr.label("val"),
+            func.count().label("cnt"),
+        )
+        .select_from(Opportunity)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(*conditions, year_expr.is_not(None))
+        .group_by(year_expr),
+    ]
+    if include_announcements:
+        queries.append(
+            select(
+                literal("announcement_sources").label("dim"),
+                cast(announcement_group, String).label("val"),
+                func.count().label("cnt"),
+            )
             .select_from(Opportunity)
             .join(Entity, Entity.id == Opportunity.id)
-            .where(*conditions, expression.is_not(None))
-            .group_by(expression)
+            .where(*conditions)
+            .group_by(announcement_group)
         )
-    ).all()
-    return {str(value): count for value, count in rows}
+
+    rows = (await session.execute(union_all(*queries))).all()
+    facets: dict[str, dict[str, int]] = {
+        "categories": {},
+        "sources": {},
+        "statuses": {},
+        "regions": {},
+        "remote": {},
+        "years": {},
+    }
+    if include_announcements:
+        facets["announcement_sources"] = {}
+
+    for dim, val, cnt in rows:
+        if val is not None and dim in facets:
+            facets[dim][str(val)] = int(cnt)
+    return facets
 
 
 async def browse_opportunities(
@@ -193,32 +278,14 @@ async def browse_opportunities(
             ).select_from(Opportunity)
         )
     ).one()
-    announcement_group = case(
-        (Opportunity.source == "ylsy", "ylsy"),
-        (Opportunity.source == "osym", "osym"),
-        else_="other",
-    )
-    # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada (offset == 0) hesaplanir.
+
+    # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada (offset == 0) tek SQL'de cekilir.
     if filters.offset == 0:
-        facets = {
-            "categories": await _facet(
-                session, conditions, Opportunity.category, label="category"
-            ),
-            "sources": await _facet(session, conditions, Opportunity.source, label="source"),
-            "statuses": await _facet(session, conditions, Opportunity.status, label="status"),
-            "regions": await _facet(session, conditions, Opportunity.region, label="region"),
-            "remote": await _facet(session, conditions, _remote_bucket(), label="remote"),
-            "years": await _facet(
-                session,
-                conditions,
-                extract("year", func.coalesce(Opportunity.published_at, Opportunity.found_at)),
-                label="year",
-            ),
-        }
-        if filters.section == "announcements":
-            facets["announcement_sources"] = await _facet(
-                session, conditions, announcement_group, label="announcement_source"
-            )
+        facets = await _all_facets(
+            session,
+            conditions,
+            include_announcements=(filters.section == "announcements"),
+        )
     else:
         facets = {}
     out_items = [_out(row, include_raw=False) for row in rows]

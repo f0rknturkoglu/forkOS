@@ -682,15 +682,20 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
 async def prune_stale_opportunities(
     session: AsyncSession, *, days: int = 90
 ) -> int:
-    """Son `days` gundur bulunan, status='discovered' olan ve trashed_at null olan ilgilenilmemis ilanlari budar."""
+    """3 aydan (days=90) eski iş ilanlarını ve çöpteki/reddedilen ilanları temizler.
+    Kullanıcının aktif takip ettiği (applied, interview, offer, accepted, considering, preparing) ilanlar korunur.
+    """
     cutoff = datetime.now(UTC) - timedelta(days=days)
+    active_statuses = {"considering", "preparing", "applied", "interview", "offer", "accepted"}
     stale_ids = list(
         (
             await session.execute(
                 select(Opportunity.id).where(
-                    Opportunity.status == "discovered",
-                    Opportunity.trashed_at.is_(None),
-                    Opportunity.found_at < cutoff,
+                    or_(
+                        Opportunity.trashed_at.is_not(None),
+                        Opportunity.status.not_in(active_statuses),
+                    ),
+                    func.coalesce(Opportunity.found_at, Opportunity.published_at) < cutoff,
                 )
             )
         ).scalars().all()

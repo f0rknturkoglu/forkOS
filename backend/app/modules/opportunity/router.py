@@ -384,6 +384,16 @@ async def delete_interview(interview_id: UUID, session: AsyncSession = Depends(g
         raise HTTPException(404)
 
 
+@router.post("/opportunities/prune")
+async def prune_opportunities(
+    days: int = 90,
+    session: AsyncSession = Depends(get_session),
+):
+    """3 aydan (veya belirtilen günden) eski ilanları temizler."""
+    pruned = await service.prune_stale_opportunities(session, days=days)
+    return {"pruned": pruned, "days": days}
+
+
 # Kaynak/jobhunter uclari (sources*, sync*, jobhunter) sources_router'da.
 # include_router() bu FastAPI surumunde lazy _IncludedRouter sarmali uretir ve
 # route.path erisimini kiran testlerle uyumsuzdur; rotalari dogrudan ekliyoruz.
