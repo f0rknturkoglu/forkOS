@@ -1,7 +1,7 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer } from "@/lib/useVirtual";
 import { ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import {
