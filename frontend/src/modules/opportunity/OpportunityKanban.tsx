@@ -51,12 +51,12 @@ export function OpportunityKanban({ items, disabled = false, onOpen, onStatus }:
         return (
           <div
             key={col.key}
-            className="flex w-72 shrink-0 flex-col rounded-panel border border-subtle bg-surface-sunken/40"
+            className="flex w-72 shrink-0 flex-col rounded-card border border-subtle bg-surface-sunken/40"
           >
             {/* Sütun Başlığı */}
             <div className="flex items-center justify-between border-b border-subtle px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-caption font-medium text-primary">{col.title}</span>
+                <span className="text-meta font-medium text-primary">{col.title}</span>
                 <Chip tone={col.tone ?? "neutral"}>{colItems.length}</Chip>
               </div>
             </div>
@@ -78,7 +78,7 @@ export function OpportunityKanban({ items, disabled = false, onOpen, onStatus }:
                     <div
                       key={item.id}
                       onClick={() => onOpen(item.id)}
-                      className="group cursor-pointer rounded-control border border-subtle bg-canvas p-3 shadow-sm transition hover:border-strong hover:shadow-md"
+                      className="group cursor-pointer rounded-control border border-subtle bg-canvas p-3 shadow-card transition hover:border-strong hover:shadow-overlay"
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
