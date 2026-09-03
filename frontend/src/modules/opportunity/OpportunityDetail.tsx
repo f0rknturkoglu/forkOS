@@ -1,5 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bookmark, CalendarClock, Check, ExternalLink, FileText, Plus, Save, Trash2, X } from "lucide-react";
 import { api } from "@/core/api";
@@ -37,6 +37,10 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   const [rejectionDraft, setRejectionDraft] = useState("");
   const [stepTitle, setStepTitle] = useState("");
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
+  // Taslagin hangi nota ait oldugu: body-only refetch (window focus, baglanti
+  // tazelenmesi) kullanicinin yazmakta oldugu taslagi ezmesin -- taslak yalnizca
+  // NOT DEGISTIGINDE yuklenir (NotesPage ile ayni desen).
+  const draftNoteId = useRef<string | null>(null);
 
   const { save } = useSaveToLibrary();
   const saveItem = () => {
@@ -64,16 +68,18 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
   const activeNote = researchNotes[0];
 
   useEffect(() => {
-    if (activeNote) {
+    if (activeNote && draftNoteId.current !== activeNote.id) {
+      draftNoteId.current = activeNote.id;
       setNoteDraft(activeNote.body);
     }
-  }, [activeNote?.id, activeNote?.body]);
+  }, [activeNote?.id]);
 
   const createResearchNote = useMutation({
     mutationFn: () => api.post<NoteItem>(`/opportunities/${id}/research-note`),
     onSuccess: (note) => {
       invalidateAfter("note.write", "opportunity.write");
       refetchNotes();
+      draftNoteId.current = note.id;
       setNoteDraft(note.body);
       toast.push("Şirket araştırma notu hazırlandı", { tone: "ok" });
       setActiveTab("notes");
@@ -150,7 +156,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
 
   return (
     <div
-      className="fixed inset-0 z-40 flex justify-end bg-canvas/60 backdrop-blur-xs"
+      className="fixed inset-0 z-drawer flex justify-end bg-canvas/60 backdrop-blur-xs"
       onClick={close}
       role="presentation"
     >
@@ -158,10 +164,10 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
         role="dialog"
         aria-label={item?.title ?? "Fırsat Detayı"}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-subtle bg-canvas shadow-2xl"
+        className="flex h-full w-full max-w-2xl flex-col overflow-y-auto border-l border-subtle bg-canvas shadow-overlay"
       >
         {/* ── ÜST BAŞLIK & ROZETLER ── */}
-        <header className="sticky top-0 z-10 border-b border-subtle bg-canvas/95 px-6 py-4 backdrop-blur">
+        <header className="sticky top-0 z-sticky border-b border-subtle bg-canvas/95 px-6 py-4 backdrop-blur">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -280,7 +286,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
             <>
               {/* Yetenek & Beceri Uyumu */}
               {item?.skill_match ? (
-                <section className="rounded-panel border border-subtle bg-surface p-4 shadow-xs">
+                <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <SectionHeader
                       label="CV & Beceri Eşleşmesi"
@@ -326,7 +332,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                   </div>
                 </section>
               ) : item?.score !== null && item?.score !== undefined ? (
-                <section className="rounded-panel border border-subtle bg-surface p-4">
+                <section className="rounded-card border border-subtle bg-surface p-4">
                   <SectionHeader label="Uyum Puanı" hint={band ? scoreBandLabel(band) : undefined} />
                   <div className="mt-2 flex items-baseline gap-3">
                     <span className="text-display font-semibold leading-none text-primary tabular-nums">
@@ -344,7 +350,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               ) : null}
 
               {/* İlan Künyesi */}
-              <section className="rounded-panel border border-subtle bg-surface p-4">
+              <section className="rounded-card border border-subtle bg-surface p-4">
                 <SectionHeader label="İlan Künyesi" />
                 <dl className="mt-3 grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2.5 text-meta">
                   {[
@@ -373,20 +379,20 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               </section>
 
               {/* Gereksinimler & Belgeler */}
-              <div className="rounded-panel border border-subtle bg-surface p-4">
+              <div className="rounded-card border border-subtle bg-surface p-4">
                 <RequirementsSection id={id} online={online} documents={documents} />
               </div>
 
               {/* İlan Notları */}
               {item?.notes && (
-                <section className="rounded-panel border border-subtle bg-surface p-4">
+                <section className="rounded-card border border-subtle bg-surface p-4">
                   <SectionHeader label="İlan Notları" />
                   <p className="mt-2 whitespace-pre-line text-body text-secondary">{item.notes}</p>
                 </section>
               )}
 
               {/* İlişkili Kayıtlar */}
-              <div className="rounded-panel border border-subtle bg-surface p-4">
+              <div className="rounded-card border border-subtle bg-surface p-4">
                 <RelatedPanel entityId={id} />
               </div>
             </>
@@ -396,7 +402,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
           {activeTab === "crm" && (
             <>
               {/* AŞAMA YÖNETİMİ & HIZLI GEÇİŞ */}
-              <section className="rounded-panel border border-subtle bg-surface p-4 shadow-xs">
+              <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
                 <SectionHeader label="Başvuru Durumu" hint="Tek tıkla aşamayı güncelle" />
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Select
@@ -506,22 +512,22 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               </section>
 
               {/* TAKİP TARİHİ (Follow Up) */}
-              <div className="rounded-panel border border-subtle bg-surface p-4">
+              <div className="rounded-card border border-subtle bg-surface p-4">
                 <FollowUpSection id={id} followUpAt={item?.follow_up_at ?? null} />
               </div>
 
               {/* MÜLAKATLAR */}
-              <div className="rounded-panel border border-subtle bg-surface p-4">
+              <div className="rounded-card border border-subtle bg-surface p-4">
                 <InterviewsSection id={id} online={online} />
               </div>
 
               {/* BAŞVURU FORMU & KULLANILAN CV */}
-              <div className="rounded-panel border border-subtle bg-surface p-4">
+              <div className="rounded-card border border-subtle bg-surface p-4">
                 <ApplicationSection id={id} online={online} documents={documents} />
               </div>
 
               {/* KONTROL LİSTESİ / BAŞVURU ADIMLARI */}
-              <section className="rounded-panel border border-subtle bg-surface p-4">
+              <section className="rounded-card border border-subtle bg-surface p-4">
                 <SectionHeader
                   label="Başvuru Adımları & Görevler"
                   hint={`${steps.filter((s) => s.status === "done").length}/${steps.length} tamamlandı`}
@@ -584,7 +590,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               </section>
 
               {/* SÜREÇ GEÇMİŞİ */}
-              <section className="rounded-panel border border-subtle bg-surface p-4">
+              <section className="rounded-card border border-subtle bg-surface p-4">
                 <SectionHeader label="Süreç Geçmişi" hint={`${history.length} geçiş kaydı`} />
                 {history.length === 0 ? (
                   <p className="py-2 text-meta text-muted">Henüz aşama değişikliği kaydedilmedi.</p>
@@ -606,7 +612,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
 
           {/* TAB 3: ŞİRKET NOTLARI & MÜLAKAT HAZIRLIĞI */}
           {activeTab === "notes" && (
-            <section className="rounded-panel border border-subtle bg-surface p-4 shadow-xs">
+            <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
               <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3">
                 <div>
                   <SectionHeader
