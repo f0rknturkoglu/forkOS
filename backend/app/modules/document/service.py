@@ -3,7 +3,7 @@ from pathlib import Path
 from uuid import UUID
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import literal, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import archive_entity, create_entity, touch_entity
@@ -189,4 +189,77 @@ async def delete_document(session: AsyncSession, doc_id: UUID) -> bool:
     )
     await session.commit()
     return True
+
+
+async def list_document_usages(session: AsyncSession) -> list[dict]:
+    """Her belgenin kullanıldığı fırsat özetleri (DocumentsPage).
+
+    Bağlar iki kaynaktan gelir: başvuru kaydındaki CV (Application.cv_document_id,
+    1:1) ve gereksinimlere bağlanan belgeler (OpportunityRequirement.
+    document_entity_id). İkisini UNION ile TEK sorguda toplarız — çapraz çarpım
+    olmadan — çöpü atılmış (trashed_at dolu) fırsatları hariç tutarız.
+    """
+    # Modül-arası import: döngüsel init riskini sıfırlamak için fonksiyon içinde.
+    from app.modules.opportunity.models import (
+        Application,
+        Opportunity,
+        OpportunityRequirement,
+    )
+
+    def _usage_columns(document_column, relation):
+        return (
+            document_column.label("document_id"),
+            Opportunity.id.label("opportunity_id"),
+            Entity.title.label("title"),
+            Opportunity.status.label("status"),
+            Opportunity.kind.label("kind"),
+            Opportunity.priority.label("priority"),
+            Opportunity.found_at.label("found_at"),
+            literal(relation).label("relation"),
+        )
+
+    cv_part = (
+        select(*_usage_columns(Application.cv_document_id, "cv"))
+        .join(Opportunity, Opportunity.id == Application.opportunity_id)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(
+            Application.cv_document_id.is_not(None),
+            Opportunity.trashed_at.is_(None),
+        )
+    )
+    req_part = (
+        select(*_usage_columns(OpportunityRequirement.document_entity_id, "requirement"))
+        .join(Opportunity, Opportunity.id == OpportunityRequirement.opportunity_id)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(
+            OpportunityRequirement.document_entity_id.is_not(None),
+            Opportunity.trashed_at.is_(None),
+        )
+    )
+
+    rows = (
+        await session.execute(
+            union(cv_part, req_part)
+            .subquery()
+            .select()
+            .order_by("document_id", "found_at", "relation")
+        )
+    ).all()
+
+    grouped: dict[UUID, list[dict]] = {}
+    for row in rows:
+        if row.document_id is None:
+            continue
+        usage = {
+            "opportunity_id": row.opportunity_id,
+            "title": row.title,
+            "status": row.status,
+            "kind": row.kind,
+            "relation": row.relation,
+        }
+        grouped.setdefault(row.document_id, []).append(usage)
+    return [
+        {"document_id": document_id, "usages": usages}
+        for document_id, usages in grouped.items()
+    ]
 

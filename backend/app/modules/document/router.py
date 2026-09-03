@@ -11,6 +11,7 @@ from app.integrations.google_auth import authorization_url, exchange
 from app.integrations.models import OAuthToken
 from app.modules.document import service
 from app.modules.document.models import Document
+from app.modules.document.schemas import DocumentUsagesOut
 
 router = APIRouter(tags=["documents"])
 
@@ -104,3 +105,9 @@ async def delete_document(id: UUID, session: AsyncSession = Depends(get_session)
     if not success:
         raise HTTPException(404, "Belge bulunamadı")
     return {"status": "ok"}
+
+
+@router.get("/documents/usages", response_model=list[DocumentUsagesOut])
+async def document_usages(session: AsyncSession = Depends(get_session)):
+    """Her belge için kullanıldığı fırsat özetleri (cv/requirement bağları)."""
+    return await service.list_document_usages(session)
