@@ -7,6 +7,7 @@ import { BacklinksPanel } from "@/core/BacklinksPanel";
 import { invalidateAfter } from "@/core/invalidation";
 import { Markdown } from "@/core/Markdown";
 import { RelatedPanel } from "@/core/RelatedPanel";
+import { confirmDialog } from "@/core/dialog";
 import type { Note, NoteAttachment } from "@/core/types";
 import {
   Button,
@@ -139,14 +140,33 @@ export function NotesPage() {
   });
 
   const dirty = creating ? Boolean(draft.trim()) : Boolean(selected && draft !== selected.body);
-  const beginNote = (title?: string) => {
+  const beginNote = async (title?: string) => {
+    if (dirty) {
+      const ok = await confirmDialog({
+        title: "Kaydedilmemiş değişiklikler var",
+        body: "Yeni nota geçerseniz mevcut değişiklikler kaybolacak. Yine de devam edilsin mi?",
+        confirmLabel: "Değişiklikleri At ve Yeni Not Aç",
+        tone: "danger",
+      });
+      if (!ok) return;
+    }
     setCreating(true);
     setSelectedId("");
     setDraft(starterBody(title));
     draftNoteId.current = null;
     navigate("/notes?new=1");
   };
-  const openNote = (note: Note) => {
+  const openNote = async (note: Note) => {
+    if (note.id === selectedId && !creating) return;
+    if (dirty) {
+      const ok = await confirmDialog({
+        title: "Kaydedilmemiş değişiklikler var",
+        body: "Başka bir nota geçerseniz mevcut değişiklikler kaybolacak. Yine de devam edilsin mi?",
+        confirmLabel: "Değişiklikleri At ve Geç",
+        tone: "danger",
+      });
+      if (!ok) return;
+    }
     setCreating(false);
     setSelectedId(note.id);
     setDraft(note.body);

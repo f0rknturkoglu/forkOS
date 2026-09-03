@@ -13,6 +13,9 @@ vi.mock("@/core/api", () => ({
   qs: vi.fn(() => ""),
 }));
 vi.mock("@/core/invalidation", () => ({ invalidateAfter: vi.fn() }));
+vi.mock("@/core/dialog", () => ({
+  confirmDialog: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("@/lib/hooks", () => ({
   useDebounced: (value: string) => value,
   useOnline: () => true,
@@ -23,8 +26,10 @@ vi.mock("@/app/router", () => ({
 }));
 
 import { api } from "@/core/api";
+import { confirmDialog } from "@/core/dialog";
 
 const apiGet = vi.mocked(api.get);
+const confirmMock = vi.mocked(confirmDialog);
 
 const notes = [
   {
@@ -95,13 +100,29 @@ describe("NotesPage draft korumasi", () => {
     expect(textarea.value).toBe("KAYDEDİLMEMİŞ TASLAK");
   });
 
-  it("not id'si degistiginde yeni notun gövdesi yuklenir", async () => {
+  it("kaydedilmemis draft varken baska nota gecilirse onay reddedilince taslak korunur", async () => {
+    confirmMock.mockResolvedValueOnce(false);
     renderPage();
     const textarea = (await screen.findByLabelText("Not içeriği")) as HTMLTextAreaElement;
 
     fireEvent.change(textarea, { target: { value: "KAYDEDİLMEMİŞ TASLAK" } });
     fireEvent.click(screen.getByRole("button", { name: /İkinci not/ }));
 
+    expect(confirmMock).toHaveBeenCalled();
+    expect(textarea.value).toBe("KAYDEDİLMEMİŞ TASLAK");
+  });
+
+  it("kaydedilmemis draft varken onay verilince yeni notun gövdesi yuklenir", async () => {
+    confirmMock.mockResolvedValueOnce(true);
+    renderPage();
+    const textarea = (await screen.findByLabelText("Not içeriği")) as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "KAYDEDİLMEMİŞ TASLAK" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /İkinci not/ }));
+    });
+
+    expect(confirmMock).toHaveBeenCalled();
     expect(textarea.value).toBe("# İkinci\n\ngövde 2");
   });
 });
