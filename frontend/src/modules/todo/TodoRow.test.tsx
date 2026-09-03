@@ -28,10 +28,9 @@ vi.mock("@/core/dialog", () => ({
 
 import { api } from "@/core/api";
 
-const apiPatch = vi.mocked(api.patch);
+import { todayKey, tomorrowKey } from "@/lib/date";
 
-/** Yerel bugun anahtari -- planLabel'in kullandigi gune esit olmali. */
-const todayKey = () => new Date().toLocaleDateString("sv-SE");
+const apiPatch = vi.mocked(api.patch);
 
 type TodoRowTestTodo = {
   id: string;
@@ -165,7 +164,7 @@ describe("planLabel", () => {
   });
 
   it("yarin icin ayri etiket", () => {
-    const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE");
+    const tomorrow = tomorrowKey();
     const label = planLabel(tomorrow, null);
     expect(label?.text).toBe("yarın planlı");
     expect(label?.tone).toBe("muted");

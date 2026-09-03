@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Float, String, case, cast, extract, func, literal, select, union_all
+from sqlalchemy import Float, case, cast, extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
@@ -140,104 +140,19 @@ def _order(filters: BrowseFilters):
     return (score.desc().nulls_last(), effective_date.desc(), *stable)
 
 
-async def _all_facets(
-    session: AsyncSession, conditions, *, include_announcements: bool
-) -> dict[str, dict[str, int]]:
-    """Tüm facet boyutlarını tek bir SQL UNION ALL sorgusunda birleştirerek çeker."""
-    announcement_group = case(
-        (Opportunity.source == "ylsy", "ylsy"),
-        (Opportunity.source == "osym", "osym"),
-        else_="other",
-    )
-    year_expr = cast(
-        extract("year", func.coalesce(Opportunity.published_at, Opportunity.found_at)),
-        String,
-    )
-    queries = [
-        select(
-            literal("categories").label("dim"),
-            cast(Opportunity.category, String).label("val"),
-            func.count().label("cnt"),
-        )
-        .select_from(Opportunity)
-        .join(Entity, Entity.id == Opportunity.id)
-        .where(*conditions, Opportunity.category.is_not(None))
-        .group_by(Opportunity.category),
-        select(
-            literal("sources").label("dim"),
-            cast(Opportunity.source, String).label("val"),
-            func.count().label("cnt"),
-        )
-        .select_from(Opportunity)
-        .join(Entity, Entity.id == Opportunity.id)
-        .where(*conditions, Opportunity.source.is_not(None))
-        .group_by(Opportunity.source),
-        select(
-            literal("statuses").label("dim"),
-            cast(Opportunity.status, String).label("val"),
-            func.count().label("cnt"),
-        )
-        .select_from(Opportunity)
-        .join(Entity, Entity.id == Opportunity.id)
-        .where(*conditions, Opportunity.status.is_not(None))
-        .group_by(Opportunity.status),
-        select(
-            literal("regions").label("dim"),
-            cast(Opportunity.region, String).label("val"),
-            func.count().label("cnt"),
-        )
-        .select_from(Opportunity)
-        .join(Entity, Entity.id == Opportunity.id)
-        .where(*conditions, Opportunity.region.is_not(None))
-        .group_by(Opportunity.region),
-        select(
-            literal("remote").label("dim"),
-            cast(_remote_bucket(), String).label("val"),
-            func.count().label("cnt"),
-        )
-        .select_from(Opportunity)
-        .join(Entity, Entity.id == Opportunity.id)
-        .where(*conditions, _remote_bucket().is_not(None))
-        .group_by(_remote_bucket()),
-        select(
-            literal("years").label("dim"),
-            year_expr.label("val"),
-            func.count().label("cnt"),
-        )
-        .select_from(Opportunity)
-        .join(Entity, Entity.id == Opportunity.id)
-        .where(*conditions, year_expr.is_not(None))
-        .group_by(year_expr),
-    ]
-    if include_announcements:
-        queries.append(
-            select(
-                literal("announcement_sources").label("dim"),
-                cast(announcement_group, String).label("val"),
-                func.count().label("cnt"),
-            )
+async def _facet(
+    session: AsyncSession, conditions, expression, *, label: str
+) -> dict[str, int]:
+    rows = (
+        await session.execute(
+            select(expression.label(label), func.count())
             .select_from(Opportunity)
             .join(Entity, Entity.id == Opportunity.id)
-            .where(*conditions)
-            .group_by(announcement_group)
+            .where(*conditions, expression.is_not(None))
+            .group_by(expression)
         )
-
-    rows = (await session.execute(union_all(*queries))).all()
-    facets: dict[str, dict[str, int]] = {
-        "categories": {},
-        "sources": {},
-        "statuses": {},
-        "regions": {},
-        "remote": {},
-        "years": {},
-    }
-    if include_announcements:
-        facets["announcement_sources"] = {}
-
-    for dim, val, cnt in rows:
-        if val is not None and dim in facets:
-            facets[dim][str(val)] = int(cnt)
-    return facets
+    ).all()
+    return {str(value): count for value, count in rows}
 
 
 async def browse_opportunities(
@@ -278,14 +193,32 @@ async def browse_opportunities(
             ).select_from(Opportunity)
         )
     ).one()
-
-    # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada (offset == 0) tek SQL'de cekilir.
+    announcement_group = case(
+        (Opportunity.source == "ylsy", "ylsy"),
+        (Opportunity.source == "osym", "osym"),
+        else_="other",
+    )
+    # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada (offset == 0) hesaplanir.
     if filters.offset == 0:
-        facets = await _all_facets(
-            session,
-            conditions,
-            include_announcements=(filters.section == "announcements"),
-        )
+        facets = {
+            "categories": await _facet(
+                session, conditions, Opportunity.category, label="category"
+            ),
+            "sources": await _facet(session, conditions, Opportunity.source, label="source"),
+            "statuses": await _facet(session, conditions, Opportunity.status, label="status"),
+            "regions": await _facet(session, conditions, Opportunity.region, label="region"),
+            "remote": await _facet(session, conditions, _remote_bucket(), label="remote"),
+            "years": await _facet(
+                session,
+                conditions,
+                extract("year", func.coalesce(Opportunity.published_at, Opportunity.found_at)),
+                label="year",
+            ),
+        }
+        if filters.section == "announcements":
+            facets["announcement_sources"] = await _facet(
+                session, conditions, announcement_group, label="announcement_source"
+            )
     else:
         facets = {}
     out_items = [_out(row, include_raw=False) for row in rows]
