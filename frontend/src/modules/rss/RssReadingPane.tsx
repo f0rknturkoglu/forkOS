@@ -164,7 +164,7 @@ export function RssReadingPane({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        <h1 className="font-serif text-title leading-snug text-primary">{detail.title}</h1>
+        <h1 className="text-title leading-snug text-primary">{detail.title}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
           <span className="text-secondary">{detail.feed_title}</span>
           {detail.author && <span>· {detail.author}</span>}

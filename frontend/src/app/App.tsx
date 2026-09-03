@@ -25,7 +25,7 @@ export function routeForPath(routes: ModuleSpec["routes"], path: string) {
 function NotFound() {
   return (
     <div className="p-10">
-      <p className="font-serif text-title text-primary">Böyle bir sayfa yok</p>
+      <p className=" text-title text-primary">Böyle bir sayfa yok</p>
       <p className="mt-1 text-body text-secondary">
         Adres yanlış olabilir. <Kbd>Ctrl</Kbd> <Kbd>K</Kbd> ile aramayı dene.
       </p>

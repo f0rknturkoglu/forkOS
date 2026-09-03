@@ -107,8 +107,8 @@ function renderInline(nodes: Inline[], props: MarkdownProps, keyPrefix: string):
 }
 
 const HEADING_CLASS: Record<number, string> = {
-  1: "font-serif text-title text-primary",
-  2: "font-serif text-heading text-primary",
+  1: " text-title text-primary",
+  2: " text-heading text-primary",
   3: "text-heading text-primary",
   4: "text-body font-medium text-primary",
   5: "text-body font-medium text-secondary",

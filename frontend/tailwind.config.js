@@ -61,7 +61,10 @@ export default {
       borderColor: { DEFAULT: "var(--border)" },
       fontFamily: {
         sans: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
-        serif: ['"Newsreader Variable"', "Newsreader", "Georgia", "serif"],
+        // Serif kasitli olarak kaldirildi (kullanici karari): font-serif sinifi
+        // artik sans ile ayni yigini uretir -- yanlislikla kalan kullanim Georgia
+        // gibi bir serife dusmesin.
+        serif: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       fontSize: {
@@ -82,6 +85,17 @@ export default {
       },
       borderRadius: { control: "4px", card: "5px", overlay: "6px" },
       spacing: { control: "34px", touch: "44px" },
+      // Katman skalasi: z-10/z-40 gibi keyfi deger yerine anlamli adlar.
+      // sticky < header < popover < drawer < modal < toast < fullscreen.
+      zIndex: {
+        sticky: "10", // sayfa ici yapiskan toolbar/filtre barlari
+        header: "20", // ana navigasyon basligi (dropdown'lari birlikte tasir)
+        popover: "30", // menu/popover/dropdown/otomatik tamamlama
+        drawer: "40", // saga acilan detay cekmecesi
+        modal: "50", // ortali diyalog/palet/hizli yakala
+        toast: "60", // sistem bildirimleri (diyaloglarin USTUNDE olmali)
+        fullscreen: "70", // gecici tam ekran katmani (FocusMode, DropCapture)
+      },
       boxShadow: {
         // Katman yuzeyleri (komut paleti, popover).
         overlay: "0 24px 60px -20px rgb(9 11 15 / 0.30)",

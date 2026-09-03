@@ -141,7 +141,7 @@ export function CalendarPage() {
         </div>
 
         {/* Donem basligi: hangi ay/hafta oldugu artik acikca yaziyor. */}
-        <h2 className="font-serif text-title text-primary first-letter:uppercase">{periodLabel(anchor, view, days)}</h2>
+        <h2 className="text-title text-primary first-letter:uppercase">{periodLabel(anchor, view, days)}</h2>
 
         <span className="min-w-2 flex-1" />
 

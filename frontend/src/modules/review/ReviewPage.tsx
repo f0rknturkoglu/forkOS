@@ -146,7 +146,7 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-surface text-ok">
             <Check size={22} />
           </span>
-          <h2 className="mt-4 font-serif text-title text-primary">Hafta kapandı</h2>
+          <h2 className="mt-4 text-title text-primary">Hafta kapandı</h2>
           <p className="mx-auto mt-2 max-w-xl text-body text-secondary">
             Kararların plana işlendi; seçtiğin öncelikler yeni haftanın başlangıcına eklendi.
           </p>
