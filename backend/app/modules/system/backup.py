@@ -15,7 +15,20 @@ from app.integrations.google_auth import access_token
 from app.modules.system.export import backup_table_names, full_json
 from app.modules.system.models import Setting
 
-BACKUP_DIR = Path("/app/backups")
+
+def _backup_dir() -> Path:
+    """Yedek dizini: FORKOS_BACKUP_DIR env'i, Docker'da /app/backups, yerelde
+    repo kokunun altindaki data/backups. Sabit /app yolu Docker disinda
+    (yerel terminal) calistiginda PermissionError uretiyordu."""
+    configured = __import__("os").environ.get("FORKOS_BACKUP_DIR")
+    if configured:
+        return Path(configured)
+    if Path("/app").is_dir():
+        return Path("/app/backups")
+    return Path(__file__).resolve().parents[3] / "data" / "backups"
+
+
+BACKUP_DIR = _backup_dir()
 RETENTION_DAYS = 14
 SCHEDULED_AT = "03:00"
 
