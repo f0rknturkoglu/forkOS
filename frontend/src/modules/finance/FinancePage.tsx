@@ -23,6 +23,7 @@ import {
   Section,
   Select,
   Toolbar,
+  useToast,
 } from "@/core/ui";
 import { daysBetween, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
@@ -255,6 +256,7 @@ function QuickAddForm({ online, onRefresh }: { online: boolean; onRefresh: () =>
       onRefresh();
     },
   });
+  const toast = useToast();
   const valid = Number(amount) > 0;
   return (
     <Section title="Hızlı gider ekle" hint="Enter ile kaydet · bugünün tarihine işlenir">
@@ -262,7 +264,11 @@ function QuickAddForm({ online, onRefresh }: { online: boolean; onRefresh: () =>
         className="grid items-end gap-3 md:grid-cols-[9rem_10rem_1fr_auto]"
         onSubmit={(e) => {
           e.preventDefault();
-          if (valid && online) create.mutate();
+          if (!valid) {
+            toast.push("Lütfen geçerli bir tutar girin.", { tone: "warn" });
+            return;
+          }
+          if (online) create.mutate();
         }}
       >
         <Field label="Tutar">
@@ -699,6 +705,7 @@ function FlowTab({
     setCategory(next === "expense" ? "food" : "salary");
   };
 
+  const toast = useToast();
   const visible = flows.filter((row) => filter === "all" || row.kind === filter);
   const days = [...new Set(visible.map((row) => row.day))];
 
@@ -717,7 +724,11 @@ function FlowTab({
           className="grid items-end gap-3 md:grid-cols-[1fr_9rem_10rem_10rem_auto]"
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim() && Number(amount) > 0) create.mutate();
+            if (!title.trim() || !amount || Number(amount) <= 0 || isNaN(Number(amount))) {
+              toast.push("Lütfen bir açıklama ve geçerli bir tutar girin.", { tone: "warn" });
+              return;
+            }
+            create.mutate();
           }}
         >
           <Field label="Ne için">
@@ -898,6 +909,7 @@ function SubsTab({
     },
   });
 
+  const toast = useToast();
   const active = recurring.filter((x) => x.active);
   const passive = recurring.filter((x) => !x.active);
 
@@ -908,7 +920,11 @@ function SubsTab({
           className="grid items-end gap-3 md:grid-cols-[1fr_9rem_9rem_9rem_auto]"
           onSubmit={(e) => {
             e.preventDefault();
-            if (title.trim() && Number(amount) > 0) create.mutate();
+            if (!title.trim() || !amount || Number(amount) <= 0 || isNaN(Number(amount))) {
+              toast.push("Lütfen abonelik adı ve geçerli bir tutar girin.", { tone: "warn" });
+              return;
+            }
+            create.mutate();
           }}
         >
           <Field label="Abonelik">

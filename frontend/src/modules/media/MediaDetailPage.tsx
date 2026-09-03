@@ -50,12 +50,14 @@ function DetailCover({ item }: { item: MediaItem }) {
 function MetadataEditor({ item, online, onChanged }: { item: MediaItem; online: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const [score, setScore] = useState(item.score == null ? "" : String(item.score));
+  const [scoreError, setScoreError] = useState<string | null>(null);
   const [notes, setNotes] = useState(item.notes ?? "");
   const mutation = useMutation({
     mutationFn: (body: { score: number | null; notes: string | null }) =>
       api.patch(`/media/${encodeURIComponent(item.id)}`, body),
     onSuccess: () => {
       setEditing(false);
+      setScoreError(null);
       onChanged();
     },
   });
@@ -85,12 +87,30 @@ function MetadataEditor({ item, online, onChanged }: { item: MediaItem; online: 
       onSubmit={(event) => {
         event.preventDefault();
         const parsedScore = score === "" ? null : Number(score);
-        if (parsedScore !== null && (!Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 10)) return;
+        if (parsedScore !== null && (isNaN(parsedScore) || !Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 10)) {
+          setScoreError("Puan 0 ile 10 arasında bir tam sayı olmalıdır.");
+          return;
+        }
+        setScoreError(null);
         mutation.mutate({ score: parsedScore, notes: notes.trim() || null });
       }}
     >
       <Field label="Puan">
-        <Input type="number" value={score} onChange={setScore} disabled={disabled} className="w-28" />
+        <Input
+          type="number"
+          value={score}
+          onChange={(val) => {
+            setScore(val);
+            setScoreError(null);
+          }}
+          disabled={disabled}
+          className="w-28"
+        />
+        {scoreError && (
+          <p role="alert" className="mt-1 text-meta text-danger">
+            {scoreError}
+          </p>
+        )}
       </Field>
       <Field label="Notlar">
         <Textarea rows={4} value={notes} onChange={setNotes} />
