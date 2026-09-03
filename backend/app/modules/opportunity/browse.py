@@ -198,25 +198,29 @@ async def browse_opportunities(
         (Opportunity.source == "osym", "osym"),
         else_="other",
     )
-    facets = {
-        "categories": await _facet(
-            session, conditions, Opportunity.category, label="category"
-        ),
-        "sources": await _facet(session, conditions, Opportunity.source, label="source"),
-        "statuses": await _facet(session, conditions, Opportunity.status, label="status"),
-        "regions": await _facet(session, conditions, Opportunity.region, label="region"),
-        "remote": await _facet(session, conditions, _remote_bucket(), label="remote"),
-        "years": await _facet(
-            session,
-            conditions,
-            extract("year", func.coalesce(Opportunity.published_at, Opportunity.found_at)),
-            label="year",
-        ),
-    }
-    if filters.section == "announcements":
-        facets["announcement_sources"] = await _facet(
-            session, conditions, announcement_group, label="announcement_source"
-        )
+    # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada (offset == 0) hesaplanir.
+    if filters.offset == 0:
+        facets = {
+            "categories": await _facet(
+                session, conditions, Opportunity.category, label="category"
+            ),
+            "sources": await _facet(session, conditions, Opportunity.source, label="source"),
+            "statuses": await _facet(session, conditions, Opportunity.status, label="status"),
+            "regions": await _facet(session, conditions, Opportunity.region, label="region"),
+            "remote": await _facet(session, conditions, _remote_bucket(), label="remote"),
+            "years": await _facet(
+                session,
+                conditions,
+                extract("year", func.coalesce(Opportunity.published_at, Opportunity.found_at)),
+                label="year",
+            ),
+        }
+        if filters.section == "announcements":
+            facets["announcement_sources"] = await _facet(
+                session, conditions, announcement_group, label="announcement_source"
+            )
+    else:
+        facets = {}
     out_items = [_out(row, include_raw=False) for row in rows]
     if filters.min_skill_match is not None and filters.min_skill_match > 0:
         out_items = [

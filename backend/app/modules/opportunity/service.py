@@ -539,16 +539,41 @@ async def merge_duplicate_clusters(
 
 async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str) -> int:
     """forkjob Job nesnelerini forkOS entity/opportunity kayıtlarına çevirir."""
+    if not jobs:
+        return 0
     added = 0
-    for job in jobs:
-        external_id = job.external_id or job.job_id
-        existing = (
+
+    # Toplu on-yukleme: N+1 sorgu yerine batch lookup ile var olan kayitlari tek seferde al
+    external_ids = [
+        str(j.external_id or getattr(j, "job_id", None))
+        for j in jobs
+        if (getattr(j, "external_id", None) or getattr(j, "job_id", None))
+    ]
+    existing_by_ext: dict[str, Opportunity] = {}
+    if external_ids:
+        ext_rows = (
             await session.execute(
                 select(Opportunity).where(
-                    Opportunity.source == source_label, Opportunity.external_id == external_id
+                    Opportunity.source == source_label,
+                    Opportunity.external_id.in_(external_ids),
                 )
             )
-        ).scalars().first()
+        ).scalars().all()
+        existing_by_ext = {o.external_id: o for o in ext_rows if o.external_id}
+
+    urls = [j.url for j in jobs if getattr(j, "url", None)]
+    existing_by_url: dict[str, Opportunity] = {}
+    if urls:
+        url_rows = (
+            await session.execute(
+                select(Opportunity).where(Opportunity.url.in_(urls))
+            )
+        ).scalars().all()
+        existing_by_url = {o.url: o for o in url_rows if o.url}
+
+    for job in jobs:
+        external_id = job.external_id or getattr(job, "job_id", None)
+        existing = existing_by_ext.get(str(external_id)) if external_id else None
         raw = job.to_row()
         forkjob = raw.get("forkjob", raw)
         published_at = getattr(job, "published_at", None)
@@ -570,9 +595,9 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             cluster_matches = list(
                 (
                     await session.execute(
-                    select(Opportunity).where(
-                        Opportunity.raw["forkjob"]["cluster_key"].astext == cluster_key
-                    )
+                        select(Opportunity).where(
+                            Opportunity.raw["forkjob"]["cluster_key"].astext == cluster_key
+                        )
                     )
                 ).scalars().all()
             )
@@ -595,9 +620,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             continue
         # Ikinci savunma: ayni URL farkli kaynaktan geliyorsa birlestir.
         if job.url:
-            by_url = (await session.execute(
-                select(Opportunity).where(Opportunity.url == job.url)
-            )).scalars().first()
+            by_url = existing_by_url.get(job.url)
             if by_url is not None and by_url.source != source_label:
                 sources = list(by_url.raw.get("sources", [by_url.source]))
                 if source_label not in sources:
@@ -614,27 +637,30 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         )
         score = forkjob.get("score")
         priority = 3 if isinstance(score, (int, float)) and score >= 50 else 2
-        session.add(
-            Opportunity(
-                id=entity.id,
-                kind=getattr(job, "kind", "job"),
-                category=category,
-                organization=job.company,
-                url=job.url,
-                status="discovered",
-                priority=priority,
-                found_at=datetime.now(UTC),
-                published_at=published_at,
-                location=job.location,
-                remote=job.work_mode.value,
-                compensation=job.salary,
-                source=source_label,
-                external_id=external_id,
-                raw=raw,
-                country=forkjob.get("country"),
-                region=forkjob.get("region"),
-            )
+        new_opp = Opportunity(
+            id=entity.id,
+            kind=getattr(job, "kind", "job"),
+            category=category,
+            organization=job.company,
+            url=job.url,
+            status="discovered",
+            priority=priority,
+            found_at=datetime.now(UTC),
+            published_at=published_at,
+            location=job.location,
+            remote=job.work_mode.value,
+            compensation=job.salary,
+            source=source_label,
+            external_id=external_id,
+            raw=raw,
+            country=forkjob.get("country"),
+            region=forkjob.get("region"),
         )
+        session.add(new_opp)
+        if external_id:
+            existing_by_ext[str(external_id)] = new_opp
+        if job.url:
+            existing_by_url[job.url] = new_opp
         added += 1
     if added:
         await log_event(
@@ -651,6 +677,30 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             dedup_key=f"digest:{source_label}:{datetime.now(UTC).date()}",
         )
     return added
+
+
+async def prune_stale_opportunities(
+    session: AsyncSession, *, days: int = 90
+) -> int:
+    """Son `days` gundur bulunan, status='discovered' olan ve trashed_at null olan ilgilenilmemis ilanlari budar."""
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+    stale_ids = list(
+        (
+            await session.execute(
+                select(Opportunity.id).where(
+                    Opportunity.status == "discovered",
+                    Opportunity.trashed_at.is_(None),
+                    Opportunity.found_at < cutoff,
+                )
+            )
+        ).scalars().all()
+    )
+    if not stale_ids:
+        return 0
+    for item_id in stale_ids:
+        await delete_entity(session, item_id)
+    await session.commit()
+    return len(stale_ids)
 
 
 async def deadline_ladder(session: AsyncSession) -> int:

@@ -13,7 +13,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
 from app.db import SessionLocal
-from app.modules.opportunity.service import deadline_ladder
+from app.modules.opportunity.service import deadline_ladder, prune_stale_opportunities
 from app.worker.digest import morning_digest
 from app.worker.jobs import (
     catch_up,
@@ -54,6 +54,11 @@ async def main() -> None:
     )
     scheduler.add_job(nightly_backup, "cron", hour=3, id="nightly_backup")
     scheduler.add_job(prune_old_items, "cron", hour=4, id="prune")
+    async def prune_opportunities_job() -> None:
+        async with SessionLocal() as session:
+            await prune_stale_opportunities(session)
+
+    scheduler.add_job(prune_opportunities_job, "cron", hour=4, minute=30, id="prune_opportunities")
     scheduler.add_job(
         poll_opportunities,
         "interval",
