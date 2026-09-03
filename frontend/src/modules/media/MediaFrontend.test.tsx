@@ -409,7 +409,8 @@ describe("responsive media frontend (Task 5 contract)", () => {
     await user.click(screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }));
     await user.click(screen.getByRole("button", { name: "Birinci bölümü tamamla" }));
     await user.click(screen.getByRole("button", { name: "İkinci bölümün tamamlamasını geri al" }));
-    await user.click(screen.getByRole("button", { name: "Yeni tur başlat" }));
+    // Açık döngü yokken aynı POST /cycles ucuna bağlanan başlatma kontrolü.
+    await user.click(screen.getByRole("button", { name: "İzlemeye başla" }));
     await user.click(screen.getByRole("button", { name: "Favoriler koleksiyonundan çıkar" }));
 
     await waitFor(() => {

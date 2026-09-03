@@ -168,7 +168,7 @@ export function Cover({ url, title, size = "h-24 w-16" }: { url: string | null; 
   return (
     <div
       className={cx(
-        "flex shrink-0 items-center justify-center rounded border border-subtle bg-surface-sunken font-serif text-heading text-secondary",
+        "flex shrink-0 items-center justify-center rounded border border-subtle bg-surface-sunken  text-heading text-secondary",
         size,
       )}
     >
@@ -331,7 +331,7 @@ export function KindChips({
                 ),
           )}
         >
-          {label} <span className="numeral opacity-70">{count}</span>
+          {label} <span className="tabular-nums opacity-70">{count}</span>
         </button>
       ))}
     </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Chip, Metric, MetricStrip, Select, cx, identityClasses } from "@/core/ui";
 import type { MediaItem, MediaStats } from "@/core/types";
@@ -115,7 +115,7 @@ function PosterCover({ item, href }: { item: PosterItem; href: string }) {
           role="img"
           aria-label={alt}
           className={cx(
-            "flex items-center justify-center bg-surface-sunken font-serif text-title text-secondary",
+            "flex items-center justify-center bg-surface-sunken  text-title text-secondary",
             coverClass,
           )}
         >
@@ -219,12 +219,26 @@ export function MediaPosterGrid({
   onQuick: (item: PosterItem) => void;
   onTrash: (item: PosterItem) => void;
 }) {
+  // Cursor sayfalama/provider tekrari ayni id'yi iki kez getirebilir; tekrar
+  // eden id'ler React reconciliation'i bozup 'duplicate key' uyarisi uretiyor.
+  // Ilk gorunum korunur, sonraki tekrarlar atilir.
+  const unique = useMemo(() => {
+    const seen = new Set<string>();
+    const result: PosterItem[] = [];
+    for (const item of items) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        result.push(item);
+      }
+    }
+    return result;
+  }, [items]);
   return (
     <ul
       data-media-grid
       className="grid grid-cols-[repeat(auto-fill,minmax(156px,1fr))] gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))]"
     >
-      {items.map((item) => (
+      {unique.map((item) => (
         <MediaPoster key={item.id} item={item} online={online} onQuick={onQuick} onTrash={onTrash} />
       ))}
     </ul>

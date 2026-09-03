@@ -1,7 +1,7 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bookmark, Pencil, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Bookmark, Pause, Pencil, Play, X } from "lucide-react";
 import { useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { MediaDetail, MediaItem } from "@/core/types";
@@ -39,7 +39,7 @@ function DetailCover({ item }: { item: MediaItem }) {
       aria-label={`${item.title} kapağı`}
       className={cx(
         className,
-        "flex items-center justify-center bg-surface-sunken font-serif text-display text-secondary",
+        "flex items-center justify-center bg-surface-sunken  text-display text-secondary",
       )}
     >
       {(item.title.trim().charAt(0) || "?").toUpperCase()}
@@ -266,6 +266,13 @@ export function MediaDetailPage() {
     mutationFn: () => api.post(`/media/${encodeURIComponent(itemId ?? "")}/cycles`, {}),
     onSuccess: () => invalidateAfter("media.write"),
   });
+  // Aktif döngü duraklatma/devam ettirme: status PATCH'i cycle'ı backend'de
+  // paused/active ile senkron tutar (service.update_item -> _synchronize_status).
+  const setCycleStatus = useMutation({
+    mutationFn: (status: "paused" | "in_progress") =>
+      api.patch(`/media/${encodeURIComponent(itemId ?? "")}`, { status }),
+    onSuccess: () => invalidateAfter("media.write"),
+  });
 
   useEffect(() => {
     if (!itemId) return;
@@ -311,6 +318,7 @@ export function MediaDetailPage() {
   }
 
   const item = data.item;
+  const openCycle = data.cycles.find((cycle) => !cycle.completed_at) ?? null;
   const provider = mediaProvider(item);
   const sites = externalLinks(
     item.kind,
@@ -351,7 +359,7 @@ export function MediaDetailPage() {
                 </span>
               )}
             </div>
-            <h1 className="mt-3 font-serif text-display text-primary">{item.title}</h1>
+            <h1 className="mt-3  text-display text-primary">{item.title}</h1>
             {item.summary && <p className="mt-3 max-w-3xl text-body leading-6 text-secondary">{item.summary}</p>}
           </header>
 
@@ -364,9 +372,47 @@ export function MediaDetailPage() {
               </div>
               {item.status !== "completed" && item.status !== "dropped" && (
                 <div className="mt-3 border-t border-subtle pt-3">
-                  <Button size="sm" disabled={!online || startCycle.isPending} onClick={() => startCycle.mutate()}>
-                    <RotateCcw size={14} aria-hidden="true" /> Yeni tur başlat
-                  </Button>
+                  {openCycle ? (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={!online || setCycleStatus.isPending}
+                        onClick={() =>
+                          setCycleStatus.mutate(openCycle.status === "paused" ? "in_progress" : "paused")
+                        }
+                      >
+                        {openCycle.status === "paused" ? (
+                          <>
+                            <Play size={14} aria-hidden="true" /> Devam et
+                          </>
+                        ) : (
+                          <>
+                            <Pause size={14} aria-hidden="true" /> Duraklat
+                          </>
+                        )}
+                      </Button>
+                      {setCycleStatus.error && (
+                        <p role="alert" className="mt-2 text-meta text-danger">
+                          Döngü güncellenemedi: {setCycleStatus.error.message}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={!online || startCycle.isPending}
+                        onClick={() => startCycle.mutate()}
+                      >
+                        <Play size={14} aria-hidden="true" /> İzlemeye başla
+                      </Button>
+                      {startCycle.error && (
+                        <p role="alert" className="mt-2 text-meta text-danger">
+                          İzleme başlatılamadı: {startCycle.error.message}
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </Surface>

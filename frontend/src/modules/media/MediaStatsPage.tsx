@@ -9,6 +9,28 @@ import { Cover, KIND_LABELS, mediaCoverUrl, mediaProvider, providerChip, provide
 type MediaDashboard = components["schemas"]["MediaDashboardOut"];
 type MediaUnit = components["schemas"]["MediaUnitOut"];
 
+/** GET /media/consumptions/recent satırı: başlık ve türü olan global son tüketimler. */
+type RecentConsumption = {
+  id: string;
+  media_id: string;
+  title: string;
+  kind: string;
+  action: string;
+  measure: string | null;
+  amount: number | null;
+  progress_after: number | null;
+  occurred_at: string;
+  duration_min: number | null;
+};
+
+const RECENT_ACTION_LABELS: Record<string, string> = {
+  quick: "Hızlı ilerleme",
+  set: "İlerleme düzeltmesi",
+  finish: "Tamamlama",
+  complete_unit: "Bölüm tamamlandı",
+  uncomplete_unit: "Bölüm geri alındı",
+};
+
 function durationLabel(totalMinutes: number | null | undefined): string {
   if (!totalMinutes) return "—";
   const hours = Math.floor(totalMinutes / 60);
@@ -54,6 +76,10 @@ export function MediaStatsPage() {
     queryKey: ["media-dashboard"],
     queryFn: () => api.get<MediaDashboard>("/media/dashboard"),
   });
+  const recent = useQuery({
+    queryKey: ["media", "recent-consumptions"],
+    queryFn: () => api.get<RecentConsumption[]>("/media/consumptions/recent?limit=10"),
+  });
 
   return (
     <PageFrame className="space-y-6">
@@ -97,7 +123,7 @@ export function MediaStatsPage() {
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(dashboard.stats.by_kind).map(([kind, count]) => (
                   <span key={kind} className={cx("rounded border px-2 py-0.5 text-micro text-secondary")}>
-                    {KIND_LABELS[kind] ?? kind} <span className="numeral opacity-70">{count}</span>
+                    {KIND_LABELS[kind] ?? kind} <span className="tabular-nums opacity-70">{count}</span>
                   </span>
                 ))}
               </div>
@@ -130,7 +156,7 @@ export function MediaStatsPage() {
                       </p>
                     </div>
                     {item.progress != null && (
-                      <span className="shrink-0 numeral text-meta text-secondary">
+                      <span className="shrink-0 tabular-nums text-meta text-secondary">
                         {item.progress}
                         {item.total != null ? ` / ${item.total}` : ""}
                       </span>
@@ -150,23 +176,46 @@ export function MediaStatsPage() {
           </Section>
 
           <Section title="Son tüketimler">
-            {dashboard.recent_consumptions.length === 0 ? (
+            {recent.isLoading ? (
+              <p role="status" className="text-meta text-muted">
+                Son tüketimler yükleniyor…
+              </p>
+            ) : recent.isError ? (
+              <Empty>Son tüketimler yüklenemedi.</Empty>
+            ) : recent.data?.length === 0 ? (
               <Empty>Henüz tüketim kaydı yok.</Empty>
             ) : (
               <RowList as="ul">
-                {dashboard.recent_consumptions.map((entry) => (
+                {recent.data?.map((entry) => (
                   <li key={entry.id} className="flex flex-wrap items-center gap-3 py-2">
-                    <span className="min-w-0 flex-1 text-body text-secondary">
-                      {entry.action} · {entry.amount ?? 0} {entry.measure ?? "öğe"}
-                    </span>
-                    <span className="text-meta text-muted">
-                      {new Date(entry.occurred_at ?? entry.created_at ?? Date.now()).toLocaleString("tr-TR", {
+                    <div className="min-w-0 flex-1">
+                      <a
+                        href={`#/media/${encodeURIComponent(entry.media_id)}`}
+                        aria-label={`${entry.title} detayını aç`}
+                        className="block truncate text-body font-medium text-primary hover:text-accent hover:underline"
+                      >
+                        {entry.title}
+                      </a>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                        <span className="rounded border border-subtle px-1.5 py-px">
+                          {KIND_LABELS[entry.kind] ?? entry.kind}
+                        </span>
+                        <span>{RECENT_ACTION_LABELS[entry.action] ?? entry.action}</span>
+                        {entry.amount != null && (
+                          <span>
+                            {entry.amount} {entry.measure ?? "öğe"}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <time dateTime={entry.occurred_at} className="shrink-0 text-meta text-muted">
+                      {new Date(entry.occurred_at).toLocaleString("tr-TR", {
                         day: "numeric",
                         month: "short",
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
-                    </span>
+                    </time>
                   </li>
                 ))}
               </RowList>

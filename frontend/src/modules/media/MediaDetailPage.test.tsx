@@ -237,4 +237,93 @@ describe("media detail page", () => {
     await user.click(submit);
     await waitFor(() => expect(patchCount).toBe(2));
   });
+
+  it("pauses an active open cycle through a status patch", async () => {
+    const user = userEvent.setup();
+    responder = (_path, method) => {
+      if (method === "GET" && _path.startsWith("/api/entities/")) {
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(
+        JSON.stringify({
+          ...detail,
+          cycles: [
+            {
+              id: "cycle-1",
+              media_id: "media-1",
+              ordinal: 2,
+              status: "active",
+              started_at: "2026-09-01T10:00:00Z",
+              completed_at: null,
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Dune: Prophecy" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Duraklat" }));
+    await waitFor(() => expect(calls.some((call) => call.method === "PATCH")).toBe(true));
+    const patches = calls.filter((call) => call.method === "PATCH");
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toEqual({ method: "PATCH", path: "/api/media/media-1", body: { status: "paused" } });
+  });
+
+  it("resumes a paused cycle through a status patch", async () => {
+    const user = userEvent.setup();
+    responder = (_path, method) => {
+      if (method === "GET" && _path.startsWith("/api/entities/")) {
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(
+        JSON.stringify({
+          ...detail,
+          item: { ...item, status: "paused" },
+          cycles: [
+            {
+              id: "cycle-1",
+              media_id: "media-1",
+              ordinal: 2,
+              status: "paused",
+              started_at: "2026-09-01T10:00:00Z",
+              completed_at: null,
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Dune: Prophecy" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Devam et" }));
+    await waitFor(() => expect(calls.some((call) => call.method === "PATCH")).toBe(true));
+    const patches = calls.filter((call) => call.method === "PATCH");
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toEqual({ method: "PATCH", path: "/api/media/media-1", body: { status: "in_progress" } });
+  });
+
+  it("starts watching planned media only when no open cycle exists", async () => {
+    const user = userEvent.setup();
+    responder = (_path, method) => {
+      if (method === "GET" && _path.startsWith("/api/entities/")) {
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(
+        JSON.stringify({ ...detail, item: { ...item, status: "planned", progress: 0 } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    };
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Dune: Prophecy" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Duraklat" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "İzlemeye başla" }));
+    await waitFor(() => expect(calls.some((call) => call.method === "POST")).toBe(true));
+    const posts = calls.filter((call) => call.method === "POST");
+    expect(posts).toHaveLength(1);
+    expect(posts[0].path).toBe("/api/media/media-1/cycles");
+  });
 });

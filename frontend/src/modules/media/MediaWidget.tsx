@@ -5,7 +5,7 @@ import { Empty, Section, cx, identityClasses } from "@/core/ui";
 import { navigate } from "@/app/router";
 import { invalidateAfter } from "@/core/invalidation";
 import { useOnline } from "@/lib/hooks";
-import { Cover, KIND_LABELS, kindBg, progressPct, statusLabel } from "./shared";
+import { Cover, KIND_LABELS, kindBg, mediaCoverUrl, progressPct, statusLabel } from "./shared";
 import type { MediaPage } from "@/core/types";
 
 export function MediaContinueWidget() {
@@ -35,7 +35,9 @@ export function MediaContinueWidget() {
         <div className="flex gap-2.5 overflow-x-auto pb-1">
           {active.map((item) => {
             const pct = progressPct(item);
-            const cover = item.cover_path ? `/api/media/assets/${item.cover_path}` : (item.cover_url ?? null);
+            // Backend cover_path'i "/api/media/assets/<dosya>" tam yoluyla saklar (sync._cache_artwork);
+            // ham birleştirme çift prefix üretir — shared.mediaCoverUrl güvenli adı sıyırıp doğrular.
+            const cover = mediaCoverUrl(item);
             return (
               <div key={item.id} className="w-28 shrink-0">
                 <a
