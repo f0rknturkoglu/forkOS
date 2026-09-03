@@ -1,5 +1,6 @@
 import type { KeyboardEventHandler, ReactNode } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -1000,6 +1001,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 {toast.action.label}
               </button>
             )}
+            <button
+              type="button"
+              aria-label="Kapat"
+              title="Kapat"
+              onClick={() => setToasts((current) => current.filter((t) => t.id !== toast.id))}
+              className="ml-1.5 text-muted transition hover:text-primary"
+            >
+              <X size={13} />
+            </button>
           </div>
         ))}
       </div>
