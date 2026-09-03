@@ -26,11 +26,9 @@ vi.mock("@/app/router", () => ({
 }));
 
 import { api } from "@/core/api";
+import { todayKey, tomorrowKey } from "@/lib/date";
 
 const apiGet = vi.mocked(api.get);
-
-const todayKey = () => new Date().toLocaleDateString("sv-SE");
-const tomorrowKey = () => new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE");
 
 function makeTodo(id: string, plannedDay: string | null) {
   return {
