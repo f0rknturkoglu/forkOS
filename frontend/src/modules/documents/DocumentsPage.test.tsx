@@ -63,7 +63,8 @@ vi.mock("@tanstack/react-query", () => ({
   }),
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
-    const key = String(options.queryKey[0]);
+    // Alt anahtarlı query'ler ("documents" / "documents/usages") ayrı dolsun.
+    const key = options.queryKey.map(String).join("/");
     return { data: key in harness.queryData ? harness.queryData[key] : undefined, isLoading: false };
   }),
 }));
@@ -98,7 +99,7 @@ describe("documents flow", () => {
           synced_at: "2026-08-01T00:00:00.000Z",
         },
       ],
-      opportunities: [],
+      "documents/usages": [],
     };
     const markup = renderToStaticMarkup(<DocumentsPage />);
 
@@ -107,13 +108,80 @@ describe("documents flow", () => {
 
     const documentsQuery = harness.queries.find((query) => query.queryKey[0] === "documents");
     const statusQuery = harness.queries.find((query) => query.queryKey[0] === "google-status");
-    const opportunitiesQuery = harness.queries.find((query) => query.queryKey[0] === "opportunities");
+    const usagesQuery = harness.queries.find(
+      (query) => query.queryKey[0] === "documents" && query.queryKey[1] === "usages",
+    );
+    expect(usagesQuery).toBeDefined();
     await documentsQuery?.queryFn();
     await statusQuery?.queryFn();
-    await opportunitiesQuery?.queryFn();
+    await usagesQuery?.queryFn();
     expect(harness.apiGet).toHaveBeenCalledWith("/documents");
     expect(harness.apiGet).toHaveBeenCalledWith("/auth/google/status");
-    expect(harness.apiGet).toHaveBeenCalledWith("/opportunities?limit=2000");
+    expect(harness.apiGet).toHaveBeenCalledWith("/documents/usages");
+    expect(harness.apiGet).not.toHaveBeenCalledWith(expect.stringContaining("opportunities?limit"));
+  });
+
+  it("renders usage badges from /documents/usages: dedupes cv+requirement and caps at 3", async () => {
+    harness.queryData = {
+      "google-status": { connected: true, expires_at: null, scopes: null },
+      documents: [
+        {
+          id: "d1",
+          title: "CV 2026",
+          drive_file_id: "file-1",
+          mime: "application/pdf",
+          category: "cv",
+          web_view_link: null,
+          size_bytes: 2048,
+          drive_modified_at: null,
+          synced_at: "2026-08-01T00:00:00.000Z",
+        },
+        {
+          id: "d2",
+          title: "Talepname",
+          drive_file_id: "file-2",
+          mime: "text/plain",
+          category: "other",
+          web_view_link: null,
+          size_bytes: 512,
+          drive_modified_at: null,
+          synced_at: "2026-08-01T00:00:00.000Z",
+        },
+      ],
+      // d1: o1 hem cv hem requirement (rozet tek olmalı) + o2, o3, o4 → 4 eşsiz fırsat.
+      // d2: hiç kullanılmıyor → rozet yok.
+      "documents/usages": [
+        {
+          document_id: "d1",
+          usages: [
+            { opportunity_id: "o1", title: "Alfa A.Ş.", status: "applied", kind: "job", relation: "cv" },
+            {
+              opportunity_id: "o1",
+              title: "Alfa A.Ş.",
+              status: "applied",
+              kind: "job",
+              relation: "requirement",
+            },
+            { opportunity_id: "o2", title: "Beta Yazılım", status: "interviewing", kind: "job", relation: "cv" },
+            { opportunity_id: "o3", title: "Gamma Labs", status: "applied", kind: "job", relation: "requirement" },
+            { opportunity_id: "o4", title: "Delta Teknoloji", status: "discovered", kind: "job", relation: "cv" },
+          ],
+        },
+      ],
+    };
+    const markup = renderToStaticMarkup(<DocumentsPage />);
+
+    // Aynı fırsatın cv+requirement bağı tek rozete iner: "Alfa A.Ş." yalnızca
+    // o1'e ait TEK anchor'da görünür (anchor title'ı + chip metni = 2 geçiş).
+    expect(markup.match(/Alfa A\.Ş\./g)).toHaveLength(2);
+    expect(markup.match(/href="#\/opportunities\?focus=o1"/g)).toHaveLength(1);
+    expect(markup).toContain("Beta Yazılım");
+    expect(markup).toContain("Gamma Labs");
+    // İlk 3 eşsiz fırsat link olarak çizilir, 4.'sü "+1" rozetine dönüşür.
+    expect(markup).not.toContain("Delta Teknoloji");
+    expect(markup).toContain("+1");
+    const focusLinks = markup.match(/href="#\/opportunities\?focus=/g);
+    expect(focusLinks).toHaveLength(3);
   });
 
   it("syncs a drive folder with the selected category and invalidates document.write", () => {

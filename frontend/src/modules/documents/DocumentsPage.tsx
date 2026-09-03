@@ -1,14 +1,14 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLink, Trash2, Upload } from "lucide-react";
+import { Download, ExternalLink, Trash2, Upload } from "lucide-react";
 import { Markdown } from "@/core/Markdown";
-import { api, qs } from "@/core/api";
+import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { NotesSection } from "./NotesSection";
 import { useHashRoute } from "@/app/router";
-import type { Document, Note, Opportunity } from "@/core/types";
+import type { Document, Note } from "@/core/types";
 import {
   Button,
   Chip,
@@ -28,6 +28,21 @@ import { useOnline } from "@/lib/hooks";
 
 type GoogleStatus = { connected: boolean; expires_at: string | null; scopes: string | null };
 
+/** GET /documents/usages satırı: bir belgenin fırsat kullanım listesi. */
+type DocumentUsageRow = {
+  document_id: string;
+  usages: DocumentUsageItem[];
+};
+
+/** Tek kullanım: fırsat özeti + bağ türü (cv: başvuru CV'si, requirement: gereksinim belgesi). */
+type DocumentUsageItem = {
+  opportunity_id: string;
+  title: string;
+  status: string;
+  kind: string;
+  relation: "cv" | "requirement";
+};
+
 export function DocumentsPage() {
   const route = useHashRoute();
   // Kayit defteri rotasi (?focus={id}): secili belgenin iliskileri (Faz 18).
@@ -45,25 +60,29 @@ export function DocumentsPage() {
     queryKey: ["documents"],
     queryFn: () => api.get<Document[]>("/documents"),
   });
-  // Fırsat sayfasıyla aynı cache anahtarı: belge hangi başvurularda kullanılıyor
-  // sorusunu listeyi istemcide filtreleyerek yanıtlarız (backend'de belgeye göre
-  // fırsat filtreleyen ayrı bir uç yok; cv/requirement bağları listede gelir).
-  const { data: opportunities = [] } = useQuery({
-    queryKey: ["opportunities"],
-    queryFn: () => api.get<Opportunity[]>(`/opportunities${qs({ limit: 2000 })}`),
+  // Belge -> fırsat kullanımları artık gerçek /documents/usages ucundan gelir
+  // (eskiden /opportunities?limit=2000 çekilip istemcide join kuruluyordu).
+  // Query key "documents" ile BAŞLAR: belge ekle/sil/senkron sonrası
+  // invalidateAfter("document.write") belge listesiyle birlikte bunu da tazeler.
+  const { data: usageRows = [] } = useQuery({
+    queryKey: ["documents", "usages"],
+    queryFn: () => api.get<DocumentUsageRow[]>("/documents/usages"),
   });
   const docOpportunities = useMemo(() => {
-    const map = new Map<string, Opportunity[]>();
-    for (const opp of opportunities) {
+    const map = new Map<string, DocumentUsageItem[]>();
+    for (const row of usageRows) {
+      const usages: DocumentUsageItem[] = [];
       const seen = new Set<string>();
-      for (const docId of [opp.cv_document_id, opp.requirement_document_id]) {
-        if (!docId || seen.has(docId)) continue;
-        seen.add(docId);
-        map.set(docId, [...(map.get(docId) ?? []), opp]);
+      for (const usage of row.usages) {
+        // Aynı fırsat hem cv hem requirement bağıysa tek rozet göster (eski davranış).
+        if (seen.has(usage.opportunity_id)) continue;
+        seen.add(usage.opportunity_id);
+        usages.push(usage);
       }
+      map.set(row.document_id, usages);
     }
     return map;
-  }, [opportunities]);
+  }, [usageRows]);
   const sync = useMutation({
     mutationFn: () => api.post<{ synced: number }>("/documents/sync", { folder_id: folderId, category }),
     onSuccess: (result) => {
@@ -274,7 +293,7 @@ function DocumentsList({
   onOpen,
 }: {
   docs: Document[];
-  usageByDoc: Map<string, Opportunity[]>;
+  usageByDoc: Map<string, DocumentUsageItem[]>;
   openingId: string | null;
   online: boolean;
   onOpen: (doc: Document) => void;
@@ -289,7 +308,7 @@ function DocumentsList({
             <DocumentRow
               key={doc.id}
               doc={doc}
-              opportunities={usageByDoc.get(doc.id) ?? []}
+              usages={usageByDoc.get(doc.id) ?? []}
               opening={openingId === doc.id}
               online={online}
               onOpen={onOpen}
@@ -303,13 +322,13 @@ function DocumentsList({
 
 function DocumentRow({
   doc,
-  opportunities,
+  usages,
   opening,
   online,
   onOpen,
 }: {
   doc: Document;
-  opportunities: Opportunity[];
+  usages: DocumentUsageItem[];
   opening: boolean;
   online: boolean;
   onOpen: (doc: Document) => void;
@@ -333,26 +352,36 @@ function DocumentRow({
         </p>
       </div>
       <Chip tone={doc.category === "cv" ? "accent" : "neutral"}>{doc.category ?? "other"}</Chip>
-      {opportunities.length > 0 && (
+      {usages.length > 0 && (
         <span className="flex min-w-0 flex-wrap items-center gap-1">
-          {opportunities.slice(0, 3).map((opp) => (
+          {usages.slice(0, 3).map((usage) => (
             <a
-              key={opp.id}
-              href={`#/opportunities?focus=${opp.id}`}
-              title={`${opp.title} başvurusunda kullanılıyor — tıkla`}
+              key={usage.opportunity_id}
+              href={`#/opportunities?focus=${usage.opportunity_id}`}
+              title={`${usage.title} başvurusunda kullanılıyor — tıkla`}
               className="inline-flex min-w-0 max-w-56"
             >
               <Chip size="xs" tone="accent">
-                {opp.title}
+                {usage.title}
               </Chip>
             </a>
           ))}
-          {opportunities.length > 3 && <Chip size="xs">+{opportunities.length - 3}</Chip>}
+          {usages.length > 3 && <Chip size="xs">+{usages.length - 3}</Chip>}
         </span>
       )}
       <Button size="sm" disabled={!online || opening} onClick={() => onOpen(doc)}>
         <ExternalLink size={13} /> Aç
       </Button>
+      {/* Dosya indirme: yerel cache'teki orijinal dosya (FileResponse, KURAL 17
+          ucu frontend'e baglandi). Offline'da indirme calismaz; hata gosterilmez. */}
+      <a
+        href={`/api/documents/${doc.id}/file`}
+        download={doc.title}
+        title="Dosyayı indir"
+        className="inline-flex items-center gap-1 text-meta text-muted transition hover:text-primary"
+      >
+        <Download size={13} /> İndir
+      </a>
       <IconButton
         tone="danger"
         disabled={!online || del.isPending}
