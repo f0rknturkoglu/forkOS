@@ -1,9 +1,10 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Trash2, Upload } from "lucide-react";
 import { Markdown } from "@/core/Markdown";
 import { api, qs } from "@/core/api";
+import { confirmDialog } from "@/core/dialog";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { NotesSection } from "./NotesSection";
 import { useHashRoute } from "@/app/router";
@@ -12,6 +13,8 @@ import {
   Button,
   Chip,
   Empty,
+  FileInput,
+  IconButton,
   Input,
   PageFrame,
   PageHeader,
@@ -112,8 +115,9 @@ export function DocumentsPage() {
         }
       />
       <p className="text-meta text-muted">
-        Drive dosyalarının yalnızca metadata aynası; dosya içeriği yerelde tutulmaz.
+        Yerel dosyalar veya Google Drive aynası; başvurular için CV ve gereksinim belgeleri burada tutulur.
       </p>
+      <UploadPanel online={online} />
       <SyncPanel
         online={online}
         connected={Boolean(status?.connected)}
@@ -131,6 +135,58 @@ export function DocumentsPage() {
 
       {focusId && <DocumentFocusPanel id={focusId} online={online} />}
     </PageFrame>
+  );
+}
+
+function UploadPanel({ online }: { online: boolean }) {
+  const [category, setCategory] = useState("cv");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
+
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("category", category);
+      return api.post<Document>("/documents/upload", form);
+    },
+    onSuccess: (doc) => {
+      invalidateAfter("document.write");
+      toast.push(`${doc?.title ?? "Belge"} başarıyla yüklendi`, { tone: "ok" });
+      if (fileRef.current) fileRef.current.value = "";
+    },
+    onError: (err: Error) => toast.push(`Yükleme başarısız: ${err.message}`, { tone: "danger" }),
+  });
+
+  return (
+    <Section title="Yerel Belge / CV Yükle">
+      <Toolbar className="border-y-0 py-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <FileInput
+            ref={fileRef}
+            accept=".pdf,.doc,.docx,.txt"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) upload.mutate(f);
+            }}
+          />
+          <Select value={category} onChange={setCategory} className="w-36">
+            <option value="cv">CV</option>
+            <option value="education">Eğitim</option>
+            <option value="exams">Sınavlar</option>
+            <option value="certificates">Sertifikalar</option>
+            <option value="other">Diğer</option>
+          </Select>
+          <Button
+            variant="primary"
+            disabled={!online || upload.isPending}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload size={14} /> {upload.isPending ? "Yükleniyor…" : "Dosya Seç ve Yükle"}
+          </Button>
+        </div>
+      </Toolbar>
+    </Section>
   );
 }
 
@@ -262,6 +318,15 @@ function DocumentRow({
   online: boolean;
   onOpen: (doc: Document) => void;
 }) {
+  const toast = useToast();
+  const del = useMutation({
+    mutationFn: () => api.del(`/documents/${doc.id}`),
+    onSuccess: () => {
+      invalidateAfter("document.write");
+      toast.push("Belge silindi", { tone: "ok" });
+    },
+  });
+
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-3">
       <div className="min-w-0 flex-1">
@@ -271,7 +336,7 @@ function DocumentRow({
           {doc.drive_modified_at ? new Date(doc.drive_modified_at).toLocaleString("tr-TR") : "güncelleme yok"}
         </p>
       </div>
-      <Chip>{doc.category ?? "other"}</Chip>
+      <Chip tone={doc.category === "cv" ? "accent" : "neutral"}>{doc.category ?? "other"}</Chip>
       {opportunities.length > 0 && (
         <span className="flex min-w-0 flex-wrap items-center gap-1">
           {opportunities.slice(0, 3).map((opp) => (
@@ -292,6 +357,25 @@ function DocumentRow({
       <Button size="sm" disabled={!online || opening} onClick={() => onOpen(doc)}>
         <ExternalLink size={13} /> Aç
       </Button>
+      <IconButton
+        tone="danger"
+        disabled={!online || del.isPending}
+        title="Belgeyi sil"
+        onClick={async () => {
+          if (
+            await confirmDialog({
+              title: "Belge silinsin mi?",
+              body: `${doc.title} kaydı silinecek.`,
+              confirmLabel: "Sil",
+              tone: "danger",
+            })
+          ) {
+            del.mutate();
+          }
+        }}
+      >
+        <Trash2 size={13} />
+      </IconButton>
     </div>
   );
 }

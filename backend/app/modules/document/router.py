@@ -1,10 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.models import Entity
 from app.db import get_session
 from app.integrations.google_auth import authorization_url, exchange
 from app.integrations.models import OAuthToken
@@ -63,3 +64,43 @@ async def open_doc(id: UUID, session: AsyncSession = Depends(get_session)):
     if not doc:
         raise HTTPException(404)
     return {"url": doc.web_view_link}
+
+
+@router.post("/documents/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    category: str = Form("cv"),
+    session: AsyncSession = Depends(get_session),
+):
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "Dosya boş olamaz")
+    filename = file.filename or "belge"
+    return await service.create_local_document(
+        session,
+        title=filename,
+        category=category,
+        mime=file.content_type,
+        content=content,
+    )
+
+
+@router.get("/documents/{id}/file")
+async def get_document_file(id: UUID, session: AsyncSession = Depends(get_session)):
+    doc = await session.get(Document, id)
+    if not doc:
+        raise HTTPException(404, "Belge bulunamadı")
+    entity = await session.get(Entity, id)
+    title = entity.title if entity else "belge"
+    file_path = service.get_local_file_path(id, title)
+    if not file_path or not file_path.exists():
+        raise HTTPException(404, "Dosya bulunamadı")
+    return FileResponse(file_path, media_type=doc.mime, filename=title)
+
+
+@router.delete("/documents/{id}")
+async def delete_document(id: UUID, session: AsyncSession = Depends(get_session)):
+    success = await service.delete_document(session, id)
+    if not success:
+        raise HTTPException(404, "Belge bulunamadı")
+    return {"status": "ok"}

@@ -1,4 +1,6 @@
 from datetime import UTC, datetime
+from pathlib import Path
+from uuid import UUID
 
 import httpx
 from sqlalchemy import select
@@ -102,3 +104,89 @@ async def sync_folder(session: AsyncSession, folder_id: str, category: str):
     )
     await session.commit()
     return len(files)
+
+
+DOCUMENTS_DIR = Path(__file__).resolve().parents[3] / "data" / "documents"
+
+
+def get_local_file_path(doc_id: UUID, title: str) -> Path | None:
+    doc_dir = DOCUMENTS_DIR / str(doc_id)
+    target = doc_dir / title
+    if target.exists():
+        return target
+    if doc_dir.exists():
+        for f in doc_dir.iterdir():
+            if f.is_file():
+                return f
+    return None
+
+
+async def create_local_document(
+    session: AsyncSession,
+    *,
+    title: str,
+    category: str = "cv",
+    mime: str | None = None,
+    content: bytes,
+) -> dict:
+    now = datetime.now(UTC)
+    entity = await create_entity(
+        session,
+        type="document",
+        title=title,
+        search_text=f"{category} {mime or ''} {title}",
+    )
+    doc_dir = DOCUMENTS_DIR / str(entity.id)
+    doc_dir.mkdir(parents=True, exist_ok=True)
+    file_path = doc_dir / title
+    file_path.write_bytes(content)
+
+    doc = Document(
+        id=entity.id,
+        drive_file_id=f"local:{entity.id}",
+        folder_id="local",
+        mime=mime,
+        category=category,
+        web_view_link=f"/api/documents/{entity.id}/file",
+        size_bytes=len(content),
+        drive_modified_at=now,
+        synced_at=now,
+    )
+    session.add(doc)
+    await log_event(
+        session,
+        verb="document.created",
+        entity_id=entity.id,
+        entity_type="document",
+        payload={"category": category, "title": title, "size": len(content)},
+    )
+    await session.commit()
+    return {
+        "id": doc.id,
+        "title": title,
+        "drive_file_id": doc.drive_file_id,
+        "folder_id": doc.folder_id,
+        "mime": doc.mime,
+        "category": doc.category,
+        "web_view_link": doc.web_view_link,
+        "size_bytes": doc.size_bytes,
+        "drive_modified_at": doc.drive_modified_at,
+        "synced_at": doc.synced_at,
+    }
+
+
+async def delete_document(session: AsyncSession, doc_id: UUID) -> bool:
+    doc = await session.get(Document, doc_id)
+    if not doc:
+        return False
+    await archive_entity(session, doc_id)
+    await log_event(
+        session,
+        verb="document.deleted",
+        entity_id=doc_id,
+        entity_type="document",
+        payload={"category": doc.category},
+    )
+    await session.commit()
+    return True
+

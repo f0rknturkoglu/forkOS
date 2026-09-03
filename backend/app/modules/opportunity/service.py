@@ -66,6 +66,7 @@ TECH_KEYWORDS = (
     "react", "vue", "angular", "next.js", "node.js", "django", "fastapi",
     "flask", "spring", "docker", "kubernetes", "aws", "azure", "gcp",
     "terraform", "graphql", "rest", "ci/cd", "git", "linux",
+    "pytorch", "langchain", "faiss", "rag", "yolo", "opencv",
 )
 
 

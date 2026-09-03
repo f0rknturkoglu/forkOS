@@ -18,6 +18,7 @@ dev-dist/
 backend/backups/
 backend/data/cache/
 backend/data/media/
+backend/data/documents/
 output/
 .worktrees/
 
