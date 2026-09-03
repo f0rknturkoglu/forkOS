@@ -1448,6 +1448,29 @@
         "title": "DeckPatch",
         "type": "object"
       },
+      "DocumentUsagesOut": {
+        "description": "Bir belgenin bağlı fırsat kullanım listesi.",
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "usages": {
+            "items": {
+              "$ref": "#/components/schemas/OpportunityUsageOut"
+            },
+            "title": "Usages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "document_id",
+          "usages"
+        ],
+        "title": "DocumentUsagesOut",
+        "type": "object"
+      },
       "EntityOut": {
         "properties": {
           "created_at": {
@@ -4248,6 +4271,92 @@
         "title": "MediaProviderStatusOut",
         "type": "object"
       },
+      "MediaRecentConsumptionOut": {
+        "description": "Global son tüketim listesi satırı: medya başlığı ve türüyle birlikte.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "measure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measure"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "progress_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress After"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "media_id",
+          "title",
+          "kind",
+          "action",
+          "occurred_at"
+        ],
+        "title": "MediaRecentConsumptionOut",
+        "type": "object"
+      },
       "MediaStats": {
         "properties": {
           "average_score": {
@@ -5768,6 +5877,45 @@
           }
         },
         "title": "OpportunityPatch",
+        "type": "object"
+      },
+      "OpportunityUsageOut": {
+        "description": "Bir fırsatın belgeyle bağı (cv: başvuru kaydındaki CV, requirement: gereksinim belgesi).",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "opportunity_id": {
+            "format": "uuid",
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "relation": {
+            "enum": [
+              "cv",
+              "requirement"
+            ],
+            "title": "Relation",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opportunity_id",
+          "title",
+          "status",
+          "kind",
+          "relation"
+        ],
+        "title": "OpportunityUsageOut",
         "type": "object"
       },
       "PlanSlotIn": {
@@ -10093,6 +10241,32 @@
         ]
       }
     },
+    "/api/documents/usages": {
+      "get": {
+        "description": "Her belge için kullanıldığı fırsat özetleri (cv/requirement bağları).",
+        "operationId": "document_usages_api_documents_usages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentUsagesOut"
+                  },
+                  "title": "Response Document Usages Api Documents Usages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Document Usages",
+        "tags": [
+          "documents"
+        ]
+      }
+    },
     "/api/documents/{id}": {
       "delete": {
         "operationId": "delete_document_api_documents__id__delete",
@@ -12166,6 +12340,55 @@
           }
         },
         "summary": "Add Collection Item",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/consumptions/recent": {
+      "get": {
+        "operationId": "recent_media_consumptions_api_media_consumptions_recent_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaRecentConsumptionOut"
+                  },
+                  "title": "Response Recent Media Consumptions Api Media Consumptions Recent Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recent Media Consumptions",
         "tags": [
           "media"
         ]

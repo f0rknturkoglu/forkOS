@@ -77,6 +77,13 @@ const DYNAMIC_KNOWN = new Set([
   // OpportunityPage: api.post(`/opportunities/${id}/${action}`) — eylem degisken.
   "/api/opportunities/{item_id}/trash",
   "/api/opportunities/{item_id}/restore",
+  // GithubPanel: `const path = \`/projects/${project.id}/github\`` sonra api.get(path)
+  // ve api.post(`${path}/issues`) — path degiskeni, kaynakta tam cagri yok.
+  "/api/projects/{project_id}/github",
+  "/api/projects/{project_id}/github/issues",
+  // DocumentsPage indir linki: href={/api/documents/${doc.id}/file} — JSX
+  // ifadesi, tarayici href kalibiyla eslesmez.
+  "/api/documents/{id}/file",
 ]);
 
 const uncovered = Object.keys(SPEC.paths).filter((p) => !isCalled(p) && !DYNAMIC_KNOWN.has(p)).sort();

@@ -497,6 +497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documents/usages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Document Usages
+         * @description Her belge için kullanıldığı fırsat özetleri (cv/requirement bağları).
+         */
+        get: operations["document_usages_api_documents_usages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/documents/{id}": {
         parameters: {
             query?: never;
@@ -1089,6 +1109,23 @@ export interface paths {
         post: operations["add_collection_item_api_media_collections__collection_id__items__item_id__post"];
         /** Remove Collection Item */
         delete: operations["remove_collection_item_api_media_collections__collection_id__items__item_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/media/consumptions/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent Media Consumptions */
+        get: operations["recent_media_consumptions_api_media_consumptions_recent_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3722,6 +3759,19 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * DocumentUsagesOut
+         * @description Bir belgenin bağlı fırsat kullanım listesi.
+         */
+        DocumentUsagesOut: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Usages */
+            usages: components["schemas"]["OpportunityUsageOut"][];
+        };
         /** EntityOut */
         EntityOut: {
             /**
@@ -4588,6 +4638,41 @@ export interface components {
             /** Ready */
             ready: boolean;
         };
+        /**
+         * MediaRecentConsumptionOut
+         * @description Global son tüketim listesi satırı: medya başlığı ve türüyle birlikte.
+         */
+        MediaRecentConsumptionOut: {
+            /** Action */
+            action: string;
+            /** Amount */
+            amount?: number | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Measure */
+            measure?: string | null;
+            /**
+             * Media Id
+             * Format: uuid
+             */
+            media_id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Progress After */
+            progress_after?: number | null;
+            /** Title */
+            title: string;
+        };
         /** MediaStats */
         MediaStats: {
             /** Average Score */
@@ -5064,6 +5149,28 @@ export interface components {
             status?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * OpportunityUsageOut
+         * @description Bir fırsatın belgeyle bağı (cv: başvuru kaydındaki CV, requirement: gereksinim belgesi).
+         */
+        OpportunityUsageOut: {
+            /** Kind */
+            kind: string;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "cv" | "requirement";
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
         };
         /** PlanSlotIn */
         PlanSlotIn: {
@@ -7001,6 +7108,26 @@ export interface operations {
             };
         };
     };
+    document_usages_api_documents_usages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentUsagesOut"][];
+                };
+            };
+        };
+    };
     delete_document_api_documents__id__delete: {
         parameters: {
             query?: never;
@@ -8429,6 +8556,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_media_consumptions_api_media_consumptions_recent_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaRecentConsumptionOut"][];
+                };
             };
             /** @description Validation Error */
             422: {
