@@ -119,101 +119,99 @@ export function SourcePicker() {
         ariaLabel="Çekilecek kaynaklar"
         className="right-0 top-11 w-[420px]"
       >
-          <div className="flex items-center gap-2.5 border-b border-subtle px-3 py-2.5">
-            <Search size={15} className="shrink-0 text-icon" />
-            <Input
-              autoFocus
-              value={search}
-              onChange={setSearch}
-              placeholder="Kaynak ara…"
-              ariaLabel="Kaynak ara"
-              className="min-w-0 flex-1"
-            />
-          </div>
+        <div className="flex items-center gap-2.5 border-b border-subtle px-3 py-2.5">
+          <Search size={15} className="shrink-0 text-icon" />
+          <Input
+            autoFocus
+            value={search}
+            onChange={setSearch}
+            placeholder="Kaynak ara…"
+            ariaLabel="Kaynak ara"
+            className="min-w-0 flex-1"
+          />
+        </div>
 
-          <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-3 py-2">
-            <Checkbox checked={allPicked} onChange={toggleAll} label={allPicked ? "Seçimi kaldır" : "Hepsini seç"} />
-            <span className="flex-1" />
-            <span className="text-meta text-muted">{visible.length} kaynak</span>
-          </div>
+        <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-3 py-2">
+          <Checkbox checked={allPicked} onChange={toggleAll} label={allPicked ? "Seçimi kaldır" : "Hepsini seç"} />
+          <span className="flex-1" />
+          <span className="text-meta text-muted">{visible.length} kaynak</span>
+        </div>
 
-          <ul className="max-h-[300px] overflow-y-auto">
-            {visible.map((source) => {
-              const run = latest.get(source.id);
-              const busy = running.has(source.id);
-              const checked = picked.has(source.id);
-              return (
-                <li key={source.id}>
-                  <Checkbox
-                    checked={checked}
-                    onChange={() => toggle(source.id)}
-                    label={
-                      <>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-body text-primary">{sourceLabel(source.id)}</span>
-                          <span className="block truncate text-meta text-muted">
-                            {KIND_LABELS[source.kind] ?? source.kind}
-                            {" · "}
-                            {busy ? "çekiliyor…" : run?.started_at ? relativeTime(run.started_at) : "hiç çalışmadı"}
-                          </span>
+        <ul className="max-h-[300px] overflow-y-auto">
+          {visible.map((source) => {
+            const run = latest.get(source.id);
+            const busy = running.has(source.id);
+            const checked = picked.has(source.id);
+            return (
+              <li key={source.id}>
+                <Checkbox
+                  checked={checked}
+                  onChange={() => toggle(source.id)}
+                  label={
+                    <>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-body text-primary">{sourceLabel(source.id)}</span>
+                        <span className="block truncate text-meta text-muted">
+                          {KIND_LABELS[source.kind] ?? source.kind}
+                          {" · "}
+                          {busy ? "çekiliyor…" : run?.started_at ? relativeTime(run.started_at) : "hiç çalışmadı"}
                         </span>
-                        {run && run.items_found > 0 && (
-                          <span className="numeral shrink-0 text-body text-secondary">+{run.items_found}</span>
-                        )}
-                        {busy ? (
-                          <span className="shrink-0 rounded-control bg-accent-surface px-1.5 py-0.5 text-micro font-medium text-accent">
-                            çekiliyor
-                          </span>
-                        ) : run?.status === "ok" ? (
-                          <span className="shrink-0 rounded-control bg-ok-surface px-1.5 py-0.5 text-micro font-medium text-ok">
-                            aktif
-                          </span>
-                        ) : run?.status === "empty" ? (
-                          <span className="shrink-0 rounded-control bg-warn-surface px-1.5 py-0.5 text-micro font-medium text-warn">
-                            boş
-                          </span>
-                        ) : run?.status === "error" ? (
-                          <span className="shrink-0 rounded-control bg-danger-surface px-1.5 py-0.5 text-micro font-medium text-danger">
-                            hata
-                          </span>
-                        ) : null}
-                      </>
-                    }
-                    className={cx(
-                      "w-full gap-3 border-b border-subtle px-3 py-2 transition last:border-b-0 hover:bg-surface-hover",
-                      checked && "bg-accent-surface/40",
-                    )}
-                  />
-                </li>
-              );
-            })}
-            {visible.length === 0 && (
-              <li className="px-3 py-6 text-center text-meta text-muted">Eşleşen kaynak yok.</li>
-            )}
-          </ul>
+                      </span>
+                      {run && run.items_found > 0 && (
+                        <span className="numeral shrink-0 text-body text-secondary">+{run.items_found}</span>
+                      )}
+                      {busy ? (
+                        <span className="shrink-0 rounded-control bg-accent-surface px-1.5 py-0.5 text-micro font-medium text-accent">
+                          çekiliyor
+                        </span>
+                      ) : run?.status === "ok" ? (
+                        <span className="shrink-0 rounded-control bg-ok-surface px-1.5 py-0.5 text-micro font-medium text-ok">
+                          aktif
+                        </span>
+                      ) : run?.status === "empty" ? (
+                        <span className="shrink-0 rounded-control bg-warn-surface px-1.5 py-0.5 text-micro font-medium text-warn">
+                          boş
+                        </span>
+                      ) : run?.status === "error" ? (
+                        <span className="shrink-0 rounded-control bg-danger-surface px-1.5 py-0.5 text-micro font-medium text-danger">
+                          hata
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                  className={cx(
+                    "w-full gap-3 border-b border-subtle px-3 py-2 transition last:border-b-0 hover:bg-surface-hover",
+                    checked && "bg-accent-surface/40",
+                  )}
+                />
+              </li>
+            );
+          })}
+          {visible.length === 0 && <li className="px-3 py-6 text-center text-meta text-muted">Eşleşen kaynak yok.</li>}
+        </ul>
 
-          <div className="flex items-center gap-2 border-t border-subtle bg-canvas px-3 py-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                navigate("/sources");
-              }}
-              className="flex items-center gap-1.5 text-meta text-muted transition hover:text-primary"
-            >
-              Ayrı sayfada aç <ArrowUpRight size={13} />
-            </button>
-            <span className="flex-1" />
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!online || picked.size === 0 || refresh.isPending}
-              onClick={() => refresh.mutate([...picked])}
-            >
-              <RefreshCw size={14} />
-              Kaynakları çek{picked.size > 0 ? ` (${picked.size})` : ""}
-            </Button>
-          </div>
+        <div className="flex items-center gap-2 border-t border-subtle bg-canvas px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              navigate("/sources");
+            }}
+            className="flex items-center gap-1.5 text-meta text-muted transition hover:text-primary"
+          >
+            Ayrı sayfada aç <ArrowUpRight size={13} />
+          </button>
+          <span className="flex-1" />
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!online || picked.size === 0 || refresh.isPending}
+            onClick={() => refresh.mutate([...picked])}
+          >
+            <RefreshCw size={14} />
+            Kaynakları çek{picked.size > 0 ? ` (${picked.size})` : ""}
+          </Button>
+        </div>
       </Popover>
     </div>
   );

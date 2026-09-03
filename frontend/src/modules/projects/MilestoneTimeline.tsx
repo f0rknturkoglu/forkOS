@@ -23,9 +23,7 @@ export function MilestoneTimeline({ project }: { project: Project }) {
   const byDueAt = (left: Milestone, right: Milestone) => timestamp(left.due_at) - timestamp(right.due_at);
   const overdue = openDated.filter((item) => (dueDayDiff(item.due_at) ?? 0) < 0).sort(byDueAt);
   const upcoming = openDated.filter((item) => (dueDayDiff(item.due_at) ?? 0) >= 0).sort(byDueAt);
-  const completed = [...done].sort(
-    (left, right) => timestamp(right.completed_at) - timestamp(left.completed_at),
-  );
+  const completed = [...done].sort((left, right) => timestamp(right.completed_at) - timestamp(left.completed_at));
 
   const groups = [
     { key: "overdue", label: "Geciken", dot: "bg-danger", rows: overdue },
@@ -54,18 +52,11 @@ function TimelineRow({ item, dot }: { item: Milestone; dot: string }) {
   const done = Boolean(item.completed_at);
   const badge = done ? null : dueBadge(item.due_at);
   const dateText =
-    done && item.due_at
-      ? new Date(item.due_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })
-      : null;
+    done && item.due_at ? new Date(item.due_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short" }) : null;
   return (
     <li data-testid="milestone-timeline-row" className="flex min-w-0 items-center gap-2.5 py-1.5">
       <span aria-hidden className={cx("h-2 w-2 shrink-0 rounded-full", dot)} />
-      <span
-        className={cx(
-          "min-w-0 flex-1 truncate text-body",
-          done ? "text-muted line-through" : "text-primary",
-        )}
-      >
+      <span className={cx("min-w-0 flex-1 truncate text-body", done ? "text-muted line-through" : "text-primary")}>
         {item.title}
       </span>
       {dateText && <span className="shrink-0 text-meta text-muted">{dateText}</span>}

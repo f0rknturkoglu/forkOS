@@ -311,10 +311,10 @@ describe("media detail page", () => {
       if (method === "GET" && _path.startsWith("/api/entities/")) {
         return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
       }
-      return new Response(
-        JSON.stringify({ ...detail, item: { ...item, status: "planned", progress: 0 } }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ ...detail, item: { ...item, status: "planned", progress: 0 } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     };
     renderPage();
 

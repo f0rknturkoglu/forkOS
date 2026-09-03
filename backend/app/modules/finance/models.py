@@ -4,12 +4,11 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from app.core.time import local_today
-
 from sqlalchemy import CHAR, Boolean, Date, Numeric, SmallInteger, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import EntityBacked
+from app.core.time import local_today
 from app.db import Base
 
 

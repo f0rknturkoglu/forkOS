@@ -114,10 +114,7 @@ function PosterCover({ item, href }: { item: PosterItem; href: string }) {
         <div
           role="img"
           aria-label={alt}
-          className={cx(
-            "flex items-center justify-center bg-surface-sunken  text-title text-secondary",
-            coverClass,
-          )}
+          className={cx("flex items-center justify-center bg-surface-sunken  text-title text-secondary", coverClass)}
         >
           {(item.title.trim().charAt(0) || "?").toUpperCase()}
         </div>

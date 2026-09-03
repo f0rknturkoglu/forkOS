@@ -18,7 +18,8 @@ import {
   cx,
   relativeTime,
   useToast,
-SkeletonRows, } from "@/core/ui";
+  SkeletonRows,
+} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import type { Project } from "@/core/types";

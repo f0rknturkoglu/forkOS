@@ -1623,6 +1623,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prune Opportunities
+         * @description 3 aydan (veya belirtilen günden) eski ilanları temizler.
+         */
+        post: operations["prune_opportunities_api_opportunities_prune_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{item_id}": {
         parameters: {
             query?: never;
@@ -9741,6 +9761,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FollowupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prune_opportunities_api_opportunities_prune_post: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

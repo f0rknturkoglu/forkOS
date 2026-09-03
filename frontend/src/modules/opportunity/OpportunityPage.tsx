@@ -3,7 +3,19 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { Kanban, LayoutGrid, List, Search, Settings2 } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
-import { Button, Empty, FilterChip, IconButton, Input, PageFrame, PageHeader, Section, Toolbar, cx, useToast } from "@/core/ui";
+import {
+  Button,
+  Empty,
+  FilterChip,
+  IconButton,
+  Input,
+  PageFrame,
+  PageHeader,
+  Section,
+  Toolbar,
+  cx,
+  useToast,
+} from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";

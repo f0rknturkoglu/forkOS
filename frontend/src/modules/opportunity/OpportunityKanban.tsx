@@ -37,13 +37,7 @@ interface KanbanCardProps {
   primaryStatus: string;
 }
 
-const KanbanCard = memo(function KanbanCard({
-  item,
-  disabled,
-  onOpen,
-  onStatus,
-  primaryStatus,
-}: KanbanCardProps) {
+const KanbanCard = memo(function KanbanCard({ item, disabled, onOpen, onStatus, primaryStatus }: KanbanCardProps) {
   const band = scoreBand(item.score ?? null);
   const tone = band ? SCORE_TONE[band] : "neutral";
   const left = daysLeft(item.deadline_at ?? null);
@@ -64,9 +58,7 @@ const KanbanCard = memo(function KanbanCard({
     >
       {/* Üst bilgi: Şirket ve Skor */}
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="truncate text-meta font-medium text-secondary">
-          {item.organization || "Bilinmeyen kurum"}
-        </span>
+        <span className="truncate text-meta font-medium text-secondary">{item.organization || "Bilinmeyen kurum"}</span>
         {item.score !== null && item.score !== undefined && (
           <Chip tone={tone}>{band === "killed" ? "Elendi" : `${item.score.toFixed(0)}p`}</Chip>
         )}
@@ -78,18 +70,14 @@ const KanbanCard = memo(function KanbanCard({
       {/* Etiketler */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5 text-micro">
         {remote && remote !== "unknown" && (
-          <Chip tone="neutral">
-            {remote === "remote" ? "Remote" : remote === "hybrid" ? "Hybrid" : "Ofis"}
-          </Chip>
+          <Chip tone="neutral">{remote === "remote" ? "Remote" : remote === "hybrid" ? "Hybrid" : "Ofis"}</Chip>
         )}
         {left !== null && (
           <Chip tone={left <= 3 ? "danger" : "warn"}>
             {left < 0 ? "Süresi geçti" : left === 0 ? "Son gün" : `${left}g kaldı`}
           </Chip>
         )}
-        {item.skill_match && (
-          <Chip tone="ok">CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}</Chip>
-        )}
+        {item.skill_match && <Chip tone="ok">CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}</Chip>}
         {item.status !== primaryStatus && <Chip tone="accent">{statusLabel(item.status)}</Chip>}
       </div>
 

@@ -30,7 +30,8 @@ import {
   hostOf,
   relativeTime,
   useToast,
-SkeletonRows, } from "@/core/ui";
+  SkeletonRows,
+} from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";

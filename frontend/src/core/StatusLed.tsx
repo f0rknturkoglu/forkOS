@@ -173,78 +173,76 @@ export function StatusLed() {
         ariaLabel="Sistem durumu"
         className="right-0 top-full mt-2 w-72"
       >
-          <div className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-2.5">
-            <span className="text-heading text-primary">Durum</span>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              title="Kapat"
-              aria-label="Kapat"
-              className="text-muted transition hover:text-primary"
-            >
-              <X size={14} />
-            </button>
-          </div>
+        <div className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-2.5">
+          <span className="text-heading text-primary">Durum</span>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            title="Kapat"
+            aria-label="Kapat"
+            className="text-muted transition hover:text-primary"
+          >
+            <X size={14} />
+          </button>
+        </div>
 
-          <div className="space-y-2 border-b border-subtle px-4 py-3">
-            {isError ? (
-              <p className="flex items-center gap-2 text-body text-danger">
-                <AlertTriangle size={15} className="shrink-0" /> Yerel API'ye ulaşılamıyor.
-              </p>
-            ) : sourceErrors === 0 && feedProblems === 0 ? (
-              <p className="flex items-center gap-2 text-body text-ok">
-                <CheckCircle2 size={15} className="shrink-0" /> Kaynaklar ve beslemeler sağlıklı.
-              </p>
-            ) : (
-              <>
-                {sourceErrors > 0 && (
-                  <p className="flex items-center gap-2 text-body text-danger">
-                    <AlertTriangle size={14} className="shrink-0" />
-                    {sourceErrors} kaynak son koşumda hata verdi
-                  </p>
-                )}
-                {feedProblems > 0 && (
-                  <p className="flex items-center gap-2 text-body text-warn">
-                    <AlertTriangle size={14} className="shrink-0" />
-                    {feedProblems} besleme sorunlu
-                  </p>
-                )}
-              </>
-            )}
-            <a href="#/health" className="inline-block text-meta text-accent hover:underline">
-              Sağlık paneli →
-            </a>
-          </div>
-
-          {data && (
-            <div className="space-y-3 px-4 py-3">
-              <Bar
-                label="CPU"
-                value={cpuUsed}
-                limit={{ warn: WARN.cpu, crit: CRIT.cpu }}
-                hint={data.load.length > 0 ? `yük ${data.load[0].toFixed(2)} · ${data.cpu_count} çekirdek` : undefined}
-                icon={<Cpu size={13} />}
-              />
-              <Bar
-                label="RAM"
-                value={memUsed}
-                limit={{ warn: WARN.mem, crit: CRIT.mem }}
-                icon={<MemoryStick size={13} />}
-              />
-              <Bar
-                label="Disk"
-                value={diskUsed}
-                limit={{ warn: WARN.disk, crit: CRIT.disk }}
-                hint={
-                  data.disk ? `${(data.disk.free / 1e9).toFixed(0)} GB boş · ${data.disk.path ?? "/app"}` : undefined
-                }
-                icon={<HardDrive size={13} />}
-              />
-              <p className="flex items-center gap-1.5 pt-1 text-meta text-muted">
-                <Clock4 size={12} /> Makine {fmtUptime(data.uptime_s)} açık
-              </p>
-            </div>
+        <div className="space-y-2 border-b border-subtle px-4 py-3">
+          {isError ? (
+            <p className="flex items-center gap-2 text-body text-danger">
+              <AlertTriangle size={15} className="shrink-0" /> Yerel API'ye ulaşılamıyor.
+            </p>
+          ) : sourceErrors === 0 && feedProblems === 0 ? (
+            <p className="flex items-center gap-2 text-body text-ok">
+              <CheckCircle2 size={15} className="shrink-0" /> Kaynaklar ve beslemeler sağlıklı.
+            </p>
+          ) : (
+            <>
+              {sourceErrors > 0 && (
+                <p className="flex items-center gap-2 text-body text-danger">
+                  <AlertTriangle size={14} className="shrink-0" />
+                  {sourceErrors} kaynak son koşumda hata verdi
+                </p>
+              )}
+              {feedProblems > 0 && (
+                <p className="flex items-center gap-2 text-body text-warn">
+                  <AlertTriangle size={14} className="shrink-0" />
+                  {feedProblems} besleme sorunlu
+                </p>
+              )}
+            </>
           )}
+          <a href="#/health" className="inline-block text-meta text-accent hover:underline">
+            Sağlık paneli →
+          </a>
+        </div>
+
+        {data && (
+          <div className="space-y-3 px-4 py-3">
+            <Bar
+              label="CPU"
+              value={cpuUsed}
+              limit={{ warn: WARN.cpu, crit: CRIT.cpu }}
+              hint={data.load.length > 0 ? `yük ${data.load[0].toFixed(2)} · ${data.cpu_count} çekirdek` : undefined}
+              icon={<Cpu size={13} />}
+            />
+            <Bar
+              label="RAM"
+              value={memUsed}
+              limit={{ warn: WARN.mem, crit: CRIT.mem }}
+              icon={<MemoryStick size={13} />}
+            />
+            <Bar
+              label="Disk"
+              value={diskUsed}
+              limit={{ warn: WARN.disk, crit: CRIT.disk }}
+              hint={data.disk ? `${(data.disk.free / 1e9).toFixed(0)} GB boş · ${data.disk.path ?? "/app"}` : undefined}
+              icon={<HardDrive size={13} />}
+            />
+            <p className="flex items-center gap-1.5 pt-1 text-meta text-muted">
+              <Clock4 size={12} /> Makine {fmtUptime(data.uptime_s)} açık
+            </p>
+          </div>
+        )}
       </Popover>
     </div>
   );

@@ -96,76 +96,76 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
         ariaLabel="Kayıtlı görünümler"
         className="right-0 top-11 w-80"
       >
-          <div className="flex items-center gap-2 border-b border-subtle px-3 py-2.5">
-            <Star size={13} className="text-icon" />
-            <span className="text-heading text-primary">Görünümler</span>
-          </div>
+        <div className="flex items-center gap-2 border-b border-subtle px-3 py-2.5">
+          <Star size={13} className="text-icon" />
+          <span className="text-heading text-primary">Görünümler</span>
+        </div>
 
-          {/* Mevcut filtreyi ad vererek kaydet */}
-          <div className="flex items-center gap-2 border-b border-subtle px-3 py-2.5">
-            <Input
-              value={name}
-              onChange={setName}
-              placeholder="Görünüm adı…"
-              ariaLabel="Görünüm adı"
-              className="min-w-0 flex-1"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && name.trim()) saveView.mutate({ name: name.trim() });
-              }}
-            />
-            <Button
-              size="sm"
-              disabled={!name.trim() || saveView.isPending}
-              onClick={() => saveView.mutate({ name: name.trim() })}
-            >
-              Kaydet
-            </Button>
-          </div>
+        {/* Mevcut filtreyi ad vererek kaydet */}
+        <div className="flex items-center gap-2 border-b border-subtle px-3 py-2.5">
+          <Input
+            value={name}
+            onChange={setName}
+            placeholder="Görünüm adı…"
+            ariaLabel="Görünüm adı"
+            className="min-w-0 flex-1"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && name.trim()) saveView.mutate({ name: name.trim() });
+            }}
+          />
+          <Button
+            size="sm"
+            disabled={!name.trim() || saveView.isPending}
+            onClick={() => saveView.mutate({ name: name.trim() })}
+          >
+            Kaydet
+          </Button>
+        </div>
 
-          {/* Kayıtlı görünümler */}
-          {views.length === 0 ? (
-            <p className="px-3 py-3 text-meta text-muted">Kayıtlı görünüm yok.</p>
-          ) : (
-            <ul className="max-h-72 overflow-y-auto py-1">
-              {views.map((view) => {
-                const active = JSON.stringify(view.filter ?? {}) === activeFilter;
-                return (
-                  <li key={view.id} className="group flex items-center gap-1 px-2 py-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onApply(view.filter ?? {});
-                        setOpen(false);
-                      }}
-                      className={cx(
-                        "h-8 min-w-0 flex-1 truncate rounded-control px-2 text-left text-meta transition",
-                        active
-                          ? "bg-accent-surface font-medium text-accent"
-                          : "text-secondary hover:bg-surface-hover hover:text-primary",
-                      )}
-                    >
-                      {view.name}
-                    </button>
-                    <IconButton
-                      title={view.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
-                      disabled={togglePin.isPending}
-                      onClick={() => togglePin.mutate(view)}
-                    >
-                      <Star size={14} className={view.pinned ? "fill-current text-accent" : ""} />
-                    </IconButton>
-                    <IconButton
-                      title={`"${view.name}" görünümünü sil`}
-                      tone="danger"
-                      disabled={removeView.isPending}
-                      onClick={() => removeView.mutate(view.id)}
-                    >
-                      <Trash2 size={14} />
-                    </IconButton>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+        {/* Kayıtlı görünümler */}
+        {views.length === 0 ? (
+          <p className="px-3 py-3 text-meta text-muted">Kayıtlı görünüm yok.</p>
+        ) : (
+          <ul className="max-h-72 overflow-y-auto py-1">
+            {views.map((view) => {
+              const active = JSON.stringify(view.filter ?? {}) === activeFilter;
+              return (
+                <li key={view.id} className="group flex items-center gap-1 px-2 py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onApply(view.filter ?? {});
+                      setOpen(false);
+                    }}
+                    className={cx(
+                      "h-8 min-w-0 flex-1 truncate rounded-control px-2 text-left text-meta transition",
+                      active
+                        ? "bg-accent-surface font-medium text-accent"
+                        : "text-secondary hover:bg-surface-hover hover:text-primary",
+                    )}
+                  >
+                    {view.name}
+                  </button>
+                  <IconButton
+                    title={view.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
+                    disabled={togglePin.isPending}
+                    onClick={() => togglePin.mutate(view)}
+                  >
+                    <Star size={14} className={view.pinned ? "fill-current text-accent" : ""} />
+                  </IconButton>
+                  <IconButton
+                    title={`"${view.name}" görünümünü sil`}
+                    tone="danger"
+                    disabled={removeView.isPending}
+                    onClick={() => removeView.mutate(view.id)}
+                  >
+                    <Trash2 size={14} />
+                  </IconButton>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Popover>
     </div>
   );

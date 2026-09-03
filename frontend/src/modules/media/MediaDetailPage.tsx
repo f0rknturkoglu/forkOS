@@ -37,10 +37,7 @@ function DetailCover({ item }: { item: MediaItem }) {
     <div
       role="img"
       aria-label={`${item.title} kapağı`}
-      className={cx(
-        className,
-        "flex items-center justify-center bg-surface-sunken  text-display text-secondary",
-      )}
+      className={cx(className, "flex items-center justify-center bg-surface-sunken  text-display text-secondary")}
     >
       {(item.title.trim().charAt(0) || "?").toUpperCase()}
     </div>
@@ -87,7 +84,10 @@ function MetadataEditor({ item, online, onChanged }: { item: MediaItem; online: 
       onSubmit={(event) => {
         event.preventDefault();
         const parsedScore = score === "" ? null : Number(score);
-        if (parsedScore !== null && (isNaN(parsedScore) || !Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 10)) {
+        if (
+          parsedScore !== null &&
+          (isNaN(parsedScore) || !Number.isInteger(parsedScore) || parsedScore < 0 || parsedScore > 10)
+        ) {
           setScoreError("Puan 0 ile 10 arasında bir tam sayı olmalıdır.");
           return;
         }
@@ -397,9 +397,7 @@ export function MediaDetailPage() {
                       <Button
                         size="sm"
                         disabled={!online || setCycleStatus.isPending}
-                        onClick={() =>
-                          setCycleStatus.mutate(openCycle.status === "paused" ? "in_progress" : "paused")
-                        }
+                        onClick={() => setCycleStatus.mutate(openCycle.status === "paused" ? "in_progress" : "paused")}
                       >
                         {openCycle.status === "paused" ? (
                           <>
@@ -419,11 +417,7 @@ export function MediaDetailPage() {
                     </>
                   ) : (
                     <>
-                      <Button
-                        size="sm"
-                        disabled={!online || startCycle.isPending}
-                        onClick={() => startCycle.mutate()}
-                      >
+                      <Button size="sm" disabled={!online || startCycle.isPending} onClick={() => startCycle.mutate()}>
                         <Play size={14} aria-hidden="true" /> İzlemeye başla
                       </Button>
                       {startCycle.error && (

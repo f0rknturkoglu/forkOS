@@ -17,12 +17,7 @@ export interface VirtualItem {
  * Sıfır harici bağımlılık ile çalışan hafif sanallaştırma (virtual list) hook'u.
  * Yalnızca ekranda görünen öğeleri ve overscan tamponunu DOM'a bağlar.
  */
-export function useVirtualizer({
-  count,
-  estimateSize = 74,
-  overscan = 5,
-  getScrollElement,
-}: VirtualOptions) {
+export function useVirtualizer({ count, estimateSize = 74, overscan = 5, getScrollElement }: VirtualOptions) {
   const [scrollTop, setScrollTop] = useState(0);
   const [clientHeight, setClientHeight] = useState(600);
 
@@ -39,15 +34,16 @@ export function useVirtualizer({
       setScrollTop(el.scrollTop);
     };
 
-    const resizeObserver = typeof ResizeObserver !== "undefined"
-      ? new ResizeObserver((entries) => {
-          for (const entry of entries) {
-            if (entry.target === el) {
-              setClientHeight(el.clientHeight);
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver((entries) => {
+            for (const entry of entries) {
+              if (entry.target === el) {
+                setClientHeight(el.clientHeight);
+              }
             }
-          }
-        })
-      : null;
+          })
+        : null;
 
     el.addEventListener("scroll", onScroll, { passive: true });
     if (resizeObserver) resizeObserver.observe(el);

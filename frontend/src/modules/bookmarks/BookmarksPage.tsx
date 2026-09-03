@@ -19,7 +19,8 @@ import {
   cx,
   hostOf,
   relativeTime,
-SkeletonRows, } from "@/core/ui";
+  SkeletonRows,
+} from "@/core/ui";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";

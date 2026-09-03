@@ -14287,6 +14287,48 @@
         ]
       }
     },
+    "/api/opportunities/prune": {
+      "post": {
+        "description": "3 aydan (veya belirtilen günden) eski ilanları temizler.",
+        "operationId": "prune_opportunities_api_opportunities_prune_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 90,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prune Opportunities",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/{item_id}": {
       "delete": {
         "operationId": "delete_api_opportunities__item_id__delete",

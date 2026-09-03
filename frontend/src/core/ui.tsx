@@ -1165,7 +1165,10 @@ export function Popover({
       ref={panelRef}
       role={role}
       aria-label={ariaLabel}
-      className={cx("absolute z-popover overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay", className)}
+      className={cx(
+        "absolute z-popover overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay",
+        className,
+      )}
     >
       {children}
     </div>

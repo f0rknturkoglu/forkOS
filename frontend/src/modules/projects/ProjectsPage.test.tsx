@@ -62,12 +62,7 @@ vi.mock("@/core/RelatedPanel", () => ({ RelatedPanel: () => null }));
 const DAY = 86_400_000;
 const at = (daysFromNow: number) => new Date(Date.now() + daysFromNow * DAY).toISOString();
 
-function milestone(
-  id: string,
-  projectId: string,
-  title: string,
-  overrides: Partial<Milestone> = {},
-): Milestone {
+function milestone(id: string, projectId: string, title: string, overrides: Partial<Milestone> = {}): Milestone {
   return { id, project_id: projectId, title, due_at: null, completed_at: null, position: 0, ...overrides };
 }
 

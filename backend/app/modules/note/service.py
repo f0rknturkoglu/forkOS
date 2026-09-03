@@ -7,7 +7,8 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from sqlalchemy import select, text as sa_text
+from sqlalchemy import select
+from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
