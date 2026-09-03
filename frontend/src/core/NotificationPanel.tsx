@@ -1,9 +1,9 @@
 import { invalidateAfter } from "./invalidation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bell, BellOff, CheckCheck, X } from "lucide-react";
 import { api } from "./api";
-import { Empty, cx, relativeTime } from "./ui";
+import { Empty, Popover, cx, relativeTime } from "./ui";
 import type { Notification } from "./types";
 import { entityRoute } from "./entityRegistry";
 
@@ -64,23 +64,6 @@ export function NotificationPanel() {
     onSuccess: () => invalidateAfter("notification.write"),
   });
 
-  // Disari tiklama ve Esc kapatir.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
   function openItem(item: Notification) {
     if (!item.read_at) read.mutate(item.id);
     location.hash = notificationRoute(item);
@@ -110,12 +93,14 @@ export function NotificationPanel() {
         )}
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Bildirimler"
-          className="absolute right-0 top-11 z-50 w-[380px] overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay"
-        >
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={rootRef}
+        role="dialog"
+        ariaLabel="Bildirimler"
+        className="right-0 top-11 w-[380px]"
+      >
           <div className="flex items-center gap-3 border-b border-subtle px-4 py-3">
             <h2 className="text-heading text-primary">Bildirimler</h2>
             {unread > 0 && (
@@ -196,8 +181,7 @@ export function NotificationPanel() {
               </ul>
             )}
           </div>
-        </div>
-      )}
+      </Popover>
     </div>
   );
 }

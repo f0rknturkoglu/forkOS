@@ -1,10 +1,10 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Check, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
 import { navigate } from "@/app/router";
-import { Button, Checkbox, Input, cx, relativeTime, useToast } from "@/core/ui";
+import { Button, Checkbox, Input, Popover, cx, relativeTime, useToast } from "@/core/ui";
 import type { SourceHealth, SourceRefreshResult, SourceSyncStatus } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
 import { sourceLabel } from "@/core/labels";
@@ -60,22 +60,6 @@ export function SourcePicker() {
     },
   });
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
   const visible = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("tr");
     return needle ? catalog.filter((source) => source.id.toLocaleLowerCase("tr").includes(needle)) : catalog;
@@ -127,13 +111,14 @@ export function SourcePicker() {
         )}
       </button>
 
-      {open && (
-        <div
-          role="listbox"
-          aria-label="Çekilecek kaynaklar"
-          aria-multiselectable="true"
-          className="absolute right-0 top-11 z-50 w-[420px] overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay"
-        >
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={rootRef}
+        role="listbox"
+        ariaLabel="Çekilecek kaynaklar"
+        className="right-0 top-11 w-[420px]"
+      >
           <div className="flex items-center gap-2.5 border-b border-subtle px-3 py-2.5">
             <Search size={15} className="shrink-0 text-icon" />
             <Input
@@ -229,8 +214,7 @@ export function SourcePicker() {
               Kaynakları çek{picked.size > 0 ? ` (${picked.size})` : ""}
             </Button>
           </div>
-        </div>
-      )}
+      </Popover>
     </div>
   );
 }

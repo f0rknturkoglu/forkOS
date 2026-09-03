@@ -1,9 +1,9 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bookmark, Star, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
-import { Button, IconButton, Input, cx } from "@/core/ui";
+import { Button, IconButton, Input, Popover, cx } from "@/core/ui";
 
 /** Kayıtlı görünüm satırı — GET /views yanıtıyla birebir. */
 export interface SavedViewRow {
@@ -75,22 +75,6 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
     onSuccess: refresh,
   });
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
   const activeFilter = JSON.stringify(cleanFilters(filters));
 
   return (
@@ -105,11 +89,13 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
         )}
       </Button>
 
-      {open && (
-        <div
-          aria-label="Kayıtlı görünümler"
-          className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay"
-        >
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={rootRef}
+        ariaLabel="Kayıtlı görünümler"
+        className="right-0 top-11 w-80"
+      >
           <div className="flex items-center gap-2 border-b border-subtle px-3 py-2.5">
             <Star size={13} className="text-icon" />
             <span className="text-heading text-primary">Görünümler</span>
@@ -180,8 +166,7 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
               })}
             </ul>
           )}
-        </div>
-      )}
+      </Popover>
     </div>
   );
 }

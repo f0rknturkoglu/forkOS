@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock4, Cpu, HardDrive, MemoryStick, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
-import { cx } from "@/core/ui";
+import { Popover, cx } from "@/core/ui";
 import type { RssStats, SourceHealth } from "@/core/types";
 
 interface SystemStats {
@@ -126,22 +126,6 @@ export function StatusLed() {
     queryFn: () => api.get<RssStats>("/rss/stats"),
   });
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
   const memUsed = data?.mem_total_kb ? 1 - (data.mem_available_kb ?? 0) / data.mem_total_kb : null;
   const diskUsed = data?.disk ? 1 - data.disk.free / data.disk.total : null;
   const cpuUsed = data?.cpu_pct === null || data?.cpu_pct === undefined ? null : data.cpu_pct / 100;
@@ -181,12 +165,14 @@ export function StatusLed() {
         <span className={cx("h-2 w-2 rounded-full ring-4 transition-colors", DOT[tone], RING[tone])} />
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label="Sistem durumu"
-          className="absolute right-0 top-full z-40 mt-2 w-72 rounded-overlay border border-strong bg-surface shadow-overlay"
-        >
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={rootRef}
+        role="dialog"
+        ariaLabel="Sistem durumu"
+        className="right-0 top-full mt-2 w-72"
+      >
           <div className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-2.5">
             <span className="text-heading text-primary">Durum</span>
             <button
@@ -259,8 +245,7 @@ export function StatusLed() {
               </p>
             </div>
           )}
-        </div>
-      )}
+      </Popover>
     </div>
   );
 }

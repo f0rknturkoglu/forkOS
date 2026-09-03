@@ -62,7 +62,7 @@ export function PageHeader({ eyebrow, title, action }: { eyebrow?: ReactNode; ti
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div>
         {eyebrow && <p className="label-caps">{eyebrow}</p>}
-        <h1 className="mt-1 font-serif text-title text-primary">{title}</h1>
+        <h1 className="mt-1  text-title text-primary">{title}</h1>
       </div>
       {action}
     </header>
@@ -893,7 +893,7 @@ export function Empty({
   }
   return (
     <div className="rounded-card border border-dashed border-subtle px-6 py-10 text-center">
-      {title && <p className="mb-1.5 font-serif text-title text-primary">{title}</p>}
+      {title && <p className="mb-1.5  text-title text-primary">{title}</p>}
       <p className="mx-auto max-w-md text-body text-secondary">{children}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
@@ -979,7 +979,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-5 left-1/2 z-toast flex -translate-x-1/2 flex-col gap-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
@@ -1029,4 +1029,135 @@ export function hostOf(url: string): string {
   } catch {
     return url;
   }
+}
+
+/* ── Primitifler (audit: her modul kendi carki yazmasin) ─────────────────── */
+
+/** Tek iskelet blogu (satir/kart). Boyut className ile (h-5, h-20 ...). */
+export function Skeleton({ className }: { className?: string }) {
+  return <div aria-hidden className={cx("animate-pulse rounded-card bg-surface-sunken", className)} />;
+}
+
+/** Liste iskeleti: `rows` adet esit yukseklikte satir. */
+export function SkeletonRows({ rows = 5, className }: { rows?: number; className?: string }) {
+  return (
+    <div aria-hidden className="w-full space-y-2">
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} className={cx("h-10", className)} />
+      ))}
+    </div>
+  );
+}
+
+/** WAI-ARIA tablist. Sol/sag ok ile gecis; badge sayisi saga yazilir. */
+export interface TabItem {
+  id: string;
+  label: string;
+  badge?: number;
+}
+
+export function Tabs<T extends string>({
+  value,
+  onChange,
+  items,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (next: T) => void;
+  items: TabItem[];
+  ariaLabel: string;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const onKeyDown: KeyboardEventHandler = (event) => {
+    const index = items.findIndex((tab) => tab.id === value);
+    if (index < 0) return;
+    let next = -1;
+    if (event.key === "ArrowRight") next = (index + 1) % items.length;
+    if (event.key === "ArrowLeft") next = (index - 1 + items.length) % items.length;
+    if (next < 0) return;
+    event.preventDefault();
+    const target = listRef.current?.querySelector<HTMLButtonElement>(`[role="tab"][data-id="${items[next].id}"]`);
+    onChange(items[next].id as T);
+    target?.focus();
+  };
+  return (
+    <div role="tablist" aria-label={ariaLabel} ref={listRef} onKeyDown={onKeyDown} className="flex items-center gap-1">
+      {items.map((tab) => {
+        const active = tab.id === value;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            data-id={tab.id}
+            aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(tab.id as T)}
+            className={cx(
+              "flex h-8 items-center gap-1.5 border-b-2 px-2.5 text-meta transition",
+              active
+                ? "border-accent font-medium text-primary"
+                : "border-transparent text-muted hover:border-strong hover:text-primary",
+            )}
+          >
+            <span>{tab.label}</span>
+            {tab.badge !== undefined && tab.badge > 0 && (
+              <span className={cx("tabular-nums", active ? "text-accent" : "text-muted")}>{tab.badge}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Capanali acilir panel: disari tik + Escape kapatir, z-popover katmaninda.
+ *  `anchorRef` verilirse tetikleyiciye tiklamak kapatmaz (toggle disarida yapilir). */
+export function Popover({
+  open,
+  onClose,
+  anchorRef,
+  role,
+  ariaLabel,
+  children,
+  className,
+}: {
+  open: boolean;
+  onClose: () => void;
+  anchorRef?: { current: HTMLElement | null } | null;
+  role?: string;
+  ariaLabel?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDown(event: MouseEvent) {
+      const target = event.target as Node;
+      const insidePanel = panelRef.current?.contains(target);
+      const insideAnchor = anchorRef?.current?.contains(target);
+      if (!insidePanel && !insideAnchor) onClose();
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose, anchorRef]);
+  if (!open) return null;
+  return (
+    <div
+      ref={panelRef}
+      role={role}
+      aria-label={ariaLabel}
+      className={cx("absolute z-popover overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay", className)}
+    >
+      {children}
+    </div>
+  );
 }
