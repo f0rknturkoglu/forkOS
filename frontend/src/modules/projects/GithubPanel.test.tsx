@@ -214,4 +214,37 @@ describe("project GitHub hub", () => {
     expect((screen.getByRole("button", { name: "GitHub verisini yenile" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/çevrimdışı/i)).toBeTruthy();
   });
+
+  it("header ozet satiri depo istatistiklerini ve haftalik commit sayisini gosterir", async () => {
+    const recent = Array.from({ length: 2 }, (_, index) => ({
+      sha: `week${index}`,
+      message: `Weekly commit ${index}`,
+      url: `https://github.com/owner/repo/commit/week${index}`,
+      author: "owner",
+      committed_at: new Date(Date.now() - index * 86_400_000).toISOString(),
+    }));
+    harness.apiGet.mockResolvedValue({ ...panel, commits: recent });
+    renderPanel();
+
+    const line = await screen.findByTestId("github-repo-stats");
+    expect(line.textContent).toContain("TypeScript");
+    expect(line.textContent).toContain("açık issue");
+    expect(line.textContent).toContain("son push");
+    expect(line.textContent).toContain("bu hafta 2 commit");
+  });
+
+  it("10 commit ile sinirli listede pencere dolunca '10+' gosterir", async () => {
+    const saturated = Array.from({ length: 10 }, (_, index) => ({
+      sha: `sat${index}`,
+      message: `Saturated commit ${index}`,
+      url: `https://github.com/owner/repo/commit/sat${index}`,
+      author: "owner",
+      committed_at: new Date(Date.now() - index * 3_600_000).toISOString(),
+    }));
+    harness.apiGet.mockResolvedValue({ ...panel, commits: saturated });
+    renderPanel();
+
+    const line = await screen.findByTestId("github-repo-stats");
+    expect(line.textContent).toContain("bu hafta 10+ commit");
+  });
 });

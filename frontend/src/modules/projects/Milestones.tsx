@@ -68,7 +68,7 @@ export function Milestones({ project }: { project: Project }) {
                   onClick={() => toggle.mutate({ id: item.id, completed: !done })}
                   aria-label={done ? "Tamamlanmadı olarak işaretle" : "Tamamla"}
                   className={cx(
-                    "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition",
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition",
                     done
                       ? "border-ok bg-ok text-canvas"
                       : "border-strong text-transparent hover:border-accent hover:text-accent",

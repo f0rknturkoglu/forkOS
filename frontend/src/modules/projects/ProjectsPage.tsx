@@ -18,7 +18,7 @@ import {
   cx,
   relativeTime,
   useToast,
-} from "@/core/ui";
+SkeletonRows, } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import type { Project } from "@/core/types";
@@ -26,6 +26,7 @@ import { RelatedPanel } from "@/core/RelatedPanel";
 import { GithubPanel } from "./GithubPanel";
 import { ProjectTodos } from "./ProjectTodos";
 import { Milestones } from "./Milestones";
+import { MilestoneTimeline } from "./MilestoneTimeline";
 import { ProjectJournal } from "./ProjectJournal";
 
 const STATUSES = [
@@ -93,7 +94,7 @@ export function ProjectsPage() {
       )}
 
       {isLoading ? (
-        <p className="text-body text-muted">Yükleniyor…</p>
+        <SkeletonRows rows={6} />
       ) : projects.length === 0 ? (
         <Empty variant="page" title="Henüz proje yok">
           Bir proje aç, GitHub deposunu bağla; issue'ları buradan göreve çevirirsin.
@@ -242,6 +243,7 @@ function ProjectDetail({ project }: { project: Project }) {
 
       <GithubPanel project={project} />
       <Milestones project={project} />
+      <MilestoneTimeline project={project} />
       <ProjectTodos project={project} />
 
       <ProjectJournal projectId={project.id} />

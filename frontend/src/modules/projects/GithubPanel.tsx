@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Plus,
   RefreshCw,
+  Star,
 } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
@@ -44,6 +45,20 @@ function timestampValue(value: string | null): number {
   if (!value) return 0;
   const parsed = new Date(value).getTime();
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Son 7 gundeki commit sayisi (kayan pencere). `/commits` listesi en yeni 10
+ * commit ile sinirli -- yogun repolarda sayi en fazla 10 gorunur; istemci
+ * yeni ag cagrisi yapmaz, yaklasim bilincli bir tavan.
+ */
+function commitsThisWeek(commits: GithubRepoPanel["commits"]): number {
+  const cutoff = Date.now() - 7 * 86_400_000;
+  return commits.filter((commit) => {
+    if (!commit.committed_at) return false;
+    const at = new Date(commit.committed_at).getTime();
+    return !Number.isNaN(at) && at >= cutoff;
+  }).length;
 }
 
 export function githubActivities(data: GithubRepoPanel): GithubActivity[] {
@@ -163,6 +178,10 @@ export function GithubPanel({ project }: { project: Project }) {
     pull: data?.pulls.length ?? 0,
     commit: data?.commits.length ?? 0,
   };
+  const weekCommits = data ? commitsThisWeek(data.commits) : 0;
+  // Liste 10 commit ile sinirli: pencere tamamen doluysa gercek sayi
+  // bilinmez, "10+" olarak gosterilir (yaklasim, yeni ag cagrisi yok).
+  const weekCommitsLabel = data && data.commits.length === 10 && weekCommits === 10 ? "10+" : String(weekCommits);
   const error = refresh.error ?? query.error;
 
   return (
@@ -204,6 +223,24 @@ export function GithubPanel({ project }: { project: Project }) {
                 GitHub'dan {relativeTime(data.fetched_at)} alındı
                 {!data.authenticated && " · token bağlı değil"}
               </p>
+              <div
+                data-testid="github-repo-stats"
+                className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-secondary"
+              >
+                <span className="inline-flex items-center gap-1" title="GitHub yıldızı">
+                  <Star size={11} className="text-feed-gh" aria-hidden />
+                  <span className="tabular-nums">{data.stars}</span>
+                </span>
+                <span>
+                  <span className="tabular-nums">{data.open_issues}</span> açık issue
+                </span>
+                {data.language && <span>{data.language}</span>}
+                <span>son push {data.pushed_at ? relativeTime(data.pushed_at) : "—"}</span>
+                <span className="inline-flex items-center gap-1">
+                  <GitCommitHorizontal size={11} aria-hidden />
+                  bu hafta <span className="tabular-nums">{weekCommitsLabel}</span> commit
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-1.5">
               <a
@@ -270,7 +307,7 @@ export function GithubPanel({ project }: { project: Project }) {
                       : "border-transparent text-muted hover:border-subtle hover:text-primary",
                   )}
                 >
-                  {label} <span className="numeral text-muted">{counts[id]}</span>
+                  {label} <span className="tabular-nums text-muted">{counts[id]}</span>
                 </button>
               ))}
             </div>
@@ -373,13 +410,13 @@ function ActivityRow({
         </div>
         {activity.kind === "commit" ? (
           <p className="mt-0.5 flex flex-wrap gap-x-2 text-meta text-muted">
-            <span className="numeral">{activity.commit.sha}</span>
+            <span className="tabular-nums">{activity.commit.sha}</span>
             {activity.commit.author && <span>{activity.commit.author}</span>}
             {activity.timestamp && <span>{relativeTime(activity.timestamp)}</span>}
           </p>
         ) : (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
-            <span className="numeral">#{activity.issue.number}</span>
+            <span className="tabular-nums">#{activity.issue.number}</span>
             {activity.issue.author && <span>{activity.issue.author}</span>}
             {activity.issue.comments > 0 && (
               <span className="inline-flex items-center gap-1">

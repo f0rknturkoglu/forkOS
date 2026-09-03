@@ -4,7 +4,7 @@ import { CalendarDays } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { ProjectEvent, ProjectJournalDay } from "@/core/types";
-import { Empty, Field, Input, Section, SectionHeader, Textarea, cx, relativeTime, useToast } from "@/core/ui";
+import { Empty, Field, Input, Section, SectionHeader, Textarea, cx, relativeTime, useToast, Skeleton } from "@/core/ui";
 import { VERB_LABELS } from "@/core/verbs";
 import { keyToUtc, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
@@ -33,11 +33,11 @@ function eventText(event: ProjectEvent): string | null {
   );
 }
 
-export function visibleProjectEvents(events: ProjectEvent[]): ProjectEvent[] {
+function visibleProjectEvents(events: ProjectEvent[]): ProjectEvent[] {
   return events.filter((event) => !event.verb.startsWith("note."));
 }
 
-export function projectEventLabel(verb: string): string {
+function projectEventLabel(verb: string): string {
   return VERB_LABELS[verb] ?? "Proje hareketi";
 }
 
@@ -147,7 +147,7 @@ export function ProjectJournal({ projectId }: { projectId: string }) {
         <div className="border-t border-subtle bg-surface px-3 py-2">
           <SectionHeader label="Günün hareketleri" hint={`${activeEvents.length}`} />
           {journalQuery.isLoading ? (
-            <p className="py-2 text-meta text-muted">Yükleniyor…</p>
+            <Skeleton className="h-16 w-full" />
           ) : journalQuery.isError ? (
             <p className="py-2 text-meta text-danger">Proje hareketleri alınamadı.</p>
           ) : activeEvents.length === 0 ? (
