@@ -1,5 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";

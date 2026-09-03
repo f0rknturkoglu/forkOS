@@ -117,7 +117,7 @@ export function ReviewSession({ deckId, onClose }: { deckId: string; onClose: ()
           className="w-full max-w-xl cursor-pointer rounded-card border border-subtle bg-surface px-6 py-8 text-center outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={() => setRevealed(true)}
         >
-          <p className=" text-xl text-primary">{current.front}</p>
+          <p className="text-title text-primary">{current.front}</p>
           {revealed && <p className="mt-4 border-t border-subtle pt-4 text-body text-secondary">{current.back}</p>}
           {!revealed && <p className="mt-4 text-meta text-muted">Çevirmek için tıkla ya da boşluk</p>}
         </div>
