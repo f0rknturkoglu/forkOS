@@ -399,41 +399,51 @@ export function RssPage() {
     if (target) openItem(target);
   }
 
-  function onListKeyDown(e: React.KeyboardEvent) {
+  // Sayfa seviyesinde guvenilir J/K klavye gezintisi: kullanici listeden
+  // baska yere tiklasa bile (input/textarea haric) kisayollar kesilmez.
+  useEffect(() => {
     if (items.length === 0) return;
-    if (e.key === "j" || e.key === "ArrowDown") {
-      e.preventDefault();
-      step(1);
-      return;
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        step(1);
+        return;
+      }
+      if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        step(-1);
+        return;
+      }
+      if (e.key === "u" || e.key === "Enter") {
+        e.preventDefault();
+        const it = items[index >= 0 ? index : 0];
+        if (it) markRead.mutate({ id: it.id, read: !it.read_at });
+        return;
+      }
+      if (e.key === "s" || e.key === "S") {
+        e.preventDefault();
+        const it = items[index >= 0 ? index : 0];
+        if (it && !it.saved_bookmark_id) save.mutate({ id: it.id, collection: "read_later" });
+        return;
+      }
+      if (e.key === "J") {
+        e.preventDefault();
+        const next = items.find((i, idx) => idx > index && !i.read_at) ?? items.find((i) => !i.read_at);
+        if (next) openItem(next);
+        return;
+      }
+      if (e.key === "Escape") {
+        setSelectedId(null);
+        return;
+      }
     }
-    if (e.key === "k" || e.key === "ArrowUp") {
-      e.preventDefault();
-      step(-1);
-      return;
-    }
-    if (e.key === "u" || e.key === "Enter") {
-      e.preventDefault();
-      const it = items[index >= 0 ? index : 0];
-      if (it) markRead.mutate({ id: it.id, read: !it.read_at });
-      return;
-    }
-    if (e.key === "s" || e.key === "S") {
-      e.preventDefault();
-      const it = items[index >= 0 ? index : 0];
-      if (it && !it.saved_bookmark_id) save.mutate({ id: it.id, collection: "read_later" });
-      return;
-    }
-    if (e.key === "J") {
-      e.preventDefault();
-      const next = items.find((i, idx) => idx > index && !i.read_at) ?? items.find((i) => !i.read_at);
-      if (next) openItem(next);
-      return;
-    }
-    if (e.key === "Escape") {
-      setSelectedId(null);
-      return;
-    }
-  }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [items, index, markRead, save, openItem, step]);
 
   const selectedFeed = feeds.find((f) => f.id === feedId);
   const title = feedId ? (selectedFeed?.title ?? "RSS") : (categorySel ?? SMART_LABELS[smart]);
@@ -661,7 +671,7 @@ export function RssPage() {
                 {smart === "unread" && !feedId ? "Okunacak yazı yok — hepsi yakalandı." : "Bu görünümde yazı yok."}
               </Empty>
             ) : (
-              <ul className="divide-y divide-subtle outline-none" onKeyDown={onListKeyDown} tabIndex={0}>
+              <ul className="divide-y divide-subtle outline-none">
                 {items.map((item) => (
                   <ItemRow
                     key={item.id}
