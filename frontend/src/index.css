@@ -233,7 +233,8 @@
 
 .dashboard-grid {
   display: grid;
-  grid-template-areas: "main" "left" "right";
+  /* Mobilde Plan (left) once; haber akisi (main) gorevlerin onune gecmez */
+  grid-template-areas: "left" "main" "right";
   gap: 1.25rem;
 }
 
