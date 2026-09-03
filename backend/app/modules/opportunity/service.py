@@ -78,10 +78,19 @@ def _calculate_skill_match(
     matched: list[str] = []
     if isinstance(reasons, dict):
         skills = reasons.get("skills")
-        if isinstance(skills, list):
+        if isinstance(skills, dict):
+            for k in skills.keys():
+                name = str(k).strip().lower()
+                if name and name not in matched:
+                    matched.append(name)
+        elif isinstance(skills, list):
             for s in skills:
                 if isinstance(s, dict) and "name" in s:
                     name = str(s["name"]).strip().lower()
+                    if name and name not in matched:
+                        matched.append(name)
+                elif isinstance(s, str):
+                    name = s.strip().lower()
                     if name and name not in matched:
                         matched.append(name)
 
