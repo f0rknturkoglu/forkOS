@@ -7,8 +7,9 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import select, text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.core import refs as ref_svc
 from app.core import tags as tag_svc
@@ -66,6 +67,7 @@ def _out(
     tags: list[str] | None = None,
     unresolved: list[str] | None = None,
     links: list[dict] | None = None,
+    attachments: list[dict] | None = None,
 ) -> NoteOut:
     # created/updated Entity'de yasar (modul tablosunda kolon yok).
     return NoteOut(
@@ -80,7 +82,10 @@ def _out(
         tags=tags or [],
         unresolved_links=unresolved or [],
         resolved_links=links or [],
-        attachments=[_attachment_out(note.id, item) for item in (note.attachments or [])],
+        attachments=[
+            _attachment_out(note.id, item)
+            for item in (attachments if attachments is not None else (note.attachments or []))
+        ],
     )
 
 
@@ -92,6 +97,39 @@ def _attachment_out(note_id: uuid.UUID, item: dict) -> dict:
         "size": item["size"],
         "url": f"/api/notes/{note_id}/attachments/{item['id']}",
     }
+
+
+async def _attachments_metadata(
+    session: AsyncSession, note_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[dict]]:
+    """Notlarin ek METADATA'sini (veri olmadan) tek sorguda toplar.
+
+    JSONB icindeki base64 `data` alani listeleme icin gereksiz; dosya icerigi
+    yalnizca /attachments/{id} indirme ucunda decode edilir. Bos liste donerse
+    bos sozluk (ek sorgu atilmaz).
+    """
+    if not note_ids:
+        return {}
+    rows = (
+        await session.execute(
+            sa_text(
+                """
+                select n.id,
+                  coalesce((
+                    select jsonb_agg(jsonb_build_object(
+                      'id', a->>'id', 'name', a->>'name',
+                      'mime', a->>'mime', 'size', (a->>'size')::int
+                    ))
+                    from jsonb_array_elements(n.attachments) a
+                  ), '[]'::jsonb) as meta
+                from note n
+                where n.id = any(:ids)
+                """
+            ),
+            {"ids": note_ids},
+        )
+    ).all()
+    return {row.id: list(row.meta) for row in rows}
 
 
 def prepare_attachment(filename: str | None, mime: str | None, content: bytes) -> dict:
@@ -229,9 +267,13 @@ async def list_notes(
     Bagli notlari cagiran tarafta tek tek cekmek yerine tek sorgu -- konu
     detayi acilirken N+1 olmasin.
     """
+    # attachments JSONB'i (base64 veri icerir) listelemede YUKLEME -- boyutu
+    # 25MB'a cikabilen veriyi RAM'e tasiyip atmak yerine yalnizca metadata
+    # SQL'de cikarilir. Detay cagrisi (get) tam satiri yukler, orasi yeter.
     stmt = (
         select(Note, Entity.title, Entity.created_at, Entity.updated_at)
         .join(Entity, Entity.id == Note.id)
+        .options(defer(Note.attachments))
         .order_by(Note.pinned.desc(), Entity.updated_at.desc())
     )
     if about is not None:
@@ -241,11 +283,13 @@ async def list_notes(
     if not include_archived:
         stmt = stmt.where(Entity.archived_at.is_(None))
     rows = (await session.execute(stmt)).all()
-    tags = await tag_svc.tags_for(session, [note.id for note, _, _, _ in rows])
+    note_ids = [note.id for note, _, _, _ in rows]
+    tags = await tag_svc.tags_for(session, note_ids)
     per_note = {note.id: ref_svc.parse_wikilinks(note.body) for note, _, _, _ in rows}
     resolved = await ref_svc.resolve_titles(
         session, list({t for targets in per_note.values() for t in targets})
     )
+    attachments_by_note = await _attachments_metadata(session, note_ids)
     out: list[NoteOut] = []
     for note, title, created, updated in rows:
         targets = per_note[note.id]
@@ -258,6 +302,7 @@ async def list_notes(
                     for t in targets
                     if t in resolved
                 ],
+                attachments=attachments_by_note.get(note.id),
             )
         )
     return out
