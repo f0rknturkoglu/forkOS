@@ -6,6 +6,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.time import local_today
+
 # Rozeti/logosu hazir gelen markalar. Liste KISIT DEGIL: "sub" serbest bir
 # slug'dir, buradakiler yalnizca arayuzde renkli rozet kazanir. Netflix'i
 # eklemek icin once bu listeye yazmak gerekmiyor.
@@ -43,7 +45,7 @@ class ExpenseIn(BaseModel):
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     currency: str = Field(default="TRY", min_length=3, max_length=3)
     category: str = "other"
-    spent_on: date = Field(default_factory=date.today)
+    spent_on: date = Field(default_factory=local_today)
     note: str | None = None
     sub: str | None = None
 
@@ -73,7 +75,7 @@ class IncomeIn(BaseModel):
     amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     currency: str = Field(default="TRY", min_length=3, max_length=3)
     category: str = "salary"
-    received_on: date = Field(default_factory=date.today)
+    received_on: date = Field(default_factory=local_today)
     note: str | None = None
 
 

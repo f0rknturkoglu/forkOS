@@ -4,6 +4,8 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
+from app.core.time import local_today
+
 from sqlalchemy import CHAR, Boolean, Date, Numeric, SmallInteger, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,7 +21,7 @@ class Expense(EntityBacked, Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(CHAR(3), default="TRY")
     category: Mapped[str] = mapped_column(Text)
-    spent_on: Mapped[date] = mapped_column(Date, default=date.today)
+    spent_on: Mapped[date] = mapped_column(Date, default=local_today)
     note: Mapped[str | None] = mapped_column(Text)
     # abonelik markasi (netflix/spotify/...) -- gorsel rozet icin serbest slug
     sub: Mapped[str | None] = mapped_column(Text)
@@ -35,7 +37,7 @@ class Income(EntityBacked, Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(CHAR(3), default="TRY")
     category: Mapped[str] = mapped_column(Text, default="salary")
-    received_on: Mapped[date] = mapped_column(Date, default=date.today)
+    received_on: Mapped[date] = mapped_column(Date, default=local_today)
     note: Mapped[str | None] = mapped_column(Text)
 
 
