@@ -4,7 +4,7 @@ import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx } from "@/core/ui";
+import { Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx, SkeletonRows } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
 import { TodoRow } from "./TodoRow";
@@ -199,7 +199,7 @@ export function TodoPage() {
       )}
 
       {isLoading ? (
-        <p className="text-body text-muted">Yükleniyor…</p>
+        <SkeletonRows rows={8} />
       ) : visible.length === 0 ? (
         <Empty variant="page" title="Liste boş">
           {tag

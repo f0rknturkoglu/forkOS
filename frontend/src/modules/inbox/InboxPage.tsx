@@ -30,7 +30,7 @@ import {
   hostOf,
   relativeTime,
   useToast,
-} from "@/core/ui";
+SkeletonRows, } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";
@@ -385,7 +385,7 @@ export function InboxPage() {
               <span className="text-meta text-muted">{data.length} kayıt</span>
             </div>
             {isLoading ? (
-              <p className="text-body text-muted">Yükleniyor…</p>
+              <SkeletonRows rows={6} />
             ) : data.length === 0 ? (
               <Empty>Gelen kutusu boş. Tarayıcıdan Ctrl+Shift+S ile kaydet.</Empty>
             ) : (
@@ -443,7 +443,7 @@ export function InboxPage() {
 
         <DragOverlay>
           {dragging && (
-            <div className="rounded border border-accent-border bg-surface px-3 py-2 text-body shadow-xl">
+            <div className="rounded border border-accent-border bg-surface px-3 py-2 text-body shadow-overlay">
               {dragging.title || dragging.url}
             </div>
           )}

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ClipboardCheck } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
-import { Button, Chip, Empty, PageFrame, PageHeader, Section, Toolbar, cx, relativeTime } from "@/core/ui";
+import { Button, Chip, Empty, PageFrame, PageHeader, Section, SkeletonRows, Toolbar, cx, relativeTime } from "@/core/ui";
 import { formatTrDate, localDateKey } from "@/lib/date";
 import { typeLabel } from "@/core/entityRegistry";
 import type { ActivityEvent, SourceHealth } from "@/core/types";
@@ -134,7 +134,7 @@ export function ActivityPage() {
       )}
 
       {isLoading ? (
-        <p className="text-body text-muted">Yükleniyor…</p>
+        <SkeletonRows rows={6} />
       ) : events.length === 0 ? (
         <Empty>Henüz kayıt yok.</Empty>
       ) : (

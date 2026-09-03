@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { FileUp, Layers, Plus, Trash2 } from "lucide-react";
-import { Button, Chip, Empty, FileInput, IconButton, Input, RowList, Section, useToast } from "@/core/ui";
+import { Button, Chip, Empty, FileInput, IconButton, Input, RowList, Section, useToast, SkeletonRows } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import { createDeck, deleteDeck, importDeck, listDecks } from "./api";
@@ -112,7 +112,7 @@ export function DeckList({ onOpen }: { onOpen: (deckId: string) => void }) {
     <div className="space-y-5">
       <Section title="Destekler" hint={decks.length ? `${decks.length} destek` : undefined}>
         {isLoading ? (
-          <p className="py-6 text-center text-meta text-muted">Yükleniyor…</p>
+          <SkeletonRows rows={5} className="h-12" />
         ) : decks.length === 0 ? (
           <Empty title="Henüz destek yok">İlk kart desteni oluştur ya da Anki (.apkg) / CSV dosyası içe aktar.</Empty>
         ) : (

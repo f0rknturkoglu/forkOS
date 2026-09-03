@@ -19,7 +19,7 @@ import {
   cx,
   hostOf,
   relativeTime,
-} from "@/core/ui";
+SkeletonRows, } from "@/core/ui";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
@@ -248,7 +248,7 @@ export function BookmarksPage() {
           </Toolbar>
 
           {isLoading ? (
-            <p className="text-body text-muted">Yükleniyor…</p>
+            <SkeletonRows rows={8} />
           ) : data.length === 0 ? (
             <Empty>Bu filtreye uyan kayıt yok.</Empty>
           ) : (

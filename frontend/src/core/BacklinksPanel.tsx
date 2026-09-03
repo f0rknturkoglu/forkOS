@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CornerDownLeft } from "lucide-react";
 import { api } from "./api";
 import { entityRoute, typeLabel } from "./entityRegistry";
-import { Chip, Empty, RowList, Section } from "./ui";
+import { Chip, Empty, RowList, Section, SkeletonRows } from "./ui";
 
 interface BacklinkRow {
   id: string;
@@ -27,7 +27,7 @@ export function BacklinksPanel({ entityId, title = "Buraya bağlananlar" }: { en
   return (
     <Section title={title} hint={data.length ? `${data.length} bağlantı` : undefined}>
       {isLoading ? (
-        <Empty>Yükleniyor…</Empty>
+        <SkeletonRows rows={3} className="h-9" />
       ) : data.length === 0 ? (
         <Empty>Henüz kimse buraya bağlanmamış. Bir notta [[{"başlık"}]] yazınca burada görünür.</Empty>
       ) : (

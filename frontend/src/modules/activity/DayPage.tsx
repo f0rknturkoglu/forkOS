@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { Chip, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx } from "@/core/ui";
+import { Chip, Empty, Metric, MetricStrip, PageFrame, PageHeader, Section, cx, SkeletonRows } from "@/core/ui";
 import { useHashRoute } from "@/app/router";
 import type { DayDetail } from "@/core/types";
 import { formatTrDate, formatTrDateTime, localDateKey } from "@/lib/date";
@@ -87,7 +87,7 @@ export function DayPage() {
       />
 
       {isLoading ? (
-        <p className="text-body text-muted">Yükleniyor…</p>
+        <SkeletonRows rows={6} />
       ) : !data || data.events.length === 0 ? (
         <Empty variant="page" title="Bu günden kayıt yok">
           O gün forkOS kapalıydı ya da hiçbir şey işlenmedi.

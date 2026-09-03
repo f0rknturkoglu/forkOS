@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Section, cx } from "@/core/ui";
+import { Section, cx, Skeleton } from "@/core/ui";
 import type { Heatmap as HeatmapData, HeatmapDay } from "@/core/types";
 import { formatTrDate } from "@/lib/date";
 
@@ -56,7 +56,7 @@ export function Heatmap({ days = 365 }: { days?: number }) {
   if (!data) {
     return (
       <Section title="Emek haritası">
-        <p className="py-4 text-center text-meta text-muted">Yükleniyor…</p>
+        <Skeleton className="h-24 w-full" />
       </Section>
     );
   }

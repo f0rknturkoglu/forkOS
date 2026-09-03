@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ChevronLeft, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from "lucide-react";
-import { Button, Chip, Empty, IconButton, Input, RowList, Section, useToast } from "@/core/ui";
+import { Button, Chip, Empty, IconButton, Input, RowList, Section, useToast, SkeletonRows } from "@/core/ui";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
@@ -154,7 +154,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
             </div>
           ) : (
             <>
-              <h1 className="min-w-0 truncate font-serif text-title text-primary">{deck?.title ?? "Kartlar"}</h1>
+              <h1 className="min-w-0 truncate  text-title text-primary">{deck?.title ?? "Kartlar"}</h1>
               <IconButton
                 title="Destek adını değiştir"
                 onClick={() => {
@@ -211,7 +211,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
 
           <Section title="Kartlar" hint={cards.length ? `${cards.length} kart` : undefined}>
             {isLoading ? (
-              <p className="py-6 text-center text-meta text-muted">Yükleniyor…</p>
+              <SkeletonRows rows={4} className="h-9" />
             ) : cards.length === 0 ? (
               <Empty title="Bu destekte kart yok">
                 İlk kartı yukarıdaki formla ekle ya da destek listesinden CSV/Anki dosyası içe aktar.

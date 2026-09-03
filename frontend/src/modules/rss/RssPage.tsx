@@ -15,7 +15,7 @@ import {
   cx,
   relativeTime,
   useToast,
-} from "@/core/ui";
+SkeletonRows, } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import { navigate, useHashRoute } from "@/app/router";
@@ -625,7 +625,7 @@ export function RssPage() {
         <section className="flex min-h-[420px] min-w-0 flex-col border-b border-subtle md:border-b-0 xl:border-r">
           <div className="border-b border-subtle px-4 py-2.5">
             <div className="flex items-center gap-2">
-              <h2 className="min-w-0 flex-1 truncate font-serif text-heading text-primary">{title}</h2>
+              <h2 className="min-w-0 flex-1 truncate  text-heading text-primary">{title}</h2>
               {(feedId || categorySel || smart === "all") && (
                 <Button
                   size="sm"
@@ -655,7 +655,7 @@ export function RssPage() {
 
           <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
             {isLoading ? (
-              <p className="py-6 text-center text-meta text-muted">Yükleniyor…</p>
+              <SkeletonRows rows={5} className="h-9" />
             ) : items.length === 0 ? (
               <Empty>
                 {smart === "unread" && !feedId ? "Okunacak yazı yok — hepsi yakalandı." : "Bu görünümde yazı yok."}
