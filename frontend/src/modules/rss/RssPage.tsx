@@ -1,6 +1,7 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import {
@@ -299,6 +300,16 @@ export function RssPage() {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["items", itemParams],
     queryFn: () => api.get<FeedItem[]>(`/rss/items${qs(itemParams)}`),
+  });
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const feedMap = useMemo(() => new Map(feeds.map((f) => [f.id, f])), [feeds]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 74,
+    overscan: 5,
   });
 
   const { data: detail } = useQuery({
@@ -663,7 +674,7 @@ export function RssPage() {
             <p className="mt-1 text-meta text-muted">{items.length} yazı</p>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+          <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
             {isLoading ? (
               <SkeletonRows rows={5} className="h-9" />
             ) : items.length === 0 ? (
@@ -671,17 +682,38 @@ export function RssPage() {
                 {smart === "unread" && !feedId ? "Okunacak yazı yok — hepsi yakalandı." : "Bu görünümde yazı yok."}
               </Empty>
             ) : (
-              <ul className="divide-y divide-subtle outline-none">
-                {items.map((item) => (
-                  <ItemRow
-                    key={item.id}
-                    item={item}
-                    feed={feeds.find((x) => x.id === item.feed_id)}
-                    selected={selectedId === item.id}
-                    onOpen={() => openItem(item)}
-                  />
-                ))}
-              </ul>
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const item = items[virtualRow.index];
+                  return (
+                    <div
+                      key={item.id}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <ItemRow
+                        item={item}
+                        feed={feedMap.get(item.feed_id)}
+                        selected={selectedId === item.id}
+                        onOpen={() => openItem(item)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </section>

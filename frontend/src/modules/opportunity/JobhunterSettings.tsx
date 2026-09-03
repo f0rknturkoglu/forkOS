@@ -35,7 +35,7 @@ const WEIGHT_KEYS: [string, string][] = [
 /** Jobhunter ayar çarkı: uyum profili, LinkedIn profilleri, ortam. */
 export function JobhunterSettings({ onClose }: { onClose: () => void }) {
   const toast = useToast();
-  const [section, setSection] = useState<"profile" | "linkedin" | "env">("profile");
+  const [section, setSection] = useState<"profile" | "linkedin" | "env" | "maintenance">("profile");
 
   const { data: config, refetch: refetchConfig } = useQuery({
     queryKey: ["jobhunter-config"],
@@ -151,6 +151,7 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
               ["profile", "Uyum profili"],
               ["linkedin", "LinkedIn profilleri"],
               ["env", "Ortam"],
+              ["maintenance", "Veri Temizliği"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -283,6 +284,29 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
                 Bu değerler container başlarken okunur — değiştirmek için compose.yaml env bölümünü düzenle, sonra make
                 down && make up.
               </p>
+            </Section>
+          )}
+
+          {section === "maintenance" && (
+            <Section title="Eski İlanları Temizle (90+ Gün)">
+              <p className="mb-3 text-meta text-muted">
+                3 aydan (90 gün) eski olan ve aktif olarak ilgilenmediğin (başvurulmamış veya sonuçlanmış) iş ilanları
+                veritabanından kalıcı olarak silinir. Bu işlem disk alanını boşaltır ve sorgu hızını artırır.
+              </p>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const res = await api.post<{ pruned: number; days: number }>("/opportunities/prune?days=90");
+                    toast.push(`${res.pruned} adet eski ilan başarıyla temizlendi.`, { tone: "ok" });
+                  } catch (e) {
+                    toast.push("Temizleme sırasında hata oluştu.", { tone: "danger" });
+                  }
+                }}
+              >
+                <Trash2 size={13} /> 90+ Günlük İlanları Temizle
+              </Button>
             </Section>
           )}
         </div>
