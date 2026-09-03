@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Opportunity } from "@/core/types";
-import { FilterChip, OpportunityCard, OpportunityCollection } from "./OpportunityList";
+import { FilterChip } from "@/core/ui";
+import { OpportunityCard, OpportunityCollection } from "./OpportunityList";
 
 const item = {
   id: "1",

@@ -51,6 +51,28 @@ export function ReviewSession({ deckId, onClose }: { deckId: string; onClose: ()
     review.mutate({ cardId: current.id, grade: value });
   };
 
+  // Klavye kisa yollari (1-4, bosluk/Enter) odak nerede olursa olsun calissin:
+  // odaksiz div'e bagli onKeyDown, kullanici baska yere tiklayinca olmuyordu.
+  // Metin girilen alanlardayken kisa yolu yutma.
+  useEffect(() => {
+    if (!session || !current || finished) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        if (!revealed) setRevealed(true);
+        return;
+      }
+      const shortcut = GRADES.findIndex((entry) => entry.key === event.key);
+      if (shortcut >= 0) grade(shortcut);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [session, current, finished, revealed, review.isPending]);
+
   if (isLoading && !session) {
     return <p className="py-6 text-center text-meta text-muted">Tekrar kuyruğu yükleniyor…</p>;
   }
@@ -59,7 +81,7 @@ export function ReviewSession({ deckId, onClose }: { deckId: string; onClose: ()
     return (
       <Section title="Tekrar bitti">
         <div className="py-4 text-center">
-          <p className="font-serif text-title text-primary">{done} kart tekrar edildi</p>
+          <p className=" text-title text-primary">{done} kart tekrar edildi</p>
           <p className="mt-1 text-meta text-muted">Oturum tamamlandı.</p>
           <div className="mt-4 flex justify-center gap-2">
             <Button variant="primary" onClick={onClose}>
@@ -89,24 +111,13 @@ export function ReviewSession({ deckId, onClose }: { deckId: string; onClose: ()
         </Button>
       }
     >
-      <div
-        className="flex flex-col items-center gap-5 py-6"
-        onKeyDown={(event) => {
-          if (event.key === " " || event.key === "Enter") {
-            event.preventDefault();
-            if (!revealed) setRevealed(true);
-            return;
-          }
-          const shortcut = GRADES.findIndex((entry) => entry.key === event.key);
-          if (shortcut >= 0) grade(shortcut);
-        }}
-      >
+      <div className="flex flex-col items-center gap-5 py-6">
         <div
           tabIndex={0}
           className="w-full max-w-xl cursor-pointer rounded-card border border-subtle bg-surface px-6 py-8 text-center outline-none focus-visible:ring-2 focus-visible:ring-accent"
           onClick={() => setRevealed(true)}
         >
-          <p className="font-serif text-xl text-primary">{current.front}</p>
+          <p className=" text-xl text-primary">{current.front}</p>
           {revealed && <p className="mt-4 border-t border-subtle pt-4 text-body text-secondary">{current.back}</p>}
           {!revealed && <p className="mt-4 text-meta text-muted">Çevirmek için tıkla ya da boşluk</p>}
         </div>

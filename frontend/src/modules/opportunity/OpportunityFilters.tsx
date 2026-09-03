@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { Button, DualRange, Select, Section, Chip } from "@/core/ui";
+import { Button, Chip, DualRange, FilterChip, Section, Select } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
-import { FilterChip } from "./OpportunityList";
 import { REMOTE_LABELS, STATUSES, statusLabel, type RemoteKind } from "./labels";
 import type { OpportunityBrowseFilters } from "./opportunityBrowse";
 import { RotateCcw, SlidersHorizontal, X } from "lucide-react";

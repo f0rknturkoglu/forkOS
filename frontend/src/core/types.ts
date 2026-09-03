@@ -398,8 +398,6 @@ export interface ProjectJournalNote {
   pinned: boolean;
   project_id: string;
   journal_day: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ProjectJournalDay {
@@ -493,16 +491,6 @@ export interface PomodoroStats {
 }
 
 export type ReviewPreview = ApiSchemas["ReviewPreview"];
-
-export interface SavedView {
-  id: string;
-  name: string;
-  module: string;
-  filter: Record<string, unknown>;
-  sort: string | null;
-  pinned: boolean;
-  position: number;
-}
 
 export interface TagCount {
   name: string;

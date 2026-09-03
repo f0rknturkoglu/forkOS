@@ -1,5 +1,5 @@
 import { Bookmark, CalendarDays, ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
-import { Button, Chip, Select, cx, relativeTime } from "@/core/ui";
+import { Button, Chip, FilterChip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
   REMOTE_LABELS,
@@ -13,37 +13,6 @@ import {
 } from "./labels";
 import { sourceLabel } from "@/core/labels";
 import type { RemoteKind } from "./labels";
-
-export function FilterChip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cx(
-        "flex h-8 items-center gap-2 rounded-control border px-3 text-meta transition",
-        active
-          ? "border-accent bg-accent-surface font-medium text-accent"
-          : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
-      )}
-    >
-      <span>{label}</span>
-      {count !== undefined && (
-        <span className={cx("tabular-nums text-meta font-normal", active ? "text-accent" : "text-muted")}>{count}</span>
-      )}
-    </button>
-  );
-}
 
 export function OpportunityCollection({ layout, children }: { layout: "rows" | "grid"; children: React.ReactNode }) {
   return (

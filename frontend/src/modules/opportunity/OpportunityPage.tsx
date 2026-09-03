@@ -3,7 +3,7 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { Kanban, LayoutGrid, List, Search, Settings2 } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
-import { Button, Empty, IconButton, Input, PageFrame, PageHeader, Section, Toolbar, cx, useToast } from "@/core/ui";
+import { Button, Empty, FilterChip, IconButton, Input, PageFrame, PageHeader, Section, Toolbar, cx, useToast } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
@@ -12,7 +12,7 @@ import { SavedViewPicker } from "@/core/SavedViewPicker";
 import { useOnline } from "@/lib/hooks";
 import { OpportunityDetail } from "./OpportunityDetail";
 import { JobhunterSettings } from "./JobhunterSettings";
-import { FilterChip, OpportunityCard, OpportunityCollection } from "./OpportunityList";
+import { OpportunityCard, OpportunityCollection } from "./OpportunityList";
 import { OpportunityKanban } from "./OpportunityKanban";
 import { OpportunityFilters } from "./OpportunityFilters";
 import { SourcePicker } from "./SourcePicker";
@@ -197,7 +197,7 @@ export function OpportunityPage() {
     <PageFrame className="space-y-5">
       <PageHeader eyebrow="Takip" title="Fırsatlar" />
 
-      <Toolbar className="sticky top-0 z-10 bg-canvas/95 backdrop-blur">
+      <Toolbar className="sticky top-0 z-sticky bg-canvas/95 backdrop-blur">
         <div className="relative min-w-0 flex-[1_1_18rem]">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon" />
           <Input
