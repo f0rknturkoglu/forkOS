@@ -2,35 +2,170 @@
 <html lang="tr">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <input id="title" placeholder="Baslik" />
-    <input id="url" readonly />
-    <textarea id="note" placeholder="Not"></textarea>
-    <input id="tags" placeholder="Etiketler (virgulle)" />
-    <select id="collection">
-      <option value="inbox">Inbox</option>
-      <option value="read_later">Read Later</option>
-      <option value="learning">Learning</option>
-      <option value="reference">Reference</option>
-      <option value="projects">Projects</option>
-    </select>
-    <button id="save">Kaydet</button>
-    <p id="status"></p>
-    <div id="queue-status">
-      <span id="pending-count">0 bekleyen</span>
-      <span id="failed-count">0 başarısız</span>
+    <!-- Üst Bar -->
+    <header class="app-header">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        </svg>
+        <span class="brand-title">fork<span class="brand-os">OS</span></span>
+      </div>
+      <div class="header-actions">
+        <span id="connection-badge" class="badge badge-offline" title="Sunucu bağlantı durumu">
+          <span class="dot"></span>
+          <span id="connection-text">Offline</span>
+        </span>
+        <button id="open-dashboard" class="icon-btn" title="forkOS Web Paneli (127.0.0.1:5173)" aria-label="Web Paneli">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </button>
+        <button id="open-options" class="icon-btn" title="Eklenti Ayarları" aria-label="Ayarlar">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sekmeler (Tabs) -->
+    <nav class="tab-nav" aria-label="Kayıt Modu">
+      <button id="tab-bookmark" class="tab-btn active" type="button">
+        <span>📑 Bağlantı & Not</span>
+      </button>
+      <button id="tab-job" class="tab-btn" type="button">
+        <span>💼 İş İlanı</span>
+      </button>
+    </nav>
+
+    <!-- Panel 1: Bağlantı / İçerik -->
+    <form id="panel-bookmark" class="tab-panel">
+      <div class="field">
+        <label for="title">Başlık</label>
+        <input id="title" type="text" placeholder="Sayfa başlığı…" />
+      </div>
+      <div class="field">
+        <label for="url">Adres (URL)</label>
+        <input id="url" type="url" placeholder="https://…" />
+      </div>
+      <div class="field">
+        <label for="note">Kişisel Not</label>
+        <textarea id="note" rows="2" placeholder="Önemli notlar, alıntılar…"></textarea>
+      </div>
+      <div class="row">
+        <div class="field flex-1">
+          <label for="tags">Etiketler</label>
+          <input id="tags" type="text" placeholder="ai, mimari, makale" />
+        </div>
+        <div class="field flex-1">
+          <label for="collection">Koleksiyon</label>
+          <select id="collection">
+            <option value="inbox">📥 Inbox</option>
+            <option value="read_later">⏱️ Read Later</option>
+            <option value="learning">🧠 Learning</option>
+            <option value="reference">📚 Reference</option>
+            <option value="projects">🚀 Projects</option>
+          </select>
+        </div>
+      </div>
+      <button id="save" class="btn btn-primary" type="submit">Kütüphaneye Kaydet</button>
+    </form>
+
+    <!-- Panel 2: İş İlanı (Opportunity) -->
+    <form id="panel-job" class="tab-panel" hidden>
+      <div id="extraction-badge" class="extraction-card" hidden>
+        <div class="extraction-header">
+          <span class="extraction-icon">✨</span>
+          <span id="extraction-text" class="extraction-text">Sayfadan tespit edildi</span>
+          <button id="reextract-btn" class="extraction-btn" type="button" title="Sayfayı yeniden tara">Yenile</button>
+        </div>
+      </div>
+      <input id="job-deadline" type="hidden" />
+      <div class="field">
+        <label for="job-title">Pozisyon / Başlık <span class="required">*</span></label>
+        <input id="job-title" type="text" required placeholder="ör. Senior Platform Engineer" />
+      </div>
+      <div class="row">
+        <div class="field flex-1">
+          <label for="job-org">Kurum / Şirket</label>
+          <input id="job-org" type="text" placeholder="ör. Acme Cloud" />
+        </div>
+        <div class="field flex-1">
+          <label for="job-remote">Çalışma Biçimi</label>
+          <select id="job-remote">
+            <option value="">Belirtilmemiş</option>
+            <option value="remote">Remote (Uzaktan)</option>
+            <option value="hybrid">Hibrit</option>
+            <option value="onsite">Ofis (Onsite)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="job-url">İlan Bağlantısı</label>
+        <input id="job-url" type="url" placeholder="https://jobs.example/…" />
+      </div>
+      <div class="row">
+        <div class="field flex-1">
+          <label for="job-location">Konum / Şehir</label>
+          <input id="job-location" type="text" placeholder="ör. İstanbul, Berlin" />
+        </div>
+        <div class="field flex-1">
+          <label for="job-compensation">Ücret / Maaş</label>
+          <input id="job-compensation" type="text" placeholder="ör. €80k - €100k" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field flex-1">
+          <label for="job-status">Başlangıç Durumu</label>
+          <select id="job-status">
+            <option value="discovered">Keşfedildi</option>
+            <option value="considering">Değerlendiriliyor</option>
+            <option value="preparing">Hazırlanıyor</option>
+            <option value="applied">Başvuruldu</option>
+          </select>
+        </div>
+        <div class="field flex-1">
+          <label for="job-priority">Öncelik</label>
+          <select id="job-priority">
+            <option value="1">1 · Düşük</option>
+            <option value="2" selected>2 · Normal</option>
+            <option value="3">3 · Yüksek</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="job-notes">İlan Notları</label>
+        <textarea id="job-notes" rows="2" placeholder="Gereksinimler veya değerlendirme notları…"></textarea>
+      </div>
+      <button id="job-save" class="btn btn-accent" type="submit">Fırsatlar'a Ekle</button>
+    </form>
+
+    <!-- Durum ve Kuyruk Bilgisi -->
+    <footer class="app-footer">
+      <p id="status" class="status-msg"></p>
+      <div id="queue-status" class="queue-meta">
+        <span id="pending-count">0 bekleyen</span>
+        <span id="failed-count">0 başarısız</span>
+      </div>
+    </footer>
+
+    <div id="failed-actions" class="failed-box" hidden>
+      <button id="retry-failed" class="btn btn-secondary btn-sm" type="button">Başarısızları yeniden dene</button>
+      <button id="clear-failed" class="btn btn-danger btn-sm" type="button">Temizle</button>
     </div>
-    <div id="failed-actions" hidden>
-      <button id="retry-failed">Başarısızları yeniden dene</button>
-      <button id="clear-failed">Başarısızları temizle</button>
+
+    <div id="duplicate" class="alert-box" hidden>
+      <p>Bu sayfa zaten kütüphanenizde kayıtlı.</p>
+      <button id="move-learning" class="btn btn-secondary btn-sm" type="button">Learning'e taşı</button>
     </div>
-    <button id="open-options" class="secondary">Sunucu adresi</button>
-    <div id="duplicate" hidden>
-      <p>Bu sayfa zaten kayitli.</p>
-      <button id="move-learning">Learning'e tasi</button>
-    </div>
+
     <script type="module" src="popup.js"></script>
   </body>
 </html>

@@ -135,3 +135,43 @@ test("lists, retries and clears failed captures", { concurrency: false }, async 
   await clearFailed();
   assert.deepEqual(state.failedCaptures, []);
 });
+
+test("enqueues and flushes job opportunities to /opportunities endpoint", { concurrency: false }, async () => {
+  const state = installChrome();
+  let requestedUrl = null;
+  let sentBody = null;
+
+  globalThis.fetch = async (url, options) => {
+    requestedUrl = url;
+    sentBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 201,
+      async json() {
+        return { id: "job-123", title: sentBody.title };
+      },
+    };
+  };
+
+  const { enqueueOpportunity } = await loadOutbox();
+  const result = await enqueueOpportunity({
+    title: "Senior Platform Engineer",
+    organization: "Acme Cloud",
+    url: "https://jobs.example/senior-platform",
+    remote: "remote",
+    location: "Berlin",
+    compensation: "€80k - €100k",
+    notes: "Tavsiye edilen pozisyon",
+  });
+
+  assert.equal(result.sent, 1);
+  assert.equal(result.pending, 0);
+  assert.match(requestedUrl, /\/opportunities$/);
+  assert.equal(sentBody.kind, "job");
+  assert.equal(sentBody.title, "Senior Platform Engineer");
+  assert.equal(sentBody.organization, "Acme Cloud");
+  assert.equal(sentBody.remote, "remote");
+  assert.equal(sentBody.status, "discovered");
+  assert.equal(state.outbox.length, 0);
+});
+

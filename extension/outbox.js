@@ -34,7 +34,8 @@ function rejection(url, status, message) {
   return { url, status, message };
 }
 
-function invalidUrlMessage(url) {
+function invalidUrlMessage(url, isOptional = false) {
+  if (!url && isOptional) return null;
   try {
     const protocol = new URL(url).protocol;
     return protocol === "http:" || protocol === "https:"
@@ -50,7 +51,8 @@ async function saveLastResult(result) {
 }
 
 export async function enqueue(item) {
-  const urlError = invalidUrlMessage(item.url);
+  const isJob = item.type === "opportunity";
+  const urlError = invalidUrlMessage(item.url, isJob);
   if (urlError) {
     const result = {
       sent: 0,
@@ -64,10 +66,17 @@ export async function enqueue(item) {
 
   await withStorageLock(async () => {
     const queue = await readQueue();
-    queue.push({ client_uuid: crypto.randomUUID(), collection: "inbox", ...item });
+    const entry = isJob
+      ? { client_uuid: crypto.randomUUID(), type: "opportunity", kind: "job", status: "discovered", priority: 2, ...item }
+      : { client_uuid: crypto.randomUUID(), type: "bookmark", collection: "inbox", ...item };
+    queue.push(entry);
     await writeQueue(queue);
   });
   return flush();
+}
+
+export async function enqueueOpportunity(jobItem) {
+  return enqueue({ type: "opportunity", ...jobItem });
 }
 
 export async function pendingCount() {
@@ -105,10 +114,27 @@ async function flushQueue() {
 
   for (const item of queue) {
     try {
-      const res = await fetch(`${apiBase}/capture`, {
+      const isJob = item.type === "opportunity";
+      const targetUrl = isJob ? `${apiBase}/opportunities` : `${apiBase}/capture`;
+      const payload = isJob
+        ? {
+            title: item.title,
+            kind: item.kind || "job",
+            organization: item.organization || null,
+            url: item.url || null,
+            status: item.status || "discovered",
+            priority: item.priority ?? 2,
+            deadline_at: item.deadline_at || null,
+            location: item.location || null,
+            remote: item.remote || null,
+            compensation: item.compensation || null,
+            notes: item.notes || null,
+          }
+        : item;
+      const res = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
