@@ -1,0 +1,97 @@
+// @vitest-environment jsdom
+import "@/modules";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ComponentProps } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AppSidebar } from "./AppSidebar";
+
+vi.mock("@/core/api", () => ({
+  api: { get: vi.fn().mockResolvedValue([]), post: vi.fn(), patch: vi.fn(), del: vi.fn() },
+  qs: vi.fn(() => ""),
+}));
+
+vi.hoisted(() => {
+  const store = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+    },
+  });
+});
+
+function renderSidebar(path: string, props?: Partial<ComponentProps<typeof AppSidebar>>) {
+  const onCloseMobile = vi.fn();
+  const onToggleCollapsed = vi.fn();
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <AppSidebar
+        path={path}
+        collapsed={false}
+        mobileOpen={false}
+        onToggleCollapsed={onToggleCollapsed}
+        onCloseMobile={onCloseMobile}
+        {...props}
+      />
+    </QueryClientProvider>,
+  );
+  return { onCloseMobile, onToggleCollapsed };
+}
+
+describe("AppSidebar", () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(cleanup);
+
+  it("modül registry'sinden ana grupları ve bilinçli çocuk rotaları üretir", () => {
+    renderSidebar("/notes");
+
+    expect(screen.getByRole("link", { name: "Bugün" }).getAttribute("href")).toBe("#/");
+    expect(screen.getByRole("link", { name: "Notlar" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Rutinler" }).getAttribute("href")).toBe("#/habits");
+    expect(screen.getByRole("link", { name: "Haftalık plan" }).getAttribute("href")).toBe("#/planner");
+    expect(screen.getByRole("link", { name: "Bilgi grafı" }).getAttribute("href")).toBe("#/graph");
+    expect(screen.queryByRole("link", { name: "Pomodoro" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Gün" })).toBeNull();
+  });
+
+  it("aktif ikincil rotayı seçer ve kapalı grubunu otomatik açar", async () => {
+    renderSidebar("/sources");
+
+    const sources = await screen.findByRole("link", { name: "Kaynaklar" });
+    expect(sources.getAttribute("aria-current")).toBe("page");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sistem" }).getAttribute("aria-expanded")).toBe("true"),
+    );
+  });
+
+  it("grup tercihlerini saklar", () => {
+    renderSidebar("/notes");
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+    expect(localStorage.getItem("forkos.sidebar.groups")).not.toContain("capture");
+  });
+
+  it("mobil scrim üzerinden kapanır", () => {
+    const { onCloseMobile } = renderSidebar("/notes", { mobileOpen: true });
+    fireEvent.click(screen.getByRole("button", { name: "Kenar çubuğunu kapat" }));
+    expect(onCloseMobile).toHaveBeenCalledOnce();
+  });
+
+  it("sayfa navigasyonunu iptal edilebilir uygulama olayıyla duyurur", () => {
+    const preventNavigation = (event: Event) => event.preventDefault();
+    window.addEventListener("forkos:before-navigation", preventNavigation);
+    const { onCloseMobile } = renderSidebar("/notes");
+
+    const graph = screen.getByRole("link", { name: "Bilgi grafı" });
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    graph.dispatchEvent(click);
+
+    expect(click.defaultPrevented).toBe(true);
+    expect(onCloseMobile).not.toHaveBeenCalled();
+    window.removeEventListener("forkos:before-navigation", preventNavigation);
+  });
+});

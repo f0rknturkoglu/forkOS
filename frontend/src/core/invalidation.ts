@@ -22,10 +22,12 @@ export const AFTER = {
     "opportunity-requirements",
     "application",
     "interviews",
+    "salary-consistency",
     "notifications",
     "today-agenda",
     "activity",
   ],
+  "career.write": ["career-stories", "career-connections", "opportunity-connections", "opportunity", "activity"],
   "project.write": [
     "projects",
     "project-todos",
@@ -99,7 +101,17 @@ export const AFTER = {
   ],
   "link.write": ["related", "activity"],
   "notification.write": ["notifications"],
-  "note.write": ["notes", "note", "project-journal", "activity", "tags", "backlinks", "graph", "related"],
+  "note.write": [
+    "notes",
+    "note",
+    "note-folders",
+    "project-journal",
+    "activity",
+    "tags",
+    "backlinks",
+    "graph",
+    "related",
+  ],
 } as const;
 
 type AfterEvent = keyof typeof AFTER;

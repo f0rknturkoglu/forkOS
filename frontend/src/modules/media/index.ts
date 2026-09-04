@@ -3,6 +3,7 @@ import { Film } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { MediaContinueWidget } from "./MediaWidget";
+import { MediaSidebar } from "./MediaSidebar";
 
 const MediaPage = lazy(() => import("./MediaPage").then((module) => ({ default: module.MediaPage })));
 const MediaDetailPage = lazy(() => import("./MediaDetailPage").then((module) => ({ default: module.MediaDetailPage })));
@@ -20,6 +21,7 @@ registerModule({
   title: "Medya",
   icon: Film,
   group: "track",
+  sidebar: MediaSidebar,
   routes: [
     { path: "/media", element: MediaPage },
     { path: "/media/library", element: MediaPage },

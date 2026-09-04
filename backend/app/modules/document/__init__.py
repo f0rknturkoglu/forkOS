@@ -5,6 +5,6 @@ MODULE = ModuleSpec(
     id="document",
     title="Documents",
     router=router,
-    entity_types=[EntityTypeSpec('document', 'Belge', 'Belgeler', '/documents', 'FileText')],
+    entity_types=[EntityTypeSpec('document', 'Belge', 'Belgeler', '/documents?focus={id}', 'FileText')],
     event_verbs=["document.synced"],
 )

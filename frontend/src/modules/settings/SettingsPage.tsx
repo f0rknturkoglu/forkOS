@@ -4,7 +4,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
-import { Input, NumberInput, PageFrame, PageHeader, Section, Textarea, useTheme, useToast } from "@/core/ui";
+import { Input, NumberInput, PageFrame, Section, Textarea, useTheme, useToast } from "@/core/ui";
+import {
+  Workspace,
+  WorkspacePaneHeader,
+  WorkspaceRailButton,
+  WorkspaceRailContent,
+  WorkspaceRailGroup,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 import { TodayWidgetsSection } from "./TodayWidgetsSection";
 import { NotificationsSection } from "./NotificationsSection";
 import type { Theme } from "@/core/ui";
@@ -28,6 +36,18 @@ function jsonError(value: string): string | null {
     return error instanceof Error ? error.message : "Geçersiz JSON";
   }
 }
+
+const SETTINGS_NAV = [
+  ["settings-modules", "Modüller"],
+  ["settings-weather", "Hava durumu"],
+  ["settings-notifications", "Bildirimler"],
+  ["settings-today", "Bugün ekranı"],
+  ["settings-focus", "Odak ve kaynaklar"],
+  ["settings-appearance", "Görünüm"],
+  ["settings-integrations", "Entegrasyonlar"],
+  ["settings-backup", "Yedekleme"],
+  ["settings-health", "Kaynak sağlığı"],
+] as const;
 
 export function SettingsPage() {
   const route = useHashRoute();
@@ -129,131 +149,165 @@ export function SettingsPage() {
     setMediaName("");
     setMediaUrl("");
   };
+  const jumpTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const settingsRail = (
+    <WorkspaceRailContent className="max-h-72 lg:max-h-workspace-body">
+      <WorkspaceRailGroup label="Ayar bölümleri">
+        {SETTINGS_NAV.map(([id, label]) => (
+          <WorkspaceRailButton key={id} label={label} onClick={() => jumpTo(id)} />
+        ))}
+      </WorkspaceRailGroup>
+    </WorkspaceRailContent>
+  );
+
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader eyebrow="Sistem" title="Ayarlar" />
-      <p className="text-meta text-muted">Ayarlar veritabanında; localStorage yalnızca hızlı açılış önbelleğidir.</p>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <ModulesSection online={online} disabledModules={disabled} onToggle={toggleModule} />
-        <WeatherSection
-          online={online}
-          weatherLoc={weatherLoc}
-          onWeatherLoc={(v) => setWeatherLoc(v)}
-          location={settings["weather.location"] as string | undefined}
-          onSubmit={saveWeather}
-        />
-        <NotificationsSection />
-        <TodayWidgetsSection
-          online={online}
-          onPersist={(orderIds, hiddenIds) => {
-            save.mutate({ key: "today.widget_order", value: orderIds });
-            save.mutate({ key: "today.widget_hidden", value: hiddenIds });
-          }}
-        />
-        <Section title="Pomodoro">
-          <Textarea
-            disabled={!online}
-            value={pomodoroDefaults ?? JSON.stringify(settings["pomodoro.defaults"], null, 2)}
-            onChange={(v) => {
-              setPomodoroDefaults(v);
-              setPomodoroError(jsonError(v));
-            }}
-            onBlur={(v) => {
-              const error = jsonError(v);
-              setPomodoroError(error);
-              if (!error) save.mutate({ key: "pomodoro.defaults", value: JSON.parse(v) });
-            }}
-            className="h-28 font-mono"
-          />
-          {pomodoroError && <p className="mt-1 text-meta text-danger">{pomodoroError}</p>}
-        </Section>
-        <Section title="Bildirim eşikleri">
-          <Textarea
-            disabled={!online}
-            value={thresholdsText ?? JSON.stringify(settings["notifications.thresholds"], null, 2)}
-            onChange={(v) => {
-              setThresholdsText(v);
-              setThresholdsError(jsonError(v));
-            }}
-            onBlur={(v) => {
-              const error = jsonError(v);
-              setThresholdsError(error);
-              if (!error) save.mutate({ key: "notifications.thresholds", value: JSON.parse(v) });
-            }}
-            className="h-28 font-mono"
-          />
-          {thresholdsError && <p className="mt-1 text-meta text-danger">{thresholdsError}</p>}
-        </Section>
-        <Section title="Kaynak aralıkları">
-          <Textarea
-            value={intervalsText ?? JSON.stringify(settings["sources.intervals"], null, 2)}
-            onChange={(v) => {
-              setIntervalsText(v);
-              setIntervalsError(jsonError(v));
-            }}
-            onBlur={(v) => {
-              const error = jsonError(v);
-              setIntervalsError(error);
-              if (!error) save.mutate({ key: "sources.intervals", value: JSON.parse(v) });
-            }}
-            className="h-28 font-mono"
-          />
-          {intervalsError && <p className="mt-1 text-meta text-danger">{intervalsError}</p>}
-          <label
-            className="mt-3 flex items-center justify-between text-meta text-muted"
-            onBlur={() =>
-              save.mutate({
-                key: "rss.retention_days",
-                value: retentionDays ?? Number(settings["rss.retention_days"] ?? 90),
-              })
-            }
-          >
-            RSS retention (gün)
-            <NumberInput
-              value={retentionDays ?? Number(settings["rss.retention_days"] ?? 90)}
-              onChange={setRetentionDays}
-              className="w-24"
-            />
-          </label>
-        </Section>
-        <Section title="Tema">
-          <ThemePicker />
-        </Section>
-        <IntegrationsSection
-          online={online}
-          google={google}
-          github={github}
-          githubLogin={githubLogin}
-          onGithubLogin={(v) => setGithubLogin(v)}
-          githubToken={githubToken}
-          onGithubToken={(v) => setGithubToken(v)}
-          onConnectGithub={() => connectGithub.mutate()}
-        />
-        <MediaLinksSection
-          online={online}
-          tmdbKeyValue={tmdbKey ?? (settings["media.tmdb_key"] as string | undefined) ?? ""}
-          onTmdbKey={(v) => setTmdbKey(v)}
-          rawgKeyValue={rawgKey ?? (settings["media.rawg_key"] as string | undefined) ?? ""}
-          onRawgKey={(v) => setRawgKey(v)}
-          media={media}
-          onSave={(key, value) => save.mutate({ key, value })}
-          onRemoveLink={(index) => save.mutate({ key: "media.links", value: media.filter((_, i) => i !== index) })}
-          mediaName={mediaName}
-          onMediaName={(v) => setMediaName(v)}
-          mediaUrl={mediaUrl}
-          onMediaUrl={(v) => setMediaUrl(v)}
-          onAddLink={addLink}
-          innerRef={mediaLinksRef}
-        />
-        <BackupSection
-          online={online}
-          backupPending={backup.isPending}
-          onBackup={() => backup.mutate()}
-          backupData={backup.data}
-          backupStatus={backupStatus}
-        />
-      </div>
-      <SettingsSourceHealth sources={sources} />
+    <PageFrame>
+      <Workspace rail={settingsRail}>
+        <WorkspacePaneHeader eyebrow="Sistem" title="Ayarlar" hint="Yerel çalışma alanı tercihleri" />
+        <WorkspaceScrollArea className="p-3">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div id="settings-modules" className="scroll-mt-3">
+              <ModulesSection online={online} disabledModules={disabled} onToggle={toggleModule} />
+            </div>
+            <div id="settings-weather" className="scroll-mt-3">
+              <WeatherSection
+                online={online}
+                weatherLoc={weatherLoc}
+                onWeatherLoc={(v) => setWeatherLoc(v)}
+                location={settings["weather.location"] as string | undefined}
+                onSubmit={saveWeather}
+              />
+            </div>
+            <div id="settings-notifications" className="scroll-mt-3">
+              <NotificationsSection />
+            </div>
+            <div id="settings-today" className="scroll-mt-3">
+              <TodayWidgetsSection
+                online={online}
+                onPersist={(orderIds, hiddenIds) => {
+                  save.mutate({ key: "today.widget_order", value: orderIds });
+                  save.mutate({ key: "today.widget_hidden", value: hiddenIds });
+                }}
+              />
+            </div>
+            <div id="settings-focus" className="space-y-4 scroll-mt-3">
+              <Section title="Pomodoro">
+                <Textarea
+                  disabled={!online}
+                  value={pomodoroDefaults ?? JSON.stringify(settings["pomodoro.defaults"], null, 2)}
+                  onChange={(v) => {
+                    setPomodoroDefaults(v);
+                    setPomodoroError(jsonError(v));
+                  }}
+                  onBlur={(v) => {
+                    const error = jsonError(v);
+                    setPomodoroError(error);
+                    if (!error) save.mutate({ key: "pomodoro.defaults", value: JSON.parse(v) });
+                  }}
+                  className="h-28 font-mono"
+                />
+                {pomodoroError && <p className="mt-1 text-meta text-danger">{pomodoroError}</p>}
+              </Section>
+              <Section title="Bildirim eşikleri">
+                <Textarea
+                  disabled={!online}
+                  value={thresholdsText ?? JSON.stringify(settings["notifications.thresholds"], null, 2)}
+                  onChange={(v) => {
+                    setThresholdsText(v);
+                    setThresholdsError(jsonError(v));
+                  }}
+                  onBlur={(v) => {
+                    const error = jsonError(v);
+                    setThresholdsError(error);
+                    if (!error) save.mutate({ key: "notifications.thresholds", value: JSON.parse(v) });
+                  }}
+                  className="h-28 font-mono"
+                />
+                {thresholdsError && <p className="mt-1 text-meta text-danger">{thresholdsError}</p>}
+              </Section>
+              <Section title="Kaynak aralıkları">
+                <Textarea
+                  value={intervalsText ?? JSON.stringify(settings["sources.intervals"], null, 2)}
+                  onChange={(v) => {
+                    setIntervalsText(v);
+                    setIntervalsError(jsonError(v));
+                  }}
+                  onBlur={(v) => {
+                    const error = jsonError(v);
+                    setIntervalsError(error);
+                    if (!error) save.mutate({ key: "sources.intervals", value: JSON.parse(v) });
+                  }}
+                  className="h-28 font-mono"
+                />
+                {intervalsError && <p className="mt-1 text-meta text-danger">{intervalsError}</p>}
+                <label
+                  className="mt-3 flex items-center justify-between text-meta text-muted"
+                  onBlur={() =>
+                    save.mutate({
+                      key: "rss.retention_days",
+                      value: retentionDays ?? Number(settings["rss.retention_days"] ?? 90),
+                    })
+                  }
+                >
+                  RSS retention (gün)
+                  <NumberInput
+                    value={retentionDays ?? Number(settings["rss.retention_days"] ?? 90)}
+                    onChange={setRetentionDays}
+                    className="w-24"
+                  />
+                </label>
+              </Section>
+            </div>
+            <div id="settings-appearance" className="scroll-mt-3">
+              <Section title="Tema">
+                <ThemePicker />
+              </Section>
+            </div>
+            <div id="settings-integrations" className="space-y-4 scroll-mt-3">
+              <IntegrationsSection
+                online={online}
+                google={google}
+                github={github}
+                githubLogin={githubLogin}
+                onGithubLogin={(v) => setGithubLogin(v)}
+                githubToken={githubToken}
+                onGithubToken={(v) => setGithubToken(v)}
+                onConnectGithub={() => connectGithub.mutate()}
+              />
+              <MediaLinksSection
+                online={online}
+                tmdbKeyValue={tmdbKey ?? (settings["media.tmdb_key"] as string | undefined) ?? ""}
+                onTmdbKey={(v) => setTmdbKey(v)}
+                rawgKeyValue={rawgKey ?? (settings["media.rawg_key"] as string | undefined) ?? ""}
+                onRawgKey={(v) => setRawgKey(v)}
+                media={media}
+                onSave={(key, value) => save.mutate({ key, value })}
+                onRemoveLink={(index) =>
+                  save.mutate({ key: "media.links", value: media.filter((_, i) => i !== index) })
+                }
+                mediaName={mediaName}
+                onMediaName={(v) => setMediaName(v)}
+                mediaUrl={mediaUrl}
+                onMediaUrl={(v) => setMediaUrl(v)}
+                onAddLink={addLink}
+                innerRef={mediaLinksRef}
+              />
+            </div>
+            <div id="settings-backup" className="scroll-mt-3">
+              <BackupSection
+                online={online}
+                backupPending={backup.isPending}
+                onBackup={() => backup.mutate()}
+                backupData={backup.data}
+                backupStatus={backupStatus}
+              />
+            </div>
+            <div id="settings-health" className="scroll-mt-3 xl:col-span-2">
+              <SettingsSourceHealth sources={sources} />
+            </div>
+          </div>
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }

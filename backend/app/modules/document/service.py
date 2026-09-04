@@ -1,8 +1,13 @@
+import html
+import re
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
 import httpx
+from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 from sqlalchemy import literal, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -107,6 +112,65 @@ async def sync_folder(session: AsyncSession, folder_id: str, category: str):
 
 
 DOCUMENTS_DIR = Path(__file__).resolve().parents[3] / "data" / "documents"
+
+_PLAIN_TEXT_SUFFIXES = {".txt", ".md", ".markdown", ".csv", ".json", ".yaml", ".yml"}
+
+
+def extract_local_document_text(
+    path: Path,
+    *,
+    mime: str | None = None,
+    max_chars: int = 120_000,
+) -> str | None:
+    """Yerel aday belgesinden metin çıkarır; dosya içeriği ağdan çıkmaz.
+
+    PDF için saf-Python ``pypdf`` kullanılır. DOCX, ek bir ofis paketi veya
+    harici servis gerektirmeden ZIP/XML yapısından okunur. Bozuk veya taranmış
+    dosya değerlendirmeyi düşürmez; yalnızca belge kanıtı olmadan devam eder.
+    """
+
+    if not path.is_file() or max_chars <= 0:
+        return None
+    suffix = path.suffix.casefold()
+    normalized_mime = (mime or "").casefold()
+    try:
+        if normalized_mime.startswith("text/") or suffix in _PLAIN_TEXT_SUFFIXES:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        elif normalized_mime == "application/pdf" or suffix == ".pdf":
+            reader = PdfReader(path)
+            chunks: list[str] = []
+            remaining = max_chars
+            for page in reader.pages:
+                chunk = page.extract_text() or ""
+                if chunk:
+                    chunks.append(chunk[:remaining])
+                    remaining -= len(chunk)
+                if remaining <= 0:
+                    break
+            text = "\n".join(chunks)
+        elif (
+            normalized_mime
+            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            or suffix == ".docx"
+        ):
+            with zipfile.ZipFile(path) as archive:
+                xml = archive.read("word/document.xml").decode("utf-8", errors="replace")
+            xml = re.sub(r"</w:p>|<w:br[^>]*/>", "\n", xml)
+            text = html.unescape(re.sub(r"<[^>]+>", " ", xml))
+        elif normalized_mime in {"text/html", "application/xhtml+xml"} or suffix in {
+            ".html",
+            ".htm",
+        }:
+            raw = path.read_text(encoding="utf-8", errors="replace")
+            text = html.unescape(re.sub(r"<[^>]+>", " ", raw))
+        else:
+            return None
+    except (OSError, ValueError, KeyError, zipfile.BadZipFile, PyPdfError):
+        return None
+
+    compact = re.sub(r"[ \t]+", " ", text)
+    compact = re.sub(r"\n{3,}", "\n\n", compact).strip()
+    return compact[:max_chars] or None
 
 
 def get_local_file_path(doc_id: UUID, title: str) -> Path | None:
@@ -259,7 +323,5 @@ async def list_document_usages(session: AsyncSession) -> list[dict]:
         }
         grouped.setdefault(row.document_id, []).append(usage)
     return [
-        {"document_id": document_id, "usages": usages}
-        for document_id, usages in grouped.items()
+        {"document_id": document_id, "usages": usages} for document_id, usages in grouped.items()
     ]
-

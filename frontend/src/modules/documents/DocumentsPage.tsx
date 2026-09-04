@@ -2,13 +2,11 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Download, ExternalLink, Trash2, Upload } from "lucide-react";
-import { Markdown } from "@/core/Markdown";
 import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { NotesSection } from "./NotesSection";
-import { useHashRoute } from "@/app/router";
-import type { Document, Note } from "@/core/types";
+import { navigate, useHashRoute } from "@/app/router";
+import type { Document } from "@/core/types";
 import {
   Button,
   Chip,
@@ -17,16 +15,33 @@ import {
   IconButton,
   Input,
   PageFrame,
-  PageHeader,
   RowList,
   Section,
   Select,
   Toolbar,
   useToast,
+  cx,
 } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
+import {
+  Workspace,
+  WorkspaceInspectorContent,
+  WorkspacePaneHeader,
+  WorkspaceRailButton,
+  WorkspaceRailContent,
+  WorkspaceRailGroup,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 
 type GoogleStatus = { connected: boolean; expires_at: string | null; scopes: string | null };
+
+const DOCUMENT_CATEGORIES = [
+  ["cv", "CV"],
+  ["education", "Eğitim"],
+  ["exams", "Sınavlar"],
+  ["certificates", "Sertifikalar"],
+  ["other", "Diğer"],
+] as const;
 
 /** GET /documents/usages satırı: bir belgenin fırsat kullanım listesi. */
 type DocumentUsageRow = {
@@ -49,6 +64,8 @@ export function DocumentsPage() {
   const focusId = route.params.get("focus") ?? "";
   const [folderId, setFolderId] = useState("");
   const [category, setCategory] = useState("other");
+  const [libraryCategory, setLibraryCategory] = useState("");
+  const [tool, setTool] = useState<"upload" | "sync" | null>(null);
   const toast = useToast();
   const [openingId, setOpeningId] = useState<string | null>(null);
   const online = useOnline();
@@ -83,6 +100,11 @@ export function DocumentsPage() {
     }
     return map;
   }, [usageRows]);
+  const visibleDocs = useMemo(
+    () => (libraryCategory ? docs.filter((doc) => (doc.category ?? "other") === libraryCategory) : docs),
+    [docs, libraryCategory],
+  );
+  const categoryCount = (value: string) => docs.filter((doc) => (doc.category ?? "other") === value).length;
   const sync = useMutation({
     mutationFn: () => api.post<{ synced: number }>("/documents/sync", { folder_id: folderId, category }),
     onSuccess: (result) => {
@@ -113,46 +135,104 @@ export function DocumentsPage() {
     }
   }
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader
-        eyebrow="Kaynaklar"
-        title="Belgeler"
-        action={
-          status?.connected ? (
-            <Chip tone="ok">Google bağlı</Chip>
-          ) : (
-            <Button
-              variant="primary"
-              disabled={!online}
-              onClick={() => {
-                window.location.href = "/api/auth/google/start";
-              }}
-            >
-              Google bağla
-            </Button>
-          )
+    <PageFrame className="py-3">
+      <Workspace
+        rail={
+          <WorkspaceRailContent>
+            <WorkspaceRailGroup label="Kütüphane">
+              <WorkspaceRailButton
+                label="Tüm belgeler"
+                count={docs.length}
+                active={!libraryCategory}
+                onClick={() => setLibraryCategory("")}
+              />
+              {DOCUMENT_CATEGORIES.map(([value, label]) => (
+                <WorkspaceRailButton
+                  key={value}
+                  label={label}
+                  count={categoryCount(value)}
+                  active={libraryCategory === value}
+                  onClick={() => setLibraryCategory(libraryCategory === value ? "" : value)}
+                />
+              ))}
+            </WorkspaceRailGroup>
+            <WorkspaceRailGroup label="İçe aktar">
+              <WorkspaceRailButton
+                label="Yerel dosya yükle"
+                active={tool === "upload"}
+                onClick={() => setTool(tool === "upload" ? null : "upload")}
+              />
+              <WorkspaceRailButton
+                label="Drive klasörü tara"
+                active={tool === "sync"}
+                onClick={() => setTool(tool === "sync" ? null : "sync")}
+              />
+            </WorkspaceRailGroup>
+          </WorkspaceRailContent>
         }
-      />
-      <p className="text-meta text-muted">
-        Yerel dosyalar veya Google Drive aynası; başvurular için CV ve gereksinim belgeleri burada tutulur.
-      </p>
-      <UploadPanel online={online} />
-      <SyncPanel
-        online={online}
-        connected={Boolean(status?.connected)}
-        folderId={folderId}
-        onFolderId={setFolderId}
-        category={category}
-        onCategory={setCategory}
-        pending={sync.isPending}
-        onSync={() => sync.mutate()}
-      />
-      <DocumentsList docs={docs} usageByDoc={docOpportunities} openingId={openingId} online={online} onOpen={openDoc} />
-
-      {/* Yerel notlar (Faz 21): Drive belgelerinin yaninda, ayri modul degil. */}
-      <NotesSection online={online} />
-
-      {focusId && <DocumentFocusPanel id={focusId} online={online} />}
+        inspector={
+          focusId ? (
+            <WorkspaceInspectorContent title="Belge ayrıntısı">
+              <DocumentFocusPanel id={focusId} />
+            </WorkspaceInspectorContent>
+          ) : undefined
+        }
+      >
+        <WorkspacePaneHeader
+          eyebrow="Belgeler"
+          title={
+            libraryCategory
+              ? (DOCUMENT_CATEGORIES.find(([value]) => value === libraryCategory)?.[1] ?? "Belgeler")
+              : "Tüm belgeler"
+          }
+          hint={`${visibleDocs.length} kayıt`}
+          action={
+            status?.connected ? (
+              <Chip tone="ok">Google bağlı</Chip>
+            ) : (
+              <Button
+                variant="primary"
+                disabled={!online}
+                onClick={() => {
+                  window.location.href = "/api/auth/google/start";
+                }}
+              >
+                Google bağla
+              </Button>
+            )
+          }
+        />
+        {tool === "upload" ? (
+          <div className="border-b border-subtle bg-surface-sunken p-4">
+            <UploadPanel online={online} />
+          </div>
+        ) : null}
+        {tool === "sync" ? (
+          <div className="border-b border-subtle bg-surface-sunken p-4">
+            <SyncPanel
+              online={online}
+              connected={Boolean(status?.connected)}
+              folderId={folderId}
+              onFolderId={setFolderId}
+              category={category}
+              onCategory={setCategory}
+              pending={sync.isPending}
+              onSync={() => sync.mutate()}
+            />
+          </div>
+        ) : null}
+        <WorkspaceScrollArea className="p-3">
+          <DocumentsList
+            docs={visibleDocs}
+            usageByDoc={docOpportunities}
+            openingId={openingId}
+            focusedId={focusId}
+            online={online}
+            onOpen={openDoc}
+            onSelect={(doc) => navigate(`/documents?focus=${doc.id}`)}
+          />
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }
@@ -209,29 +289,8 @@ function UploadPanel({ online }: { online: boolean }) {
  * Secili kaydin iliskileri (Faz 18) + notsa govde gorunumu (Faz 21).
  * Not EntityTypeSpec rotasi (/documents?focus={id}) buraya gider.
  */
-function DocumentFocusPanel({ id, online }: { id: string; online: boolean }) {
-  const { data: note } = useQuery({
-    queryKey: ["note", id],
-    queryFn: () => api.get<Note>(`/notes/${id}`).catch(() => null),
-    enabled: Boolean(id),
-  });
-
-  if (!note) {
-    return (
-      <Section title="Bağlı kayıtlar">
-        <RelatedPanel entityId={id} />
-      </Section>
-    );
-  }
-  return (
-    <Section title={note.title} hint={note.pinned ? "sabit" : undefined}>
-      {/* Notlar markdown; [[baglanti]] ve #etiket burada da calisir. */}
-      <Markdown source={note.body} links={note.resolved_links ?? []} unresolved={note.unresolved_links ?? []} />
-      <div className="mt-3">
-        <RelatedPanel entityId={id} relation="notes_about" title="Hakkında" />
-      </div>
-    </Section>
-  );
+function DocumentFocusPanel({ id }: { id: string }) {
+  return <RelatedPanel entityId={id} title="Bağlı kayıtlar" />;
 }
 
 function SyncPanel({
@@ -289,17 +348,21 @@ function DocumentsList({
   docs,
   usageByDoc,
   openingId,
+  focusedId,
   online,
   onOpen,
+  onSelect,
 }: {
   docs: Document[];
   usageByDoc: Map<string, DocumentUsageItem[]>;
   openingId: string | null;
+  focusedId: string;
   online: boolean;
   onOpen: (doc: Document) => void;
+  onSelect: (doc: Document) => void;
 }) {
   return (
-    <Section title="Belgeler" hint={`${docs.length} kayıt`}>
+    <Section flat title="Belgeler" hint={`${docs.length} kayıt`}>
       {docs.length === 0 ? (
         <Empty>Henüz eşlenmiş belge yok.</Empty>
       ) : (
@@ -310,8 +373,10 @@ function DocumentsList({
               doc={doc}
               usages={usageByDoc.get(doc.id) ?? []}
               opening={openingId === doc.id}
+              focused={focusedId === doc.id}
               online={online}
               onOpen={onOpen}
+              onSelect={onSelect}
             />
           ))}
         </RowList>
@@ -324,14 +389,18 @@ function DocumentRow({
   doc,
   usages,
   opening,
+  focused,
   online,
   onOpen,
+  onSelect,
 }: {
   doc: Document;
   usages: DocumentUsageItem[];
   opening: boolean;
+  focused: boolean;
   online: boolean;
   onOpen: (doc: Document) => void;
+  onSelect: (doc: Document) => void;
 }) {
   const toast = useToast();
   const del = useMutation({
@@ -343,9 +412,20 @@ function DocumentRow({
   });
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-3">
+    <div
+      className={cx(
+        "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-2 py-3 transition",
+        focused ? "bg-surface-selected" : "hover:bg-surface-hover",
+      )}
+    >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-body text-primary">{doc.title}</p>
+        <button
+          type="button"
+          className="block w-full truncate text-left text-body text-primary hover:underline"
+          onClick={() => onSelect(doc)}
+        >
+          {doc.title}
+        </button>
         <p className="truncate text-meta text-muted">
           {doc.mime} ·{" "}
           {doc.drive_modified_at ? new Date(doc.drive_modified_at).toLocaleString("tr-TR") : "güncelleme yok"}

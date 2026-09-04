@@ -9,10 +9,14 @@ export default {
     extend: {
       colors: {
         canvas: "var(--canvas)",
+        sidebar: "var(--sidebar)",
+        scrim: "var(--overlay-scrim)",
         surface: {
           DEFAULT: "var(--surface)",
           sunken: "var(--surface-sunken)",
           hover: "var(--surface-hover)",
+          raised: "var(--surface-raised)",
+          selected: "var(--surface-selected)",
         },
         subtle: "var(--border)",
         strong: "var(--border-strong)",
@@ -83,8 +87,27 @@ export default {
         "display-xl": ["56px", { lineHeight: "60px", letterSpacing: "-0.02em" }],
         "display-2xl": ["72px", { lineHeight: "76px", letterSpacing: "-0.02em" }],
       },
-      borderRadius: { control: "4px", card: "5px", overlay: "6px" },
-      spacing: { control: "34px", touch: "44px" },
+      borderRadius: { control: "6px", card: "8px", overlay: "12px" },
+      spacing: {
+        control: "34px",
+        touch: "44px",
+        sidebar: "248px",
+        rail: "56px",
+        "workspace-header": "52px",
+        "workspace-body": "var(--workspace-body-height)",
+      },
+      gridTemplateColumns: {
+        "workspace-rail": "var(--workspace-rail-width) minmax(0, 1fr)",
+        "workspace-wide-rail": "var(--workspace-list-width) minmax(0, 1fr)",
+        "workspace-inspector": "minmax(0, 1fr) var(--workspace-inspector-width)",
+        "workspace-three": "var(--workspace-rail-width) minmax(0, 1fr) var(--workspace-inspector-width)",
+        "workspace-wide-three": "var(--workspace-list-width) minmax(0, 1fr) var(--workspace-inspector-width)",
+        "workspace-reader": "var(--workspace-rail-width) var(--workspace-list-width) minmax(0, 1fr)",
+      },
+      minWidth: {
+        "calendar-month": "35rem",
+        "calendar-week": "47.5rem",
+      },
       // Katman skalasi: z-10/z-40 gibi keyfi deger yerine anlamli adlar.
       // sticky < header < popover < drawer < modal < toast < fullscreen.
       zIndex: {
@@ -101,6 +124,8 @@ export default {
         overlay: "0 24px 60px -20px rgb(9 11 15 / 0.30)",
         // Kutular: kenarligi destekleyen, anca secilen bir kabartma.
         card: "0 1px 2px 0 rgb(9 11 15 / 0.04)",
+        // Yalniz floating toolbar, popover ve denetci gibi yukseltilmis katmanlar.
+        raised: "0 12px 36px -16px rgb(9 11 15 / 0.24)",
       },
     },
   },

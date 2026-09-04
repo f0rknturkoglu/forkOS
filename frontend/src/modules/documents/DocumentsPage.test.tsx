@@ -105,6 +105,8 @@ describe("documents flow", () => {
 
     expect(markup).toContain("CV 2026");
     expect(markup).toContain("Google bağlı");
+    expect(markup).toContain("Kütüphane");
+    expect(markup).not.toContain("Yerel Notlar");
 
     const documentsQuery = harness.queries.find((query) => query.queryKey[0] === "documents");
     const statusQuery = harness.queries.find((query) => query.queryKey[0] === "google-status");

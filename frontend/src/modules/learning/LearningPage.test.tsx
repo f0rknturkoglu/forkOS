@@ -137,6 +137,20 @@ describe("study flow", () => {
     expect(markup).toContain('<details open=""');
   });
 
+  it("uses a wide learning rail and keeps long topic names readable", () => {
+    const longTitle = "Working Directory, Staging Area ve Repository arasındaki ilişki";
+    harness.queryData = {
+      "study-areas": areas,
+      "study-topics": [{ ...topics[0], title: longTitle }],
+    };
+
+    const markup = renderToStaticMarkup(<LearningPage />);
+
+    expect(markup).toContain("lg:grid-cols-workspace-wide-rail");
+    expect(markup).toContain(longTitle);
+    expect(markup).toContain("whitespace-normal break-words");
+  });
+
   it("creates a todo + prepares_for link for a topic and invalidates todo/study/link writes", async () => {
     harness.apiPost.mockResolvedValue({ id: "todo-1" });
     renderToStaticMarkup(<LearningPage />);

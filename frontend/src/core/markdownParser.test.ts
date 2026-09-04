@@ -26,6 +26,12 @@ describe("markdown blokları", () => {
     expect(blocks[0]).toMatchObject({ t: "quote" });
     expect(blocks[0].t === "quote" && blocks[0].content.length).toBe(2);
   });
+
+  it("GFM tablosunu hizalamalarıyla ayrıştırır", () => {
+    const table = parseMarkdown("| Konu | Durum |\n| :--- | ---: |\n| API | Bitti |")[0];
+    expect(table).toMatchObject({ t: "table", align: ["left", "right"] });
+    expect(table.t === "table" && table.rows).toHaveLength(1);
+  });
 });
 
 describe("satır içi", () => {
@@ -39,6 +45,10 @@ describe("satır içi", () => {
       "text",
       "code",
     ]);
+  });
+
+  it("==metin== işaretini vurgu olarak tanır", () => {
+    expect(parseInline("önemli ==cümle==").map((token) => token.t)).toEqual(["text", "mark"]);
   });
 
   it("[[wikilink]] ve takma adı çözer", () => {
@@ -67,6 +77,14 @@ describe("satır içi", () => {
       t: "link",
       label: "https://a.dev/x",
       href: "https://a.dev/x",
+    });
+  });
+
+  it("markdown görselini bağlantıdan ayırır", () => {
+    expect(parseInline("![ekran görüntüsü](/api/notes/n1/attachments/a1)")[0]).toEqual({
+      t: "image",
+      alt: "ekran görüntüsü",
+      src: "/api/notes/n1/attachments/a1",
     });
   });
 });

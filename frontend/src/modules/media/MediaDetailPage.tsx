@@ -10,6 +10,7 @@ import { Button, Chip, Field, Input, PageFrame, Section, Surface, Textarea, cx }
 import { useOnline } from "@/lib/hooks";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import { RelatedPanel } from "@/core/RelatedPanel";
+import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import {
   KIND_LABELS,
   SiteLinks,
@@ -356,116 +357,132 @@ export function MediaDetailPage() {
       : `${progress} / ${item.total} ${measureLabel(item.progress_measure)}`;
 
   return (
-    <PageFrame className="space-y-5">
-      <a href="#/media" className="inline-flex items-center gap-1.5 text-meta text-secondary hover:text-primary">
-        <ArrowLeft size={14} aria-hidden="true" /> Medyaya dön
-      </a>
-      <div className="grid gap-6 lg:grid-cols-[minmax(220px,340px)_minmax(0,1fr)]">
-        <div className="mx-auto w-full max-w-[340px] lg:mx-0">
-          <DetailCover item={item} />
-        </div>
-        <div className="min-w-0 space-y-5">
-          <header>
-            <div className="flex flex-wrap items-center gap-2 text-meta">
-              <Chip identity={"kind-" + item.kind} variant="outline">
-                {KIND_LABELS[item.kind] ?? item.kind}
-              </Chip>
-              <span className="rounded border border-subtle px-2 py-0.5 text-secondary">
-                {statusLabel(item.kind, item.status)}
-              </span>
-              {provider && (
-                <span className={cx("rounded border px-2 py-0.5", providerChip(provider))}>
-                  {providerLabel(provider)}
-                </span>
-              )}
+    <PageFrame>
+      <Workspace>
+        <WorkspacePaneHeader
+          eyebrow="Medya"
+          title={item.title}
+          hint="Kayıt ayrıntısı"
+          action={
+            <a href="#/media" className="inline-flex items-center gap-1.5 text-meta text-secondary hover:text-primary">
+              <ArrowLeft size={14} aria-hidden="true" /> Kütüphaneye dön
+            </a>
+          }
+        />
+        <WorkspaceScrollArea className="p-3">
+          <div className="grid gap-6 lg:grid-cols-[minmax(220px,340px)_minmax(0,1fr)]">
+            <div className="mx-auto w-full max-w-[340px] lg:mx-0">
+              <DetailCover item={item} />
             </div>
-            <h1 className="mt-3  text-display text-primary">{item.title}</h1>
-            {item.summary && <p className="mt-3 max-w-3xl text-body leading-6 text-secondary">{item.summary}</p>}
-          </header>
-
-          <div data-mobile-media-actions>
-            <Surface className="p-4">
-              <p className="label-caps">İlerleme</p>
-              <p className="mt-1 numeral text-title text-primary">{progressText}</p>
-              <div className="mt-4">
-                <MediaProgressActions item={item} online={online} onChanged={() => undefined} />
-              </div>
-              {item.status !== "completed" && item.status !== "dropped" && (
-                <div className="mt-3 border-t border-subtle pt-3">
-                  {openCycle ? (
-                    <>
-                      <Button
-                        size="sm"
-                        disabled={!online || setCycleStatus.isPending}
-                        onClick={() => setCycleStatus.mutate(openCycle.status === "paused" ? "in_progress" : "paused")}
-                      >
-                        {openCycle.status === "paused" ? (
-                          <>
-                            <Play size={14} aria-hidden="true" /> Devam et
-                          </>
-                        ) : (
-                          <>
-                            <Pause size={14} aria-hidden="true" /> Duraklat
-                          </>
-                        )}
-                      </Button>
-                      {setCycleStatus.error && (
-                        <p role="alert" className="mt-2 text-meta text-danger">
-                          Döngü güncellenemedi: {setCycleStatus.error.message}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <Button size="sm" disabled={!online || startCycle.isPending} onClick={() => startCycle.mutate()}>
-                        <Play size={14} aria-hidden="true" /> İzlemeye başla
-                      </Button>
-                      {startCycle.error && (
-                        <p role="alert" className="mt-2 text-meta text-danger">
-                          İzleme başlatılamadı: {startCycle.error.message}
-                        </p>
-                      )}
-                    </>
+            <div className="min-w-0 space-y-5">
+              <header>
+                <div className="flex flex-wrap items-center gap-2 text-meta">
+                  <Chip identity={"kind-" + item.kind} variant="outline">
+                    {KIND_LABELS[item.kind] ?? item.kind}
+                  </Chip>
+                  <span className="rounded border border-subtle px-2 py-0.5 text-secondary">
+                    {statusLabel(item.kind, item.status)}
+                  </span>
+                  {provider && (
+                    <span className={cx("rounded border px-2 py-0.5", providerChip(provider))}>
+                      {providerLabel(provider)}
+                    </span>
                   )}
                 </div>
-              )}
-            </Surface>
+                {item.summary && <p className="mt-3 max-w-3xl text-body leading-6 text-secondary">{item.summary}</p>}
+              </header>
+
+              <div data-mobile-media-actions>
+                <Surface className="p-4">
+                  <p className="label-caps">İlerleme</p>
+                  <p className="mt-1 numeral text-title text-primary">{progressText}</p>
+                  <div className="mt-4">
+                    <MediaProgressActions item={item} online={online} onChanged={() => undefined} />
+                  </div>
+                  {item.status !== "completed" && item.status !== "dropped" && (
+                    <div className="mt-3 border-t border-subtle pt-3">
+                      {openCycle ? (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={!online || setCycleStatus.isPending}
+                            onClick={() =>
+                              setCycleStatus.mutate(openCycle.status === "paused" ? "in_progress" : "paused")
+                            }
+                          >
+                            {openCycle.status === "paused" ? (
+                              <>
+                                <Play size={14} aria-hidden="true" /> Devam et
+                              </>
+                            ) : (
+                              <>
+                                <Pause size={14} aria-hidden="true" /> Duraklat
+                              </>
+                            )}
+                          </Button>
+                          {setCycleStatus.error && (
+                            <p role="alert" className="mt-2 text-meta text-danger">
+                              Döngü güncellenemedi: {setCycleStatus.error.message}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={!online || startCycle.isPending}
+                            onClick={() => startCycle.mutate()}
+                          >
+                            <Play size={14} aria-hidden="true" /> İzlemeye başla
+                          </Button>
+                          {startCycle.error && (
+                            <p role="alert" className="mt-2 text-meta text-danger">
+                              İzleme başlatılamadı: {startCycle.error.message}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </Surface>
+              </div>
+
+              <Section title="Puan ve notlar">
+                <MetadataEditor item={item} online={online} onChanged={refresh} />
+              </Section>
+
+              <UnitsSection item={item} units={data.units} consumptions={data.consumptions} online={online} />
+
+              <CollectionMembership itemId={item.id} collections={data.collections} online={online} />
+
+              <Section
+                title="Kaynaklarda aç"
+                action={
+                  externalUrl ? (
+                    <Button
+                      size="sm"
+                      disabled={!online}
+                      onClick={() => {
+                        void save.save({ url: externalUrl, title: item.title, collection: "reference" });
+                      }}
+                    >
+                      <Bookmark size={13} aria-hidden="true" /> Kaydet
+                    </Button>
+                  ) : undefined
+                }
+              >
+                {sites.length ? (
+                  <SiteLinks links={sites} />
+                ) : (
+                  <p className="text-body text-muted">Bu tür için kaynak kısayolu yok.</p>
+                )}
+              </Section>
+
+              <RelatedPanel entityId={item.id} title="Bağlı kayıtlar" />
+            </div>
           </div>
-
-          <Section title="Puan ve notlar">
-            <MetadataEditor item={item} online={online} onChanged={refresh} />
-          </Section>
-
-          <UnitsSection item={item} units={data.units} consumptions={data.consumptions} online={online} />
-
-          <CollectionMembership itemId={item.id} collections={data.collections} online={online} />
-
-          <Section
-            title="Kaynaklarda aç"
-            action={
-              externalUrl ? (
-                <Button
-                  size="sm"
-                  disabled={!online}
-                  onClick={() => {
-                    void save.save({ url: externalUrl, title: item.title, collection: "reference" });
-                  }}
-                >
-                  <Bookmark size={13} aria-hidden="true" /> Kaydet
-                </Button>
-              ) : undefined
-            }
-          >
-            {sites.length ? (
-              <SiteLinks links={sites} />
-            ) : (
-              <p className="text-body text-muted">Bu tür için kaynak kısayolu yok.</p>
-            )}
-          </Section>
-
-          <RelatedPanel entityId={item.id} title="Bağlı kayıtlar" />
-        </div>
-      </div>
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }

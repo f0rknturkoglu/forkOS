@@ -12,13 +12,13 @@ import {
   Metric,
   MetricStrip,
   PageFrame,
-  PageHeader,
   RowList,
   Section,
   Select,
   cx,
   useToast,
 } from "@/core/ui";
+import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
 import { ContextChip, ContextPicker } from "./ContextPicker";
@@ -90,95 +90,98 @@ export function PomodoroPage() {
 
   return (
     <>
-      <PageFrame className="space-y-5">
-        <PageHeader eyebrow="Planlama" title="Pomodoro" />
-        <p className="text-meta text-muted">
-          Sayaç veritabanındaki başlangıç zamanına dayanır; sekme kapansa da devam eder. Varsayılan blok {FOCUS_MIN} dk
-          odak / {BREAK_MIN} dk mola.
-        </p>
+      <PageFrame>
+        <Workspace>
+          <WorkspacePaneHeader
+            eyebrow="Planlama"
+            title="Pomodoro"
+            hint={`Varsayılan ${FOCUS_MIN} dk odak · ${BREAK_MIN} dk mola`}
+          />
+          <WorkspaceScrollArea className="space-y-4 p-3">
+            {active ? (
+              <Section title={KIND_LABELS[active.kind] ?? active.kind} hint={paused ? "duraklatıldı" : "sürüyor"}>
+                <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
+                  <div>
+                    <div
+                      className={cx(
+                        "numeral text-display-xl leading-none tabular-nums transition-colors",
+                        paused ? "text-muted" : "text-primary",
+                      )}
+                    >
+                      {clock(left)}
+                    </div>
+                    <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                      <span className="truncate">{active.topic || active.context_title || "Bağımsız"}</span>
+                      <ContextChip type={active.context_type} />
+                      <span>· {active.planned_min} dk</span>
+                    </p>
+                  </div>
 
-        {active ? (
-          <Section title={KIND_LABELS[active.kind] ?? active.kind} hint={paused ? "duraklatıldı" : "sürüyor"}>
-            <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
-              <div>
-                <div
-                  className={cx(
-                    "numeral text-display-xl leading-none tabular-nums transition-colors",
-                    paused ? "text-muted" : "text-primary",
-                  )}
-                >
-                  {clock(left)}
+                  <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                    <Button variant="primary" onClick={() => setFocusMode(true)}>
+                      <Maximize2 size={14} /> odak modu
+                    </Button>
+                    <Button disabled={!online || togglePause.isPending} onClick={() => togglePause.mutate()}>
+                      {paused ? (
+                        <>
+                          <Play size={14} /> devam et
+                        </>
+                      ) : (
+                        <>
+                          <Pause size={14} /> duraklat
+                        </>
+                      )}
+                    </Button>
+                    <Button disabled={!online} onClick={() => stop.mutate(false)}>
+                      tamamla
+                    </Button>
+                    <Button variant="danger" disabled={!online} onClick={() => stop.mutate(true)}>
+                      yarıda kes
+                    </Button>
+                  </div>
                 </div>
-                <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-meta text-muted">
-                  <span className="truncate">{active.topic || active.context_title || "Bağımsız"}</span>
-                  <ContextChip type={active.context_type} />
-                  <span>· {active.planned_min} dk</span>
-                </p>
-              </div>
+              </Section>
+            ) : (
+              <Section title="Yeni blok">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="primary" disabled={!online || start.isPending} onClick={() => start.mutate("focus")}>
+                    {minutes} dk odak başlat
+                  </Button>
+                  <Button disabled={!online || start.isPending} onClick={() => start.mutate("short_break")}>
+                    {BREAK_MIN} dk mola
+                  </Button>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-                <Button variant="primary" onClick={() => setFocusMode(true)}>
-                  <Maximize2 size={14} /> odak modu
-                </Button>
-                <Button disabled={!online || togglePause.isPending} onClick={() => togglePause.mutate()}>
-                  {paused ? (
-                    <>
-                      <Play size={14} /> devam et
-                    </>
-                  ) : (
-                    <>
-                      <Pause size={14} /> duraklat
-                    </>
-                  )}
-                </Button>
-                <Button disabled={!online} onClick={() => stop.mutate(false)}>
-                  tamamla
-                </Button>
-                <Button variant="danger" disabled={!online} onClick={() => stop.mutate(true)}>
-                  yarıda kes
-                </Button>
-              </div>
-            </div>
-          </Section>
-        ) : (
-          <Section title="Yeni blok">
-            <div className="flex flex-wrap gap-2">
-              <Button variant="primary" disabled={!online || start.isPending} onClick={() => start.mutate("focus")}>
-                {minutes} dk odak başlat
-              </Button>
-              <Button disabled={!online || start.isPending} onClick={() => start.mutate("short_break")}>
-                {BREAK_MIN} dk mola
-              </Button>
-            </div>
+                <div className="mt-4 grid gap-3 border-t border-subtle pt-4 sm:grid-cols-3">
+                  <Field label="Süre (dk)">
+                    <Input
+                      type="number"
+                      value={String(minutes)}
+                      onChange={(value) => setMinutes(Math.max(1, Math.min(240, Number(value) || FOCUS_MIN)))}
+                      className="w-full"
+                    />
+                  </Field>
+                  <Field label="Konu" className="sm:col-span-2">
+                    <Input value={topic} onChange={setTopic} placeholder="Neye odaklanıyorsun?" className="w-full" />
+                  </Field>
+                  <div className="sm:col-span-3">
+                    <ContextPicker value={context} onChange={setContext} />
+                  </div>
+                </div>
+              </Section>
+            )}
 
-            <div className="mt-4 grid gap-3 border-t border-subtle pt-4 sm:grid-cols-3">
-              <Field label="Süre (dk)">
-                <Input
-                  type="number"
-                  value={String(minutes)}
-                  onChange={(value) => setMinutes(Math.max(1, Math.min(240, Number(value) || FOCUS_MIN)))}
-                  className="w-full"
-                />
-              </Field>
-              <Field label="Konu" className="sm:col-span-2">
-                <Input value={topic} onChange={setTopic} placeholder="Neye odaklanıyorsun?" className="w-full" />
-              </Field>
-              <div className="sm:col-span-3">
-                <ContextPicker value={context} onChange={setContext} />
-              </div>
-            </div>
-          </Section>
-        )}
+            <Section title="Bu hafta" bodyClassName="p-0">
+              <MetricStrip className="grid-cols-3 rounded-none border-0 shadow-none">
+                <Metric label="Dakika" value={stats?.minutes ?? 0} />
+                <Metric label="Seans" value={stats?.sessions ?? 0} />
+                <Metric label="Kesilen" value={stats?.interrupted ?? 0} />
+              </MetricStrip>
+            </Section>
 
-        <Section title="Bu hafta" bodyClassName="p-0">
-          <MetricStrip className="grid-cols-3 rounded-none border-0 shadow-none">
-            <Metric label="Dakika" value={stats?.minutes ?? 0} />
-            <Metric label="Seans" value={stats?.sessions ?? 0} />
-            <Metric label="Kesilen" value={stats?.interrupted ?? 0} />
-          </MetricStrip>
-        </Section>
-
-        <SessionHistory onChange={refresh} onManualDone={refreshTimeline} />
+            <SessionHistory onChange={refresh} onManualDone={refreshTimeline} />
+          </WorkspaceScrollArea>
+        </Workspace>
       </PageFrame>
 
       {focusMode && active && <FocusMode onClose={() => setFocusMode(false)} />}

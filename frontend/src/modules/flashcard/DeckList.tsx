@@ -48,7 +48,7 @@ function DeckRow({
   );
 }
 
-export function DeckList({ onOpen }: { onOpen: (deckId: string) => void }) {
+export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string) => void; showDecks?: boolean }) {
   const online = useOnline();
   const toast = useToast();
   const [title, setTitle] = useState("");
@@ -110,19 +110,21 @@ export function DeckList({ onOpen }: { onOpen: (deckId: string) => void }) {
 
   return (
     <div className="space-y-5">
-      <Section title="Destekler" hint={decks.length ? `${decks.length} destek` : undefined}>
-        {isLoading ? (
-          <SkeletonRows rows={5} className="h-12" />
-        ) : decks.length === 0 ? (
-          <Empty title="Henüz destek yok">İlk kart desteni oluştur ya da Anki (.apkg) / CSV dosyası içe aktar.</Empty>
-        ) : (
-          <RowList as="ul">
-            {decks.map((deck) => (
-              <DeckRow key={deck.id} deck={deck} online={online} onOpen={onOpen} onDelete={confirmRemove} />
-            ))}
-          </RowList>
-        )}
-      </Section>
+      {showDecks ? (
+        <Section title="Destekler" hint={decks.length ? `${decks.length} destek` : undefined}>
+          {isLoading ? (
+            <SkeletonRows rows={5} className="h-12" />
+          ) : decks.length === 0 ? (
+            <Empty title="Henüz destek yok">İlk kart desteni oluştur ya da Anki (.apkg) / CSV dosyası içe aktar.</Empty>
+          ) : (
+            <RowList as="ul">
+              {decks.map((deck) => (
+                <DeckRow key={deck.id} deck={deck} online={online} onOpen={onOpen} onDelete={confirmRemove} />
+              ))}
+            </RowList>
+          )}
+        </Section>
+      ) : null}
 
       <Section title="Yeni destek" flat>
         <div className="flex flex-wrap items-center gap-2">

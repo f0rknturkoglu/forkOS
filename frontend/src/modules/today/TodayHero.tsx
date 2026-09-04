@@ -17,7 +17,7 @@ function greeting(hour: number): string {
  * Hepsi "su an nerdeyiz" sorusunun parcasi; ayri seritlerde durduklarinda
  * panelin ustunde ust uste iki-uc bant olusuyordu.
  *
- * Arama BURADA YOK: ust seritteki (AppHeader) arama her sayfada duruyor,
+ * Arama BURADA YOK: çalışma alanı başlığındaki arama her sayfada duruyor,
  * ikincisi ayni ekranda iki kutu demekti.
  *
  * Saat ve hava bilincli olarak sutunlarin disinda ve tek bir blokta: ikisi de

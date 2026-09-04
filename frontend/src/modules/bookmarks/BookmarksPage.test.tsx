@@ -106,6 +106,8 @@ describe("bookmarks flow", () => {
 
     expect(markup).toContain("Önemli makale");
     expect(markup).toContain("#react");
+    expect(markup).toContain("Koleksiyonlar");
+    expect(markup).toContain("Okuma durumu");
 
     const library = harness.queries.find((query) => query.queryKey[0] === "bookmarks");
     await library?.queryFn();

@@ -19,6 +19,7 @@ backend/backups/
 backend/data/cache/
 backend/data/media/
 backend/data/documents/
+frontend/public/excalidraw-assets/
 output/
 .worktrees/
 
@@ -31,4 +32,6 @@ backend/app/sources/forkjob_core/data/linkedin-profiles.yaml.user
 forkOS-drive-backup*
 design-audit-*
 design-reference-*
+design-qa-*
 *.png
+

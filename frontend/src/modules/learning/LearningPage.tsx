@@ -1,11 +1,18 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, FileJson, ListTodo, Network, Plus, Timer, Trash2 } from "lucide-react";
+import { ChevronDown, FileJson, ListTodo, Network, Timer, Trash2 } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { Course, StudyArea, StudyTopic } from "@/core/types";
-import { Button, Chip, Empty, IconButton, Input, PageFrame, PageHeader, Section, Toolbar, cx } from "@/core/ui";
+import { Button, Chip, Empty, IconButton, Input, PageFrame, Section, cx } from "@/core/ui";
+import {
+  Workspace,
+  WorkspacePaneHeader,
+  WorkspaceRailContent,
+  WorkspaceRailGroup,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { BacklinksPanel } from "@/core/BacklinksPanel";
 import { confirmDialog } from "@/core/dialog";
@@ -181,167 +188,145 @@ export function LearningPage() {
   const overallPct = summary.resources ? Math.round((summary.completed / summary.resources) * 100) : 0;
   const currentAreaTitle = areas.find((area) => area.id === areaId)?.title ?? "Öğrenme alanı";
 
-  return (
-    <PageFrame className="space-y-5">
-      <PageHeader
-        eyebrow="Öğrenme"
-        title="Çalışma"
-        action={
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button onClick={() => setImporting((open) => !open)}>
-              <FileJson size={14} /> JSON yükle
-            </Button>
-            <Button onClick={() => navigate("/graph")}>
-              <Network size={14} /> Bilgi grafı
-            </Button>
-          </div>
-        }
+  const rail = (
+    <WorkspaceRailContent className="max-h-96 lg:max-h-workspace-body">
+      <LearningProgressSummary
+        areaTitle={currentAreaTitle}
+        topics={summary.topics}
+        topicsDone={summary.done}
+        resources={summary.resources}
+        resourcesDone={summary.completed}
+        minutes={stats?.minutes ?? 0}
+        progressPct={overallPct}
       />
+      <WorkspaceRailGroup label="Alanlar" hint={areas.length}>
+        <AreasPanel
+          areas={areas}
+          areaId={areaId}
+          online={online}
+          onSelect={(id) => {
+            setAreaId(id);
+            setSelected(null);
+          }}
+          onRemoveArea={confirmRemoveArea}
+          title={areaTitle}
+          onTitle={setAreaTitle}
+          onAdd={() => addArea.mutate()}
+          pending={removeArea.isPending}
+          addPending={addArea.isPending}
+        />
+      </WorkspaceRailGroup>
+      <WorkspaceRailGroup label="Konu ağacı" hint={topics.length ? summary.topics : undefined}>
+        <TopicTreePanel
+          topics={topics}
+          online={online}
+          onSelect={setSelected}
+          selectedId={selected?.id ?? ""}
+          onTask={(topic) => createTask.mutate(topic)}
+          taskPending={createTask.isPending}
+          title={topicTitle}
+          onTitle={setTopicTitle}
+          onAdd={() => addTopic.mutate()}
+          areaId={areaId}
+          pending={addTopic.isPending}
+        />
+      </WorkspaceRailGroup>
+    </WorkspaceRailContent>
+  );
 
+  return (
+    <PageFrame className="space-y-3">
       {importing && <ImportDialog areas={areas} onClose={() => setImporting(false)} />}
 
-      {/* Alanlar sekme seridi: sol sutunu yiyip agaca yer birakiyordu. */}
-      <Toolbar>
-        {areas.map((area) => (
-          <button
-            key={area.id}
-            type="button"
-            onClick={() => {
-              setAreaId(area.id);
-              setSelected(null);
-            }}
-            className={cx(
-              "group flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-meta transition",
-              areaId === area.id
-                ? "border-accent-border bg-accent-surface font-medium text-accent"
-                : "border-subtle text-secondary hover:bg-surface-hover hover:text-primary",
-            )}
-          >
-            {area.title}
-            <span
-              role="button"
-              tabIndex={-1}
-              aria-label={`"${area.title}" alanını sil`}
-              title="Alanı sil"
-              onClick={(event) => {
-                event.stopPropagation();
-                confirmRemoveArea(area);
-              }}
-              className="text-muted opacity-0 transition group-hover:opacity-100 hover:text-danger"
-            >
-              <Trash2 size={12} />
-            </span>
-          </button>
-        ))}
-        <form
-          className="ml-auto flex gap-1.5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (areaTitle.trim()) addArea.mutate();
-          }}
-        >
-          <Input value={areaTitle} onChange={setAreaTitle} placeholder="Yeni alan" className="h-8 w-40" />
-          <Button size="sm" type="submit" disabled={!online || addArea.isPending}>
-            <Plus size={13} />
-          </Button>
-        </form>
-      </Toolbar>
+      <Workspace rail={rail} railAt="lg" railWidth="wide">
+        <WorkspacePaneHeader
+          eyebrow="Öğrenme"
+          title={selected?.title ?? currentAreaTitle}
+          wrapTitle
+          hint={selected ? `${stats?.minutes ?? 0} dk · ${stats?.sessions ?? 0} seans` : `${summary.topics} konu`}
+          action={
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button size="sm" onClick={() => setImporting((open) => !open)}>
+                <FileJson size={14} /> JSON yükle
+              </Button>
+              <Button size="sm" onClick={() => navigate("/graph")}>
+                <Network size={14} /> Bilgi grafı
+              </Button>
+            </div>
+          }
+        />
 
-      <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-3">
-          <LearningProgressSummary
-            areaTitle={currentAreaTitle}
-            topics={summary.topics}
-            topicsDone={summary.done}
-            resources={summary.resources}
-            resourcesDone={summary.completed}
-            minutes={stats?.minutes ?? 0}
-            progressPct={overallPct}
-          />
-          <Section title="Konu ağacı" hint={topics.length ? `${summary.topics} konu` : undefined}>
-            <TopicTreePanel
-              topics={topics}
-              online={online}
-              onSelect={setSelected}
-              selectedId={selected?.id ?? ""}
-              onTask={(t) => createTask.mutate(t)}
-              taskPending={createTask.isPending}
-              title={topicTitle}
-              onTitle={setTopicTitle}
-              onAdd={() => addTopic.mutate()}
-              areaId={areaId}
-              pending={addTopic.isPending}
-            />
-          </Section>
-        </div>
-
-        {selected ? (
-          <div className="min-w-0 space-y-5">
-            <Section title="Konu ayrıntısı">
-              <TopicDetailPanel
-                selected={selected}
-                stats={stats}
-                online={online}
-                onPatch={(body) => patch.mutate(body)}
-                onRemove={() => confirmRemoveTopic(selected)}
-              />
-              <form
-                className="mt-3 flex gap-2 border-t border-subtle pt-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (subTitle.trim()) addSubTopic.mutate();
-                }}
-              >
-                <Input
-                  value={subTitle}
-                  onChange={setSubTitle}
-                  placeholder={`"${selected.title}" altına alt konu`}
-                  className="min-w-0 flex-1"
+        <WorkspaceScrollArea className="p-3">
+          {selected ? (
+            <div className="mx-auto max-w-content space-y-5">
+              <Section title="Konu ayrıntısı">
+                <TopicDetailPanel
+                  selected={selected}
+                  stats={stats}
+                  online={online}
+                  onPatch={(body) => patch.mutate(body)}
+                  onRemove={() => confirmRemoveTopic(selected)}
                 />
-                <Button type="submit" disabled={!online || addSubTopic.isPending}>
-                  Alt konu ekle
-                </Button>
-              </form>
-            </Section>
-
-            {/* Sekmeler: kaynak/not/bag alt alta uzun bir sayfa yapiyordu. */}
-            <Toolbar>
-              {DETAIL_TABS.map((item) => (
-                <Button
-                  key={item.id}
-                  size="sm"
-                  variant={detailTab === item.id ? "primary" : "ghost"}
-                  onClick={() => setDetailTab(item.id)}
+                <form
+                  className="mt-3 flex gap-2 border-t border-subtle pt-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (subTitle.trim()) addSubTopic.mutate();
+                  }}
                 >
-                  {item.label}
-                </Button>
-              ))}
-            </Toolbar>
-            {detailTab === "resources" && <ResourceList topicId={selected.id} />}
-            {detailTab === "notes" && <TopicNotes topicId={selected.id} />}
-            {detailTab === "links" && (
-              <div className="space-y-5">
-                <BacklinksPanel entityId={selected.id} />
-                {/* Kaynaklar ve notlar kendi sekmelerinde; burada yalniz elle
-                    kurulan diger baglar kalir (proje, gorev, medya...). */}
-                <RelatedPanel entityId={selected.id} title="Bağlı kayıtlar" exclude={["learns_from", "notes_about"]} />
-              </div>
-            )}
-          </div>
-        ) : (
-          <Empty variant="page" title="Bir konu seç">
-            Soldaki ağaçtan bir konu seç — kaynakları, ilerlemesi ve notları burada açılır. Ya da yukarıdan JSON
-            yükleyip hazır bir ağaç kur.
-          </Empty>
-        )}
-      </div>
+                  <Input
+                    value={subTitle}
+                    onChange={setSubTitle}
+                    placeholder={`"${selected.title}" altına alt konu`}
+                    className="min-w-0 flex-1"
+                  />
+                  <Button type="submit" disabled={!online || addSubTopic.isPending}>
+                    Alt konu ekle
+                  </Button>
+                </form>
+              </Section>
 
-      <CoursesTab
-        courses={courses}
-        online={online}
-        onProgress={(id, progress_pct) => patchCourse(id, progress_pct)}
-        onRemove={(id) => removeCourse(id)}
-      />
+              <div className="flex flex-wrap items-center gap-1 border-b border-subtle pb-2">
+                {DETAIL_TABS.map((item) => (
+                  <Button
+                    key={item.id}
+                    size="sm"
+                    variant={detailTab === item.id ? "primary" : "ghost"}
+                    onClick={() => setDetailTab(item.id)}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </div>
+              {detailTab === "resources" && <ResourceList topicId={selected.id} />}
+              {detailTab === "notes" && <TopicNotes topicId={selected.id} />}
+              {detailTab === "links" && (
+                <div className="space-y-5">
+                  <BacklinksPanel entityId={selected.id} />
+                  <RelatedPanel
+                    entityId={selected.id}
+                    title="Bağlı kayıtlar"
+                    exclude={["learns_from", "notes_about"]}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <Empty variant="page" title="Bir konu seç">
+              Sol taraftaki konu ağacından bir başlık seç. Kaynaklar, ilerleme ve notlar bu çalışma yüzeyinde açılır.
+            </Empty>
+          )}
+
+          <div className="mx-auto mt-5 max-w-content">
+            <CoursesTab
+              courses={courses}
+              online={online}
+              onProgress={(id, progress_pct) => patchCourse(id, progress_pct)}
+              onRemove={(id) => removeCourse(id)}
+            />
+          </div>
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }
@@ -373,7 +358,7 @@ function LearningProgressSummary({
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <p className="label-caps">Öğrenme seviyesi</p>
-            <p className="mt-0.5 truncate text-heading text-primary">{areaTitle}</p>
+            <p className="mt-0.5 break-words text-heading text-primary">{areaTitle}</p>
           </div>
           <span className={cx("numeral text-numeral-lg", complete ? "text-ok" : "text-accent")}>%{progressPct}</span>
           <ChevronDown
@@ -459,7 +444,7 @@ function AreasPanel({
             <button
               onClick={() => onSelect(a.id)}
               className={cx(
-                "min-w-0 flex-1 truncate px-2 py-2 text-left text-body hover:bg-surface-hover",
+                "min-w-0 flex-1 break-words px-2 py-2 text-left text-body leading-relaxed hover:bg-surface-hover",
                 areaId === a.id && "bg-accent-surface text-primary",
               )}
             >
@@ -634,7 +619,7 @@ function TopicTree({
         <div key={t.id}>
           <div
             className={cx(
-              "group flex w-full items-center gap-1 rounded-control pr-1 transition",
+              "group flex w-full items-start gap-1 rounded-control pr-1 transition",
               selectedId === t.id ? "bg-accent-surface" : "hover:bg-surface-hover",
             )}
           >
@@ -643,23 +628,26 @@ function TopicTree({
               style={{ paddingLeft: `${depth * 16 + 8}px` }}
               className="min-w-0 flex-1 py-2 text-left text-body"
             >
-              <span className="block truncate">{t.title}</span>
+              <span className="block whitespace-normal break-words leading-relaxed text-primary">{t.title}</span>
               {/* Kaynak sayacindan turetilen ilerleme -- alt konular dahil. */}
-              {t.progress && t.progress.total > 0 && (
-                <span className="mt-0.5 flex items-center gap-1.5">
-                  <span className="h-1 w-16 overflow-hidden rounded-control bg-surface-sunken">
-                    <span
-                      className={cx("block h-full rounded-control", t.progress.pct === 100 ? "bg-ok" : "bg-accent")}
-                      style={{ width: `${t.progress.pct}%` }}
-                    />
-                  </span>
-                  <span className="numeral text-micro text-muted">
-                    {t.progress.done}/{t.progress.total}
-                  </span>
-                </span>
-              )}
+              <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                <Chip tone={statusTone(t.status)}>{statusLabel(t.status)}</Chip>
+                {t.progress && t.progress.total > 0 && (
+                  <>
+                    <span className="h-1 w-16 overflow-hidden rounded-control bg-surface-sunken">
+                      <span
+                        className={cx("block h-full rounded-control", t.progress.pct === 100 ? "bg-ok" : "bg-accent")}
+                        style={{ width: `${t.progress.pct}%` }}
+                      />
+                    </span>
+                    <span className="numeral text-micro text-muted">
+                      {t.progress.done}/{t.progress.total}
+                    </span>
+                  </>
+                )}
+              </span>
             </button>
-            <span className="flex shrink-0 items-center gap-0.5">
+            <span className="mt-1 flex shrink-0 items-center gap-0.5">
               <button
                 type="button"
                 title="Görev oluştur"
@@ -686,7 +674,6 @@ function TopicTree({
               >
                 <Timer size={13} />
               </button>
-              <Chip tone={statusTone(t.status)}>{statusLabel(t.status)}</Chip>
             </span>
           </div>
           <TopicTree

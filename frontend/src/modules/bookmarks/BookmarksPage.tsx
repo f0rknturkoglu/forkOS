@@ -11,16 +11,22 @@ import {
   IconButton,
   Input,
   PageFrame,
-  PageHeader,
   RowList,
-  Section,
   Select,
-  Toolbar,
   cx,
   hostOf,
   relativeTime,
   SkeletonRows,
 } from "@/core/ui";
+import {
+  Workspace,
+  WorkspaceInspectorContent,
+  WorkspacePaneHeader,
+  WorkspaceRailButton,
+  WorkspaceRailContent,
+  WorkspaceRailGroup,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
@@ -179,75 +185,101 @@ export function BookmarksPage() {
   }
 
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader eyebrow="Kaynaklar" title="Yer İmleri" />
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="min-w-0">
-          {/* ── Filtre sırası: arama + chip'ler ── */}
-          <Toolbar className="mb-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                value={search}
-                onChange={setSearch}
-                placeholder="Ara (başlık, not, seçim)…"
-                className="min-w-48 flex-1"
-              />
-              <FilterChip
-                label="★ Favoriler"
-                active={Boolean(filter.favorite)}
-                onClick={() => setFilter({ ...filter, favorite: filter.favorite ? undefined : true })}
-              />
-              <FilterChip
-                label="RSS"
-                active={filter.source === "rss"}
-                onClick={() => setFilter({ ...filter, source: filter.source === "rss" ? undefined : "rss" })}
-              />
-              {filter.tag && (
-                <FilterChip
-                  label={`#${filter.tag} ✕`}
-                  active
-                  onClick={() => setFilter({ ...filter, tag: undefined })}
-                />
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Koleksiyona göre filtrele">
-              <FilterChip
+    <PageFrame className="py-3">
+      <Workspace
+        rail={
+          <WorkspaceRailContent>
+            <WorkspaceRailGroup label="Koleksiyonlar">
+              <WorkspaceRailButton
                 label="Tümü"
                 count={stats?.total}
                 active={!filter.collection}
                 onClick={() => setFilter({ ...filter, collection: "" })}
               />
-              {COLLECTIONS.map((c) => (
-                <FilterChip
-                  key={c}
-                  label={COLLECTION_LABELS[c]}
-                  count={stats?.collections.find((x) => x.collection === c)?.count}
-                  active={filter.collection === c}
-                  onClick={() => setFilter({ ...filter, collection: filter.collection === c ? "" : c })}
+              {COLLECTIONS.map((collection) => (
+                <WorkspaceRailButton
+                  key={collection}
+                  label={COLLECTION_LABELS[collection]}
+                  count={stats?.collections.find((item) => item.collection === collection)?.count}
+                  active={filter.collection === collection}
+                  onClick={() =>
+                    setFilter({ ...filter, collection: filter.collection === collection ? "" : collection })
+                  }
                 />
               ))}
-            </div>
+            </WorkspaceRailGroup>
 
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Okuma durumuna göre filtrele">
-              <FilterChip
+            <WorkspaceRailGroup label="Okuma durumu">
+              <WorkspaceRailButton
                 label="Hepsi"
                 active={!filter.read_status}
                 onClick={() => setFilter({ ...filter, read_status: undefined })}
               />
-              {READ_STATUSES.map((s) => (
-                <FilterChip
-                  key={s}
-                  label={READ_STATUS_LABELS[s]}
-                  active={filter.read_status === s}
-                  onClick={() => setFilter({ ...filter, read_status: filter.read_status === s ? undefined : s })}
+              {READ_STATUSES.map((status) => (
+                <WorkspaceRailButton
+                  key={status}
+                  label={READ_STATUS_LABELS[status]}
+                  active={filter.read_status === status}
+                  onClick={() =>
+                    setFilter({ ...filter, read_status: filter.read_status === status ? undefined : status })
+                  }
                 />
               ))}
-            </div>
+            </WorkspaceRailGroup>
+
+            <WorkspaceRailGroup label="Etiketler" hint={tags.length}>
+              {tags.length === 0 ? (
+                <p className="px-2 py-1 text-meta text-muted">Henüz etiket yok.</p>
+              ) : (
+                tags
+                  .slice(0, 20)
+                  .map((tag) => (
+                    <WorkspaceRailButton
+                      key={tag.name}
+                      label={`#${tag.name}`}
+                      count={tag.count}
+                      active={filter.tag === tag.name}
+                      onClick={() => setFilter({ ...filter, tag: filter.tag === tag.name ? undefined : tag.name })}
+                    />
+                  ))
+              )}
+            </WorkspaceRailGroup>
 
             <SavedViewPicker module="bookmark" filters={filter} onApply={applyView} />
-          </Toolbar>
-
+          </WorkspaceRailContent>
+        }
+        inspector={
+          focus ? (
+            <WorkspaceInspectorContent title="Bağlı kayıtlar">
+              <RelatedPanel entityId={focus} title="İlişkiler" />
+            </WorkspaceInspectorContent>
+          ) : undefined
+        }
+      >
+        <WorkspacePaneHeader title="Kütüphane" eyebrow="Yer İmleri" hint={`${data.length} kayıt`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={search}
+              onChange={setSearch}
+              placeholder="Ara (başlık, not, seçim)…"
+              className="min-w-48 flex-1"
+            />
+            <FilterChip
+              label="★ Favoriler"
+              active={Boolean(filter.favorite)}
+              onClick={() => setFilter({ ...filter, favorite: filter.favorite ? undefined : true })}
+            />
+            <FilterChip
+              label="RSS"
+              active={filter.source === "rss"}
+              onClick={() => setFilter({ ...filter, source: filter.source === "rss" ? undefined : "rss" })}
+            />
+            {filter.tag && (
+              <FilterChip label={`#${filter.tag} ✕`} active onClick={() => setFilter({ ...filter, tag: undefined })} />
+            )}
+          </div>
+        </WorkspacePaneHeader>
+        <WorkspaceScrollArea className="p-3">
           {isLoading ? (
             <SkeletonRows rows={8} />
           ) : data.length === 0 ? (
@@ -259,29 +291,8 @@ export function BookmarksPage() {
               ))}
             </RowList>
           )}
-        </div>
-
-        <aside className="space-y-4">
-          <Section title="Etiketler">
-            {tags.length === 0 ? (
-              <Empty>Etiket yok.</Empty>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {tags.slice(0, 40).map((tag) => (
-                  <button
-                    key={tag.name}
-                    onClick={() => setFilter({ ...filter, tag: tag.name })}
-                    className="rounded border border-subtle px-1.5 py-0.5 text-meta text-secondary hover:border-strong hover:text-primary"
-                  >
-                    #{tag.name} <span className="text-muted">{tag.count}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </Section>
-          {focus && <RelatedPanel entityId={focus} title="Bağlı kayıtlar" />}
-        </aside>
-      </div>
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }

@@ -1,6 +1,16 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Check, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  CreditCard,
+  Pencil,
+  Plus,
+  ReceiptText,
+  Trash2,
+} from "lucide-react";
 import { api, qs } from "@/core/api";
 import { navigate, useHashRoute } from "@/app/router";
 import { invalidateAfter } from "@/core/invalidation";
@@ -18,13 +28,20 @@ import {
   MetricStrip,
   NumberInput,
   PageFrame,
-  PageHeader,
   RowList,
   Section,
   Select,
   Toolbar,
   useToast,
 } from "@/core/ui";
+import {
+  Workspace,
+  WorkspacePaneHeader,
+  WorkspaceRailButton,
+  WorkspaceRailContent,
+  WorkspaceRailGroup,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 import { daysBetween, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import {
@@ -471,95 +488,110 @@ export function FinancePage() {
   }, [summary]);
 
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader
-        eyebrow="Takip"
-        title="Finans"
-        action={
-          <div className="flex items-center gap-1.5">
-            <IconButton title="Önceki ay" onClick={() => go({ month: shiftMonth(month, -1) })}>
-              <ChevronLeft size={15} />
-            </IconButton>
-            <span className="w-36 text-center text-heading text-primary">{monthLabel(month)}</span>
-            <IconButton title="Sonraki ay" onClick={() => go({ month: shiftMonth(month, 1) })}>
-              <ChevronRight size={15} />
-            </IconButton>
-            {month !== thisMonth && (
-              <Button size="sm" onClick={() => go({ month: thisMonth })}>
-                Bu ay
-              </Button>
-            )}
-          </div>
+    <PageFrame className="py-3">
+      <Workspace
+        railAt="lg"
+        rail={
+          <WorkspaceRailContent className="max-h-44 lg:max-h-workspace-body">
+            <WorkspaceRailGroup label="Finans görünümleri">
+              {TABS.map((item) => {
+                const Icon = item.id === "summary" ? BarChart3 : item.id === "flow" ? ReceiptText : CreditCard;
+                return (
+                  <WorkspaceRailButton
+                    key={item.id}
+                    label={item.label}
+                    icon={<Icon size={13} />}
+                    active={tab === item.id}
+                    onClick={() => go({ tab: item.id })}
+                  />
+                );
+              })}
+            </WorkspaceRailGroup>
+          </WorkspaceRailContent>
         }
-      />
-
-      {currencies.map((row) => (
-        <MetricStrip key={row.currency} className="grid-cols-2 sm:grid-cols-4">
-          <Metric
-            label="Gelir"
-            value={<span className="text-ok">{moneyShort(row.income, row.currency)}</span>}
-            hint={trend && <TrendDelta ratio={trend.income} />}
-          />
-          <Metric
-            label="Gider"
-            value={<span className="text-danger">{moneyShort(row.expense, row.currency)}</span>}
-            hint={trend && <TrendDelta ratio={trend.expense} invert />}
-          />
-          <Metric
-            label="Net"
-            value={
-              <span className={Number(row.net) < 0 ? "text-danger" : "text-ok"}>
-                {signedMoney(row.net, row.currency)}
-              </span>
-            }
-            hint={Number(row.net) < 0 ? "Bu ay açık verdin" : "Bu ay artıda"}
-          />
-          <Metric label="Abonelik" value={moneyShort(row.recurring_monthly, row.currency)} hint="aylık sabit yük" />
-        </MetricStrip>
-      ))}
-      <QuickAddForm online={online} onRefresh={refresh} />
-      {!primary && (
-        <Empty variant="page" title="Bu ay boş">
-          Aşağıdaki “Hareketler” sekmesinden ilk gelir veya giderini ekle.
-        </Empty>
-      )}
-
-      <Toolbar>
-        {TABS.map((item) => (
-          <Button key={item.id} variant={tab === item.id ? "primary" : "ghost"} onClick={() => go({ tab: item.id })}>
-            {item.label}
-          </Button>
-        ))}
-        <span className="ml-auto text-meta text-muted">Kur dönüşümü yok; her para birimi kendi toplamında kalır.</span>
-      </Toolbar>
-
-      {tab === "summary" && (
-        <SummaryTab currencies={currencies} recurring={recurring} summary={summary} expenses={expenses} />
-      )}
-      {tab === "flow" && (
-        <FlowTab
-          flows={flows}
-          month={month}
-          online={online}
-          onRefresh={refresh}
-          onDelete={(id, kind) => remove.mutate({ id, kind })}
+      >
+        <WorkspacePaneHeader
+          eyebrow="Finans"
+          title={monthLabel(month)}
+          hint="Para birimleri ayrı hesaplanır"
+          action={
+            <div className="flex items-center gap-1">
+              <IconButton title="Önceki ay" onClick={() => go({ month: shiftMonth(month, -1) })}>
+                <ChevronLeft size={15} />
+              </IconButton>
+              {month !== thisMonth ? (
+                <Button size="sm" onClick={() => go({ month: thisMonth })}>
+                  Bu ay
+                </Button>
+              ) : null}
+              <IconButton title="Sonraki ay" onClick={() => go({ month: shiftMonth(month, 1) })}>
+                <ChevronRight size={15} />
+              </IconButton>
+            </div>
+          }
         />
-      )}
-      {tab === "subs" && (
-        <SubsTab
-          recurring={recurring}
-          online={online}
-          onRefresh={refresh}
-          onPay={(id) => pay.mutate(id)}
-          onDelete={(id) => remove.mutate({ id, kind: "recurring-payments" })}
-        />
-      )}
 
-      {focusId && (
-        <Section title="Bağlı kayıtlar">
-          <RelatedPanel entityId={focusId} />
-        </Section>
-      )}
+        <WorkspaceScrollArea className="space-y-5 p-3">
+          {currencies.map((row) => (
+            <MetricStrip key={row.currency} className="grid-cols-2 sm:grid-cols-4">
+              <Metric
+                label="Gelir"
+                value={<span className="text-ok">{moneyShort(row.income, row.currency)}</span>}
+                hint={trend && <TrendDelta ratio={trend.income} />}
+              />
+              <Metric
+                label="Gider"
+                value={<span className="text-danger">{moneyShort(row.expense, row.currency)}</span>}
+                hint={trend && <TrendDelta ratio={trend.expense} invert />}
+              />
+              <Metric
+                label="Net"
+                value={
+                  <span className={Number(row.net) < 0 ? "text-danger" : "text-ok"}>
+                    {signedMoney(row.net, row.currency)}
+                  </span>
+                }
+                hint={Number(row.net) < 0 ? "Bu ay açık verdin" : "Bu ay artıda"}
+              />
+              <Metric label="Abonelik" value={moneyShort(row.recurring_monthly, row.currency)} hint="aylık sabit yük" />
+            </MetricStrip>
+          ))}
+          <QuickAddForm online={online} onRefresh={refresh} />
+          {!primary && (
+            <Empty variant="page" title="Bu ay boş">
+              Hareketler görünümünden ilk gelir veya giderini ekle.
+            </Empty>
+          )}
+
+          {tab === "summary" && (
+            <SummaryTab currencies={currencies} recurring={recurring} summary={summary} expenses={expenses} />
+          )}
+          {tab === "flow" && (
+            <FlowTab
+              flows={flows}
+              month={month}
+              online={online}
+              onRefresh={refresh}
+              onDelete={(id, kind) => remove.mutate({ id, kind })}
+            />
+          )}
+          {tab === "subs" && (
+            <SubsTab
+              recurring={recurring}
+              online={online}
+              onRefresh={refresh}
+              onPay={(id) => pay.mutate(id)}
+              onDelete={(id) => remove.mutate({ id, kind: "recurring-payments" })}
+            />
+          )}
+
+          {focusId && (
+            <Section title="Bağlı kayıtlar">
+              <RelatedPanel entityId={focusId} />
+            </Section>
+          )}
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }

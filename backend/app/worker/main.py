@@ -13,7 +13,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
 from app.db import SessionLocal
-from app.modules.opportunity.service import deadline_ladder, prune_stale_opportunities
+from app.modules.opportunity.service import (
+    backfill_skill_match_ratios,
+    deadline_ladder,
+    prune_stale_opportunities,
+)
 from app.worker.digest import morning_digest
 from app.worker.jobs import (
     catch_up,
@@ -54,6 +58,7 @@ async def main() -> None:
     )
     scheduler.add_job(nightly_backup, "cron", hour=3, id="nightly_backup")
     scheduler.add_job(prune_old_items, "cron", hour=4, id="prune")
+
     async def prune_opportunities_job() -> None:
         async with SessionLocal() as session:
             await prune_stale_opportunities(session)
@@ -97,6 +102,12 @@ async def main() -> None:
         async with SessionLocal() as session:
             await deadline_ladder(session)
 
+    async def backfill_opportunity_skill_matches() -> None:
+        async with SessionLocal() as session:
+            updated = await backfill_skill_match_ratios(session)
+            if updated:
+                log.info("CV eslesme cache'i tamamlandi: %d ilan", updated)
+
     scheduler.add_job(deadlines, "cron", hour=8, id="deadline_ladder")
     # Son tarih merdiveninden HEMEN SONRA: ozet o turun bildirimlerini de sayar.
     scheduler.add_job(morning_digest, "cron", hour=8, minute=5, id="morning_digest")
@@ -117,6 +128,7 @@ async def main() -> None:
 
     startup_tasks = [
         ("heartbeat", record_worker_heartbeat),
+        ("backfill_opportunity_skill_matches", backfill_opportunity_skill_matches),
         ("catch_up_feeds", catch_up),
         ("catch_up_media", catch_up_media),
         ("deadlines", deadlines),

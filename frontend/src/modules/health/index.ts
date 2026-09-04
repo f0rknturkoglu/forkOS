@@ -17,7 +17,7 @@ registerModule({
   group: "system",
   routes: [
     { path: "/health", element: HealthPage, title: "Sağlık" },
-    { path: "/sources", element: SourceHealthPage, title: "Kaynaklar" },
+    { path: "/sources", element: SourceHealthPage, title: "Kaynaklar", navigation: "child" },
   ],
   todayWidgets: [
     {

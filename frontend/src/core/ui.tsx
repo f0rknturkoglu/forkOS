@@ -1,4 +1,4 @@
-import type { KeyboardEventHandler, ReactNode } from "react";
+import type { ClipboardEventHandler, DragEventHandler, KeyboardEventHandler, ReactNode } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
@@ -55,19 +55,6 @@ export function useTheme(): [Theme, (next: Theme) => void] {
 /** Sayfalarin ortak genislik ve responsive dis bosluk cercevesi. */
 export function PageFrame({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cx("mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6", className)}>{children}</div>;
-}
-
-/** Sayfa basligi; ana eylemi icerikle ayni hizada tutar. */
-export function PageHeader({ eyebrow, title, action }: { eyebrow?: ReactNode; title: ReactNode; action?: ReactNode }) {
-  return (
-    <header className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        {eyebrow && <p className="label-caps">{eyebrow}</p>}
-        <h1 className="mt-1  text-title text-primary">{title}</h1>
-      </div>
-      {action}
-    </header>
-  );
 }
 
 /**
@@ -426,11 +413,28 @@ export const Textarea = forwardRef<
     disabled?: boolean;
     ariaLabel?: string;
     onKeyDown?: KeyboardEventHandler<HTMLTextAreaElement>;
+    onPaste?: ClipboardEventHandler<HTMLTextAreaElement>;
+    onDrop?: DragEventHandler<HTMLTextAreaElement>;
+    onDragOver?: DragEventHandler<HTMLTextAreaElement>;
     /** Imlec konumu degistiginde (tiklama, ok tusu, yazma). */
     onCaret?: (position: number) => void;
   }
 >(function Textarea(
-  { value, onChange, placeholder, rows = 3, className, onBlur, disabled, ariaLabel, onCaret, onKeyDown },
+  {
+    value,
+    onChange,
+    placeholder,
+    rows = 3,
+    className,
+    onBlur,
+    disabled,
+    ariaLabel,
+    onCaret,
+    onKeyDown,
+    onPaste,
+    onDrop,
+    onDragOver,
+  },
   ref,
 ) {
   return (
@@ -442,6 +446,9 @@ export const Textarea = forwardRef<
       aria-label={ariaLabel ?? placeholder}
       disabled={disabled}
       onKeyDown={onKeyDown}
+      onPaste={onPaste}
+      onDrop={onDrop}
+      onDragOver={onDragOver}
       onBlur={(e) => onBlur?.(e.target.value)}
       onSelect={(e) => onCaret?.(e.currentTarget.selectionStart)}
       onChange={(e) => {

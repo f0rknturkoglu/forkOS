@@ -36,6 +36,11 @@ DEFAULTS: dict[str, Any] = {
     "media.google_books_key": "",
     "media.igdb_client_id": "",
     "media.igdb_client_secret": "",
+    "opportunity.career_profile": {
+        "current_location": "Ankara, Türkiye",
+        "authorized_countries": ["Türkiye"],
+        "willing_to_relocate": False,
+    },
     "news.subreddits": news.DEFAULT_SUBREDDITS,
     "theme": "dark",
 }
@@ -145,9 +150,11 @@ async def system_stats(session: AsyncSession = Depends(get_session)):
     disk_path = os.getenv("STATS_DISK_PATH", "/app")
     try:
         stat = os.statvfs(disk_path)
-        disk = {"total": stat.f_blocks * stat.f_frsize,
-                "free": stat.f_bavail * stat.f_frsize,
-                "path": disk_path}
+        disk = {
+            "total": stat.f_blocks * stat.f_frsize,
+            "free": stat.f_bavail * stat.f_frsize,
+            "path": disk_path,
+        }
     except OSError:
         pass
 
@@ -164,9 +171,7 @@ async def system_stats(session: AsyncSession = Depends(get_session)):
         try:
             observed = datetime.fromisoformat(heartbeat_at)
             worker_status = (
-                "healthy"
-                if observed >= datetime.now(UTC) - timedelta(minutes=3)
-                else "stale"
+                "healthy" if observed >= datetime.now(UTC) - timedelta(minutes=3) else "stale"
             )
         except ValueError:
             worker_status = "unknown"
@@ -191,7 +196,8 @@ async def backup_status(session: AsyncSession = Depends(get_session)):
 
 @router.post("/backup/restore")
 async def restore_backup(
-    file: UploadFile = File(...), session: AsyncSession = Depends(get_session),
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
 ):
     """Birleştirerek içe aktar (merge import) -- tam geri donus DEGILDIR.
 
@@ -277,7 +283,8 @@ async def list_views(
 ):
     """Kayitli gorunumler. Sira: sabitlenenler once, sonra konum, sonra id."""
     stmt = select(SavedView).order_by(
-        SavedView.pinned.desc(), SavedView.position.asc(), SavedView.id.asc())
+        SavedView.pinned.desc(), SavedView.position.asc(), SavedView.id.asc()
+    )
     if module:
         stmt = stmt.where(SavedView.module == module)
     return list((await session.execute(stmt)).scalars())

@@ -4,12 +4,21 @@ import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { Empty, PageFrame, PageHeader, RowList, Section, Toolbar, cx, SkeletonRows } from "@/core/ui";
+import { Chip, Empty, PageFrame, RowList, Section, SkeletonRows } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
 import { TodoRow } from "./TodoRow";
 import { dueLabel, planLabel } from "./priority";
 import { todayKey, tomorrowKey } from "@/lib/date";
+import {
+  Workspace,
+  WorkspaceInspectorContent,
+  WorkspacePaneHeader,
+  WorkspaceRailButton,
+  WorkspaceRailContent,
+  WorkspaceRailGroup,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 
 const FILTERS = [
   { value: "open", label: "açık" },
@@ -96,133 +105,111 @@ export function TodoPage() {
       : [{ id: "all", label: "", items: visible }];
 
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader
-        eyebrow="Planlama"
-        title="Görevler"
-        action={
-          <a href="#/planner" className="text-meta text-accent hover:underline">
-            Haftalık plan →
-          </a>
-        }
-      />
-
-      <TodoComposer />
-
-      <Toolbar>
-        <div className="flex gap-1 overflow-x-auto">
-          {FILTERS.map((item) => (
-            <button
-              key={item.value || "all"}
-              type="button"
-              onClick={() => setStatus(item.value)}
-              aria-pressed={status === item.value}
-              className={cx(
-                "shrink-0 rounded-control border px-3 py-1.5 text-meta transition",
-                status === item.value
-                  ? "border-strong bg-surface-sunken text-primary"
-                  : "border-transparent text-muted hover:text-primary",
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setRoutineOnly((value) => !value)}
-            aria-pressed={routineOnly}
-            className={cx(
-              "ml-1 flex shrink-0 items-center gap-1.5 rounded-control border px-3 py-1.5 text-meta transition",
-              routineOnly
-                ? "border-accent-border bg-accent-surface text-accent"
-                : "border-subtle text-muted hover:border-strong hover:text-primary",
-            )}
-          >
-            <Repeat size={12} /> Rutinler
-          </button>
-          {projectFilter && (
-            <button
-              type="button"
-              onClick={() => navigate(path)}
-              title="Proje filtresini kaldır"
-              className="ml-1 flex shrink-0 items-center gap-1.5 rounded-control border border-accent-border bg-accent-surface px-3 py-1.5 text-meta text-accent"
-            >
-              {projectTitle ?? projectFilter} ✕
-            </button>
-          )}
-        </div>
-
-        <span className="min-w-2 flex-1" />
-
-        {tags.length > 0 && (
-          <div className="flex items-center gap-1 overflow-x-auto">
-            {tag && (
-              <button
-                type="button"
-                onClick={() => setTag("")}
-                className="shrink-0 rounded-control border border-accent-border bg-accent-surface px-2.5 py-1 text-meta text-accent"
-              >
-                #{tag} ✕
-              </button>
-            )}
-            {!tag &&
-              tags.slice(0, 6).map((item) => (
-                <button
-                  key={item.name}
-                  type="button"
-                  onClick={() => setTag(item.name)}
-                  className="shrink-0 rounded-control border border-subtle px-2.5 py-1 text-meta text-muted transition hover:border-strong hover:text-primary"
-                >
-                  #{item.name}
-                </button>
+    <PageFrame className="py-3">
+      <Workspace
+        rail={
+          <WorkspaceRailContent>
+            <WorkspaceRailGroup label="Durum">
+              {FILTERS.map((item) => (
+                <WorkspaceRailButton
+                  key={item.value || "all"}
+                  label={item.label}
+                  active={status === item.value}
+                  onClick={() => setStatus(item.value)}
+                />
               ))}
-          </div>
-        )}
-      </Toolbar>
-
-      {focusId && (
-        <Section
-          title="Bağlı kayıtlar"
+            </WorkspaceRailGroup>
+            <WorkspaceRailGroup label="Tür">
+              <WorkspaceRailButton label="Tüm görevler" active={!routineOnly} onClick={() => setRoutineOnly(false)} />
+              <WorkspaceRailButton
+                label="Rutinler"
+                active={routineOnly}
+                icon={<Repeat size={13} />}
+                onClick={() => setRoutineOnly(true)}
+              />
+            </WorkspaceRailGroup>
+            {tags.length > 0 ? (
+              <WorkspaceRailGroup label="Etiketler" hint={tags.length}>
+                {tag ? (
+                  <WorkspaceRailButton label={`#${tag}`} active onClick={() => setTag("")} />
+                ) : (
+                  tags
+                    .slice(0, 12)
+                    .map((item) => (
+                      <WorkspaceRailButton
+                        key={item.name}
+                        label={`#${item.name}`}
+                        count={item.count}
+                        onClick={() => setTag(item.name)}
+                      />
+                    ))
+                )}
+              </WorkspaceRailGroup>
+            ) : null}
+          </WorkspaceRailContent>
+        }
+        inspector={
+          focusId ? (
+            <WorkspaceInspectorContent title="Görev bağlantıları">
+              <RelatedPanel entityId={focusId} />
+            </WorkspaceInspectorContent>
+          ) : undefined
+        }
+      >
+        <WorkspacePaneHeader
+          eyebrow={routineOnly ? "Rutinler" : "Görevler"}
+          title={
+            projectFilter ? (projectTitle ?? "Proje görevleri") : routineOnly ? "Tekrarlanan görevler" : "Tüm görevler"
+          }
+          hint={`${visible.length} kayıt`}
           action={
-            <button
-              type="button"
-              onClick={() => navigate(path)}
-              className="text-meta text-muted hover:text-primary"
-              aria-label="İlişkileri kapat"
-            >
-              ✕
-            </button>
+            <a href="#/planner" className="text-meta text-accent hover:underline">
+              Haftalık plan →
+            </a>
           }
         >
-          <RelatedPanel entityId={focusId} />
-        </Section>
-      )}
-
-      {isLoading ? (
-        <SkeletonRows rows={8} />
-      ) : visible.length === 0 ? (
-        <Empty variant="page" title="Liste boş">
-          {tag
-            ? `#${tag} etiketli görev yok.`
-            : routineOnly
-              ? "Bu filtrede rutin görev yok. Bir göreve tekrar kuralı ekleyebilirsin."
-              : "Bu filtrede görev yok. Yukarıdan ekleyebilirsin."}
-        </Empty>
-      ) : (
-        grouped.map((bucket) => (
-          <Section key={bucket.id} title={bucket.label || undefined} hint={`${bucket.items.length} görev`}>
-            <RowList as="ul">
-              {bucket.items.map((todo) => (
-                <TodoRow key={todo.id} todo={todo} focused={todo.id === focusId}>
-                  {(childrenOf[todo.id] ?? []).map((child) => (
-                    <TodoRow key={child.id} todo={child} nested compact focused={child.id === focusId} />
+          {projectFilter ? (
+            <Chip tone="accent">
+              {projectTitle ?? projectFilter}
+              <button type="button" onClick={() => navigate(path)} aria-label="Proje filtresini kaldır">
+                ×
+              </button>
+            </Chip>
+          ) : plannedFilter ? (
+            <Chip tone="accent">Bugün ve yarın planlananlar</Chip>
+          ) : null}
+        </WorkspacePaneHeader>
+        <div className="border-b border-subtle bg-surface-sunken p-3">
+          <TodoComposer />
+        </div>
+        <WorkspaceScrollArea className="space-y-3 p-3">
+          {isLoading ? (
+            <SkeletonRows rows={8} />
+          ) : visible.length === 0 ? (
+            <Empty variant="page" title="Liste boş">
+              {tag
+                ? `#${tag} etiketli görev yok.`
+                : routineOnly
+                  ? "Bu filtrede rutin görev yok. Bir göreve tekrar kuralı ekleyebilirsin."
+                  : "Bu filtrede görev yok. Yukarıdan ekleyebilirsin."}
+            </Empty>
+          ) : (
+            grouped.map((bucket) => (
+              <Section flat key={bucket.id} title={bucket.label || undefined} hint={`${bucket.items.length} görev`}>
+                <RowList as="ul">
+                  {bucket.items.map((todo) => (
+                    <TodoRow key={todo.id} todo={todo} focused={todo.id === focusId}>
+                      {(childrenOf[todo.id] ?? []).map((child) => (
+                        <TodoRow key={child.id} todo={child} nested compact focused={child.id === focusId} />
+                      ))}
+                    </TodoRow>
                   ))}
-                </TodoRow>
-              ))}
-            </RowList>
-          </Section>
-        ))
-      )}
+                </RowList>
+              </Section>
+            ))
+          )}
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }

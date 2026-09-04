@@ -5,7 +5,7 @@
  * (Markdown.tsx). Yani `dangerouslySetInnerHTML` yok, dolayisiyla XSS yuzeyi
  * de yok; sanitizer bagimliligina gerek kalmiyor ve giris paketi buyumuyor.
  * Desteklenen alt kume bilerek dar: baslik, kalin/italik, kod, liste, alinti,
- * yatay cizgi, baglanti, [[wikilink]] ve #etiket.
+ * yatay cizgi, GFM tablosu, baglanti, [[wikilink]] ve #etiket.
  *
  * Ayristirici SAF: DOM'a, React'e ya da ag'a dokunmaz -- testi kolay.
  */
@@ -16,7 +16,9 @@ export type Inline =
   | { t: "strong"; v: Inline[] }
   | { t: "em"; v: Inline[] }
   | { t: "strike"; v: Inline[] }
+  | { t: "mark"; v: Inline[] }
   | { t: "link"; label: string; href: string }
+  | { t: "image"; alt: string; src: string }
   | { t: "wiki"; target: string; label: string }
   | { t: "tag"; name: string };
 
@@ -26,6 +28,7 @@ export type Block =
   | { t: "quote"; content: Inline[][] }
   | { t: "list"; ordered: boolean; items: Inline[][] }
   | { t: "tasks"; items: { checked: boolean; content: Inline[] }[] }
+  | { t: "table"; header: Inline[][]; rows: Inline[][][]; align: ("left" | "center" | "right" | null)[] }
   | { t: "code"; lang: string | null; v: string }
   | { t: "hr" };
 
@@ -50,8 +53,9 @@ const INLINE = new RegExp(
     "(\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__)", // 4 kalin
     "(\\*[^*\\n]+\\*|_[^_\\n]+_)", // 5 italik
     "(~~[^~\\n]+~~)", // 6 ustu cizili
-    "((?<![\\w#/=])#[A-Za-zÇĞİÖŞÜçğıöşü][\\w\\-çğıöşüÇĞİÖŞÜ]{0,63})", // 7 etiket
-    "(https?://[^\\s<>()]+)", // 8 ciplak URL
+    "(==[^=\\n]+==)", // 7 vurgu
+    "((?<![\\w#/=])#[A-Za-zÇĞİÖŞÜçğıöşü][\\w\\-çğıöşüÇĞİÖŞÜ]{0,63})", // 8 etiket
+    "(https?://[^\\s<>()]+)", // 9 ciplak URL
   ].join("|"),
   "gu",
 );
@@ -66,7 +70,7 @@ export function parseInline(source: string): Inline[] {
   for (const match of source.matchAll(INLINE)) {
     const index = match.index ?? 0;
     push(source.slice(last, index));
-    const [raw, code, wiki, linkRaw, strong, em, strike, tag, bare] = match;
+    const [raw, code, wiki, linkRaw, strong, em, strike, mark, tag, bare] = match;
     if (code) {
       out.push({ t: "code", v: code.slice(1, -1) });
     } else if (wiki) {
@@ -76,11 +80,13 @@ export function parseInline(source: string): Inline[] {
       const label = (pipe === -1 ? inner : inner.slice(pipe + 1)).trim() || target;
       out.push({ t: "wiki", target, label });
     } else if (linkRaw) {
+      const image = linkRaw.startsWith("!");
       const cut = linkRaw.indexOf("](");
       const label = linkRaw.slice(linkRaw.indexOf("[") + 1, cut);
       const href = safeHref(linkRaw.slice(cut + 2, -1));
       // Guvensiz sema: baglanti degil duz metin olarak kalir.
-      if (href) out.push({ t: "link", label: label || href, href });
+      if (href && image) out.push({ t: "image", alt: label || "Görsel", src: href });
+      else if (href) out.push({ t: "link", label: label || href, href });
       else push(linkRaw);
     } else if (strong) {
       out.push({ t: "strong", v: parseInline(strong.slice(2, -2)) });
@@ -88,6 +94,8 @@ export function parseInline(source: string): Inline[] {
       out.push({ t: "em", v: parseInline(em.slice(1, -1)) });
     } else if (strike) {
       out.push({ t: "strike", v: parseInline(strike.slice(2, -2)) });
+    } else if (mark) {
+      out.push({ t: "mark", v: parseInline(mark.slice(2, -2)) });
     } else if (tag) {
       out.push({ t: "tag", name: tag.slice(1) });
     } else if (bare) {
@@ -108,6 +116,26 @@ const ORDERED = /^\d{1,3}[.)]\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
 const HR = /^\s*([-*_])(\s*\1){2,}\s*$/;
 const FENCE = /^```\s*(\S+)?\s*$/;
+const TABLE_DIVIDER_CELL = /^:?-{3,}:?$/;
+
+function tableCells(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split(/(?<!\\)\|/).map((cell) => cell.replace(/\\\|/g, "|").trim());
+}
+
+function tableDivider(line: string): ("left" | "center" | "right" | null)[] | null {
+  if (!line.includes("|")) return null;
+  const cells = tableCells(line);
+  if (!cells.length || cells.some((cell) => !TABLE_DIVIDER_CELL.test(cell))) return null;
+  return cells.map((cell) => {
+    const left = cell.startsWith(":");
+    const right = cell.endsWith(":");
+    if (left && right) return "center";
+    if (right) return "right";
+    if (left) return "left";
+    return null;
+  });
+}
 
 export function parseMarkdown(source: string): Block[] {
   const lines = (source ?? "").replace(/\r\n?/g, "\n").split("\n");
@@ -144,6 +172,28 @@ export function parseMarkdown(source: string): Block[] {
     if (HR.test(line)) {
       flush();
       blocks.push({ t: "hr" });
+      continue;
+    }
+
+    const alignment = i + 1 < lines.length ? tableDivider(lines[i + 1]) : null;
+    if (line.includes("|") && alignment) {
+      flush();
+      const header = tableCells(line).map(parseInline);
+      const columnCount = Math.max(header.length, alignment.length);
+      const rows: Inline[][][] = [];
+      i += 2;
+      while (i < lines.length && lines[i].includes("|") && lines[i].trim()) {
+        const cells = tableCells(lines[i]);
+        rows.push(Array.from({ length: columnCount }, (_, index) => parseInline(cells[index] ?? "")));
+        i += 1;
+      }
+      i -= 1;
+      blocks.push({
+        t: "table",
+        header: Array.from({ length: columnCount }, (_, index) => header[index] ?? []),
+        rows,
+        align: Array.from({ length: columnCount }, (_, index) => alignment[index] ?? null),
+      });
       continue;
     }
 
@@ -219,13 +269,17 @@ export function wikilinkTargets(source: string): string[] {
     const walk = (nodes: Inline[]) => {
       for (const node of nodes) {
         if (node.t === "wiki") seen.add(node.target);
-        else if (node.t === "strong" || node.t === "em" || node.t === "strike") walk(node.v);
+        else if (node.t === "strong" || node.t === "em" || node.t === "strike" || node.t === "mark") walk(node.v);
       }
     };
     if (block.t === "heading" || block.t === "paragraph") walk(block.content);
     else if (block.t === "list") block.items.forEach(walk);
     else if (block.t === "tasks") block.items.forEach((item) => walk(item.content));
     else if (block.t === "quote") block.content.forEach(walk);
+    else if (block.t === "table") {
+      block.header.forEach(walk);
+      block.rows.forEach((row) => row.forEach(walk));
+    }
   }
   return [...seen];
 }

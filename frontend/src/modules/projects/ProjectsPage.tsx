@@ -12,7 +12,6 @@ import {
   IconButton,
   Input,
   PageFrame,
-  PageHeader,
   Section,
   Select,
   cx,
@@ -29,6 +28,13 @@ import { ProjectTodos } from "./ProjectTodos";
 import { Milestones } from "./Milestones";
 import { MilestoneTimeline } from "./MilestoneTimeline";
 import { ProjectJournal } from "./ProjectJournal";
+import {
+  Workspace,
+  WorkspacePaneHeader,
+  WorkspaceRailContent,
+  WorkspaceRailGroup,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 
 const STATUSES = [
   { value: "active", label: "aktif", tone: "ok", dot: "bg-ok" },
@@ -73,49 +79,42 @@ export function ProjectsPage() {
   const current = projects.find((project) => project.id === selected) ?? null;
 
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader
-        eyebrow="Planlama"
-        title="Projeler"
-        action={
-          <Button variant="primary" size="sm" onClick={() => setAdding((v) => !v)} disabled={!online}>
-            <Plus size={14} /> {adding ? "vazgeç" : "Yeni proje"}
-          </Button>
-        }
-      />
-
-      {adding && (
-        <NewProject
-          onDone={(id) => {
-            setAdding(false);
-            invalidateAfter("project.write");
-            setSelected(id);
-          }}
-        />
-      )}
-
+    <PageFrame className="py-3">
       {isLoading ? (
         <SkeletonRows rows={6} />
       ) : projects.length === 0 ? (
-        <Empty variant="page" title="Henüz proje yok">
-          Bir proje aç, GitHub deposunu bağla; issue'ları buradan göreve çevirirsin.
-        </Empty>
-      ) : (
-        <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
-          <Section title="Projeler" hint={`${projects.length}`} bodyClassName="p-0">
-            <ul className="divide-y divide-subtle">
-              {projects.map((project) => {
-                const status = statusOf(project.status);
-                const active = project.id === selected;
-                return (
-                  <li key={project.id}>
+        <div className="space-y-4">
+          <Empty
+            variant="page"
+            title="Henüz proje yok"
+            action={
+              <Button variant="primary" onClick={() => setAdding(true)} disabled={!online}>
+                <Plus size={14} /> Yeni proje
+              </Button>
+            }
+          >
+            Bir proje aç, GitHub deposunu bağla; issue'ları buradan göreve çevirirsin.
+          </Empty>
+          {adding ? <NewProject onDone={(id) => setSelected(id)} /> : null}
+        </div>
+      ) : current ? (
+        <Workspace
+          railAt="lg"
+          rail={
+            <WorkspaceRailContent className="max-h-64 lg:max-h-workspace-body">
+              <WorkspaceRailGroup label="Projeler" hint={projects.length}>
+                {projects.map((project) => {
+                  const status = statusOf(project.status);
+                  const active = project.id === selected;
+                  return (
                     <button
+                      key={project.id}
                       type="button"
                       onClick={() => setSelected(project.id)}
-                      aria-current={active ? "true" : undefined}
+                      aria-current={active ? "page" : undefined}
                       className={cx(
-                        "flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition",
-                        active ? "bg-accent-surface" : "hover:bg-surface-hover",
+                        "flex w-full min-w-0 items-start gap-2.5 rounded-control px-2 py-2 text-left transition",
+                        active ? "bg-surface-selected" : "hover:bg-surface-hover",
                       )}
                     >
                       <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", status.dot)} />
@@ -134,15 +133,36 @@ export function ProjectsPage() {
                         </span>
                       </span>
                     </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </Section>
-
-          {current && <ProjectDetail key={current.id} project={current} />}
-        </div>
-      )}
+                  );
+                })}
+              </WorkspaceRailGroup>
+            </WorkspaceRailContent>
+          }
+        >
+          <WorkspacePaneHeader
+            eyebrow="Proje çalışma alanı"
+            title={current.title}
+            hint={<Chip tone={statusOf(current.status).tone}>{statusOf(current.status).label}</Chip>}
+            action={
+              <Button variant="primary" size="sm" onClick={() => setAdding((value) => !value)} disabled={!online}>
+                <Plus size={14} /> {adding ? "Vazgeç" : "Yeni proje"}
+              </Button>
+            }
+          />
+          <WorkspaceScrollArea className="space-y-4 p-3">
+            {adding ? (
+              <NewProject
+                onDone={(id) => {
+                  setAdding(false);
+                  invalidateAfter("project.write");
+                  setSelected(id);
+                }}
+              />
+            ) : null}
+            <ProjectDetail key={current.id} project={current} />
+          </WorkspaceScrollArea>
+        </Workspace>
+      ) : null}
     </PageFrame>
   );
 }
@@ -164,13 +184,10 @@ function ProjectDetail({ project }: { project: Project }) {
     },
   });
 
-  const status = statusOf(project.status);
-
   return (
     <div className="min-w-0 space-y-5">
       <Section
-        title={project.title}
-        hint={<Chip tone={status.tone}>{status.label}</Chip>}
+        title="Proje bilgisi"
         action={
           <span className="flex items-center gap-2">
             {project.url && (

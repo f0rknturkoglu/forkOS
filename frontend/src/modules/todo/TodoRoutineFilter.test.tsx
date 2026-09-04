@@ -42,7 +42,7 @@ describe("Todo routine filter", () => {
     const todos = harness.queries.find((query) => query.queryKey[0] === "todos");
 
     await todos?.queryFn();
-    expect(markup).toContain("Görevler");
+    expect(markup).toContain("Tekrarlanan görevler");
     expect(markup).toContain("Rutinler");
     expect(markup).not.toContain("Alışkanlıklar");
     expect(todos?.queryKey).toEqual(["todos", "open", "routines", "", false]);

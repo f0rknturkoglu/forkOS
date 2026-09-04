@@ -18,8 +18,8 @@ registerModule({
   group: "do",
   routes: [
     { path: "/todos", element: TodoPage },
-    { path: "/habits", element: TodoPage, title: "Rutin görevler" },
-    { path: "/planner", element: WeeklyPlannerPage },
+    { path: "/habits", element: TodoPage, title: "Rutinler", navigation: "child" },
+    { path: "/planner", element: WeeklyPlannerPage, title: "Haftalık plan", navigation: "child" },
   ],
   todayWidgets: [
     {

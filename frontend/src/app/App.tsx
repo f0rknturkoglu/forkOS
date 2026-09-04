@@ -2,7 +2,6 @@ import "@/modules"; // registry yi doldurur -- ILK import olmali
 import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, WifiOff, X } from "lucide-react";
-import { AppHeader } from "@/core/AppHeader";
 import { CommandPalette } from "@/core/CommandPalette";
 import { DialogHost } from "@/core/dialog";
 import { DropCapture } from "@/core/DropCapture";
@@ -13,6 +12,7 @@ import { hydrateEntityRegistry } from "@/core/entityRegistry";
 import type { EntityTypeSpec } from "@/core/entityRegistry";
 import { api } from "@/core/api";
 import { Kbd, ToastProvider, applyTheme, cx, readTheme } from "@/core/ui";
+import { AppSidebar, WorkspaceHeader } from "@/core/shell";
 import type { AppSettings, SourceHealth } from "@/core/types";
 import type { ModuleSpec } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
@@ -106,6 +106,10 @@ function SourceAlert() {
 export default function App() {
   const { path } = useHashRoute();
   const online = useOnline();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem("forkos.sidebar.collapsed") === "1",
+  );
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<AppSettings>("/settings") });
   const { data: entityTypes } = useQuery({
     queryKey: ["entity-types"],
@@ -119,6 +123,18 @@ export default function App() {
     if (entityTypes) hydrateEntityRegistry(entityTypes);
   }, [settings, entityTypes]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [path]);
+
+  function toggleSidebar() {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem("forkos.sidebar.collapsed", next ? "1" : "0");
+      return next;
+    });
+  }
+
   const routes = allRoutes();
   const globalSurfaces = allGlobalSurfaces();
   const route = routeForPath(routes, path);
@@ -126,21 +142,31 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div className="flex min-h-dvh flex-col bg-canvas text-primary">
-        <AppHeader path={path} />
+      <div className="flex min-h-dvh bg-canvas text-primary">
+        <AppSidebar
+          path={path}
+          collapsed={sidebarCollapsed}
+          mobileOpen={sidebarOpen}
+          onToggleCollapsed={toggleSidebar}
+          onCloseMobile={() => setSidebarOpen(false)}
+        />
 
-        <main id="main-content" className="min-h-0 min-w-0 flex-1">
-          {!online && (
-            <Banner tone="warn" icon={<WifiOff size={15} />}>
-              Çevrimdışısın. Kayıtlı veriler okunabilir, yazma işlemleri kapalı. Tarayıcı eklentisi kaydettiklerini
-              kuyruğa alır.
-            </Banner>
-          )}
-          <SourceAlert />
-          <Suspense fallback={<PageLoading />}>
-            <Page />
-          </Suspense>
-        </main>
+        <div className="flex min-h-dvh min-w-0 flex-1 flex-col bg-canvas">
+          <WorkspaceHeader path={path} onOpenSidebar={() => setSidebarOpen(true)} />
+
+          <main id="main-content" className="min-h-0 min-w-0 flex-1">
+            {!online && (
+              <Banner tone="warn" icon={<WifiOff size={15} />}>
+                Çevrimdışısın. Kayıtlı veriler okunabilir, yazma işlemleri kapalı. Tarayıcı eklentisi kaydettiklerini
+                kuyruğa alır.
+              </Banner>
+            )}
+            <SourceAlert />
+            <Suspense fallback={<PageLoading />}>
+              <Page />
+            </Suspense>
+          </main>
+        </div>
 
         <CommandPalette />
         <DialogHost />

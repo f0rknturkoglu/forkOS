@@ -11,7 +11,6 @@ import {
   FileInput,
   Input,
   PageFrame,
-  PageHeader,
   Surface,
   cx,
   relativeTime,
@@ -499,9 +498,8 @@ export function RssPage() {
   }
 
   return (
-    <PageFrame className="flex min-h-[calc(100dvh-84px)] flex-col gap-5">
-      <PageHeader eyebrow="Kaynaklar" title="RSS Okuyucu" />
-      <Surface className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[260px_340px_minmax(0,1fr)]">
+    <PageFrame className="flex min-h-workspace-body flex-col py-3">
+      <Surface className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-workspace-rail xl:grid-cols-workspace-reader">
         {/* ── Sol: akıllı görünümler + beslemeler ── */}
         <aside className="flex max-h-[380px] min-w-0 flex-col overflow-y-auto border-b border-subtle p-3 md:max-h-[560px] md:border-b-0 md:border-r xl:max-h-none">
           <div className="mb-2 flex items-center justify-between px-1">

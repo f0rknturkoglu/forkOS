@@ -6,7 +6,7 @@
  */
 import { useHashRoute, navigate } from "@/app/router";
 import { GraphView } from "@/core/GraphView";
-import { Button, PageFrame, PageHeader, Toolbar } from "@/core/ui";
+import { Button, Toolbar } from "@/core/ui";
 
 const DEPTHS = [1, 2, 3];
 
@@ -19,32 +19,31 @@ export function GraphPage() {
     navigate(`/graph?${new URLSearchParams({ ...(focus ? { focus } : {}), depth: String(next) })}`);
 
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader
-        eyebrow="Öğrenme"
-        title="Bilgi grafı"
-        action={
-          focus ? (
+    <div className="relative h-workspace-body overflow-hidden bg-canvas">
+      <div className="absolute left-4 top-4 z-sticky max-w-lg rounded-overlay border border-subtle bg-surface/90 px-3 py-2.5 shadow-raised backdrop-blur">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-heading text-primary">Bilgi grafı</h1>
+            <p className="truncate text-meta text-muted">Notlar, görevler, kaynaklar ve aralarındaki bağlar</p>
+          </div>
+          {focus && (
             <Button size="sm" onClick={() => navigate("/graph")}>
-              Tüm grafı gör
+              Tüm graf
             </Button>
-          ) : undefined
-        }
-      />
-      <p className="text-meta text-muted">
-        Düğümler kayıtlar, bağlar notlardaki [[wikilink]]’ler ve elle kurulan ilişkiler. Bir düğüme tıkla, kaydına git.
-      </p>
-      {focus && (
-        <Toolbar>
-          <span className="text-meta text-muted">Komşuluk derinliği:</span>
-          {DEPTHS.map((value) => (
-            <Button key={value} size="sm" variant={depth === value ? "primary" : "ghost"} onClick={() => go(value)}>
-              {value}
-            </Button>
-          ))}
-        </Toolbar>
-      )}
+          )}
+        </div>
+        {focus && (
+          <Toolbar className="mt-2 border-0 bg-transparent p-0">
+            <span className="text-meta text-muted">Derinlik</span>
+            {DEPTHS.map((value) => (
+              <Button key={value} size="sm" variant={depth === value ? "primary" : "ghost"} onClick={() => go(value)}>
+                {value}
+              </Button>
+            ))}
+          </Toolbar>
+        )}
+      </div>
       <GraphView focus={focus} depth={depth} />
-    </PageFrame>
+    </div>
   );
 }

@@ -114,6 +114,8 @@ describe("inbox flow", () => {
 
     expect(markup).toContain("İncelenecek yazı");
     expect(markup).toContain("#faz");
+    expect(markup).toContain("Bekleyenler");
+    expect(markup).toContain("Sürükle, hedefe tıkla veya sayı tuşlarını kullan.");
     expect(markup).toContain("3"); // read_later hedef sayaci
 
     const listQuery = harness.queries.find((query) => query.queryKey[0] === "bookmarks");

@@ -22,16 +22,19 @@ import {
   Input,
   Kbd,
   PageFrame,
-  PageHeader,
   RowList,
-  Section,
-  Toolbar,
   cx,
   hostOf,
   relativeTime,
   useToast,
   SkeletonRows,
 } from "@/core/ui";
+import {
+  Workspace,
+  WorkspaceInspectorContent,
+  WorkspacePaneHeader,
+  WorkspaceScrollArea,
+} from "@/core/workspace/Workspace";
 import { useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, Collection } from "@/core/types";
@@ -367,24 +370,49 @@ export function InboxPage() {
   }
 
   return (
-    <PageFrame className="space-y-5">
-      <PageHeader eyebrow="Kaynaklar" title="Gelen Kutusu" />
-      <Toolbar>
-        <QuickCapture />
-      </Toolbar>
-
+    <PageFrame className="py-3">
       <DndContext
         sensors={sensors}
         onDragStart={(e) => setDragging(data.find((b) => b.id === e.active.id) ?? null)}
         onDragCancel={() => setDragging(null)}
         onDragEnd={onDragEnd}
       >
-        <div className="grid min-w-0 divide-y divide-subtle border-y border-subtle lg:grid-cols-[minmax(0,1fr)_240px] lg:divide-x lg:divide-y-0">
-          <div className="min-w-0 py-3 lg:pr-4">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="label-caps">Bekleyenler</span>
-              <span className="text-meta text-muted">{data.length} kayıt</span>
-            </div>
+        <Workspace
+          inspector={
+            <WorkspaceInspectorContent title="Taşı" hint={selectedId ? "1 kart seçili" : "önce kart seç"}>
+              <div className="space-y-2">
+                {TARGETS.map((collection, index) => (
+                  <DropTarget
+                    key={collection}
+                    collection={collection}
+                    index={index}
+                    count={countOf(collection)}
+                    hasSelection={Boolean(selectedId) && online}
+                    onMove={() => moveSelected(collection)}
+                  />
+                ))}
+              </div>
+              <dl className="mt-4 space-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
+                {[
+                  ["↑ ↓", "kartlar arasında gez"],
+                  [`1–${TARGETS.length}`, "seçili kartı taşı"],
+                ].map(([keys, what]) => (
+                  <div key={keys} className="flex items-center gap-2">
+                    <dt>
+                      <Kbd>{keys}</Kbd>
+                    </dt>
+                    <dd>{what}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-meta text-muted">Sürükle, hedefe tıkla veya sayı tuşlarını kullan.</p>
+            </WorkspaceInspectorContent>
+          }
+        >
+          <WorkspacePaneHeader title="Bekleyenler" eyebrow="Gelen Kutusu" hint={`${data.length} kayıt`}>
+            <QuickCapture />
+          </WorkspacePaneHeader>
+          <WorkspaceScrollArea className="p-3">
             {isLoading ? (
               <SkeletonRows rows={6} />
             ) : data.length === 0 ? (
@@ -406,41 +434,8 @@ export function InboxPage() {
                 ))}
               </RowList>
             )}
-          </div>
-
-          <Section
-            title="Taşı"
-            action={<span className="text-meta text-muted">{selectedId ? "1 kart seçili" : "önce kart seç"}</span>}
-            className="h-fit py-3 lg:pl-4"
-          >
-            <div className="space-y-2">
-              {TARGETS.map((collection, index) => (
-                <DropTarget
-                  key={collection}
-                  collection={collection}
-                  index={index}
-                  count={countOf(collection)}
-                  hasSelection={Boolean(selectedId) && online}
-                  onMove={() => moveSelected(collection)}
-                />
-              ))}
-            </div>
-            <dl className="mt-4 space-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
-              {[
-                ["↑ ↓", "kartlar arasında gez"],
-                [`1–${TARGETS.length}`, "seçili kartı taşı"],
-              ].map(([keys, what]) => (
-                <div key={keys} className="flex items-center gap-2">
-                  <dt>
-                    <Kbd>{keys}</Kbd>
-                  </dt>
-                  <dd>{what}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="mt-3 text-meta text-muted">Taşıma tek UPDATE’tir; link ve event kayıtları kopmaz.</p>
-          </Section>
-        </div>
+          </WorkspaceScrollArea>
+        </Workspace>
 
         <DragOverlay>
           {dragging && (

@@ -17,6 +17,9 @@ export default defineConfig({
         theme_color: "#FBFAF7",
       },
       workbox: {
+        // Excalidraw editoru ve yerel vendor parcasi 2 MiB'i asiyor. Notlar
+        // offline salt-okunur modda da acilabilsin diye ikisini precache et.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
             // OFFLINE = SADECE OKUMA. Mutation'lar cache'lenmez.
@@ -38,7 +41,9 @@ export default defineConfig({
   },
   build: {
     manifest: true,
-    chunkSizeWarningLimit: 500,
+    // Ana uygulama hala scripts/check-bundle.mjs ile 500 KB sinirinda.
+    // Yalnizca Tuval'e girildiginde yuklenen Excalidraw parcasi daha buyuk.
+    chunkSizeWarningLimit: 2_500,
   },
   server: {
     // Compose icinde API_TARGET=http://api:8787 gelir; disarida npm run dev

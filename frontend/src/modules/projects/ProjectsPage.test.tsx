@@ -115,7 +115,7 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />);
 
     expect(await screen.findByRole("heading", { name: "Alfa" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-current")).toBeNull();
     // Alfa'nin tek tasi tarihsiz ve acik -- liste gorur, cizelge cizmez.
     expect(screen.getByText("Alfa adım")).toBeTruthy();
@@ -130,7 +130,7 @@ describe("ProjectsPage", () => {
 
     const timeline = await waitFor(timelineSection);
     expect(screen.getByRole("heading", { name: "Beta" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-current")).toBe("page");
     // Kronolojik gruplar: geciken, yaklasan, tamamlanan, tarihsiz.
     expect(within(timeline).getAllByTestId("milestone-timeline-row")).toHaveLength(4);
     expect(within(timeline).getByText("Geciken")).toBeTruthy();
@@ -151,7 +151,7 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />);
 
     expect(await screen.findByRole("heading", { name: "Gamma" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Gamma/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("button", { name: /Gamma/ }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-current")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Zaman çizelgesi" })).toBeNull();
   });
@@ -172,6 +172,6 @@ describe("ProjectsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Alfa" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Beta" })).toBeNull();
-    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-current")).toBe("page");
   });
 });

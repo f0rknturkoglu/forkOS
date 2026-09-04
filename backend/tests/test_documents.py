@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from sqlalchemy import select
@@ -73,9 +75,7 @@ async def test_sync_archives_only_the_matching_folder_and_category(
         rows = {
             doc.drive_file_id: archived_at
             for doc, archived_at in (
-                await session.execute(
-                    select(Document, Entity.archived_at).join(Entity)
-                )
+                await session.execute(select(Document, Entity.archived_at).join(Entity))
             ).all()
         }
         assert rows["old-a"] is not None
@@ -85,3 +85,22 @@ async def test_sync_archives_only_the_matching_folder_and_category(
 
 async def _async_value(value):
     return value
+
+
+@pytest.mark.no_database
+def test_extract_local_candidate_text_from_plain_text_and_docx(tmp_path: Path):
+    plain = tmp_path / "cv.txt"
+    plain.write_text("Python ve Kubernetes deneyimi", encoding="utf-8")
+    assert service.extract_local_document_text(plain) == "Python ve Kubernetes deneyimi"
+
+    docx = tmp_path / "cv.docx"
+    with zipfile.ZipFile(docx, "w") as archive:
+        archive.writestr(
+            "word/document.xml",
+            "<w:document><w:body><w:p><w:r><w:t>Terraform</w:t></w:r></w:p>"
+            "<w:p><w:r><w:t>Azure platform</w:t></w:r></w:p></w:body></w:document>",
+        )
+    extracted = service.extract_local_document_text(docx)
+    assert extracted is not None
+    assert "Terraform" in extracted
+    assert "Azure platform" in extracted

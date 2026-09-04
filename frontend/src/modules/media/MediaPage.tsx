@@ -12,7 +12,8 @@ import type {
   MediaStats,
   MetadataResult,
 } from "@/core/types";
-import { Button, Chip, Empty, Input, PageFrame, PageHeader, RowList, cx } from "@/core/ui";
+import { Button, Chip, Empty, Input, PageFrame, RowList, cx } from "@/core/ui";
+import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import { useOnline } from "@/lib/hooks";
 import { MediaLibraryControls, MediaMetrics, MediaPosterGrid, MediaPosterGridSkeleton } from "./MediaPosterGrid";
 import { consumptionBody } from "./MediaProgressActions";
@@ -325,169 +326,173 @@ function MediaLibraryView({ initialParams }: { initialParams: URLSearchParams })
   const items = [...baseItems, ...extra];
 
   return (
-    <PageFrame className="space-y-6">
-      <PageHeader
-        eyebrow="Takip"
-        title="Medya"
-        action={
-          <Button disabled={!online} onClick={() => setProviderOpen((open) => !open)}>
-            <Plus size={14} aria-hidden="true" /> Medya ekle
-          </Button>
-        }
-      />
-
-      <div className="space-y-2">
-        <MediaMetrics stats={stats.data} />
-        {stats.isLoading && (
-          <p role="status" aria-label="İstatistikler yükleniyor" className="text-meta text-muted">
-            İstatistikler yükleniyor…
-          </p>
-        )}
-        {stats.isError && (
-          <div role="alert" className="flex flex-wrap items-center gap-3 text-meta text-danger">
-            <span>Medya istatistikleri yüklenemedi: {stats.error.message}</span>
-            <Button
-              size="sm"
-              disabled={stats.isFetching}
-              onClick={() => {
-                void stats.refetch();
-              }}
-            >
-              İstatistikleri yeniden dene
+    <PageFrame>
+      <Workspace>
+        <WorkspacePaneHeader
+          eyebrow="Takip"
+          title="Medya"
+          hint={`${items.length} kayıt`}
+          action={
+            <Button size="sm" disabled={!online} onClick={() => setProviderOpen((open) => !open)}>
+              <Plus size={14} aria-hidden="true" /> Medya ekle
             </Button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={query}
-          onChange={setQuery}
-          ariaLabel="Kütüphanede ara"
-          placeholder="Kütüphanede ara"
-          type="search"
-          className="w-full sm:max-w-xs"
-        />
-        <Button className="md:hidden" onClick={() => setFiltersOpen(true)}>
-          <SlidersHorizontal size={14} aria-hidden="true" /> Filtreleri aç
-        </Button>
-      </div>
-
-      {filtersOpen && (
-        <div
-          className="fixed inset-0 z-modal flex items-end justify-center bg-canvas/60 p-4 sm:items-center"
-          onClick={() => setFiltersOpen(false)}
+          }
         >
-          <div
-            role="dialog"
-            aria-label="Kütüphane filtreleri"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-md rounded-overlay border border-strong bg-surface p-5 shadow-overlay"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className=" text-title text-primary">Kütüphane filtreleri</h2>
-              <button
-                type="button"
-                aria-label="Filtreleri kapat"
-                onClick={() => setFiltersOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary"
-              >
-                <X size={16} aria-hidden="true" />
-              </button>
-            </div>
-            <MediaLibraryControls kind={kind} status={status} onKindChange={setKind} onStatusChange={setStatus} />
-          </div>
-        </div>
-      )}
+          <MediaMetrics stats={stats.data} />
+        </WorkspacePaneHeader>
 
-      {providerOpen && <ProviderSearchPanel online={online} onAdded={refresh} />}
-
-      <MediaSearchComposer online={online} onAdded={refresh} onActiveChange={setSearchActive} />
-
-      {!searchActive && (
-        <>
-          <MediaLibraryControls kind={kind} status={status} onKindChange={setKind} onStatusChange={setStatus} />
-
-          {library.isLoading ? (
-            <MediaPosterGridSkeleton />
-          ) : library.isError ? (
-            <Empty
-              variant="page"
-              action={
-                <Button
-                  size="sm"
-                  disabled={library.isFetching}
-                  onClick={() => {
-                    void library.refetch();
-                  }}
-                >
-                  Kütüphaneyi yeniden dene
-                </Button>
-              }
-            >
-              Kütüphane yüklenemedi: {library.error.message}
-            </Empty>
-          ) : items.length === 0 ? (
-            <Empty
-              variant="page"
-              action={
-                <Button
-                  size="sm"
-                  disabled={library.isFetching}
-                  onClick={() => {
-                    void library.refetch();
-                  }}
-                >
-                  Kütüphaneyi yeniden dene
-                </Button>
-              }
-            >
-              <span>Kütüphanen boş</span> — yukarıdan tüm medyada arayarak ilk kaydını ekleyebilirsin.
-            </Empty>
-          ) : (
-            <MediaPosterGrid
-              items={items}
-              online={online}
-              onQuick={(item) => quick.mutate(item)}
-              onTrash={(item) => {
-                void confirmTrash(item);
-              }}
-            />
+        <WorkspaceScrollArea className="space-y-4 p-3">
+          {stats.isLoading && (
+            <p role="status" aria-label="İstatistikler yükleniyor" className="text-meta text-muted">
+              İstatistikler yükleniyor…
+            </p>
           )}
-
-          {nextCursor && (
-            <div className="flex justify-center">
+          {stats.isError && (
+            <div role="alert" className="flex flex-wrap items-center gap-3 text-meta text-danger">
+              <span>Medya istatistikleri yüklenemedi: {stats.error.message}</span>
               <Button
-                disabled={!online || loadingMore}
+                size="sm"
+                disabled={stats.isFetching}
                 onClick={() => {
-                  void loadMorePage();
+                  void stats.refetch();
                 }}
               >
-                Daha fazla yükle
+                İstatistikleri yeniden dene
               </Button>
             </div>
           )}
-          {loadMoreError && (
-            <p role="alert" className="text-center text-meta text-danger">
-              Daha fazla kayıt yüklenemedi: {loadMoreError}
-            </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={query}
+              onChange={setQuery}
+              ariaLabel="Kütüphanede ara"
+              placeholder="Kütüphanede ara"
+              type="search"
+              className="w-full sm:max-w-xs"
+            />
+            <Button className="md:hidden" onClick={() => setFiltersOpen(true)}>
+              <SlidersHorizontal size={14} aria-hidden="true" /> Filtreleri aç
+            </Button>
+          </div>
+
+          {filtersOpen && (
+            <div
+              className="fixed inset-0 z-modal flex items-end justify-center bg-canvas/60 p-4 sm:items-center"
+              onClick={() => setFiltersOpen(false)}
+            >
+              <div
+                role="dialog"
+                aria-label="Kütüphane filtreleri"
+                aria-modal="true"
+                onClick={(event) => event.stopPropagation()}
+                className="w-full max-w-md rounded-overlay border border-strong bg-surface p-5 shadow-overlay"
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className=" text-title text-primary">Kütüphane filtreleri</h2>
+                  <button
+                    type="button"
+                    aria-label="Filtreleri kapat"
+                    onClick={() => setFiltersOpen(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary"
+                  >
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                </div>
+                <MediaLibraryControls kind={kind} status={status} onKindChange={setKind} onStatusChange={setStatus} />
+              </div>
+            </div>
           )}
 
-          {quick.error && (
-            <p role="alert" className="text-meta text-danger">
-              İlerleme kaydedilemedi: {quick.error.message}
-            </p>
-          )}
-          {trash.error && (
-            <p role="alert" className="text-meta text-danger">
-              Kayıt çöpe taşınamadı: {trash.error.message}
-            </p>
-          )}
-        </>
-      )}
+          {providerOpen && <ProviderSearchPanel online={online} onAdded={refresh} />}
 
-      <MediaSyncSummary online={online} />
+          <MediaSearchComposer online={online} onAdded={refresh} onActiveChange={setSearchActive} />
+
+          {!searchActive && (
+            <>
+              <MediaLibraryControls kind={kind} status={status} onKindChange={setKind} onStatusChange={setStatus} />
+
+              {library.isLoading ? (
+                <MediaPosterGridSkeleton />
+              ) : library.isError ? (
+                <Empty
+                  variant="page"
+                  action={
+                    <Button
+                      size="sm"
+                      disabled={library.isFetching}
+                      onClick={() => {
+                        void library.refetch();
+                      }}
+                    >
+                      Kütüphaneyi yeniden dene
+                    </Button>
+                  }
+                >
+                  Kütüphane yüklenemedi: {library.error.message}
+                </Empty>
+              ) : items.length === 0 ? (
+                <Empty
+                  variant="page"
+                  action={
+                    <Button
+                      size="sm"
+                      disabled={library.isFetching}
+                      onClick={() => {
+                        void library.refetch();
+                      }}
+                    >
+                      Kütüphaneyi yeniden dene
+                    </Button>
+                  }
+                >
+                  <span>Kütüphanen boş</span> — yukarıdan tüm medyada arayarak ilk kaydını ekleyebilirsin.
+                </Empty>
+              ) : (
+                <MediaPosterGrid
+                  items={items}
+                  online={online}
+                  onQuick={(item) => quick.mutate(item)}
+                  onTrash={(item) => {
+                    void confirmTrash(item);
+                  }}
+                />
+              )}
+
+              {nextCursor && (
+                <div className="flex justify-center">
+                  <Button
+                    disabled={!online || loadingMore}
+                    onClick={() => {
+                      void loadMorePage();
+                    }}
+                  >
+                    Daha fazla yükle
+                  </Button>
+                </div>
+              )}
+              {loadMoreError && (
+                <p role="alert" className="text-center text-meta text-danger">
+                  Daha fazla kayıt yüklenemedi: {loadMoreError}
+                </p>
+              )}
+
+              {quick.error && (
+                <p role="alert" className="text-meta text-danger">
+                  İlerleme kaydedilemedi: {quick.error.message}
+                </p>
+              )}
+              {trash.error && (
+                <p role="alert" className="text-meta text-danger">
+                  Kayıt çöpe taşınamadı: {trash.error.message}
+                </p>
+              )}
+            </>
+          )}
+
+          <MediaSyncSummary online={online} />
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }

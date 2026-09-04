@@ -11,7 +11,6 @@ import {
   Metric,
   MetricStrip,
   PageFrame,
-  PageHeader,
   RowList,
   Section,
   Surface,
@@ -19,6 +18,7 @@ import {
   cx,
   useToast,
 } from "@/core/ui";
+import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import type { ReviewPreview } from "@/core/types";
 import { navigate } from "@/app/router";
 import { appWeekStartKey, formatTrDate, formatTrDateTime, todayKey } from "@/lib/date";
@@ -96,62 +96,64 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
   }
 
   return (
-    <PageFrame className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <PageHeader eyebrow="Takip" title={`${kind === "weekly" ? "Haftalık" : "Günlük"} Değerlendirme`} />
-          <p className="mt-2 text-meta text-muted">
-            {shortDate(data.period_start)} → {shortDate(data.period_end)}
-          </p>
-        </div>
-        {step < 4 && <ReviewSteps current={step} onSelect={selectStep} />}
-      </div>
-
-      {step === 1 && <OverviewStep data={data} completionPct={completionPct} onNext={() => setStep(2)} />}
-
-      {step === 2 && (
-        <DecisionsStep
-          todos={data.unfinished_todos}
-          decisions={decisions}
-          waitingCount={waitingCount}
-          onDecision={(id, value) => setDecisions((old) => ({ ...old, [id]: value }))}
-          onCarryAll={() => setDecisions(Object.fromEntries(data.unfinished_todos.map((todo) => [todo.id, "carry"])))}
-          onBack={() => setStep(1)}
-          onNext={() => setStep(3)}
+    <PageFrame>
+      <Workspace>
+        <WorkspacePaneHeader
+          eyebrow="Değerlendirme"
+          title={kind === "weekly" ? "Haftalık değerlendirme" : "Günlük değerlendirme"}
+          hint={`${shortDate(data.period_start)} → ${shortDate(data.period_end)}`}
+          action={step < 4 ? <ReviewSteps current={step} onSelect={selectStep} /> : undefined}
         />
-      )}
+        <WorkspaceScrollArea className="p-3">
+          {step === 1 && <OverviewStep data={data} completionPct={completionPct} onNext={() => setStep(2)} />}
 
-      {step === 3 && (
-        <PrioritiesStep
-          kind={kind}
-          priorities={priorities}
-          onPriority={(index, value) =>
-            setPriorities((old) => old.map((item, itemIndex) => (itemIndex === index ? value : item)))
-          }
-          note={note}
-          onNote={setNote}
-          carried={Object.values(decisions).filter((value) => value === "carry").length}
-          dropped={Object.values(decisions).filter((value) => value === "drop").length}
-          focusMinutes={stats.focus.minutes}
-          completed={data.completed_todos.length}
-          online={online}
-          pending={save.isPending}
-          onBack={() => setStep(2)}
-          onSave={() => save.mutate()}
-        />
-      )}
+          {step === 2 && (
+            <DecisionsStep
+              todos={data.unfinished_todos}
+              decisions={decisions}
+              waitingCount={waitingCount}
+              onDecision={(id, value) => setDecisions((old) => ({ ...old, [id]: value }))}
+              onCarryAll={() =>
+                setDecisions(Object.fromEntries(data.unfinished_todos.map((todo) => [todo.id, "carry"])))
+              }
+              onBack={() => setStep(1)}
+              onNext={() => setStep(3)}
+            />
+          )}
 
-      {step === 4 && (
-        <Surface className="p-8 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-surface text-ok">
-            <Check size={22} />
-          </span>
-          <h2 className="mt-4 text-title text-primary">Hafta kapandı</h2>
-          <p className="mx-auto mt-2 max-w-xl text-body text-secondary">
-            Kararların plana işlendi; seçtiğin öncelikler yeni haftanın başlangıcına eklendi.
-          </p>
-        </Surface>
-      )}
+          {step === 3 && (
+            <PrioritiesStep
+              kind={kind}
+              priorities={priorities}
+              onPriority={(index, value) =>
+                setPriorities((old) => old.map((item, itemIndex) => (itemIndex === index ? value : item)))
+              }
+              note={note}
+              onNote={setNote}
+              carried={Object.values(decisions).filter((value) => value === "carry").length}
+              dropped={Object.values(decisions).filter((value) => value === "drop").length}
+              focusMinutes={stats.focus.minutes}
+              completed={data.completed_todos.length}
+              online={online}
+              pending={save.isPending}
+              onBack={() => setStep(2)}
+              onSave={() => save.mutate()}
+            />
+          )}
+
+          {step === 4 && (
+            <Surface className="p-8 text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-surface text-ok">
+                <Check size={22} />
+              </span>
+              <h2 className="mt-4 text-title text-primary">Hafta kapandı</h2>
+              <p className="mx-auto mt-2 max-w-xl text-body text-secondary">
+                Kararların plana işlendi; seçtiğin öncelikler yeni haftanın başlangıcına eklendi.
+              </p>
+            </Surface>
+          )}
+        </WorkspaceScrollArea>
+      </Workspace>
     </PageFrame>
   );
 }

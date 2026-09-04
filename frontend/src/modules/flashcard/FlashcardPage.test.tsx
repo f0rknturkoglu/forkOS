@@ -65,6 +65,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.location.hash = "#/flashcard";
   apiGet.mockImplementation(async (path: string) => {
     if (path === "/flashcard/decks") return [deck];
     if (path.startsWith("/flashcard/decks/deck-1/cards")) return [card];

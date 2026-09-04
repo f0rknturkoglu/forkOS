@@ -54,6 +54,7 @@ def insert_order() -> list[str]:
 # Self-referencing FK: parent_id ayni batch'te onceden eklenmis olmayabilir.
 # Once parent_id=NULL ile insert, ardindan geri bagla (FK db'de dogrulanir).
 SELF_FK_TABLES: dict[str, str] = {
+    "note_folder": "parent_id",
     "todo": "parent_id",
     "study_topic": "parent_id",
 }

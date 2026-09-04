@@ -37,7 +37,7 @@ function backendEntitySpecs(): Record<string, BackendSpec> {
     }
     const blocks = src.split("EntityTypeSpec(").slice(1);
     for (const block of blocks) {
-      const quotes = block.match(/'([^']+)'/g) ?? [];
+      const quotes = block.match(/["'][^"']+["']/g) ?? [];
       if (quotes.length < 4) continue;
       const type = quotes[0]!.slice(1, -1);
       const route = quotes[3]!.slice(1, -1);
@@ -94,6 +94,8 @@ describe("entity relation visibility (Faz 18/32)", () => {
     expect(disabled.sort()).toEqual(
       [
         "course",
+        "career_connection",
+        "career_story",
         "external_event",
         "feed",
         "feed_item",
@@ -103,6 +105,7 @@ describe("entity relation visibility (Faz 18/32)", () => {
         "media_unit",
         "flashcard_card",
         "milestone",
+        "note_folder",
         "pomodoro_session",
         "review",
         "study_area",

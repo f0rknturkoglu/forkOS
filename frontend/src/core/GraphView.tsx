@@ -26,7 +26,7 @@ import { api, qs } from "./api";
 import { entityRoute, typeLabel } from "./entityRegistry";
 import { clientToViewBox, IDENTITY, panBy, toGraph, zoomAt, type Point, type Transform } from "./graphInteraction";
 import { nodeRadius } from "./graphLayout";
-import { Empty, IconButton, Section, Spinner, cx } from "./ui";
+import { Empty, IconButton, Spinner, cx } from "./ui";
 import type { KnowledgeGraph } from "./types";
 
 const WIDTH = 900;
@@ -229,34 +229,28 @@ export function GraphView({ focus, depth = 2 }: { focus?: string; depth?: number
 
   if (isLoading)
     return (
-      <Section title="Bilgi grafı">
+      <div className="flex h-workspace-body items-center justify-center">
         <Spinner />
-      </Section>
+      </div>
     );
 
   return (
-    <Section
-      title="Bilgi grafı"
-      hint={nodes.length ? `${nodes.length} düğüm · ${edges.length} bağ` : undefined}
-      action={
-        nodes.length > 0 ? (
-          <div className="flex items-center gap-1">
-            <IconButton title="Uzaklaştır" onClick={() => zoomButton(1 / 1.25)}>
-              <Minus size={14} />
-            </IconButton>
-            <IconButton title="Yakınlaştır" onClick={() => zoomButton(1.25)}>
-              <Plus size={14} />
-            </IconButton>
-            <IconButton title="Görünümü sıfırla" onClick={reset}>
-              <Maximize2 size={14} />
-            </IconButton>
-          </div>
-        ) : undefined
-      }
-      bodyClassName="px-0 py-0"
-    >
+    <div className="relative h-workspace-body min-h-0 overflow-hidden bg-canvas">
+      {nodes.length > 0 && (
+        <div className="absolute right-4 top-4 z-sticky flex items-center gap-1 rounded-overlay border border-subtle bg-surface/90 p-1 shadow-raised backdrop-blur">
+          <IconButton title="Uzaklaştır" onClick={() => zoomButton(1 / 1.25)}>
+            <Minus size={14} />
+          </IconButton>
+          <IconButton title="Yakınlaştır" onClick={() => zoomButton(1.25)}>
+            <Plus size={14} />
+          </IconButton>
+          <IconButton title="Görünümü sıfırla" onClick={reset}>
+            <Maximize2 size={14} />
+          </IconButton>
+        </div>
+      )}
       {nodes.length === 0 ? (
-        <div className="px-3.5 py-3">
+        <div className="flex h-full items-center justify-center px-4">
           <Empty variant="page" title="Graf boş">
             Notlarında [[başka bir kayıt]] yazdıkça düğümler burada belirir.
           </Empty>
@@ -267,7 +261,7 @@ export function GraphView({ focus, depth = 2 }: { focus?: string; depth?: number
             ref={setSvg}
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
             className={cx(
-              "block h-[560px] w-full touch-none select-none",
+              "block h-full w-full touch-none select-none",
               drag.current ? "cursor-grabbing" : "cursor-grab",
             )}
             role="img"
@@ -348,14 +342,16 @@ export function GraphView({ focus, depth = 2 }: { focus?: string; depth?: number
             </g>
           </svg>
 
-          <div className="flex items-center justify-end border-t border-subtle px-3.5 py-2.5 text-meta">
+          <div className="pointer-events-none absolute bottom-4 right-4 flex items-center justify-end rounded-overlay bg-surface/80 px-3 py-2 text-meta shadow-raised backdrop-blur">
             <span className="flex items-center gap-1.5 text-muted">
               <Crosshair size={12} />
-              {hovered ? `${hovered.title} — ${hovered.degree} bağ` : "sürükle · kaydır · tekerlekle yakınlaştır"}
+              {hovered
+                ? `${hovered.title} — ${hovered.degree} bağ`
+                : `${nodes.length} düğüm · ${edges.length} bağ · sürükle, yakınlaştır`}
             </span>
           </div>
         </>
       )}
-    </Section>
+    </div>
   );
 }
