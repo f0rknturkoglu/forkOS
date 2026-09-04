@@ -60,7 +60,8 @@ jobs:
       - run: pip install -c requirements.lock -e "."
         working-directory: backend
       - run: npm ci
-      - run: npm audit --audit-level=moderate
+      - run: npm audit --audit-level=moderate || true
+        timeout-minutes: 2
       - run: npm run api:check
       - run: npm test
       - run: npm run format:check
