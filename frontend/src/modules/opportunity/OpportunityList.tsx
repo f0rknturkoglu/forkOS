@@ -1,12 +1,15 @@
-import { Bookmark, CalendarDays, ExternalLink, MapPin, RotateCcw, Trash2 } from "lucide-react";
+import { Bookmark, CalendarDays, ExternalLink, MapPin, RotateCcw, Trash2, Users } from "lucide-react";
 import { Button, Chip, FilterChip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
   REMOTE_LABELS,
   STATUSES,
+  archetypeLabel,
   daysLeft,
   jobCategoryLabel,
   kindLabel,
+  recommendationLabel,
+  recommendationTone,
   remoteKind,
   scoreBand,
   statusLabel,
@@ -146,6 +149,22 @@ export function OpportunityCard({
               CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}
             </span>
           )}
+          {item.evaluation?.recommendation && (
+            <Chip tone={recommendationTone(item.evaluation.recommendation)}>
+              {recommendationLabel(item.evaluation.recommendation)} · {item.evaluation.score}p
+            </Chip>
+          )}
+          {item.evaluation?.archetype && <Chip tone="neutral">{archetypeLabel(item.evaluation.archetype)}</Chip>}
+          {item.intelligence?.connection_count ? (
+            <Chip tone="accent">
+              <span className="inline-flex items-center gap-1">
+                <Users size={11} /> {item.intelligence.connection_count} bağlantı
+              </span>
+            </Chip>
+          ) : null}
+          {item.intelligence?.is_repost && <Chip tone="warn">Tekrar ilan · {item.intelligence.repost_count}</Chip>}
+          {item.intelligence?.pay_transparency_risk && <Chip tone="warn">Geniş ücret bandı</Chip>}
+          {item.intelligence?.geo_mismatch && <Chip tone="danger">Konum uyuşmazlığı</Chip>}
           <button
             type="button"
             onClick={() => onKind?.(item.kind)}

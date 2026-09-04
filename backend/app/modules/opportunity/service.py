@@ -51,6 +51,7 @@ from app.modules.opportunity.models import (
     OpportunityRequirement,
 )
 from app.modules.opportunity.schemas import (
+    OpportunityEvaluationOut,
     OpportunityIn,
     OpportunityOut,
     OpportunityPatch,
@@ -60,13 +61,54 @@ from app.modules.opportunity.schemas import (
 from app.modules.opportunity.taxonomy import classify_job
 
 TECH_KEYWORDS = (
-    "python", "javascript", "typescript", "c#", ".net", "java", "go", "golang",
-    "rust", "c++", "ruby", "php", "swift", "kotlin", "sql", "postgresql",
-    "mysql", "mongodb", "redis", "elasticsearch", "kafka", "rabbitmq",
-    "react", "vue", "angular", "next.js", "node.js", "django", "fastapi",
-    "flask", "spring", "docker", "kubernetes", "aws", "azure", "gcp",
-    "terraform", "graphql", "rest", "ci/cd", "git", "linux",
-    "pytorch", "langchain", "faiss", "rag", "yolo", "opencv",
+    "python",
+    "javascript",
+    "typescript",
+    "c#",
+    ".net",
+    "java",
+    "go",
+    "golang",
+    "rust",
+    "c++",
+    "ruby",
+    "php",
+    "swift",
+    "kotlin",
+    "sql",
+    "postgresql",
+    "mysql",
+    "mongodb",
+    "redis",
+    "elasticsearch",
+    "kafka",
+    "rabbitmq",
+    "react",
+    "vue",
+    "angular",
+    "next.js",
+    "node.js",
+    "django",
+    "fastapi",
+    "flask",
+    "spring",
+    "docker",
+    "kubernetes",
+    "aws",
+    "azure",
+    "gcp",
+    "terraform",
+    "graphql",
+    "rest",
+    "ci/cd",
+    "git",
+    "linux",
+    "pytorch",
+    "langchain",
+    "faiss",
+    "rag",
+    "yolo",
+    "opencv",
 )
 
 
@@ -103,6 +145,10 @@ def _calculate_skill_match(
     for tech in TECH_KEYWORDS:
         if tech in matched_set:
             continue
+        # Cogu ilanda teknoloji listesinin yalnizca birkac uyesi bulunur.
+        # Bu ucuz kontrol, uzun metni her anahtar icin regex ile taramayi onler.
+        if tech not in full_text:
+            continue
         if tech.startswith("."):
             pattern = rf"(?:^|\W){re.escape(tech)}(?:\b|\W)"
         else:
@@ -121,6 +167,24 @@ def _calculate_skill_match(
     )
 
 
+def _score_reasons(raw: dict[str, Any] | None) -> dict[str, Any] | None:
+    forkjob = (raw or {}).get("forkjob") or {}
+    reasons = forkjob.get("reasons")
+    if isinstance(reasons, str):
+        try:
+            reasons = json.loads(reasons)
+        except ValueError:
+            return None
+    return reasons if isinstance(reasons, dict) else None
+
+
+def _skill_match_ratio(opportunity: Opportunity, title: str) -> float | None:
+    match = _calculate_skill_match(opportunity, title, _score_reasons(opportunity.raw))
+    if match is not None:
+        return match.match_ratio
+    return 0.0 if opportunity.kind == "job" else None
+
+
 def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> OpportunityOut:
     o, title = row
     # Skor raw'in icinde duruyor; listede raw'i tasimadan yalnizca sayiyi
@@ -129,14 +193,15 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
     score = forkjob.get("score")
     # forkjob'in to_row() ciktisinda reasons JSON metni olarak duruyor;
     # dict bekleyen sema icin cozuyoruz. Bozuksa alan bos gecer.
-    reasons = forkjob.get("reasons")
-    if isinstance(reasons, str):
+    reasons = _score_reasons(o.raw)
+    evaluation = None
+    if o.evaluation:
         try:
-            reasons = json.loads(reasons)
+            evaluation = OpportunityEvaluationOut.model_validate(o.evaluation)
         except ValueError:
-            reasons = None
-    if not isinstance(reasons, dict):
-        reasons = None
+            # Eski/yarim kalmis bir JSON detay ucunu kirmaz; yeniden
+            # degerlendirme gecerli surumlu belgeyi uretir.
+            evaluation = None
     return OpportunityOut(
         id=o.id,
         title=title,
@@ -166,6 +231,7 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
         follow_up_at=o.follow_up_at,
         rejection_reason=o.rejection_reason,
         skill_match=_calculate_skill_match(o, title, reasons),
+        evaluation=evaluation,
     )
 
 
@@ -186,9 +252,7 @@ async def list_opportunities(
         )
     )
     stmt = stmt.where(
-        Opportunity.trashed_at.is_not(None)
-        if trashed_only
-        else Opportunity.trashed_at.is_(None)
+        Opportunity.trashed_at.is_not(None) if trashed_only else Opportunity.trashed_at.is_(None)
     )
     if status:
         stmt = stmt.where(Opportunity.status == status)
@@ -199,13 +263,17 @@ async def list_opportunities(
     outs = [_out(row, include_raw=False) for row in rows]
     if not outs:
         return outs
+    from app.modules.opportunity.intelligence import enrich_opportunities
+
+    outs = await enrich_opportunities(session, rows, outs)
     # Belge ters-bağları: DocumentsPage "bu belge hangi başvurularda kullanılıyor"
     # için /opportunities listesini istemcide filtreler. Listeye join eklemek
     # yerine iki hafif sorguyla dolduruyoruz (1:1 application + gereksinimler).
     app_rows = (
         await session.execute(
-            select(Application.opportunity_id, Application.cv_document_id)
-            .where(Application.opportunity_id.in_([row[0].id for row in rows]))
+            select(Application.opportunity_id, Application.cv_document_id).where(
+                Application.opportunity_id.in_([row[0].id for row in rows])
+            )
         )
     ).all()
     cv_docs = {opportunity_id: cv for opportunity_id, cv in app_rows}
@@ -235,9 +303,7 @@ async def list_opportunities(
     ]
 
 
-async def trash_opportunity(
-    session: AsyncSession, item_id: uuid.UUID
-) -> OpportunityOut | None:
+async def trash_opportunity(session: AsyncSession, item_id: uuid.UUID) -> OpportunityOut | None:
     item = await session.get(Opportunity, item_id)
     if item is None:
         return None
@@ -262,9 +328,7 @@ async def trash_opportunity(
     return _out(row)
 
 
-async def restore_opportunity(
-    session: AsyncSession, item_id: uuid.UUID
-) -> OpportunityOut | None:
+async def restore_opportunity(session: AsyncSession, item_id: uuid.UUID) -> OpportunityOut | None:
     item = await session.get(Opportunity, item_id)
     if item is None:
         return None
@@ -343,6 +407,7 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
         raw={},
         notes=data.notes,
     )
+    item.skill_match_ratio = _skill_match_ratio(item, data.title)
     session.add(item)
     await log_event(
         session,
@@ -361,6 +426,9 @@ async def patch(
     item = await session.get(Opportunity, item_id)
     if item is None:
         return None
+    current_title = (
+        await session.execute(select(Entity.title).where(Entity.id == item_id))
+    ).scalar_one()
     changes = data.model_dump(exclude_unset=True)
     title = changes.pop("title", None)
     old_status = item.status
@@ -372,6 +440,7 @@ async def patch(
         item.status = next_status
     for key, value in changes.items():
         setattr(item, key, value)
+    item.skill_match_ratio = _skill_match_ratio(item, title or current_title)
     for key in ("deadline_at", "follow_up_at"):
         if isinstance(changes.get(key), datetime):
             changes[key] = changes[key].isoformat()
@@ -457,28 +526,30 @@ async def merge_duplicate_clusters(
     """Kullanıcı verisi taşımayan duplicate iş kümelerini güvenle birleştir."""
     cluster = Opportunity.raw["forkjob"]["cluster_key"].astext
     keys = (
-        await session.execute(
-            select(cluster)
-            .where(cluster.is_not(None))
-            .group_by(cluster)
-            .having(func.count() > 1)
+        (
+            await session.execute(
+                select(cluster)
+                .where(cluster.is_not(None))
+                .group_by(cluster)
+                .having(func.count() > 1)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     safe_groups = merged_groups = removed_rows = skipped_groups = 0
     for cluster_key in keys:
         rows = list(
-            (
-                await session.execute(
-                    select(Opportunity).where(cluster == cluster_key)
-                )
-            ).scalars().all()
+            (await session.execute(select(Opportunity).where(cluster == cluster_key)))
+            .scalars()
+            .all()
         )
         ids = [row.id for row in rows]
         related_count = (
             await session.execute(
-                select(func.count()).select_from(Link).where(
-                    or_(Link.from_id.in_(ids), Link.to_id.in_(ids))
-                )
+                select(func.count())
+                .select_from(Link)
+                .where(or_(Link.from_id.in_(ids), Link.to_id.in_(ids)))
             )
         ).scalar_one()
         application_count = (
@@ -552,23 +623,27 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
     existing_by_ext: dict[str, Opportunity] = {}
     if external_ids:
         ext_rows = (
-            await session.execute(
-                select(Opportunity).where(
-                    Opportunity.source == source_label,
-                    Opportunity.external_id.in_(external_ids),
+            (
+                await session.execute(
+                    select(Opportunity).where(
+                        Opportunity.source == source_label,
+                        Opportunity.external_id.in_(external_ids),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         existing_by_ext = {o.external_id: o for o in ext_rows if o.external_id}
 
     urls = [j.url for j in jobs if getattr(j, "url", None)]
     existing_by_url: dict[str, Opportunity] = {}
     if urls:
         url_rows = (
-            await session.execute(
-                select(Opportunity).where(Opportunity.url.in_(urls))
-            )
-        ).scalars().all()
+            (await session.execute(select(Opportunity).where(Opportunity.url.in_(urls))))
+            .scalars()
+            .all()
+        )
         existing_by_url = {o.url: o for o in url_rows if o.url}
 
     for job in jobs:
@@ -599,7 +674,9 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                             Opportunity.raw["forkjob"]["cluster_key"].astext == cluster_key
                         )
                     )
-                ).scalars().all()
+                )
+                .scalars()
+                .all()
             )
         if cluster_matches:
             canonical = canonical_cluster(cluster_matches)
@@ -608,11 +685,13 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                 existing.raw = raw if existing is canonical else existing.raw
                 existing.category = category
                 existing.published_at = published_at
+                existing.skill_match_ratio = _skill_match_ratio(existing, job.title)
             continue
         if existing:
             existing.raw = raw
             existing.category = category
             existing.published_at = published_at
+            existing.skill_match_ratio = _skill_match_ratio(existing, job.title)
             if existing.country is None and forkjob.get("country"):
                 existing.country = forkjob.get("country")
             if existing.region is None and forkjob.get("region"):
@@ -631,6 +710,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                     by_url.raw = raw
                     by_url.category = category
                     by_url.published_at = published_at
+                    by_url.skill_match_ratio = _skill_match_ratio(by_url, job.title)
                     if by_url.country is None and forkjob.get("country"):
                         by_url.country = forkjob.get("country")
                     if by_url.region is None and forkjob.get("region"):
@@ -665,6 +745,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             country=forkjob.get("country"),
             region=forkjob.get("region"),
         )
+        new_opp.skill_match_ratio = _skill_match_ratio(new_opp, job.title)
         session.add(new_opp)
         if external_id:
             existing_by_ext[str(external_id)] = new_opp
@@ -688,9 +769,33 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
     return added
 
 
-async def prune_stale_opportunities(
-    session: AsyncSession, *, days: int = 90
-) -> int:
+async def backfill_skill_match_ratios(session: AsyncSession, *, batch_size: int = 500) -> int:
+    """Eski ilanlarin CV oran cache'ini kucuk transaction'larla tamamla."""
+    updated = 0
+    while True:
+        rows = list(
+            (
+                await session.execute(
+                    select(Opportunity, Entity.title)
+                    .join(Entity, Entity.id == Opportunity.id)
+                    .where(
+                        Opportunity.kind == "job",
+                        Opportunity.skill_match_ratio.is_(None),
+                    )
+                    .order_by(Opportunity.id)
+                    .limit(batch_size)
+                )
+            ).all()
+        )
+        if not rows:
+            return updated
+        for opportunity, title in rows:
+            opportunity.skill_match_ratio = _skill_match_ratio(opportunity, title)
+        updated += len(rows)
+        await session.commit()
+
+
+async def prune_stale_opportunities(session: AsyncSession, *, days: int = 90) -> int:
     """3 aydan (days=90) eski iş ilanlarını ve çöpteki/reddedilen ilanları temizler.
     Kullanıcının aktif takip ettiği (applied, interview, offer, accepted, considering, preparing) ilanlar korunur.
     """
@@ -707,7 +812,9 @@ async def prune_stale_opportunities(
                     func.coalesce(Opportunity.found_at, Opportunity.published_at) < cutoff,
                 )
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     if not stale_ids:
         return 0
@@ -772,7 +879,6 @@ async def deadline_ladder(session: AsyncSession) -> int:
         created += 1
     await session.commit()
     return created
-
 
 
 # ═════════════════════════════════════════════════════════════════════

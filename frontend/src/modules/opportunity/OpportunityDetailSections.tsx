@@ -1,10 +1,18 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, X } from "lucide-react";
+import { Check, MailSearch, X } from "lucide-react";
 import { api } from "@/core/api";
-import { Button, Input, SectionHeader, Select, Textarea, cx } from "@/core/ui";
-import type { Application, Document, Interview } from "@/core/types";
+import { Button, Chip, Input, SectionHeader, Select, Textarea, cx, useToast } from "@/core/ui";
+import type {
+  Application,
+  CareerStory,
+  CoverLetterReview,
+  Document,
+  Interview,
+  ReplyAnalysis,
+  SalaryConsistency,
+} from "@/core/types";
 
 type Requirement = {
   id: string;
@@ -104,6 +112,7 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
   const [salaryDraft, setSalaryDraft] = useState("");
   const [researchDraft, setResearchDraft] = useState("");
   const [appNoteDraft, setAppNoteDraft] = useState("");
+  const [coverReview, setCoverReview] = useState<CoverLetterReview | null>(null);
 
   const apply = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post(`/opportunities/${id}/apply`, body),
@@ -116,6 +125,21 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
       setEditingApp(false);
     },
   });
+  const reviewCover = useMutation({
+    mutationFn: () => api.post<CoverLetterReview>("/career/cover-letter-review", { text: coverDraft.trim() }),
+    onSuccess: setCoverReview,
+  });
+  const { data: stories = [] } = useQuery<CareerStory[]>({
+    queryKey: ["career-stories"],
+    queryFn: () => api.get<CareerStory[]>("/career/stories"),
+  });
+  const insertStory = (storyId: string) => {
+    const story = stories.find((s) => s.id === storyId);
+    if (!story) return;
+    const snippet = `\n\n[${story.title}]\n${story.action}\n${story.result}`;
+    setCoverDraft((prev) => (prev ? `${prev.trimEnd()}${snippet}` : `${story.action}\n${story.result}`));
+    setCoverReview(null);
+  };
   const { data: app, refetch: refetchApp } = useQuery({
     queryKey: ["application", id],
     queryFn: () => api.get<Application>(`/opportunities/${id}/application`).catch(() => null),
@@ -143,7 +167,36 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
               </option>
             ))}
           </Select>
-          <Textarea value={coverDraft} onChange={setCoverDraft} rows={3} placeholder="Cover letter (niyet mektubu)…" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-meta text-muted">Niyet mektubu (Cover Letter)</span>
+            {stories.length > 0 && (
+              <Select value="" onChange={insertStory} ariaLabel="STAR Hikâyesi Ekle" className="max-w-48 text-micro">
+                <option value="">+ STAR Hikâyesi Ekle</option>
+                {stories.map((story) => (
+                  <option key={story.id} value={story.id}>
+                    {story.title}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </div>
+          <Textarea
+            value={coverDraft}
+            onChange={(value) => {
+              setCoverDraft(value);
+              setCoverReview(null);
+            }}
+            rows={3}
+            placeholder="Cover letter (niyet mektubu)…"
+          />
+          <Button
+            size="sm"
+            disabled={coverDraft.trim().length < 20 || reviewCover.isPending}
+            onClick={() => reviewCover.mutate()}
+          >
+            Üslubu yerelde denetle
+          </Button>
+          {coverReview && <CoverLetterReviewCard review={coverReview} />}
           <Button
             variant="primary"
             disabled={!online}
@@ -204,7 +257,36 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
               </option>
             ))}
           </Select>
-          <Textarea value={coverDraft} onChange={setCoverDraft} rows={3} placeholder="Cover letter…" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-meta text-muted">Niyet mektubu</span>
+            {stories.length > 0 && (
+              <Select value="" onChange={insertStory} ariaLabel="STAR Hikâyesi Ekle" className="max-w-48 text-micro">
+                <option value="">+ STAR Hikâyesi Ekle</option>
+                {stories.map((story) => (
+                  <option key={story.id} value={story.id}>
+                    {story.title}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </div>
+          <Textarea
+            value={coverDraft}
+            onChange={(value) => {
+              setCoverDraft(value);
+              setCoverReview(null);
+            }}
+            rows={3}
+            placeholder="Cover letter…"
+          />
+          <Button
+            size="sm"
+            disabled={coverDraft.trim().length < 20 || reviewCover.isPending}
+            onClick={() => reviewCover.mutate()}
+          >
+            Üslubu yerelde denetle
+          </Button>
+          {coverReview && <CoverLetterReviewCard review={coverReview} />}
           <Input
             value={salaryDraft}
             onChange={setSalaryDraft}
@@ -235,6 +317,20 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
         </div>
       )}
     </section>
+  );
+}
+
+function CoverLetterReviewCard({ review }: { review: CoverLetterReview }) {
+  const tone = review.score >= 75 ? "ok" : review.score >= 50 ? "warn" : "danger";
+  return (
+    <div className="rounded-control border border-subtle bg-surface-sunken p-3 text-meta">
+      <div className="flex flex-wrap items-center gap-2">
+        <Chip tone={tone}>Üslup skoru · {review.score}</Chip>
+        <span className="text-muted">{review.matched_story_ids.length} STAR+R hikâyesiyle örtüşüyor</span>
+      </div>
+      {review.flags.length > 0 && <p className="mt-2 text-secondary">{review.flags.join(" · ")}</p>}
+      {review.suggestions.length > 0 && <p className="mt-1 text-muted">Öneri: {review.suggestions.join(" ")}</p>}
+    </div>
   );
 }
 
@@ -273,18 +369,163 @@ export function FollowUpSection({ id, followUpAt }: { id: string; followUpAt: st
   );
 }
 
+/** Gelen e-posta metnini yerelde yorumlar; aksiyon ancak kullanici onayiyla uygulanir. */
+const REPLY_STATUS_SOURCES: Record<string, string[]> = {
+  applied: ["discovered", "considering", "preparing"],
+  interview: ["discovered", "considering", "preparing", "applied"],
+  rejected: ["discovered", "considering", "preparing", "applied", "interview", "offer"],
+};
+
+export function replySuggestionCanApply(analysis: ReplyAnalysis | null, status: string): boolean {
+  if (!analysis || analysis.kind === "unknown") return false;
+  const todoAllowed = Boolean(
+    analysis.suggested_todo_title && !["accepted", "rejected", "withdrawn", "closed"].includes(status),
+  );
+  const statusAllowed = Boolean(
+    analysis.suggested_status && REPLY_STATUS_SOURCES[analysis.suggested_status]?.includes(status),
+  );
+  return todoAllowed || statusAllowed;
+}
+
+export function ReplyProcessorSection({ id, status, online }: { id: string; status: string; online: boolean }) {
+  const toast = useToast();
+  const [expanded, setExpanded] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [analysis, setAnalysis] = useState<ReplyAnalysis | null>(null);
+
+  const analyze = useMutation({
+    mutationFn: () => api.post<ReplyAnalysis>(`/opportunities/${id}/reply-analysis`, { text: replyText.trim() }),
+    onSuccess: setAnalysis,
+  });
+
+  const applySuggestion = useMutation({
+    mutationFn: async () => {
+      if (!analysis) return;
+      if (analysis.suggested_todo_title) {
+        await api.post(`/opportunities/${id}/todos`, { title: analysis.suggested_todo_title });
+      }
+      const target = analysis.suggested_status;
+      if (!target || !REPLY_STATUS_SOURCES[target]?.includes(status)) return;
+      if (target === "interview" && ["discovered", "considering", "preparing"].includes(status)) {
+        await api.post(`/opportunities/${id}/transition`, {
+          to: "applied",
+          note: "Gelen yanıt sınıflandırıcısı: başvuru aşaması doğrulandı",
+        });
+      }
+      await api.post(`/opportunities/${id}/transition`, {
+        to: target,
+        note: `Gelen yanıt: ${analysis.label}`,
+        rejection_reason: target === "rejected" ? "işveren yanıtı" : undefined,
+      });
+    },
+    onSuccess: () => {
+      invalidateAfter("opportunity.write", "todo.write");
+      toast.push("Önerilen işlem uygulandı", { tone: "ok" });
+      setReplyText("");
+      setAnalysis(null);
+      setExpanded(false);
+    },
+  });
+
+  const canApply = replySuggestionCanApply(analysis, status);
+
+  return (
+    <section>
+      <SectionHeader
+        label="Gelen yanıtı işle"
+        hint="metin yalnızca bu cihazda analiz edilir"
+        action={
+          <Button size="sm" onClick={() => setExpanded((value) => !value)}>
+            <MailSearch size={13} /> {expanded ? "Kapat" : "Yanıt yapıştır"}
+          </Button>
+        }
+      />
+      {expanded && (
+        <div className="space-y-3">
+          <Textarea
+            value={replyText}
+            onChange={(value) => {
+              setReplyText(value);
+              setAnalysis(null);
+            }}
+            rows={6}
+            placeholder="İşverenden gelen e-posta veya mesaj metnini buraya yapıştır…"
+            ariaLabel="İşveren yanıtı"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!online || replyText.trim().length < 8 || analyze.isPending}
+              onClick={() => analyze.mutate()}
+            >
+              Yerelde analiz et
+            </Button>
+            <span className="text-micro text-muted">Hiçbir e-posta hesabına bağlanılmaz.</span>
+          </div>
+          {analysis && (
+            <div className="rounded-control border border-subtle bg-surface-sunken p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Chip
+                  tone={analysis.kind === "rejection" ? "danger" : analysis.kind === "unknown" ? "neutral" : "accent"}
+                >
+                  {analysis.label}
+                </Chip>
+                <span className="text-micro tabular-nums text-muted">
+                  güven %{Math.round(analysis.confidence * 100)}
+                </span>
+              </div>
+              <p className="mt-2 text-meta text-secondary">{analysis.summary}</p>
+              {analysis.evidence.length > 0 && (
+                <p className="mt-1 text-micro text-muted">Sinyaller: {analysis.evidence.join(" · ")}</p>
+              )}
+              {canApply && (
+                <Button
+                  className="mt-3"
+                  variant="primary"
+                  size="sm"
+                  disabled={applySuggestion.isPending}
+                  onClick={() => applySuggestion.mutate()}
+                >
+                  {analysis.suggested_todo_title
+                    ? "Teknik ödevi görevlere ekle"
+                    : analysis.suggested_status === "interview"
+                      ? "Mülakat aşamasına taşı"
+                      : analysis.suggested_status === "rejected"
+                        ? "Reddedildi olarak işle"
+                        : "Başvuruldu olarak işle"}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** Görüşmeler: liste ve ekle/sil. */
 export function InterviewsSection({ id, online }: { id: string; online: boolean }) {
-  const [interviewDraft, setInterviewDraft] = useState({ stage: "", mode: "video", scheduled_at: "", notes: "" });
+  const [interviewDraft, setInterviewDraft] = useState({
+    stage: "",
+    mode: "video",
+    scheduled_at: "",
+    notes: "",
+    salary_stated: "",
+  });
   const { data: interviews = [] } = useQuery({
     queryKey: ["interviews", id],
     queryFn: () => api.get<Interview[]>(`/opportunities/${id}/interviews`),
+  });
+  const { data: salary } = useQuery({
+    queryKey: ["salary-consistency", id],
+    queryFn: () => api.get<SalaryConsistency>(`/opportunities/${id}/salary-consistency`),
   });
   const addInterview = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.post(`/opportunities/${id}/interviews`, body),
     onSuccess: () => {
       invalidateAfter("opportunity.write");
-      setInterviewDraft({ stage: "", mode: "video", scheduled_at: "", notes: "" });
+      setInterviewDraft({ stage: "", mode: "video", scheduled_at: "", notes: "", salary_stated: "" });
     },
   });
   const removeInterview = useMutation({
@@ -309,6 +550,7 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
                   {iv.scheduled_at ? " · " + new Date(iv.scheduled_at).toLocaleString("tr-TR") : ""}
                 </span>
                 {iv.notes && <span className="block truncate text-muted">{iv.notes}</span>}
+                {iv.salary_stated && <span className="block text-muted">Sözlü ücret: {iv.salary_stated}</span>}
               </span>
               <button
                 type="button"
@@ -321,6 +563,12 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
             </li>
           ))}
         </ul>
+      )}
+      {salary?.inconsistent && (
+        <div className="mb-3 rounded-control border border-warn-border bg-warn-surface p-3 text-meta text-secondary">
+          <strong className="text-warn">Ücret tutarlılığı uyarısı</strong>
+          <p className="mt-1">{salary.warning}</p>
+        </div>
       )}
       <div className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
         <Input
@@ -346,12 +594,20 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
               mode: interviewDraft.mode,
               scheduled_at: interviewDraft.scheduled_at || null,
               notes: interviewDraft.notes || null,
+              salary_stated: interviewDraft.salary_stated || null,
             })
           }
         >
           Ekle
         </Button>
       </div>
+      <Input
+        value={interviewDraft.salary_stated}
+        onChange={(salary_stated) => setInterviewDraft({ ...interviewDraft, salary_stated })}
+        placeholder="Bu turda söylenen ücret (örn. €60k–€70k)"
+        ariaLabel="Sözlü ücret beyanı"
+        className="mt-2 w-full"
+      />
     </section>
   );
 }

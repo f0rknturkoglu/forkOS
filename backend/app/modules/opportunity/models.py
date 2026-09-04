@@ -1,10 +1,22 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, SmallInteger, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -36,13 +48,19 @@ class Opportunity(EntityBacked, Base):
     source: Mapped[str] = mapped_column(Text, default="manual")
     external_id: Mapped[str | None] = mapped_column(Text)
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    skill_match_ratio: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
     trashed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     trashed_from_status: Mapped[str | None] = mapped_column(Text)
     country: Mapped[str | None] = mapped_column(Text)
-    region: Mapped[str | None] = mapped_column(Text)   # TR | EU | OTHER | UNKNOWN
+    region: Mapped[str | None] = mapped_column(Text)  # TR | EU | OTHER | UNKNOWN
     follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
+    # career-ops iki asamali degerlendirmesi. Firsatin aranabilir kimligi
+    # zaten entity-backed oldugu icin 1:1 destek tablosu yerine kaydin kendi
+    # surumlu JSON belgesi olarak tutulur.
+    evaluation: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class OpportunityRequirement(Base):
@@ -63,13 +81,16 @@ class OpportunityRequirement(Base):
 
 class Application(EntityBacked, Base):
     """Basvuru kaydi (1:1). PK entity FK; snapshots basvuru anindaki hali saklar."""
+
     __tablename__ = "application"
     ENTITY_TYPE = "application"
 
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True)
+        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
+    )
     cv_document_id: Mapped[uuid.UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="SET NULL"))
+        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="SET NULL")
+    )
     cv_title: Mapped[str | None] = mapped_column(Text)
     cv_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cover_letter: Mapped[str | None] = mapped_column(Text)
@@ -78,23 +99,29 @@ class Application(EntityBacked, Base):
     posting_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now())
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now())
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class ApplicationHistory(Base):
     """Durum gecis gecmisi — append-only (kural 3 ile birlikte)."""
+
     __tablename__ = "application_history"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="CASCADE"))
+        PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="CASCADE")
+    )
     from_status: Mapped[str | None] = mapped_column(Text)
     to_status: Mapped[str] = mapped_column(Text, nullable=False)
     at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now())
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     note: Mapped[str | None] = mapped_column(Text)
 
 
@@ -102,13 +129,61 @@ class Interview(Base):
     __tablename__ = "interview"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     opportunity_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="CASCADE"))
+        PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="CASCADE")
+    )
     stage: Mapped[str] = mapped_column(Text, nullable=False, default="genel")
     mode: Mapped[str | None] = mapped_column(Text)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     duration_min: Mapped[int | None] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(Text)
     outcome: Mapped[str | None] = mapped_column(Text)
+    salary_stated: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CareerStory(EntityBacked, Base):
+    """Mülakatta tekrar kullanılabilen, kaynak sınıflı STAR+R hikâyesi."""
+
+    __tablename__ = "career_story"
+    __table_args__ = (
+        CheckConstraint(
+            "provenance in ('existing', 'supported', 'derived-unverified', 'user-cannot-confirm')",
+            name="ck_career_story_provenance",
+        ),
+    )
+    ENTITY_TYPE = "career_story"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
+    )
+    situation: Mapped[str | None] = mapped_column(Text)
+    task: Mapped[str | None] = mapped_column(Text)
+    action: Mapped[str | None] = mapped_column(Text)
+    result: Mapped[str | None] = mapped_column(Text)
+    reflection: Mapped[str | None] = mapped_column(Text)
+    provenance: Mapped[str] = mapped_column(Text, nullable=False, default="existing")
+    tags: Mapped[list[str]] = mapped_column(JSONB, default=list)
+
+
+class CareerConnection(EntityBacked, Base):
+    """LinkedIn disari aktarimindan gelen, tamamen yerel profesyonel baglanti."""
+
+    __tablename__ = "career_connection"
+    __table_args__ = (UniqueConstraint("identity_key", name="career_connection_identity_key_uniq"),)
+    ENTITY_TYPE = "career_connection"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
+    )
+    identity_key: Mapped[str] = mapped_column(Text, nullable=False)
+    first_name: Mapped[str | None] = mapped_column(Text)
+    last_name: Mapped[str | None] = mapped_column(Text)
+    profile_url: Mapped[str | None] = mapped_column(Text)
+    email: Mapped[str | None] = mapped_column(Text)
+    company: Mapped[str | None] = mapped_column(Text)
+    normalized_company: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[str | None] = mapped_column(Text)
+    connected_on: Mapped[date | None] = mapped_column(Date)

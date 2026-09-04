@@ -1,8 +1,17 @@
 import { memo, useMemo, useState } from "react";
-import { Eye, XCircle } from "lucide-react";
+import { Eye, Users, XCircle } from "lucide-react";
 import type { Opportunity } from "@/core/types";
 import { Chip } from "@/core/ui";
-import { SCORE_TONE, daysLeft, remoteKind, scoreBand, statusLabel } from "./labels";
+import {
+  SCORE_TONE,
+  archetypeLabel,
+  daysLeft,
+  recommendationLabel,
+  recommendationTone,
+  remoteKind,
+  scoreBand,
+  statusLabel,
+} from "./labels";
 
 interface OpportunityKanbanProps {
   items: Opportunity[];
@@ -78,6 +87,22 @@ const KanbanCard = memo(function KanbanCard({ item, disabled, onOpen, onStatus, 
           </Chip>
         )}
         {item.skill_match && <Chip tone="ok">CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}</Chip>}
+        {item.evaluation?.recommendation && (
+          <Chip tone={recommendationTone(item.evaluation.recommendation)}>
+            {recommendationLabel(item.evaluation.recommendation)} · {item.evaluation.score}p
+          </Chip>
+        )}
+        {item.evaluation?.archetype && <Chip tone="neutral">{archetypeLabel(item.evaluation.archetype)}</Chip>}
+        {item.intelligence?.connection_count ? (
+          <Chip tone="accent">
+            <span className="inline-flex items-center gap-1">
+              <Users size={11} /> {item.intelligence.connection_count} bağlantı
+            </span>
+          </Chip>
+        ) : null}
+        {item.intelligence?.is_repost && <Chip tone="warn">Tekrar ilan · {item.intelligence.repost_count}</Chip>}
+        {item.intelligence?.pay_transparency_risk && <Chip tone="warn">Geniş ücret bandı</Chip>}
+        {item.intelligence?.geo_mismatch && <Chip tone="danger">Konum uyuşmazlığı</Chip>}
         {item.status !== primaryStatus && <Chip tone="accent">{statusLabel(item.status)}</Chip>}
       </div>
 

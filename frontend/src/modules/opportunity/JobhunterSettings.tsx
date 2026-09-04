@@ -16,6 +16,11 @@ interface LinkedProfile {
   is_remote?: boolean;
   fetch_description?: boolean;
 }
+interface CareerProfile {
+  current_location: string;
+  authorized_countries: string[];
+  willing_to_relocate: boolean;
+}
 
 const WEIGHT_KEYS: [string, string][] = [
   ["base", "Temel puan"],
@@ -49,6 +54,10 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
     queryKey: ["jobhunter-env"],
     queryFn: () => api.get<{ linkein_allow_direct: string; proxies_file: string }>("/sources/jobhunter/env"),
   });
+  const { data: settings, refetch: refetchSettings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.get<Record<string, unknown>>("/settings"),
+  });
 
   /* ── Uyum profili formu ── */
   const [weights, setWeights] = useState<Record<string, string>>({});
@@ -56,6 +65,9 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
   const [roleTerms, setRoleTerms] = useState("");
   const [levelWords, setLevelWords] = useState("");
   const [killWords, setKillWords] = useState("");
+  const [currentLocation, setCurrentLocation] = useState("Ankara, Türkiye");
+  const [authorizedCountries, setAuthorizedCountries] = useState("Türkiye");
+  const [willingToRelocate, setWillingToRelocate] = useState(false);
   useEffect(() => {
     if (!config) return;
     const s = config.scoring as Record<string, unknown>;
@@ -68,6 +80,13 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
     setLevelWords(((s.level_words ?? []) as string[]).join(", "));
     setKillWords(((s.kill_words ?? []) as string[]).join(", "));
   }, [config]);
+  useEffect(() => {
+    const profile = settings?.["opportunity.career_profile"] as CareerProfile | undefined;
+    if (!profile) return;
+    setCurrentLocation(profile.current_location ?? "");
+    setAuthorizedCountries((profile.authorized_countries ?? []).join(", "));
+    setWillingToRelocate(Boolean(profile.willing_to_relocate));
+  }, [settings]);
 
   async function saveProfile() {
     if (!config) return;
@@ -105,9 +124,21 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
       .split(",")
       .map((x) => x.trim())
       .filter(Boolean);
-    await api.put("/sources/jobhunter/config", { scoring: next, balance: config.balance });
+    const careerProfile: CareerProfile = {
+      current_location: currentLocation.trim(),
+      authorized_countries: authorizedCountries
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+      willing_to_relocate: willingToRelocate,
+    };
+    await Promise.all([
+      api.put("/sources/jobhunter/config", { scoring: next, balance: config.balance }),
+      api.put("/settings/opportunity.career_profile", { value: careerProfile }),
+    ]);
     refetchConfig();
-    toast.push("Uyum profili kaydedildi — sıradaki senkron yeni skorlarla hesaplanır.", { tone: "ok" });
+    refetchSettings();
+    toast.push("Uyum, çalışma izni ve konum profili kaydedildi.", { tone: "ok" });
   }
 
   /* ── LinkedIn profilleri formu ── */
@@ -172,6 +203,29 @@ export function JobhunterSettings({ onClose }: { onClose: () => void }) {
         <div className="space-y-4 p-4">
           {section === "profile" && (
             <div className="space-y-4">
+              <Section title="Çalışma izni & konum">
+                <p className="mb-3 text-meta text-muted">
+                  Değerlendirme motoru sponsorluk ve konum engellerini bu yerel profil üzerinden kontrol eder.
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Field label="Mevcut konum">
+                    <Input value={currentLocation} onChange={setCurrentLocation} placeholder="Ankara, Türkiye" />
+                  </Field>
+                  <Field label="Çalışma izni olan ülkeler (virgüllü)">
+                    <Input
+                      value={authorizedCountries}
+                      onChange={setAuthorizedCountries}
+                      placeholder="Türkiye, Almanya"
+                    />
+                  </Field>
+                </div>
+                <Checkbox
+                  checked={willingToRelocate}
+                  onChange={setWillingToRelocate}
+                  label="Gerekirse taşınabilirim"
+                  className="mt-3"
+                />
+              </Section>
               <Section title="Ağırlıklar">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
                   {WEIGHT_KEYS.map(([key, label]) => (

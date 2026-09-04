@@ -128,3 +128,31 @@ export const REMOTE_LABELS: Record<RemoteKind, string> = {
   onsite: "Ofis",
   unknown: "Çalışma biçimi bilinmiyor",
 };
+
+export const ARCHETYPE_LABELS: Record<string, string> = {
+  fde: "FDE",
+  sa: "Solutions Architect",
+  pm: "Product Manager",
+  llmops: "LLMOps",
+  agentic: "Agentic Systems",
+  transformation: "Transformation",
+};
+
+export const archetypeLabel = (archetype: string | null | undefined): string =>
+  archetype ? (ARCHETYPE_LABELS[archetype] ?? archetype) : "";
+
+export const RECOMMENDATION_LABELS: Record<string, string> = {
+  pursue: "Başvurmaya değer",
+  consider: "Değerlendirilebilir",
+  skip: "Pas geç",
+};
+
+export const recommendationLabel = (rec: string | null | undefined): string =>
+  rec ? (RECOMMENDATION_LABELS[rec] ?? rec) : "";
+
+export function recommendationTone(rec: string | null | undefined): "ok" | "warn" | "danger" | "neutral" {
+  if (rec === "pursue") return "ok";
+  if (rec === "consider") return "warn";
+  if (rec === "skip") return "danger";
+  return "neutral";
+}

@@ -563,6 +563,20 @@
         "title": "Body_import_cards_api_flashcard_import_post",
         "type": "object"
       },
+      "Body_import_career_connections_api_career_connections_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_career_connections_api_career_connections_import_post",
+        "type": "object"
+      },
       "Body_import_opml_api_rss_import_post": {
         "properties": {
           "file": {
@@ -1148,6 +1162,434 @@
         "title": "CardPatch",
         "type": "object"
       },
+      "CareerConnectionOut": {
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "connected_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected On"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "profile_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Url"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CareerConnectionOut",
+        "type": "object"
+      },
+      "CareerConnectionsImportOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "total_rows": {
+            "title": "Total Rows",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_rows",
+          "created",
+          "updated",
+          "skipped"
+        ],
+        "title": "CareerConnectionsImportOut",
+        "type": "object"
+      },
+      "CareerStoryIn": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "provenance": {
+            "default": "existing",
+            "enum": [
+              "existing",
+              "supported",
+              "derived-unverified",
+              "user-cannot-confirm"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "reflection": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reflection"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "situation": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Situation"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Tags",
+            "type": "array"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task"
+          },
+          "title": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "CareerStoryIn",
+        "type": "object"
+      },
+      "CareerStoryOut": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "provenance": {
+            "enum": [
+              "existing",
+              "supported",
+              "derived-unverified",
+              "user-cannot-confirm"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "reflection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reflection"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "situation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Situation"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "provenance",
+          "updated_at"
+        ],
+        "title": "CareerStoryOut",
+        "type": "object"
+      },
+      "CareerStoryPatch": {
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "enum": [
+                  "existing",
+                  "supported",
+                  "derived-unverified",
+                  "user-cannot-confirm"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provenance"
+          },
+          "reflection": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reflection"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "situation": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Situation"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "CareerStoryPatch",
+        "type": "object"
+      },
       "CarryOverIn": {
         "properties": {
           "day": {
@@ -1378,6 +1820,65 @@
         "title": "CoursePatch",
         "type": "object"
       },
+      "CoverLetterReviewIn": {
+        "properties": {
+          "text": {
+            "maxLength": 50000,
+            "minLength": 20,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "CoverLetterReviewIn",
+        "type": "object"
+      },
+      "CoverLetterReviewOut": {
+        "properties": {
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "generic_phrases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Generic Phrases",
+            "type": "array"
+          },
+          "matched_story_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Matched Story Ids",
+            "type": "array"
+          },
+          "score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "integer"
+          },
+          "suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "score"
+        ],
+        "title": "CoverLetterReviewOut",
+        "type": "object"
+      },
       "DeckIn": {
         "properties": {
           "title": {
@@ -1505,6 +2006,175 @@
           "updated_at"
         ],
         "title": "EntityOut",
+        "type": "object"
+      },
+      "EvaluationGateOut": {
+        "properties": {
+          "authorized_to_work": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized To Work"
+          },
+          "geo_mismatch": {
+            "default": false,
+            "title": "Geo Mismatch",
+            "type": "boolean"
+          },
+          "hard_blocker": {
+            "default": false,
+            "title": "Hard Blocker",
+            "type": "boolean"
+          },
+          "job_country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Country"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sponsorship_status": {
+            "default": "unstated",
+            "enum": [
+              "sponsors",
+              "not_needed",
+              "unstated",
+              "no_sponsorship"
+            ],
+            "title": "Sponsorship Status",
+            "type": "string"
+          }
+        },
+        "title": "EvaluationGateOut",
+        "type": "object"
+      },
+      "EvaluationMatchOut": {
+        "properties": {
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "gap_mitigation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap Mitigation"
+          },
+          "match": {
+            "enum": [
+              "strong",
+              "partial",
+              "missing"
+            ],
+            "title": "Match",
+            "type": "string"
+          },
+          "requirement": {
+            "title": "Requirement",
+            "type": "string"
+          },
+          "requirement_id": {
+            "title": "Requirement Id",
+            "type": "string"
+          },
+          "story_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Story Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requirement_id",
+          "requirement",
+          "match",
+          "evidence"
+        ],
+        "title": "EvaluationMatchOut",
+        "type": "object"
+      },
+      "EvaluationRequirementOut": {
+        "properties": {
+          "evidence": {
+            "enum": [
+              "stated",
+              "structural",
+              "inferred"
+            ],
+            "title": "Evidence",
+            "type": "string"
+          },
+          "excerpt": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "importance": {
+            "enum": [
+              "critical",
+              "high",
+              "meaningful",
+              "preferred",
+              "low_signal"
+            ],
+            "title": "Importance",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "terms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Terms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "importance",
+          "evidence"
+        ],
+        "title": "EvaluationRequirementOut",
         "type": "object"
       },
       "EventOut": {
@@ -2516,6 +3186,18 @@
             ],
             "title": "Outcome"
           },
+          "salary_stated": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Stated"
+          },
           "scheduled_at": {
             "anyOf": [
               {
@@ -2597,6 +3279,17 @@
             "default": 0,
             "title": "Position",
             "type": "integer"
+          },
+          "salary_stated": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Stated"
           },
           "scheduled_at": {
             "anyOf": [
@@ -5060,12 +5753,172 @@
         "title": "NoteAttachmentOut",
         "type": "object"
       },
+      "NoteFolderIn": {
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "NoteFolderIn",
+        "type": "object"
+      },
+      "NoteFolderOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note_count": {
+            "default": 0,
+            "title": "Note Count",
+            "type": "integer"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "NoteFolderOut",
+        "type": "object"
+      },
+      "NoteFolderUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          }
+        },
+        "title": "NoteFolderUpdate",
+        "type": "object"
+      },
       "NoteIn": {
         "properties": {
           "body": {
             "maxLength": 200000,
             "minLength": 1,
             "title": "Body",
+            "type": "string"
+          },
+          "canvas_state": {
+            "additionalProperties": true,
+            "title": "Canvas State",
+            "type": "object"
+          },
+          "default_view": {
+            "default": "page",
+            "enum": [
+              "page",
+              "canvas"
+            ],
+            "title": "Default View",
+            "type": "string"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "page_width": {
+            "default": "compact",
+            "enum": [
+              "compact",
+              "wide",
+              "full"
+            ],
+            "title": "Page Width",
             "type": "string"
           },
           "pinned": {
@@ -5112,10 +5965,36 @@
             "title": "Body",
             "type": "string"
           },
+          "canvas_state": {
+            "additionalProperties": true,
+            "title": "Canvas State",
+            "type": "object"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "default_view": {
+            "default": "page",
+            "enum": [
+              "page",
+              "canvas"
+            ],
+            "title": "Default View",
+            "type": "string"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
           },
           "id": {
             "format": "uuid",
@@ -5133,6 +6012,16 @@
               }
             ],
             "title": "Journal Day"
+          },
+          "page_width": {
+            "default": "compact",
+            "enum": [
+              "compact",
+              "wide",
+              "full"
+            ],
+            "title": "Page Width",
+            "type": "string"
           },
           "pinned": {
             "title": "Pinned",
@@ -5206,6 +6095,61 @@
               }
             ],
             "title": "Body"
+          },
+          "canvas_state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canvas State"
+          },
+          "default_view": {
+            "anyOf": [
+              {
+                "enum": [
+                  "page",
+                  "canvas"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default View"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "page_width": {
+            "anyOf": [
+              {
+                "enum": [
+                  "compact",
+                  "wide",
+                  "full"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Width"
           },
           "pinned": {
             "anyOf": [
@@ -5369,6 +6313,240 @@
         "title": "OpportunityBrowseOut",
         "type": "object"
       },
+      "OpportunityConnectionsOut": {
+        "properties": {
+          "connections": {
+            "items": {
+              "$ref": "#/components/schemas/CareerConnectionOut"
+            },
+            "title": "Connections",
+            "type": "array"
+          },
+          "normalized_organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Organization"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          }
+        },
+        "title": "OpportunityConnectionsOut",
+        "type": "object"
+      },
+      "OpportunityEvaluationOut": {
+        "properties": {
+          "archetype": {
+            "anyOf": [
+              {
+                "enum": [
+                  "fde",
+                  "sa",
+                  "pm",
+                  "llmops",
+                  "agentic",
+                  "transformation"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archetype"
+          },
+          "archetype_scores": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Archetype Scores",
+            "type": "object"
+          },
+          "candidate_document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Document Id"
+          },
+          "candidate_document_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Document Title"
+          },
+          "candidate_source": {
+            "default": "profile",
+            "enum": [
+              "document",
+              "profile"
+            ],
+            "title": "Candidate Source",
+            "type": "string"
+          },
+          "engine": {
+            "const": "local_rules",
+            "default": "local_rules",
+            "title": "Engine",
+            "type": "string"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "gate": {
+            "$ref": "#/components/schemas/EvaluationGateOut"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationMatchOut"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "recommendation": {
+            "enum": [
+              "pursue",
+              "consider",
+              "skip"
+            ],
+            "title": "Recommendation",
+            "type": "string"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationRequirementOut"
+            },
+            "title": "Requirements",
+            "type": "array"
+          },
+          "score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "integer"
+          },
+          "source_fingerprint": {
+            "title": "Source Fingerprint",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "evaluated_at",
+          "source_fingerprint",
+          "score",
+          "recommendation",
+          "gate"
+        ],
+        "title": "OpportunityEvaluationOut",
+        "type": "object"
+      },
+      "OpportunityEvaluationPatch": {
+        "properties": {
+          "archetype": {
+            "anyOf": [
+              {
+                "enum": [
+                  "fde",
+                  "sa",
+                  "pm",
+                  "llmops",
+                  "agentic",
+                  "transformation"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archetype"
+          },
+          "matches": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EvaluationMatchOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "requirements": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EvaluationRequirementOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirements"
+          }
+        },
+        "title": "OpportunityEvaluationPatch",
+        "type": "object"
+      },
       "OpportunityIn": {
         "properties": {
           "compensation": {
@@ -5481,6 +6659,99 @@
         "title": "OpportunityIn",
         "type": "object"
       },
+      "OpportunityIntelligenceOut": {
+        "properties": {
+          "connection_count": {
+            "default": 0,
+            "title": "Connection Count",
+            "type": "integer"
+          },
+          "geo_mismatch": {
+            "default": false,
+            "title": "Geo Mismatch",
+            "type": "boolean"
+          },
+          "is_repost": {
+            "default": false,
+            "title": "Is Repost",
+            "type": "boolean"
+          },
+          "pay_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pay Currency"
+          },
+          "pay_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pay Max"
+          },
+          "pay_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pay Min"
+          },
+          "pay_range_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pay Range Ratio"
+          },
+          "pay_transparency_risk": {
+            "default": false,
+            "title": "Pay Transparency Risk",
+            "type": "boolean"
+          },
+          "repost_count": {
+            "default": 0,
+            "title": "Repost Count",
+            "type": "integer"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/RiskSignalOut"
+            },
+            "title": "Signals",
+            "type": "array"
+          },
+          "sponsorship_status": {
+            "default": "unstated",
+            "enum": [
+              "sponsors",
+              "not_needed",
+              "unstated",
+              "no_sponsorship"
+            ],
+            "title": "Sponsorship Status",
+            "type": "string"
+          }
+        },
+        "title": "OpportunityIntelligenceOut",
+        "type": "object"
+      },
       "OpportunityOut": {
         "properties": {
           "applied_at": {
@@ -5552,6 +6823,16 @@
             ],
             "title": "Deadline At"
           },
+          "evaluation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpportunityEvaluationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "external_id": {
             "anyOf": [
               {
@@ -5584,6 +6865,16 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "intelligence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpportunityIntelligenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "kind": {
             "title": "Kind",
@@ -6788,6 +8079,93 @@
         "title": "RelatedOut",
         "type": "object"
       },
+      "ReplyAnalysisIn": {
+        "properties": {
+          "text": {
+            "maxLength": 50000,
+            "minLength": 8,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ReplyAnalysisIn",
+        "type": "object"
+      },
+      "ReplyAnalysisOut": {
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "interview_invite",
+              "rejection",
+              "take_home_assessment",
+              "auto_acknowledgement",
+              "unknown"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "suggested_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "applied",
+                  "interview",
+                  "rejected"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Status"
+          },
+          "suggested_todo_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Todo Title"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "confidence",
+          "evidence",
+          "summary"
+        ],
+        "title": "ReplyAnalysisOut",
+        "type": "object"
+      },
       "RequirementDocumentIn": {
         "properties": {
           "document_entity_id": {
@@ -7135,6 +8513,39 @@
         "title": "ReviewStats",
         "type": "object"
       },
+      "RiskSignalOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "severity": {
+            "default": "neutral",
+            "enum": [
+              "neutral",
+              "warn",
+              "danger"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "detail"
+        ],
+        "title": "RiskSignalOut",
+        "type": "object"
+      },
       "RssStats": {
         "properties": {
           "active_feeds": {
@@ -7171,6 +8582,92 @@
           "unread"
         ],
         "title": "RssStats",
+        "type": "object"
+      },
+      "SalaryClaimOut": {
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "interview_id": {
+            "format": "uuid",
+            "title": "Interview Id",
+            "type": "string"
+          },
+          "pay_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pay Max"
+          },
+          "pay_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pay Min"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "interview_id",
+          "stage",
+          "statement"
+        ],
+        "title": "SalaryClaimOut",
+        "type": "object"
+      },
+      "SalaryConsistencyOut": {
+        "properties": {
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/SalaryClaimOut"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "inconsistent": {
+            "default": false,
+            "title": "Inconsistent",
+            "type": "boolean"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "title": "SalaryConsistencyOut",
         "type": "object"
       },
       "SaveItemIn": {
@@ -7333,6 +8830,52 @@
           "value"
         ],
         "title": "SettingIn",
+        "type": "object"
+      },
+      "SilentApplicationOut": {
+        "properties": {
+          "days_silent": {
+            "title": "Days Silent",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_interview_at": {
+            "format": "date-time",
+            "title": "Last Interview At",
+            "type": "string"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "last_interview_at",
+          "days_silent"
+        ],
+        "title": "SilentApplicationOut",
         "type": "object"
       },
       "SkillMatchOut": {
@@ -9929,6 +11472,304 @@
         "summary": "Capture",
         "tags": [
           "bookmark"
+        ]
+      }
+    },
+    "/api/career/connections": {
+      "get": {
+        "operationId": "career_connections_api_career_connections_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CareerConnectionOut"
+                  },
+                  "title": "Response Career Connections Api Career Connections Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Career Connections",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/connections/import": {
+      "post": {
+        "operationId": "import_career_connections_api_career_connections_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_career_connections_api_career_connections_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareerConnectionsImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Career Connections",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/cover-letter-review": {
+      "post": {
+        "operationId": "cover_letter_review_api_career_cover_letter_review_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoverLetterReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverLetterReviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cover Letter Review",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/stories": {
+      "get": {
+        "operationId": "career_stories_api_career_stories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CareerStoryOut"
+                  },
+                  "title": "Response Career Stories Api Career Stories Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Career Stories",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "post": {
+        "operationId": "create_career_story_api_career_stories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CareerStoryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareerStoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Career Story",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/stories/{story_id}": {
+      "delete": {
+        "operationId": "archive_career_story_api_career_stories__story_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "story_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Career Story",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_career_story_api_career_stories__story_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "story_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CareerStoryPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareerStoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Career Story",
+        "tags": [
+          "opportunities"
         ]
       }
     },
@@ -13252,6 +15093,157 @@
         ]
       }
     },
+    "/api/note-folders": {
+      "get": {
+        "operationId": "list_note_folders_api_note_folders_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NoteFolderOut"
+                  },
+                  "title": "Response List Note Folders Api Note Folders Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Note Folders",
+        "tags": [
+          "note"
+        ]
+      },
+      "post": {
+        "operationId": "create_note_folder_api_note_folders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteFolderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteFolderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Note Folder",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/note-folders/{folder_id}": {
+      "delete": {
+        "operationId": "delete_note_folder_api_note_folders__folder_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Folder Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Note Folder",
+        "tags": [
+          "note"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_note_folder_api_note_folders__folder_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Folder Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteFolderUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteFolderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Note Folder",
+        "tags": [
+          "note"
+        ]
+      }
+    },
     "/api/notes": {
       "get": {
         "operationId": "list_notes_api_notes_get",
@@ -14081,6 +16073,38 @@
           },
           {
             "in": "query",
+            "name": "archetype",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Archetype"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recommendation",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recommendation"
+            }
+          },
+          {
+            "in": "query",
             "name": "period_days",
             "required": false,
             "schema": {
@@ -14324,6 +16348,55 @@
           }
         },
         "summary": "Prune Opportunities",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/silence": {
+      "get": {
+        "operationId": "silent_applications_api_opportunities_silence_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 21,
+              "maximum": 90,
+              "minimum": 7,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SilentApplicationOut"
+                  },
+                  "title": "Response Silent Applications Api Opportunities Silence Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Silent Applications",
         "tags": [
           "opportunities"
         ]
@@ -14605,6 +16678,143 @@
         ]
       }
     },
+    "/api/opportunities/{item_id}/connections": {
+      "get": {
+        "operationId": "connections_for_opportunity_api_opportunities__item_id__connections_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityConnectionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Connections For Opportunity",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{item_id}/evaluation": {
+      "post": {
+        "operationId": "generate_evaluation_api_opportunities__item_id__evaluation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityEvaluationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Evaluation",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "put": {
+        "operationId": "save_evaluation_api_opportunities__item_id__evaluation_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpportunityEvaluationPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityEvaluationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Evaluation",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/{item_id}/history": {
       "get": {
         "operationId": "history_api_opportunities__item_id__history_get",
@@ -14797,6 +17007,59 @@
         ]
       }
     },
+    "/api/opportunities/{item_id}/reply-analysis": {
+      "post": {
+        "operationId": "reply_analysis_api_opportunities__item_id__reply_analysis_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyAnalysisIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyAnalysisOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reply Analysis",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/{item_id}/requirements": {
       "get": {
         "operationId": "requirements_api_opportunities__item_id__requirements_get",
@@ -14968,6 +17231,49 @@
           }
         },
         "summary": "Restore",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{item_id}/salary-consistency": {
+      "get": {
+        "operationId": "opportunity_salary_consistency_api_opportunities__item_id__salary_consistency_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalaryConsistencyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Opportunity Salary Consistency",
         "tags": [
           "opportunities"
         ]

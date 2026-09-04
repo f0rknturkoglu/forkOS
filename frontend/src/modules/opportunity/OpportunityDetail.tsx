@@ -1,7 +1,19 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bookmark, CalendarClock, Check, ExternalLink, FileText, Plus, Save, Trash2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Bookmark,
+  CalendarClock,
+  Check,
+  ExternalLink,
+  FileText,
+  Plus,
+  Save,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 import { api } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { Button, Chip, Empty, Input, SectionHeader, Select, Textarea, cx, relativeTime, useToast } from "@/core/ui";
@@ -16,10 +28,13 @@ import {
   ApplicationSection,
   FollowUpSection,
   InterviewsSection,
+  ReplyProcessorSection,
   RequirementsSection,
 } from "./OpportunityDetailSections";
+import { OpportunityEvaluationSection } from "./OpportunityEvaluationSection";
+import { OpportunityConnectionsSection } from "./OpportunityConnectionsSection";
 
-type DetailTab = "overview" | "crm" | "notes";
+type DetailTab = "overview" | "evaluation" | "crm" | "notes";
 
 interface NoteItem {
   id: string;
@@ -232,7 +247,7 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
           </div>
 
           {/* ── SEKMELER (TABS) ── */}
-          <div className="mt-4 flex border-b border-subtle text-meta font-medium">
+          <div className="mt-4 flex overflow-x-auto border-b border-subtle text-meta font-medium">
             <button
               type="button"
               onClick={() => setActiveTab("overview")}
@@ -244,6 +259,20 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
               )}
             >
               İlan & Yetenekler
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("evaluation")}
+              className={cx(
+                "flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2 transition-colors",
+                activeTab === "evaluation"
+                  ? "border-accent font-semibold text-accent"
+                  : "border-transparent text-secondary hover:text-primary",
+              )}
+            >
+              <Sparkles size={13} />
+              <span>Değerlendirme</span>
+              {item?.evaluation && <span className="tabular-nums">{item.evaluation.score}</span>}
             </button>
             <button
               type="button"
@@ -284,6 +313,36 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
           {/* TAB 1: GENEL & İLAN */}
           {activeTab === "overview" && (
             <>
+              {item?.intelligence && item.intelligence.signals.length > 0 && (
+                <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
+                  <SectionHeader
+                    label="Kariyer istihbaratı"
+                    hint={`${item.intelligence.signals.length} yerel sinyal`}
+                    action={<AlertTriangle size={15} className="text-warn" />}
+                  />
+                  <ul className="mt-3 space-y-2">
+                    {item.intelligence.signals.map((signal) => (
+                      <li
+                        key={signal.code}
+                        className="rounded-control border border-subtle bg-surface-sunken px-3 py-2"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Chip tone={signal.severity}>{signal.label}</Chip>
+                          {signal.code === "repost" && (
+                            <span className="text-micro tabular-nums text-muted">
+                              {item.intelligence?.repost_count} bağlantı
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-meta text-secondary">{signal.detail}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              <OpportunityConnectionsSection id={id} />
+
               {/* Yetenek & Beceri Uyumu */}
               {item?.skill_match ? (
                 <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
@@ -398,6 +457,10 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
             </>
           )}
 
+          {activeTab === "evaluation" && (
+            <OpportunityEvaluationSection id={id} evaluation={item?.evaluation ?? null} online={online} />
+          )}
+
           {/* TAB 2: SÜREÇ & CRM */}
           {activeTab === "crm" && (
             <>
@@ -437,11 +500,11 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                     </Button>
                   )}
                   {item?.status === "applied" && (
-                    <Button size="sm" variant="primary" onClick={() => handleQuickTransition("interviewing")}>
+                    <Button size="sm" variant="primary" onClick={() => handleQuickTransition("interview")}>
                       Mülakata Geçildi →
                     </Button>
                   )}
-                  {item?.status === "interviewing" && (
+                  {item?.status === "interview" && (
                     <Button size="sm" variant="primary" onClick={() => handleQuickTransition("offer")}>
                       Teklif Alındı!
                     </Button>
@@ -510,6 +573,10 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
                   </div>
                 )}
               </section>
+
+              <div className="rounded-card border border-subtle bg-surface p-4">
+                <ReplyProcessorSection id={id} status={item?.status ?? "discovered"} online={online} />
+              </div>
 
               {/* TAKİP TARİHİ (Follow Up) */}
               <div className="rounded-card border border-subtle bg-surface p-4">

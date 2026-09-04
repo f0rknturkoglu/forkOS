@@ -92,9 +92,7 @@ async def poll_opportunities(*, limit: int = 4) -> int:
     return sum(await asyncio.gather(*(poll_source(source) for source in due)))
 
 
-def select_due_sources(
-    sources, latest: dict[str, datetime], *, now: datetime | None = None
-):
+def select_due_sources(sources, latest: dict[str, datetime], *, now: datetime | None = None):
     current = now or datetime.now(UTC)
 
     def due_at(source):

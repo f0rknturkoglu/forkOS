@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { Button, Chip, DualRange, FilterChip, Section, Select } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
-import { REMOTE_LABELS, STATUSES, statusLabel, type RemoteKind } from "./labels";
+import {
+  ARCHETYPE_LABELS,
+  RECOMMENDATION_LABELS,
+  REMOTE_LABELS,
+  STATUSES,
+  archetypeLabel,
+  recommendationLabel,
+  statusLabel,
+  type RemoteKind,
+} from "./labels";
 import type { OpportunityBrowseFilters } from "./opportunityBrowse";
 import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
@@ -92,10 +101,15 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
   const skillMatchActive = filters.min_skill_match !== undefined || Boolean(filters.skill_tier);
 
   const activeFiltersCount =
+    (filters.search ? 1 : 0) +
+    (filters.category ? 1 : 0) +
+    (filters.skill ? 1 : 0) +
     (scoreFilterActive ? 1 : 0) +
     (skillMatchActive ? 1 : 0) +
     (filters.remote ? 1 : 0) +
     (filters.region ? 1 : 0) +
+    (filters.archetype ? 1 : 0) +
+    (filters.recommendation ? 1 : 0) +
     (filters.status ? 1 : 0) +
     (filters.source ? 1 : 0) +
     (filters.announcement_source ? 1 : 0) +
@@ -105,12 +119,17 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
   const clearAllFilters = () => {
     onChange({
       ...filters,
+      search: undefined,
+      category: undefined,
+      skill: undefined,
       min_score: undefined,
       max_score: undefined,
       min_skill_match: undefined,
       skill_tier: undefined,
       remote: undefined,
       region: undefined,
+      archetype: undefined,
+      recommendation: undefined,
       status: undefined,
       source: undefined,
       announcement_source: undefined,
@@ -124,7 +143,8 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
     values: Record<string, number> | undefined,
     selected: string | undefined,
     labels: Record<string, string>,
-    key: "category" | "status" | "source" | "region" | "remote" | "announcement_source",
+    key:
+      "category" | "status" | "source" | "region" | "remote" | "announcement_source" | "archetype" | "recommendation",
   ) =>
     Object.entries(values ?? {}).map(([value, count]) => (
       <FilterChip
@@ -234,6 +254,40 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
               </span>
             </Chip>
           )}
+          {filters.recommendation && (
+            <Chip
+              tone={
+                filters.recommendation === "pursue" ? "ok" : filters.recommendation === "consider" ? "warn" : "danger"
+              }
+            >
+              <span className="inline-flex items-center gap-1">
+                <span>Karar: {recommendationLabel(filters.recommendation)}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ recommendation: "" })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Karar filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
+          {filters.archetype && (
+            <Chip tone="accent">
+              <span className="inline-flex items-center gap-1">
+                <span>Rol: {archetypeLabel(filters.archetype)}</span>
+                <button
+                  type="button"
+                  onClick={() => update({ archetype: "" })}
+                  className="hover:opacity-75 cursor-pointer ml-1"
+                  title="Rol filtresini kaldır"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            </Chip>
+          )}
           <Button size="sm" variant="ghost" onClick={clearAllFilters} className="ml-auto text-meta">
             <RotateCcw size={12} /> Tümünü Temizle
           </Button>
@@ -333,6 +387,27 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
               </div>
             </div>
           </Section>
+
+          {/* KATMAN 2: DEĞERLENDİRME & KARİYER OPS ARKETİPLERİ */}
+          {(Object.keys(facets.recommendations ?? {}).length > 0 ||
+            Object.keys(facets.archetypes ?? {}).length > 0) && (
+            <Section title="Kariyer analizi & rol tipi">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                {Object.keys(facets.recommendations ?? {}).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="label-caps mr-1 text-secondary">Karar</span>
+                    {chips(facets.recommendations, filters.recommendation, RECOMMENDATION_LABELS, "recommendation")}
+                  </div>
+                )}
+                {Object.keys(facets.archetypes ?? {}).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="label-caps mr-1 text-secondary">Rol tipi</span>
+                    {chips(facets.archetypes, filters.archetype, ARCHETYPE_LABELS, "archetype")}
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
         </>
       )}
 
@@ -356,8 +431,14 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
               {chips(facets.remote, filters.remote, REMOTE_LABELS, "remote")}
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <span className="label-caps">Kaynak</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="label-caps mr-1">Kaynak</span>
+            <FilterChip
+              label="✍️ Manuel Eklenenler"
+              count={facets.sources?.manual}
+              active={filters.source === "manual"}
+              onClick={() => update({ source: filters.source === "manual" ? "" : "manual" })}
+            />
             <Select
               ariaLabel="Kaynak"
               value={filters.source ?? ""}

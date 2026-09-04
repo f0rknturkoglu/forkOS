@@ -28,6 +28,7 @@ from app.sources.forkjob_port import forkjob_sources
 
 router = APIRouter(tags=["opportunities"])
 
+
 class SourceRefreshIn(BaseModel):
     """Bos govde = katalogun tamami."""
 
@@ -80,9 +81,7 @@ async def sync_history(
 
 
 @router.post("/sources/refresh", response_model=SourceRefreshOut)
-async def refresh_sources(
-    body: SourceRefreshIn, session: AsyncSession = Depends(get_session)
-):
+async def refresh_sources(body: SourceRefreshIn, session: AsyncSession = Depends(get_session)):
     """Secmeli ya da toplu cekim.
 
     source_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi
@@ -125,8 +124,7 @@ async def refresh_sources(
 async def refresh_source(source_id: str, session: AsyncSession = Depends(get_session)):
     try:
         catalog = {
-            source.id
-            for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+            source.id for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
         }
         if source_id not in catalog:
             raise KeyError(source_id)
@@ -137,6 +135,7 @@ async def refresh_source(source_id: str, session: AsyncSession = Depends(get_ses
     except KeyError as exc:
         raise HTTPException(404, "kaynak bulunamadı") from exc
     return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
+
 
 # ═════════════════════════════════════════════════════════════════════
 # Jobhunter ayarlari — uyum profili (scoring), LinkedIn, ortam
@@ -150,8 +149,9 @@ def _scoring_payload(cfg) -> dict:
     return {
         "scoring": {
             "base": sc.base,
-            "skills": [{"name": s.name, "points": s.points, "aliases": s.aliases}
-                         for s in sc.skills],
+            "skills": [
+                {"name": s.name, "points": s.points, "aliases": s.aliases} for s in sc.skills
+            ],
             "skill_max": sc.skill_max,
             "skill_title_multiplier": sc.skill_title_multiplier,
             "role_terms": sc.role_terms,
@@ -160,16 +160,20 @@ def _scoring_payload(cfg) -> dict:
             "level_words": sc.level_words,
             "level_bonus": sc.level_bonus,
             "level_description_factor": sc.level_description_factor,
-            "seniority_tiers": [{"label": t.label, "penalty": t.penalty, "words": t.words}
-                                  for t in sc.seniority_tiers],
+            "seniority_tiers": [
+                {"label": t.label, "penalty": t.penalty, "words": t.words}
+                for t in sc.seniority_tiers
+            ],
             "seniority_title_only": sc.seniority_title_only,
             "visa_bonus": sc.visa_bonus,
             "visa_penalty": sc.visa_penalty,
             "visa_eu_only": sc.visa_eu_only,
             "spanish_requirement_penalty": sc.spanish_requirement_penalty,
             "english_working_bonus": sc.english_working_bonus,
-            "experience_bands": [{"max_years": b.max_years, "delta": b.delta, "label": b.label}
-                                   for b in sc.experience_bands],
+            "experience_bands": [
+                {"max_years": b.max_years, "delta": b.delta, "label": b.label}
+                for b in sc.experience_bands
+            ],
             "tr_office_cities": sc.tr_office_cities,
             "tr_relocation_penalty": sc.tr_relocation_penalty,
             "freshness_grace_days": sc.freshness_grace_days,

@@ -143,6 +143,12 @@ export interface Note {
   title: string;
   body: string;
   pinned: boolean;
+  /** Proje gunlugunden geldiyse bagli proje; bos ise kisisel not. */
+  project_id?: string | null;
+  /** Obsidian benzeri klasor agacindaki yeri; bos ise Kok Notlar. */
+  folder_id?: string | null;
+  /** Proje gunlugu notunun temsil ettigi yerel gun. */
+  journal_day?: string | null;
   created_at: string;
   updated_at: string;
   /** Govdedeki #etiketler + elle eklenenler (tek havuz). */
@@ -152,6 +158,28 @@ export interface Note {
   /** Cozulen [[hedef]] -> gercek kayit; tiklaninca oraya gidilir. */
   resolved_links?: { target: string; id: string; type: string }[];
   attachments?: NoteAttachment[];
+  /** Excalidraw sahnesi; not listesinde bos, detay cagrisinda tam gelir. */
+  canvas_state?: NoteCanvasState;
+  default_view?: "page" | "canvas";
+  page_width?: "compact" | "wide" | "full";
+}
+
+export interface NoteFolder {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  position: number;
+  note_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteCanvasState {
+  type?: "excalidraw";
+  version?: number;
+  elements?: unknown[];
+  appState?: Record<string, unknown>;
+  files?: Record<string, unknown>;
 }
 
 export interface NoteAttachment {
@@ -563,6 +591,99 @@ export interface Opportunity {
     matched: string[];
     missing: string[];
   } | null;
+  intelligence?: OpportunityIntelligence | null;
+  /** career-ops iki aşamalı gereksinim ve aday değerlendirmesi. */
+  evaluation?: OpportunityEvaluation | null;
+}
+
+interface OpportunityRiskSignal {
+  code: string;
+  label: string;
+  detail: string;
+  severity: "neutral" | "warn" | "danger";
+}
+
+interface OpportunityIntelligence {
+  repost_count: number;
+  is_repost: boolean;
+  connection_count?: number;
+  pay_min: number | null;
+  pay_max: number | null;
+  pay_currency: string | null;
+  pay_range_ratio: number | null;
+  pay_transparency_risk: boolean;
+  geo_mismatch: boolean;
+  sponsorship_status: "sponsors" | "not_needed" | "unstated" | "no_sponsorship";
+  signals: OpportunityRiskSignal[];
+}
+
+export type RequirementImportance = "critical" | "high" | "meaningful" | "preferred" | "low_signal";
+export type RequirementEvidence = "stated" | "structural" | "inferred";
+export type CandidateMatch = "strong" | "partial" | "missing";
+export type OpportunityArchetype = "fde" | "sa" | "pm" | "llmops" | "agentic" | "transformation";
+
+export interface EvaluationRequirement {
+  id: string;
+  name: string;
+  importance: RequirementImportance;
+  evidence: RequirementEvidence;
+  excerpt: string | null;
+  terms: string[];
+}
+
+export interface EvaluationMatch {
+  requirement_id: string;
+  requirement: string;
+  match: CandidateMatch;
+  evidence: string;
+  gap_mitigation: string | null;
+  story_ids: string[];
+}
+
+interface EvaluationGate {
+  job_country: string | null;
+  authorized_to_work: boolean | null;
+  sponsorship_status: "sponsors" | "not_needed" | "unstated" | "no_sponsorship";
+  geo_mismatch: boolean;
+  hard_blocker: boolean;
+  reasons: string[];
+}
+
+export interface OpportunityEvaluation {
+  version: string;
+  evaluated_at: string;
+  source_fingerprint: string;
+  engine: "local_rules";
+  candidate_source: "document" | "profile";
+  candidate_document_id: string | null;
+  candidate_document_title: string | null;
+  archetype: OpportunityArchetype | null;
+  archetype_scores: Record<string, number>;
+  score: number;
+  recommendation: "pursue" | "consider" | "skip";
+  requirements: EvaluationRequirement[];
+  matches: EvaluationMatch[];
+  gate: EvaluationGate;
+  notes: string | null;
+}
+
+export interface ReplyAnalysis {
+  kind: "interview_invite" | "rejection" | "take_home_assessment" | "auto_acknowledgement" | "unknown";
+  label: string;
+  confidence: number;
+  evidence: string[];
+  suggested_status: "applied" | "interview" | "rejected" | null;
+  suggested_todo_title: string | null;
+  summary: string;
+}
+
+export interface SilentApplication {
+  id: string;
+  title: string;
+  organization: string | null;
+  status: string;
+  last_interview_at: string;
+  days_silent: number;
 }
 
 export interface Application {
@@ -596,7 +717,69 @@ export interface Interview {
   duration_min: number | null;
   notes: string | null;
   outcome: string | null;
+  salary_stated: string | null;
   position: number;
+}
+
+export type CareerStoryProvenance = "existing" | "supported" | "derived-unverified" | "user-cannot-confirm";
+
+export interface CareerStory {
+  id: string;
+  title: string;
+  situation: string | null;
+  task: string | null;
+  action: string | null;
+  result: string | null;
+  reflection: string | null;
+  provenance: CareerStoryProvenance;
+  tags: string[];
+  updated_at: string;
+}
+
+export interface SalaryConsistency {
+  inconsistent: boolean;
+  claims: {
+    interview_id: string;
+    stage: string;
+    statement: string;
+    pay_min: number | null;
+    pay_max: number | null;
+    currency: string | null;
+  }[];
+  warning: string | null;
+}
+
+export interface CoverLetterReview {
+  score: number;
+  generic_phrases: string[];
+  matched_story_ids: string[];
+  flags: string[];
+  suggestions: string[];
+}
+
+export interface CareerConnection {
+  id: string;
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  profile_url: string | null;
+  email: string | null;
+  company: string | null;
+  position: string | null;
+  connected_on: string | null;
+}
+
+export interface CareerConnectionsImportResult {
+  total_rows: number;
+  created: number;
+  updated: number;
+  skipped: number;
+}
+
+export interface OpportunityConnections {
+  organization: string | null;
+  normalized_organization: string | null;
+  connections: CareerConnection[];
 }
 
 export interface ApplicationFunnel {
@@ -661,16 +844,15 @@ export interface Command {
 export type ModuleGroup = "pinned" | "capture" | "do" | "track" | "system";
 
 /**
- * Ust seritteki gruplar. Adlar emir kipi degil ISIM: "Yakala/Yap" gibi GTD
- * fiilleri neyin nerede oldugunu soylemiyordu.
- *   Kaynaklar — disaridan gelen malzeme (gelen kutusu, yer imleri, RSS, belge)
- *   Planlama  — zamana bagli is (takvim, gorevler, pomodoro, projeler)
+ * Sidebar gruplari. Kisa eylem adlari çalışma alanını hızlı taratır.
+ *   Yakala — disaridan gelen malzeme (gelen kutusu, yer imleri, RSS, belge)
+ *   Planla — zamana bagli is (takvim, gorevler, pomodoro, projeler)
  *   Takip     — duzenli bakilan alanlar (alistirma, finans, firsat, ogrenme)
  *   Sistem    — uygulamanin kendisi (etkinlik, saglik, ayarlar)
  */
 export const MODULE_GROUPS: { id: ModuleGroup; label: string }[] = [
-  { id: "capture", label: "Kaynaklar" },
-  { id: "do", label: "Planlama" },
+  { id: "capture", label: "Yakala" },
+  { id: "do", label: "Planla" },
   { id: "track", label: "Takip" },
   { id: "system", label: "Sistem" },
 ];
@@ -713,8 +895,20 @@ export interface ModuleSpec {
    * giris noktasi Bugun widget'i, nav'da kalici yer tutmasin.
    */
   hidden?: boolean;
-  /** title verilmezse ust seritte modulun adi gorunur. */
-  routes: { path: string; element: ComponentType; title?: string }[];
+  /** title verilmezse çalışma alanı başlığında modülün adı görünür. */
+  routes: {
+    path: string;
+    element: ComponentType;
+    title?: string;
+    /** Birincil rota modül satırıdır; yalnız bilinçli ikincil girişler sidebar çocuğu olur. */
+    navigation?: "child" | "hidden";
+  }[];
+  /**
+   * Modül aktifken ana sidebar içinde açılan veri-temelli alt ağaç.
+   * Not listesi gibi çalışma alanına ait kayıtlar ikinci bir sayfa sidebar'ı
+   * oluşturmadan burada gösterilir.
+   */
+  sidebar?: ComponentType<{ collapsed: boolean; onNavigate: () => void }>;
   /** Today ust seridindeki sayi kutucuklari. */
   todayStats?: ComponentType[];
   /**

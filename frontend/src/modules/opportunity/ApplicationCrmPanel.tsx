@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, ArrowRight } from "lucide-react";
+import { CalendarClock, ArrowRight, Radar } from "lucide-react";
 import { api } from "@/core/api";
 import { Chip, Empty, Section, cx, relativeTime } from "@/core/ui";
-import type { ApplicationFunnel, Followup } from "@/core/types";
+import type { ApplicationFunnel, Followup, SilentApplication } from "@/core/types";
 import { STATUS_TONES, statusLabel } from "./labels";
 
 interface ApplicationCrmPanelProps {
@@ -20,6 +20,10 @@ export function ApplicationCrmPanel({ onSelect, onStatusFilter }: ApplicationCrm
   const { data: followups = [] } = useQuery({
     queryKey: ["followups"],
     queryFn: () => api.get<Followup[]>("/opportunities/followups"),
+  });
+  const { data: silentApplications = [] } = useQuery({
+    queryKey: ["opportunity-silence"],
+    queryFn: () => api.get<SilentApplication[]>("/opportunities/silence?days=21"),
   });
 
   const total = funnel?.total ?? 0;
@@ -125,6 +129,31 @@ export function ApplicationCrmPanel({ onSelect, onStatusFilter }: ApplicationCrm
                     size={13}
                     className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-primary"
                   />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Firma sessizliği" action={<Radar size={14} className="text-icon" />}>
+        {silentApplications.length === 0 ? (
+          <Empty>21 günü aşan yanıtsız görüşme yok.</Empty>
+        ) : (
+          <ul className="space-y-1.5">
+            {silentApplications.slice(0, 8).map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect?.(item.id)}
+                  className="group flex w-full items-center gap-2 rounded-control border border-warn-border bg-warn-surface px-3 py-2 text-left transition hover:border-strong"
+                >
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-body text-primary">{item.title}</strong>
+                    <span className="text-micro text-muted">{item.organization || "Kurum belirtilmemiş"}</span>
+                  </span>
+                  <Chip tone="warn">{item.days_silent} gün</Chip>
+                  <ArrowRight size={13} className="shrink-0 text-muted transition group-hover:translate-x-0.5" />
                 </button>
               </li>
             ))}

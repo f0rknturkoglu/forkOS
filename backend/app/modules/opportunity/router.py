@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,15 +13,37 @@ from app.core.models import Entity, Link
 from app.db import get_session
 from app.modules.note import service as note_service
 from app.modules.note.schemas import NoteIn, NoteOut
+from app.modules.opportunity import career as career_service
 from app.modules.opportunity import service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
+from app.modules.opportunity.intelligence import (
+    classify_reply,
+    enrich_opportunities,
+    evaluate_opportunity,
+    list_silent_applications,
+    update_evaluation,
+)
 from app.modules.opportunity.models import Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
+    CareerConnectionOut,
+    CareerConnectionsImportOut,
+    CareerStoryIn,
+    CareerStoryOut,
+    CareerStoryPatch,
+    CoverLetterReviewIn,
+    CoverLetterReviewOut,
     OpportunityBrowseOut,
+    OpportunityConnectionsOut,
+    OpportunityEvaluationOut,
+    OpportunityEvaluationPatch,
     OpportunityIn,
     OpportunityOut,
     OpportunityPatch,
+    ReplyAnalysisIn,
+    ReplyAnalysisOut,
     RequirementIn,
+    SalaryConsistencyOut,
+    SilentApplicationOut,
     TransitionIn,
 )
 from app.modules.opportunity.sources_router import router as sources_router
@@ -31,8 +53,90 @@ from app.modules.todo.schemas import TodoIn, TodoOut
 
 router = APIRouter(tags=["opportunities"])
 
+
 class RequirementDocumentIn(BaseModel):
     document_entity_id: UUID | None
+
+
+@router.get("/career/stories", response_model=list[CareerStoryOut])
+async def career_stories(session: AsyncSession = Depends(get_session)):
+    return await career_service.list_stories(session)
+
+
+@router.post("/career/stories", response_model=CareerStoryOut, status_code=201)
+async def create_career_story(
+    body: CareerStoryIn,
+    session: AsyncSession = Depends(get_session),
+):
+    return await career_service.create_story(session, body)
+
+
+@router.patch("/career/stories/{story_id}", response_model=CareerStoryOut)
+async def patch_career_story(
+    story_id: UUID,
+    body: CareerStoryPatch,
+    session: AsyncSession = Depends(get_session),
+):
+    result = await career_service.patch_story(session, story_id, body)
+    if result is None:
+        raise HTTPException(404, "Kariyer hikâyesi bulunamadı")
+    return result
+
+
+@router.delete("/career/stories/{story_id}", status_code=204)
+async def archive_career_story(
+    story_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    if not await career_service.archive_story(session, story_id):
+        raise HTTPException(404, "Kariyer hikâyesi bulunamadı")
+
+
+@router.post("/career/cover-letter-review", response_model=CoverLetterReviewOut)
+async def cover_letter_review(
+    body: CoverLetterReviewIn,
+    session: AsyncSession = Depends(get_session),
+):
+    return await career_service.review_cover_letter(session, body.text)
+
+
+@router.get("/career/connections", response_model=list[CareerConnectionOut])
+async def career_connections(
+    search: str | None = None,
+    limit: int = Query(200, ge=1, le=2000),
+    session: AsyncSession = Depends(get_session),
+):
+    return await career_service.list_connections(session, search=search, limit=limit)
+
+
+@router.post("/career/connections/import", response_model=CareerConnectionsImportOut)
+async def import_career_connections(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+):
+    if not (file.filename or "").casefold().endswith(".csv"):
+        raise HTTPException(422, "LinkedIn Connections.csv dosyasi bekleniyor")
+    content = await file.read(10 * 1024 * 1024 + 1)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(413, "Connections.csv en fazla 10 MB olabilir")
+    try:
+        return await career_service.import_connections(session, content)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.get(
+    "/opportunities/{item_id}/connections",
+    response_model=OpportunityConnectionsOut,
+)
+async def connections_for_opportunity(
+    item_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    result = await career_service.opportunity_connections(session, item_id)
+    if result is None:
+        raise HTTPException(404, "Firsat bulunamadi")
+    return result
 
 
 @router.get("/opportunities", response_model=list[OpportunityOut])
@@ -58,6 +162,8 @@ async def opportunity_browse(
     source: str | None = None,
     region: str | None = None,
     remote: str | None = None,
+    archetype: str | None = None,
+    recommendation: str | None = None,
     period_days: int | None = None,
     year: int | None = None,
     min_score: float | None = Query(None, ge=-1, le=100),
@@ -86,6 +192,8 @@ async def opportunity_browse(
             source=source,
             region=region,
             remote=remote,
+            archetype=archetype if section == "jobs" else None,
+            recommendation=recommendation if section == "jobs" else None,
             period_days=min(period_days, 3650) if period_days else None,
             year=year,
             min_score=min_score if section == "jobs" else None,
@@ -101,9 +209,65 @@ async def opportunity_browse(
 
 @router.get("/opportunities/followups", response_model=list[service.FollowupOut])
 async def followups(
-    days: int = 30, session: AsyncSession = Depends(get_session),
+    days: int = 30,
+    session: AsyncSession = Depends(get_session),
 ):
     return await service.list_followups(session, days=min(days, 90))
+
+
+@router.get("/opportunities/silence", response_model=list[SilentApplicationOut])
+async def silent_applications(
+    days: int = Query(21, ge=7, le=90),
+    session: AsyncSession = Depends(get_session),
+):
+    return await list_silent_applications(session, days=days)
+
+
+@router.get(
+    "/opportunities/{item_id}/salary-consistency",
+    response_model=SalaryConsistencyOut,
+)
+async def opportunity_salary_consistency(
+    item_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    if await session.get(Opportunity, item_id) is None:
+        raise HTTPException(404, "Fırsat bulunamadı")
+    return await career_service.salary_consistency(session, item_id)
+
+
+@router.post(
+    "/opportunities/{item_id}/evaluation",
+    response_model=OpportunityEvaluationOut,
+)
+async def generate_evaluation(
+    item_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    result = await evaluate_opportunity(session, item_id)
+    if result is None:
+        raise HTTPException(404, "Fırsat bulunamadı")
+    return result
+
+
+@router.put(
+    "/opportunities/{item_id}/evaluation",
+    response_model=OpportunityEvaluationOut,
+)
+async def save_evaluation(
+    item_id: UUID,
+    body: OpportunityEvaluationPatch,
+    session: AsyncSession = Depends(get_session),
+):
+    if await session.get(Opportunity, item_id) is None:
+        raise HTTPException(404, "Fırsat bulunamadı")
+    try:
+        result = await update_evaluation(session, item_id, body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if result is None:
+        raise HTTPException(409, "Önce ilanı değerlendirin")
+    return result
 
 
 @router.get("/opportunities/{item_id}", response_model=OpportunityOut)
@@ -117,7 +281,22 @@ async def opportunity_detail(item_id: UUID, session: AsyncSession = Depends(get_
     ).first()
     if row is None:
         raise HTTPException(404)
-    return service._out(row)
+    enriched = await enrich_opportunities(session, [row], [service._out(row)])
+    return enriched[0]
+
+
+@router.post(
+    "/opportunities/{item_id}/reply-analysis",
+    response_model=ReplyAnalysisOut,
+)
+async def reply_analysis(
+    item_id: UUID,
+    body: ReplyAnalysisIn,
+    session: AsyncSession = Depends(get_session),
+):
+    if await session.get(Opportunity, item_id) is None:
+        raise HTTPException(404, "Fırsat bulunamadı")
+    return classify_reply(body.text)
 
 
 @router.post("/opportunities", response_model=OpportunityOut, status_code=201)
@@ -308,7 +487,9 @@ async def application_detail(item_id: UUID, session: AsyncSession = Depends(get_
 
 @router.put("/opportunities/{item_id}/application", response_model=service.ApplicationOut)
 async def application_update(
-    item_id: UUID, body: service.ApplicationIn, session: AsyncSession = Depends(get_session),
+    item_id: UUID,
+    body: service.ApplicationIn,
+    session: AsyncSession = Depends(get_session),
 ):
     result = await service.upsert_application(session, item_id, body)
     if result is None:
@@ -318,7 +499,9 @@ async def application_update(
 
 @router.post("/opportunities/{item_id}/apply", response_model=service.OpportunityOut)
 async def apply(
-    item_id: UUID, body: service.ApplyIn, session: AsyncSession = Depends(get_session),
+    item_id: UUID,
+    body: service.ApplyIn,
+    session: AsyncSession = Depends(get_session),
 ):
     """Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir."""
     try:
@@ -337,12 +520,17 @@ async def history(item_id: UUID, session: AsyncSession = Depends(get_session)):
 
 @router.post("/opportunities/{item_id}/transition", response_model=service.OpportunityOut)
 async def transition(
-        item_id: UUID, body: TransitionIn, session: AsyncSession = Depends(get_session),
+    item_id: UUID,
+    body: TransitionIn,
+    session: AsyncSession = Depends(get_session),
 ):
     """Durum gecisi: gecmis + event yazar; terminal durumlara takilir."""
     try:
         result = await service.transition_status(
-            session, item_id, to=body.to, note=body.note,
+            session,
+            item_id,
+            to=body.to,
+            note=body.note,
             rejection_reason=body.rejection_reason,
         )
     except ValueError as exc:
@@ -358,9 +546,12 @@ async def interviews(item_id: UUID, session: AsyncSession = Depends(get_session)
 
 
 @router.post(
-    "/opportunities/{item_id}/interviews", response_model=service.InterviewOut, status_code=201)
+    "/opportunities/{item_id}/interviews", response_model=service.InterviewOut, status_code=201
+)
 async def add_interview(
-    item_id: UUID, body: service.InterviewIn, session: AsyncSession = Depends(get_session),
+    item_id: UUID,
+    body: service.InterviewIn,
+    session: AsyncSession = Depends(get_session),
 ):
     result = await service.add_interview(session, item_id, body)
     if result is None:
@@ -370,7 +561,9 @@ async def add_interview(
 
 @router.patch("/interviews/{interview_id}", response_model=service.InterviewOut)
 async def patch_interview(
-    interview_id: UUID, body: service.InterviewIn, session: AsyncSession = Depends(get_session),
+    interview_id: UUID,
+    body: service.InterviewIn,
+    session: AsyncSession = Depends(get_session),
 ):
     result = await service.patch_interview(session, interview_id, body)
     if result is None:

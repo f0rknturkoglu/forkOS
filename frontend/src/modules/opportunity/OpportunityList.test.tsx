@@ -55,6 +55,39 @@ describe("opportunity list components", () => {
     expect(html).toContain("Çöpe at");
   });
 
+  it("surfaces career intelligence signals on the card", () => {
+    const html = renderToStaticMarkup(
+      <OpportunityCard
+        item={{
+          ...item,
+          intelligence: {
+            repost_count: 3,
+            is_repost: true,
+            pay_min: 60_000,
+            pay_max: 140_000,
+            pay_currency: "EUR",
+            pay_range_ratio: 1.33,
+            pay_transparency_risk: true,
+            geo_mismatch: true,
+            sponsorship_status: "unstated",
+            signals: [],
+          },
+        }}
+        disabled={false}
+        isTrash={false}
+        onOpen={() => undefined}
+        onStatus={() => undefined}
+        onTrash={() => undefined}
+        onRestore={() => undefined}
+        onDelete={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("Tekrar ilan · 3");
+    expect(html).toContain("Geniş ücret bandı");
+    expect(html).toContain("Konum uyuşmazlığı");
+  });
+
   it("uses a real responsive collection in grid mode", () => {
     const html = renderToStaticMarkup(
       <OpportunityCollection layout="grid">

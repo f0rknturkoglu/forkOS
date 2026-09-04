@@ -24,6 +24,8 @@ class BrowseFilters:
     source: str | None = None
     region: str | None = None
     remote: str | None = None
+    archetype: str | None = None
+    recommendation: str | None = None
     period_days: int | None = None
     year: int | None = None
     min_score: float | None = None
@@ -42,9 +44,7 @@ def _conditions(filters: BrowseFilters):
     else:
         conditions.append(Opportunity.trashed_at.is_(None))
         conditions.append(
-            Opportunity.kind == "job"
-            if filters.section == "jobs"
-            else Opportunity.kind != "job"
+            Opportunity.kind == "job" if filters.section == "jobs" else Opportunity.kind != "job"
         )
     if filters.announcement_source == "ylsy":
         conditions.append(Opportunity.source == "ylsy")
@@ -58,8 +58,14 @@ def _conditions(filters: BrowseFilters):
         conditions.append(Opportunity.status == filters.status)
     if filters.source:
         conditions.append(Opportunity.source == filters.source)
+    if filters.region:
+        conditions.append(Opportunity.region == filters.region)
     if filters.remote:
         conditions.append(_remote_bucket() == filters.remote)
+    if filters.archetype:
+        conditions.append(Opportunity.evaluation["archetype"].astext == filters.archetype)
+    if filters.recommendation:
+        conditions.append(Opportunity.evaluation["recommendation"].astext == filters.recommendation)
     score = _score_expression()
     if filters.min_score is not None:
         conditions.append(score >= filters.min_score)
@@ -67,9 +73,7 @@ def _conditions(filters: BrowseFilters):
         conditions.append(score <= filters.max_score)
     effective_date = func.coalesce(Opportunity.published_at, Opportunity.found_at)
     if filters.period_days:
-        conditions.append(
-            effective_date >= datetime.now(UTC) - timedelta(days=filters.period_days)
-        )
+        conditions.append(effective_date >= datetime.now(UTC) - timedelta(days=filters.period_days))
     if filters.year:
         conditions.append(extract("year", effective_date) == filters.year)
     if filters.skill and filters.skill.strip():
@@ -79,13 +83,9 @@ def _conditions(filters: BrowseFilters):
             | Entity.title.ilike(f"%{s}%")
         )
     if filters.min_skill_match is not None and filters.min_skill_match > 0:
-        conditions.append(
-            Opportunity.raw["forkjob"]["reasons"].has_key("skills")
-        )
+        conditions.append(Opportunity.skill_match_ratio >= filters.min_skill_match)
     if filters.search and filters.search.strip():
-        query = func.plainto_tsquery(
-            "simple", func.immutable_unaccent(filters.search.strip())
-        )
+        query = func.plainto_tsquery("simple", func.immutable_unaccent(filters.search.strip()))
         conditions.append(Entity.search_vec.op("@@")(query))
     return conditions
 
@@ -128,11 +128,12 @@ def _order(filters: BrowseFilters):
     if filters.sort == "deadline":
         return (Opportunity.deadline_at.asc().nulls_last(), effective_date.desc(), *stable)
     if filters.sort == "skill_match":
-        has_skills = case(
-            (Opportunity.raw["forkjob"]["reasons"].astext.like('%"skills":%'), 1),
-            else_=0,
+        return (
+            Opportunity.skill_match_ratio.desc().nulls_last(),
+            score.desc().nulls_last(),
+            effective_date.desc(),
+            *stable,
         )
-        return (has_skills.desc(), score.desc().nulls_last(), effective_date.desc(), *stable)
     if filters.sort == "newest" or filters.section == "announcements":
         return (effective_date.desc(), *stable)
     if filters.sort == "score_asc":
@@ -140,9 +141,7 @@ def _order(filters: BrowseFilters):
     return (score.desc().nulls_last(), effective_date.desc(), *stable)
 
 
-async def _facet(
-    session: AsyncSession, conditions, expression, *, label: str
-) -> dict[str, int]:
+async def _facet(session: AsyncSession, conditions, expression, *, label: str) -> dict[str, int]:
     rows = (
         await session.execute(
             select(expression.label(label), func.count())
@@ -152,7 +151,7 @@ async def _facet(
             .group_by(expression)
         )
     ).all()
-    return {str(value): count for value, count in rows}
+    return {str(value): count for value, count in rows if value is not None and str(value).strip()}
 
 
 async def browse_opportunities(
@@ -164,14 +163,9 @@ async def browse_opportunities(
         .join(Entity, Entity.id == Opportunity.id)
         .where(*conditions)
     )
-    fetch_limit = (
-        filters.limit * 3
-        if (filters.min_skill_match or filters.sort == "skill_match")
-        else filters.limit
-    )
     rows = (
         await session.execute(
-            base.order_by(*_order(filters)).offset(filters.offset).limit(fetch_limit)
+            base.order_by(*_order(filters)).offset(filters.offset).limit(filters.limit)
         )
     ).all()
     total = (
@@ -201,13 +195,20 @@ async def browse_opportunities(
     # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada (offset == 0) hesaplanir.
     if filters.offset == 0:
         facets = {
-            "categories": await _facet(
-                session, conditions, Opportunity.category, label="category"
-            ),
+            "categories": await _facet(session, conditions, Opportunity.category, label="category"),
             "sources": await _facet(session, conditions, Opportunity.source, label="source"),
             "statuses": await _facet(session, conditions, Opportunity.status, label="status"),
             "regions": await _facet(session, conditions, Opportunity.region, label="region"),
             "remote": await _facet(session, conditions, _remote_bucket(), label="remote"),
+            "archetypes": await _facet(
+                session, conditions, Opportunity.evaluation["archetype"].astext, label="archetype"
+            ),
+            "recommendations": await _facet(
+                session,
+                conditions,
+                Opportunity.evaluation["recommendation"].astext,
+                label="recommendation",
+            ),
             "years": await _facet(
                 session,
                 conditions,
@@ -222,19 +223,12 @@ async def browse_opportunities(
     else:
         facets = {}
     out_items = [_out(row, include_raw=False) for row in rows]
-    if filters.min_skill_match is not None and filters.min_skill_match > 0:
-        out_items = [
-            it for it in out_items
-            if it.skill_match and it.skill_match.match_ratio >= filters.min_skill_match
-        ]
-    if filters.sort == "skill_match":
-        out_items.sort(
-            key=lambda it: (it.skill_match.match_ratio if it.skill_match else 0.0, it.score or 0.0),
-            reverse=True,
-        )
+    from app.modules.opportunity.intelligence import enrich_opportunities
+
+    out_items = await enrich_opportunities(session, rows, out_items)
     return OpportunityBrowseOut(
-        items=out_items[:filters.limit],
-        total=total if filters.min_skill_match is None else len(out_items),
+        items=out_items,
+        total=total,
         offset=filters.offset,
         limit=filters.limit,
         section_counts={

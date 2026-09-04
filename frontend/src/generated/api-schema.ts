@@ -390,6 +390,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/career/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Career Connections */
+        get: operations["career_connections_api_career_connections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/connections/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Career Connections */
+        post: operations["import_career_connections_api_career_connections_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/cover-letter-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cover Letter Review */
+        post: operations["cover_letter_review_api_career_cover_letter_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Career Stories */
+        get: operations["career_stories_api_career_stories_get"];
+        put?: never;
+        /** Create Career Story */
+        post: operations["create_career_story_api_career_stories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/stories/{story_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Archive Career Story */
+        delete: operations["archive_career_story_api_career_stories__story_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Career Story */
+        patch: operations["patch_career_story_api_career_stories__story_id__patch"];
+        trace?: never;
+    };
     "/api/courses": {
         parameters: {
             query?: never;
@@ -1397,6 +1484,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/note-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Note Folders */
+        get: operations["list_note_folders_api_note_folders_get"];
+        put?: never;
+        /** Create Note Folder */
+        post: operations["create_note_folder_api_note_folders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/note-folders/{folder_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Note Folder */
+        delete: operations["delete_note_folder_api_note_folders__folder_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Note Folder */
+        patch: operations["patch_note_folder_api_note_folders__folder_id__patch"];
+        trace?: never;
+    };
     "/api/notes": {
         parameters: {
             query?: never;
@@ -1643,6 +1766,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/silence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Silent Applications */
+        get: operations["silent_applications_api_opportunities_silence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{item_id}": {
         parameters: {
             query?: never;
@@ -1694,6 +1834,41 @@ export interface paths {
          * @description Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir.
          */
         post: operations["apply_api_opportunities__item_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Connections For Opportunity */
+        get: operations["connections_for_opportunity_api_opportunities__item_id__connections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/evaluation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save Evaluation */
+        put: operations["save_evaluation_api_opportunities__item_id__evaluation_put"];
+        /** Generate Evaluation */
+        post: operations["generate_evaluation_api_opportunities__item_id__evaluation_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1752,6 +1927,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/{item_id}/reply-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reply Analysis */
+        post: operations["reply_analysis_api_opportunities__item_id__reply_analysis_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{item_id}/requirements": {
         parameters: {
             query?: never;
@@ -1798,6 +1990,23 @@ export interface paths {
         put?: never;
         /** Restore */
         post: operations["restore_api_opportunities__item_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{item_id}/salary-consistency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Opportunity Salary Consistency */
+        get: operations["opportunity_salary_consistency_api_opportunities__item_id__salary_consistency_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3444,6 +3653,11 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_import_career_connections_api_career_connections_import_post */
+        Body_import_career_connections_api_career_connections_import_post: {
+            /** File */
+            file: string;
+        };
         /** Body_import_opml_api_rss_import_post */
         Body_import_opml_api_rss_import_post: {
             /** File */
@@ -3657,6 +3871,115 @@ export interface components {
             /** Suspended */
             suspended?: boolean | null;
         };
+        /** CareerConnectionOut */
+        CareerConnectionOut: {
+            /** Company */
+            company?: string | null;
+            /** Connected On */
+            connected_on?: string | null;
+            /** Email */
+            email?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Name */
+            last_name?: string | null;
+            /** Name */
+            name: string;
+            /** Position */
+            position?: string | null;
+            /** Profile Url */
+            profile_url?: string | null;
+        };
+        /** CareerConnectionsImportOut */
+        CareerConnectionsImportOut: {
+            /** Created */
+            created: number;
+            /** Skipped */
+            skipped: number;
+            /** Total Rows */
+            total_rows: number;
+            /** Updated */
+            updated: number;
+        };
+        /** CareerStoryIn */
+        CareerStoryIn: {
+            /** Action */
+            action?: string | null;
+            /**
+             * Provenance
+             * @default existing
+             * @enum {string}
+             */
+            provenance: "existing" | "supported" | "derived-unverified" | "user-cannot-confirm";
+            /** Reflection */
+            reflection?: string | null;
+            /** Result */
+            result?: string | null;
+            /** Situation */
+            situation?: string | null;
+            /** Tags */
+            tags?: string[];
+            /** Task */
+            task?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** CareerStoryOut */
+        CareerStoryOut: {
+            /** Action */
+            action?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Provenance
+             * @enum {string}
+             */
+            provenance: "existing" | "supported" | "derived-unverified" | "user-cannot-confirm";
+            /** Reflection */
+            reflection?: string | null;
+            /** Result */
+            result?: string | null;
+            /** Situation */
+            situation?: string | null;
+            /** Tags */
+            tags?: string[];
+            /** Task */
+            task?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** CareerStoryPatch */
+        CareerStoryPatch: {
+            /** Action */
+            action?: string | null;
+            /** Provenance */
+            provenance?: ("existing" | "supported" | "derived-unverified" | "user-cannot-confirm") | null;
+            /** Reflection */
+            reflection?: string | null;
+            /** Result */
+            result?: string | null;
+            /** Situation */
+            situation?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Task */
+            task?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /** CarryOverIn */
         CarryOverIn: {
             /**
@@ -3748,6 +4071,24 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** CoverLetterReviewIn */
+        CoverLetterReviewIn: {
+            /** Text */
+            text: string;
+        };
+        /** CoverLetterReviewOut */
+        CoverLetterReviewOut: {
+            /** Flags */
+            flags?: string[];
+            /** Generic Phrases */
+            generic_phrases?: string[];
+            /** Matched Story Ids */
+            matched_story_ids?: string[];
+            /** Score */
+            score: number;
+            /** Suggestions */
+            suggestions?: string[];
+        };
         /** DeckIn */
         DeckIn: {
             /** Title */
@@ -3813,6 +4154,70 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** EvaluationGateOut */
+        EvaluationGateOut: {
+            /** Authorized To Work */
+            authorized_to_work?: boolean | null;
+            /**
+             * Geo Mismatch
+             * @default false
+             */
+            geo_mismatch: boolean;
+            /**
+             * Hard Blocker
+             * @default false
+             */
+            hard_blocker: boolean;
+            /** Job Country */
+            job_country?: string | null;
+            /** Reasons */
+            reasons?: string[];
+            /**
+             * Sponsorship Status
+             * @default unstated
+             * @enum {string}
+             */
+            sponsorship_status: "sponsors" | "not_needed" | "unstated" | "no_sponsorship";
+        };
+        /** EvaluationMatchOut */
+        EvaluationMatchOut: {
+            /** Evidence */
+            evidence: string;
+            /** Gap Mitigation */
+            gap_mitigation?: string | null;
+            /**
+             * Match
+             * @enum {string}
+             */
+            match: "strong" | "partial" | "missing";
+            /** Requirement */
+            requirement: string;
+            /** Requirement Id */
+            requirement_id: string;
+            /** Story Ids */
+            story_ids?: string[];
+        };
+        /** EvaluationRequirementOut */
+        EvaluationRequirementOut: {
+            /**
+             * Evidence
+             * @enum {string}
+             */
+            evidence: "stated" | "structural" | "inferred";
+            /** Excerpt */
+            excerpt?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Importance
+             * @enum {string}
+             */
+            importance: "critical" | "high" | "meaningful" | "preferred" | "low_signal";
+            /** Name */
+            name: string;
+            /** Terms */
+            terms?: string[];
         };
         /** EventOut */
         EventOut: {
@@ -4148,6 +4553,8 @@ export interface components {
             notes?: string | null;
             /** Outcome */
             outcome?: string | null;
+            /** Salary Stated */
+            salary_stated?: string | null;
             /** Scheduled At */
             scheduled_at?: string | null;
             /**
@@ -4181,6 +4588,8 @@ export interface components {
              * @default 0
              */
             position: number;
+            /** Salary Stated */
+            salary_stated?: string | null;
             /** Scheduled At */
             scheduled_at?: string | null;
             /** Stage */
@@ -4943,10 +5352,76 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** NoteFolderIn */
+        NoteFolderIn: {
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+        };
+        /** NoteFolderOut */
+        NoteFolderOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Note Count
+             * @default 0
+             */
+            note_count: number;
+            /** Parent Id */
+            parent_id?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** NoteFolderUpdate */
+        NoteFolderUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Position */
+            position?: number | null;
+        };
         /** NoteIn */
         NoteIn: {
             /** Body */
             body: string;
+            /** Canvas State */
+            canvas_state?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Default View
+             * @default page
+             * @enum {string}
+             */
+            default_view: "page" | "canvas";
+            /** Folder Id */
+            folder_id?: string | null;
+            /**
+             * Page Width
+             * @default compact
+             * @enum {string}
+             */
+            page_width: "compact" | "wide" | "full";
             /**
              * Pinned
              * @default false
@@ -4963,11 +5438,23 @@ export interface components {
             attachments?: components["schemas"]["NoteAttachmentOut"][];
             /** Body */
             body: string;
+            /** Canvas State */
+            canvas_state?: {
+                [key: string]: unknown;
+            };
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Default View
+             * @default page
+             * @enum {string}
+             */
+            default_view: "page" | "canvas";
+            /** Folder Id */
+            folder_id?: string | null;
             /**
              * Id
              * Format: uuid
@@ -4975,6 +5462,12 @@ export interface components {
             id: string;
             /** Journal Day */
             journal_day?: string | null;
+            /**
+             * Page Width
+             * @default compact
+             * @enum {string}
+             */
+            page_width: "compact" | "wide" | "full";
             /** Pinned */
             pinned: boolean;
             /** Project Id */
@@ -4997,6 +5490,16 @@ export interface components {
         NoteUpdate: {
             /** Body */
             body?: string | null;
+            /** Canvas State */
+            canvas_state?: {
+                [key: string]: unknown;
+            } | null;
+            /** Default View */
+            default_view?: ("page" | "canvas") | null;
+            /** Folder Id */
+            folder_id?: string | null;
+            /** Page Width */
+            page_width?: ("compact" | "wide" | "full") | null;
             /** Pinned */
             pinned?: boolean | null;
             /** Tags */
@@ -5047,6 +5550,74 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** OpportunityConnectionsOut */
+        OpportunityConnectionsOut: {
+            /** Connections */
+            connections?: components["schemas"]["CareerConnectionOut"][];
+            /** Normalized Organization */
+            normalized_organization?: string | null;
+            /** Organization */
+            organization?: string | null;
+        };
+        /** OpportunityEvaluationOut */
+        OpportunityEvaluationOut: {
+            /** Archetype */
+            archetype?: ("fde" | "sa" | "pm" | "llmops" | "agentic" | "transformation") | null;
+            /** Archetype Scores */
+            archetype_scores?: {
+                [key: string]: number;
+            };
+            /** Candidate Document Id */
+            candidate_document_id?: string | null;
+            /** Candidate Document Title */
+            candidate_document_title?: string | null;
+            /**
+             * Candidate Source
+             * @default profile
+             * @enum {string}
+             */
+            candidate_source: "document" | "profile";
+            /**
+             * Engine
+             * @default local_rules
+             * @constant
+             */
+            engine: "local_rules";
+            /**
+             * Evaluated At
+             * Format: date-time
+             */
+            evaluated_at: string;
+            gate: components["schemas"]["EvaluationGateOut"];
+            /** Matches */
+            matches?: components["schemas"]["EvaluationMatchOut"][];
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Recommendation
+             * @enum {string}
+             */
+            recommendation: "pursue" | "consider" | "skip";
+            /** Requirements */
+            requirements?: components["schemas"]["EvaluationRequirementOut"][];
+            /** Score */
+            score: number;
+            /** Source Fingerprint */
+            source_fingerprint: string;
+            /** Version */
+            version: string;
+        };
+        /** OpportunityEvaluationPatch */
+        OpportunityEvaluationPatch: {
+            /** Archetype */
+            archetype?: ("fde" | "sa" | "pm" | "llmops" | "agentic" | "transformation") | null;
+            /** Matches */
+            matches?: components["schemas"]["EvaluationMatchOut"][] | null;
+            /** Notes */
+            notes?: string | null;
+            /** Requirements */
+            requirements?: components["schemas"]["EvaluationRequirementOut"][] | null;
+        };
         /** OpportunityIn */
         OpportunityIn: {
             /** Compensation */
@@ -5081,6 +5652,50 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** OpportunityIntelligenceOut */
+        OpportunityIntelligenceOut: {
+            /**
+             * Connection Count
+             * @default 0
+             */
+            connection_count: number;
+            /**
+             * Geo Mismatch
+             * @default false
+             */
+            geo_mismatch: boolean;
+            /**
+             * Is Repost
+             * @default false
+             */
+            is_repost: boolean;
+            /** Pay Currency */
+            pay_currency?: string | null;
+            /** Pay Max */
+            pay_max?: number | null;
+            /** Pay Min */
+            pay_min?: number | null;
+            /** Pay Range Ratio */
+            pay_range_ratio?: number | null;
+            /**
+             * Pay Transparency Risk
+             * @default false
+             */
+            pay_transparency_risk: boolean;
+            /**
+             * Repost Count
+             * @default 0
+             */
+            repost_count: number;
+            /** Signals */
+            signals?: components["schemas"]["RiskSignalOut"][];
+            /**
+             * Sponsorship Status
+             * @default unstated
+             * @enum {string}
+             */
+            sponsorship_status: "sponsors" | "not_needed" | "unstated" | "no_sponsorship";
+        };
         /** OpportunityOut */
         OpportunityOut: {
             /** Applied At */
@@ -5095,6 +5710,7 @@ export interface components {
             cv_document_id?: string | null;
             /** Deadline At */
             deadline_at: string | null;
+            evaluation?: components["schemas"]["OpportunityEvaluationOut"] | null;
             /** External Id */
             external_id: string | null;
             /** Follow Up At */
@@ -5109,6 +5725,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            intelligence?: components["schemas"]["OpportunityIntelligenceOut"] | null;
             /** Kind */
             kind: string;
             /** Location */
@@ -5472,6 +6089,31 @@ export interface components {
             /** Relation */
             relation: string;
         };
+        /** ReplyAnalysisIn */
+        ReplyAnalysisIn: {
+            /** Text */
+            text: string;
+        };
+        /** ReplyAnalysisOut */
+        ReplyAnalysisOut: {
+            /** Confidence */
+            confidence: number;
+            /** Evidence */
+            evidence: string[];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "interview_invite" | "rejection" | "take_home_assessment" | "auto_acknowledgement" | "unknown";
+            /** Label */
+            label: string;
+            /** Suggested Status */
+            suggested_status?: ("applied" | "interview" | "rejected") | null;
+            /** Suggested Todo Title */
+            suggested_todo_title?: string | null;
+            /** Summary */
+            summary: string;
+        };
         /** RequirementDocumentIn */
         RequirementDocumentIn: {
             /** Document Entity Id */
@@ -5596,6 +6238,21 @@ export interface components {
             /** Topics */
             topics: components["schemas"]["TopicReviewStats"][];
         };
+        /** RiskSignalOut */
+        RiskSignalOut: {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail: string;
+            /** Label */
+            label: string;
+            /**
+             * Severity
+             * @default neutral
+             * @enum {string}
+             */
+            severity: "neutral" | "warn" | "danger";
+        };
         /** RssStats */
         RssStats: {
             /** Active Feeds */
@@ -5616,6 +6273,36 @@ export interface components {
             today: number;
             /** Unread */
             unread: number;
+        };
+        /** SalaryClaimOut */
+        SalaryClaimOut: {
+            /** Currency */
+            currency?: string | null;
+            /**
+             * Interview Id
+             * Format: uuid
+             */
+            interview_id: string;
+            /** Pay Max */
+            pay_max?: number | null;
+            /** Pay Min */
+            pay_min?: number | null;
+            /** Stage */
+            stage: string;
+            /** Statement */
+            statement: string;
+        };
+        /** SalaryConsistencyOut */
+        SalaryConsistencyOut: {
+            /** Claims */
+            claims?: components["schemas"]["SalaryClaimOut"][];
+            /**
+             * Inconsistent
+             * @default false
+             */
+            inconsistent: boolean;
+            /** Warning */
+            warning?: string | null;
         };
         /** SaveItemIn */
         SaveItemIn: {
@@ -5692,6 +6379,27 @@ export interface components {
         SettingIn: {
             /** Value */
             value: unknown;
+        };
+        /** SilentApplicationOut */
+        SilentApplicationOut: {
+            /** Days Silent */
+            days_silent: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Last Interview At
+             * Format: date-time
+             */
+            last_interview_at: string;
+            /** Organization */
+            organization?: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
         };
         /** SkillMatchOut */
         SkillMatchOut: {
@@ -6870,6 +7578,221 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaptureResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    career_connections_api_career_connections_get: {
+        parameters: {
+            query?: {
+                search?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerConnectionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_career_connections_api_career_connections_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_career_connections_api_career_connections_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerConnectionsImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cover_letter_review_api_career_cover_letter_review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoverLetterReviewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverLetterReviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    career_stories_api_career_stories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerStoryOut"][];
+                };
+            };
+        };
+    };
+    create_career_story_api_career_stories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareerStoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerStoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_career_story_api_career_stories__story_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                story_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_career_story_api_career_stories__story_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                story_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CareerStoryPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerStoryOut"];
                 };
             };
             /** @description Validation Error */
@@ -9219,6 +10142,123 @@ export interface operations {
             };
         };
     };
+    list_note_folders_api_note_folders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteFolderOut"][];
+                };
+            };
+        };
+    };
+    create_note_folder_api_note_folders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteFolderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteFolderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_note_folder_api_note_folders__folder_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_note_folder_api_note_folders__folder_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteFolderUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteFolderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_notes_api_notes_get: {
         parameters: {
             query?: {
@@ -9707,6 +10747,8 @@ export interface operations {
                 source?: string | null;
                 region?: string | null;
                 remote?: string | null;
+                archetype?: string | null;
+                recommendation?: string | null;
                 period_days?: number | null;
                 year?: number | null;
                 min_score?: number | null;
@@ -9792,6 +10834,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    silent_applications_api_opportunities_silence_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SilentApplicationOut"][];
                 };
             };
             /** @description Validation Error */
@@ -10001,6 +11074,103 @@ export interface operations {
             };
         };
     };
+    connections_for_opportunity_api_opportunities__item_id__connections_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityConnectionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_evaluation_api_opportunities__item_id__evaluation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpportunityEvaluationPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityEvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_evaluation_api_opportunities__item_id__evaluation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityEvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     history_api_opportunities__item_id__history_get: {
         parameters: {
             query?: never;
@@ -10129,6 +11299,41 @@ export interface operations {
             };
         };
     };
+    reply_analysis_api_opportunities__item_id__reply_analysis_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyAnalysisIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyAnalysisOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     requirements_api_opportunities__item_id__requirements_get: {
         parameters: {
             query?: never;
@@ -10244,6 +11449,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpportunityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    opportunity_salary_consistency_api_opportunities__item_id__salary_consistency_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalaryConsistencyOut"];
                 };
             };
             /** @description Validation Error */

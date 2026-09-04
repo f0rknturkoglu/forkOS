@@ -24,6 +24,8 @@ describe("opportunity contextual filters", () => {
 
   it("only sends filters that belong to the active workspace", () => {
     expect(browseQuery(filters)).toContain("category=software");
+    expect(browseQuery(filters)).toContain("region=EU");
+    expect(browseQuery({ ...filters, min_skill_match: 0.7 })).toContain("min_skill_match=0.7");
     expect(browseQuery(filters)).toContain("min_score=40");
     expect(browseQuery(filters)).toContain("max_score=80");
     const announcements = switchOpportunitySection(filters, "announcements");
@@ -157,6 +159,31 @@ describe("opportunity contextual filters", () => {
         skill_tier: undefined,
         min_score: undefined,
         max_score: undefined,
+        search: undefined,
+        category: undefined,
+        offset: 0,
+      }),
+    );
+  });
+
+  it("filters by manual source and shows active filter chip", () => {
+    const onChange = vi.fn();
+    render(
+      <OpportunityFilters
+        filters={{ ...filters, source: "" }}
+        facets={{ sources: { manual: 5, arbeitnow: 20 } }}
+        onChange={onChange}
+      />,
+    );
+
+    const manualBtn = screen.getByRole("button", { name: /Manuel Eklenenler/i });
+    expect(manualBtn).toBeTruthy();
+    expect(manualBtn.textContent).toContain("5");
+
+    fireEvent.click(manualBtn);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "manual",
         offset: 0,
       }),
     );

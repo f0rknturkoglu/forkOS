@@ -14,6 +14,8 @@ export interface OpportunityBrowseFilters {
   source?: string;
   region?: string;
   remote?: string;
+  archetype?: string;
+  recommendation?: string;
   period_days?: number;
   year?: number;
   min_score?: number;
@@ -47,6 +49,8 @@ export function browseQuery(filters: OpportunityBrowseFilters): string {
     source: filters.source,
     region: jobs ? filters.region : undefined,
     remote: jobs ? filters.remote : undefined,
+    archetype: jobs ? filters.archetype : undefined,
+    recommendation: jobs ? filters.recommendation : undefined,
     period_days: announcements ? filters.period_days : undefined,
     year: announcements ? filters.year : undefined,
     min_score: jobs ? filters.min_score : undefined,
@@ -78,6 +82,8 @@ export function switchOpportunitySection(
     category: "",
     region: "",
     remote: "",
+    archetype: undefined,
+    recommendation: undefined,
     min_score: undefined,
     max_score: undefined,
     skill: undefined,
