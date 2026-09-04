@@ -272,13 +272,22 @@ export function BackupSection({
             {label}
           </a>
         ))}
-        <a
-          href={`/api/export/csv?module=${EXPORT_MODULE}`}
-          download
-          className="rounded border border-strong px-2 py-1 text-meta"
-        >
-          Expense CSV
-        </a>
+        {[
+          ["Harcama (CSV)", EXPORT_MODULE],
+          ["Görev (CSV)", "todo"],
+          ["Fırsat (CSV)", "opportunity"],
+          ["Gelir (CSV)", "income"],
+          ["Not (CSV)", "note"],
+        ].map(([label, moduleName]) => (
+          <a
+            key={moduleName}
+            href={`/api/export/csv?module=${moduleName}`}
+            download
+            className="rounded border border-strong px-2 py-1 text-meta text-secondary hover:text-primary"
+          >
+            {label}
+          </a>
+        ))}
         <BackupMergeControl />
         <Button variant="primary" onClick={onBackup} disabled={!online || backupPending}>
           şimdi yedekle

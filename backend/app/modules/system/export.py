@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import json
@@ -70,6 +71,34 @@ async def full_json(session: AsyncSession) -> dict:
         for name in module_table_names()
     }
     exported_at = datetime.now(UTC).isoformat()
+
+    # Yerel doküman dosyalarını (CV/PDF) yedeğe base64 olarak dahil et
+    files: dict[str, dict[str, str]] = {}
+    if "document" in modules:
+        from app.modules.document.service import DOCUMENTS_DIR
+
+        entity_titles = {e["id"]: e.get("title", "belge") for e in entities}
+        for doc in modules["document"]:
+            if doc.get("folder_id") == "local":
+                doc_id = str(doc["id"])
+                title = entity_titles.get(doc_id, "belge")
+                doc_dir = DOCUMENTS_DIR / doc_id
+                target = doc_dir / title
+                if not target.exists() and doc_dir.exists():
+                    for f in doc_dir.iterdir():
+                        if f.is_file():
+                            target = f
+                            break
+                if target.is_file():
+                    try:
+                        content = target.read_bytes()
+                        files[doc_id] = {
+                            "filename": target.name,
+                            "data_b64": base64.b64encode(content).decode("ascii"),
+                        }
+                    except OSError:
+                        pass
+
     return {
         "version": 2,
         "exported_at": exported_at,
@@ -87,6 +116,7 @@ async def full_json(session: AsyncSession) -> dict:
         "links": links,
         "events": events,
         "modules": modules,
+        "files": files,
     }
 
 
@@ -145,6 +175,78 @@ async def markdown_export(session: AsyncSession) -> str:
     lines.extend(["## Reviews", ""])
     for item in review_rows:
         lines.extend([f"### {item['title']}", "", item["note"], ""])
+
+    # Standalone / serbest notlar
+    note_rows = (
+        await session.execute(
+            text("""select e.title, n.body, n.journal_day, e.created_at
+                    from note n join entity e on e.id = n.id
+                    where n.project_id is null and (n.body <> '' or e.title <> '')
+                    order by n.journal_day desc nulls last, e.created_at desc""")
+        )
+    ).mappings()
+    if note_rows:
+        lines.extend(["## Notes", ""])
+        for item in note_rows:
+            header = item["title"] or (f"Günlük {item['journal_day']}" if item["journal_day"] else "Not")
+            date_val = item["journal_day"] or (item["created_at"].strftime("%Y-%m-%d") if item["created_at"] else "")
+            lines.extend([f"### {header}", ""])
+            if date_val:
+                lines.extend([f"- Tarih: {date_val}", ""])
+            if item["body"]:
+                lines.extend([item["body"], ""])
+
+    # Görevler (Todo)
+    todo_rows = (
+        await session.execute(
+            text("""select e.title, t.status, t.priority, t.due_at, t.completed_at
+                    from todo t join entity e on e.id = t.id
+                    order by case when t.status = 'open' then 0 else 1 end, t.priority desc, t.due_at nulls last""")
+        )
+    ).mappings()
+    if todo_rows:
+        lines.extend(["## Tasks", ""])
+        for item in todo_rows:
+            box = "[x]" if item["status"] == "done" else "[ ]"
+            meta_parts = [f"P{item['priority']}"]
+            if item["due_at"]:
+                meta_parts.append(f"Due: {item['due_at'].strftime('%Y-%m-%d')}")
+            if item["completed_at"]:
+                meta_parts.append(f"Done: {item['completed_at'].strftime('%Y-%m-%d')}")
+            meta_str = f" ({', '.join(meta_parts)})" if meta_parts else ""
+            lines.append(f"- {box} {item['title']}{meta_str}")
+        lines.append("")
+
+    # Öğrenme (Courses & Resources)
+    course_rows = (
+        await session.execute(
+            text("""select e.title, c.platform, c.status
+                    from course c join entity e on e.id = c.id
+                    order by c.status, e.title""")
+        )
+    ).mappings()
+    resource_rows = (
+        await session.execute(
+            text("""select e.title, lr.url, lr.kind, lr.completed_at
+                    from learning_resource lr join entity e on e.id = lr.id
+                    order by case when lr.completed_at is null then 0 else 1 end, e.title""")
+        )
+    ).mappings()
+    if course_rows or resource_rows:
+        lines.extend(["## Learning", ""])
+        if course_rows:
+            lines.extend(["### Courses", ""])
+            for c in course_rows:
+                lines.append(f"- **{c['title']}** ({c['platform'] or 'Genel'}) — *{c['status']}*")
+            lines.append("")
+        if resource_rows:
+            lines.extend(["### Resources", ""])
+            for r in resource_rows:
+                state = "tamamlandı" if r["completed_at"] else "devam ediyor"
+                url_part = f"({r['url']}) " if r["url"] else ""
+                lines.append(f"- **{r['title']}** {url_part}({r['kind']}) — *{state}*")
+            lines.append("")
+
     return "\n".join(lines)
 
 

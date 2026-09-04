@@ -118,6 +118,7 @@ def inspect_payload(payload: dict) -> dict:
             1 for row in modules.get("setting", [])
             if is_secret_setting(str(row.get("key", "")))
         ),
+        "files_count": len(payload.get("files") or {}),
         "integrity_ok": reported == actual if reported else None,
     }
 
@@ -253,8 +254,13 @@ async def restore(
             {"seq": sequence},
         )
 
+    # 4. Asama: fiziksel yerel doküman dosyalarını diske aç (CV/PDF)
+    files_restored = restore_files(payload)
+    if files_restored:
+        summary["_files"] = {"restored": files_restored}
+
     restored_total = sum(
-        entry["inserted"] for entry in summary.values()
+        entry["inserted"] for entry in summary.values() if "inserted" in entry
     )
     await log_event(
         session, verb="backup.restored",
@@ -265,6 +271,34 @@ async def restore(
     else:
         await session.flush()
     return summary
+
+
+def restore_files(payload: dict) -> int:
+    """Yedekte base64 olarak saklanan yerel doküman dosyalarını (CV/PDF) diske yazar."""
+    files = payload.get("files") or {}
+    if not isinstance(files, dict) or not files:
+        return 0
+    import base64
+
+    from app.modules.document.service import DOCUMENTS_DIR
+
+    restored = 0
+    for doc_id, file_info in files.items():
+        if not isinstance(file_info, dict):
+            continue
+        filename = file_info.get("filename")
+        data_b64 = file_info.get("data_b64")
+        if not filename or not data_b64:
+            continue
+        try:
+            target_dir = DOCUMENTS_DIR / str(doc_id)
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target_file = target_dir / filename
+            target_file.write_bytes(base64.b64decode(data_b64))
+            restored += 1
+        except Exception:
+            pass
+    return restored
 
 
 async def verify_restore(session: AsyncSession, payload: dict) -> dict:

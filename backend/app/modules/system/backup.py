@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import events as event_svc
 from app.core.events import log_event
+from app.core.notifications import notify
 from app.core.time import local_today
 from app.integrations.google_auth import access_token
 from app.modules.system.export import backup_table_names, full_json
@@ -56,11 +57,12 @@ async def create_backup(session: AsyncSession) -> Path:
     with gzip.open(target, "wt", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False)
 
-    # Eski yedekleri sil (14 gun)
+    # Eski yedekleri ve disaster dump dosyalarını sil (14 gun)
     cutoff = datetime.now(UTC) - timedelta(days=RETENTION_DAYS)
-    for path in BACKUP_DIR.glob("lifeos-*.json.gz"):
-        if datetime.fromtimestamp(path.stat().st_mtime, UTC) < cutoff:
-            path.unlink()
+    for pattern in ("lifeos-*.json.gz", "pre-disaster-*.dump"):
+        for path in BACKUP_DIR.glob(pattern):
+            if datetime.fromtimestamp(path.stat().st_mtime, UTC) < cutoff:
+                path.unlink()
 
     # Kural 3: anlamli aksiyon -> event. Yedek icerigi de payload'a isler.
     await log_event(session, verb=VERB_CREATED, payload={
@@ -75,6 +77,14 @@ async def create_backup(session: AsyncSession) -> Path:
         if error:
             await log_event(session, verb=VERB_DRIVE_FAIL,
                             payload={"file": target.name, "error": error})
+            await notify(
+                session,
+                kind="backup_drive_failed",
+                title="Google Drive yedeği yüklenemedi",
+                body=f"{target.name}: {error[:150]}",
+                dedup_key=f"backup_drive_failed:{target.name}",
+                importance=2,
+            )
         else:
             await log_event(session, verb=VERB_DRIVE_OK,
                             payload={"file": target.name, "folder_id": str(folder.value)})

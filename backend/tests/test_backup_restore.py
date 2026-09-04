@@ -105,3 +105,116 @@ async def test_backup_round_trip_restores_operational_and_user_tables() -> None:
         assert (
             await session.execute(text("select parent_id from todo where id=:id"), {"id": child_id})
         ).scalar_one() == parent_id
+
+
+async def test_backup_and_restore_local_documents(tmp_path, monkeypatch) -> None:
+    from app.modules.document import service as doc_svc
+
+    monkeypatch.setattr(doc_svc, "DOCUMENTS_DIR", tmp_path / "documents")
+    async with SessionLocal() as session:
+        doc_data = await doc_svc.create_local_document(
+            session,
+            title="test_cv.pdf",
+            category="cv",
+            mime="application/pdf",
+            content=b"%PDF-1.4 test resume content",
+        )
+        doc_id = str(doc_data["id"])
+        file_path = tmp_path / "documents" / doc_id / "test_cv.pdf"
+        assert file_path.is_file()
+
+        payload = await export.full_json(session)
+        assert "files" in payload
+        assert doc_id in payload["files"]
+        assert payload["files"][doc_id]["filename"] == "test_cv.pdf"
+        assert len(payload["files"][doc_id]["data_b64"]) > 0
+
+        # Diskteki dosyayı sil
+        file_path.unlink()
+        assert not file_path.exists()
+
+        # Restore çağrısı dosyayı diske geri açmalı
+        summary = await restore.restore(session, payload)
+        assert "_files" in summary
+        assert summary["_files"]["restored"] >= 1
+        assert file_path.is_file()
+        assert file_path.read_bytes() == b"%PDF-1.4 test resume content"
+
+
+async def test_markdown_export_includes_notes_todos_and_learning() -> None:
+    async with SessionLocal() as session:
+        note_id = uuid.uuid4()
+        todo_id = uuid.uuid4()
+        course_id = uuid.uuid4()
+        await session.execute(
+            text(
+                "insert into entity (id, type, title, search_text) values "
+                "(:note, 'note', 'Strateji Notu', ''), "
+                "(:todo, 'todo', 'Raporu hazırla', ''), "
+                "(:course, 'course', 'Python İleri', '')"
+            ),
+            {"note": note_id, "todo": todo_id, "course": course_id},
+        )
+        await session.execute(
+            text(
+                "insert into note (id, body, journal_day, pinned) values "
+                "(:note, 'Stratejik büyüme hedefleri...', '2026-09-04', false)"
+            ),
+            {"note": note_id},
+        )
+        await session.execute(
+            text(
+                "insert into todo (id, status, priority, position) values "
+                "(:todo, 'open', 3, 0)"
+            ),
+            {"todo": todo_id},
+        )
+        await session.execute(
+            text(
+                "insert into course (id, platform, status) values "
+                "(:course, 'Coursera', 'in_progress')"
+            ),
+            {"course": course_id},
+        )
+        await session.commit()
+
+        md = await export.markdown_export(session)
+        assert "## Notes" in md
+        assert "Strateji Notu" in md
+        assert "Stratejik büyüme hedefleri..." in md
+        assert "## Tasks" in md
+        assert "- [ ] Raporu hazırla (P3)" in md
+        assert "## Learning" in md
+        assert "Python İleri" in md
+        assert "Coursera" in md
+
+
+async def test_backup_drive_failure_creates_notification(monkeypatch, tmp_path) -> None:
+    from app.modules.system import backup as backup_svc
+
+    monkeypatch.setattr(backup_svc, "BACKUP_DIR", tmp_path / "backups")
+
+    async def mock_fail(*args, **kwargs):
+        return "Simulated 403 Google Token Expired"
+
+    monkeypatch.setattr(backup_svc, "upload_drive", mock_fail)
+
+    async with SessionLocal() as session:
+        await session.execute(
+            text("insert into setting (key, value) values ('backup.drive_folder_id', '\"test_folder\"') "
+                 "on conflict (key) do update set value='\"test_folder\"'")
+        )
+        await session.commit()
+
+        await backup_svc.create_backup(session)
+
+        # Notification tablosunda backup_drive_failed olmalı
+        notif = (
+            await session.execute(
+                text("select title, body from notification where kind='backup_drive_failed'")
+            )
+        ).mappings().first()
+        assert notif is not None
+        assert notif["title"] == "Google Drive yedeği yüklenemedi"
+        assert "Simulated 403" in notif["body"]
+
