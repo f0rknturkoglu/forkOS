@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 AgendaKind = Literal[
     "calendar", "todo", "rss", "media", "opportunity", "interview", "payment", "study",
+    "flashcard",
 ]
 AgendaSource = Literal["calendar", "planned", "due", "routine", "suggestion"]
 AgendaAction = Literal["complete_todo", "mark_rss_read", "log_media"]
@@ -41,6 +42,8 @@ class AgendaSuggestions(BaseModel):
     todos: list[AgendaRow] = Field(default_factory=list)
     rss: list[AgendaRow] = Field(default_factory=list)
     media: list[AgendaRow] = Field(default_factory=list)
+    #: Vadesi gelmis desteler: "bugun su desteyi tekrar et" tavsiyesi.
+    flashcards: list[AgendaRow] = Field(default_factory=list)
 
 
 class TodayAgendaOut(BaseModel):

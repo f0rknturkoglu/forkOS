@@ -49,6 +49,12 @@ class GithubReviewStats(BaseModel):
     repos: dict[str, int]
 
 
+class FlashcardReviewStats(BaseModel):
+    """Donemde tekrar edilen kart sayisi + deste kirilimi."""
+    reviewed: int
+    decks: dict[str, int]
+
+
 class ReviewStats(BaseModel):
     todos: TodoReviewStats
     focus: FocusReviewStats
@@ -57,6 +63,7 @@ class ReviewStats(BaseModel):
     capture: CaptureReviewStats
     applications: ApplicationReviewStats
     study: StudyReviewStats
+    flashcards: FlashcardReviewStats
     github: GithubReviewStats
 
 

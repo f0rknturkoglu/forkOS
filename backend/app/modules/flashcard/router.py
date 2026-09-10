@@ -11,6 +11,7 @@ from app.modules.flashcard.schemas import (
     CardIn,
     CardOut,
     CardPatch,
+    CramCardOut,
     DeckIn,
     DeckOut,
     DeckPatch,
@@ -23,8 +24,13 @@ router = APIRouter(tags=["flashcard"])
 
 
 @router.get("/flashcard/decks", response_model=list[DeckOut])
-async def decks(session: AsyncSession = Depends(get_session)):
-    return await service.list_decks(session)
+async def decks(
+    linked_to: uuid.UUID | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Desteler. `linked_to` verilirse yalnizca o kayda bagli olanlar doner
+    (not/dokuman -> deste bagi "studies"/"generated_from")."""
+    return await service.list_decks(session, linked_to=linked_to)
 
 
 @router.post("/flashcard/decks", response_model=DeckOut, status_code=201)
@@ -52,10 +58,15 @@ async def delete_deck(deck_id: uuid.UUID, session: AsyncSession = Depends(get_se
 async def cards(
     deck_id: uuid.UUID,
     due: bool = False,
+    only_lapses: bool = Query(default=False, description="Yalnizca en az bir kez unutulanlar"),
+    q: str | None = Query(default=None, max_length=200),
     session: AsyncSession = Depends(get_session),
 ):
-    """?due=1: tekrar sirasi (once vadesi gelen, sonra yeni; her biri 40 kart)."""
-    result = await service.list_cards(session, deck_id, due=due)
+    """?due=1: tekrar sirasi (once vadesi gelen, sonra yeni; her biri 40 kart).
+
+    `only_lapses=1` zayif noktalari suzer (lapses >= 1), `q` on/arka yuzde arar.
+    """
+    result = await service.list_cards(session, deck_id, due=due, only_lapses=only_lapses, q=q)
     if result is None:
         raise HTTPException(404, "destek bulunamadi")
     return result
@@ -95,6 +106,15 @@ async def review(
     if result is None:
         raise HTTPException(404, "kart bulunamadi")
     return result
+
+
+@router.get("/flashcard/cram/missed", response_model=list[CramCardOut])
+async def cram_missed(
+    limit: int = Query(default=30, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """Desteler genelinde en cok unutulan kartlar (varsayilan 30) -- cram kuyrugu."""
+    return await service.missed_cards(session, limit=limit)
 
 
 @router.post("/flashcard/import", response_model=ImportOut, status_code=201)

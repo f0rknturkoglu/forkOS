@@ -672,7 +672,7 @@ async def test_today_agenda_hides_suggestions_when_auto_mode_is_disabled(client:
             "/api/today/agenda", params={"day": local_today().isoformat()}
         )).json()
         assert agenda["auto_suggestions"] is False
-        assert agenda["suggestions"] == {"todos": [], "rss": [], "media": []}
+        assert agenda["suggestions"] == {"todos": [], "rss": [], "media": [], "flashcards": []}
     finally:
         await client.put("/api/settings/today.auto_suggestions", json={"value": True})
         await client.delete(f"/api/todos/{todo['id']}")
@@ -1072,3 +1072,39 @@ async def test_activity_search_matches_title_and_offset_pages_do_not_overlap(cli
     assert {event["id"] for event in first}.isdisjoint({event["id"] for event in second})
 
     await client.delete(f"/api/bookmarks/{bookmark['id']}")
+
+
+async def test_flashcard_review_brightens_heatmap_and_statistics(client: AsyncClient):
+    """Kart tekrari Emek Haritasi'ni yesillendirir ve sayaclara yansir.
+
+    Iki motor ayni fiili saymali: aksi halde harita yanarken istatistik "0"
+    gosterir (bu sinif hata daha once yasandi).
+    """
+    suffix = uuid.uuid4().hex[:8]
+    deck = (
+        await client.post("/api/flashcard/decks", json={"title": f"Kart {suffix}"})
+    ).json()
+    card = (
+        await client.post(
+            f"/api/flashcard/decks/{deck['id']}/cards",
+            json={"front": f"Soru {suffix}", "back": "Cevap"},
+        )
+    ).json()
+
+    before = (await client.get("/api/activity/heatmap", params={"days": 7})).json()
+    before_study = before["days"][-1]["kinds"].get("study", 0)
+    before_counter = (
+        await client.get("/api/statistics/summary")
+    ).json()["counters"]["flashcards"]["today"]
+
+    assert (await client.post(f"/api/flashcard/cards/{card['id']}/review", json={"grade": 2})).status_code == 200
+
+    after = (await client.get("/api/activity/heatmap", params={"days": 7})).json()
+    after_counter = (
+        await client.get("/api/statistics/summary")
+    ).json()["counters"]["flashcards"]["today"]
+
+    assert after["days"][-1]["kinds"].get("study", 0) - before_study == 1
+    assert after_counter - before_counter == 1
+
+    await client.delete(f"/api/flashcard/decks/{deck['id']}")

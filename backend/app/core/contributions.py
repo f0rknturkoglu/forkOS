@@ -24,7 +24,9 @@ KINDS: dict[str, list[str]] = {
     "focus": ["pomodoro.completed"],
     "routine": ["habit.checked"],
     "study": ["study.topic_completed", "review.completed",
-              "book.finished", "course.completed"],
+              "book.finished", "course.completed",
+              # Kart tekrari da calismadir: Anki oturumu gunu yesillendirir.
+              "flashcard.reviewed"],
     "media": ["media.consumed"],
 }
 

@@ -17,6 +17,8 @@ class DeckPatch(BaseModel):
 class CardIn(BaseModel):
     front: str = Field(min_length=1, max_length=2000)
     back: str = Field(min_length=1, max_length=2000)
+    #: True ise ters karti da uretilir (On<->Arka), ayni destede.
+    reversible: bool = False
 
 
 class CardPatch(BaseModel):
@@ -35,7 +37,10 @@ class DeckOut(BaseModel):
     card_count: int
     due_count: int
     new_count: int
+    #: Olgun kart: interval > 21 gun (Anki esigi). SRS dagilim cubugu kullanir.
+    mature_count: int = 0
     created_at: datetime
+
 
 
 class CardOut(BaseModel):
@@ -49,6 +54,11 @@ class CardOut(BaseModel):
     reps: int
     lapses: int
     suspended: bool
+
+
+class CramCardOut(CardOut):
+    """Cram kuyrugu: kart + ait oldugu deste adi (tek listede gosterilir)."""
+    deck_title: str
 
 
 class ReviewOut(BaseModel):

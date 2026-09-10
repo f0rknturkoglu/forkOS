@@ -15,15 +15,16 @@ import json
 import os
 import sqlite3
 import tempfile
+import uuid
 import zipfile
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
-from app.core.models import Entity
+from app.core.models import Entity, Link
 from app.core.time import local_datetime, local_today
 from app.modules.flashcard.models import FlashcardCard, FlashcardDeck
 
@@ -33,6 +34,12 @@ EASE_DELTA = {0: -0.20, 1: -0.15, 2: 0.0, 3: 0.15}
 MIN_EASE = 1.3
 REVIEW_LIMIT = 40
 DEFAULT_IMPORT_DECK = "İçe Aktarılan Kartlar"
+#: Anki esigi: 21 gunden uzun aralikli kart "olgun" sayilir (SRS dagilim cubugu).
+MATURE_INTERVAL_DAYS = 21
+#: Cram kuyrugu: desteler genelinde en cok unutulan kartlar.
+MISSED_LIMIT = 30
+#: Deste <-> not/dokuman bagi. Bu iliskiler "bu kartlar su kaynaktan" demektir.
+STUDY_RELATIONS = ("studies", "generated_from")
 
 
 def _round_interval(value: float) -> int:
@@ -93,6 +100,9 @@ async def _deck_out(session: AsyncSession, deck: FlashcardDeck, title: str) -> d
                     FlashcardCard.due_at <= datetime.now(UTC), FlashcardCard.suspended.is_(False)
                 ).label("due_count"),
                 func.count().filter(FlashcardCard.due_at.is_(None)).label("new_count"),
+                func.count().filter(
+                    FlashcardCard.interval_days > MATURE_INTERVAL_DAYS
+                ).label("mature_count"),
             ).where(FlashcardCard.deck_id == deck.id)
         )
     ).one()
@@ -102,25 +112,38 @@ async def _deck_out(session: AsyncSession, deck: FlashcardDeck, title: str) -> d
         "card_count": row.card_count,
         "due_count": row.due_count,
         "new_count": row.new_count,
+        "mature_count": row.mature_count,
         "created_at": deck.created_at,
     }
 
 
-async def list_decks(session: AsyncSession) -> list[dict]:
-    decks = list(
-        (
-            await session.execute(
-                select(FlashcardDeck, Entity.title)
-                .join(Entity, Entity.id == FlashcardDeck.id)
-                .order_by(FlashcardDeck.created_at.desc())
-            )
-        ).all()
+async def list_decks(session: AsyncSession, linked_to: uuid.UUID | None = None) -> list[dict]:
+    """Desteler + SRS sayaclari.
+
+    `linked_to` verilirse yalnizca o kayda bagli desteler doner (not/dokuman ->
+    deste bagi "studies"/"generated_from"): not sayfasi "bu notun kartlari"
+    rozetini tek cagriyla doldurur.
+    """
+    stmt = (
+        select(FlashcardDeck, Entity.title)
+        .join(Entity, Entity.id == FlashcardDeck.id)
+        .order_by(FlashcardDeck.created_at.desc())
     )
+    if linked_to is not None:
+        stmt = stmt.where(
+            FlashcardDeck.id.in_(
+                select(Link.from_id).where(
+                    Link.to_id == linked_to,
+                    Link.relation.in_(STUDY_RELATIONS),
+                )
+            )
+        )
+    decks = list((await session.execute(stmt)).all())
     if not decks:
         return []
     counts = {
-        deck_id: (card_count, due_count, new_count)
-        for deck_id, card_count, due_count, new_count in (
+        deck_id: (card_count, due_count, new_count, mature_count)
+        for deck_id, card_count, due_count, new_count, mature_count in (
             await session.execute(
                 select(
                     FlashcardCard.deck_id,
@@ -130,13 +153,14 @@ async def list_decks(session: AsyncSession) -> list[dict]:
                         FlashcardCard.suspended.is_(False),
                     ),
                     func.count().filter(FlashcardCard.due_at.is_(None)),
+                    func.count().filter(FlashcardCard.interval_days > MATURE_INTERVAL_DAYS),
                 )
                 .where(FlashcardCard.deck_id.in_([deck.id for deck, _ in decks]))
                 .group_by(FlashcardCard.deck_id)
             )
         ).all()
     }
-    empty = (0, 0, 0)
+    empty = (0, 0, 0, 0)
     return [
         {
             "id": deck.id,
@@ -144,6 +168,7 @@ async def list_decks(session: AsyncSession) -> list[dict]:
             "card_count": counts.get(deck.id, empty)[0],
             "due_count": counts.get(deck.id, empty)[1],
             "new_count": counts.get(deck.id, empty)[2],
+            "mature_count": counts.get(deck.id, empty)[3],
             "created_at": deck.created_at,
         }
         for deck, title in decks
@@ -190,10 +215,29 @@ async def delete_deck(session: AsyncSession, deck_id) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def list_cards(session: AsyncSession, deck_id, due: bool) -> list[dict] | None:
+async def list_cards(
+    session: AsyncSession,
+    deck_id,
+    due: bool,
+    only_lapses: bool = False,
+    q: str | None = None,
+) -> list[dict] | None:
+    """Destenin kartlari.
+
+    `due` tekrar kuyrugu (once vadesi gelenler, sonra yeniler) verir;
+    `only_lapses` yalnizca en az bir kez "Yine" denmis kartlari suzer;
+    `q` on/arka yuzde basit metin arar.
+    """
     if await session.get(FlashcardDeck, deck_id) is None:
         return None
     base = select(FlashcardCard).where(FlashcardCard.deck_id == deck_id)
+    if only_lapses:
+        base = base.where(FlashcardCard.lapses >= 1)
+    if q and q.strip():
+        pattern = f"%{q.strip()}%"
+        base = base.where(
+            or_(FlashcardCard.front.ilike(pattern), FlashcardCard.back.ilike(pattern))
+        )
     if due:
         # Tekrar sirasi: due kartlar once, sonra yeni kartlar; her biri 40 kart.
         due_cards = list(
@@ -234,19 +278,68 @@ async def list_cards(session: AsyncSession, deck_id, due: bool) -> list[dict] | 
 
 
 async def create_card(session: AsyncSession, deck_id, data) -> dict | None:
+    """Kart ekler; `reversible` ise tersi de (Arka -> On) ayni desteye girer."""
     if await session.get(FlashcardDeck, deck_id) is None:
         return None
+    card = await _add_card(session, deck_id, data.front, data.back, reversible=False)
+    if data.reversible and data.back.strip() != data.front.strip():
+        await _add_card(session, deck_id, data.back, data.front, reversible=True)
+    await session.commit()
+    return card_out(card)
+
+
+async def _add_card(
+    session: AsyncSession, deck_id, front: str, back: str, *, reversible: bool
+) -> FlashcardCard:
     entity = await create_entity(
-        session, type=FlashcardCard.ENTITY_TYPE, title=data.front, search_text=data.back
+        session, type=FlashcardCard.ENTITY_TYPE, title=front, search_text=back
     )
-    card = FlashcardCard(id=entity.id, deck_id=deck_id, front=data.front, back=data.back)
+    card = FlashcardCard(id=entity.id, deck_id=deck_id, front=front, back=back)
     session.add(card)
     await log_event(
         session, verb="flashcard.card_added", entity_id=card.id,
-        entity_type=FlashcardCard.ENTITY_TYPE, payload={"deck_id": str(deck_id)},
+        entity_type=FlashcardCard.ENTITY_TYPE,
+        payload={"deck_id": str(deck_id), "reversible": reversible},
     )
-    await session.commit()
-    return card_out(card)
+    return card
+
+
+async def missed_cards(session: AsyncSession, limit: int = MISSED_LIMIT) -> list[dict]:
+    """Desteler genelinde en cok unutulan kartlar: "zayif noktalar" kuyrugu.
+
+    Esitlikte daha yakin vadeli kart once gelir (tekrar faydasi yuksek olan).
+    """
+    rows = (
+        await session.execute(
+            select(FlashcardCard, Entity.title)
+            .join(Entity, Entity.id == FlashcardCard.id)
+            .where(
+                FlashcardCard.lapses >= 1,
+                FlashcardCard.suspended.is_(False),
+            )
+            .order_by(
+                FlashcardCard.lapses.desc(),
+                FlashcardCard.due_at.asc().nullsfirst(),
+            )
+            .limit(limit)
+        )
+    ).all()
+    if not rows:
+        return []
+    deck_ids = {card.deck_id for card, _ in rows}
+    titles = dict(
+        (
+            await session.execute(
+                select(FlashcardDeck.id, Entity.title)
+                .join(Entity, Entity.id == FlashcardDeck.id)
+                .where(FlashcardDeck.id.in_(deck_ids))
+            )
+        ).all()
+    )
+    return [
+        {**card_out(card), "deck_title": titles.get(card.deck_id, "Deste")}
+        for card, _ in rows
+    ]
 
 
 async def patch_card(session: AsyncSession, card_id, data) -> dict | None:

@@ -41,3 +41,25 @@ async def test_review_counts_recurring_todo_completions(client: AsyncClient) -> 
     )
     assert created.status_code == 201
     assert created.json()["stats"]["habits"] == {"Su iç": 1}
+
+
+async def test_review_reports_flashcard_reviews(client: AsyncClient) -> None:
+    """Degerlendirme, donemde tekrar edilen kartlari deste kirilimiyla gosterir."""
+    deck = (await client.post("/api/flashcard/decks", json={"title": "Almanca"})).json()
+    card = (
+        await client.post(
+            f"/api/flashcard/decks/{deck['id']}/cards", json={"front": "Haus", "back": "Ev"}
+        )
+    ).json()
+    await client.post(f"/api/flashcard/cards/{card['id']}/review", json={"grade": 2})
+    await client.post(f"/api/flashcard/cards/{card['id']}/review", json={"grade": 3})
+
+    preview = (
+        await client.get(
+            "/api/reviews/preview",
+            params={"kind": "daily", "period_start": local_today().isoformat()},
+        )
+    ).json()
+
+    assert preview["stats"]["flashcards"]["reviewed"] == 2
+    assert preview["stats"]["flashcards"]["decks"] == {"Almanca": 2}

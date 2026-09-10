@@ -10,6 +10,7 @@ from app.core.entity import create_entity
 from app.core.events import log_event
 from app.core.models import Entity, Event
 from app.core.time import local_datetime, local_day_bounds, local_zone
+from app.modules.flashcard.models import FlashcardDeck
 from app.modules.learning.models import StudyArea, StudyTopic
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
@@ -122,6 +123,32 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             .order_by(func.sum(PomodoroSession.actual_min).desc())
         )
     ).all()
+    deck_expr = Event.payload["deck_id"].astext
+    flashcard_rows = (
+        await session.execute(
+            select(deck_expr, func.count())
+            .where(
+                Event.verb == "flashcard.reviewed",
+                Event.occurred_at >= start_dt,
+                Event.occurred_at < end_dt,
+            )
+            .group_by(deck_expr)
+        )
+    ).all()
+    # Payload'daki deck_id -> deste adi; deste silinmisse anahtar duser.
+    deck_ids = [deck_id for deck_id, _ in flashcard_rows if deck_id]
+    deck_titles: dict[str, str] = {}
+    if deck_ids:
+        deck_titles = {
+            str(deck_id): title
+            for deck_id, title in (
+                await session.execute(
+                    select(FlashcardDeck.id, Entity.title)
+                    .join(Entity, Entity.id == FlashcardDeck.id)
+                    .where(FlashcardDeck.id.in_([uuid.UUID(value) for value in deck_ids]))
+                )
+            ).all()
+        }
     repo_expr = Event.payload["repo"].astext
     github_rows = (
         await session.execute(
@@ -198,6 +225,13 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             "updated": await _event_count(session, "opportunity.updated", start_dt, end_dt),
         },
         "study": {"minutes_by_area": {area: int(minutes or 0) for area, minutes in study_rows}},
+        "flashcards": {
+            "reviewed": sum(int(count) for _, count in flashcard_rows),
+            "decks": {
+                deck_titles.get(deck_id, "Deste"): int(count)
+                for deck_id, count in flashcard_rows
+            },
+        },
         "github": {
             "commits": sum(int(count) for _, count in github_rows),
             "repos": {repo: int(count) for repo, count in github_rows if repo},

@@ -12,6 +12,7 @@ from app.core.models import Entity, Link
 from app.core.time import local_zone
 from app.modules.calendar.models import ExternalEvent
 from app.modules.finance.models import RecurringPayment
+from app.modules.flashcard.models import FlashcardCard, FlashcardDeck
 from app.modules.media.models import MediaItem
 from app.modules.opportunity.models import Interview, Opportunity
 from app.modules.project.models import Project
@@ -463,6 +464,7 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     auto_suggestions = True if auto_setting is None else bool(auto_setting.value)
     todo_suggestions: list[AgendaRow] = []
     rss_suggestions: list[AgendaRow] = []
+    flashcard_suggestions: list[AgendaRow] = []
     # Bu liste bir tavsiye degil, devam eden mevcut medya durumudur. Additive
     # sozlesme icin suggestions altinda kalir ama otomatik tavsiye ayarindan etkilenmez.
     continue_media = (await session.execute(
@@ -525,6 +527,37 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             _rss_row(item, title, feed_title) for item, title, feed_title in recent_rss
         ]
 
+        # Vadesi gelmis kart desteleri: tekrar etmezsen birikim buyur.
+        due_decks = (
+            await session.execute(
+                select(FlashcardDeck.id, Entity.title, func.count())
+                .select_from(FlashcardCard)
+                .join(FlashcardDeck, FlashcardDeck.id == FlashcardCard.deck_id)
+                .join(Entity, Entity.id == FlashcardDeck.id)
+                .where(
+                    FlashcardCard.suspended.is_(False),
+                    or_(
+                        FlashcardCard.due_at <= datetime.now(UTC),
+                        FlashcardCard.due_at.is_(None),
+                    ),
+                )
+                .group_by(FlashcardDeck.id, Entity.title)
+                .order_by(func.count().desc())
+                .limit(3)
+            )
+        ).all()
+        flashcard_suggestions = [
+            AgendaRow(
+                kind="flashcard",
+                source="suggestion",
+                id=deck_id,
+                title=title,
+                # Kart oturumu sayfada surer: satir tiklanabilir bir baglanti.
+                read_only=True,
+            )
+            for deck_id, title, _ in due_decks
+        ]
+
     timed.sort(key=lambda row: row.starts_at or datetime.max.replace(tzinfo=UTC))
 
     return TodayAgendaOut(
@@ -537,5 +570,6 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             "todos": todo_suggestions,
             "rss": rss_suggestions,
             "media": media_suggestions,
+            "flashcards": flashcard_suggestions,
         },
     )

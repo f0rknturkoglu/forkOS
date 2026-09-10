@@ -355,3 +355,123 @@ async def test_import_invalid_apkg_400(client: AsyncClient) -> None:
         files={"file": ("bozuk.apkg", b"not a zip", "application/octet-stream")},
     )
     assert response.status_code == 400
+
+
+async def test_reversible_card_creates_both_directions(client: AsyncClient) -> None:
+    """Cift yonlu kart: on->arka ve arka->on ayni desteye girer."""
+    deck = await make_deck(client, "Ters Kartlar")
+
+    created = await client.post(
+        f"/api/flashcard/decks/{deck['id']}/cards",
+        json={"front": "Haus", "back": "Ev", "reversible": True},
+    )
+    assert created.status_code == 201
+    assert created.json()["front"] == "Haus"
+
+    cards = (await client.get(f"/api/flashcard/decks/{deck['id']}/cards")).json()
+    assert {(card["front"], card["back"]) for card in cards} == {("Haus", "Ev"), ("Ev", "Haus")}
+
+
+async def test_reversible_same_text_does_not_duplicate(client: AsyncClient) -> None:
+    """On ve arka ayniysa ters kart uretilmez (kopya kuyruk olmasin)."""
+    deck = await make_deck(client, "Ayni Yuz")
+
+    await client.post(
+        f"/api/flashcard/decks/{deck['id']}/cards",
+        json={"front": "Ankara", "back": "Ankara", "reversible": True},
+    )
+
+    cards = (await client.get(f"/api/flashcard/decks/{deck['id']}/cards")).json()
+    assert len(cards) == 1
+
+
+async def test_only_lapses_filter_and_search(client: AsyncClient) -> None:
+    """`only_lapses` yalnizca unutulan kartlari, `q` metin eslesmesini suzer."""
+    deck = await make_deck(client, "Zayif Noktalar")
+    hard = (
+        await client.post(f"/api/flashcard/decks/{deck['id']}/cards", json={"front": "Zor", "back": "Hard"})
+    ).json()
+    await client.post(f"/api/flashcard/decks/{deck['id']}/cards", json={"front": "Kolay", "back": "Easy"})
+    await grade(client, hard["id"], 0)  # "Yine" -> lapses 1
+
+    lapses = (await client.get(
+        f"/api/flashcard/decks/{deck['id']}/cards", params={"only_lapses": True}
+    )).json()
+    assert [card["front"] for card in lapses] == ["Zor"]
+    assert lapses[0]["lapses"] == 1
+
+    searched = (await client.get(
+        f"/api/flashcard/decks/{deck['id']}/cards", params={"q": "kolay"}
+    )).json()
+    assert [card["front"] for card in searched] == ["Kolay"]
+
+
+async def test_cram_missed_orders_by_lapses_across_decks(client: AsyncClient) -> None:
+    """Cram kuyrugu desteler genelinde en cok unutulani basa alir."""
+    first = await make_deck(client, "Deste Bir")
+    second = await make_deck(client, "Deste Iki")
+    once = (
+        await client.post(f"/api/flashcard/decks/{first['id']}/cards", json={"front": "Bir", "back": "One"})
+    ).json()
+    twice = (
+        await client.post(f"/api/flashcard/decks/{second['id']}/cards", json={"front": "Iki", "back": "Two"})
+    ).json()
+    await grade(client, once["id"], 0)
+    await grade(client, twice["id"], 0)
+    await grade(client, twice["id"], 0)
+
+    queue = (await client.get("/api/flashcard/cram/missed")).json()
+
+    assert [card["front"] for card in queue] == ["Iki", "Bir"]
+    assert {card["deck_title"] for card in queue} == {"Deste Bir", "Deste Iki"}
+
+
+async def test_decks_linked_to_note(client: AsyncClient) -> None:
+    """`linked_to` yalnizca o kayda bagli desteyi doner (not -> deste bagi)."""
+    linked = await make_deck(client, "Notun Kartlari")
+    await make_deck(client, "Bagimsiz")
+
+    async with SessionLocal() as session:
+        note_id = (
+            await session.execute(
+                text(
+                    "insert into entity (type, title, search_text) values ('note', 'Kaynak not', '') "
+                    "returning id"
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                "insert into link (from_id, to_id, relation) values (:deck, :note, 'studies')"
+            ),
+            {"deck": linked["id"], "note": note_id},
+        )
+        await session.commit()
+
+    filtered = (await client.get("/api/flashcard/decks", params={"linked_to": str(note_id)})).json()
+    assert [deck["title"] for deck in filtered] == ["Notun Kartlari"]
+
+    # Bag yoksa bos doner (panel cizilmez).
+    async with SessionLocal() as session:
+        other_id = (
+            await session.execute(
+                text("insert into entity (type, title, search_text) values ('note', 'Baska not', '') returning id")
+            )
+        ).scalar_one()
+        await session.commit()
+    assert (await client.get("/api/flashcard/decks", params={"linked_to": str(other_id)})).json() == []
+
+
+async def test_deck_out_reports_mature_count(client: AsyncClient) -> None:
+    """SRS dagilim cubugu icin olgun kart sayisi (interval > 21 gun) doner."""
+    deck = await make_deck(client, "Olgun Destek")
+    card = (
+        await client.post(f"/api/flashcard/decks/{deck['id']}/cards", json={"front": "Yasli", "back": "Old"})
+    ).json()
+    # Uzun araliga cikar: 4 -> 10 -> 25 gun (Kolay kolay).
+    await grade(client, card["id"], 3)
+    await grade(client, card["id"], 3)
+    await grade(client, card["id"], 3)
+
+    listed = (await client.get("/api/flashcard/decks")).json()
+    assert listed[0]["mature_count"] == 1
