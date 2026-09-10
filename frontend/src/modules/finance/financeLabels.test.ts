@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   billingLabel,
+  categoryIcon,
   categoryLabel,
   dayOrdinal,
   dueLabel,
   frequencyLabel,
   money,
   monthKeyOf,
+  monthlyShare,
   monthLabel,
   monthShort,
   parseMonth,
@@ -16,6 +18,7 @@ import {
   subColor,
   subSlug,
 } from "./financeLabels";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./financeLabels";
 
 describe("finans etiketleri", () => {
   it("kategori ve sıklığı Türkçeleştirir, bilinmeyeni ham bırakır", () => {
@@ -106,5 +109,28 @@ describe("abonelik markası", () => {
     expect(subColor("bilinmeyen_marka")).toBe(subColor("bilinmeyen_marka"));
     expect(subColor("netflix")).toMatch(/^var\(--chart-\d\)$/);
     expect(subColor("bilinmeyen_marka")).toMatch(/^var\(--chart-\d\)$/);
+  });
+});
+
+describe("kategori ikonları", () => {
+  it("her kategori için ikon ve etiket tanımlı", () => {
+    for (const category of [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES]) {
+      expect(categoryLabel(category), category).not.toBe(category);
+      expect(categoryIcon(category), category).toBeTypeOf("object");
+    }
+  });
+
+  it("bilinmeyen kategori ikon isterken çökmez", () => {
+    expect(categoryIcon("kripto")).toBeTypeOf("object");
+  });
+});
+
+describe("aylık yük payı", () => {
+  it("sıklığa göre bir aya düşen tutarı verir", () => {
+    expect(monthlyShare("1200", "yearly")).toBe(100);
+    expect(monthlyShare(300, "quarterly")).toBe(100);
+    expect(monthlyShare("99.9", "monthly")).toBeCloseTo(99.9);
+    // Bilinmeyen siklik aylik sayilir (backend ile ayni sozlesme).
+    expect(monthlyShare(50, "weekly")).toBe(50);
   });
 });

@@ -1,3 +1,20 @@
+import {
+  Briefcase,
+  Car,
+  Clapperboard,
+  Gift,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  Laptop,
+  RotateCw,
+  Tag,
+  TrendingUp,
+  UtensilsCrossed,
+  Zap,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 /**
  * Finans modulunun gorunum sozlugu: Turkce etiketler, para bicimi, marka rengi.
  *
@@ -40,6 +57,28 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export const categoryLabel = (value: string): string => CATEGORY_LABELS[value] ?? value;
 
+/* Kategori ikonlari: listede her satirin solunda yuvarlak rozet icinde
+   gorunur. Bilinmeyen kategori "Tag" ile cizilir -- backend serbest metin
+   tutar, arayuz kirilmaz. */
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  food: UtensilsCrossed,
+  rent: Home,
+  bills: Zap,
+  transport: Car,
+  subscriptions: RotateCw,
+  shopping: Tag,
+  health: HeartPulse,
+  education: GraduationCap,
+  entertainment: Clapperboard,
+  salary: Briefcase,
+  freelance: Laptop,
+  investment: TrendingUp,
+  gift: Gift,
+  other: Tag,
+};
+
+export const categoryIcon = (value: string): LucideIcon => CATEGORY_ICONS[value] ?? Tag;
+
 export const FREQUENCIES = ["monthly", "quarterly", "yearly"] as const;
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -49,6 +88,15 @@ const FREQUENCY_LABELS: Record<string, string> = {
 };
 
 export const frequencyLabel = (value: string): string => FREQUENCY_LABELS[value] ?? value;
+
+/** Siklik -> ay sayisi (backend MONTHS_PER_PERIOD ile ayni sozlesme). */
+const MONTHS_PER_PERIOD: Record<string, number> = { monthly: 1, quarterly: 3, yearly: 12 };
+
+/** Tekrarlayan odemenin bir aya dusen payi: yillik 1200 -> 100. */
+export function monthlyShare(amount: number | string, frequency: string): number {
+  const months = MONTHS_PER_PERIOD[frequency] ?? 1;
+  return Number(amount) / months;
+}
 
 /* Turkce sira eki, son rakama gore (1'i, 2'si, 3'u, 6'si...). 10/20/30 onluk
    okunusuyla ayrisir: "10'u", "20'si", "30'u". */

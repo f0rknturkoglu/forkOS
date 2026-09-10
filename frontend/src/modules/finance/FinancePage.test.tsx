@@ -1,76 +1,70 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+
+/**
+ * Finans sayfasi: ozet, hareketler ve abonelikler.
+ *
+ * Eski test SSR + useState-cursor takimiydi; sayfa bilesenlere bolunup
+ * modallara gecince state sirasi degisti. Bu dosya artik gercek etkilesimi
+ * olcer: tikla, yaz, kaydet -- ve gonderilen istekleri dogrular.
+ */
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/core/ui";
 import { todayKey } from "@/lib/date";
 import { FinancePage } from "./FinancePage";
 
-type MutationOptions = { mutationFn?: (...args: unknown[]) => unknown; onSuccess?: (...args: unknown[]) => void };
-type QueryOptions = { queryFn: () => unknown; queryKey: readonly unknown[] };
-
-const harness = vi.hoisted(() => ({
-  apiDel: vi.fn(),
-  apiGet: vi.fn(),
-  apiPatch: vi.fn(),
-  apiPost: vi.fn(),
-  invalidate: vi.fn(),
-  navigate: vi.fn(),
-  mutations: [] as MutationOptions[],
-  queries: [] as QueryOptions[],
-  queryData: {} as Record<string, unknown>,
-  routeParams: "",
-  stateCursor: 0,
-  stateValues: [] as unknown[],
-}));
-
-// Form alanlari yerel state'te yasar; SSR anlik goruntusunde onlari surmek icin
-// useState cursor'lu bir kosum takimiyla degistirilir (repo deseni).
-vi.mock("react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react")>();
-  return {
-    ...actual,
-    useState: (initial: unknown | (() => unknown)) => {
-      const index = harness.stateCursor++;
-      if (!(index in harness.stateValues)) {
-        harness.stateValues[index] = typeof initial === "function" ? (initial as () => unknown)() : initial;
-      }
-      return [
-        harness.stateValues[index],
-        (value: unknown) => {
-          harness.stateValues[index] = value;
-        },
-      ];
-    },
-  };
-});
-vi.mock("@/app/router", () => ({
-  useHashRoute: () => ({ path: "/finance", params: new URLSearchParams(harness.routeParams) }),
-  navigate: harness.navigate,
-}));
+const confirmDialog = vi.fn(async () => true);
+vi.mock("@/core/dialog", () => ({ confirmDialog: vi.fn(async () => true), DialogHost: () => null }));
 vi.mock("@/core/api", () => ({
-  api: { del: harness.apiDel, get: harness.apiGet, patch: harness.apiPatch, post: harness.apiPost },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn(), put: vi.fn() },
   qs: (params: Record<string, string | number | boolean | undefined | null>) => {
     const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
     return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)]))}` : "";
   },
 }));
-vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
-vi.mock("@/core/invalidation", () => ({
-  invalidateAfter: (...events: string[]) => harness.invalidate(...events),
-}));
-vi.mock("@tanstack/react-query", () => ({
-  useMutation: vi.fn((options: MutationOptions) => {
-    harness.mutations.push(options);
-    return { isPending: false, mutate: vi.fn() };
-  }),
-  useQuery: vi.fn((options: QueryOptions) => {
-    harness.queries.push(options);
-    const key = String(options.queryKey[0]);
-    return { data: key in harness.queryData ? harness.queryData[key] : undefined, isLoading: false };
-  }),
-}));
+// Gercek hash router gibi davranir: navigate hash'i yazar, hook hashchange'i dinler.
+vi.mock("@/app/router", async () => {
+  const { useEffect, useState } = await import("react");
+  return {
+    useHashRoute: () => {
+      const [hash, setHash] = useState(() => location.hash);
+      useEffect(() => {
+        const onChange = () => setHash(location.hash);
+        window.addEventListener("hashchange", onChange);
+        return () => window.removeEventListener("hashchange", onChange);
+      }, []);
+      return { path: "/finance", params: new URLSearchParams(hash.split("?")[1] ?? "") };
+    },
+    navigate: (path: string) => {
+      location.hash = `#${path}`;
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    },
+  };
+});
+
+import { confirmDialog as confirmMock } from "@/core/dialog";
+import { api } from "@/core/api";
+
+const apiGet = vi.mocked(api.get);
+const apiPost = vi.mocked(api.post);
+const apiPatch = vi.mocked(api.patch);
+const apiDel = vi.mocked(api.del);
+const apiPut = vi.mocked(api.put);
+const dialogSpy = vi.mocked(confirmMock);
+
+const TODAY = todayKey();
+const YESTERDAY = (() => {
+  const d = new Date(`${TODAY}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+})();
+const MONTH = TODAY.slice(0, 7);
 
 const overview = {
-  year: 2026,
-  month: 8,
+  year: Number(MONTH.slice(0, 4)),
+  month: Number(MONTH.slice(5, 7)),
   currencies: [
     {
       currency: "TRY",
@@ -84,31 +78,63 @@ const overview = {
       ],
       income_by_category: [{ category: "salary", amount: "45000.00" }],
     },
+    {
+      currency: "USD",
+      income: "1000.00",
+      expense: "200.00",
+      net: "800.00",
+      recurring_monthly: "10.00",
+      expense_by_category: [{ category: "shopping", amount: "200.00" }],
+      income_by_category: [],
+    },
   ],
 };
+
 const expenses = [
   {
     id: "e1",
-    title: "Market",
+    title: "Migros",
     amount: "150.5",
     currency: "TRY",
     category: "food",
-    spent_on: "2026-08-26",
+    spent_on: TODAY,
+    note: null,
+    sub: null,
+  },
+  {
+    id: "e2",
+    title: "Kira",
+    amount: "18000",
+    currency: "TRY",
+    category: "rent",
+    spent_on: YESTERDAY,
+    note: null,
+    sub: null,
+  },
+  {
+    id: "e3",
+    title: "Amazon",
+    amount: "30",
+    currency: "USD",
+    category: "shopping",
+    spent_on: TODAY,
     note: null,
     sub: null,
   },
 ];
+
 const incomes = [
   {
     id: "i1",
-    title: "Ağustos maaşı",
+    title: "Maaş",
     amount: "45000",
     currency: "TRY",
     category: "salary",
-    received_on: "2026-08-01",
+    received_on: TODAY,
     note: null,
   },
 ];
+
 const recurring = [
   {
     id: "r1",
@@ -118,362 +144,285 @@ const recurring = [
     category: "subscriptions",
     billing_day: 15,
     frequency: "monthly",
-    next_due_at: "2026-09-15",
+    next_due_at: TODAY,
     active: true,
     note: null,
     sub: "netflix",
   },
+  {
+    id: "r2",
+    title: "iCloud",
+    amount: "1200",
+    currency: "TRY",
+    category: "subscriptions",
+    billing_day: 5,
+    frequency: "yearly",
+    next_due_at: TODAY,
+    active: true,
+    note: null,
+    sub: "icloud",
+  },
 ];
 
-/**
- * Verilen sekme/ay ile sayfayi ciz; form state'i sirayla verilir.
- *
- * useState sirasi render agaciyla belirlenir: sayfa ustundeki hizli gider
- * formu (amount, category, note = 0..2) diger formlardan ONCE gelir. Bu
- * yuzden flow/subs/donut state dizileri ilk 3 yuvayi bos gecerek baslar.
- */
-function render(params: string, state: unknown[] = []) {
-  harness.routeParams = params;
-  harness.stateCursor = 0;
-  harness.stateValues = state;
-  return renderToStaticMarkup(<FinancePage />);
+function renderPage(params = `tab=summary&month=${MONTH}`) {
+  location.hash = `#/finance?${params}`;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <FinancePage />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
 }
 
-/** Belirtilen uca POST/DELETE atan mutation'i bulur.
-
- * Ayni uca birden fazla mutation abone olabilir (sayfa ustundeki hizli
- * gider formu da /expenses'e yazar). Kacinci mutation oldugu degil,
- * gecerli goruntude hangisinin o cagriyi yaptigi onemli -- en son eslesen
- * donulur ve yalnizca onun cagrilari spy'da birakilir.
- */
-function findMutation(spy: ReturnType<typeof vi.fn>, url: string, arg?: unknown) {
-  let found: MutationOptions | undefined;
-  let calls: unknown[][] = [];
-  for (const mutation of harness.mutations) {
-    spy.mockClear();
-    try {
-      mutation.mutationFn?.(arg);
-    } catch {
-      continue;
+beforeEach(() => {
+  for (const spy of [apiGet, apiPost, apiPatch, apiDel, apiPut]) spy.mockReset();
+  dialogSpy.mockClear();
+  dialogSpy.mockResolvedValue(true);
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { getItem: () => null } });
+  apiGet.mockImplementation(async (path: string) => {
+    if (path.startsWith("/finance/overview")) return overview;
+    if (path.startsWith("/finance/summary")) {
+      return [
+        { month: "2026-07", income: 40000, expense: 30000 },
+        { month: MONTH, income: 45000, expense: 28430 },
+      ];
     }
-    if (spy.mock.calls.some(([called]) => called === url)) {
-      found = mutation;
-      calls = spy.mock.calls.slice();
-    }
-  }
-  spy.mockClear();
-  for (const call of calls) spy.mock.calls.push(call);
-  return found;
-}
+    if (path === "/expenses") return expenses;
+    if (path === "/incomes") return incomes;
+    if (path === "/recurring-payments") return recurring;
+    if (path === "/settings") return { "finance.monthly_budget": {} };
+    return [];
+  });
+  apiPost.mockResolvedValue({});
+  apiPatch.mockResolvedValue({});
+  apiDel.mockResolvedValue(undefined);
+  apiPut.mockResolvedValue({});
+});
 
-describe("finans sayfası", () => {
-  beforeEach(() => {
-    for (const spy of [
-      harness.apiDel,
-      harness.apiGet,
-      harness.apiPatch,
-      harness.apiPost,
-      harness.invalidate,
-      harness.navigate,
-    ]) {
-      spy.mockReset();
-    }
-    harness.mutations.length = 0;
-    harness.queries.length = 0;
-    harness.queryData = { expenses, incomes, recurring, "finance-overview": overview };
-    harness.routeParams = "";
+afterEach(cleanup);
+
+describe("özet sekmesi", () => {
+  it("hero bakiyeyi, üç sütunu ve kategori dağılımını gösterir", async () => {
+    renderPage();
+
+    await screen.findByText("Net durum");
+    expect(await screen.findByText("₺16.570")).toBeTruthy();
+    expect(screen.getByText("Sabit faturalar")).toBeTruthy();
+    expect(screen.getByText("₺1.240")).toBeTruthy();
+    expect(screen.getByText("/ay")).toBeTruthy();
+    // Segmentli bar: iki kategori + yüzdeleri.
+    expect(screen.getByRole("img", { name: /harcama dağılımı/i })).toBeTruthy();
+    // "Kira" hem bar legend'inda hem icgoru cumlesinde gecer.
+    expect(screen.getAllByText("Kira").length).toBeGreaterThan(0);
+    expect(screen.getByText("%63,3")).toBeTruthy();
+    // Akilli icgoru: bu ayin en buyuk kalemi + gecen aya gore degisim.
+    expect(screen.getByText(/en büyük harcama kalemin/)).toBeTruthy();
   });
 
-  it("seçili ayın özetini tek çağrıyla çeker ve gelir/gider/net gösterir", async () => {
-    const markup = render("tab=summary&month=2026-08");
-
-    expect(markup).toContain("Ağustos 2026");
-    expect(markup).toContain("Gelir");
-    expect(markup).toContain("Net");
-    expect(markup).toContain("Bu ay artıda");
-
-    const byKey = (key: string) => harness.queries.find((query) => query.queryKey[0] === key);
-    await byKey("finance-overview")?.queryFn();
-    await byKey("expenses")?.queryFn();
-    await byKey("incomes")?.queryFn();
-    await byKey("recurring")?.queryFn();
-    expect(harness.apiGet).toHaveBeenCalledWith("/finance/overview?year=2026&month=8");
-    expect(harness.apiGet).toHaveBeenCalledWith("/expenses");
-    expect(harness.apiGet).toHaveBeenCalledWith("/incomes");
-    expect(harness.apiGet).toHaveBeenCalledWith("/recurring-payments");
-  });
-
-  it("donut merkezi boştayken ayın özetini, dilim üzerindeyken o kategoriyi yazar", () => {
-    // SpendDonut'un tek useState'i (active dilim) 3. indekstedir -- ilk 3
-    // yuva hizli gider formunun (amount, category, note) yeridir.
-    const idle = render("tab=summary&month=2026-08", []);
-    expect(idle).toContain("Gider");
-    expect(idle).toContain("Gelir ₺45.000");
-    expect(idle).toContain("Abonelik ₺1.240/ay");
-    // Legend her iki kategoriyi de tasir.
-    expect(idle).toContain("Kira");
-    expect(idle).toContain("Market");
-
-    // active = 1 -> ikinci dilim (Market, 10.430 / 28.430 = %36,7)
-    const hovered = render("tab=summary&month=2026-08", ["", "", "", 1]);
-    expect(hovered).toContain("Market");
-    expect(hovered).toContain("%36,7");
-    // Gobek artik ayin ozetini degil dilimi gosteriyor.
-    expect(hovered).not.toContain("Abonelik ₺1.240/ay");
-  });
-
-  it("hareketler sekmesinde seçili ayın gelir ve giderlerini birlikte listeler", () => {
-    // FlowTab state sirasi: kind, title, amount, category, day, filter.
-    const markup = render("tab=flow&month=2026-08", ["", "", "", "expense", "", "", "food", "2026-08-26", "all"]);
-    expect(markup).toContain("Market");
-    expect(markup).toContain("Ağustos maaşı");
-    expect(markup).toContain("Maaş");
-    expect(markup).toContain("26 Ağustos");
-
-    // Baska ay: o ayin kaydi yok. ("Market" kategori etiketi olarak acilir
-    // listede zaten geciyor -- satirin varligi kayit basligiyla olculur.)
-    const july = render("tab=flow&month=2026-07", ["", "", "", "expense", "", "", "food", "2026-07-01", "all"]);
-    expect(july).not.toContain("Ağustos maaşı");
-    expect(july).toContain("0 kayıt");
-    expect(july).toContain("Kayıt yok");
-  });
-
-  it("gideri /expenses'e spent_on ile, geliri /incomes'a received_on ile yazar", () => {
-    render("tab=flow", ["", "", "", "expense", "Market", "150.5", "food", "2026-08-26", "all"]);
-    expect(findMutation(harness.apiPost, "/expenses")).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith("/expenses", {
-      title: "Market",
-      amount: "150.5",
-      category: "food",
-      spent_on: "2026-08-26",
+  it("bütçe tanımlıysa kalan bütçeyi ve harcama yüzdesini gösterir, kaydeder", async () => {
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/settings") return { "finance.monthly_budget": { TRY: 40000 } };
+      if (path.startsWith("/finance/overview")) return overview;
+      if (path === "/expenses") return expenses;
+      if (path === "/incomes") return incomes;
+      if (path === "/recurring-payments") return recurring;
+      return [];
     });
+    renderPage();
 
-    harness.mutations.length = 0;
-    render("tab=flow", ["", "", "", "income", "Ağustos maaşı", "45000", "salary", "2026-08-01", "all"]);
-    expect(findMutation(harness.apiPost, "/incomes")).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith("/incomes", {
-      title: "Ağustos maaşı",
-      amount: "45000",
-      category: "salary",
-      received_on: "2026-08-01",
-    });
-  });
+    expect(await screen.findByText("₺11.570")).toBeTruthy();
+    expect(screen.getByText("Kalan bütçe")).toBeTruthy();
+    expect(screen.getByText(/%71,1 harcandı/)).toBeTruthy();
 
-  it("aboneliği sıklık, ödeme günü ve addan türetilen marka ile ekler", () => {
-    // SubsTab state sirasi: title, amount, frequency, billingDay
-    const markup = render("tab=subs", ["", "", "", "Netflix", "99.9", "monthly", 15]);
-    expect(markup).toContain("Netflix");
-    expect(markup).toContain("her ayın 15");
-    expect(markup).toContain("Ödendi olarak işaretle");
+    fireEvent.click(screen.getByRole("button", { name: "Bütçeyi düzenle" }));
+    const field = screen.getByLabelText("Aylık bütçe");
+    fireEvent.change(field, { target: { value: "50000" } });
+    fireEvent.click(screen.getByRole("button", { name: /Kaydet/ }));
 
-    expect(findMutation(harness.apiPost, "/recurring-payments")).toBeDefined();
-    const [, body] = harness.apiPost.mock.calls.find(([url]) => url === "/recurring-payments")!;
-    expect(body).toMatchObject({
-      title: "Netflix",
-      amount: "99.9",
-      category: "subscriptions",
-      frequency: "monthly",
-      billing_day: 15,
-      sub: "netflix",
-    });
-    expect(String((body as { next_due_at: string }).next_due_at)).toMatch(/^\d{4}-\d{2}-15$/);
-  });
-
-  it("satır içi düzeltmeyi kaydın türüne göre doğru PATCH ucuna yazar", () => {
-    // FlowTab state sirasi: kind, title, amount, category, day, filter,
-    // editingId, editTitle, editAmount
-    const editing = ["", "", "", "expense", "", "", "food", "2026-08-26", "all", "e1", "Market (düzeltildi)", "200"];
-    const markup = render("tab=flow&month=2026-08", editing);
-    expect(markup).toContain("Kaydet");
-    expect(markup).toContain("Vazgeç");
-
-    expect(findMutation(harness.apiPatch, "/expenses/e1", { id: "e1", kind: "expenses" })).toBeDefined();
-    expect(harness.apiPatch).toHaveBeenCalledWith("/expenses/e1", {
-      title: "Market (düzeltildi)",
-      amount: "200",
-    });
-
-    harness.mutations.length = 0;
-    render("tab=flow&month=2026-08", [...editing.slice(0, 9), "i1", "Ağustos maaşı", "46000"]);
-    expect(findMutation(harness.apiPatch, "/incomes/i1", { id: "i1", kind: "incomes" })).toBeDefined();
-    expect(harness.apiPatch).toHaveBeenCalledWith("/incomes/i1", {
-      title: "Ağustos maaşı",
-      amount: "46000",
-    });
-  });
-
-  it("ödeme ve silme işlemlerini doğru uçlara gönderip finance.write ile tazeler", () => {
-    render("tab=subs", ["", "", "", "", "", "monthly", 1]);
-
-    const pay = findMutation(harness.apiPost, "/recurring-payments/r1/pay", "r1");
-    expect(pay).toBeDefined();
-    pay?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("finance.write");
-
-    harness.invalidate.mockReset();
-    const remove = findMutation(harness.apiDel, "/incomes/i1", { id: "i1", kind: "incomes" });
-    expect(remove).toBeDefined();
-    remove?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("finance.write");
-  });
-
-  it("aylık akış çubuk grafiğini /finance/summary verisiyle çizer", async () => {
-    harness.queryData["finance-summary"] = [
-      { month: "2026-03", income: 40000, expense: 25000 },
-      { month: "2026-04", income: 41000, expense: 26000 },
-      { month: "2026-05", income: 42000, expense: 24000 },
-      { month: "2026-06", income: 43000, expense: 27000 },
-      { month: "2026-07", income: 44000, expense: 28000 },
-      { month: "2026-08", income: 45000, expense: 28430 },
-    ];
-    const markup = render("tab=summary&month=2026-08");
-
-    expect(markup).toContain("Aylık akış");
-    expect(markup).toContain("Son 6 ay · gelir / gider");
-    // Eksen etiketleri kisa ay adlariyla; grafik bos veri uyarisi gostermiyor.
-    for (const short of ["Mar", "Nis", "May", "Haz", "Tem", "Ağu"]) {
-      expect(markup).toContain(short);
-    }
-    expect(markup).not.toContain("Grafik için veri yok.");
-    // Cubuklar tema tokenlariyla (sabit hex yok) ve erisilebilir adla.
-    expect(markup).toContain('fill="var(--success)"');
-    expect(markup).toContain('fill="var(--danger)"');
-    expect(markup).toContain('aria-label="Son 6 ayın gelir ve gider çubuk grafiği"');
-
-    const byKey = (key: string) => harness.queries.find((query) => query.queryKey[0] === key);
-    await byKey("finance-summary")?.queryFn();
-    expect(harness.apiGet).toHaveBeenCalledWith("/finance/summary?months=6");
-  });
-
-  it("son 30 gün giderlerini en büyük 5 + Diğer olarak dağıtır", () => {
-    const day = (daysAgo: number) => {
-      const key = todayKey();
-      const d = new Date(key + "T00:00:00Z");
-      d.setUTCDate(d.getUTCDate() - daysAgo);
-      return d.toISOString().slice(0, 10);
-    };
-    harness.queryData.expenses = [
-      {
-        id: "e1",
-        title: "Market",
-        amount: "150.5",
-        currency: "TRY",
-        category: "food",
-        spent_on: day(1),
-        note: null,
-        sub: null,
-      },
-      {
-        id: "e2",
-        title: "Kira",
-        amount: "18000",
-        currency: "TRY",
-        category: "rent",
-        spent_on: day(2),
-        note: null,
-        sub: null,
-      },
-      {
-        id: "e3",
-        title: "Ulaşım",
-        amount: "300",
-        currency: "TRY",
-        category: "transport",
-        spent_on: day(3),
-        note: null,
-        sub: null,
-      },
-      {
-        id: "e4",
-        title: "Fatura",
-        amount: "400",
-        currency: "TRY",
-        category: "bills",
-        spent_on: day(4),
-        note: null,
-        sub: null,
-      },
-      {
-        id: "e5",
-        title: "Sağlık",
-        amount: "500",
-        currency: "TRY",
-        category: "health",
-        spent_on: day(5),
-        note: null,
-        sub: null,
-      },
-      {
-        id: "e6",
-        title: "Eğlence",
-        amount: "600",
-        currency: "TRY",
-        category: "entertainment",
-        spent_on: day(6),
-        note: null,
-        sub: null,
-      },
-      // Pencerenin disinda (40 gun once): barlara girmemeli.
-      {
-        id: "e7",
-        title: "Eski borç",
-        amount: "999",
-        currency: "TRY",
-        category: "shopping",
-        spent_on: day(40),
-        note: null,
-        sub: null,
-      },
-    ];
-    const markup = render("tab=summary&month=2026-08");
-
-    expect(markup).toContain("Son 30 gün · kategori dağılımı");
-    // En buyuk 5: Kira, Eğlence, Sağlık, Fatura, Ulaşım -- geri kalan "Diğer".
-    expect(markup).toContain("Kira");
-    expect(markup).toContain("Eğlence");
-    expect(markup).toContain("Diğer");
-    // Pencere disindaki "Eski borç" bar uretmez.
-    expect(markup).not.toContain("Eski borç");
-  });
-
-  it("hızlı gider formu tutar+kategori+not ile /expenses'e yazar", () => {
-    // QuickAdd state sirasi: amount, category, note (sayfa ustunde, once).
-    const markup = render("tab=summary&month=2026-08", ["55.5", "food", "Market alışverişi"]);
-    expect(markup).toContain("Hızlı gider ekle");
-
-    const quickAdd = findMutation(harness.apiPost, "/expenses");
-    expect(quickAdd).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith("/expenses", {
-      title: "Market alışverişi",
-      amount: "55.5",
-      category: "food",
-      note: "Market alışverişi",
-      spent_on: todayKey(),
-    });
-  });
-
-  it("hızlı giderde not boşsa başlığı kategori adından türer", () => {
-    render("tab=summary", ["20", "transport", ""]);
-    expect(findMutation(harness.apiPost, "/expenses")).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith(
-      "/expenses",
-      expect.objectContaining({ title: "Ulaşım", amount: "20", category: "transport", note: null }),
+    await waitFor(() =>
+      expect(apiPut).toHaveBeenCalledWith("/settings/finance.monthly_budget", { value: { TRY: 50000 } }),
     );
   });
 
-  it("özet kartlarında bu ay vs geçen ay trendini gösterir", () => {
-    harness.queryData["finance-summary"] = [
-      { month: "2026-03", income: 40000, expense: 25000 },
-      { month: "2026-04", income: 41000, expense: 26000 },
-      { month: "2026-05", income: 42000, expense: 24000 },
-      { month: "2026-06", income: 43000, expense: 27000 },
-      { month: "2026-07", income: 40000, expense: 25000 },
-      { month: "2026-08", income: 45000, expense: 20000 },
-    ];
-    const markup = render("tab=summary&month=2026-08");
+  it("para birimi hapı seçimi özeti ve hareketleri o birime çevirir", async () => {
+    renderPage();
 
-    // Gelir %12,5 artti (40.000 -> 45.000); gider %20 dustu (25.000 -> 20.000).
-    expect(markup).toContain("▲ %13 vs geçen ay");
-    expect(markup).toContain("▼ %20 vs geçen ay");
+    await screen.findByText("₺16.570");
+    fireEvent.click(screen.getAllByRole("button", { name: "USD" })[0]);
+
+    // Ozet artik USD blogunu gosterir; TRY kalemleri gorunmez.
+    expect(await screen.findByText("$800")).toBeTruthy();
+    expect(screen.queryByText("₺16.570")).toBeNull();
+  });
+});
+
+describe("hareketler sekmesi", () => {
+  it("gün bloklarında listeler, arama ve tür filtresi uygular", async () => {
+    renderPage(`tab=flow&month=${MONTH}`);
+
+    // Gun bloklari: Bugun ve Dun baslikleri (veri gelince).
+    expect(await screen.findByText("Bugün")).toBeTruthy();
+    expect(screen.getByText("Dün")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Migros hareketini düzenle" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Kira hareketini düzenle" })).toBeTruthy();
+    // USD hareketi TRY gorunumunde listelenmez (para birimi filtresi).
+    expect(screen.queryByRole("button", { name: "Amazon hareketini düzenle" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gelirler" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Migros hareketini düzenle" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Maaş hareketini düzenle" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Hareketlerde ara"), { target: { value: "yok-boyle" } });
+    await waitFor(() => expect(screen.getByText("Kayıt yok")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Tümü" }));
+    fireEvent.change(screen.getByLabelText("Hareketlerde ara"), { target: { value: "kira" } });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Migros hareketini düzenle" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Kira hareketini düzenle" })).toBeTruthy();
+  });
+
+  it("sayı olarak gelen tutarla aramada çökmez, tutarla eşleşir (canlı hata)", async () => {
+    // Backend Decimal'i JSON'da SAYI dondurur; eski kod `.includes` cagirip
+    // sayfayi cokertiyordu (canli dogrulamada yakalandi).
+    apiGet.mockImplementation(async (path: string) => {
+      if (path.startsWith("/finance/overview")) return overview;
+      if (path === "/expenses") return [{ ...expenses[0], amount: 250.0 }];
+      if (path === "/incomes") return [];
+      if (path === "/recurring-payments") return [];
+      if (path === "/settings") return { "finance.monthly_budget": {} };
+      return [];
+    });
+    renderPage(`tab=flow&month=${MONTH}`);
+
+    const search = await screen.findByLabelText("Hareketlerde ara");
+    fireEvent.change(search, { target: { value: "250" } });
+    expect(await screen.findByRole("button", { name: "Migros hareketini düzenle" })).toBeTruthy();
+
+    fireEvent.change(search, { target: { value: "zzz-bulunmaz" } });
+    expect(await screen.findByText("Kayıt yok")).toBeTruthy();
+  });
+
+  it("satıra tıklayınca düzenleme modalı açılır ve PATCH atar", async () => {
+    renderPage(`tab=flow&month=${MONTH}`);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Migros hareketini düzenle" }));
+    const dialog = await screen.findByRole("dialog", { name: "Hareketi düzenle" });
+
+    fireEvent.change(within(dialog).getByLabelText("Tutar"), { target: { value: "222" } });
+    fireEvent.change(within(dialog).getByLabelText("Açıklama"), { target: { value: "Migros (düzeltildi)" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Kaydet" }));
+
+    await waitFor(() =>
+      expect(apiPatch).toHaveBeenCalledWith("/expenses/e1", {
+        title: "Migros (düzeltildi)",
+        amount: "222",
+        category: "food",
+        spent_on: TODAY,
+      }),
+    );
+  });
+
+  it("düzenleme modalından onaylı silme DELETE atar", async () => {
+    renderPage(`tab=flow&month=${MONTH}`);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Kira hareketini düzenle" }));
+    const dialog = await screen.findByRole("dialog", { name: "Hareketi düzenle" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Sil/ }));
+
+    await waitFor(() => expect(dialogSpy).toHaveBeenCalled());
+    await waitFor(() => expect(apiDel).toHaveBeenCalledWith("/expenses/e2"));
+  });
+});
+
+describe("ekleme modalı", () => {
+  it("yeni ekle düğmesiyle açılır ve gideri /expenses'e yazar", async () => {
+    renderPage();
+    await screen.findByText("Net durum");
+
+    fireEvent.click(screen.getByRole("button", { name: /Yeni ekle/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Yeni ekle" });
+
+    fireEvent.change(within(dialog).getByLabelText("Tutar"), { target: { value: "55.5" } });
+    fireEvent.change(within(dialog).getByLabelText("Açıklama"), { target: { value: "Market alışverişi" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Kaydet" }));
+
+    await waitFor(() =>
+      expect(apiPost).toHaveBeenCalledWith("/expenses", {
+        title: "Market alışverişi",
+        amount: "55.5",
+        currency: "TRY",
+        category: "food",
+        note: null,
+        spent_on: TODAY,
+      }),
+    );
+  });
+
+  it("abonelik türünde sıklık ve ödeme günüyle /recurring-payments'e yazar", async () => {
+    renderPage(`tab=subs&month=${MONTH}`);
+    await screen.findByText("₺200");
+
+    fireEvent.click(screen.getByRole("button", { name: /Yeni ekle/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Yeni ekle" });
+
+    fireEvent.click(
+      within(within(dialog).getByRole("tablist", { name: "Kayıt türü" })).getByRole("button", { name: "Abonelik" }),
+    );
+    fireEvent.change(within(dialog).getByLabelText("Tutar"), { target: { value: "149.99" } });
+    fireEvent.change(within(dialog).getByLabelText("Abonelik adı"), { target: { value: "Spotify" } });
+    fireEvent.change(within(dialog).getByLabelText("Ödeme günü"), { target: { value: "20" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Kaydet" }));
+
+    await waitFor(() => {
+      const call = apiPost.mock.calls.find(([path]) => path === "/recurring-payments");
+      expect(call).toBeTruthy();
+      expect(call?.[1]).toMatchObject({
+        title: "Spotify",
+        amount: "149.99",
+        currency: "TRY",
+        category: "subscriptions",
+        frequency: "monthly",
+        billing_day: 20,
+        sub: "spotify",
+      });
+      expect(String((call?.[1] as { next_due_at: string }).next_due_at)).toMatch(/^\d{4}-\d{2}-20$/);
+    });
+  });
+
+  it("n kısayolu modalı açar, metin alanındayken açmaz", async () => {
+    renderPage();
+    await screen.findByText("Net durum");
+
+    fireEvent.keyDown(window, { key: "n" });
+    expect(await screen.findByRole("dialog", { name: "Yeni ekle" })).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Yeni ekle" })).toBeNull());
+
+    // Metin alanindayken kisayol harf yutmaz.
+    fireEvent.click(screen.getByRole("button", { name: "Hareketler" }));
+    const search = await screen.findByLabelText("Hareketlerde ara");
+    fireEvent.change(search, { target: { value: "" } });
+    fireEvent.keyDown(search, { key: "n" });
+    expect(screen.queryByRole("dialog", { name: "Yeni ekle" })).toBeNull();
+  });
+});
+
+describe("abonelikler sekmesi", () => {
+  it("aylık yükü ve yıllık izdüşümü gösterir, ödemeyi işler", async () => {
+    renderPage(`tab=subs&month=${MONTH}`);
+
+    // Netflix 99,9/ay + iCloud 1200/yil (=100/ay) -> 199,9/ay; yillik 2.399
+    expect(await screen.findByText("₺200")).toBeTruthy();
+    expect(screen.getByText("Aylık sabit yük")).toBeTruthy();
+    expect(screen.getByText("₺2.399")).toBeTruthy();
+    expect(screen.getByText("2 aktif abonelik")).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Ödendi/ })[0]);
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/recurring-payments/r1/pay"));
+    await waitFor(() =>
+      expect(screen.getByText(/Netflix ödemesi yapıldı ve bu ayın harcamalarına eklendi\./)).toBeTruthy(),
+    );
   });
 });

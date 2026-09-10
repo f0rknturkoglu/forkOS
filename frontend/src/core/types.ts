@@ -464,7 +464,9 @@ export interface ProjectJournalDay {
 export interface Expense {
   id: string;
   title: string;
-  amount: string;
+  /** Backend Decimal'i JSON'da sayi olarak doner; eski kod bunu string sanip
+   *  `.includes` gibi metotlar cagirinca arama cokuyordu. */
+  amount: string | number;
   currency: string;
   category: string;
   spent_on: string;
@@ -475,7 +477,7 @@ export interface Expense {
 export interface Income {
   id: string;
   title: string;
-  amount: string;
+  amount: string | number;
   currency: string;
   category: string;
   received_on: string;
@@ -485,12 +487,12 @@ export interface Income {
 /** Bir ayin tek para birimindeki gelir/gider tablosu (/finance/overview). */
 export interface CurrencyOverview {
   currency: string;
-  income: string;
-  expense: string;
-  net: string;
-  recurring_monthly: string;
-  expense_by_category: { category: string; amount: string }[];
-  income_by_category: { category: string; amount: string }[];
+  income: string | number;
+  expense: string | number;
+  net: string | number;
+  recurring_monthly: string | number;
+  expense_by_category: { category: string; amount: string | number }[];
+  income_by_category: { category: string; amount: string | number }[];
 }
 
 export interface FinanceOverview {
@@ -502,7 +504,7 @@ export interface FinanceOverview {
 export interface RecurringPayment {
   id: string;
   title: string;
-  amount: string;
+  amount: string | number;
   currency: string;
   category: string;
   billing_day: number | null;
