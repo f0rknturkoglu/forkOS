@@ -866,11 +866,14 @@ export function FilterChip({
   count,
   active,
   onClick,
+  icon,
 }: {
   label: string;
   count?: number;
   active: boolean;
   onClick: () => void;
+  /** Secim cipleri ikonla taranir (kategori secimi gibi). */
+  icon?: ReactNode;
 }) {
   return (
     <button
@@ -884,6 +887,7 @@ export function FilterChip({
           : "border-subtle bg-surface text-secondary hover:bg-surface-hover hover:text-primary",
       )}
     >
+      {icon && <span className="shrink-0">{icon}</span>}
       <span>{label}</span>
       {count !== undefined && (
         <span className={cx("numeral text-meta", active ? "text-accent" : "text-muted")}>{count}</span>
@@ -1204,6 +1208,82 @@ export function Popover({
       )}
     >
       {children}
+    </div>
+  );
+}
+
+/**
+ * Ortak modal katmani (iOS "sheet" hissi).
+ *
+ * Neden primitive: ayni desen (sabit katman + scrim + Escape + disari tik)
+ * bes ayri dosyada elle tekrarlaniyordu; her kopya kendi kapatma kuralini
+ * tasiyor ve biri Escape'i unutunca davranis dosyadan dosyaya degisiyordu.
+ * Yeni yuzeyler bunu kullanir.
+ *
+ * `z-modal` katmani (tailwind zIndex tokeni) modallarin drawer/toast ile
+ * dogru siralanmasini garanti eder.
+ */
+export function Modal({
+  open,
+  onClose,
+  title,
+  hint,
+  children,
+  footer,
+  ariaLabel,
+  className,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  /** Baslik gorsel degilse ekran okuyucu adi. */
+  ariaLabel?: string;
+  className?: string;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      onClose();
+    };
+    // Capture fazinda: icerdeki bir alan Escape'i yutsa bile modal kapanir.
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-modal flex items-end justify-center bg-[color:var(--overlay-scrim)] sm:items-center sm:p-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
+        className={cx(
+          "max-h-[92vh] w-full overflow-y-auto rounded-t-overlay border border-strong bg-surface shadow-overlay sm:rounded-overlay",
+          className ?? "sm:max-w-md",
+        )}
+      >
+        <header className="flex items-start gap-3 border-b border-subtle px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-heading text-primary">{title}</h2>
+            {hint && <p className="mt-0.5 text-meta text-muted">{hint}</p>}
+          </div>
+          <IconButton title="Kapat" onClick={onClose}>
+            <X size={15} />
+          </IconButton>
+        </header>
+        <div className="px-4 py-4">{children}</div>
+        {footer && <footer className="border-t border-subtle px-4 py-3">{footer}</footer>}
+      </div>
     </div>
   );
 }
