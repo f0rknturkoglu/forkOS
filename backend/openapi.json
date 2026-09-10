@@ -3355,6 +3355,55 @@
         "title": "LinkIn",
         "type": "object"
       },
+      "ManualRefreshOut": {
+        "properties": {
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "results": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Results",
+            "type": "object"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ManualRefreshOut",
+        "type": "object"
+      },
       "MediaCollectionIn": {
         "additionalProperties": false,
         "properties": {
@@ -20180,7 +20229,7 @@
     },
     "/api/sources/refresh": {
       "post": {
-        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi\nde bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi\nworker yapar ve ilerleme /sources/sync'ten izlenir.",
+        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi\nde bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi\nAPI arka plan görevi tüketir; worker açıkken aynı kalıcı kuyruğu paylaşır.",
         "operationId": "refresh_sources_api_sources_refresh_post",
         "requestBody": {
           "content": {
@@ -21063,6 +21112,46 @@
         "summary": "Create Topic Todo",
         "tags": [
           "learning"
+        ]
+      }
+    },
+    "/api/system/refresh": {
+      "get": {
+        "operationId": "manual_refresh_status_api_system_refresh_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualRefreshOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Manual Refresh Status",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "operationId": "manual_refresh_api_system_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualRefreshOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Manual Refresh",
+        "tags": [
+          "system"
         ]
       }
     },

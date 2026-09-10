@@ -84,16 +84,27 @@ async def test_extending_active_batch_only_adds_new_sources():
         await session.rollback()
 
 
-async def test_refresh_endpoint_only_queues_without_in_process_executor(
+async def test_refresh_endpoint_queues_and_starts_api_background_consumer(
     client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     router_module = import_module("app.modules.opportunity.router")
+    jobs = import_module("app.worker.jobs")
+    consumed = 0
+
+    async def fake_drain():
+        nonlocal consumed
+        consumed += 1
+        return 0
+
+    monkeypatch.setattr(jobs, "drain_source_sync_batches", fake_drain)
     response = await client.post(
         "/api/sources/refresh", json={"source_ids": ["osym"]}
     )
 
     assert response.status_code == 200
     assert response.json()["queued"] == 1
+    assert consumed == 1
     assert not hasattr(router_module, "_refresh_many")
     status = (await client.get("/api/sources/sync")).json()
     assert status["active"]["status"] == "queued"
@@ -171,6 +182,20 @@ async def test_worker_consumes_a_persistent_batch(monkeypatch: pytest.MonkeyPatc
     assert status["active"] is None
     assert status["last_completed"]["id"] == str(batch_id)
     assert status["last_completed"]["items_found"] == 3
+
+
+async def test_manual_drain_consumes_every_queue_slice(monkeypatch: pytest.MonkeyPatch):
+    from app.worker import jobs
+
+    slices = iter(((4, 2), (3, 5), (0, 0)))
+
+    async def fake_consume(*, limit: int):
+        assert limit == 4
+        return next(slices)
+
+    monkeypatch.setattr(jobs, "_consume_source_sync_batch", fake_consume)
+
+    assert await jobs.drain_source_sync_batches(limit=4) == 7
 
 
 async def test_batch_counters_are_derived_once_per_source():
@@ -264,15 +289,40 @@ async def test_concurrent_batch_creation_serializes_per_scope_and_unions_sources
     assert set(batches[0].source_ids) == {"media:tmdb", "media:anilist"}
 
 
-async def test_system_status_exposes_worker_heartbeat(client: AsyncClient):
+async def test_system_status_exposes_worker_heartbeat(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
     from app.worker.jobs import record_worker_heartbeat
 
+    system_router = import_module("app.modules.system.router")
+    monkeypatch.setattr(system_router.app_settings, "worker_enabled", True)
     await record_worker_heartbeat()
     response = await client.get("/api/system/stats")
 
     assert response.status_code == 200
     assert response.json()["worker"]["status"] == "healthy"
     assert response.json()["worker"]["heartbeat_at"] is not None
+
+
+async def test_system_status_marks_intentionally_disabled_worker(client: AsyncClient):
+    response = await client.get("/api/system/stats")
+
+    assert response.status_code == 200
+    assert response.json()["worker"]["status"] == "disabled"
+
+
+async def test_manual_refresh_status_defaults_to_idle(client: AsyncClient):
+    response = await client.get("/api/system/refresh")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "idle",
+        "started_at": None,
+        "finished_at": None,
+        "results": {},
+        "errors": [],
+    }
 
 
 async def test_sync_status_keeps_the_latest_completed_summary(client: AsyncClient):

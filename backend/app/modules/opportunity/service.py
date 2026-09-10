@@ -652,6 +652,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         raw = job.to_row()
         forkjob = raw.get("forkjob", raw)
         published_at = getattr(job, "published_at", None)
+        deadline_at = getattr(job, "deadline_at", None)
         department = forkjob.get("department") or forkjob.get("departments")
         if isinstance(department, list):
             department = " ".join(str(value) for value in department)
@@ -662,7 +663,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                 job.description,
             )
             if getattr(job, "kind", "job") == "job"
-            else None
+            else forkjob.get("category")
         )
         cluster_key = forkjob.get("cluster_key")
         cluster_matches: list[Opportunity] = []
@@ -685,12 +686,14 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                 existing.raw = raw if existing is canonical else existing.raw
                 existing.category = category
                 existing.published_at = published_at
+                existing.deadline_at = deadline_at
                 existing.skill_match_ratio = _skill_match_ratio(existing, job.title)
             continue
         if existing:
             existing.raw = raw
             existing.category = category
             existing.published_at = published_at
+            existing.deadline_at = deadline_at
             existing.skill_match_ratio = _skill_match_ratio(existing, job.title)
             if existing.country is None and forkjob.get("country"):
                 existing.country = forkjob.get("country")
@@ -710,6 +713,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                     by_url.raw = raw
                     by_url.category = category
                     by_url.published_at = published_at
+                    by_url.deadline_at = deadline_at
                     by_url.skill_match_ratio = _skill_match_ratio(by_url, job.title)
                     if by_url.country is None and forkjob.get("country"):
                         by_url.country = forkjob.get("country")
@@ -736,6 +740,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             priority=priority,
             found_at=datetime.now(UTC),
             published_at=published_at,
+            deadline_at=deadline_at,
             location=job.location,
             remote=job.work_mode.value,
             compensation=job.salary,

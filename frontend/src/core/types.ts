@@ -549,6 +549,7 @@ export interface BackupStatus {
 export type SourceSyncBatch = ApiSchemas["SourceSyncBatchOut"];
 export type SourceSyncStatus = ApiSchemas["SourceSyncStatusOut"];
 export type SourceRefreshResult = ApiSchemas["SourceRefreshOut"];
+export type ManualRefreshStatus = ApiSchemas["ManualRefreshOut"];
 
 export interface Opportunity {
   id: string;

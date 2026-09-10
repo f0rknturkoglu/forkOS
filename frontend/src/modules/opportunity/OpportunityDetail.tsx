@@ -21,7 +21,16 @@ import type { ApplicationHistoryRow, Document, Opportunity, Todo } from "@/core/
 import { planDayForToday } from "@/core/tasks";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import { useOnline } from "@/lib/hooks";
-import { SCORE_TONE, STATUSES, STATUS_TONES, daysLeft, kindLabel, scoreBand, statusLabel } from "./labels";
+import {
+  SCORE_TONE,
+  STATUSES,
+  STATUS_TONES,
+  announcementCategoryLabel,
+  daysLeft,
+  kindLabel,
+  scoreBand,
+  statusLabel,
+} from "./labels";
 import { sourceLabel } from "@/core/labels";
 import type { ScoreBand } from "./labels";
 import {
@@ -159,6 +168,10 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
 
   const left = daysLeft(item?.deadline_at ?? null);
   const band = scoreBand(item?.score ?? null);
+  const ylsyQuota = typeof item?.raw.quota_total === "number" ? item.raw.quota_total : null;
+  const ylsyFields = Array.isArray(item?.raw.fields)
+    ? item.raw.fields.filter((value): value is string => typeof value === "string")
+    : [];
 
   // Hızlı durum aksiyonları
   const handleQuickTransition = (toStatus: string) => {
@@ -187,6 +200,9 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
                 <Chip>{item ? kindLabel(item.kind) : "…"}</Chip>
+                {item?.category?.startsWith("ylsy-") && (
+                  <Chip tone="accent">{announcementCategoryLabel(item.category)}</Chip>
+                )}
                 {item && <Chip tone={STATUS_TONES[item.status] ?? "neutral"}>{statusLabel(item.status)}</Chip>}
                 {band && (
                   <Chip tone={SCORE_TONE[band]}>
@@ -313,6 +329,18 @@ export function OpportunityDetail({ id, close }: { id: string; close: () => void
           {/* TAB 1: GENEL & İLAN */}
           {activeTab === "overview" && (
             <>
+              {ylsyQuota !== null && (
+                <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
+                  <SectionHeader label="YLSY kontenjanı" hint={`${ylsyQuota} kişilik kontenjan`} />
+                  {ylsyFields.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {ylsyFields.map((field) => (
+                        <Chip key={field}>{field}</Chip>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
               {item?.intelligence && item.intelligence.signals.length > 0 && (
                 <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
                   <SectionHeader

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://127.0.0.1:8787/api/auth/google/callback"
+    worker_enabled: bool = False
 
     @property
     def cors_origins(self) -> list[str]:

@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from app.modules.opportunity.worker import select_due_sources
+import pytest
+
+from app.modules.opportunity.worker import _error_message, select_due_sources
+
+pytestmark = pytest.mark.no_database
 
 
 @dataclass
@@ -26,3 +30,8 @@ def test_due_sources_honor_each_adapter_interval_and_oldest_due_first():
         never,
         overdue,
     ]
+
+
+def test_error_message_never_discards_exception_type():
+    assert _error_message(RuntimeError()) == "RuntimeError"
+    assert _error_message(RuntimeError("upstream failed")) == "RuntimeError: upstream failed"

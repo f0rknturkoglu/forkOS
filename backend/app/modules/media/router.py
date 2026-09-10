@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -124,10 +124,13 @@ async def media_providers(session: AsyncSession = Depends(get_session)):
 
 @router.post("/media/sync", response_model=MediaSyncBatchOut | MediaSyncIdleOut)
 async def queue_media_sync(
+    background: BackgroundTasks,
     provider: str | None = None,
     item_id: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
 ):
+    from app.worker.jobs import drain_source_sync_batches
+
     try:
         batch = await media_sync.queue_sync(session, provider_id=provider, item_id=item_id)
     except ValueError as exc:
@@ -139,6 +142,7 @@ async def queue_media_sync(
             "source_ids": [],
             "total_sources": 0,
         }
+    background.add_task(drain_source_sync_batches)
     return batch
 
 

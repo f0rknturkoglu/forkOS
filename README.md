@@ -68,8 +68,9 @@ GET  /api/pomodoro/active                     sekme kapansa da suren aktif sessi
 GET  /api/reviews/preview?kind=weekly         event tabanli canli review ozeti
 GET  /api/opportunities?kind=exam             OSYM sinav/duyurulari
 GET  /api/opportunities?kind=scholarship      YLSY burs ilanlari
-POST /api/sources/refresh                     secilen kaynaklari kalici worker kuyruguna al
+POST /api/sources/refresh                     secilen kaynaklari kalici kuyruga al ve API'de cek
 GET  /api/sources/sync                        aktif batch, kaynaklar ve kesin ilerleme
+POST /api/system/refresh                      tum kaynaklari tek manuel turda yenile
 GET  /api/search?q=&grouped=true              turune gore gruplanmis global arama
 POST /api/backup                              yerel gzip yedek olustur
 ```
@@ -89,6 +90,11 @@ temizlenebilir. `client_uuid` sayesinde retry cift kayit uretmez.
 
 ## Worker
 
+Worker varsayilan olarak kapali profildedir. Header'daki yenileme dugmesi RSS,
+firsat/duyuru, medya, takvim, GitHub ve son tarihleri API arka planinda tek turda
+gunceller. Surekli otomasyon gerekirse `make up-auto`; sonradan acmak/kapatmak icin
+`make worker-up` / `make worker-down` kullan (Docker'da `CO="docker compose"`).
+
 - Feed basina `RSS_DEFAULT_INTERVAL_MINUTES` (varsayilan 30dk) + jitter
 - **Conditional GET:** `ETag` / `If-Modified-Since` → 304'te hic parse edilmez
 - **Catch-up:** worker acilista bekleyen tum aktif feed'leri hemen bir tur ceker
@@ -96,15 +102,15 @@ temizlenebilir. `client_uuid` sayesinde retry cift kayit uretmez.
 - 5 ardisik hata → feed `active=false` + `rss.feed_disabled` event'i
 - Her gece 04:00: okunmamis + kaydedilmemis item'lari `RSS_RETENTION_DAYS` sonrasi siler
 - OSYM/YLSY ve is kaynaklari artimli dilimler halinde taranir; baslangicta tam forkjob senkronu yapilmaz
-- Manuel toplu cekimler API prosesi icinde calismaz; kalici batch'e yazilir ve worker
-  kaynaklari tek tek sahiplenir. Worker kapanirsa yarim kalan kosular zaman asimindan
-  sonra yeniden denenir; ilerleme `/api/sources/sync`, heartbeat `/api/system/stats` ile izlenir.
+- Manuel toplu cekimler kalici batch'e yazilir ve API arka planinda kaynaklari tek tek
+  sahiplenir. Worker aciksa ayni kuyrugu paylasir. Yarim kalan kosular zaman asimindan
+  sonra yeniden denenir; ilerleme `/api/sources/sync` ile izlenir.
 - Kaynaklar kendi `interval_minutes` degerine gore calisir. LinkedIn otomatik turlara
   dahil edilmez; yalnizca acik secimle manuel calistirilir.
 - Google Calendar 30 dakikada, GitHub 3 saatte bir yenilenir; yedek geceleri alinir
 
 Uzun surecek tum is kaynagi senkronu yerine yukaridaki tek-kaynak refresh endpoint'lerini
-kullan. Worker duruyken de OSYM ve YLSY arayuzden ayri ayri yenilenebilir.
+kullanabilirsin. Worker duruyken tum manuel yenilemeler calisir.
 
 Uyarilar Activity ekraninda ve her sayfanin ustundeki seritte gorunur --
 "sessiz olum" kabul edilmez.
@@ -143,8 +149,8 @@ Yedek: gunluk gzip + istege bagli Drive; secret ayarlar yedekten cikar.
 `/backup/restore` "Birleştirerek içe aktar"dir (mevcut veriye dokunmaz);
 tam geri donus `make disaster-restore` (Faz 15/16/28; oncesinde otomatik safety dump, geri yukleme sonrasi schema migrate edilir).
 
-Local-only oldugu icin worker sadece makine acikken calisir.
-Sabah `make up` → catch-up turu kacirilan her seyi tek seferde toplar.
+Local-only oldugu icin worker yalnizca istenirse acilir. Normal kullanimda `make up`
+sonrasi header'daki genel yenileme dugmesi kacirilanlari tek seferde toplar.
 
 ## Test
 

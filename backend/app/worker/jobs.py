@@ -98,8 +98,8 @@ async def poll_opportunities(*, limit: int = 4) -> int:
     return total
 
 
-async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
-    """API'nin kalıcı kuyruğunu worker sürecinde, sınırlı eşzamanlılıkla tüket."""
+async def _consume_source_sync_batch(*, limit: int = CONCURRENCY) -> tuple[int, int]:
+    """Kuyruktan bir dilim tüket; (işlenen kaynak, eklenen kayıt) döndür."""
     async with SessionLocal() as session:
         await source_sync.reconcile_stale_runs(
             session, older_than=datetime.now(UTC) - timedelta(minutes=15)
@@ -108,7 +108,7 @@ async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
         batch, pending = await source_sync.claim_pending_sources(session, limit=limit)
 
     if batch is None or not pending:
-        return 0
+        return 0, 0
     semaphore = asyncio.Semaphore(CONCURRENCY)
 
     async def one(source_id: str) -> int:
@@ -123,7 +123,23 @@ async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
         len(pending),
         total,
     )
+    return len(pending), total
+
+
+async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
+    """API'nin kalıcı kuyruğundan tek bir sınırlı dilim tüket."""
+    _, total = await _consume_source_sync_batch(limit=limit)
     return total
+
+
+async def drain_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
+    """Worker kapalıyken manuel yenilemenin oluşturduğu kuyruğu tamamen tüket."""
+    total = 0
+    while True:
+        processed, added = await _consume_source_sync_batch(limit=limit)
+        total += added
+        if processed == 0:
+            return total
 
 
 async def poll_media() -> int:

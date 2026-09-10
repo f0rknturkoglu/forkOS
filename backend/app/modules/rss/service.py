@@ -598,7 +598,7 @@ async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
     return result.status, added
 
 
-async def refresh_all(concurrency: int = 8) -> int:
+async def refresh_all(concurrency: int = 8, *, ignore_interval: bool = False) -> int:
     """Suresi gelmis tum feed'leri arka planda ceker.
 
     OPML import sonrasi ve arayuzdeki "Tumunu tazele" bunu cagirir.
@@ -608,7 +608,10 @@ async def refresh_all(concurrency: int = 8) -> int:
     from app.db import SessionLocal  # yerel import: doner bagimlilik olusmasin
 
     async with SessionLocal() as session:
-        feeds = await due_feeds(session, interval_minutes=None)
+        feeds = await due_feeds(
+            session,
+            interval_minutes=0 if ignore_interval else None,
+        )
     if not feeds:
         return 0
 

@@ -16,11 +16,22 @@ from app.sources.announcements import SOURCES
 from app.sources.forkjob_port import forkjob_sources
 
 
+def _error_message(exc: Exception) -> str:
+    detail = str(exc).strip()
+    return f"{type(exc).__name__}: {detail}" if detail else type(exc).__name__
+
+
 @dataclass
 class NativeJob:
     raw: Any
 
     def __getattr__(self, name: str) -> Any:
+        deadline_at = self.raw.extra.get("deadline_at")
+        if isinstance(deadline_at, str):
+            try:
+                deadline_at = datetime.fromisoformat(deadline_at)
+            except ValueError:
+                deadline_at = None
         values = {
             "external_id": self.raw.external_id,
             "job_id": self.raw.external_id,
@@ -32,6 +43,7 @@ class NativeJob:
             "salary": self.raw.extra.get("compensation"),
             "kind": self.raw.extra.get("kind", "job"),
             "published_at": self.raw.published_at,
+            "deadline_at": deadline_at,
         }
         if name in values:
             return values[name]
@@ -68,7 +80,7 @@ async def poll_source(source, *, batch_id=None) -> int:
                 await session.commit()
             return added
         except Exception as exc:
-            await runs.finish_run(session, run, status=runs.ERROR, error=str(exc))
+            await runs.finish_run(session, run, status=runs.ERROR, error=_error_message(exc))
             if batch_id is not None:
                 await sync_service.finish_batch_source(session, batch_id, status=runs.ERROR)
             await session.commit()

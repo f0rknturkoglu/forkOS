@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from app.sources.announcements import AnnouncementSource, YokAnnouncementSource
+from app.sources.announcements import (
+    AnnouncementSource,
+    YlsySource,
+    YokAnnouncementSource,
+    parse_ylsy_preference_layout,
+    ylsy_deadline,
+    ylsy_phase,
+)
 from app.sources.forkjob_core.models import Company, DateSource, WorkMode
 from app.sources.forkjob_core.scrapers.bulldogjob import _QUERY, BulldogjobScraper
 from app.sources.forkjob_core.scrapers.kariyernet import KariyerNetScraper
@@ -47,6 +54,112 @@ def test_yok_fixture_reads_live_card_shape_and_date():
     assert items[0].title == "Yüksek Lisans Burs Başvurusu"
     assert items[0].published_at.isoformat() == "2026-08-24T00:00:00+00:00"
     assert items[0].extra["organization"] == "YÖK"
+
+
+def _layout_row(length: int, fields: list[tuple[int, str]]) -> str:
+    value = [" "] * length
+    for start, text in fields:
+        value[start : start + len(text)] = text
+    return "".join(value)
+
+
+def test_ylsy_public_preference_layout_becomes_a_structured_slot():
+    page = _layout_row(
+        690,
+        [
+            (22, "2025801"),
+            (40, "20258001"),
+            (57, "AFAD- AFET YÖNETİMİ"),
+            (166, "Afet ve Acil Durum Yönetimi Başkanlığı (AFAD)"),
+            (254, "Deprem Erken Uyarı"),
+            (344, "1"),
+            (520, "Yüksek Lisans"),
+            (550, "Almanya, Japonya"),
+            (659, "Mühendis"),
+        ],
+    )
+
+    rows = parse_ylsy_preference_layout([page], "public")
+
+    assert rows == [
+        {
+            "group_code": "2025801",
+            "area_code": "20258001",
+            "page": 1,
+            "group": "AFAD- AFET YÖNETİMİ",
+            "organization": "Afet ve Acil Durum Yönetimi Başkanlığı (AFAD)",
+            "unit": "",
+            "field": "Deprem Erken Uyarı",
+            "quota": 1,
+            "level": "Yüksek Lisans",
+            "countries": "Almanya, Japonya",
+            "role": "Mühendis",
+        }
+    ]
+
+
+def test_ylsy_layout_detects_page_specific_column_shift():
+    first_page = _layout_row(
+        690,
+        [
+            (22, "2025801"),
+            (40, "20258001"),
+            (57, "AFAD- AFET YÖNETİMİ"),
+            (166, "Afet ve Acil Durum Yönetimi Başkanlığı (AFAD)"),
+            (254, "Deprem Erken Uyarı"),
+            (344, "1"),
+            (520, "Yüksek Lisans"),
+            (550, "Almanya"),
+            (659, "Mühendis"),
+        ],
+    )
+    shifted_page = _layout_row(
+        690,
+        [
+            (21, "2025802"),
+            (39, "20258002"),
+            (55, "TUA- UZAY TEKNOLOJİLERİ"),
+            (161, "Türkiye Uzay Ajansı"),
+            (247, "Uydu Sistemleri"),
+            (335, "2"),
+            (508, "Yüksek Lisans"),
+            (534, "Japonya"),
+            (640, "Mühendis"),
+        ],
+    )
+
+    rows = parse_ylsy_preference_layout([first_page, shifted_page], "public")
+
+    assert [(row["organization"], row["quota"]) for row in rows] == [
+        ("Afet ve Acil Durum Yönetimi Başkanlığı (AFAD)", 1),
+        ("Türkiye Uzay Ajansı", 2),
+    ]
+
+
+def test_ylsy_rss_covers_1416_news_missing_from_ajax_category():
+    source = YlsySource("ylsy", "https://yyegm.meb.gov.tr/www/duyurular/kategori/2", (), "scholarship")
+    body = b"""<?xml version="1.0" encoding="utf-8"?>
+    <rss version="2.0"><channel><item>
+      <title>1416 Burslari Kurum Tercih Islemleri Basladi</title>
+      <link>https://yyegm.meb.gov.tr/www/kurum-tercihi/icerik/1</link>
+      <pubDate>Mon, 18 May 2026 12:00:00 +0300</pubDate>
+    </item></channel></rss>"""
+
+    items = source.parse_rss(body)
+
+    assert len(items) == 1
+    assert items[0].extra["category"] == "ylsy-preference"
+    assert items[0].published_at.isoformat() == "2026-05-18T09:00:00+00:00"
+
+
+def test_ylsy_phase_and_deadline_extract_actionable_dates():
+    assert ylsy_phase("2026 YLSY Başvuru Süresi Uzatıldı") == "extension"
+    deadline = ylsy_deadline(
+        "Başvurular 19-30 Aralık 2025 tarihleri arasında alınacak ve "
+        "30 Aralık 2025 tarihinde saat 17.00'de sona erecektir."
+    )
+    assert deadline is not None
+    assert deadline.isoformat() == "2025-12-30T14:00:00+00:00"
 
 
 def test_bulldog_query_matches_current_public_schema():

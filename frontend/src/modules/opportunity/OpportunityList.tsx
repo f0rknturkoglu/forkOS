@@ -4,6 +4,7 @@ import type { Opportunity } from "@/core/types";
 import {
   REMOTE_LABELS,
   STATUSES,
+  announcementCategoryLabel,
   archetypeLabel,
   daysLeft,
   jobCategoryLabel,
@@ -144,6 +145,9 @@ export function OpportunityCard({
             </span>
           )}
           {!announcement && item.category && <span className={chip(false)}>{jobCategoryLabel(item.category)}</span>}
+          {announcement && item.category?.startsWith("ylsy-") && (
+            <Chip tone="accent">{announcementCategoryLabel(item.category)}</Chip>
+          )}
           {item.skill_match && (
             <span className="rounded-control border border-ok/30 bg-ok-surface px-2 py-0.5 text-micro font-medium text-ok">
               CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}

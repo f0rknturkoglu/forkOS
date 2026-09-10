@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import source_sync
+from app.core.events import log_event
+from app.db import SessionLocal
+from app.modules.system.models import Setting
+
+STATUS_KEY = "system.manual_refresh"
+STALE_AFTER = timedelta(hours=1)
+
+
+def _default_status() -> dict[str, Any]:
+    return {
+        "status": "idle",
+        "started_at": None,
+        "finished_at": None,
+        "results": {},
+        "errors": [],
+    }
+
+
+async def status(session: AsyncSession) -> dict[str, Any]:
+    row = await session.get(Setting, STATUS_KEY)
+    value = row.value if row and isinstance(row.value, dict) else _default_status()
+    return {**_default_status(), **value}
+
+
+async def queue(session: AsyncSession) -> tuple[dict[str, Any], bool]:
+    from app.modules.media import sync as media_sync
+    from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
+    from app.sources.forkjob_port import forkjob_sources
+
+    current = await status(session)
+    started_at = current.get("started_at")
+    if current["status"] == "running" and isinstance(started_at, str):
+        try:
+            if datetime.fromisoformat(started_at) >= datetime.now(UTC) - STALE_AFTER:
+                return current, False
+        except ValueError:
+            pass
+
+    opportunity_ids = [
+        source.id
+        for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+    ]
+    batch, newly_queued = await source_sync.create_or_extend_batch(
+        session,
+        opportunity_ids,
+        scope="opportunity",
+    )
+    await media_sync.queue_sync(session)
+    value = {
+        "status": "running",
+        "started_at": datetime.now(UTC).isoformat(),
+        "finished_at": None,
+        "results": {
+            "opportunity_sources": batch.total_sources,
+            "opportunity_sources_queued": len(newly_queued),
+        },
+        "errors": [],
+    }
+    row = await session.get(Setting, STATUS_KEY)
+    if row is None:
+        session.add(Setting(key=STATUS_KEY, value=value))
+    else:
+        row.value = value
+    await log_event(
+        session,
+        verb="system.refresh.started",
+        entity_type="system",
+        payload={"opportunity_sources": batch.total_sources},
+    )
+    await session.commit()
+    return value, True
+
+
+async def run() -> None:
+    from app.modules.opportunity.service import deadline_ladder
+    from app.modules.rss import service as rss_service
+    from app.worker.jobs import drain_source_sync_batches, sync_calendar, sync_github
+
+    results: dict[str, int] = {}
+    errors: list[str] = []
+
+    async def execute(name: str, action) -> None:
+        try:
+            results[name] = await action()
+        except Exception as exc:  # Her bölüm diğerlerini engellemeden raporlanır.
+            errors.append(f"{name}: {type(exc).__name__}: {exc}"[:500])
+
+    await execute("sources", drain_source_sync_batches)
+    await execute("rss", lambda: rss_service.refresh_all(ignore_interval=True))
+    await execute("calendar", sync_calendar)
+    await execute("github", sync_github)
+
+    async def deadlines() -> int:
+        async with SessionLocal() as session:
+            return await deadline_ladder(session)
+
+    await execute("deadlines", deadlines)
+
+    async with SessionLocal() as session:
+        row = await session.get(Setting, STATUS_KEY)
+        previous = row.value if row and isinstance(row.value, dict) else {}
+        value = {
+            **_default_status(),
+            **previous,
+            "status": "completed_with_errors" if errors else "completed",
+            "finished_at": datetime.now(UTC).isoformat(),
+            "results": {**(previous.get("results") or {}), **results},
+            "errors": errors,
+        }
+        if row is None:
+            session.add(Setting(key=STATUS_KEY, value=value))
+        else:
+            row.value = value
+        await log_event(
+            session,
+            verb="system.refresh.completed",
+            entity_type="system",
+            payload={"results": value["results"], "errors": errors},
+        )
+        await session.commit()

@@ -3014,7 +3014,7 @@ export interface paths {
          *
          *     source_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi
          *     de bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi
-         *     worker yapar ve ilerleme /sources/sync'ten izlenir.
+         *     API arka plan görevi tüketir; worker açıkken aynı kalıcı kuyruğu paylaşır.
          */
         post: operations["refresh_sources_api_sources_refresh_post"];
         delete?: never;
@@ -3309,6 +3309,24 @@ export interface paths {
          *     plan_day olarak buradan gelir; title/description konudan sabit kalir.
          */
         post: operations["create_topic_todo_api_study_topics__topic_id__todos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manual Refresh Status */
+        get: operations["manual_refresh_status_api_system_refresh_get"];
+        put?: never;
+        /** Manual Refresh */
+        post: operations["manual_refresh_api_system_refresh_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4617,6 +4635,21 @@ export interface components {
              * Format: uuid
              */
             to_id: string;
+        };
+        /** ManualRefreshOut */
+        ManualRefreshOut: {
+            /** Errors */
+            errors?: string[];
+            /** Finished At */
+            finished_at?: string | null;
+            /** Results */
+            results?: {
+                [key: string]: number;
+            };
+            /** Started At */
+            started_at?: string | null;
+            /** Status */
+            status: string;
         };
         /** MediaCollectionIn */
         MediaCollectionIn: {
@@ -14170,6 +14203,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manual_refresh_status_api_system_refresh_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualRefreshOut"];
+                };
+            };
+        };
+    };
+    manual_refresh_api_system_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualRefreshOut"];
                 };
             };
         };

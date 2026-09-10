@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,13 +81,19 @@ async def sync_history(
 
 
 @router.post("/sources/refresh", response_model=SourceRefreshOut)
-async def refresh_sources(body: SourceRefreshIn, session: AsyncSession = Depends(get_session)):
+async def refresh_sources(
+    body: SourceRefreshIn,
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
     """Secmeli ya da toplu cekim.
 
     source_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi
     de bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi
-    worker yapar ve ilerleme /sources/sync'ten izlenir.
+    API arka plan görevi tüketir; worker açıkken aynı kalıcı kuyruğu paylaşır.
     """
+    from app.worker.jobs import drain_source_sync_batches
+
     catalog = {
         source.id: source
         for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
@@ -113,6 +119,7 @@ async def refresh_sources(body: SourceRefreshIn, session: AsyncSession = Depends
 
     batch, newly_queued = await sync_service.create_or_extend_batch(session, ids)
     await session.commit()
+    background.add_task(drain_source_sync_batches)
     return {
         "batch_id": str(batch.id),
         "queued": len(newly_queued),
@@ -121,7 +128,13 @@ async def refresh_sources(body: SourceRefreshIn, session: AsyncSession = Depends
 
 
 @router.post("/sources/{source_id:path}/refresh")
-async def refresh_source(source_id: str, session: AsyncSession = Depends(get_session)):
+async def refresh_source(
+    source_id: str,
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
+    from app.worker.jobs import drain_source_sync_batches
+
     try:
         catalog = {
             source.id for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
@@ -131,9 +144,11 @@ async def refresh_source(source_id: str, session: AsyncSession = Depends(get_ses
         batch, newly_queued = await sync_service.create_or_extend_batch(session, [source_id])
         await session.commit()
         if not newly_queued:
+            background.add_task(drain_source_sync_batches)
             return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
     except KeyError as exc:
         raise HTTPException(404, "kaynak bulunamadı") from exc
+    background.add_task(drain_source_sync_batches)
     return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
 
 

@@ -24,6 +24,21 @@ const JOB_CATEGORY_LABELS: Record<string, string> = {
 export const jobCategoryLabel = (category: string | null) =>
   category ? (JOB_CATEGORY_LABELS[category] ?? category) : "Kategorisiz";
 
+const ANNOUNCEMENT_CATEGORY_LABELS: Record<string, string> = {
+  "ylsy-application": "YLSY başvuru",
+  "ylsy-exam": "YLSY sınav",
+  "ylsy-extension": "Süre uzatımı",
+  "ylsy-guide": "YLSY kılavuz",
+  "ylsy-language": "Dil eğitimi",
+  "ylsy-preference": "Kurum tercihi",
+  "ylsy-public-slot": "Kamu kontenjanı",
+  "ylsy-result": "YLSY sonuç",
+  "ylsy-university-slot": "Üniversite kontenjanı",
+};
+
+export const announcementCategoryLabel = (category: string | null) =>
+  category ? (ANNOUNCEMENT_CATEGORY_LABELS[category] ?? "YLSY duyuru") : "Duyuru";
+
 export const STATUS_LABELS: Record<string, string> = {
   discovered: "Keşfedildi",
   considering: "Değerlendiriliyor",

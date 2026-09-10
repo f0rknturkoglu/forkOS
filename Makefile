@@ -2,8 +2,11 @@
 CO ?= podman compose
 
 up:        ; $(CO) up -d
+up-auto:   ; WORKER_ENABLED=1 $(CO) --profile auto up -d
+worker-up: ; WORKER_ENABLED=1 $(CO) --profile auto up -d worker
+worker-down: ; $(CO) stop worker
 down:      ; $(CO) down
-logs:      ; $(CO) logs -f api worker
+logs:      ; $(CO) logs -f api web
 ps:        ; $(CO) ps
 build:     ; $(CO) build
 sh:        ; $(CO) exec api bash

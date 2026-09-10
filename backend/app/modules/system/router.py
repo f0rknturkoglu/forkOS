@@ -7,16 +7,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import PlainTextResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings as app_settings
 from app.core.models import SavedView
 from app.core.schemas import SavedViewCreate, SavedViewOut, SavedViewPatch
 from app.db import get_session
-from app.modules.system import backup, export, news, restore, stats
+from app.modules.system import backup, export, news, refresh, restore, stats
 from app.modules.system.models import Setting
 
 router = APIRouter(tags=["system"])
@@ -48,6 +49,30 @@ DEFAULTS: dict[str, Any] = {
 
 class SettingIn(BaseModel):
     value: Any
+
+
+class ManualRefreshOut(BaseModel):
+    status: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    results: dict[str, int] = Field(default_factory=dict)
+    errors: list[str] = Field(default_factory=list)
+
+
+@router.get("/system/refresh", response_model=ManualRefreshOut)
+async def manual_refresh_status(session: AsyncSession = Depends(get_session)):
+    return await refresh.status(session)
+
+
+@router.post("/system/refresh", response_model=ManualRefreshOut)
+async def manual_refresh(
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
+    value, started = await refresh.queue(session)
+    if started:
+        background.add_task(refresh.run)
+    return value
 
 
 @router.get("/settings")
@@ -166,13 +191,12 @@ async def system_stats(session: AsyncSession = Depends(get_session)):
     heartbeat_at = None
     if heartbeat and isinstance(heartbeat.value, dict):
         heartbeat_at = heartbeat.value.get("at")
-    worker_status = "unknown"
-    if isinstance(heartbeat_at, str):
+    worker_status = "unknown" if app_settings.worker_enabled else "disabled"
+    if app_settings.worker_enabled and isinstance(heartbeat_at, str):
         try:
             observed = datetime.fromisoformat(heartbeat_at)
-            worker_status = (
-                "healthy" if observed >= datetime.now(UTC) - timedelta(minutes=3) else "stale"
-            )
+            fresh = observed >= datetime.now(UTC) - timedelta(minutes=3)
+            worker_status = "healthy" if fresh else "stale"
         except ValueError:
             worker_status = "unknown"
 

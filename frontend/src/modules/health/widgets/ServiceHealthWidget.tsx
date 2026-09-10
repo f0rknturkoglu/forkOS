@@ -5,7 +5,7 @@ import { Chip, Empty, Section, relativeTime } from "@/core/ui";
 import type { BackupStatus } from "@/core/types";
 
 interface SystemStats {
-  worker: { status: "healthy" | "stale" | "unknown"; heartbeat_at: string | null };
+  worker: { status: "healthy" | "stale" | "unknown" | "disabled"; heartbeat_at: string | null };
   cpu_pct: number;
   mem_total_kb: number;
   uptime_s: number;
@@ -44,6 +44,8 @@ export function ServiceHealthWidget() {
           </span>
           {workerHealthy ? (
             <Chip tone="ok">çalışıyor</Chip>
+          ) : stats?.worker.status === "disabled" ? (
+            <Chip>kapalı · elle yenileme</Chip>
           ) : stats?.worker.status === "stale" ? (
             <Chip tone="danger">durdu — arka plan işleri çalışmıyor</Chip>
           ) : (

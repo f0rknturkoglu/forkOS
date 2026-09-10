@@ -30,6 +30,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}
+      WORKER_ENABLED: ${WORKER_ENABLED:-0}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:8787:8787"   # DIŞARI AÇMA — auth yok
     volumes:
@@ -45,6 +46,7 @@ services:
     restart: unless-stopped
 
   worker:
+    profiles: ["auto"]
     build: ./backend
     command: python -m app.worker.main
     environment:
@@ -56,6 +58,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}
+      WORKER_ENABLED: "1"
     volumes:
       - ./backend:/app:z
     depends_on:
