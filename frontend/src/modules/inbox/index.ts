@@ -12,6 +12,7 @@ const InboxPage = lazy(() => import("./InboxPage").then((module) => ({ default: 
 registerModule({
   id: "inbox",
   title: "Gelen Kutusu",
+  description: "Gelen bağlantı ve notları tek kuyrukta topla, sonra düzenle.",
   icon: Inbox,
   group: "capture",
   routes: [{ path: "/inbox", element: InboxPage }],

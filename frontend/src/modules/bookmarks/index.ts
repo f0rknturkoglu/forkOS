@@ -9,6 +9,7 @@ const BookmarksPage = lazy(() => import("./BookmarksPage").then((module) => ({ d
 registerModule({
   id: "bookmarks",
   title: "Yer İmleri",
+  description: "Bağlantıları kaydet, etiketle ve okuma listende topla.",
   icon: Bookmark,
   group: "capture",
   routes: [{ path: "/bookmarks", element: BookmarksPage }],

@@ -45,6 +45,15 @@ async def status(session: AsyncSession = Depends(get_session)):
     }
 
 
+@router.delete("/auth/google", status_code=204)
+async def disconnect(session: AsyncSession = Depends(get_session)):
+    """Google Drive token'ini siler; yeni senkron icin yeniden baglanmak gerekir."""
+    token = await session.get(OAuthToken, "google")
+    if token is not None:
+        await session.delete(token)
+        await session.commit()
+
+
 @router.get("/documents")
 async def documents(category: str | None = None, session: AsyncSession = Depends(get_session)):
     return await service.list_documents(session, category)

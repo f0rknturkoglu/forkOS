@@ -19,6 +19,7 @@ const MediaTrashPage = lazy(() => import("./MediaTrashPage").then((module) => ({
 registerModule({
   id: "media",
   title: "Medya",
+  description: "Film ve dizilerini puanla, koleksiyonlara ayır, takibini sürdür.",
   icon: Film,
   group: "track",
   sidebar: MediaSidebar,

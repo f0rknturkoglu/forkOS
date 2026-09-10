@@ -9,6 +9,7 @@ const OpportunityPage = lazy(() => import("./OpportunityPage").then((module) => 
 registerModule({
   id: "opportunity",
   title: "Fırsatlar",
+  description: "Fırsatları son tarih ve takip hatırlatmalarıyla tek yerden yönet.",
   icon: Target,
   group: "track",
   routes: [{ path: "/opportunities", element: OpportunityPage }],

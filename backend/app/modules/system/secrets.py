@@ -16,6 +16,9 @@ SECRET_SETTING_KEYS: frozenset[str] = frozenset({
     "media.google_books_key",
     "media.igdb_client_id",
     "media.igdb_client_secret",
+    # RAWG artik arayuzde yok (IGDB oyun aramasini devraldi) ama eski
+    # kayitlarda anahtar kalmis olabilir; yedekten yine dislanir.
+    "media.rawg_key",
 })
 
 

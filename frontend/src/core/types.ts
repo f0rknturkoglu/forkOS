@@ -63,6 +63,7 @@ export interface Heatmap {
   streak: number;
 }
 
+
 export interface Bookmark {
   id: string;
   title: string;
@@ -546,6 +547,22 @@ export interface BackupStatus {
   includes: string[];
 }
 
+/**
+ * `/system/stats` yaniti: makinenin (ya da Linux VM'in) anlik sagligi.
+ * `cpu_pct` ilk cagrida null olur -- /proc/stat farki icin onceki olcum yok;
+ * arayuz "olculuyor" der, sifir uydurmaz.
+ */
+export interface SystemStats {
+  cpu_pct: number | null;
+  load: number[];
+  cpu_count: number;
+  mem_total_kb: number | null;
+  mem_available_kb: number | null;
+  disk: { total: number; free: number; path?: string } | null;
+  uptime_s: number;
+  worker: { status: "healthy" | "stale" | "unknown" | "disabled"; heartbeat_at: string | null };
+}
+
 export type SourceSyncBatch = ApiSchemas["SourceSyncBatchOut"];
 export type SourceSyncStatus = ApiSchemas["SourceSyncStatusOut"];
 export type SourceRefreshResult = ApiSchemas["SourceRefreshOut"];
@@ -885,6 +902,8 @@ export interface TodayWidget {
 export interface ModuleSpec {
   id: string;
   title: string;
+  /** Ayarlar ekranindaki modul listesinde tek satirlik aciklama. */
+  description?: string;
   /** Lucide ikonu ya da ayni props'lari alan kendi bilesenin. */
   icon?: LucideIcon | ComponentType<{ size?: number | string; className?: string }>;
   /** Grup verilmezse modul "Sistem" altina duser. */

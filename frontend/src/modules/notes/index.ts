@@ -10,6 +10,7 @@ const GraphPage = lazy(() => import("../learning/GraphPage").then((module) => ({
 registerModule({
   id: "notes",
   title: "Notlar",
+  description: "Markdown notlarını yaz, fotoğraf ve sesle zenginleştir, graf kur.",
   icon: StickyNote,
   group: "capture",
   sidebar: NoteSidebarTree,

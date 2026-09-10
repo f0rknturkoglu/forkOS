@@ -13,6 +13,7 @@ const SourceHealthPage = lazy(() =>
 registerModule({
   id: "health",
   title: "Sağlık",
+  description: "Sunucu, servis ve veri kaynaklarının sağlık durumunu izle.",
   icon: HeartPulse,
   group: "system",
   routes: [

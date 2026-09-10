@@ -11,6 +11,7 @@ const TodayPage = lazy(() => import("./TodayPage").then((module) => ({ default: 
 registerModule({
   id: "today",
   title: "Bugün",
+  description: "Günün planını, akışını ve hızlı bağlantılarını tek ekranda gör.",
   icon: Sun,
   group: "pinned",
   routes: [{ path: "/", element: TodayPage }],

@@ -8,6 +8,7 @@
 import type { ComponentType } from "react";
 import type { Command, ModuleSpec, TodayWidget } from "./types";
 import { findRouteMatch } from "@/app/router";
+import { readStored, removeStored, writeStored } from "./storage";
 
 const registry = new Map<string, ModuleSpec>();
 let externalCommands: Command[] = [];
@@ -29,7 +30,7 @@ export function registerModule(spec: ModuleSpec): void {
 export const allModules = (): ModuleSpec[] => [...registry.values()];
 
 function enabledModules(): ModuleSpec[] {
-  const disabled = new Set<string>(JSON.parse(localStorage.getItem("lifeos.disabledModules") ?? "[]"));
+  const disabled = new Set<string>(JSON.parse(readStored("disabledModules") ?? "[]"));
   return allModules().filter((m) => !disabled.has(m.id));
 }
 
@@ -41,17 +42,16 @@ export function hydrateSettings(settings: Record<string, unknown>): void {
   const disabled = Array.isArray(settings["modules.disabled"]) ? settings["modules.disabled"] : [];
   const order = Array.isArray(settings["today.widget_order"]) ? settings["today.widget_order"] : [];
   const widgetHidden = Array.isArray(settings["today.widget_hidden"]) ? settings["today.widget_hidden"] : [];
-  localStorage.setItem("lifeos.disabledModules", JSON.stringify(disabled));
-  localStorage.setItem("lifeos.widgetOrder", JSON.stringify(order));
+  writeStored("disabledModules", JSON.stringify(disabled));
+  writeStored("widgetOrder", JSON.stringify(order));
   // Faz 19: widget kimlikli siralama + gizleme (modul ID sirasi legacy kalir).
-  localStorage.setItem("lifeos.todayWidgetOrder", JSON.stringify(order));
-  localStorage.setItem("lifeos.todayWidgetHidden", JSON.stringify(widgetHidden));
-  localStorage.setItem("lifeos.pomodoroDefaults", JSON.stringify(settings["pomodoro.defaults"] ?? {}));
+  writeStored("todayWidgetOrder", JSON.stringify(order));
+  writeStored("todayWidgetHidden", JSON.stringify(widgetHidden));
   const lat = Number(settings["weather.lat"] ?? 0);
   const lon = Number(settings["weather.lon"] ?? 0);
   if (lat || lon) {
-    localStorage.setItem("lifeos.weather.lat", JSON.stringify(lat));
-    localStorage.setItem("lifeos.weather.lon", JSON.stringify(lon));
+    writeStored("weather.lat", JSON.stringify(lat));
+    writeStored("weather.lon", JSON.stringify(lon));
   }
   const links = Array.isArray(settings["media.links"])
     ? (settings["media.links"] as { name: string; url: string }[])
@@ -67,7 +67,7 @@ export function hydrateSettings(settings: Record<string, unknown>): void {
 export const allCommands = () => [...enabledModules().flatMap((m) => m.commands ?? []), ...externalCommands];
 /** Ayarlardaki siraya gore modulleri dizer. */
 function orderedModules(): ModuleSpec[] {
-  const order: string[] = JSON.parse(localStorage.getItem("lifeos.widgetOrder") ?? "[]");
+  const order: string[] = JSON.parse(readStored("widgetOrder") ?? "[]");
   return [...enabledModules()].sort((a, b) => {
     const ai = order.indexOf(a.id);
     const bi = order.indexOf(b.id);
@@ -88,11 +88,11 @@ export interface TodayWidgetView {
 /** Kullanicinin widget tercihleri (Faz 19): sirala + gizle. */
 function readWidgetPrefs(): { order: string[]; hidden: Set<string>; touched: boolean } {
   const known = new Set(allTodayWidgets().map((w) => w.id));
-  const touched = localStorage.getItem("lifeos.todayPrefsTouched") === "1";
-  const rawOrder: unknown = JSON.parse(localStorage.getItem("lifeos.todayWidgetOrder") ?? "null");
+  const touched = readStored("todayPrefsTouched") === "1";
+  const rawOrder: unknown = JSON.parse(readStored("todayWidgetOrder") ?? "null");
   // Eski (Faz 5) deger: modul ID'leri. Widget id'lerinden hicbiri yoksa bu
   // hala modul sirasidir -- her modulun widget'larina acilir (migration).
-  const legacy: string[] = JSON.parse(localStorage.getItem("lifeos.widgetOrder") ?? "[]");
+  const legacy: string[] = JSON.parse(readStored("widgetOrder") ?? "[]");
   let order: string[] = [];
   if (Array.isArray(rawOrder) && rawOrder.some((id) => known.has(String(id)))) {
     order = rawOrder.map(String);
@@ -100,9 +100,7 @@ function readWidgetPrefs(): { order: string[]; hidden: Set<string>; touched: boo
     const byModule = new Map(enabledModules().map((m) => [m.id, (m.todayWidgets ?? []).map((w) => w.id)]));
     order = legacy.flatMap((mid) => byModule.get(mid) ?? []);
   }
-  const storedHidden = (JSON.parse(localStorage.getItem("lifeos.todayWidgetHidden") ?? "[]") as string[]).filter((id) =>
-    known.has(id),
-  );
+  const storedHidden = (JSON.parse(readStored("todayWidgetHidden") ?? "[]") as string[]).filter((id) => known.has(id));
   // Eski odakli varsayilan, feed gibi sonradan temel deneyime alinan
   // widget'lari hidden listesinde birakabilir. Kullanici Today duzenine henuz
   // dokunmadiysa yeni defaultVisible sozlesmesi kazanir; acik tercihler korunur.
@@ -163,20 +161,20 @@ export function allTodayWidgetViewsIncludingHidden(): TodayWidgetView[] {
 
 /** Ayarlar ekrani: siralamayi kaydeder (backend'e yazma cagiran taraf). */
 export function setTodayWidgetOrder(ids: string[]): void {
-  localStorage.setItem("lifeos.todayPrefsTouched", "1");
-  localStorage.setItem("lifeos.todayWidgetOrder", JSON.stringify(ids));
+  writeStored("todayPrefsTouched", "1");
+  writeStored("todayWidgetOrder", JSON.stringify(ids));
 }
 
 export function setTodayWidgetHidden(ids: string[]): void {
-  localStorage.setItem("lifeos.todayPrefsTouched", "1");
-  localStorage.setItem("lifeos.todayWidgetHidden", JSON.stringify(ids));
+  writeStored("todayPrefsTouched", "1");
+  writeStored("todayWidgetHidden", JSON.stringify(ids));
 }
 
 /** Varsayilana don: kullanici sirasi/gizleme temizlenir. */
 export function resetTodayWidgetPrefs(): void {
-  localStorage.removeItem("lifeos.todayPrefsTouched");
-  localStorage.removeItem("lifeos.todayWidgetOrder");
-  localStorage.removeItem("lifeos.todayWidgetHidden");
+  removeStored("todayPrefsTouched");
+  removeStored("todayWidgetOrder");
+  removeStored("todayWidgetHidden");
 }
 
 export const allTodayStats = () => orderedModules().flatMap((m) => m.todayStats ?? []);

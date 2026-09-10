@@ -13,15 +13,22 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
    Bilesenlerin hicbiri temayi bilmez -- sadece semantik sinif kullanir.
    ══════════════════════════════════════════════════════════════════════ */
 
-export type Theme = "light" | "dark";
+export type Theme = "light" | "dark" | "system";
 
 const THEME_KEY = "forkos.theme";
 
+/** Isletim sisteminin koyu tercihi; `system` secilince kullanilir. */
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+function systemTheme(): "light" | "dark" {
+  return typeof window !== "undefined" && window.matchMedia?.(DARK_QUERY).matches ? "dark" : "light";
+}
+
 export function readTheme(): Theme {
   const saved = localStorage.getItem(THEME_KEY);
-  if (saved === "light" || saved === "dark") return saved;
+  if (saved === "light" || saved === "dark" || saved === "system") return saved;
   // Varsayilan ACIK. Isletim sisteminin koyu tercihi burayi baglamaz --
-  // koyu tema bilincli bir secim, kaza degil.
+  // koyu tema bilincli bir secim (ya da acikca `system` tercihi), kaza degil.
   return "light";
 }
 
@@ -31,8 +38,20 @@ export function readTheme(): Theme {
  */
 const themeListeners = new Set<(theme: Theme) => void>();
 
+/** Bir tercihin ekranda karsiligi: `system` isletim sistemine cozulur.
+ *  Somut tema isteyen yerler (Excalidraw gibi) bunu kullanir. */
+export function resolvedTheme(theme: Theme): "light" | "dark" {
+  return theme === "system" ? systemTheme() : theme;
+}
+
+/** `system` tercihinde <html> isletim sistemini izler; tercih degisince
+ *  dinleyiciler guncellenir ve data-theme yeniden cozulur. */
+function applyResolved(theme: Theme): void {
+  document.documentElement.dataset.theme = resolvedTheme(theme);
+}
+
 export function applyTheme(theme: Theme): void {
-  document.documentElement.dataset.theme = theme;
+  applyResolved(theme);
   localStorage.setItem(THEME_KEY, theme);
   themeListeners.forEach((notify) => notify(theme));
 }
@@ -45,6 +64,13 @@ export function useTheme(): [Theme, (next: Theme) => void] {
       themeListeners.delete(setLocal);
     };
   }, []);
+  useEffect(() => {
+    if (theme !== "system") return;
+    const media = window.matchMedia(DARK_QUERY);
+    const onChange = () => applyResolved("system");
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [theme]);
   return [theme, applyTheme];
 }
 

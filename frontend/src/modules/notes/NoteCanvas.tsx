@@ -3,7 +3,7 @@ import { convertToExcalidrawElements, Excalidraw } from "@excalidraw/excalidraw"
 import "@excalidraw/excalidraw/index.css";
 import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/excalidraw/element/types";
-import { Button, Chip, type Theme } from "@/core/ui";
+import { Button, Chip } from "@/core/ui";
 import type { NoteAttachment, NoteCanvasState } from "@/core/types";
 import { Link2, Paperclip } from "lucide-react";
 import { attachmentSkeletons } from "./canvasAttachments";
@@ -14,7 +14,8 @@ type NoteCanvasProps = {
   noteTitle: string;
   attachments: NoteAttachment[];
   readOnly: boolean;
-  theme: Theme;
+  /** Excalidraw'in kendi sozlesmesi: somut tema (tercih cagiranda cozulur). */
+  theme: "light" | "dark";
   onSave: (state: NoteCanvasState) => void;
 };
 

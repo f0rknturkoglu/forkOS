@@ -2,14 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, DatabaseBackup } from "lucide-react";
 import { api } from "@/core/api";
 import { Chip, Empty, Section, relativeTime } from "@/core/ui";
-import type { BackupStatus } from "@/core/types";
-
-interface SystemStats {
-  worker: { status: "healthy" | "stale" | "unknown" | "disabled"; heartbeat_at: string | null };
-  cpu_pct: number;
-  mem_total_kb: number;
-  uptime_s: number;
-}
+import type { BackupStatus, SystemStats } from "@/core/types";
 
 const STALE_BACKUP_HOURS = 48;
 

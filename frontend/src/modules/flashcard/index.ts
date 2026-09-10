@@ -8,6 +8,7 @@ const FlashcardPage = lazy(() => import("./FlashcardPage").then((module) => ({ d
 registerModule({
   id: "flashcard",
   title: "Kartlar",
+  description: "Kart desteleriyle aralıklı tekrar yap, bilgiyi kalıcı hale getir.",
   icon: Layers,
   group: "track",
   routes: [{ path: "/flashcard", element: FlashcardPage }],

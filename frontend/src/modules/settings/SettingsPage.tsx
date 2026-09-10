@@ -1,10 +1,12 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useHashRoute } from "@/app/router";
+import { BellRing, Blocks, Briefcase, DatabaseBackup, LayoutGrid, Plug, SlidersHorizontal } from "lucide-react";
+import { navigate, useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
-import { Input, NumberInput, PageFrame, Section, Textarea, useTheme, useToast } from "@/core/ui";
+import type { LucideIcon } from "lucide-react";
+import { NumberInput, PageFrame, Section, useToast } from "@/core/ui";
 import {
   Workspace,
   WorkspacePaneHeader,
@@ -15,57 +17,65 @@ import {
 } from "@/core/workspace/Workspace";
 import { TodayWidgetsSection } from "./TodayWidgetsSection";
 import { NotificationsSection } from "./NotificationsSection";
-import type { Theme } from "@/core/ui";
+import { CareerProfileSection, DangerZoneSection, SystemDiagnosticsSection, TodayFlowSection } from "./SettingsPanels";
+import type { CareerProfile } from "./SettingsPanels";
 import { useOnline } from "@/lib/hooks";
 import {
   BackupSection,
   IntegrationsSection,
-  MediaLinksSection,
+  MediaProvidersSection,
   ModulesSection,
   SettingsSourceHealth,
+  ThemePicker,
   WeatherSection,
   type IntegrationStatus,
 } from "./SettingsSections";
 
-/** JSON metnini dogrular; gecersizse hata mesajini doner (gecerliyse null). */
-function jsonError(value: string): string | null {
-  try {
-    JSON.parse(value);
-    return null;
-  } catch (error) {
-    return error instanceof Error ? error.message : "Geçersiz JSON";
-  }
-}
+/**
+ * Sekmeler URL'de yasar (`#/settings?tab=modules`): yenileyince kaybolmaz,
+ * baglanti paylasilabilir. Eski `?section=media-links` derin baglantisi da
+ * karsilanir -- Entegrasyonlar sekmesini acip medya panelini odaklar.
+ */
+const TABS: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "general", label: "Genel & Görünüm", icon: SlidersHorizontal },
+  { id: "modules", label: "Modüller", icon: Blocks },
+  { id: "today", label: "Bugün & Akış", icon: LayoutGrid },
+  { id: "notifications", label: "Bildirimler & Çevre", icon: BellRing },
+  { id: "career", label: "Kariyer profili", icon: Briefcase },
+  { id: "integrations", label: "Entegrasyonlar", icon: Plug },
+  { id: "backup", label: "Yedekleme & Sistem", icon: DatabaseBackup },
+];
 
-const SETTINGS_NAV = [
-  ["settings-modules", "Modüller"],
-  ["settings-weather", "Hava durumu"],
-  ["settings-notifications", "Bildirimler"],
-  ["settings-today", "Bugün ekranı"],
-  ["settings-focus", "Odak ve kaynaklar"],
-  ["settings-appearance", "Görünüm"],
-  ["settings-integrations", "Entegrasyonlar"],
-  ["settings-backup", "Yedekleme"],
-  ["settings-health", "Kaynak sağlığı"],
-] as const;
+const TAB_IDS = new Set(TABS.map((tab) => tab.id));
+
+/** Ayarlar her sekmede ayni govde genisligini kullanir; uzun satirlar okunmaz. */
+function Pane({ children }: { children: React.ReactNode }) {
+  return <div className="mx-auto max-w-3xl space-y-4">{children}</div>;
+}
 
 export function SettingsPage() {
   const route = useHashRoute();
-  const requestedSection = route.params.get("section");
   const toast = useToast();
   const online = useOnline();
   const mediaLinksRef = useRef<HTMLDivElement>(null);
-  const focusedSectionRef = useRef<string | null>(null);
+  const requestedSection = route.params.get("section");
+  const requestedTab = route.params.get("tab");
+  const tab =
+    requestedTab && TAB_IDS.has(requestedTab)
+      ? requestedTab
+      : requestedSection === "media-links"
+        ? "integrations"
+        : "general";
+
   const [weatherLoc, setWeatherLoc] = useState<string | null>(null);
-  const [pomodoroDefaults, setPomodoroDefaults] = useState<string | null>(null);
-  const [thresholdsText, setThresholdsText] = useState<string | null>(null);
-  const [intervalsText, setIntervalsText] = useState<string | null>(null);
-  const [pomodoroError, setPomodoroError] = useState<string | null>(null);
-  const [thresholdsError, setThresholdsError] = useState<string | null>(null);
-  const [intervalsError, setIntervalsError] = useState<string | null>(null);
   const [retentionDays, setRetentionDays] = useState<number | null>(null);
-  const [tmdbKey, setTmdbKey] = useState<string | null>(null);
-  const [rawgKey, setRawgKey] = useState<string | null>(null);
+  const [driveFolder, setDriveFolder] = useState<string | null>(null);
+  const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
+  const [githubLogin, setGithubLogin] = useState("");
+  const [githubToken, setGithubToken] = useState("");
+  const [mediaName, setMediaName] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+
   const { data: settings } = useQuery({
     queryKey: ["settings"],
     queryFn: () => api.get<AppSettings>("/settings"),
@@ -86,259 +96,272 @@ export function SettingsPage() {
     queryKey: ["backup-status"],
     queryFn: () => api.get<BackupStatus>("/backup/status"),
   });
+
+  /* Derin baglanti: medya paneli odaklanir ve orta hizaya kaydirilir. */
+  const [focusedSection, setFocusedSection] = useState<string | null>(null);
   useEffect(() => {
     if (requestedSection !== "media-links") {
-      focusedSectionRef.current = null;
+      setFocusedSection(null);
       return;
     }
-    if (!settings || focusedSectionRef.current === requestedSection) return;
+    if (tab !== "integrations" || !settings || focusedSection === requestedSection) return;
     mediaLinksRef.current?.scrollIntoView({ block: "center" });
     mediaLinksRef.current?.focus();
-    focusedSectionRef.current = requestedSection;
-  }, [requestedSection, settings]);
-  async function saveWeather(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const name = (weatherLoc ?? (settings?.["weather.location"] as string | undefined) ?? "").trim();
-    if (!name) return;
-    const geo = await fetch(
-      "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(name) + "&count=1&language=tr",
-    )
-      .then((r) => r.json())
-      .catch(() => null);
-    const hit = (geo as { results?: { latitude: number; longitude: number }[] } | null)?.results?.[0];
-    if (!hit) {
-      toast.push("Konum bulunamadı — başka bir ad dene.", { tone: "warn" });
-      return;
-    }
-    await api.put("/settings/weather.location", { value: name });
-    await api.put("/settings/weather.lat", { value: hit.latitude });
-    await api.put("/settings/weather.lon", { value: hit.longitude });
-    invalidateAfter("settings.write");
-    toast.push("Hava durumu konumu kaydedildi.", { tone: "ok" });
-  }
+    setFocusedSection(requestedSection);
+  }, [tab, requestedSection, settings, focusedSection]);
+
   const save = useMutation({
     mutationFn: ({ key, value }: { key: string; value: unknown }) => api.put(`/settings/${key}`, { value }),
-    onSuccess: () => invalidateAfter("settings.write"),
+    onSuccess: () => {
+      invalidateAfter("settings.write");
+      toast.push("Kaydedildi.", { tone: "ok" });
+    },
+    onError: (error) => toast.push(`Kaydedilemedi: ${error.message}`, { tone: "danger" }),
   });
-  const [githubLogin, setGithubLogin] = useState("");
-  const [githubToken, setGithubToken] = useState("");
-  const [mediaName, setMediaName] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
   const connectGithub = useMutation({
     mutationFn: () => api.post("/auth/github", { login: githubLogin, token: githubToken }),
     onSuccess: () => {
       setGithubToken("");
       invalidateAfter("settings.write");
+      toast.push("GitHub bağlandı.", { tone: "ok" });
     },
+    onError: (error) => toast.push(`GitHub bağlanamadı: ${error.message}`, { tone: "danger" }),
+  });
+  const disconnect = useMutation({
+    mutationFn: (provider: "github" | "google") =>
+      provider === "github" ? api.del("/auth/github") : api.del("/auth/google"),
+    onSuccess: (_result, provider) => {
+      invalidateAfter("settings.write");
+      toast.push(provider === "github" ? "GitHub bağlantısı kesildi." : "Google bağlantısı kesildi.", {
+        tone: "neutral",
+      });
+    },
+    onError: (error) => toast.push(`Bağlantı kesilemedi: ${error.message}`, { tone: "danger" }),
   });
   const backup = useMutation({
     mutationFn: () => api.post<{ path: string; size: number }>("/backup"),
     onSuccess: () => invalidateAfter("backup.write"),
   });
+  const reset = useMutation({
+    mutationFn: () => api.post<{ removed: number }>("/settings/reset"),
+    onSuccess: (result) => {
+      invalidateAfter("settings.write");
+      setKeyDrafts({});
+      setWeatherLoc(null);
+      setRetentionDays(null);
+      setDriveFolder(null);
+      toast.push(`Ayarlar sıfırlandı (${result.removed} kayıt silindi).`, { tone: "ok" });
+    },
+    onError: (error) => toast.push(`Sıfırlanamadı: ${error.message}`, { tone: "danger" }),
+  });
+
+  async function saveWeather(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = (weatherLoc ?? (settings?.["weather.location"] as string | undefined) ?? "").trim();
+    if (!name) return;
+    try {
+      const hit = await api.get<{ name: string; latitude: number; longitude: number }>(
+        `/weather/geocode?query=${encodeURIComponent(name)}`,
+      );
+      await api.put("/settings/weather.location", { value: name });
+      await api.put("/settings/weather.lat", { value: hit.latitude });
+      await api.put("/settings/weather.lon", { value: hit.longitude });
+      invalidateAfter("settings.write");
+      toast.push(`Konum kaydedildi: ${hit.name}`, { tone: "ok" });
+    } catch {
+      toast.push("Konum bulunamadı — başka bir ad dene.", { tone: "warn" });
+    }
+  }
+
   if (!settings) return <div className="p-6 text-body text-muted">Ayarlar yükleniyor…</div>;
+
   const disabled = settings["modules.disabled"] ?? [];
   const media = settings["media.links"] ?? [];
+  const subreddits = Array.isArray(settings["news.subreddits"]) ? (settings["news.subreddits"] as string[]) : [];
+  const career = (settings["opportunity.career_profile"] ?? {
+    current_location: "",
+    authorized_countries: [],
+    willing_to_relocate: false,
+  }) as CareerProfile;
+  const write = (key: string, value: unknown) => save.mutate({ key, value });
   const toggleModule = (id: string) =>
-    save.mutate({
-      key: "modules.disabled",
-      value: disabled.includes(id) ? disabled.filter((x) => x !== id) : [...disabled, id],
-    });
+    write("modules.disabled", disabled.includes(id) ? disabled.filter((x) => x !== id) : [...disabled, id]);
   const addLink = () => {
     if (!mediaName || !mediaUrl) return;
-    save.mutate({ key: "media.links", value: [...media, { name: mediaName, url: mediaUrl }] });
+    write("media.links", [...media, { name: mediaName, url: mediaUrl }]);
     setMediaName("");
     setMediaUrl("");
   };
-  const jumpTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  const settingsRail = (
+  const retention = retentionDays ?? Number(settings["rss.retention_days"] ?? 90);
+  const go = (id: string) => navigate(`/settings?tab=${id}`);
+
+  const rail = (
     <WorkspaceRailContent className="max-h-72 lg:max-h-workspace-body">
-      <WorkspaceRailGroup label="Ayar bölümleri">
-        {SETTINGS_NAV.map(([id, label]) => (
-          <WorkspaceRailButton key={id} label={label} onClick={() => jumpTo(id)} />
-        ))}
+      <WorkspaceRailGroup label="Ayarlar">
+        {TABS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <WorkspaceRailButton
+              key={item.id}
+              label={item.label}
+              icon={<Icon size={13} />}
+              active={tab === item.id}
+              onClick={() => go(item.id)}
+            />
+          );
+        })}
       </WorkspaceRailGroup>
     </WorkspaceRailContent>
   );
 
   return (
     <PageFrame>
-      <Workspace rail={settingsRail}>
-        <WorkspacePaneHeader eyebrow="Sistem" title="Ayarlar" hint="Yerel çalışma alanı tercihleri" />
+      <Workspace rail={rail}>
+        <WorkspacePaneHeader eyebrow="Sistem" title="Ayarlar" hint={TABS.find((item) => item.id === tab)?.label} />
         <WorkspaceScrollArea className="p-3">
-          <div className="grid gap-4 xl:grid-cols-2">
-            <div id="settings-modules" className="scroll-mt-3">
-              <ModulesSection online={online} disabledModules={disabled} onToggle={toggleModule} />
-            </div>
-            <div id="settings-weather" className="scroll-mt-3">
-              <WeatherSection
-                online={online}
-                weatherLoc={weatherLoc}
-                onWeatherLoc={(v) => setWeatherLoc(v)}
-                location={settings["weather.location"] as string | undefined}
-                onSubmit={saveWeather}
-              />
-            </div>
-            <div id="settings-notifications" className="scroll-mt-3">
-              <NotificationsSection />
-            </div>
-            <div id="settings-today" className="scroll-mt-3">
-              <TodayWidgetsSection
-                online={online}
-                onPersist={(orderIds, hiddenIds) => {
-                  save.mutate({ key: "today.widget_order", value: orderIds });
-                  save.mutate({ key: "today.widget_hidden", value: hiddenIds });
-                }}
-              />
-            </div>
-            <div id="settings-focus" className="space-y-4 scroll-mt-3">
-              <Section title="Pomodoro">
-                <Textarea
-                  disabled={!online}
-                  value={pomodoroDefaults ?? JSON.stringify(settings["pomodoro.defaults"], null, 2)}
-                  onChange={(v) => {
-                    setPomodoroDefaults(v);
-                    setPomodoroError(jsonError(v));
-                  }}
-                  onBlur={(v) => {
-                    const error = jsonError(v);
-                    setPomodoroError(error);
-                    if (!error) save.mutate({ key: "pomodoro.defaults", value: JSON.parse(v) });
-                  }}
-                  className="h-28 font-mono"
-                />
-                {pomodoroError && <p className="mt-1 text-meta text-danger">{pomodoroError}</p>}
-              </Section>
-              <Section title="Bildirim eşikleri">
-                <Textarea
-                  disabled={!online}
-                  value={thresholdsText ?? JSON.stringify(settings["notifications.thresholds"], null, 2)}
-                  onChange={(v) => {
-                    setThresholdsText(v);
-                    setThresholdsError(jsonError(v));
-                  }}
-                  onBlur={(v) => {
-                    const error = jsonError(v);
-                    setThresholdsError(error);
-                    if (!error) save.mutate({ key: "notifications.thresholds", value: JSON.parse(v) });
-                  }}
-                  className="h-28 font-mono"
-                />
-                {thresholdsError && <p className="mt-1 text-meta text-danger">{thresholdsError}</p>}
-              </Section>
-              <Section title="Kaynak aralıkları">
-                <Textarea
-                  value={intervalsText ?? JSON.stringify(settings["sources.intervals"], null, 2)}
-                  onChange={(v) => {
-                    setIntervalsText(v);
-                    setIntervalsError(jsonError(v));
-                  }}
-                  onBlur={(v) => {
-                    const error = jsonError(v);
-                    setIntervalsError(error);
-                    if (!error) save.mutate({ key: "sources.intervals", value: JSON.parse(v) });
-                  }}
-                  className="h-28 font-mono"
-                />
-                {intervalsError && <p className="mt-1 text-meta text-danger">{intervalsError}</p>}
-                <label
-                  className="mt-3 flex items-center justify-between text-meta text-muted"
-                  onBlur={() =>
-                    save.mutate({
-                      key: "rss.retention_days",
-                      value: retentionDays ?? Number(settings["rss.retention_days"] ?? 90),
-                    })
-                  }
-                >
-                  RSS retention (gün)
-                  <NumberInput
-                    value={retentionDays ?? Number(settings["rss.retention_days"] ?? 90)}
-                    onChange={setRetentionDays}
-                    className="w-24"
-                  />
-                </label>
-              </Section>
-            </div>
-            <div id="settings-appearance" className="scroll-mt-3">
+          {tab === "general" && (
+            <Pane>
               <Section title="Tema">
                 <ThemePicker />
               </Section>
-            </div>
-            <div id="settings-integrations" className="space-y-4 scroll-mt-3">
+              <SystemDiagnosticsSection />
+              <Section title="RSS saklama">
+                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
+                  <span>
+                    Okunmamış ve kaydedilmemiş eski yazılar bu süreden sonra silinir.
+                    <span className="ml-1 text-muted">· rss.retention_days</span>
+                  </span>
+                  <div
+                    onBlur={() => {
+                      const current = Number(settings["rss.retention_days"] ?? 90);
+                      if (retention !== current) write("rss.retention_days", retention);
+                    }}
+                  >
+                    <NumberInput
+                      value={retention}
+                      min={1}
+                      max={3650}
+                      ariaLabel="RSS saklama süresi (gün)"
+                      onChange={setRetentionDays}
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+              </Section>
+            </Pane>
+          )}
+
+          {tab === "modules" && (
+            <Pane>
+              <ModulesSection online={online} disabledModules={disabled} onToggle={toggleModule} />
+            </Pane>
+          )}
+
+          {tab === "today" && (
+            <Pane>
+              <TodayFlowSection
+                online={online}
+                autoSuggestions={settings["today.auto_suggestions"] !== false}
+                subreddits={subreddits}
+                onSave={write}
+              />
+              <TodayWidgetsSection
+                online={online}
+                onPersist={(orderIds, hiddenIds) => {
+                  write("today.widget_order", orderIds);
+                  write("today.widget_hidden", hiddenIds);
+                }}
+              />
+            </Pane>
+          )}
+
+          {tab === "notifications" && (
+            <Pane>
+              <NotificationsSection />
+              <WeatherSection
+                online={online}
+                weatherLoc={weatherLoc}
+                onWeatherLoc={setWeatherLoc}
+                location={settings["weather.location"] as string | undefined}
+                onSubmit={saveWeather}
+              />
+            </Pane>
+          )}
+
+          {tab === "career" && (
+            <Pane>
+              <CareerProfileSection online={online} profile={career} onSave={write} />
+            </Pane>
+          )}
+
+          {tab === "integrations" && (
+            <Pane>
               <IntegrationsSection
                 online={online}
                 google={google}
                 github={github}
                 githubLogin={githubLogin}
-                onGithubLogin={(v) => setGithubLogin(v)}
+                onGithubLogin={setGithubLogin}
                 githubToken={githubToken}
-                onGithubToken={(v) => setGithubToken(v)}
+                onGithubToken={setGithubToken}
                 onConnectGithub={() => connectGithub.mutate()}
+                onDisconnectGithub={() => disconnect.mutate("github")}
+                onDisconnectGoogle={() => disconnect.mutate("google")}
+                busy={disconnect.isPending}
               />
-              <MediaLinksSection
+              <MediaProvidersSection
                 online={online}
-                tmdbKeyValue={tmdbKey ?? (settings["media.tmdb_key"] as string | undefined) ?? ""}
-                onTmdbKey={(v) => setTmdbKey(v)}
-                rawgKeyValue={rawgKey ?? (settings["media.rawg_key"] as string | undefined) ?? ""}
-                onRawgKey={(v) => setRawgKey(v)}
+                keys={{
+                  "media.tmdb_key": String(settings["media.tmdb_key"] ?? ""),
+                  "media.igdb_client_id": String(settings["media.igdb_client_id"] ?? ""),
+                  "media.igdb_client_secret": String(settings["media.igdb_client_secret"] ?? ""),
+                  "media.google_books_key": String(settings["media.google_books_key"] ?? ""),
+                  ...keyDrafts,
+                }}
+                onKey={(key, value) => setKeyDrafts((current) => ({ ...current, [key]: value }))}
+                onSave={(key, value) => {
+                  setKeyDrafts((current) => {
+                    const next = { ...current };
+                    delete next[key];
+                    return next;
+                  });
+                  write(key, value);
+                }}
                 media={media}
-                onSave={(key, value) => save.mutate({ key, value })}
                 onRemoveLink={(index) =>
-                  save.mutate({ key: "media.links", value: media.filter((_, i) => i !== index) })
+                  write(
+                    "media.links",
+                    media.filter((_, i) => i !== index),
+                  )
                 }
                 mediaName={mediaName}
-                onMediaName={(v) => setMediaName(v)}
+                onMediaName={setMediaName}
                 mediaUrl={mediaUrl}
-                onMediaUrl={(v) => setMediaUrl(v)}
+                onMediaUrl={setMediaUrl}
                 onAddLink={addLink}
                 innerRef={mediaLinksRef}
               />
-            </div>
-            <div id="settings-backup" className="scroll-mt-3">
+            </Pane>
+          )}
+
+          {tab === "backup" && (
+            <Pane>
               <BackupSection
                 online={online}
                 backupPending={backup.isPending}
                 onBackup={() => backup.mutate()}
                 backupData={backup.data}
                 backupStatus={backupStatus}
+                driveFolder={driveFolder ?? backupStatus?.drive_folder_id ?? ""}
+                onDriveFolder={setDriveFolder}
+                onSaveDriveFolder={(value) => write("backup.drive_folder_id", value)}
               />
-            </div>
-            <div id="settings-health" className="scroll-mt-3 xl:col-span-2">
               <SettingsSourceHealth sources={sources} />
-            </div>
-          </div>
+              <DangerZoneSection onReset={() => reset.mutate()} busy={reset.isPending} />
+            </Pane>
+          )}
         </WorkspaceScrollArea>
       </Workspace>
     </PageFrame>
-  );
-}
-
-/**
- * Tema tercihi cihaza ozeldir (localStorage) -- DB'ye yazilmaz, cunku ayni
- * kayit farkli ekranlarda farkli olabilir.
- */
-function ThemePicker() {
-  const [theme, setTheme] = useTheme();
-  const options: { id: Theme; label: string; hint: string }[] = [
-    { id: "light", label: "Açık", hint: "sıcak beyaz, varsayılan" },
-    { id: "dark", label: "Koyu", hint: "aynı tokenlar, koyu zemin" },
-  ];
-  return (
-    <div className="flex flex-col gap-2">
-      {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          onClick={() => setTheme(option.id)}
-          aria-pressed={theme === option.id}
-          className={`flex h-touch items-center gap-3 rounded-control border px-3 text-left transition ${
-            theme === option.id ? "border-accent bg-accent-surface" : "border-subtle bg-surface hover:bg-surface-hover"
-          }`}
-        >
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme === option.id ? "bg-accent" : "bg-strong"}`} />
-          <span className="text-body text-primary">{option.label}</span>
-          <span className="text-meta text-muted">{option.hint}</span>
-        </button>
-      ))}
-    </div>
   );
 }

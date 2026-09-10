@@ -42,6 +42,7 @@ import {
   Surface,
   Textarea,
   cx,
+  resolvedTheme,
   useToast,
   useTheme,
 } from "@/core/ui";
@@ -822,7 +823,7 @@ export function NotesPage() {
                       noteTitle={canvasNote.title}
                       attachments={canvasNote.attachments ?? []}
                       readOnly={!online}
-                      theme={theme}
+                      theme={resolvedTheme(theme)}
                       onSave={(state) => saveCanvas.mutate(state)}
                     />
                   </Suspense>

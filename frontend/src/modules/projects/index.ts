@@ -9,6 +9,7 @@ const ProjectsPage = lazy(() => import("./ProjectsPage").then((module) => ({ def
 registerModule({
   id: "projects",
   title: "Projeler",
+  description: "Projelerini aşamalara böl, ilerleme ve durumlarını tek yerden yönet.",
   icon: Layers,
   group: "do",
   routes: [{ path: "/projects", element: ProjectsPage }],

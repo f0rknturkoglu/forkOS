@@ -9,6 +9,7 @@ const DocumentsPage = lazy(() => import("./DocumentsPage").then((module) => ({ d
 registerModule({
   id: "documents",
   title: "Belgeler",
+  description: "Drive belgelerini ara, önizle ve son açılanlara hızlıca dön.",
   icon: FileText,
   group: "capture",
   routes: [{ path: "/documents", element: DocumentsPage }],

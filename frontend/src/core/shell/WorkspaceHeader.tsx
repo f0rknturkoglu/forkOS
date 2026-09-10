@@ -102,12 +102,12 @@ export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenS
         <NotificationPanel />
         <button
           type="button"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}
           title="Temayı değiştir"
           aria-label="Temayı değiştir"
           className="flex h-8 w-8 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary"
         >
-          {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+          {document.documentElement.dataset.theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
         </button>
       </div>
     </header>

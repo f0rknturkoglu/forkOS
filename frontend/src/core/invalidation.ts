@@ -85,7 +85,7 @@ export const AFTER = {
   "document.write": ["documents", "activity"],
   "calendar.write": ["calendar-events", "plan", "today-agenda", "activity"],
   "review.write": ["review-preview", "reviews", "todos", "plan", "activity"],
-  "settings.write": ["settings", "github-status", "saved-views"],
+  "settings.write": ["settings", "github-status", "google-status", "backup-status", "saved-views"],
   "views.write": ["views"],
   "backup.write": ["backup-status", "activity"],
   "source.sync": [

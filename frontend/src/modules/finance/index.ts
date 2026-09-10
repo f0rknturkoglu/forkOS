@@ -14,6 +14,7 @@ const FinancePage = lazy(() => import("./FinancePage").then((module) => ({ defau
 registerModule({
   id: "finance",
   title: "Finans",
+  description: "Gelir-gider akışını, abonelikleri ve düzenli ödemeleri takip et.",
   icon: Wallet,
   group: "track",
   routes: [{ path: "/finance", element: FinancePage }],

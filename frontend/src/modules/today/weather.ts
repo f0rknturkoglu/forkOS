@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "@/core/api";
+import { readStored, writeStored } from "@/core/storage";
 
 interface Forecast {
   current: { temperature_2m: number; weather_code: number; relative_humidity_2m: number };
@@ -69,18 +70,20 @@ interface Coords {
 }
 
 function readCoord(key: string): number | null {
-  const raw = localStorage.getItem(key);
+  const raw = readStored(key);
   return raw ? Number(JSON.parse(raw)) : null;
 }
 
 /**
- * Open-Meteo (anahtarsiz). Konum tarayici izniyle alinir ve ayarlara yazilir;
- * Ayarlar sayfasindan sehir adiyla da girilebilir.
+ * Hava durumu backend proxy'si uzerinden gelir (`/api/weather/*`): tarayici
+ * open-meteo'ya dogrudan gitmez, dis DNS/IP sizintisi olmaz. Konum tarayici
+ * izniyle alinir ve ayarlara yazilir; Ayarlar sayfasindan sehir adiyla da
+ * girilebilir.
  */
 export function useWeather() {
   const [coords, setCoords] = useState<Coords | null>(() => {
-    const lat = readCoord("lifeos.weather.lat");
-    const lon = readCoord("lifeos.weather.lon");
+    const lat = readCoord("weather.lat");
+    const lon = readCoord("weather.lon");
     return lat !== null && lon !== null && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
   });
   const [asking, setAsking] = useState(false);
@@ -89,15 +92,7 @@ export function useWeather() {
 
   const { data, isFetching } = useQuery({
     queryKey: ["weather", coords?.lat, coords?.lon],
-    queryFn: () =>
-      fetch(
-        "https://api.open-meteo.com/v1/forecast?latitude=" +
-          coords!.lat +
-          "&longitude=" +
-          coords!.lon +
-          "&current=temperature_2m,weather_code,relative_humidity_2m" +
-          "&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4",
-      ).then((response) => response.json() as Promise<Forecast>),
+    queryFn: () => api.get<Forecast>(`/weather/forecast?lat=${coords!.lat}&lon=${coords!.lon}`),
     enabled: coords !== null,
     refetchInterval: 30 * 60_000,
     staleTime: 15 * 60_000,
@@ -111,14 +106,8 @@ export function useWeather() {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
         try {
-          const geo = await fetch(
-            "https://geocoding-api.open-meteo.com/v1/search?reverse=true&latitude=" +
-              lat +
-              "&longitude=" +
-              lon +
-              "&count=1&language=tr",
-          ).then((r) => r.json() as Promise<{ results?: { name: string }[] }>);
-          const name = geo.results?.[0]?.name ?? "Konumum";
+          const geo = await api.get<{ name: string }>(`/weather/geocode?lat=${lat}&lon=${lon}`);
+          const name = geo.name || "Konumum";
           await api.put("/settings/weather.location", { value: name });
           await api.put("/settings/weather.lat", { value: lat });
           await api.put("/settings/weather.lon", { value: lon });
@@ -126,8 +115,8 @@ export function useWeather() {
         } catch {
           // Konum yazilamadi: hava durumu yine de gosterilir, kalici olmaz.
         }
-        localStorage.setItem("lifeos.weather.lat", JSON.stringify(lat));
-        localStorage.setItem("lifeos.weather.lon", JSON.stringify(lon));
+        writeStored("weather.lat", JSON.stringify(lat));
+        writeStored("weather.lon", JSON.stringify(lon));
         setCoords({ lat, lon });
         setAsking(false);
       },

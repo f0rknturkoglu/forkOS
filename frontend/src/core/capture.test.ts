@@ -93,7 +93,14 @@ describe("evrensel yakalama (Faz 22)", () => {
     expect(readCaptureKindPreference()).toBe("note");
     writeCaptureKindPreference("link");
     expect(readCaptureKindPreference()).toBe("link");
-    localStorage.removeItem("lifeos.captureKind");
+    localStorage.removeItem("forkos.captureKind");
     expect(readCaptureKindPreference()).toBe("task");
+  });
+
+  it("eski lifeos.* anahtarindan tek seferlik goc eder", () => {
+    localStorage.setItem("lifeos.captureKind", "note");
+    expect(readCaptureKindPreference()).toBe("note");
+    // Goc kopyalanir: sonraki okuma yeni anahtardan gelir.
+    expect(localStorage.getItem("forkos.captureKind")).toBe("note");
   });
 });

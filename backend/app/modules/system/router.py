@@ -14,37 +14,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
+from app.core.events import log_event
 from app.core.models import SavedView
 from app.core.schemas import SavedViewCreate, SavedViewOut, SavedViewPatch
 from app.db import get_session
 from app.modules.system import backup, export, news, refresh, restore, stats
 from app.modules.system.models import Setting
+from app.modules.system.settings_schema import DEFAULTS, RUNTIME_SETTING_KEYS, validate_setting
 
 router = APIRouter(tags=["system"])
-
-DEFAULTS: dict[str, Any] = {
-    "modules.disabled": [],
-    "today.widget_order": [],
-    "today.auto_suggestions": True,
-    "pomodoro.defaults": {"focus": 50, "short": 10, "long": 20},
-    "notifications.thresholds": {},
-    "sources.intervals": {},
-    "rss.retention_days": 90,
-    "media.links": [],
-    "media.sync_interval_hours": 24,
-    "media.upcoming_days": 30,
-    "media.tmdb_key": "",
-    "media.google_books_key": "",
-    "media.igdb_client_id": "",
-    "media.igdb_client_secret": "",
-    "opportunity.career_profile": {
-        "current_location": "Ankara, Türkiye",
-        "authorized_countries": ["Türkiye"],
-        "willing_to_relocate": False,
-    },
-    "news.subreddits": news.DEFAULT_SUBREDDITS,
-    "theme": "dark",
-}
 
 
 class SettingIn(BaseModel):
@@ -85,6 +63,9 @@ async def settings(session: AsyncSession = Depends(get_session)):
 
 @router.put("/settings/{key:path}")
 async def put_setting(key: str, body: SettingIn, session: AsyncSession = Depends(get_session)):
+    problem = validate_setting(key, body.value)
+    if problem is not None:
+        raise HTTPException(422, f"{key}: {problem}")
     item = await session.get(Setting, key)
     if item is None:
         item = Setting(key=key, value=body.value)
@@ -93,6 +74,23 @@ async def put_setting(key: str, body: SettingIn, session: AsyncSession = Depends
         item.value = body.value
     await session.commit()
     return {"key": key, "value": body.value}
+
+
+@router.post("/settings/reset")
+async def reset_settings(session: AsyncSession = Depends(get_session)):
+    """Tum kullanici ayarlarini siler: GET /settings yeniden varsayilan doner.
+
+    OAuth token'lari AYRI tabloda (integrations.oauth_token) -- bu uc onlara
+    dokunmaz. Worker kalp atisi ve elle senkron durumu sistem durumudur,
+    silinirse panel "bilinmiyor" gosterir; onlar korunur.
+    """
+    rows = list((await session.execute(select(Setting))).scalars())
+    removed = [row for row in rows if row.key not in RUNTIME_SETTING_KEYS]
+    for row in removed:
+        await session.delete(row)
+    await log_event(session, verb="settings.reset", payload={"removed": len(removed)})
+    await session.commit()
+    return {"removed": len(removed)}
 
 
 @router.get("/export/json")
@@ -355,3 +353,81 @@ async def delete_view(view_id: uuid.UUID, session: AsyncSession = Depends(get_se
         raise HTTPException(404, "gorunum bulunamadi")
     await session.delete(view)
     await session.commit()
+
+
+# ── Hava durumu proxy'si ────────────────────────────────────────────────
+# Tarayici open-meteo'ya DOGRUDAN gitmez: istek backend'den cikar. Boylece
+# arayuz local-only kalir (dis DNS/IP sizintisi yok) ve zaman asimi/UA
+# politikasi tek yerde durur. Veri DB'ye yazilmaz -- canli gecis.
+
+WEATHER_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+WEATHER_HEADERS = {"User-Agent": "forkOS/0.1 (+local-only personal workspace)"}
+GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+
+class GeocodeOut(BaseModel):
+    name: str
+    latitude: float
+    longitude: float
+    country: str | None = None
+    admin1: str | None = None
+
+
+@router.get("/weather/geocode", response_model=GeocodeOut)
+async def weather_geocode(
+    query: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+):
+    """Sehir adi -> koordinat; lat/lon verilirse ters yon (koordinat -> ad).
+
+    Ters mod, tarayici konum izniyle bulunan noktayi Ayarlar'da ada cevirmek
+    icin. Ikisi de ayni dis servisi kullanir, tek ucta toplanir.
+    """
+    if lat is not None and lon is not None:
+        params: dict[str, Any] = {"latitude": lat, "longitude": lon, "count": 1, "language": "tr"}
+    elif query and query.strip():
+        params = {"name": query.strip(), "count": 1, "language": "tr"}
+    else:
+        raise HTTPException(422, "query ya da lat/lon gerekli")
+
+    try:
+        async with httpx.AsyncClient(timeout=WEATHER_TIMEOUT, headers=WEATHER_HEADERS) as client:
+            response = await client.get(GEOCODE_URL, params=params)
+            response.raise_for_status()
+            payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(502, f"Konum servisine ulasilamadi: {exc}") from exc
+
+    results = payload.get("results") or []
+    if not results:
+        raise HTTPException(404, "Konum bulunamadi")
+    hit = results[0]
+    return GeocodeOut(
+        name=hit.get("name") or (query or "").strip() or "Konumum",
+        latitude=float(hit["latitude"]),
+        longitude=float(hit["longitude"]),
+        country=hit.get("country"),
+        admin1=hit.get("admin1"),
+    )
+
+
+@router.get("/weather/forecast")
+async def weather_forecast(lat: float, lon: float):
+    """Open-Meteo tahmini -- arayuzun bekledigi alanlar aynen gecirilir."""
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "temperature_2m,weather_code,relative_humidity_2m",
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+        "timezone": "auto",
+        "forecast_days": 4,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=WEATHER_TIMEOUT, headers=WEATHER_HEADERS) as client:
+            response = await client.get(FORECAST_URL, params=params)
+            response.raise_for_status()
+            return response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(502, f"Hava durumu alinamadi: {exc}") from exc

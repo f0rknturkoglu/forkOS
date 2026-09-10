@@ -9,6 +9,7 @@ const SettingsPage = lazy(() => import("./SettingsPage").then((module) => ({ def
 registerModule({
   id: "settings",
   title: "Ayarlar",
+  description: "Tema, modüller, entegrasyonlar ve yedekleme tercihlerini yönet.",
   icon: SlidersHorizontal,
   group: "system",
   routes: [{ path: "/settings", element: SettingsPage }],

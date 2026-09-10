@@ -10,6 +10,7 @@ const PomodoroPage = lazy(() => import("./PomodoroPage").then((module) => ({ def
 registerModule({
   id: "pomodoro",
   title: "Pomodoro",
+  description: "50 dk odak / 10 dk mola bloklarıyla çalışma seanslarını izle.",
   icon: Timer,
   group: "do",
   hidden: true,

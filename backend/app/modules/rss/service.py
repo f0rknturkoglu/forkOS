@@ -31,6 +31,7 @@ from app.modules.bookmark.schemas import CaptureIn
 from app.modules.bookmark.service import capture as capture_bookmark
 from app.modules.rss.models import Feed, FeedItem
 from app.modules.rss.schemas import FeedIn, FeedItemOut, FeedOut, FeedUpdate
+from app.modules.system.models import Setting
 from app.sources.base import RawItem
 from app.sources.opml import parse_opml
 from app.sources.rss_source import (
@@ -637,8 +638,19 @@ async def prune_items(session: AsyncSession, *, days: int | None = None) -> int:
 
     Yoksa entity tablosu yilda ~50k satir siser. Kaydedilmis (link'li) veya
     okunmus item'lara DOKUNULMAZ.
+
+    Saklama suresi sirasi: acik `days` argumani -> `setting.rss.retention_days`
+    (Ayarlar ekranindaki deger) -> `settings.rss_retention_days` (ortam
+    degiskeni, varsayilan 90). Ayarlar ekrani DB'ye yazdigi icin burasi
+    okunmadan ayar olu kaliyordu.
     """
-    retention = settings.rss_retention_days if days is None else days
+    retention = days
+    if retention is None:
+        row = await session.get(Setting, "rss.retention_days")
+        value = row.value if row is not None else None
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            value = None
+        retention = value if value is not None else settings.rss_retention_days
     cutoff = datetime.now(UTC) - timedelta(days=retention)
     saved = select(Link.from_id).where(Link.relation == SAVED_FROM)
     ids = list((await session.execute(

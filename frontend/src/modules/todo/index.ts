@@ -14,6 +14,7 @@ const WeeklyPlannerPage = lazy(() =>
 registerModule({
   id: "todo",
   title: "Görevler",
+  description: "Görev ve rutinlerini planla, haftalık planda gecikenleri yakala.",
   icon: ListChecks,
   group: "do",
   routes: [

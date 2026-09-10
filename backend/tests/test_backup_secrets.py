@@ -32,6 +32,7 @@ def _secret_setting_rows() -> list[dict]:
         {"key": "media.google_books_key", "value": "gbooks-value"},
         {"key": "media.igdb_client_id", "value": "igdb-id"},
         {"key": "media.igdb_client_secret", "value": "igdb-secret"},
+        {"key": "media.rawg_key", "value": "rawg-value"},
     ]
 
 
@@ -94,7 +95,7 @@ async def test_old_backup_secret_rows_are_not_imported() -> None:
         summary = await restore.restore(session, payload)
 
         assert summary["setting"]["inserted"] == 1
-        assert summary["setting"]["secret_skipped"] == 4
+        assert summary["setting"]["secret_skipped"] == len(_secret_setting_rows())
         stored = (
             await session.execute(text("select key from setting"))
         ).scalars().all()

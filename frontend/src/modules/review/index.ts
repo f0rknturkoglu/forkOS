@@ -10,6 +10,7 @@ const WeeklyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ d
 registerModule({
   id: "review",
   title: "Değerlendirme",
+  description: "Günlük ve haftalık değerlendirmelerle ilerlemeni gözden geçir.",
   icon: ClipboardCheck,
   hidden: true,
   routes: [

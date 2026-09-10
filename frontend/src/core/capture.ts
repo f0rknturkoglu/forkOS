@@ -1,6 +1,7 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
 import { createTask, invalidateTaskWrite } from "@/core/tasks";
+import { readStored, writeStored } from "@/core/storage";
 
 /**
  * Evrensel yakalama sozlesmesi (Faz 22).
@@ -12,16 +13,16 @@ import { createTask, invalidateTaskWrite } from "@/core/tasks";
 
 export type CaptureKind = "task" | "note" | "link";
 
-const CAPTURE_KIND_KEY = "lifeos.captureKind";
+const CAPTURE_KIND_KEY = "captureKind";
 
 export function readCaptureKindPreference(): CaptureKind {
-  const value = localStorage.getItem(CAPTURE_KIND_KEY);
+  const value = readStored(CAPTURE_KIND_KEY);
   return value === "note" || value === "link" ? value : "task";
 }
 
 export function writeCaptureKindPreference(kind: CaptureKind): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(CAPTURE_KIND_KEY, kind);
+  writeStored(CAPTURE_KIND_KEY, kind);
 }
 
 interface TaskCaptureOptions {

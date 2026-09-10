@@ -1,4 +1,5 @@
 import { entityRoute } from "./entityRegistry";
+import { readStored, writeStored } from "./storage";
 import type { Notification } from "./types";
 
 /**
@@ -17,15 +18,15 @@ import type { Notification } from "./types";
  *   (dokumante edildi; SW push yok). Bu modul sayfa acikken calisir.
  */
 
-const ASKED_KEY = "lifeos.desktopNotifAsked";
-const DELIVERED_KEY = "lifeos.desktopNotifDelivered";
-const ENABLED_KEY = "lifeos.desktopNotifEnabled";
+const ASKED_KEY = "desktopNotifAsked";
+const DELIVERED_KEY = "desktopNotifDelivered";
+const ENABLED_KEY = "desktopNotifEnabled";
 
 /** In-app teslimat ac/kapat (Faz 34): izin geri alinamaz ama forkOS teslimatini
  *  kullanici durdurabilir. Varsayilan kapali -- kullanici acikca acar. */
 export function desktopNotificationsEnabled(): boolean {
   try {
-    return localStorage.getItem(ENABLED_KEY) === "1";
+    return readStored(ENABLED_KEY) === "1";
   } catch {
     return false;
   }
@@ -33,7 +34,7 @@ export function desktopNotificationsEnabled(): boolean {
 
 export function setDesktopNotificationsEnabled(enabled: boolean): void {
   try {
-    localStorage.setItem(ENABLED_KEY, enabled ? "1" : "0");
+    writeStored(ENABLED_KEY, enabled ? "1" : "0");
   } catch {
     /* localStorage yoksa hatirlanmaz; zararsiz */
   }
@@ -50,7 +51,7 @@ export function desktopPermission(): NotificationPermission | "unsupported" {
 
 export function hasAskedDesktopPermission(): boolean {
   try {
-    return localStorage.getItem(ASKED_KEY) === "1";
+    return readStored(ASKED_KEY) === "1";
   } catch {
     return false;
   }
@@ -68,7 +69,7 @@ export async function enableDesktopNotifications(): Promise<NotificationPermissi
   }
   if (Notification.permission === "denied") return "denied";
   try {
-    localStorage.setItem(ASKED_KEY, "1");
+    writeStored(ASKED_KEY, "1");
   } catch {
     /* localStorage yoksa sorma bayragi hatirlanmaz; zararsiz */
   }
@@ -79,7 +80,7 @@ export async function enableDesktopNotifications(): Promise<NotificationPermissi
 
 function readDelivered(): Set<string> {
   try {
-    return new Set<string>(JSON.parse(localStorage.getItem(DELIVERED_KEY) ?? "[]"));
+    return new Set<string>(JSON.parse(readStored(DELIVERED_KEY) ?? "[]"));
   } catch {
     return new Set();
   }
@@ -111,7 +112,7 @@ export function deliverDesktopNotification(item: Notification): boolean {
   }
   delivered.add(String(item.id));
   try {
-    localStorage.setItem(DELIVERED_KEY, JSON.stringify([...delivered]));
+    writeStored(DELIVERED_KEY, JSON.stringify([...delivered]));
   } catch {
     /* gecici teslim bilgisi; hata yutulur */
   }

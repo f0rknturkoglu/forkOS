@@ -1,12 +1,19 @@
 import type { FormEvent, RefObject } from "react";
+import { useEffect, useState } from "react";
+import { Eye, EyeOff, X } from "lucide-react";
 import { allModules } from "@/core/registry";
 import type { BackupStatus, SourceHealth } from "@/core/types";
-import { Button, Checkbox, Chip, Input, Section, relativeTime } from "@/core/ui";
+import { Button, Checkbox, Chip, IconButton, Input, Section, relativeTime, useTheme } from "@/core/ui";
 import { BackupMergeControl } from "@/core/BackupMergeControl";
 import { EXPORT_MODULE } from "@/modules/finance";
+import type { Theme } from "@/core/ui";
+
+/** Ayar yazma sozlesmesi: `PUT /settings/{key}`. Sayfa tek noktadan baglar. */
+export type SaveFn = (key: string, value: unknown) => void;
 
 export type IntegrationStatus = { connected: boolean; login?: string | null };
 type MediaLink = { name: string; url: string; icon?: string };
+
 /** Ayarlar sayfasinin alt seridi: bozuk kaynak ozeti + saglik sayfasi linki. */
 export function SettingsSourceHealth({ sources }: { sources: SourceHealth[] }) {
   const broken = sources.filter((source) => source.status === "error").length;
@@ -22,6 +29,138 @@ export function SettingsSourceHealth({ sources }: { sources: SourceHealth[] }) {
   );
 }
 
+/**
+ * Sifre alani: API anahtarlari duz metin gorunmesin. Goz dugmesi yalnizca
+ * GORUNURLUK icindir; deger kaydetme alandan cikinca (blur) olur ve bos
+ * birakmak anahtari SILER -- eski `if (v.trim())` blokaji anahtari
+ * temizlemeyi imkansiz kiliyordu.
+ */
+function SecretField({
+  label,
+  hint,
+  value,
+  onChange,
+  onSave,
+  disabled,
+  placeholder,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  onChange: (value: string) => void;
+  onSave: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <div>
+      <p className="mb-1 text-meta text-secondary">{label}</p>
+      <div className="flex items-center gap-2">
+        <Input
+          type={revealed ? "text" : "password"}
+          value={value}
+          onChange={onChange}
+          onBlur={(next) => onSave(next.trim())}
+          disabled={disabled}
+          placeholder={placeholder}
+          ariaLabel={label}
+          className="min-w-0 flex-1"
+        />
+        <IconButton
+          title={revealed ? `${label} gizle` : `${label} göster`}
+          onClick={() => setRevealed((current) => !current)}
+          disabled={disabled}
+        >
+          {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+        </IconButton>
+        <span className="w-40 shrink-0 truncate text-meta text-muted">{hint}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Etiket listesi editoru: serbest metin gir, Enter ya da + ile ekle. */
+export function ChipListEditor({
+  values,
+  onChange,
+  placeholder,
+  disabled,
+  emptyLabel,
+  ariaLabel,
+}: {
+  values: string[];
+  onChange: (next: string[]) => void;
+  placeholder: string;
+  disabled?: boolean;
+  emptyLabel: string;
+  ariaLabel: string;
+}) {
+  const [draft, setDraft] = useState("");
+  /* Sunucu degeri refetch gelene kadar eski kalir; yerel liste aninda
+     guncellenir ki ardisik ekleme/cikarma kaybolmasin. */
+  const [items, setItems] = useState(values);
+  useEffect(() => setItems(values), [values]);
+
+  function commit(next: string[]) {
+    setItems(next);
+    onChange(next);
+  }
+
+  function add() {
+    const value = draft.trim();
+    setDraft("");
+    if (!value || items.includes(value)) return;
+    commit([...items, value]);
+  }
+
+  return (
+    <div>
+      {items.length === 0 ? (
+        <p className="text-meta text-muted">{emptyLabel}</p>
+      ) : (
+        <ul className="mb-2 flex flex-wrap gap-1.5">
+          {items.map((value) => (
+            <li key={value}>
+              <span className="inline-flex items-center gap-1 rounded-control border border-subtle bg-surface px-2 py-0.5 text-meta text-secondary">
+                {value}
+                <button
+                  type="button"
+                  aria-label={`${value} kaldır`}
+                  disabled={disabled}
+                  onClick={() => commit(items.filter((item) => item !== value))}
+                  className="text-muted transition hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <Input
+          value={draft}
+          onChange={setDraft}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              add();
+            }
+          }}
+          disabled={disabled}
+          placeholder={placeholder}
+          ariaLabel={ariaLabel}
+          className="min-w-0 flex-1"
+        />
+        <Button onClick={add} disabled={disabled || !draft.trim()}>
+          ekle
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ModulesSection({
   online,
   disabledModules,
@@ -31,22 +170,26 @@ export function ModulesSection({
   disabledModules: string[];
   onToggle: (id: string) => void;
 }) {
+  const modules = allModules().filter((module) => module.id !== "settings");
   return (
     <Section title="Modüller">
-      <div className="grid grid-cols-2 gap-2">
-        {allModules()
-          .filter((m) => m.id !== "settings")
-          .map((module) => (
+      <p className="mb-3 text-meta text-muted">
+        Kapatılan modülün rotası, Bugün widget'ları ve komutları devre dışı kalır; verisi silinmez. Ayarlar her zaman
+        açıktır.
+      </p>
+      <ul className="divide-y divide-subtle rounded-card border border-subtle">
+        {modules.map((module) => (
+          <li key={module.id} className="px-3 py-2">
             <Checkbox
-              key={module.id}
-              disabled={!online}
               checked={!disabledModules.includes(module.id)}
               onChange={() => onToggle(module.id)}
+              disabled={!online}
               label={module.title}
-              className="rounded border border-subtle px-3 py-2"
             />
-          ))}
-      </div>
+            {module.description && <p className="mt-0.5 pl-6 text-meta text-muted">{module.description}</p>}
+          </li>
+        ))}
+      </ul>
     </Section>
   );
 }
@@ -67,8 +210,8 @@ export function WeatherSection({
   return (
     <Section title="Hava durumu">
       <p className="mb-2 text-meta text-muted">
-        Konum: <strong className="font-medium text-secondary">{location ?? "ayarlanmadı"}</strong> · Open-Meteo,
-        anahtarsız.
+        Konum: <strong className="font-medium text-secondary">{location ?? "ayarlanmadı"}</strong> · Open-Meteo
+        anahtarsız; istek backend proxy'sinden geçer, tarayıcı dışarı çıkmaz.
       </p>
       <form className="flex gap-2" onSubmit={onSubmit}>
         <Input
@@ -95,6 +238,9 @@ export function IntegrationsSection({
   githubToken,
   onGithubToken,
   onConnectGithub,
+  onDisconnectGithub,
+  onDisconnectGoogle,
+  busy,
 }: {
   online: boolean;
   google?: IntegrationStatus;
@@ -104,13 +250,24 @@ export function IntegrationsSection({
   githubToken: string;
   onGithubToken: (value: string) => void;
   onConnectGithub: () => void;
+  onDisconnectGithub: () => void;
+  onDisconnectGoogle: () => void;
+  busy: boolean;
 }) {
   return (
     <Section title="Entegrasyonlar">
-      <div className="flex items-center justify-between border-b border-subtle pb-3">
-        <span className="text-body">Google</span>
+      <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3">
+        <div className="min-w-0">
+          <p className="text-body text-primary">Google Drive</p>
+          <p className="text-meta text-muted">Belge arama ve senkron için Drive erişimi.</p>
+        </div>
         {google?.connected ? (
-          <Chip tone="ok">bağlı</Chip>
+          <div className="flex shrink-0 items-center gap-2">
+            <Chip tone="ok">bağlı</Chip>
+            <Button variant="danger" disabled={!online || busy} onClick={onDisconnectGoogle}>
+              kes
+            </Button>
+          </div>
         ) : (
           <Button
             disabled={!online}
@@ -123,11 +280,21 @@ export function IntegrationsSection({
         )}
       </div>
       <div className="mt-3">
-        <div className="mb-2 flex justify-between">
-          <span className="text-body">GitHub</span>
-          <Chip tone={github?.connected ? "ok" : "neutral"}>
-            {github?.connected ? (github.login ?? "bağlı") : "bağlı değil"}
-          </Chip>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-body text-primary">GitHub</p>
+            <p className="text-meta text-muted">Proje paneli, issue ve commit akışı için token.</p>
+          </div>
+          {github?.connected ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <Chip tone="ok">{github.login ?? "bağlı"}</Chip>
+              <Button variant="danger" disabled={!online || busy} onClick={onDisconnectGithub}>
+                kes
+              </Button>
+            </div>
+          ) : (
+            <Chip>bağlı değil</Chip>
+          )}
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
           <Input value={githubLogin} disabled={!online} onChange={onGithubLogin} placeholder="login" />
@@ -147,14 +314,12 @@ export function IntegrationsSection({
   );
 }
 
-export function MediaLinksSection({
+export function MediaProvidersSection({
   online,
-  tmdbKeyValue,
-  onTmdbKey,
-  rawgKeyValue,
-  onRawgKey,
-  media,
+  keys,
+  onKey,
   onSave,
+  media,
   onRemoveLink,
   mediaName,
   onMediaName,
@@ -164,12 +329,10 @@ export function MediaLinksSection({
   innerRef,
 }: {
   online: boolean;
-  tmdbKeyValue: string;
-  onTmdbKey: (value: string) => void;
-  rawgKeyValue: string;
-  onRawgKey: (value: string) => void;
+  keys: Record<string, string>;
+  onKey: (key: string, value: string) => void;
+  onSave: SaveFn;
   media: MediaLink[];
-  onSave: (key: string, value: unknown) => void;
   onRemoveLink: (index: number) => void;
   mediaName: string;
   onMediaName: (value: string) => void;
@@ -183,35 +346,52 @@ export function MediaLinksSection({
       id="media-links"
       ref={innerRef}
       tabIndex={-1}
-      className="scroll-mt-4 rounded-card outline-none focus:ring-2 focus:ring-accent"
+      className="space-y-4 rounded-card scroll-mt-4 outline-none focus:ring-2 focus:ring-accent"
     >
       <Section title="Medya bağlantıları">
-        <div className="mb-3 flex items-center gap-2">
-          <Input
+        <p className="mb-3 text-meta text-muted">
+          API anahtarları yedeklere ve dışa aktarıma girmez. Alanı boş bırakıp dışına çıkmak anahtarı siler.
+        </p>
+        <div className="space-y-2">
+          <SecretField
+            label="TMDB API anahtarı"
+            hint="media.tmdb_key"
+            placeholder="film ve dizi araması"
             disabled={!online}
-            value={tmdbKeyValue}
-            onChange={onTmdbKey}
-            placeholder="TMDB API anahtarı (film/dizi araması)"
-            className="min-w-0 flex-1"
-            onBlur={(v) => {
-              if (v.trim()) onSave("media.tmdb_key", v.trim());
-            }}
+            value={keys["media.tmdb_key"] ?? ""}
+            onChange={(value) => onKey("media.tmdb_key", value)}
+            onSave={(value) => onSave("media.tmdb_key", value)}
           />
-          <span className="shrink-0 text-meta text-muted">media.tmdb_key</span>
-        </div>
-        <div className="mb-3 flex items-center gap-2">
-          <Input
+          <SecretField
+            label="IGDB Client ID"
+            hint="media.igdb_client_id"
+            placeholder="Twitch/IGDB istemci kimliği — oyun araması"
             disabled={!online}
-            value={rawgKeyValue}
-            onChange={onRawgKey}
-            placeholder="RAWG API anahtarı (oyun araması)"
-            className="min-w-0 flex-1"
-            onBlur={(v) => {
-              if (v.trim()) onSave("media.rawg_key", v.trim());
-            }}
+            value={keys["media.igdb_client_id"] ?? ""}
+            onChange={(value) => onKey("media.igdb_client_id", value)}
+            onSave={(value) => onSave("media.igdb_client_id", value)}
           />
-          <span className="shrink-0 text-meta text-muted">media.rawg_key</span>
+          <SecretField
+            label="IGDB Client Secret"
+            hint="media.igdb_client_secret"
+            placeholder="Twitch/IGDB istemci sırrı — oyun araması"
+            disabled={!online}
+            value={keys["media.igdb_client_secret"] ?? ""}
+            onChange={(value) => onKey("media.igdb_client_secret", value)}
+            onSave={(value) => onSave("media.igdb_client_secret", value)}
+          />
+          <SecretField
+            label="Google Books API anahtarı"
+            hint="media.google_books_key"
+            placeholder="kitap araması (isteğe bağlı)"
+            disabled={!online}
+            value={keys["media.google_books_key"] ?? ""}
+            onChange={(value) => onKey("media.google_books_key", value)}
+            onSave={(value) => onSave("media.google_books_key", value)}
+          />
         </div>
+      </Section>
+      <Section title="Hızlı bağlantılar">
         <div className="space-y-2">
           {media.map((link, index) => (
             <div key={`${link.name}-${index}`} className="flex justify-between text-meta">
@@ -227,7 +407,7 @@ export function MediaLinksSection({
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
           <Input value={mediaName} disabled={!online} onChange={onMediaName} placeholder="Letterboxd" />
           <Input value={mediaUrl} disabled={!online} onChange={onMediaUrl} placeholder="https://…" />
-          <Button disabled={!online} onClick={onAddLink}>
+          <Button disabled={!online || !mediaName || !mediaUrl} onClick={onAddLink}>
             Ekle
           </Button>
         </div>
@@ -242,17 +422,35 @@ export function BackupSection({
   onBackup,
   backupData,
   backupStatus,
+  driveFolder,
+  onDriveFolder,
+  onSaveDriveFolder,
 }: {
   online: boolean;
   backupPending: boolean;
   onBackup: () => void;
   backupData: { path: string; size: number } | undefined;
   backupStatus: BackupStatus | undefined;
+  driveFolder: string;
+  onDriveFolder: (value: string) => void;
+  onSaveDriveFolder: (value: string) => void;
 }) {
   const last = backupStatus?.last_backup;
   const drive = backupStatus?.last_drive_upload;
   return (
     <Section title="Yedekleme / Export">
+      <div className="mb-3 flex items-center gap-2">
+        <Input
+          value={driveFolder}
+          disabled={!online}
+          onChange={onDriveFolder}
+          onBlur={(value) => onSaveDriveFolder(value.trim())}
+          placeholder="Google Drive hedef klasör kimliği"
+          ariaLabel="Google Drive hedef klasör kimliği"
+          className="min-w-0 flex-1"
+        />
+        <span className="shrink-0 text-meta text-muted">backup.drive_folder_id</span>
+      </div>
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -315,5 +513,38 @@ export function BackupSection({
         </div>
       )}
     </Section>
+  );
+}
+
+/**
+ * Tema tercihi cihaza ozeldir (localStorage) -- DB'ye yazilmaz, cunku ayni
+ * kayit farkli ekranlarda farkli olabilir. "Sistem" isletim sistemi ayarini
+ * izler.
+ */
+export function ThemePicker() {
+  const [theme, setTheme] = useTheme();
+  const options: { id: Theme; label: string; hint: string }[] = [
+    { id: "light", label: "Açık", hint: "sıcak beyaz" },
+    { id: "dark", label: "Koyu", hint: "aynı tokenlar, koyu zemin" },
+    { id: "system", label: "Sistem", hint: "işletim sistemi tercihini izle" },
+  ];
+  return (
+    <div className="flex flex-col gap-2">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          onClick={() => setTheme(option.id)}
+          aria-pressed={theme === option.id}
+          className={`flex h-touch items-center gap-3 rounded-control border px-3 text-left transition ${
+            theme === option.id ? "border-accent bg-accent-surface" : "border-subtle bg-surface hover:bg-surface-hover"
+          }`}
+        >
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme === option.id ? "bg-accent" : "bg-strong"}`} />
+          <span className="text-body text-primary">{option.label}</span>
+          <span className="text-meta text-muted">{option.hint}</span>
+        </button>
+      ))}
+    </div>
   );
 }

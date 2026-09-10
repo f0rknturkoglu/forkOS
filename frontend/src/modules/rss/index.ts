@@ -12,6 +12,7 @@ const RssPage = lazy(() => import("./RssPage").then((module) => ({ default: modu
 registerModule({
   id: "rss",
   title: "RSS",
+  description: "RSS aboneliklerini takip et, yeni yazıları oku ve okundu işaretle.",
   icon: Rss,
   group: "capture",
   routes: [{ path: "/rss", element: RssPage }],

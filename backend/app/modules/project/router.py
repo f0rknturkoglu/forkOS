@@ -147,6 +147,15 @@ async def github_status(session: AsyncSession = Depends(get_session)):
     return {"connected": token is not None, "login": token.scopes if token else None}
 
 
+@router.delete("/auth/github", status_code=204)
+async def github_disconnect(session: AsyncSession = Depends(get_session)):
+    """GitHub token'ini siler: panel ve commit akislari aninda anonim limite doner."""
+    token = await session.get(OAuthToken, "github")
+    if token is not None:
+        await session.delete(token)
+        await session.commit()
+
+
 def _github_error(exc: httpx.HTTPStatusError) -> str:
     """GitHub'in kendi aciklamasini yuzeye cikar (404 mu, limit mi, yetki mi)."""
     try:

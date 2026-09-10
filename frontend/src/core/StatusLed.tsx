@@ -3,18 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock4, Cpu, HardDrive, MemoryStick, X } f
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
 import { Popover, cx } from "@/core/ui";
-import type { RssStats, SourceHealth } from "@/core/types";
-
-interface SystemStats {
-  /** /proc/stat farkindan; ilk olcumde henuz fark yok -> null. */
-  cpu_pct: number | null;
-  load: number[];
-  cpu_count: number;
-  mem_total_kb: number | null;
-  mem_available_kb: number | null;
-  disk: { total: number; free: number; path?: string } | null;
-  uptime_s: number;
-}
+import type { RssStats, SourceHealth, SystemStats } from "@/core/types";
 
 type Tone = "ok" | "warn" | "danger" | "muted";
 
