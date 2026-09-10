@@ -6,7 +6,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Activity */
+        /**
+         * Activity
+         * @description Hareket akisi.
+         *
+         *     `category` emek haritasi kategorilerinden biri (read/task/focus/routine/
+         *     study/media) ya da "system" (haritada sayilmayan worker kayitlari).
+         *     `q` baslik/aciklama/verb icinde arar; `offset` ile "daha fazla yukle"
+         *     yapilir. Ayni kayit iki kez gelmesin diye sira (occurred_at, id) sabittir.
+         */
         get: operations["activity_api_activity_get"];
         put?: never;
         post?: never;
@@ -101,7 +109,11 @@ export interface paths {
         put?: never;
         /** Github Credentials */
         post: operations["github_credentials_api_auth_github_post"];
-        delete?: never;
+        /**
+         * Github Disconnect
+         * @description GitHub token'ini siler: panel ve commit akislari aninda anonim limite doner.
+         */
+        delete: operations["github_disconnect_api_auth_github_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -119,6 +131,26 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect
+         * @description Google Drive token'ini siler; yeni senkron icin yeniden baglanmak gerekir.
+         */
+        delete: operations["disconnect_api_auth_google_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2883,6 +2915,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Settings
+         * @description Tum kullanici ayarlarini siler: GET /settings yeniden varsayilan doner.
+         *
+         *     OAuth token'lari AYRI tabloda (integrations.oauth_token) -- bu uc onlara
+         *     dokunmaz. Worker kalp atisi ve elle senkron durumu sistem durumudur,
+         *     silinirse panel "bilinmiyor" gosterir; onlar korunur.
+         */
+        post: operations["reset_settings_api_settings_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/{key}": {
         parameters: {
             query?: never;
@@ -3490,6 +3546,49 @@ export interface paths {
          * @description Verilen alanlari gunceller; pinned=true ise view en on konuma cekilir.
          */
         patch: operations["patch_view_api_views__view_id__patch"];
+        trace?: never;
+    };
+    "/api/weather/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Weather Forecast
+         * @description Open-Meteo tahmini -- arayuzun bekledigi alanlar aynen gecirilir.
+         */
+        get: operations["weather_forecast_api_weather_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/weather/geocode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Weather Geocode
+         * @description Sehir adi -> koordinat; lat/lon verilirse ters yon (koordinat -> ad).
+         *
+         *     Ters mod, tarayici konum izniyle bulunan noktayi Ayarlar'da ada cevirmek
+         *     icin. Ikisi de ayni dis servisi kullanir, tek ucta toplanir.
+         */
+        get: operations["weather_geocode_api_weather_geocode_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/health": {
@@ -4449,6 +4548,19 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** GeocodeOut */
+        GeocodeOut: {
+            /** Admin1 */
+            admin1?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Name */
+            name: string;
+        };
         /** GithubCredentialsIn */
         GithubCredentialsIn: {
             /** Login */
@@ -5354,6 +5466,11 @@ export interface components {
         };
         /** MonthlyPoint */
         MonthlyPoint: {
+            /**
+             * Applications
+             * @default 0
+             */
+            applications: number;
             /** Bookmarks */
             bookmarks: number;
             /** Month */
@@ -6991,8 +7108,11 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                offset?: number;
                 since?: string | null;
                 verbs?: string[] | null;
+                category?: string | null;
+                q?: string | null;
             };
             header?: never;
             path?: never;
@@ -7156,6 +7276,24 @@ export interface operations {
             };
         };
     };
+    github_disconnect_api_auth_github_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     github_status_api_auth_github_status_get: {
         parameters: {
             query?: never;
@@ -7173,6 +7311,24 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+        };
+    };
+    disconnect_api_auth_google_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -13327,6 +13483,26 @@ export interface operations {
             };
         };
     };
+    reset_settings_api_settings_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     put_setting_api_settings__key__put: {
         parameters: {
             query?: never;
@@ -14598,6 +14774,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SavedViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_forecast_api_weather_forecast_get: {
+        parameters: {
+            query: {
+                lat: number;
+                lon: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    weather_geocode_api_weather_geocode_get: {
+        parameters: {
+            query?: {
+                query?: string | null;
+                lat?: number | null;
+                lon?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeocodeOut"];
                 };
             };
             /** @description Validation Error */
