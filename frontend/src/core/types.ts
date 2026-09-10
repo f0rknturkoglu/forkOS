@@ -63,6 +63,32 @@ export interface Heatmap {
   streak: number;
 }
 
+/** Bir sayacin uc dilimi: bugun (app gunu), son 7 gun, tum zamanlar. */
+interface CounterBreakdown {
+  today: number;
+  week: number;
+  total: number;
+}
+
+/** `/statistics/summary`: sayac adi -> dilimler + basvuru + seri. */
+export interface StatisticsSummary {
+  counters: Record<string, CounterBreakdown>;
+  applications: CounterBreakdown;
+  streak: { current: number; longest: number };
+}
+
+/** `/statistics/monthly` satiri. */
+export interface MonthlyPoint {
+  /** "YYYY-MM" */
+  month: string;
+  pomodoros: number;
+  todos: number;
+  bookmarks: number;
+  notes: number;
+  rss_read: number;
+  reviews: number;
+  applications: number;
+}
 
 export interface Bookmark {
   id: string;

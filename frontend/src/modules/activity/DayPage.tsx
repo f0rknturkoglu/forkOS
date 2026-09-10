@@ -61,6 +61,12 @@ export function DayPage() {
           action={
             <nav className="flex items-center gap-1 text-meta">
               <a
+                href="#/activity"
+                className="flex items-center gap-1 rounded-control border border-subtle px-2.5 py-1.5 text-secondary transition hover:border-strong hover:text-primary"
+              >
+                <ArrowLeft size={13} /> etkinlik
+              </a>
+              <a
                 href={`#/day${qs({ d: shift(day, -1) })}`}
                 className="flex items-center gap-1 rounded-control border border-subtle px-2.5 py-1.5 text-secondary transition hover:border-strong hover:text-primary"
               >

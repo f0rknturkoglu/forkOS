@@ -11,7 +11,6 @@ import "./opportunity";
 import "./learning";
 import "./media";
 import "./flashcard";
-import "./statistics";
 import "./documents";
 import "./notes";
 import "./calendar";

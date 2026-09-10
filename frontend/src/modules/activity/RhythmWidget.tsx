@@ -2,70 +2,67 @@ import { useQuery } from "@tanstack/react-query";
 import { Flame } from "lucide-react";
 import { api } from "@/core/api";
 import { Section, cx } from "@/core/ui";
+import type { MonthlyPoint, StatisticsSummary } from "@/core/types";
 
-/** Istatistik modulu -- heatmap'in hemen altinda duran ozet widget'i.
- *  Yeni tablo yok: backend event toplamlari + opportunity.applied_at uzerinden
- *  salt-okunur sorgular dondurur (KURAL 3 uyumlu, append-only event). */
-
-interface CounterBreakdown {
-  today: number;
-  week: number;
-  total: number;
-}
-
-interface StatisticsSummary {
-  counters: Record<string, CounterBreakdown>;
-  applications: CounterBreakdown;
-  streak: { current: number; longest: number };
-}
-
-interface MonthlyPoint {
-  month: string; // YYYY-MM
-  pomodoros: number;
-  todos: number;
-  bookmarks: number;
-  notes: number;
-  rss_read: number;
-  reviews: number;
-}
+/**
+ * Ritim ozeti: sayaclar + aylik hareket barlari.
+ *
+ * Etkinlik modulu ile AYNI sayaclari okur (backend'de tek katalog:
+ * app/modules/statistics/service.VERB_COUNTERS) -- bugun panelindeki widget ve
+ * Etkinlik & Ritim sayfasi ayni sayiyi gostersin. Sorgu anahtarlari "activity"
+ * ailesindedir: yazma olaylari zaten "activity" anahtarini gecersiz kilar
+ * (bkz. core/invalidation.ts), ayrica harita ile birlikte tazelenir.
+ */
 
 /** Sayac adi -> gorunen etiket. Bilinmeyen sayaclar atlanir. */
 const COUNTER_LABELS: Record<string, string> = {
   pomodoros: "Pomodoro",
   todos: "Görev",
+  routines: "Rutin",
   bookmarks: "Kayıt",
-  notes: "Not",
+  bookmark_reads: "Okunan kayıt",
   rss_read: "Okunan",
+  rss_saved: "Kaydedilen",
   reviews: "Değerlendirme",
+  studies: "Konu",
+  books: "Kitap",
   courses: "Kurs",
+  media: "Medya",
+  notes: "Not",
+  flashcards: "Kart",
 };
 
 const MONTH_NAMES = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
 
-function monthLabel(month: string): string {
+export function monthLabel(month: string): string {
   const [year, index] = month.split("-").map(Number);
   return `${MONTH_NAMES[index - 1]} '${String(year).slice(2)}`;
 }
 
-function MonthlyBars({ points }: { points: MonthlyPoint[] }) {
-  const totals = points.map(
-    (point) => point.pomodoros + point.todos + point.bookmarks + point.notes + point.rss_read + point.reviews,
-  );
+export const monthTotal = (point: MonthlyPoint): number =>
+  point.pomodoros + point.todos + point.bookmarks + point.notes + point.rss_read + point.reviews + point.applications;
+
+/** Aylik hareket barlari; her bar odak/görev/okuma/başvuru kirilimini tooltip'te tasir. */
+export function MonthlyBars({ points }: { points: MonthlyPoint[] }) {
+  const totals = points.map(monthTotal);
   const max = Math.max(1, ...totals);
-  const height = 88;
 
   return (
-    <div className="flex h-28 items-end gap-2" role="img" aria-label="Son 6 ayın toplam hareketi">
+    <div className="flex h-28 items-end gap-2" role="img" aria-label="Son ayların toplam hareketi">
       {points.map((point, index) => (
         <div
           key={point.month}
           className="flex min-w-0 flex-1 flex-col items-center gap-1"
-          title={`${monthLabel(point.month)}: ${totals[index]} hareket`}
+          title={
+            `${monthLabel(point.month)}: ${totals[index]} hareket\n` +
+            `odak ${point.pomodoros} · görev ${point.todos} · ` +
+            `okuma ${point.rss_read + point.bookmarks} · başvuru ${point.applications}`
+          }
         >
           <span className="text-micro text-muted">{totals[index] > 0 ? totals[index] : ""}</span>
           <div
             className={cx("w-full rounded-sm", totals[index] > 0 ? "bg-accent" : "bg-border")}
-            style={{ height: `${Math.max(2, Math.round((totals[index] / max) * height))}px` }}
+            style={{ height: `${Math.max(2, Math.round((totals[index] / max) * 88))}px` }}
           />
           <span className="text-micro text-muted">{monthLabel(point.month)}</span>
         </div>
@@ -74,17 +71,23 @@ function MonthlyBars({ points }: { points: MonthlyPoint[] }) {
   );
 }
 
-export function StatisticsWidget() {
-  const { data: summary, isLoading } = useQuery({
-    queryKey: ["statistics", "summary"],
+export function useRhythmSummary() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["activity", "summary"],
     queryFn: () => api.get<StatisticsSummary>("/statistics/summary"),
   });
   const { data: monthly = [] } = useQuery({
-    queryKey: ["statistics", "monthly", 6],
+    queryKey: ["activity", "monthly", 6],
     queryFn: () => api.get<MonthlyPoint[]>("/statistics/monthly?months=6"),
   });
+  return { summary: data, monthly, isLoading };
+}
 
-  if (isLoading) return <Section title="İstatistikler">…</Section>;
+/** Gun panelindeki ozet widget'i: bugunun sayaclari + aylik trend. */
+export function RhythmWidget() {
+  const { summary, monthly, isLoading } = useRhythmSummary();
+
+  if (isLoading) return <Section title="Ritim">…</Section>;
 
   const counters = Object.entries(summary?.counters ?? {})
     .filter(([name]) => name in COUNTER_LABELS)
@@ -94,7 +97,7 @@ export function StatisticsWidget() {
 
   return (
     <Section
-      title="İstatistikler"
+      title="Ritim"
       action={
         streak > 0 ? (
           <span className="flex items-center gap-1 text-meta text-muted" title="Kesintisiz hareketli gün">

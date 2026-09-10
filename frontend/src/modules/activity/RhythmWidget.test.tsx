@@ -9,7 +9,7 @@ vi.mock("@/core/api", () => ({
   api: { get: (...args: unknown[]) => apiGet(...args) },
 }));
 
-import { StatisticsWidget } from "./StatisticsWidget";
+import { RhythmWidget } from "./RhythmWidget";
 
 function renderWidget() {
   const client = new QueryClient({
@@ -17,7 +17,7 @@ function renderWidget() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <StatisticsWidget />
+      <RhythmWidget />
     </QueryClientProvider>,
   );
 }
@@ -40,12 +40,12 @@ function summaryBody() {
 
 function monthlyBody() {
   return [
-    { month: "2026-03", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0 },
-    { month: "2026-04", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0 },
-    { month: "2026-05", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0 },
-    { month: "2026-06", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0 },
-    { month: "2026-07", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0 },
-    { month: "2026-08", pomodoros: 42, todos: 30, bookmarks: 6, notes: 8, rss_read: 60, reviews: 2 },
+    { month: "2026-03", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0, applications: 0 },
+    { month: "2026-04", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0, applications: 0 },
+    { month: "2026-05", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0, applications: 0 },
+    { month: "2026-06", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0, applications: 0 },
+    { month: "2026-07", pomodoros: 0, todos: 0, bookmarks: 0, notes: 0, rss_read: 0, reviews: 0, applications: 0 },
+    { month: "2026-08", pomodoros: 42, todos: 30, bookmarks: 6, notes: 8, rss_read: 60, reviews: 2, applications: 4 },
   ];
 }
 
@@ -58,7 +58,7 @@ beforeEach(() => {
   });
 });
 
-describe("StatisticsWidget", () => {
+describe("RhythmWidget", () => {
   it("sayac kartlarini ve seri rozetini gosterir", async () => {
     renderWidget();
     await waitFor(() => expect(screen.getByText("bugün · Pomodoro")).toBeTruthy());
@@ -69,7 +69,7 @@ describe("StatisticsWidget", () => {
 
   it("aylik grafigi toplam hareketle cizer", async () => {
     renderWidget();
-    await waitFor(() => expect(screen.getByRole("img", { name: /son 6 ay/i })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("img", { name: /ayların toplam hareketi/i })).toBeTruthy());
     expect(screen.getByText("Ağu '26")).toBeTruthy();
   });
 
