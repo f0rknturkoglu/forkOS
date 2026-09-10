@@ -32,3 +32,5 @@ class MonthlyPoint(BaseModel):
     notes: int
     rss_read: int
     reviews: int
+    #: Basvurular event'ten degil `opportunity.applied_at`'ten gelir.
+    applications: int = 0

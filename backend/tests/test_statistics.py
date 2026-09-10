@@ -11,10 +11,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
+from app.core import contributions
 from app.core.entity import create_entity
 from app.core.events import log_event
 from app.db import SessionLocal
 from app.main import app
+from app.modules.statistics import service
 
 pytestmark = pytest.mark.asyncio
 
@@ -37,12 +39,14 @@ async def client():
         yield http
 
 
-async def _seed(verbs: list[str]) -> uuid.UUID:
+async def _seed(verbs: list[str], *, payload: dict | None = None) -> uuid.UUID:
     """Tek entity + verilen verb'lerde event; entity id'sini dondurur."""
     async with SessionLocal() as session:
         entity = await create_entity(session, type="todo", title="örnek")
         for verb in verbs:
-            await log_event(session, verb=verb, entity_type="todo", entity_id=entity.id)
+            await log_event(
+                session, verb=verb, entity_type="todo", entity_id=entity.id, payload=payload
+            )
         await session.commit()
         return entity.id
 
@@ -121,3 +125,93 @@ async def test_streak_current_and_longest(client: AsyncClient) -> None:
     body = response.json()
     assert body["streak"]["current"] == 3
     assert body["streak"]["longest"] == 3
+
+
+@pytest.mark.no_database
+async def test_every_heatmap_verb_has_a_counter() -> None:
+    """Emek haritasinin saydigi HER fiilin istatistikte bir sayaci olmali.
+
+    Yoksa harita o gun yanarken istatistik "0" gosterir; iki ekran ayni gunu
+    farkli anlatir (bu test o ayrisimi yakalar).
+    """
+    heatmap_verbs = set(contributions.VERB_KIND)
+    counter_verbs = set(service.VERB_COUNTERS.values())
+
+    assert heatmap_verbs - counter_verbs == set()
+
+
+async def test_new_human_actions_feed_their_counters(client: AsyncClient) -> None:
+    """Haritaya yeni giren insan eylemleri sayaclara da yansimali.
+
+    Medya POZITIF miktarla verilir: harita da yalnizca pozitif tuketimi sayar
+    (eslesme ayri testte dogrulanir).
+    """
+    await _seed(
+        ["habit.checked", "study.topic_completed", "flashcard.reviewed"]
+    )
+    await _seed(["media.consumed"], payload={"amount": 2})
+
+    counters = (await client.get("/api/statistics/summary")).json()["counters"]
+
+    assert counters["media"]["today"] == 1
+    assert counters["routines"]["today"] == 1
+    assert counters["studies"]["today"] == 1
+    assert counters["flashcards"]["today"] == 1
+
+
+async def test_media_counter_matches_heatmap_positive_amount_rule(client: AsyncClient) -> None:
+    """Negatif/miktarsiz tuketim haritada sayilmaz; sayacta da sayilmamali."""
+    async with SessionLocal() as session:
+        entity = await create_entity(session, type="media", title="dizi")
+        await log_event(session, verb="media.consumed", entity_id=entity.id,
+                        entity_type="media", payload={"amount": -3})
+        await log_event(session, verb="media.consumed", entity_id=entity.id,
+                        entity_type="media", payload={})
+        await log_event(session, verb="media.consumed", entity_id=entity.id,
+                        entity_type="media", payload={"amount": 2})
+        await session.commit()
+
+        heatmap = await contributions.heatmap(session, days=7)
+
+    counters = (await client.get("/api/statistics/summary")).json()["counters"]
+    assert counters["media"]["today"] == 1
+    assert heatmap["days"][-1]["kinds"].get("media", 0) == 1
+
+
+async def test_streak_counts_only_human_work(client: AsyncClient) -> None:
+    """Yalnizca worker kaydi olan gunler seri SAYILMAZ -- harita ile ayni kume."""
+    async with SessionLocal() as session:
+        entity = await create_entity(session, type="feed", title="besleme")
+        today = datetime.now(UTC).date()
+        for offset in (0, 1, 2):
+            day = today - timedelta(days=offset)
+            await session.execute(
+                text(
+                    "insert into event (entity_id, entity_type, verb, occurred_at) "
+                    "values (:e, 'feed', 'source_sync.completed', :at)"
+                ),
+                {"e": entity.id, "at": datetime(day.year, day.month, day.day, 12, 0, tzinfo=UTC)},
+            )
+        await session.commit()
+
+    body = (await client.get("/api/statistics/summary")).json()
+    assert body["streak"]["current"] == 0
+    assert body["streak"]["longest"] == 0
+
+
+async def test_monthly_reports_applications(client: AsyncClient) -> None:
+    async with SessionLocal() as session:
+        entity = await create_entity(session, type="opportunity", title="fırsat")
+        await session.execute(
+            text(
+                "insert into opportunity (id, kind, status, applied_at) "
+                "values (:id, 'job', 'applied', now())"
+            ),
+            {"id": entity.id},
+        )
+        await session.commit()
+
+    points = (await client.get("/api/statistics/monthly", params={"months": 6})).json()
+
+    assert points[-1]["applications"] == 1
+    assert all(point["applications"] == 0 for point in points[:-1])

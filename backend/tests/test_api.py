@@ -1015,3 +1015,60 @@ async def test_media_roundtrip_preserves_meta_and_cover(client: AsyncClient):
     assert found["meta"]["cover_url"].endswith("w200/xbiycuc84TrieEWwkkuH2hoEa9S.jpg")
     assert found["meta"]["original_title"] == "Interstellar"
     await client.delete(f"/api/media/{created['id']}")
+
+
+async def test_activity_category_filter_splits_human_work_from_system(client: AsyncClient):
+    """Kategori filtresi: harita kategorileri ile 'system' (worker gurultusu)."""
+    suffix = uuid.uuid4().hex[:8]
+    todo = (await client.post("/api/todos", json={"title": f"Kategori {suffix}"})).json()
+    await client.post(f"/api/todos/{todo['id']}/complete")
+    await client.post(
+        "/api/capture",
+        json={
+            "url": f"https://example.com/forkos-cat/{suffix}",
+            "title": f"Okuma {suffix}",
+            "client_uuid": str(uuid.uuid4()),
+        },
+    )
+
+    focus = (await client.get("/api/activity", params={"category": "focus", "limit": 500})).json()
+    tasks = (await client.get("/api/activity", params={"category": "task", "limit": 500})).json()
+    system = (await client.get("/api/activity", params={"category": "system", "limit": 500})).json()
+
+    assert all(event["verb"] == "pomodoro.completed" for event in focus)
+    assert any(event["entity_id"] == todo["id"] for event in tasks)
+    assert all(event["verb"] not in {"todo.completed", "bookmark.saved"} for event in system)
+    # Kategorisiz cagri hepsini doner (geriye donuk uyum).
+    everything = (await client.get("/api/activity", params={"limit": 500})).json()
+    assert len(everything) >= len(tasks)
+
+    await client.delete(f"/api/todos/{todo['id']}")
+
+
+async def test_activity_search_matches_title_and_offset_pages_do_not_overlap(client: AsyncClient):
+    """`q` baslikta arar; `offset` sayfalari tekrarsiz ilerler."""
+    suffix = uuid.uuid4().hex[:8]
+    title = f"Arkeoloji notu {suffix}"
+    bookmark = (
+        await client.post(
+            "/api/capture",
+            json={
+                "url": f"https://example.com/forkos-q/{suffix}",
+                "title": title,
+                "client_uuid": str(uuid.uuid4()),
+            },
+        )
+    ).json()
+
+    hits = (await client.get("/api/activity", params={"q": suffix, "limit": 50})).json()
+    assert any(event["entity_id"] == bookmark["id"] for event in hits), "baslik aramasi kaydi bulmali"
+
+    # Eslesmeyen arama bos doner: 'q' her kaydi getiren bir filtre degil.
+    miss = (await client.get("/api/activity", params={"q": f"yok-{suffix}-yok", "limit": 50})).json()
+    assert miss == []
+
+    first = (await client.get("/api/activity", params={"limit": 5, "offset": 0})).json()
+    second = (await client.get("/api/activity", params={"limit": 5, "offset": 5})).json()
+    assert {event["id"] for event in first}.isdisjoint({event["id"] for event in second})
+
+    await client.delete(f"/api/bookmarks/{bookmark['id']}")

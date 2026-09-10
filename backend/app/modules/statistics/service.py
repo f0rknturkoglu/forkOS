@@ -7,6 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core import contributions
+from app.core.time import streak_stats
 from app.modules.statistics.schemas import (
     CounterBreakdown,
     MonthlyPoint,
@@ -14,36 +16,63 @@ from app.modules.statistics.schemas import (
     StreakOut,
 )
 
-#: Sayac adi -> sayan event verb'u. Bu liste bittikce buyur; isimler API sozlesmesi.
+#: Sayac adi -> sayan event verb'u. Isimler API sozlesmesi.
+#:
+#: Kural: EMEK HARITASININ saydigi her fiilin burada bir sayaci olmali
+#: (`tests/test_statistics.py` bunu kod taramasindan gecirir). Yoksa harita o
+#: gun yanarken istatistik "0" gosterir; iki ekran ayni gunu farkli anlatir.
+#: Asagidaki kategori yorumlari contributions.KINDS ile birebir aynidir.
 VERB_COUNTERS: dict[str, str] = {
+    # odak
     "pomodoros": "pomodoro.completed",
+    # gorev
     "todos": "todo.completed",
+    # rutin
+    "routines": "habit.checked",
+    # okuma
     "bookmarks": "bookmark.saved",
-    "notes": "note.created",
+    "bookmark_reads": "bookmark.read",
     "rss_read": "rss.item_read",
+    "rss_saved": "rss.item_saved",
+    # calisma
     "reviews": "review.completed",
+    "studies": "study.topic_completed",
+    "books": "book.finished",
     "courses": "course.completed",
+    # medya
+    "media": "media.consumed",
+    # haritada olmayan ek insan eylemleri
+    "notes": "note.created",
+    "flashcards": "flashcard.reviewed",
 }
+
+#: Sayacin ek SQL kosulu (verilmeyenler yalnizca verb eslesmesiyle sayilir).
+#: Medya tuketimi haritayla ayni kurala uyar: yalnizca POZITIF miktar.
+COUNTER_FILTERS: dict[str, str] = {"media": contributions.POSITIVE_MEDIA_SQL}
 
 _MONTHS = 6
 
 
-def _day_counts_sql(families: list[str]) -> str:
+def _day_counts_sql(families: list[tuple[str, str]]) -> str:
     """Son 6 ayin gun gun sayaclarini tek sorguda toplar.
 
     `at time zone :tz` app gunune cevirir (plan: Europe/Istanbul). FILTER
-    yan taraflari dogrudan dize birlestirilir -- sayac adlari kod sabitidir,
-    kullanici girdisi degil.
+    yan taraflari dogrudan dize birlestirilir -- sayac adlari ve ek kosullar
+    kod sabitidir, kullanici girdisi degil. Event tablosu `e` alias'i ile
+    kullanilir cunku ek kosullar (bkz. COUNTER_FILTERS) bu alias'a yazilmistir.
     """
     selects = "\n    ,".join(
-        f"count(*) filter (where verb = '{verb}') as {name}" for name, verb in families
+        f"count(*) filter (where e.verb = '{verb}'"
+        + (f" and ({COUNTER_FILTERS[name]})" if name in COUNTER_FILTERS else "")
+        + f") as {name}"
+        for name, verb in families
     )
     return f"""
         select
-            (occurred_at at time zone :tz)::date as day
+            (e.occurred_at at time zone :tz)::date as day
             ,{selects}
-        from event
-        where occurred_at >= now() - interval '{_MONTHS} months'
+        from event e
+        where e.occurred_at >= now() - interval '{_MONTHS} months'
         group by day
     """
 
@@ -57,24 +86,6 @@ def _buckets(rows: list[dict], today: date, week_start: datetime, names: list[st
         total = sum(int(row[name]) for row in rows)
         out[name] = CounterBreakdown(today=today_total, week=week_total, total=total)
     return out
-
-
-def _streak(days: list[date], today: date) -> StreakOut:
-    """Kesintisiz gun serisi. Bugun hareket yoksa seri dunyadan sayilir."""
-    unique = set(days)
-    current = 0
-    probe = today if today in unique else today - timedelta(days=1)
-    while probe in unique:
-        current += 1
-        probe -= timedelta(days=1)
-    longest = 0
-    run = 0
-    prev: date | None = None
-    for day in sorted(unique):
-        run = run + 1 if prev is not None and (day - prev).days == 1 else 1
-        longest = max(longest, run)
-        prev = day
-    return StreakOut(current=current, longest=longest)
 
 
 async def summary(session: AsyncSession) -> StatisticsSummary:
@@ -96,12 +107,10 @@ async def summary(session: AsyncSession) -> StatisticsSummary:
     ]
     counters = _buckets(rows, today, week_start, names)
 
-    day_rows = (
-        await session.execute(
-            text("select distinct (occurred_at at time zone :tz)::date as day from event"),
-            {"tz": settings.timezone},
-        )
-    ).scalars().all()
+    # Seri YALNIZCA insan eliyle yapilan islerden sayilir: haritanin filtre
+    # Filtresiyle ayni kume (contributions.COUNTED_VERBS). Tum event'leri
+    # saymak, worker'in kostugu gunu "seri" gibi gosteriyordu.
+    current, longest = streak_stats(await contributions.active_days(session), today=today)
 
     # Basvuru sayaci event'ten degil opportunity.applied_at'ten gelir (kural 3'e
     # ek veri: basvuru bir durum gecisi, her gecis ayni kaydi event'e yazmaz).
@@ -136,7 +145,7 @@ async def summary(session: AsyncSession) -> StatisticsSummary:
         applications=CounterBreakdown(
             today=int(app_today), week=int(app_week), total=int(app_total)
         ),
-        streak=_streak(list(day_rows), today),
+        streak=StreakOut(current=current, longest=longest),
     )
 
 
@@ -149,15 +158,15 @@ async def monthly(session: AsyncSession, months: int) -> list[MonthlyPoint]:
         for row in (
             await session.execute(
                 text(
-                    "select to_char(occurred_at at time zone :tz, 'YYYY-MM') as month\n"
-                    "    ,count(*) filter (where verb = 'pomodoro.completed') as pomodoros\n"
-                    "    ,count(*) filter (where verb = 'todo.completed') as todos\n"
-                    "    ,count(*) filter (where verb = 'bookmark.saved') as bookmarks\n"
-                    "    ,count(*) filter (where verb = 'note.created') as notes\n"
-                    "    ,count(*) filter (where verb = 'rss.item_read') as rss_read\n"
-                    "    ,count(*) filter (where verb = 'review.completed') as reviews\n"
-                    "from event\n"
-                    f"where occurred_at >= now() - interval '{months + 1} months'\n"
+                    "select to_char(e.occurred_at at time zone :tz, 'YYYY-MM') as month\n"
+                    "    ,count(*) filter (where e.verb = 'pomodoro.completed') as pomodoros\n"
+                    "    ,count(*) filter (where e.verb = 'todo.completed') as todos\n"
+                    "    ,count(*) filter (where e.verb = 'bookmark.saved') as bookmarks\n"
+                    "    ,count(*) filter (where e.verb = 'note.created') as notes\n"
+                    "    ,count(*) filter (where e.verb = 'rss.item_read') as rss_read\n"
+                    "    ,count(*) filter (where e.verb = 'review.completed') as reviews\n"
+                    "from event e\n"
+                    f"where e.occurred_at >= now() - interval '{months + 1} months'\n"
                     "group by month"
                 ),
                 {"tz": settings.timezone},
@@ -165,6 +174,25 @@ async def monthly(session: AsyncSession, months: int) -> list[MonthlyPoint]:
         ).mappings()
     ]
     by_month = {row["month"]: row for row in rows}
+
+    # Basvurular event'ten gelmez (kural 3 ek verisi: applied_at kolonu);
+    # aylik kirilim o yuzden ayri sorgudan okunur.
+    app_rows = [
+        dict(row)
+        for row in (
+            await session.execute(
+                text(
+                    "select to_char(applied_at at time zone :tz, 'YYYY-MM') as month"
+                    "    ,count(*) as applications from opportunity"
+                    " where applied_at is not null and trashed_at is null"
+                    f"   and applied_at >= now() - interval '{months + 1} months'"
+                    " group by month"
+                ),
+                {"tz": settings.timezone},
+            )
+        ).mappings()
+    ]
+    apps_by_month = {row["month"]: int(row["applications"]) for row in app_rows}
 
     points: list[MonthlyPoint] = []
     cursor = date(now.year, now.month, 1)
@@ -180,6 +208,7 @@ async def monthly(session: AsyncSession, months: int) -> list[MonthlyPoint]:
                 notes=int(row["notes"]) if row else 0,
                 rss_read=int(row["rss_read"]) if row else 0,
                 reviews=int(row["reviews"]) if row else 0,
+                applications=apps_by_month.get(key, 0),
             )
         )
         cursor = (cursor - timedelta(days=1)).replace(day=1)

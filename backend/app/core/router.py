@@ -157,12 +157,30 @@ async def search(
 
 @router.get("/activity", response_model=list[EventOut])
 async def activity(
-    limit: int = Query(50, le=500),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     since: datetime | None = None,
     verbs: list[str] | None = Query(None),
+    category: str | None = Query(None),
+    q: str | None = Query(None, max_length=200),
     session: AsyncSession = Depends(get_session),
 ):
-    return await event_svc.recent_events(session, limit=limit, since=since, verbs=verbs)
+    """Hareket akisi.
+
+    `category` emek haritasi kategorilerinden biri (read/task/focus/routine/
+    study/media) ya da "system" (haritada sayilmayan worker kayitlari).
+    `q` baslik/aciklama/verb icinde arar; `offset` ile "daha fazla yukle"
+    yapilir. Ayni kayit iki kez gelmesin diye sira (occurred_at, id) sabittir.
+    """
+    return await event_svc.recent_events(
+        session,
+        limit=limit,
+        offset=offset,
+        since=since,
+        verbs=verbs,
+        category=category,
+        q=q,
+    )
 
 
 @router.get("/activity/heatmap")

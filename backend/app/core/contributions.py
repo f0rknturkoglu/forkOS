@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.time import local_today
+from app.core.time import local_today, streak_stats
 
 # Kategori -> o kategoriyi olusturan event fiilleri.
 KINDS: dict[str, list[str]] = {
@@ -41,11 +41,21 @@ VERB_KIND: dict[str, str] = {
     verb: kind for kind, verbs in KINDS.items() for verb in verbs
 }
 
-_POSITIVE_MEDIA_CONSUMPTION_SQL = """
+#: Sayilan fiillerin kumesi -- tek sorgu sozlesmesi (heatmap, sayaclar, gun dokumu).
+COUNTED_VERBS: list[str] = list(VERB_KIND)
+
+#: Medya ILERLEMESI negatif de olabilir (geri alma); yalnizca pozitif tuketim
+#: "bugun su kadar izledim" demektir. Fragment `e` alias'li event tablosu bekler.
+POSITIVE_MEDIA_SQL = """
 jsonb_typeof(e.payload) = 'object'
 and jsonb_typeof(e.payload->'amount') = 'number'
 and (e.payload->>'amount')::numeric > 0
 """.strip()
+
+#: Sayilan islerin ORTAK where parcasi. `:verbs` parametresi ve `e` alias'i sart.
+COUNTED_WHERE = (
+    "e.verb = any(:verbs) and (e.verb <> 'media.consumed' or (" + POSITIVE_MEDIA_SQL + "))"
+)
 
 
 def _kind_for(
@@ -83,14 +93,11 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
                     "         nullif(e.payload->>'recur', '') is not null or t.recur is not null"
                     "       ))) as routine, count(*) as n "
                     "from event e left join todo t on t.id = e.entity_id "
-                    "where e.verb = any(:verbs) "
-                    "  and (e.verb <> 'media.consumed' or ("
-                    f"    {_POSITIVE_MEDIA_CONSUMPTION_SQL}"
-                    "  )) "
+                    f"where {COUNTED_WHERE} "
                     "  and (e.occurred_at at time zone :tz)::date >= :start "
                     "group by 1, 2, 3"
                 ),
-                {"verbs": list(VERB_KIND), "start": start, "tz": settings.timezone},
+                {"verbs": COUNTED_VERBS, "start": start, "tz": settings.timezone},
             )
         )
         .mappings()
@@ -123,6 +130,9 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
             totals[kind] = totals.get(kind, 0) + count
 
     active = [entry for entry in series if entry["total"] > 0]
+    current, _longest = streak_stats(
+        [date.fromisoformat(entry["day"]) for entry in active], today=_today()
+    )
     return {
         "days": series,
         "labels": KIND_LABELS,
@@ -130,25 +140,29 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
         "total": sum(totals.values()),
         "active_days": len(active),
         "best_day": max(series, key=lambda e: e["total"]) if active else None,
-        "streak": _streak(series),
+        "streak": current,
     }
 
 
-def _streak(series: list[dict]) -> int:
-    """Bugunden (ya da dunden) geriye kesintisiz aktif gun sayisi.
+async def active_days(session: AsyncSession, *, since: date | None = None) -> set[date]:
+    """Insan eliyle is yapilmis gunler -- heatmap ile AYNI filtre.
 
-    Bugun henuz bos olabilir -- gun bitmedi; o yuzden seri dunden sayilir ve
-    bugun doluysa bir eklenir. Yoksa her sabah "seri bozuldu" gorunurdu.
+    Istatistik ozeti seriyi buradan hesaplar; daha once tum event'leri
+    sayiyordu, bu yuzden yalnizca worker'in kostugu bir gun istatistikte
+    "seri var" derken harita bos gorunuyordu.
     """
-    if not series:
-        return 0
-    today_active = series[-1]["total"] > 0
-    count = 1 if today_active else 0
-    for entry in reversed(series[:-1]):
-        if entry["total"] == 0:
-            break
-        count += 1
-    return count
+    params: dict[str, object] = {"verbs": COUNTED_VERBS, "tz": settings.timezone}
+    where = COUNTED_WHERE
+    if since is not None:
+        where += " and (e.occurred_at at time zone :tz)::date >= :since"
+        params["since"] = since
+    rows = (
+        await session.execute(
+            text(f"select distinct (e.occurred_at at time zone :tz)::date as day from event e where {where}"),
+            params,
+        )
+    ).scalars().all()
+    return set(rows)
 
 
 async def day_detail(session: AsyncSession, day: date) -> dict:
@@ -165,9 +179,7 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
                     "       (e.verb = 'habit.checked' or (e.verb = 'todo.completed' and ("
                     "         nullif(e.payload->>'recur', '') is not null or t.recur is not null"
                     "       ))) as routine, "
-                    "       (e.verb = 'media.consumed' and ("
-                    f"         {_POSITIVE_MEDIA_CONSUMPTION_SQL}"
-                    "       )) as positive_media_consumption "
+                    f"       (e.verb = 'media.consumed' and ({POSITIVE_MEDIA_SQL})) as positive_media_consumption "
                     "from event e left join todo t on t.id = e.entity_id "
                     "where (e.occurred_at at time zone :tz)::date = :day "
                     "order by e.occurred_at desc "
