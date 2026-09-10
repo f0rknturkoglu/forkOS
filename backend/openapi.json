@@ -83,7 +83,8 @@
               "opportunity",
               "interview",
               "payment",
-              "study"
+              "study",
+              "flashcard"
             ],
             "title": "Kind",
             "type": "string"
@@ -228,6 +229,13 @@
       },
       "AgendaSuggestions": {
         "properties": {
+          "flashcards": {
+            "items": {
+              "$ref": "#/components/schemas/AgendaRow"
+            },
+            "title": "Flashcards",
+            "type": "array"
+          },
           "media": {
             "items": {
               "$ref": "#/components/schemas/AgendaRow"
@@ -1042,6 +1050,11 @@
             "minLength": 1,
             "title": "Front",
             "type": "string"
+          },
+          "reversible": {
+            "default": false,
+            "title": "Reversible",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1879,6 +1892,80 @@
         "title": "CoverLetterReviewOut",
         "type": "object"
       },
+      "CramCardOut": {
+        "description": "Cram kuyrugu: kart + ait oldugu deste adi (tek listede gosterilir).",
+        "properties": {
+          "back": {
+            "title": "Back",
+            "type": "string"
+          },
+          "deck_id": {
+            "format": "uuid",
+            "title": "Deck Id",
+            "type": "string"
+          },
+          "deck_title": {
+            "title": "Deck Title",
+            "type": "string"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "ease": {
+            "title": "Ease",
+            "type": "number"
+          },
+          "front": {
+            "title": "Front",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interval_days": {
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "lapses": {
+            "title": "Lapses",
+            "type": "integer"
+          },
+          "reps": {
+            "title": "Reps",
+            "type": "integer"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "deck_id",
+          "front",
+          "back",
+          "interval_days",
+          "ease",
+          "due_at",
+          "reps",
+          "lapses",
+          "suspended",
+          "deck_title"
+        ],
+        "title": "CramCardOut",
+        "type": "object"
+      },
       "DeckIn": {
         "properties": {
           "title": {
@@ -1913,6 +2000,11 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "mature_count": {
+            "default": 0,
+            "title": "Mature Count",
+            "type": "integer"
           },
           "new_count": {
             "title": "New Count",
@@ -2667,6 +2759,28 @@
           }
         },
         "title": "FeedUpdate",
+        "type": "object"
+      },
+      "FlashcardReviewStats": {
+        "description": "Donemde tekrar edilen kart sayisi + deste kirilimi.",
+        "properties": {
+          "decks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Decks",
+            "type": "object"
+          },
+          "reviewed": {
+            "title": "Reviewed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviewed",
+          "decks"
+        ],
+        "title": "FlashcardReviewStats",
         "type": "object"
       },
       "FocusReviewStats": {
@@ -8572,6 +8686,9 @@
           "capture": {
             "$ref": "#/components/schemas/CaptureReviewStats"
           },
+          "flashcards": {
+            "$ref": "#/components/schemas/FlashcardReviewStats"
+          },
           "focus": {
             "$ref": "#/components/schemas/FocusReviewStats"
           },
@@ -8607,6 +8724,7 @@
           "capture",
           "applications",
           "study",
+          "flashcards",
           "github"
         ],
         "title": "ReviewStats",
@@ -13061,9 +13179,79 @@
         ]
       }
     },
+    "/api/flashcard/cram/missed": {
+      "get": {
+        "description": "Desteler genelinde en cok unutulan kartlar (varsayilan 30) -- cram kuyrugu.",
+        "operationId": "cram_missed_api_flashcard_cram_missed_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CramCardOut"
+                  },
+                  "title": "Response Cram Missed Api Flashcard Cram Missed Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cram Missed",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
     "/api/flashcard/decks": {
       "get": {
+        "description": "Desteler. `linked_to` verilirse yalnizca o kayda bagli olanlar doner\n(not/dokuman -> deste bagi \"studies\"/\"generated_from\").",
         "operationId": "decks_api_flashcard_decks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "linked_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Linked To"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -13078,6 +13266,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Decks",
@@ -13214,7 +13412,7 @@
     },
     "/api/flashcard/decks/{deck_id}/cards": {
       "get": {
-        "description": "?due=1: tekrar sirasi (once vadesi gelen, sonra yeni; her biri 40 kart).",
+        "description": "?due=1: tekrar sirasi (once vadesi gelen, sonra yeni; her biri 40 kart).\n\n`only_lapses=1` zayif noktalari suzer (lapses >= 1), `q` on/arka yuzde arar.",
         "operationId": "cards_api_flashcard_decks__deck_id__cards_get",
         "parameters": [
           {
@@ -13235,6 +13433,35 @@
               "default": false,
               "title": "Due",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Yalnizca en az bir kez unutulanlar",
+            "in": "query",
+            "name": "only_lapses",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Yalnizca en az bir kez unutulanlar",
+              "title": "Only Lapses",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           }
         ],

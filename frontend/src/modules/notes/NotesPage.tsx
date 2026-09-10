@@ -28,6 +28,7 @@ import { invalidateAfter } from "@/core/invalidation";
 import { Markdown } from "@/core/Markdown";
 import { BEFORE_NAVIGATION_EVENT, type NavigationRequest } from "@/core/navigationGuard";
 import { RelatedPanel } from "@/core/RelatedPanel";
+import { NoteFlashcardPanel } from "@/modules/flashcard/NoteFlashcardPanel";
 import { confirmDialog } from "@/core/dialog";
 import type { Note, NoteAttachment, NoteFolder, Project } from "@/core/types";
 import {
@@ -855,6 +856,8 @@ export function NotesPage() {
         <div className="grid gap-4 xl:grid-cols-2">
           <RelatedPanel entityId={selected.id} />
           <BacklinksPanel entityId={selected.id} />
+          {/* Not -> deste bagi varsa "bu notun kartlari" paneli burada cikar. */}
+          <NoteFlashcardPanel noteId={selected.id} />
         </div>
       )}
       {highlightsOpen && (

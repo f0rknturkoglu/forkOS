@@ -11,13 +11,13 @@ import { readStored, writeStored } from "@/core/storage";
  * body'ler uretmez. "Bugune al" tercihi task icinde yine uygulanir.
  */
 
-export type CaptureKind = "task" | "note" | "link";
+export type CaptureKind = "task" | "note" | "link" | "flashcard";
 
 const CAPTURE_KIND_KEY = "captureKind";
 
 export function readCaptureKindPreference(): CaptureKind {
   const value = readStored(CAPTURE_KIND_KEY);
-  return value === "note" || value === "link" ? value : "task";
+  return value === "note" || value === "link" || value === "flashcard" ? value : "task";
 }
 
 export function writeCaptureKindPreference(kind: CaptureKind): void {
@@ -41,6 +41,14 @@ interface NoteCaptureOptions {
   relate_to?: string;
 }
 
+interface FlashcardCaptureOptions {
+  deck_id: string;
+  /** On yuz (soru). */
+  front: string;
+  /** Arka yuz (cevap). */
+  back: string;
+}
+
 interface LinkCaptureOptions {
   collection?: "inbox" | "reference" | "learning";
   tags?: string[];
@@ -54,6 +62,7 @@ interface CaptureIntent {
   task?: TaskCaptureOptions;
   note?: NoteCaptureOptions;
   link?: LinkCaptureOptions;
+  flashcard?: FlashcardCaptureOptions;
 }
 
 interface CaptureResult {
@@ -75,6 +84,17 @@ export async function capture(intent: CaptureIntent): Promise<CaptureResult> {
     });
     invalidateTaskWrite();
     return { kind: "task", id: todo.id };
+  }
+
+  if (intent.kind === "flashcard") {
+    const payload = intent.flashcard;
+    if (!payload) throw new Error("Deste secilmedi");
+    const card = await api.post<{ id: string }>(`/flashcard/decks/${payload.deck_id}/cards`, {
+      front: payload.front,
+      back: payload.back,
+    });
+    invalidateAfter("flashcard.write");
+    return { kind: "flashcard", id: card.id };
   }
 
   if (intent.kind === "note") {

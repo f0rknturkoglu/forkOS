@@ -121,6 +121,7 @@ const agenda: TodayAgenda = {
   checklist: [parent, todoRow, routineRow, rssRow, mediaRow],
   completed: [{ ...todoRow, id: "completed-1", title: "Biten görev", completed: true, action: null }],
   suggestions: {
+    flashcards: [],
     todos: [
       { ...todoRow, id: "suggested-1", title: "Birinci öneri", source: "suggestion" },
       { ...todoRow, id: "suggested-2", title: "İkinci öneri", source: "suggestion" },

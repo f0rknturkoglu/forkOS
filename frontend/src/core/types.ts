@@ -270,7 +270,7 @@ export type TodayAgenda = Omit<ApiSchemas["TodayAgendaOut"], "timed" | "checklis
   timed: AgendaRow[];
   checklist: AgendaRow[];
   completed: AgendaRow[];
-  suggestions: { todos: AgendaRow[]; rss: AgendaRow[]; media: AgendaRow[] };
+  suggestions: { todos: AgendaRow[]; rss: AgendaRow[]; media: AgendaRow[]; flashcards: AgendaRow[] };
 };
 
 export interface StudyArea {

@@ -47,6 +47,7 @@ const preview = {
       best_day_minutes: 45,
     },
     github: { commits: 0 },
+    flashcards: { reviewed: 42, decks: { Almanca: 42 } },
     applications: { updated: 0 },
     study: {},
     todos: { completed: 1 },

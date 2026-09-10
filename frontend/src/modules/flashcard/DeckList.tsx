@@ -6,6 +6,7 @@ import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import { createDeck, deleteDeck, importDeck, listDecks } from "./api";
 import { refreshFlashcards } from "./invalidate";
+import { SrsBar } from "./SrsBar";
 import type { FlashcardDeck } from "./types";
 
 function DeckRow({
@@ -25,15 +26,19 @@ function DeckRow({
         <button
           type="button"
           onClick={() => onOpen(deck.id)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-w-0 flex-1 flex-col gap-1.5 text-left"
         >
-          <Layers size={15} className="shrink-0 text-icon" />
-          <span className="truncate text-body text-primary">{deck.title}</span>
-          <span className="flex flex-wrap items-center gap-1.5">
-            {deck.due_count > 0 && <Chip tone="danger">{deck.due_count} tekrar</Chip>}
-            {deck.new_count > 0 && <Chip tone="accent">{deck.new_count} yeni</Chip>}
-            <Chip variant="outline">{deck.card_count} kart</Chip>
+          <span className="flex min-w-0 items-center gap-2">
+            <Layers size={15} className="shrink-0 text-icon" />
+            <span className="truncate text-body text-primary">{deck.title}</span>
+            <span className="flex flex-wrap items-center gap-1.5">
+              {deck.due_count > 0 && <Chip tone="danger">{deck.due_count} tekrar</Chip>}
+              {deck.new_count > 0 && <Chip tone="accent">{deck.new_count} yeni</Chip>}
+              <Chip variant="outline">{deck.card_count} kart</Chip>
+            </span>
           </span>
+          {/* Anki tarzi dagilim: mavi yeni / kirmizi tekrar bekleyen / yesil olgun. */}
+          <SrsBar deck={deck} />
         </button>
         <IconButton
           title={`"${deck.title}" destesini sil`}
@@ -58,7 +63,7 @@ export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string
 
   const { data: decks = [], isLoading } = useQuery({
     queryKey: ["flashcard", "decks"],
-    queryFn: listDecks,
+    queryFn: () => listDecks(),
   });
 
   const create = useMutation({

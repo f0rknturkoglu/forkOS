@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link2, ListChecks, StickyNote, X } from "lucide-react";
+import { Layers, Link2, ListChecks, StickyNote, X } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { capture, readCaptureKindPreference, writeCaptureKindPreference, type CaptureKind } from "@/core/capture";
 import { Chip, Checkbox, Input, Select, Button, Kbd, cx, useToast } from "@/core/ui";
@@ -28,6 +28,8 @@ const KIND_TABS: { id: CaptureKind; label: string; icon: typeof ListChecks }[] =
   { id: "task", label: "Görev", icon: ListChecks },
   { id: "note", label: "Not", icon: StickyNote },
   { id: "link", label: "Bağlantı", icon: Link2 },
+  // Kart: "okurken aklima geldi" ani icin -- forkuSecBos birakip yaz, kaydet.
+  { id: "flashcard", label: "Kart", icon: Layers },
 ];
 
 const COLLECTIONS = [
@@ -73,6 +75,9 @@ export function CaptureDialog() {
   const [pinned, setPinned] = useState(false);
   const [collection, setCollection] = useState<string>("inbox");
   const [title, setTitle] = useState("");
+  // Kart yakalama: deste + arka yuz (on yuz `text` alanini kullanir).
+  const [deckId, setDeckId] = useState("");
+  const [cardBack, setCardBack] = useState("");
   // Not iliskisi (Faz 29): registry/search tabanli secici.
   const [relateTo, setRelateTo] = useState<{ id: string; type: string; title: string } | null>(null);
   const [relateQuery, setRelateQuery] = useState("");
@@ -119,6 +124,22 @@ export function CaptureDialog() {
     }
   }, [open, kind]);
 
+  // "C" = her yerden hizli kart. Metin alaninda ve baska bir modal acikken
+  // calismaz; kaydetme kutusu zaten acikken de ikinci kez acmaz.
+  useEffect(() => {
+    function onShortcut(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key.toLowerCase() !== "c") return;
+      if (open || document.querySelector('[role="dialog"]')) return;
+      event.preventDefault();
+      openCapture({ kind: "flashcard" });
+    }
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, [open]);
+
   // Faz 23/30: metin ayristirilir; kullanici alanlari HENUZ DEGISMEDISSE
   // oneriler uygulanir (kullanici override'i parserdan once gelir).
   useEffect(() => {
@@ -157,6 +178,13 @@ export function CaptureDialog() {
   });
   const relateHits = (relateQueryState.data ?? []) as EntityRecord[];
 
+  const decksQuery = useQuery({
+    queryKey: ["flashcard", "decks"],
+    queryFn: () => api.get<{ id: string; title: string }[]>("/flashcard/decks"),
+    enabled: open && kind === "flashcard",
+  });
+  const decks = decksQuery.data ?? [];
+
   const submit = useMutation({
     mutationKey: ["capture-submit"],
     mutationFn: () =>
@@ -177,12 +205,19 @@ export function CaptureDialog() {
           tags,
         },
         note: { pinned, relate_to: relateTo?.id },
+        flashcard: { deck_id: deckId, front: text.trim(), back: cardBack.trim() },
         link: { collection: collection as "inbox" | "reference" | "learning", tags },
       }),
     onSuccess: (result) => {
       writeCaptureKindPreference(kind);
       const label =
-        result.kind === "task" ? "Görev eklendi" : result.kind === "note" ? "Not eklendi" : "Bağlantı eklendi";
+        result.kind === "task"
+          ? "Görev eklendi"
+          : result.kind === "note"
+            ? "Not eklendi"
+            : result.kind === "flashcard"
+              ? "Kart eklendi"
+              : "Bağlantı eklendi";
       const plannedDay = planDay ?? (planToday ? todayKey() : undefined);
       toast.push(result.kind === "task" && plannedDay === todayKey() ? `${label} — bugüne planlandı` : label, {
         tone: "ok",
@@ -205,6 +240,8 @@ export function CaptureDialog() {
     setRelateTo(null);
     setRelateQuery("");
     setTitle("");
+    setCardBack("");
+    setDeckId("");
     setParsed(null);
     setPlanDay(undefined);
     setPlanTouched(false);
@@ -229,7 +266,14 @@ export function CaptureDialog() {
 
   // Narrowing'den bagimsiz: iliski hedefinin id'si (Faz 29 secici).
   const relateToId = relateTo?.id;
-  const canSubmit = online && !submit.isPending && (kind === "link" ? isHttpUrl(url) : text.trim().length > 0);
+  const canSubmit =
+    online &&
+    !submit.isPending &&
+    (kind === "link"
+      ? isHttpUrl(url)
+      : kind === "flashcard"
+        ? Boolean(deckId) && text.trim().length > 0 && cardBack.trim().length > 0
+        : text.trim().length > 0);
 
   if (!open) return null;
 
@@ -284,7 +328,37 @@ export function CaptureDialog() {
         </div>
 
         <div className="space-y-3 p-4">
-          {kind !== "link" ? (
+          {kind === "flashcard" ? (
+            <div className="space-y-2">
+              <Select value={deckId} onChange={setDeckId} ariaLabel="Kart destesi">
+                <option value="">Deste seç…</option>
+                {decks.map((deck) => (
+                  <option key={deck.id} value={deck.id}>
+                    {deck.title}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                value={text}
+                onChange={setText}
+                placeholder="Soru (ön yüz)"
+                ariaLabel="Kart sorusu"
+                className="w-full"
+              />
+              <Input
+                value={cardBack}
+                onChange={setCardBack}
+                placeholder="Cevap (arka yüz)"
+                ariaLabel="Kart cevabı"
+                className="w-full"
+              />
+              {decks.length === 0 && !decksQuery.isLoading && (
+                <p className="text-meta text-muted">
+                  Henüz deste yok — Kartlar sayfasından bir deste oluştur, sonra buradan ekle.
+                </p>
+              )}
+            </div>
+          ) : kind !== "link" ? (
             <Input
               value={text}
               onChange={setText}

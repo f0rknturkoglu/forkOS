@@ -50,7 +50,9 @@ export const AFTER = {
     "today-agenda",
     "activity",
   ],
-  "flashcard.write": ["flashcard"],
+  // Kart tekrari/add: Today, Istatistik, Etkinlik ve Degerlendirme panelleri
+  // de bu veriden beslenir -- yalnizca "flashcard" tazelemek onlari bayat birakir.
+  "flashcard.write": ["flashcard", "activity", "statistics", "today-agenda", "review-preview"],
   "study.write": [
     "study-areas",
     "study-topics",

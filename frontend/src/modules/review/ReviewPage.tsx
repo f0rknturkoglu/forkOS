@@ -208,6 +208,7 @@ function OverviewStep({
   const maxTopic = Math.max(...stats.topics.map((topic) => topic.minutes), 1);
   const signals = [
     ["Rutin tamamlamaları", Object.values(stats.habits).reduce((total, value) => total + value, 0)],
+    ["Kart tekrarı", stats.flashcards.reviewed],
     ["Yeni not", stats.capture.notes],
     ["Kaydedilen kaynak", stats.capture.bookmarks],
     ["Okunan RSS", stats.capture.rss_read],

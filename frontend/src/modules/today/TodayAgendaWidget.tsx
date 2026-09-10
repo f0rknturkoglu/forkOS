@@ -1,3 +1,4 @@
+import { navigate } from "@/app/router";
 import { invalidateAfter } from "@/core/invalidation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -207,8 +208,13 @@ export function TodayAgendaWidget() {
   const timedRows = agenda ? agenda.timed.filter((row) => !hasRoutine(row)) : [];
   const checklistRows = agenda ? agenda.checklist.filter((row) => !hasRoutine(row)) : [];
   // Açık görevler kendi grubunda; API sorgusu hata verirse öneriler geri dönüş olur.
+  // Kart desteleri basta: vadesi gecen tekrar birikir, RSS bekleyebilir.
   const suggestions = agenda
-    ? [...(todosQuery.isError ? agenda.suggestions.todos : []), ...agenda.suggestions.rss].slice(0, 2)
+    ? [
+        ...agenda.suggestions.flashcards,
+        ...(todosQuery.isError ? agenda.suggestions.todos : []),
+        ...agenda.suggestions.rss,
+      ].slice(0, 3)
     : [];
   const busy = complete.isPending || schedule.isPending || remove.isPending || toggleAuto.isPending;
 
@@ -339,14 +345,20 @@ export function TodayAgendaWidget() {
                     complete={() => {}}
                     remove={() => {}}
                     suggestionAction={
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={!online || schedule.isPending}
-                        onClick={() => schedule.mutate({ row, day, start: "", duration: "" })}
-                      >
-                        Bugüne ekle
-                      </Button>
+                      row.kind === "flashcard" ? (
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/flashcard?deck=${row.id}`)}>
+                          Çalış
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={!online || schedule.isPending}
+                          onClick={() => schedule.mutate({ row, day, start: "", duration: "" })}
+                        >
+                          Bugüne ekle
+                        </Button>
+                      )
                     }
                   />
                 ))}

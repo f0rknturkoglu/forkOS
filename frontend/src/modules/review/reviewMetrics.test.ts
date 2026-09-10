@@ -20,6 +20,7 @@ describe("review metrics", () => {
       capture: { bookmarks: 3, rss_read: 1, notes: 1 },
       applications: { discovered: 0, updated: 0 },
       study: { minutes_by_area: {} },
+      flashcards: { reviewed: 120, decks: { Almanca: 120 } },
       github: { commits: 0, repos: {} },
     } satisfies ReviewPreview["stats"];
 
@@ -28,6 +29,8 @@ describe("review metrics", () => {
       ["Odak", "50 dk"],
       ["Pomodoro", 2],
       ["Aktif gün", 2],
+      // Kart tekrari da donemin emegi: haftalik ozette gorunur.
+      ["Kart tekrarı", 120],
     ]);
   });
 });

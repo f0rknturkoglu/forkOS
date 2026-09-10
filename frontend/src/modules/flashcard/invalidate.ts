@@ -1,10 +1,10 @@
 /**
- * invalidateAfter haritasi (kural 14) geregi mutation sonrasi anlamli olay
- * bildirilir: "flashcard.write". Ana agent entegrasyonda AFTER'a bu anahtar
- * eklenecek; o zamana kadar tipi zorlamak icin cast gerekli.
+ * Kart yazimlarindan sonra tazeleme (kural 14): "flashcard.write" haritada
+ * tanimli -- Today, Istatistik, Etkinlik ve Degerlendirme panelleri de bu
+ * olayla tazelenir (bkz. core/invalidation.ts).
  */
 import { invalidateAfter } from "@/core/invalidation";
 
 export function refreshFlashcards(): void {
-  invalidateAfter("flashcard.write" as never);
+  invalidateAfter("flashcard.write");
 }
