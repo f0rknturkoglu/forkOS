@@ -101,6 +101,9 @@ async def test_settings_defaults_skip_dead_json_keys(client: AsyncClient):
         ("news.subreddits", "programming"),
         ("media.links", [{"name": "Letterboxd"}]),
         ("opportunity.career_profile", {"authorized_countries": "Türkiye"}),
+        ("finance.monthly_budget", {"TRY": -5}),
+        ("finance.monthly_budget", {"TRY": "30000"}),
+        ("finance.monthly_budget", {"TL": 5}),
     ],
 )
 async def test_put_setting_rejects_wrong_types(client: AsyncClient, key: str, value: object):

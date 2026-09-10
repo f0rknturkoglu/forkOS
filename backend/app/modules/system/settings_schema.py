@@ -35,6 +35,9 @@ DEFAULTS: dict[str, Any] = {
         "willing_to_relocate": False,
     },
     "news.subreddits": list(DEFAULT_SUBREDDITS),
+    #: Para birimi -> aylik harcama tavani ({"TRY": 30000}). Bos ise butce yok:
+    #: arayuz toplam geliri hedef kabul eder.
+    "finance.monthly_budget": {},
     "theme": "dark",
 }
 
@@ -64,6 +67,18 @@ def _is_career_profile(value: Any) -> bool:
     return isinstance(value.get("willing_to_relocate", False), bool)
 
 
+def _is_budget(value: Any) -> bool:
+    """{"TRY": 30000, "USD": 500} -- pozitif sayilar, 3 harfli kur kodu."""
+    if not isinstance(value, dict):
+        return False
+    for currency, amount in value.items():
+        if not isinstance(currency, str) or len(currency) != 3:
+            return False
+        if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount < 0:
+            return False
+    return True
+
+
 def _is_media_links(value: Any) -> bool:
     return isinstance(value, list) and all(
         isinstance(item, dict) and isinstance(item.get("name"), str) and isinstance(item.get("url"), str)
@@ -83,6 +98,7 @@ SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
     "media.upcoming_days": ("0 ile 365 arasında tam sayı olmalı", lambda v: _is_int(v) and 0 <= v <= 365),
     "media.sync_interval_hours": ("1 ile 720 arasında tam sayı olmalı", lambda v: _is_int(v) and 1 <= v <= 720),
     "opportunity.career_profile": ("konum, ülke listesi ve relokasyon alanları eksik", _is_career_profile),
+    "finance.monthly_budget": ("para birimi -> pozitif tutar eşlemesi olmalı", _is_budget),
     "backup.drive_folder_id": ("klasör kimliği metin olmalı", lambda v: isinstance(v, str)),
 }
 
