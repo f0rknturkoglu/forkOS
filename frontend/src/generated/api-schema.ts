@@ -957,6 +957,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/flashcard/cram/missed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cram Missed
+         * @description Desteler genelinde en cok unutulan kartlar (varsayilan 30) -- cram kuyrugu.
+         */
+        get: operations["cram_missed_api_flashcard_cram_missed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/flashcard/decks": {
         parameters: {
             query?: never;
@@ -964,7 +984,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Decks */
+        /**
+         * Decks
+         * @description Desteler. `linked_to` verilirse yalnizca o kayda bagli olanlar doner
+         *     (not/dokuman -> deste bagi "studies"/"generated_from").
+         */
         get: operations["decks_api_flashcard_decks_get"];
         put?: never;
         /** Add Deck */
@@ -1003,6 +1027,8 @@ export interface paths {
         /**
          * Cards
          * @description ?due=1: tekrar sirasi (once vadesi gelen, sonra yeni; her biri 40 kart).
+         *
+         *     `only_lapses=1` zayif noktalari suzer (lapses >= 1), `q` on/arka yuzde arar.
          */
         get: operations["cards_api_flashcard_decks__deck_id__cards_get"];
         put?: never;
@@ -3643,7 +3669,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "calendar" | "todo" | "rss" | "media" | "opportunity" | "interview" | "payment" | "study";
+            kind: "calendar" | "todo" | "rss" | "media" | "opportunity" | "interview" | "payment" | "study" | "flashcard";
             /** Media Kind */
             media_kind?: string | null;
             /** Media Status */
@@ -3677,6 +3703,8 @@ export interface components {
         };
         /** AgendaSuggestions */
         AgendaSuggestions: {
+            /** Flashcards */
+            flashcards?: components["schemas"]["AgendaRow"][];
             /** Media */
             media?: components["schemas"]["AgendaRow"][];
             /** Rss */
@@ -3949,6 +3977,11 @@ export interface components {
             back: string;
             /** Front */
             front: string;
+            /**
+             * Reversible
+             * @default false
+             */
+            reversible: boolean;
         };
         /** CardOut */
         CardOut: {
@@ -4206,6 +4239,40 @@ export interface components {
             /** Suggestions */
             suggestions?: string[];
         };
+        /**
+         * CramCardOut
+         * @description Cram kuyrugu: kart + ait oldugu deste adi (tek listede gosterilir).
+         */
+        CramCardOut: {
+            /** Back */
+            back: string;
+            /**
+             * Deck Id
+             * Format: uuid
+             */
+            deck_id: string;
+            /** Deck Title */
+            deck_title: string;
+            /** Due At */
+            due_at: string | null;
+            /** Ease */
+            ease: number;
+            /** Front */
+            front: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Interval Days */
+            interval_days: number;
+            /** Lapses */
+            lapses: number;
+            /** Reps */
+            reps: number;
+            /** Suspended */
+            suspended: boolean;
+        };
         /** DeckIn */
         DeckIn: {
             /** Title */
@@ -4227,6 +4294,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Mature Count
+             * @default 0
+             */
+            mature_count: number;
             /** New Count */
             new_count: number;
             /** Title */
@@ -4489,6 +4561,18 @@ export interface components {
             category?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * FlashcardReviewStats
+         * @description Donemde tekrar edilen kart sayisi + deste kirilimi.
+         */
+        FlashcardReviewStats: {
+            /** Decks */
+            decks: {
+                [key: string]: number;
+            };
+            /** Reviewed */
+            reviewed: number;
         };
         /** FocusReviewStats */
         FocusReviewStats: {
@@ -6377,6 +6461,7 @@ export interface components {
         ReviewStats: {
             applications: components["schemas"]["ApplicationReviewStats"];
             capture: components["schemas"]["CaptureReviewStats"];
+            flashcards: components["schemas"]["FlashcardReviewStats"];
             focus: components["schemas"]["FocusReviewStats"];
             github: components["schemas"]["GithubReviewStats"];
             /** Habits */
@@ -8856,9 +8941,42 @@ export interface operations {
             };
         };
     };
+    cram_missed_api_flashcard_cram_missed_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CramCardOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     decks_api_flashcard_decks_get: {
         parameters: {
-            query?: never;
+            query?: {
+                linked_to?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8872,6 +8990,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeckOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8977,6 +9104,9 @@ export interface operations {
         parameters: {
             query?: {
                 due?: boolean;
+                /** @description Yalnizca en az bir kez unutulanlar */
+                only_lapses?: boolean;
+                q?: string | null;
             };
             header?: never;
             path: {
