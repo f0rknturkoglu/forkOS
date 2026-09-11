@@ -1,692 +1,455 @@
-import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, FileJson, ListTodo, Network, Timer, Trash2 } from "lucide-react";
+import { ArrowLeft, FileJson, Network } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
-import { api } from "@/core/api";
-import type { Course, StudyArea, StudyTopic } from "@/core/types";
-import { Button, Chip, Empty, IconButton, Input, PageFrame, Section, cx } from "@/core/ui";
-import {
-  Workspace,
-  WorkspacePaneHeader,
-  WorkspaceRailContent,
-  WorkspaceRailGroup,
-  WorkspaceScrollArea,
-} from "@/core/workspace/Workspace";
-import { RelatedPanel } from "@/core/RelatedPanel";
-import { BacklinksPanel } from "@/core/BacklinksPanel";
+import { ApiError, api, qs } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
+import { invalidateAfter } from "@/core/invalidation";
 import { planDayForToday } from "@/core/tasks";
-import { useOnline } from "@/lib/hooks";
+import type {
+  LearningResource,
+  LearningView,
+  StudyAreaStats,
+  StudyTopicDetail,
+  StudyTopicSummary,
+  StudyTree,
+  StudyTreeNode,
+  TabId,
+} from "@/core/types";
+import { Button, Chip, Empty, PageFrame, Skeleton, Tabs } from "@/core/ui";
+import { Workspace, WorkspacePaneHeader, WorkspaceRailContent, WorkspaceScrollArea } from "@/core/workspace/Workspace";
+import { useDebounced, useOnline } from "@/lib/hooks";
+import { localDateKey } from "@/lib/date";
 import { openPomodoro } from "@/modules/pomodoro/dock";
-import { CoursesTab } from "./CoursesTab";
-import { ResourceList } from "./ResourceList";
-import { TopicNotes } from "./TopicNotes";
+import { CoursesView } from "./CoursesView";
 import { ImportDialog } from "./ImportDialog";
-import { statusButtonClass, statusHint, statusLabel, statusTone, TOPIC_STATUSES } from "./learningLabels";
+import { LearningRail } from "./LearningRail";
+import { ReviewView } from "./ReviewView";
+import { StatsView } from "./StatsView";
+import { TopicDetail } from "./TopicDetail";
+import { LEARNING_TAB_IDS, LEARNING_VIEW_IDS, LEARNING_VIEWS } from "./learningLabels";
+import type { TopicQuickFilter, TopicStatusFilter } from "./learningLabels";
 
-type TopicStats = { minutes: number; sessions: number };
+/** Genis yerlesim esigi: 1024px ustunde ray + panel yan yana. */
+const WIDE_LAYOUT = "(min-width: 1024px)";
 
-type DetailTab = "resources" | "notes" | "links";
-const DETAIL_TABS: { id: DetailTab; label: string }[] = [
-  { id: "resources", label: "Kaynaklar" },
-  { id: "notes", label: "Notlar" },
-  { id: "links", label: "Bağlantılar" },
-];
+/** Derin baglantidaki kayit silinmis/masinmis: bos ekran yerine acik durum. */
+function notFound(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
+}
+
+function useWideLayout(): boolean {
+  const [wide, setWide] = useState(
+    () => typeof window === "undefined" || !window.matchMedia || window.matchMedia(WIDE_LAYOUT).matches,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia(WIDE_LAYOUT);
+    const onChange = () => setWide(query.matches);
+    onChange();
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return wide;
+}
 
 /**
- * Ogrenme: calisma alani -> konu agaci (solda) + secili konunun kaynaklari
- * ve kurslar/kuyruk (sagda). Faz 12: study + learning tek modul; konu ile
- * kaynak arasi bag link uzerinden (learns_from).
+ * Ogrenme modulu — TEK orkestrator.
+ *
+ * Secim URL'de tutulur (`?view=`, `?area=`, `?focus=`, `?resource=`, `?tab=`);
+ * bileşenler arasi sozlesme donmustur (Faz 0 kararlari). Yerel state yalnizca
+ * gecici girdiler icindir (arama kutusu, filtre cipleri, yeni konu basligi).
  */
 export function LearningPage() {
   const route = useHashRoute();
-  // Deep-link: ?focus={id} konuyu acar (registry rotasi, Faz 32).
-  const focusId = route.params.get("focus") ?? "";
-  const [areaId, setAreaId] = useState("");
-  const [areaTitle, setAreaTitle] = useState("");
-  const [topicTitle, setTopicTitle] = useState("");
-  const [selected, setSelected] = useState<StudyTopic | null>(null);
-  const [subTitle, setSubTitle] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [detailTab, setDetailTab] = useState<DetailTab>("resources");
+  const params = route.params;
+  const view: LearningView = LEARNING_VIEW_IDS[params.get("view") ?? ""] ?? "topics";
+  const areaParam = params.get("area") ?? "";
+  const focusParam = params.get("focus") ?? "";
+  const resourceParam = params.get("resource") ?? "";
+  // Kaynak derin baglantisi kaynak listesini hedefler; acik `?tab=` her zaman kazanir.
+  const tab: TabId = LEARNING_TAB_IDS[params.get("tab") ?? ""] ?? (resourceParam ? "kaynaklar" : "genel");
   const online = useOnline();
-  const { data: areas = [] } = useQuery({
-    queryKey: ["study-areas"],
-    queryFn: () => api.get<StudyArea[]>("/study/areas"),
+  const wide = useWideLayout();
+
+  const [areaQuery, setAreaQuery] = useState("");
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [topicQuery, setTopicQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TopicStatusFilter>("all");
+  const [quickFilter, setQuickFilter] = useState<TopicQuickFilter>("none");
+  const [newTopicTitle, setNewTopicTitle] = useState("");
+  const [newTopicRoot, setNewTopicRoot] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const debouncedQuery = useDebounced(topicQuery, 250);
+
+  /** URL tek kaynak: secim yazmalari buradan gecer, bilinmeyen parametreler korunur. */
+  const writeUrl = useCallback(
+    (patch: Record<string, string | null>) => {
+      const next = new URLSearchParams(params);
+      for (const [key, value] of Object.entries(patch)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      const query = next.toString();
+      navigate(`/learning${query ? `?${query}` : ""}`);
+    },
+    [params],
+  );
+
+  const areasQuery = useQuery({
+    queryKey: ["study-areas", "stats"],
+    queryFn: () => api.get<StudyAreaStats[]>("/study/areas?include_stats=true"),
   });
-  const { data: focusedTopic } = useQuery({
-    queryKey: ["study-topic-focus", focusId],
+  const resourceQuery = useQuery({
+    // Ortak anahtar: kaynak yazmalari `learning.write`, konu yazmalari `study.write`
+    // uzerinden `topic-resources`i tazeler (invalidation haritasi).
+    queryKey: ["topic-resources", "single", resourceParam],
+    enabled: Boolean(resourceParam),
+    retry: false,
+    queryFn: () => api.get<LearningResource>(`/learning/resources/${resourceParam}`),
+  });
+  const resource = resourceQuery.data;
+  const focusId = focusParam || resource?.topic_id || "";
+  const detailQuery = useQuery({
+    // TopicDetail ile AYNI anahtar: tek istek, tek tazeleme (`study-topic`).
+    queryKey: ["study-topic", focusId],
     enabled: Boolean(focusId),
-    queryFn: () => api.get<StudyTopic>(`/study/topics/${focusId}`),
+    retry: false,
+    queryFn: () => api.get<StudyTopicDetail>(`/study/topics/${focusId}`),
   });
-  useEffect(() => {
-    if (!focusedTopic) return;
-    setAreaId(focusedTopic.area_id);
-    setSelected(focusedTopic);
-  }, [focusedTopic]);
-  useEffect(() => {
-    if (!focusId && !areaId && areas[0]) setAreaId(areas[0].id);
-  }, [areas, areaId, focusId]);
-  const { data: topics = [] } = useQuery({
-    queryKey: ["study-topics", areaId],
+  const detail = detailQuery.data;
+  const areas = useMemo(() => areasQuery.data ?? [], [areasQuery.data]);
+  // Alan: konunun kendi alani > URL > ilk alan. Derin baglanti cozulurken
+  // yanlis alanin agaci cekilmesin diye bilincli olarak bos birakilir.
+  const areaId = detail?.topic.area_id || areaParam || (focusParam || resourceParam ? "" : (areas[0]?.id ?? ""));
+  const treeQuery = useQuery({
+    queryKey: ["study-tree", areaId, debouncedQuery, statusFilter],
     enabled: Boolean(areaId),
-    queryFn: () => api.get<StudyTopic[]>(`/study/topics?area_id=${areaId}`),
+    queryFn: () =>
+      api.get<StudyTree>(
+        `/study/areas/${areaId}/tree${qs({
+          q: debouncedQuery.trim() || undefined,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        })}`,
+      ),
   });
-  const { data: stats } = useQuery({
-    queryKey: ["study-topic-stats", selected?.id],
-    enabled: Boolean(selected),
-    queryFn: () => api.get<TopicStats>(`/study/topics/${selected?.id}/stats`),
+  const tree = treeQuery.data;
+
+  /* Hizli filtreler: tek gecis hem ciplerin sayisini hem gorunur dugumleri
+     uretir; eslesen dugumun ata zinciri agacta kalir. */
+  const { visibleNodes, quickCounts } = useMemo(() => {
+    const nodes = tree?.nodes ?? [];
+    const counts = { today: 0, studying: 0, due: 0 };
+    if (nodes.length === 0) return { visibleNodes: nodes, quickCounts: counts };
+    const todayKey = localDateKey(new Date());
+    const ids = new Set(nodes.map((node) => node.id));
+    const keep = new Set<string>();
+    for (const node of nodes) {
+      const due = node.review_due;
+      const studiedToday = node.last_studied_at ? localDateKey(new Date(node.last_studied_at)) === todayKey : false;
+      const studying = node.status === "in_progress";
+      if (due) counts.due += 1;
+      if (studying) counts.studying += 1;
+      if (due || studiedToday) counts.today += 1;
+      const matches =
+        quickFilter === "studying"
+          ? studying
+          : quickFilter === "due"
+            ? due
+            : quickFilter === "today"
+              ? due || studiedToday
+              : false;
+      if (!matches) continue;
+      keep.add(node.id);
+      for (const ancestor of node.path) if (ids.has(ancestor)) keep.add(ancestor);
+    }
+    if (quickFilter === "none") return { visibleNodes: nodes, quickCounts: counts };
+    return { visibleNodes: nodes.filter((node) => keep.has(node.id)), quickCounts: counts };
+  }, [tree, quickFilter]);
+
+  const filtered = Boolean(debouncedQuery.trim()) || statusFilter !== "all" || quickFilter !== "none";
+  const selectedArea = areas.find((area) => area.id === areaId);
+  const areaTitle = tree?.area.title ?? selectedArea?.title ?? "Öğrenme alanı";
+  const revealPath = useMemo(() => (detail?.ancestors ?? []).map((ancestor) => ancestor.id), [detail]);
+  const missing = [detailQuery.error, resourceQuery.error, treeQuery.error].some(notFound);
+
+  const patchArea = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
+      api.patch<StudyAreaStats>(`/study/areas/${id}`, body),
+    onSuccess: () => invalidateAfter("study.write"),
   });
-  const { data: courses = [] } = useQuery({
-    queryKey: ["courses"],
-    queryFn: () => api.get<Course[]>("/courses"),
-  });
-  const addArea = useMutation({
-    mutationFn: () => api.post("/study/areas", { title: areaTitle }),
-    onSuccess: () => {
-      setAreaTitle("");
-      invalidateAfter("study.write");
-    },
-  });
-  const addTopic = useMutation({
-    mutationFn: () => api.post("/study/topics", { title: topicTitle, area_id: areaId }),
-    onSuccess: () => {
-      setTopicTitle("");
-      invalidateAfter("study.write");
-    },
-  });
-  const addSubTopic = useMutation({
-    // Alt konu: ayni alan, parent_id secili konu (agac zaten parent_id tasiyor).
-    mutationFn: () =>
-      api.post("/study/topics", {
-        title: subTitle,
-        area_id: selected?.area_id,
-        parent_id: selected?.id,
-      }),
-    onSuccess: () => {
-      setSubTitle("");
-      invalidateAfter("study.write");
-    },
-  });
-  const removeTopic = useMutation({
-    mutationFn: (id: string) => api.del(`/study/topics/${id}`),
-    onSuccess: () => {
-      setSelected(null);
-      invalidateAfter("study.write");
-    },
+  const createArea = useMutation({
+    mutationFn: (title: string) => api.post<StudyAreaStats>("/study/areas", { title }),
+    onSuccess: () => invalidateAfter("study.write"),
   });
   const removeArea = useMutation({
     mutationFn: (id: string) => api.del(`/study/areas/${id}`),
     onSuccess: (_data, id) => {
-      if (id === areaId) setAreaId("");
+      if (id === areaId) writeUrl({ view: "topics", area: null, focus: null, resource: null });
       invalidateAfter("study.write");
     },
   });
+  const createTopic = useMutation({
+    mutationFn: (parentId: string | null) =>
+      api.post<StudyTopicSummary>("/study/topics", {
+        title: newTopicTitle.trim(),
+        area_id: areaId,
+        ...(parentId ? { parent_id: parentId } : {}),
+      }),
+    onSuccess: (topic) => {
+      setNewTopicTitle("");
+      invalidateAfter("study.write");
+      writeUrl({ view: "topics", area: topic.area_id, focus: topic.id, resource: null });
+    },
+  });
   const createTask = useMutation({
-    // Gorev + prepares_for bagi tek istekte (Faz 17); 'bugune al'
-    // tercihi plan_day olarak uygulanir (Faz 31).
-    mutationFn: (topic: StudyTopic) => api.post(`/study/topics/${topic.id}/todos`, { plan_day: planDayForToday() }),
+    // Gorev + prepares_for bagi tek istekte (Faz 17); "bugune al" tercihi
+    // plan_day olarak uygulanir (Faz 31).
+    mutationFn: (topic: { id: string; title: string }) =>
+      api.post(`/study/topics/${topic.id}/todos`, { plan_day: planDayForToday() }),
     onSuccess: () => invalidateAfter("todo.write", "study.write", "link.write"),
   });
-  const patch = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.patch(`/study/topics/${selected?.id}`, body),
-    onSuccess: () => invalidateAfter("study.write"),
-  });
-  const patchCourse = (id: string, progress_pct: number) => {
-    coursePatch.mutate({
-      id,
-      progress_pct,
-      status: progress_pct >= 100 ? "done" : undefined,
-    });
-  };
-  const coursePatch = useMutation({
-    mutationFn: ({ id, progress_pct, status }: { id: string; progress_pct: number; status?: string }) =>
-      api.patch(`/courses/${id}`, { progress_pct, status }),
-    onSuccess: () => invalidateAfter("learning.write"),
-  });
-  const removeCourse = (id: string) => courseRemove.mutate(id);
-  const courseRemove = useMutation({
-    mutationFn: (id: string) => api.del(`/courses/${id}`),
-    onSuccess: () => invalidateAfter("learning.write"),
-  });
-  const confirmRemoveArea = async (area: StudyArea) => {
+
+  const selectArea = (id: string) => writeUrl({ view: "topics", area: id, focus: null, resource: null });
+  const selectTopic = (id: string) => writeUrl({ view: "topics", area: areaId || null, focus: id, resource: null });
+  const openTopic = (id: string) => writeUrl({ view: "topics", area: null, focus: id, resource: null });
+  const confirmRemoveArea = async (area: StudyAreaStats) => {
     const ok = await confirmDialog({
-      title: `"${area.title}" silinsin mi?`,
-      body: "İçindeki konular da gider.",
-      confirmLabel: "Sil",
+      title: `"${area.title}" kalıcı olarak silinsin mi?`,
+      body: `${area.topic_count} konu ve ${area.resource_count} kaynak da silinir. Bunun yerine arşivlemeyi düşün.`,
+      confirmLabel: "Kalıcı olarak sil",
       tone: "danger",
     });
     if (ok) removeArea.mutate(area.id);
   };
-  const confirmRemoveTopic = async (topic: StudyTopic) => {
-    const ok = await confirmDialog({
-      title: `"${topic.title}" silinsin mi?`,
-      body: "Alt konuları da gider.",
-      confirmLabel: "Sil",
-      tone: "danger",
-    });
-    if (ok) removeTopic.mutate(topic.id);
-  };
-  /* Alanin ozeti: konu/kaynak/tamamlanan sayilari agactan turetilir --
-     ayri bir uc cagirmaya gerek yok, agac zaten ilerlemeyi tasiyor. */
-  const summary = topics.reduce(
-    (acc, node) => {
-      const walk = (item: StudyTopic) => {
-        acc.topics += 1;
-        if (item.status === "done") acc.done += 1;
-        item.children?.forEach(walk);
-      };
-      walk(node);
-      // progress kok konuda alt agaci da sayar; yalniz koklerden toplanir.
-      acc.resources += node.progress?.total ?? 0;
-      acc.completed += node.progress?.done ?? 0;
-      return acc;
-    },
-    { topics: 0, done: 0, resources: 0, completed: 0 },
-  );
-  const overallPct = summary.resources ? Math.round((summary.completed / summary.resources) * 100) : 0;
-  const currentAreaTitle = areas.find((area) => area.id === areaId)?.title ?? "Öğrenme alanı";
 
   const rail = (
-    <WorkspaceRailContent className="max-h-96 lg:max-h-workspace-body">
-      <LearningProgressSummary
-        areaTitle={currentAreaTitle}
-        topics={summary.topics}
-        topicsDone={summary.done}
-        resources={summary.resources}
-        resourcesDone={summary.completed}
-        minutes={stats?.minutes ?? 0}
-        progressPct={overallPct}
+    <WorkspaceRailContent>
+      <LearningRail
+        online={online}
+        areas={areas}
+        areasState={areasQuery.isPending ? "loading" : areasQuery.isError ? "error" : "ready"}
+        onRetryAreas={() => void areasQuery.refetch()}
+        areaId={areaId}
+        onSelectArea={selectArea}
+        areaQuery={areaQuery}
+        onAreaQuery={setAreaQuery}
+        includeArchived={includeArchived}
+        onIncludeArchived={setIncludeArchived}
+        selectedArea={selectedArea}
+        onManageAreas={() => setManageOpen(true)}
+        topicQuery={topicQuery}
+        onTopicQuery={setTopicQuery}
+        statusFilter={statusFilter}
+        onStatusFilter={setStatusFilter}
+        quickFilter={quickFilter}
+        onQuickFilter={setQuickFilter}
+        quickCounts={quickCounts}
+        tree={tree}
+        treeState={!areaId ? "ready" : treeQuery.isPending ? "loading" : treeQuery.isError ? "error" : "ready"}
+        onRetryTree={() => void treeQuery.refetch()}
+        nodes={visibleNodes}
+        filtered={filtered}
+        selectedId={focusId}
+        revealPath={revealPath}
+        onSelectTopic={selectTopic}
+        onTaskTopic={(node: StudyTreeNode) => createTask.mutate({ id: node.id, title: node.title })}
+        onFocusTopic={(node: StudyTreeNode) => openPomodoro({ context: node.id, topic: node.title })}
+        newTopicTitle={newTopicTitle}
+        onNewTopicTitle={setNewTopicTitle}
+        newTopicRoot={newTopicRoot}
+        onNewTopicRoot={setNewTopicRoot}
+        parentTitle={newTopicRoot ? undefined : detail?.topic.title}
+        onAddTopic={() => createTopic.mutate(newTopicRoot ? null : focusId || null)}
+        addPending={createTopic.isPending}
+        manageOpen={manageOpen}
+        onManageClose={() => setManageOpen(false)}
+        onRenameArea={(id, title) => patchArea.mutate({ id, body: { title } })}
+        onColorArea={(id, color) => patchArea.mutate({ id, body: { color: color || null } })}
+        onArchiveArea={(id, archived) => patchArea.mutate({ id, body: { archived } })}
+        onDeleteArea={(area) => void confirmRemoveArea(area)}
+        onCreateArea={(title) => createArea.mutate(title)}
+        areaPending={patchArea.isPending || removeArea.isPending || createArea.isPending}
       />
-      <WorkspaceRailGroup label="Alanlar" hint={areas.length}>
-        <AreasPanel
-          areas={areas}
-          areaId={areaId}
-          online={online}
-          onSelect={(id) => {
-            setAreaId(id);
-            setSelected(null);
-          }}
-          onRemoveArea={confirmRemoveArea}
-          title={areaTitle}
-          onTitle={setAreaTitle}
-          onAdd={() => addArea.mutate()}
-          pending={removeArea.isPending}
-          addPending={addArea.isPending}
-        />
-      </WorkspaceRailGroup>
-      <WorkspaceRailGroup label="Konu ağacı" hint={topics.length ? summary.topics : undefined}>
-        <TopicTreePanel
-          topics={topics}
-          online={online}
-          onSelect={setSelected}
-          selectedId={selected?.id ?? ""}
-          onTask={(topic) => createTask.mutate(topic)}
-          taskPending={createTask.isPending}
-          title={topicTitle}
-          onTitle={setTopicTitle}
-          onAdd={() => addTopic.mutate()}
-          areaId={areaId}
-          pending={addTopic.isPending}
-        />
-      </WorkspaceRailGroup>
     </WorkspaceRailContent>
+  );
+
+  const breadcrumb = detail && (
+    <nav aria-label="Konu yolu" className="flex flex-wrap items-center gap-1 text-meta text-muted">
+      <button
+        type="button"
+        onClick={() => writeUrl({ area: areaId || null, focus: null, resource: null })}
+        className="max-w-[16rem] truncate rounded-control px-1 hover:bg-surface-hover hover:text-primary"
+        title={areaTitle}
+      >
+        {areaTitle}
+      </button>
+      {detail.ancestors.map((ancestor) => (
+        <span key={ancestor.id} className="flex min-w-0 items-center gap-1">
+          <span aria-hidden="true">/</span>
+          <button
+            type="button"
+            onClick={() => writeUrl({ focus: ancestor.id, resource: null })}
+            className="max-w-[16rem] truncate rounded-control px-1 hover:bg-surface-hover hover:text-primary"
+            title={ancestor.title}
+          >
+            {ancestor.title}
+          </button>
+        </span>
+      ))}
+      <span aria-hidden="true">/</span>
+      <span aria-current="page" className="max-w-[22rem] truncate text-secondary" title={detail.topic.title}>
+        {detail.topic.title}
+      </span>
+    </nav>
+  );
+
+  const pane = (compact: boolean) => (
+    <>
+      <WorkspacePaneHeader
+        eyebrow={areaTitle}
+        title={detail?.topic.title ?? "Konu seç"}
+        wrapTitle
+        hint={
+          detail
+            ? `${detail.progress.done}/${detail.progress.total} kaynak · ${detail.stats.minutes} dk odak`
+            : `${visibleNodes.length} konu`
+        }
+        action={
+          compact && focusId ? (
+            <Button size="sm" onClick={() => writeUrl({ focus: null, resource: null })} ariaLabel="Konu listesine dön">
+              <ArrowLeft size={14} /> Liste
+            </Button>
+          ) : undefined
+        }
+      />
+      <WorkspaceScrollArea className="p-3">
+        {focusId ? (
+          detailQuery.isError && !notFound(detailQuery.error) ? (
+            <div
+              role="alert"
+              className="mx-auto max-w-content space-y-2 rounded-card border border-danger-border bg-danger-surface px-4 py-3"
+            >
+              <p className="text-meta text-danger">Konu yüklenemedi.</p>
+              <Button size="sm" onClick={() => void detailQuery.refetch()}>
+                Yeniden dene
+              </Button>
+            </div>
+          ) : !detail ? (
+            <div className="mx-auto max-w-content space-y-3">
+              <Skeleton className="h-6 w-2/3" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          ) : (
+            <div className="mx-auto max-w-content space-y-3">
+              {breadcrumb}
+              {resource && (
+                <p className="flex min-w-0 items-center gap-1.5 text-meta text-muted">
+                  <Chip tone="accent" size="xs">
+                    Kaynak
+                  </Chip>
+                  <span className="truncate" title={resource.title}>
+                    {resource.title}
+                  </span>
+                </p>
+              )}
+              <TopicDetail
+                topicId={focusId}
+                tab={tab}
+                onTabChange={(next) => writeUrl({ tab: next })}
+                onDeleted={() => writeUrl({ view: "topics", focus: null, resource: null })}
+              />
+            </div>
+          )
+        ) : areasQuery.isSuccess && areas.length === 0 ? (
+          <Empty
+            variant="page"
+            title="Henüz çalışma alanı yok"
+            action={<Button onClick={() => setManageOpen(true)}>Alan oluştur</Button>}
+          >
+            Öğrenme yüzeyi alanlar üzerine kurulur. İlk alanını oluşturup konuları eklemeye başla.
+          </Empty>
+        ) : (
+          <Empty variant="page" title="Bir konu seç">
+            Soldaki konu ağacından bir başlık seç. Kaynaklar, ilerleme ve notlar bu çalışma yüzeyinde açılır.
+          </Empty>
+        )}
+      </WorkspaceScrollArea>
+    </>
   );
 
   return (
     <PageFrame className="space-y-3">
-      {importing && <ImportDialog areas={areas} onClose={() => setImporting(false)} />}
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs
+          value={view}
+          onChange={(next) => writeUrl({ view: next })}
+          items={LEARNING_VIEWS.map((item) => ({ id: item.id, label: item.label }))}
+          ariaLabel="Öğrenme görünümleri"
+        />
+        <span className="h-px flex-1 bg-subtle" />
+        <Button
+          size="sm"
+          onClick={() => setImportOpen(true)}
+          disabled={!online}
+          title={online ? undefined : "Çevrimdışı: yazma kapalı"}
+        >
+          <FileJson size={14} /> JSON yükle
+        </Button>
+        <Button
+          size="sm"
+          disabled={!focusId}
+          onClick={() => navigate(`/graph${focusId ? `?focus=${focusId}` : ""}`)}
+          title={focusId ? undefined : "Önce bir konu seç"}
+        >
+          <Network size={14} /> Bilgi grafı
+        </Button>
+      </div>
 
-      <Workspace rail={rail} railAt="lg" railWidth="wide">
-        <WorkspacePaneHeader
-          eyebrow="Öğrenme"
-          title={selected?.title ?? currentAreaTitle}
-          wrapTitle
-          hint={selected ? `${stats?.minutes ?? 0} dk · ${stats?.sessions ?? 0} seans` : `${summary.topics} konu`}
+      {missing ? (
+        <Empty
+          variant="page"
+          title="Kayıt bulunamadı"
           action={
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button size="sm" onClick={() => setImporting((open) => !open)}>
-                <FileJson size={14} /> JSON yükle
-              </Button>
-              <Button size="sm" onClick={() => navigate("/graph")}>
-                <Network size={14} /> Bilgi grafı
-              </Button>
-            </div>
+            <Button onClick={() => writeUrl({ view: "topics", area: null, focus: null, resource: null })}>
+              Alan listesine dön
+            </Button>
           }
-        />
-
-        <WorkspaceScrollArea className="p-3">
-          {selected ? (
-            <div className="mx-auto max-w-content space-y-5">
-              <Section title="Konu ayrıntısı">
-                <TopicDetailPanel
-                  selected={selected}
-                  stats={stats}
-                  online={online}
-                  onPatch={(body) => patch.mutate(body)}
-                  onRemove={() => confirmRemoveTopic(selected)}
-                />
-                <form
-                  className="mt-3 flex gap-2 border-t border-subtle pt-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (subTitle.trim()) addSubTopic.mutate();
-                  }}
-                >
-                  <Input
-                    value={subTitle}
-                    onChange={setSubTitle}
-                    placeholder={`"${selected.title}" altına alt konu`}
-                    className="min-w-0 flex-1"
-                  />
-                  <Button type="submit" disabled={!online || addSubTopic.isPending}>
-                    Alt konu ekle
-                  </Button>
-                </form>
-              </Section>
-
-              <div className="flex flex-wrap items-center gap-1 border-b border-subtle pb-2">
-                {DETAIL_TABS.map((item) => (
-                  <Button
-                    key={item.id}
-                    size="sm"
-                    variant={detailTab === item.id ? "primary" : "ghost"}
-                    onClick={() => setDetailTab(item.id)}
-                  >
-                    {item.label}
-                  </Button>
-                ))}
-              </div>
-              {detailTab === "resources" && <ResourceList topicId={selected.id} />}
-              {detailTab === "notes" && <TopicNotes topicId={selected.id} />}
-              {detailTab === "links" && (
-                <div className="space-y-5">
-                  <BacklinksPanel entityId={selected.id} />
-                  <RelatedPanel
-                    entityId={selected.id}
-                    title="Bağlı kayıtlar"
-                    exclude={["learns_from", "notes_about"]}
-                  />
-                </div>
-              )}
-            </div>
-          ) : (
-            <Empty variant="page" title="Bir konu seç">
-              Sol taraftaki konu ağacından bir başlık seç. Kaynaklar, ilerleme ve notlar bu çalışma yüzeyinde açılır.
-            </Empty>
-          )}
-
-          <div className="mx-auto mt-5 max-w-content">
-            <CoursesTab
-              courses={courses}
-              online={online}
-              onProgress={(id, progress_pct) => patchCourse(id, progress_pct)}
-              onRemove={(id) => removeCourse(id)}
-            />
-          </div>
-        </WorkspaceScrollArea>
-      </Workspace>
-    </PageFrame>
-  );
-}
-
-function LearningProgressSummary({
-  areaTitle,
-  topics,
-  topicsDone,
-  resources,
-  resourcesDone,
-  minutes,
-  progressPct,
-}: {
-  areaTitle: string;
-  topics: number;
-  topicsDone: number;
-  resources: number;
-  resourcesDone: number;
-  minutes: number;
-  progressPct: number;
-}) {
-  const earnedXp = resourcesDone * 100;
-  const totalXp = resources * 100;
-  const complete = progressPct === 100 && resources > 0;
-
-  return (
-    <details open className="group overflow-hidden rounded-card border border-subtle bg-surface shadow-card">
-      <summary className="cursor-pointer list-none px-3.5 py-3 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="label-caps">Öğrenme seviyesi</p>
-            <p className="mt-0.5 break-words text-heading text-primary">{areaTitle}</p>
-          </div>
-          <span className={cx("numeral text-numeral-lg", complete ? "text-ok" : "text-accent")}>%{progressPct}</span>
-          <ChevronDown
-            size={15}
-            aria-hidden="true"
-            className="mt-1 text-muted transition-transform group-open:rotate-180"
-          />
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3 text-meta">
-          <span className="text-secondary">XP ilerlemesi</span>
-          <span className="numeral text-muted">
-            {earnedXp} / {totalXp} XP
-          </span>
-        </div>
-        <div
-          role="progressbar"
-          aria-label={`${areaTitle} öğrenme ilerlemesi`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progressPct}
-          className="mt-1.5 h-2.5 overflow-hidden rounded-control bg-surface-sunken"
         >
-          <span
-            className={cx(
-              "block h-full rounded-control transition-[width] duration-500",
-              complete ? "bg-ok" : "bg-accent",
-            )}
-            style={{ width: `${progressPct}%` }}
-          />
+          Bağlantıdaki kayıt silinmiş ya da taşınmış olabilir. Alan listesine dönüp yeniden seçebilirsin.
+        </Empty>
+      ) : view !== "topics" ? (
+        <div className="min-h-workspace-body">
+          {view === "courses" && <CoursesView />}
+          {view === "review" && <ReviewView onOpenTopic={openTopic} />}
+          {view === "stats" && <StatsView onOpenTopic={openTopic} />}
         </div>
-      </summary>
-
-      <div className="grid grid-cols-3 divide-x divide-subtle border-t border-subtle bg-surface-sunken/40 px-1 py-2.5">
-        <LearningProgressStat value={topics} label="konu" hint={`${topicsDone} bitti`} />
-        <LearningProgressStat value={resources} label="kaynak" hint={`${resourcesDone} bitti`} />
-        <LearningProgressStat value={`${minutes} dk`} label="odak" hint="seçili konu" />
-      </div>
-    </details>
-  );
-}
-
-function LearningProgressStat({ value, label, hint }: { value: number | string; label: string; hint: string }) {
-  return (
-    <div className="min-w-0 px-2 text-center">
-      <p className="numeral truncate text-heading text-primary">{value}</p>
-      <p className="text-meta text-secondary">{label}</p>
-      <p className="truncate text-micro text-muted">{hint}</p>
-    </div>
-  );
-}
-
-function AreasPanel({
-  areas,
-  areaId,
-  online,
-  onSelect,
-  onRemoveArea,
-  title,
-  onTitle,
-  onAdd,
-  pending,
-  addPending,
-}: {
-  areas: StudyArea[];
-  areaId: string;
-  online: boolean;
-  onSelect: (id: string) => void;
-  onRemoveArea: (area: StudyArea) => void;
-  title: string;
-  onTitle: (value: string) => void;
-  onAdd: () => void;
-  pending: boolean;
-  addPending: boolean;
-}) {
-  return (
-    <>
-      <div className="divide-y divide-subtle border-y border-subtle">
-        {areas.map((a) => (
-          <div
-            key={a.id}
-            className={cx("group flex items-center", areaId === a.id && "bg-accent-surface text-primary")}
-          >
-            <button
-              onClick={() => onSelect(a.id)}
-              className={cx(
-                "min-w-0 flex-1 break-words px-2 py-2 text-left text-body leading-relaxed hover:bg-surface-hover",
-                areaId === a.id && "bg-accent-surface text-primary",
-              )}
-            >
-              {a.title}
-            </button>
-            <IconButton
-              title="Alanı sil"
-              tone="danger"
-              disabled={!online || pending}
-              onClick={() => onRemoveArea(a)}
-              className="mr-1.5 h-6 w-6 opacity-0 transition group-hover:opacity-100"
-            >
-              <Trash2 size={13} />
-            </IconButton>
-          </div>
-        ))}
-      </div>
-      <form
-        className="mt-3 flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (title.trim()) onAdd();
-        }}
-      >
-        <Input value={title} onChange={onTitle} className="min-w-0 flex-1" placeholder="Yeni alan" />
-        <Button type="submit" disabled={!online || addPending}>
-          +
-        </Button>
-      </form>
-    </>
-  );
-}
-
-function TopicTreePanel({
-  topics,
-  online,
-  onSelect,
-  selectedId,
-  onTask,
-  taskPending,
-  title,
-  onTitle,
-  onAdd,
-  areaId,
-  pending,
-}: {
-  topics: StudyTopic[];
-  online: boolean;
-  onSelect: (topic: StudyTopic) => void;
-  selectedId: string;
-  onTask: (topic: StudyTopic) => void;
-  taskPending: boolean;
-  title: string;
-  onTitle: (value: string) => void;
-  onAdd: () => void;
-  areaId: string;
-  pending: boolean;
-}) {
-  return (
-    <>
-      {topics.length ? (
-        <TopicTree
-          items={topics}
-          select={onSelect}
-          selectedId={selectedId}
-          taskPending={taskPending}
-          onTask={onTask}
-          onFocus={(topic) => openPomodoro({ context: topic.id, topic: topic.title })}
-        />
+      ) : wide ? (
+        <Workspace rail={rail} railAt="lg" railWidth="wide">
+          {pane(false)}
+        </Workspace>
       ) : (
-        <Empty>Konu yok.</Empty>
+        /* Dar genislik: master-detail. Detay agacin ALTINA itilmez; konu
+           secilince yerini detaya birakir ve gorunur bir geri dugmesi cikar. */
+        <div className="min-h-workspace-body">
+          {focusId ? (
+            <Workspace>{pane(true)}</Workspace>
+          ) : (
+            <div className="rounded-card border border-subtle bg-surface p-3 shadow-card">{rail}</div>
+          )}
+        </div>
       )}
-      <form
-        className="mt-4 flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (title.trim() && areaId) onAdd();
+
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onDone={(areaId) => {
+          setImportOpen(false);
+          writeUrl({ view: "topics", area: areaId, focus: null, resource: null });
         }}
-      >
-        <Input value={title} onChange={onTitle} className="min-w-0 flex-1" placeholder="Yeni kök konu" />
-        <Button type="submit" disabled={!online || pending}>
-          Ekle
-        </Button>
-      </form>
-    </>
-  );
-}
-
-function TopicDetailPanel({
-  selected,
-  stats,
-  online,
-  onPatch,
-  onRemove,
-}: {
-  selected: StudyTopic;
-  stats?: TopicStats;
-  online: boolean;
-  onPatch: (body: Record<string, unknown>) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-medium">{selected.title}</h2>
-          <p className="text-meta text-muted">
-            {stats?.minutes ?? 0} dk · {stats?.sessions ?? 0} seans
-          </p>
-        </div>
-        <IconButton title="Konuyu sil" tone="danger" disabled={!online} onClick={onRemove}>
-          <Trash2 size={14} />
-        </IconButton>
-      </div>
-      <div>
-        <p className="mb-1.5 text-meta text-secondary">Durum</p>
-        {/* Segment kontrolu: uc secenek de gorunur, tek tikla degisir.
-            Acilir liste secenekleri gizliyordu ve ne anlama geldikleri
-            belirsizdi. */}
-        <div
-          role="radiogroup"
-          aria-label="Konu durumu"
-          className="inline-flex rounded-control border border-subtle bg-surface-sunken p-0.5"
-        >
-          {TOPIC_STATUSES.map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={selected.status === value}
-              disabled={!online}
-              onClick={() => onPatch({ status: value })}
-              className={cx(
-                "rounded-control border px-3 py-1 text-meta transition disabled:cursor-not-allowed disabled:opacity-40",
-                statusButtonClass(value, selected.status === value),
-              )}
-            >
-              {statusLabel(value)}
-            </button>
-          ))}
-        </div>
-        <p className="mt-1.5 text-meta text-muted">{statusHint(selected.status)}</p>
-      </div>
-      <Button variant="primary" onClick={() => openPomodoro({ context: selected.id, topic: selected.title })}>
-        Pomodoro başlat
-      </Button>
-    </div>
-  );
-}
-
-function TopicTree({
-  items,
-  select,
-  selectedId,
-  depth = 0,
-  onTask,
-  onFocus,
-  taskPending,
-}: {
-  items: StudyTopic[];
-  select: (t: StudyTopic) => void;
-  selectedId: string;
-  depth?: number;
-  onTask: (t: StudyTopic) => void;
-  onFocus: (t: StudyTopic) => void;
-  taskPending: boolean;
-}) {
-  const online = useOnline();
-  return (
-    <div>
-      {items.map((t) => (
-        <div key={t.id}>
-          <div
-            className={cx(
-              "group flex w-full items-start gap-1 rounded-control pr-1 transition",
-              selectedId === t.id ? "bg-accent-surface" : "hover:bg-surface-hover",
-            )}
-          >
-            <button
-              onClick={() => select(t)}
-              style={{ paddingLeft: `${depth * 16 + 8}px` }}
-              className="min-w-0 flex-1 py-2 text-left text-body"
-            >
-              <span className="block whitespace-normal break-words leading-relaxed text-primary">{t.title}</span>
-              {/* Kaynak sayacindan turetilen ilerleme -- alt konular dahil. */}
-              <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                <Chip tone={statusTone(t.status)}>{statusLabel(t.status)}</Chip>
-                {t.progress && t.progress.total > 0 && (
-                  <>
-                    <span className="h-1 w-16 overflow-hidden rounded-control bg-surface-sunken">
-                      <span
-                        className={cx("block h-full rounded-control", t.progress.pct === 100 ? "bg-ok" : "bg-accent")}
-                        style={{ width: `${t.progress.pct}%` }}
-                      />
-                    </span>
-                    <span className="numeral text-micro text-muted">
-                      {t.progress.done}/{t.progress.total}
-                    </span>
-                  </>
-                )}
-              </span>
-            </button>
-            <span className="mt-1 flex shrink-0 items-center gap-0.5">
-              <button
-                type="button"
-                title="Görev oluştur"
-                aria-label={`"${t.title}" için görev oluştur`}
-                disabled={!online || taskPending}
-                onClick={() => onTask(t)}
-                className={cx(
-                  "flex h-7 w-7 items-center justify-center rounded-control text-muted transition",
-                  "hover:bg-surface-sunken hover:text-primary disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-              >
-                <ListTodo size={13} />
-              </button>
-              <button
-                type="button"
-                title="Odaklan"
-                aria-label={`"${t.title}" için odaklan`}
-                disabled={!online}
-                onClick={() => onFocus(t)}
-                className={cx(
-                  "flex h-7 w-7 items-center justify-center rounded-control text-muted transition",
-                  "hover:bg-surface-sunken hover:text-primary disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-              >
-                <Timer size={13} />
-              </button>
-            </span>
-          </div>
-          <TopicTree
-            items={t.children ?? []}
-            select={select}
-            selectedId={selectedId}
-            depth={depth + 1}
-            onTask={onTask}
-            onFocus={onFocus}
-            taskPending={taskPending}
-          />
-        </div>
-      ))}
-    </div>
+      />
+    </PageFrame>
   );
 }

@@ -20,6 +20,12 @@ registerModule({
   todayWidgets: [{ id: "learning.widget", title: "Öğrenme", component: LearningWidget, slot: "left", order: 65 }],
   commands: [
     { id: "learning.open", label: "Öğrenmeyi aç — konular, kurslar, kuyruk", run: () => navigate("/learning") },
+    // Tekrar kuyrugu ayri gorunum: dogrudan `?view=review` deep-link'i.
+    {
+      id: "learning.review",
+      label: "Öğrenme: tekrar kuyruğu",
+      run: () => navigate("/learning?view=review"),
+    },
     { id: "study.open", label: "Çalışma ağacını aç", run: () => navigate("/study") },
   ],
 });

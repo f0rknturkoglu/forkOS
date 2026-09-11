@@ -2,21 +2,31 @@
  * Bilgi grafi sayfasi -- second brain'in haritasi.
  *
  * Odak (?focus={id}) verilirse o kaydin cevresi, verilmezse tum graf.
- * Derinlik URL'de yasar ki paylasilan baglanti ayni gorunumu acsin.
+ * Derinlik de URL'de yasar ki paylasilan baglanti ayni gorunumu acsin.
+ *
+ * Ogrenmeden gelindiginde odak KORUNUR: "Ogrenmeye don" bagi
+ * `#/learning?focus=<id>` adresine gider, yani sayfa ayni konuyla acilir.
+ * "Tum graf" ise odagi birakir (paylasilabilir genel gorunum).
  */
-import { useHashRoute, navigate } from "@/app/router";
+import { ArrowLeft } from "lucide-react";
 import { GraphView } from "@/core/GraphView";
 import { Button, Toolbar } from "@/core/ui";
+import { navigate, useHashRoute } from "@/app/router";
 
 const DEPTHS = [1, 2, 3];
 
 export function GraphPage() {
   const route = useHashRoute();
   const focus = route.params.get("focus") ?? undefined;
-  const depth = Number(route.params.get("depth") ?? 2);
+  const requested = Number(route.params.get("depth") ?? 2);
+  // Bozuk/elle yazilmis derinlik grafigi NaN ile cizmesin.
+  const depth = DEPTHS.includes(requested) ? requested : 2;
 
   const go = (next: number) =>
     navigate(`/graph?${new URLSearchParams({ ...(focus ? { focus } : {}), depth: String(next) })}`);
+
+  // Secili konu geri donuste korunur: LF1 `?focus=` ile ayni konuyu acar.
+  const backHref = focus ? `#/learning?focus=${encodeURIComponent(focus)}` : "#/learning";
 
   return (
     <div className="relative h-workspace-body overflow-hidden bg-canvas">
@@ -26,6 +36,9 @@ export function GraphPage() {
             <h1 className="text-heading text-primary">Bilgi grafı</h1>
             <p className="truncate text-meta text-muted">Notlar, görevler, kaynaklar ve aralarındaki bağlar</p>
           </div>
+          <a href={backHref} className="inline-flex items-center gap-1.5 text-meta text-accent">
+            <ArrowLeft size={13} /> Öğrenmeye dön
+          </a>
           {focus && (
             <Button size="sm" onClick={() => navigate("/graph")}>
               Tüm graf
@@ -40,6 +53,7 @@ export function GraphPage() {
                 {value}
               </Button>
             ))}
+            <span className="text-meta text-muted">Odaklı görünüm; bağlantı bu derinlikle paylaşılır.</span>
           </Toolbar>
         )}
       </div>
