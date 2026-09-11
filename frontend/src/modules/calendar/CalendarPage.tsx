@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
+import { entityRoute } from "@/core/entityRegistry";
 import type { CalendarEvent } from "@/core/types";
 import { Button, Chip, Empty, PageFrame, cx } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
@@ -224,9 +225,19 @@ export function CalendarPage() {
                           className="rounded border border-subtle bg-canvas px-1.5 py-1"
                         >
                           <div className="flex items-start justify-between gap-1">
-                            <span className="min-w-0 flex-1 truncate text-micro leading-4 text-primary">
-                              {event.title}
-                            </span>
+                            {event.entity_type && event.entity_id ? (
+                              // Plan slotu bagli kayda gider (orn. ogrenme konusu -> ?focus=).
+                              <a
+                                href={`#${entityRoute(event.entity_type, event.entity_id).replace(/^#/, "")}`}
+                                className="min-w-0 flex-1 truncate text-micro leading-4 text-primary transition hover:text-accent hover:underline"
+                              >
+                                {event.title}
+                              </a>
+                            ) : (
+                              <span className="min-w-0 flex-1 truncate text-micro leading-4 text-primary">
+                                {event.title}
+                              </span>
+                            )}
                             {view === "week" && <Chip>{event.source}</Chip>}
                           </div>
                           <p className="text-micro leading-4 text-muted">

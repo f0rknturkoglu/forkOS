@@ -281,25 +281,123 @@ export interface StudyArea {
   position: number;
 }
 
-export interface StudyTopic {
+/** Ogrenme ust seviye gorunumu — URL `?view=` ile senkron. */
+export type LearningView = "topics" | "courses" | "review" | "stats";
+
+/** Konu detay sekmeleri — URL `?tab=` ile senkron. */
+export type TabId = "genel" | "kaynaklar" | "notlar" | "baglantilar" | "tekrar";
+
+/** Konu durumu; backend `TOPIC_STATUSES` ile ayni kume. */
+export type TopicStatus = "not_started" | "in_progress" | "done";
+
+/** `GET /study/areas?include_stats=true` — alan + turetilmis sayaclar. */
+export interface StudyAreaStats extends StudyArea {
+  archived_at: string | null;
+  topic_count: number;
+  done_count: number;
+  resource_count: number;
+  resource_done: number;
+  focus_minutes: number;
+  stale_count: number;
+  last_studied_at: string | null;
+}
+
+/** `GET /study/areas/{id}/tree` dugumu: duz liste + `depth` + ata `path`. */
+export interface StudyTreeNode {
+  id: string;
+  title: string;
+  parent_id: string | null;
+  depth: number;
+  position: number;
+  status: TopicStatus;
+  confidence: number | null;
+  mastery: number | null;
+  target_min: number | null;
+  last_studied_at: string | null;
+  next_review_at: string | null;
+  review_due: boolean;
+  resource_total: number;
+  resource_done: number;
+  progress_pct: number;
+  focus_minutes: number;
+  focus_sessions: number;
+  child_count: number;
+  path: string[];
+}
+
+export interface StudyTree {
+  area: StudyAreaStats;
+  nodes: StudyTreeNode[];
+  totals: StudyTreeTotals;
+  orphan_count: number;
+}
+
+interface StudyTreeTotals {
+  topics: number;
+  done: number;
+  in_progress: number;
+  review_due: number;
+  resource_total: number;
+  resource_done: number;
+  focus_minutes: number;
+  focus_sessions: number;
+}
+
+interface TopicProgress {
+  total: number;
+  done: number;
+  pct: number;
+}
+
+interface StudyTopicOpenTodo {
+  id: string;
+  title: string;
+  status: string;
+  plan_day: string | null;
+  priority: number;
+  due_at: string | null;
+}
+
+interface StudyReviewBlock {
+  interval_days: number;
+  ease: number;
+  review_count: number;
+  last_reviewed_at: string | null;
+  next_review_at: string | null;
+  mastery: number | null;
+  due: boolean;
+}
+
+/** Konu ozeti (detay yaniti `topic` blogu; `children` tasimaz). */
+export interface StudyTopicSummary {
   id: string;
   title: string;
   area_id: string;
   parent_id: string | null;
-  status: string;
+  status: TopicStatus;
   confidence: number | null;
   target_min: number | null;
   position: number;
+  mastery: number | null;
   last_studied_at: string | null;
-  children: StudyTopic[];
-  /** Kaynak sayacindan turetilir (alt konular dahil); kolonda tutulmaz. */
-  progress?: TopicProgress;
+  interval_days: number;
+  ease: number;
+  review_count: number;
+  last_reviewed_at: string | null;
+  next_review_at: string | null;
 }
 
-export interface TopicProgress {
-  total: number;
-  done: number;
-  pct: number;
+/** `GET /study/topics/{id}` — konu + atalar + kaynaklar + tekrar blogu. */
+export interface StudyTopicDetail {
+  topic: StudyTopicSummary;
+  ancestors: { id: string; title: string }[];
+  resources: LearningResource[];
+  progress: TopicProgress;
+  stats: { minutes: number; sessions: number; week_minutes: number; last_studied_at: string | null };
+  open_todo: StudyTopicOpenTodo | null;
+  note_count: number;
+  flashcard_deck_count: number;
+  review: StudyReviewBlock;
 }
 
 export interface LearningResource {
@@ -311,6 +409,13 @@ export interface LearningResource {
   position: number;
   completed_at: string | null;
   note: string | null;
+  /** Sure tahmini (dk) ve son acilma damgasi — derin baglanti/planlama icin. */
+  estimated_min: number | null;
+  last_opened_at: string | null;
+  /** Kaynagin dogusu: manual | bookmark | import. */
+  source: string;
+  bookmark_id: string | null;
+  course_id: string | null;
 }
 
 /** Bilgi grafi: dugum = entity, kenar = link (mentions dahil). */
@@ -333,18 +438,6 @@ export interface KnowledgeGraph {
   focus: string | null;
 }
 
-export interface Course {
-  id: string;
-  title: string;
-  platform: string | null;
-  url: string | null;
-  status: string;
-  progress_pct: number;
-  started_at: string | null;
-  completed_at: string | null;
-  notes: string | null;
-}
-
 export interface Document {
   id: string;
   title: string;
@@ -361,6 +454,9 @@ export interface CalendarEvent {
   id: string;
   source: "google" | "plan";
   title: string;
+  /** Plan slotları için: bağlı kaydın entity id'si ve tipi (rota registry'den). */
+  entity_id?: string | null;
+  entity_type?: string | null;
   starts_at: string;
   ends_at: string | null;
   all_day: boolean;

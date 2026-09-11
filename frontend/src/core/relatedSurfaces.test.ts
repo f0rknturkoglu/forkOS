@@ -53,8 +53,9 @@ const SURFACES: Record<string, string> = {
   todo: "src/modules/todo/TodoPage.tsx",
   project: "src/modules/projects/ProjectsPage.tsx",
   opportunity: "src/modules/opportunity/OpportunityDetail.tsx",
-  study_topic: "src/modules/learning/LearningPage.tsx",
-  learning_resource: "src/modules/learning/LearningPage.tsx",
+  // Ogrenme yuzeyi artik konu detayi ("Baglantilar" sekmesi); sayfa yalniz kabuk.
+  study_topic: "src/modules/learning/TopicDetail.tsx",
+  learning_resource: "src/modules/learning/TopicDetail.tsx",
   media_item: "src/modules/media/MediaDetailPage.tsx",
   bookmark: "src/modules/bookmarks/BookmarksPage.tsx",
   document: "src/modules/documents/DocumentsPage.tsx",

@@ -131,9 +131,22 @@ async def stop(session: AsyncSession, pomo_id: uuid.UUID, interrupted: bool) -> 
             payload=payload,
         )
         if pomo.kind == "focus" and pomo.context_entity_id:
-            topic = await session.get(StudyTopic, pomo.context_entity_id)
-            if topic is not None:
-                topic.last_studied_at = ended
+            # Baglam bir konu ya da bir kaynak olabilir. Kaynak baglaminda seans
+            # suresi KONUNUN (ve atalarinin) icine yazilir; boylece alt kaynak
+            # calisilinca ust konular "stale" gorunmez.
+            from app.modules.learning import service as learning_service
+            from app.modules.learning.models import LearningResource
+
+            topic_id = None
+            resource = await session.get(LearningResource, pomo.context_entity_id)
+            if resource is not None:
+                topic_id = resource.topic_id
+            else:
+                topic = await session.get(StudyTopic, pomo.context_entity_id)
+                if topic is not None:
+                    topic_id = topic.id
+            if topic_id is not None:
+                await learning_service.touch_topic_chain(session, topic_id, at=ended)
         await session.commit()
     return await _out(session, pomo)
 

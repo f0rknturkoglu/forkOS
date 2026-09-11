@@ -196,6 +196,7 @@ def _media_row(
         kind="media",
         source=source,
         id=item.id,
+        entity_type="media_item",
         slot_id=slot.id if slot else None,
         title=title,
         completed=completed,
@@ -375,6 +376,7 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
                 kind=kind,
                 source="planned",
                 id=entity_id,
+                entity_type=etype,
                 slot_id=slot.id,
                 title=generic_titles[entity_id][0],
                 read_only=True,
@@ -465,6 +467,7 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     todo_suggestions: list[AgendaRow] = []
     rss_suggestions: list[AgendaRow] = []
     flashcard_suggestions: list[AgendaRow] = []
+    study_suggestions: list[AgendaRow] = []
     # Bu liste bir tavsiye degil, devam eden mevcut medya durumudur. Additive
     # sozlesme icin suggestions altinda kalir ama otomatik tavsiye ayarindan etkilenmez.
     continue_media = (await session.execute(
@@ -558,6 +561,26 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             for deck_id, title, _ in due_decks
         ]
 
+        # Tekrar zamani gelen konular: "bugun su konuyu tazele" tavsiyesi
+        # (gecikenler once). Rota registry'den cozulur -> /learning?focus=<id>.
+        from app.modules.learning import service as learning_service
+
+        queue = await learning_service.topic_review_queue(session, limit=20)
+        study_candidates = [*queue.get("due_today", []), *queue.get("overdue", [])]
+        study_suggestions = [
+            AgendaRow(
+                kind="study",
+                source="suggestion",
+                id=row["id"],
+                entity_type="study_topic",
+                title=row["title"],
+                read_only=True,
+                progress_label=row.get("area_title"),
+                next_review_at=row.get("next_review_at"),
+            )
+            for row in study_candidates[:3]
+        ]
+
     timed.sort(key=lambda row: row.starts_at or datetime.max.replace(tzinfo=UTC))
 
     return TodayAgendaOut(
@@ -571,5 +594,6 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             "rss": rss_suggestions,
             "media": media_suggestions,
             "flashcards": flashcard_suggestions,
+            "study": study_suggestions,
         },
     )

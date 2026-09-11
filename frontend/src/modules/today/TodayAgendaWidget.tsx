@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { api } from "@/core/api";
+import { entityRoute } from "@/core/entityRegistry";
 import type { AgendaRow, FeedItem, TodayAgenda, Todo } from "@/core/types";
 import {
   Button,
@@ -490,28 +491,28 @@ function AgendaLine({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-baseline gap-2">
             {time && <span className="numeral shrink-0 text-meta text-accent">{time}</span>}
-            {row.kind === "todo" ? (
-              <a
-                href={`#/todos?focus=${encodeURIComponent(row.id)}`}
-                className={cx(
-                  "min-w-0 truncate text-body text-primary transition hover:text-accent hover:underline",
-                  row.completed && "line-through text-muted",
-                  row.context_only && "font-medium text-secondary",
-                )}
-              >
-                {row.title}
-              </a>
-            ) : (
-              <span
-                className={cx(
-                  "min-w-0 truncate text-body text-primary",
-                  row.completed && "line-through text-muted",
-                  row.context_only && "font-medium text-secondary",
-                )}
-              >
-                {row.title}
-              </span>
-            )}
+            {(() => {
+              // Rota kayit defterinden gelir (kural 13): todo kendi sayfasina,
+              // ogrenme konusu/alan ve diger tipler EntityTypeSpec rotasina.
+              const href =
+                row.kind === "todo"
+                  ? `#/todos?focus=${encodeURIComponent(row.id)}`
+                  : row.entity_type
+                    ? `#${entityRoute(row.entity_type, row.id).replace(/^#/, "")}`
+                    : null;
+              const classes = [
+                "min-w-0 truncate text-body text-primary",
+                row.completed && "line-through text-muted",
+                row.context_only && "font-medium text-secondary",
+              ];
+              return href ? (
+                <a href={href} className={cx(...classes, "transition hover:text-accent hover:underline")}>
+                  {row.title}
+                </a>
+              ) : (
+                <span className={cx(...classes)}>{row.title}</span>
+              );
+            })()}
             {row.duration_min && <span className="shrink-0 text-meta text-muted">{row.duration_min} dk</span>}
           </div>
           {(meta || row.recur) && (

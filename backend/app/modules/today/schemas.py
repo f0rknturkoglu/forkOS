@@ -18,6 +18,9 @@ class AgendaRow(BaseModel):
     kind: AgendaKind
     source: AgendaSource
     id: uuid.UUID
+    #: Kaydin entity tipi: arayuz rotayi kayit defterinden (entityRoute) cozer
+    #: (kural 13) -- orn. study_topic -> /learning?focus=<id>.
+    entity_type: str | None = None
     slot_id: uuid.UUID | None = None
     title: str
     completed: bool = False
@@ -34,6 +37,8 @@ class AgendaRow(BaseModel):
     media_status: str | None = None
     progress_label: str | None = None
     cover_url: str | None = None
+    #: Tekrar kuyrugundan gelen ogrenme satirlari icin sonraki tekrar zamani.
+    next_review_at: datetime | None = None
     recur: Literal["daily", "weekdays", "weekly", "monthly"] | None = None
     children: list[AgendaRow] = Field(default_factory=list)
 
@@ -44,6 +49,8 @@ class AgendaSuggestions(BaseModel):
     media: list[AgendaRow] = Field(default_factory=list)
     #: Vadesi gelmis desteler: "bugun su desteyi tekrar et" tavsiyesi.
     flashcards: list[AgendaRow] = Field(default_factory=list)
+    #: Tekrar zamani gelen konular: "bugun su konuyu tazele" tavsiyesi.
+    study: list[AgendaRow] = Field(default_factory=list)
 
 
 class TodayAgendaOut(BaseModel):

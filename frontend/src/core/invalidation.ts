@@ -9,8 +9,28 @@
 import { queryClient } from "./queryClient";
 
 export const AFTER = {
-  "todo.write": ["todos", "today-agenda", "plan", "deadlines", "activity", "review-preview", "tags"],
-  "bookmark.write": ["bookmarks", "bookmark-stats", "tags", "activity", "related"],
+  "todo.write": [
+    "todos",
+    "today-agenda",
+    "plan",
+    "deadlines",
+    "activity",
+    "review-preview",
+    "tags",
+    // Konunun "acik gorev" blogu todos'tan turer.
+    "study-topic",
+    "study-topics",
+  ],
+  "bookmark.write": [
+    "bookmarks",
+    "bookmark-stats",
+    "tags",
+    "activity",
+    "related",
+    // Ogrenme kuyrugu gorunumu bookmark koleksiyonundan beslenir.
+    "study-topics",
+    "study-topic",
+  ],
   "rss.write": ["items", "rss-item", "feeds", "rss-stats", "today-agenda", "activity"],
   // Medya yazmasi koleksiyon uyeligi, bagli kayitlar, graf ve son tarihleri de
   // etkiler (release tarihleri deadline uretir); yalniz "media" tazelemek
@@ -71,13 +91,25 @@ export const AFTER = {
   "study.write": [
     "study-areas",
     "study-topics",
+    "study-topic",
     "study-topic-stats",
     "study-topic-focus",
+    "study-tree",
+    "study-review",
+    "study-stats",
+    "study-stale",
     "topic-resources",
     "topic-progress",
+    "courses",
+    "today-agenda",
     "activity",
+    "statistics",
     "review-preview",
-    "study-stale",
+    // Konu/alan degisimi bagli kayitlari, grafigi ve son tarihleri de etkiler.
+    "graph",
+    "related",
+    "backlinks",
+    "deadlines",
   ],
   "pomodoro.write": [
     "pomodoro-active",
@@ -87,6 +119,13 @@ export const AFTER = {
     "review-preview",
     "project-timeline",
     "project-journal",
+    // Odak seansi konunun "son calisilma" bilgisini ve tekrar kuyrugunu besler.
+    "study-topic",
+    "study-topic-stats",
+    "study-topics",
+    "study-stale",
+    "study-review",
+    "study-stats",
   ],
   "learning.write": [
     "courses",
@@ -94,10 +133,14 @@ export const AFTER = {
     "topic-resources",
     "topic-progress",
     "study-topics",
+    "study-topic",
+    "study-review",
+    "study-stats",
     "activity",
     "related",
     "graph",
-    "study-stale",
+    "backlinks",
+    "today-agenda",
   ],
   "document.write": ["documents", "activity"],
   "calendar.write": ["calendar-events", "plan", "today-agenda", "activity"],
