@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.events import log_event
 from app.modules.media.models import MediaItem, MediaUnit
 from app.modules.media.progress import MediaCommandError
 from app.modules.media.schemas import MediaArtworkPruneOut, MediaArtworkStatsOut
@@ -234,14 +235,24 @@ async def artwork_stats() -> MediaArtworkStatsOut:
 async def prune_artwork(session: AsyncSession) -> MediaArtworkPruneOut:
     """DB'de referans edilmeyen gorsel dosyalarini temizler.
 
-    Bilerek event YAZMAZ: `media.artwork_pruned` verb'i `media/__init__.py`
-    event listesinde yok (kural 3), bu yuzden sonuc yalnizca dondurulur.
+    Silme yikici bir islem oldugu icin sonuc `media.artwork_pruned` event'iyle
+    de kaydedilir (dosya sayisi + kazanilan bayt); event satiri hangi turda ne
+    kadar temizlendigini izlenebilir kilar.
     """
     keep: set[str] = set()
     for column in (MediaItem.cover_path, MediaItem.backdrop_path, MediaUnit.cover_path):
         rows = await session.execute(select(column).where(column.is_not(None)))
         keep.update(Path(value).name for (value,) in rows if value)
     removed, freed = ArtworkStore().prune(keep)
+    if removed:
+        await log_event(
+            session,
+            verb="media.artwork_pruned",
+            entity_id=None,
+            entity_type="media_item",
+            payload={"removed": removed, "freed_bytes": freed},
+        )
+        await session.commit()
     return MediaArtworkPruneOut(removed=removed, freed_bytes=freed)
 
 

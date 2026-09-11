@@ -1362,6 +1362,7 @@ def test_media_registers_complete_event_contract_and_restoration_helper():
         "media.sync_completed",
         "media.sync_failed",
         "media.sync_empty",
+        "media.artwork_pruned",
     }
     from app.core import entity
 

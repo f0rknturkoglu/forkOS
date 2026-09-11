@@ -41,6 +41,7 @@ def _spec():
             "media.sync_completed",
             "media.sync_failed",
             "media.sync_empty",
+            "media.artwork_pruned",
         ],
         deadline_provider=media_deadlines,
     )
