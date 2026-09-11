@@ -64,6 +64,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Applications List
+         * @description Başvurular çalışma alanı: YALNIZCA gerçek başvuru kayıtları.
+         *
+         *     Keşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1).
+         */
+        get: operations["applications_list_api_applications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications/funnel": {
         parameters: {
             query?: never;
@@ -92,6 +114,26 @@ export interface paths {
         get: operations["rejection_reasons_api_applications_rejection_reasons_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{item_id}/transition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Application Transition
+         * @description Basvuru hatti gecisi (yalnizca gercek basvuru kayitlari).
+         */
+        post: operations["application_transition_api_applications__item_id__transition_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1849,6 +1891,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Opportunity Lifecycle
+         * @description Kesif, basvuru ve duyuru durum makineleri.
+         *
+         *     Frontend durum seceneklerini ve izinli gecisleri BURADAN okur; elle
+         *     kopyalanmis statu listesi tutmaz (AGENTS.md kural 13).
+         */
+        get: operations["opportunity_lifecycle_api_opportunities_lifecycle_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/prune": {
         parameters: {
             query?: never;
@@ -1860,9 +1925,32 @@ export interface paths {
         put?: never;
         /**
          * Prune Opportunities
-         * @description 3 aydan (veya belirtilen günden) eski ilanları temizler.
+         * @description Onaylanmis silme: yalnizca sahipsiz ham ilanlar gider, event uretilir.
          */
         post: operations["prune_opportunities_api_opportunities_prune_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/prune/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prune Preview
+         * @description Dry-run: ne silinir, ne korunur, tahmini ne kadar yer bosalir.
+         *
+         *     Silme yalnizca bu onizlemeden alinan `confirm_token` ile yapilir; boylece
+         *     tek tikla geri alinamaz veri kaybi olmaz (Faz 2.3).
+         */
+        get: operations["prune_preview_api_opportunities_prune_preview_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1934,7 +2022,7 @@ export interface paths {
         put?: never;
         /**
          * Apply
-         * @description Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir.
+         * @description Basvur: basvuru kaydi 'applied' olur, snapshot + CV kunyesi saklanir.
          */
         post: operations["apply_api_opportunities__item_id__apply_post"];
         delete?: never;
@@ -2116,6 +2204,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/{item_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Application Timeline
+         * @description Birlesik basvuru zaman cizelgesi (kesif + basvuru + gorusme + not + gorev).
+         */
+        get: operations["application_timeline_api_opportunities__item_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{item_id}/todos": {
         parameters: {
             query?: never;
@@ -2145,7 +2253,7 @@ export interface paths {
         put?: never;
         /**
          * Transition
-         * @description Durum gecisi: gecmis + event yazar; terminal durumlara takilir.
+         * @description Kesif/duyuru durum gecisi: gecmis + event yazar; tur kumesine uyar.
          */
         post: operations["transition_api_opportunities__item_id__transition_post"];
         delete?: never;
@@ -3027,6 +3135,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources/cache": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Source Cache Stats
+         * @description Ozet: boyut, dosya sayisi, en eski kayit, host basina kullanim.
+         */
+        get: operations["source_cache_stats_api_sources_cache_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/cache/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Source Cache Clear
+         * @description On-disk scraper onbellegini temizle; acik onay ister.
+         */
+        post: operations["source_cache_clear_api_sources_cache_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/cache/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Source Cache Prune
+         * @description TTL ve butce sinirlarina gore buda; sinir verilmezse config varsayilani.
+         */
+        post: operations["source_cache_prune_api_sources_cache_prune_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sources/catalog": {
         parameters: {
             query?: never;
@@ -3034,8 +3202,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Source Catalog */
+        /**
+         * Source Catalog
+         * @description Kaynak katalogu: sinif, tahmini sure ve devre kesici durumu.
+         */
         get: operations["source_catalog_api_sources_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Source Coverage
+         * @description Kaynak kapsam matrisi: hangi kurumu takip ediyoruz, hangisi eksik?
+         *
+         *     Her satir bir kaynaktir; resmi/ikincil ayrimi, son basarili kosu, son yeni
+         *     icerik, ortalama yayin araligi ve ust uste bos kosu sayisi tek yerde durur.
+         */
+        get: operations["source_coverage_api_sources_coverage_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3139,9 +3333,12 @@ export interface paths {
          * Refresh Sources
          * @description Secmeli ya da toplu cekim.
          *
-         *     source_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi
-         *     de bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi
-         *     API arka plan görevi tüketir; worker açıkken aynı kalıcı kuyruğu paylaşır.
+         *     source_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);
+         *     aksi halde `mode`: `general` (varsayilan) critical -> normal sirasiyla
+         *     kosar ve opt-in/yavas kaynaklari (eures, linkedin) HARIC tutar; `full`
+         *     katalogun tamamini (79 kaynak) bilerek kosar. API yalnizca kalici batch
+         *     olusturur; cekimi API arka plan gorevi tuketir; worker acikken ayni kalici
+         *     kuyrugu paylasir.
          */
         post: operations["refresh_sources_api_sources_refresh_post"];
         delete?: never;
@@ -3177,6 +3374,10 @@ export interface paths {
         /**
          * Sync Status
          * @description Aktif manuel batch ve kaynak bazli kesin ilerleme.
+         *
+         *     Okuma ayni zamanda uzlastirir: worker kapaliyken terk edilmis sahiplikler
+         *     geri alinir ve kuyruk bos kalmasin diye (taze bir drain yoksa) arka planda
+         *     tuketim devralinir. Boylece batch asla sonsuza kadar `running` kalmaz.
          */
         get: operations["sync_status_api_sources_sync_get"];
         put?: never;
@@ -3945,6 +4146,13 @@ export interface components {
             };
             /** Salary Expectation */
             salary_expectation?: string | null;
+            /**
+             * Status
+             * @default applied
+             */
+            status: string;
+            /** Status Changed At */
+            status_changed_at?: string | null;
             /** Updated At */
             updated_at?: string | null;
         };
@@ -3954,6 +4162,16 @@ export interface components {
             discovered: number;
             /** Updated */
             updated: number;
+        };
+        /** ApplicationTimelineOut */
+        ApplicationTimelineOut: {
+            /** Entries */
+            entries: components["schemas"]["TimelineEntryOut"][];
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
         };
         /**
          * ApplyIn
@@ -4121,6 +4339,21 @@ export interface components {
             tags?: string[] | null;
             /** Title */
             title?: string | null;
+        };
+        /** CacheClearIn */
+        CacheClearIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+        };
+        /** CachePruneIn */
+        CachePruneIn: {
+            /** Max Age Seconds */
+            max_age_seconds?: number | null;
+            /** Max Bytes */
+            max_bytes?: number | null;
         };
         /**
          * CaptureIn
@@ -4888,20 +5121,62 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * FunnelBreakdownRow
+         * @description Kirilim satiri. Payda ve paylar UI'da acikca yazilir.
+         */
+        FunnelBreakdownRow: {
+            /** Interview Rate */
+            interview_rate?: number | null;
+            /** Interviewed */
+            interviewed: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Offers */
+            offers: number;
+            /** Responded */
+            responded: number;
+            /** Response Rate */
+            response_rate?: number | null;
+            /** Total */
+            total: number;
+        };
         /** FunnelOut */
         FunnelOut: {
+            /** Avg Applied To Interview Days */
+            avg_applied_to_interview_days?: number | null;
+            /** Avg First Response Days */
+            avg_first_response_days?: number | null;
+            /** By Country */
+            by_country?: components["schemas"]["FunnelBreakdownRow"][];
+            /** By Cv */
+            by_cv?: components["schemas"]["FunnelBreakdownRow"][];
+            /** By Role */
+            by_role?: components["schemas"]["FunnelBreakdownRow"][];
+            /** By Source */
+            by_source?: components["schemas"]["FunnelBreakdownRow"][];
             /** By Status */
             by_status: components["schemas"]["FunnelRow"][];
+            /** By Work Mode */
+            by_work_mode?: components["schemas"]["FunnelBreakdownRow"][];
             /** Conversions */
             conversions: {
                 [key: string]: number | null;
             };
+            /** Monthly Volume */
+            monthly_volume?: components["schemas"]["FunnelVolumeRow"][];
             /** Rejection Reasons */
             rejection_reasons: {
                 [key: string]: unknown;
             }[];
             /** Total */
             total: number;
+            /** Tracked */
+            tracked: number;
+            /** Weekly Volume */
+            weekly_volume?: components["schemas"]["FunnelVolumeRow"][];
         };
         /** FunnelRow */
         FunnelRow: {
@@ -4909,6 +5184,13 @@ export interface components {
             count: number;
             /** Status */
             status: string;
+        };
+        /** FunnelVolumeRow */
+        FunnelVolumeRow: {
+            /** Applied */
+            applied: number;
+            /** Period */
+            period: string;
         };
         /** GeocodeOut */
         GeocodeOut: {
@@ -4972,6 +5254,11 @@ export interface components {
             id: string;
             /** Note */
             note?: string | null;
+            /**
+             * Scope
+             * @default application
+             */
+            scope: string;
             /** To Status */
             to_status: string;
         };
@@ -6503,10 +6790,26 @@ export interface components {
         };
         /** OpportunityOut */
         OpportunityOut: {
+            /** Allowed Application Transitions */
+            allowed_application_transitions?: string[];
+            /** Allowed Transitions */
+            allowed_transitions?: string[];
+            /** Application End At */
+            application_end_at?: string | null;
+            /** Application Start At */
+            application_start_at?: string | null;
+            /** Application Status */
+            application_status?: string | null;
+            /** Application Status Changed At */
+            application_status_changed_at?: string | null;
             /** Applied At */
             applied_at: string | null;
+            /** Apply Url */
+            apply_url?: string | null;
             /** Category */
             category: string | null;
+            /** Closed At */
+            closed_at?: string | null;
             /** Compensation */
             compensation: string | null;
             /** Country */
@@ -6516,8 +6819,12 @@ export interface components {
             /** Deadline At */
             deadline_at: string | null;
             evaluation?: components["schemas"]["OpportunityEvaluationOut"] | null;
+            /** Exam At */
+            exam_at?: string | null;
             /** External Id */
             external_id: string | null;
+            /** Fields */
+            fields?: string[];
             /** Follow Up At */
             follow_up_at?: string | null;
             /**
@@ -6525,6 +6832,8 @@ export interface components {
              * Format: date-time
              */
             found_at: string;
+            /** Guide Url */
+            guide_url?: string | null;
             /**
              * Id
              * Format: uuid
@@ -6533,16 +6842,26 @@ export interface components {
             intelligence?: components["schemas"]["OpportunityIntelligenceOut"] | null;
             /** Kind */
             kind: string;
+            /** Last Seen At */
+            last_seen_at?: string | null;
             /** Location */
             location: string | null;
             /** Notes */
             notes: string | null;
+            /** Official */
+            official?: boolean | null;
             /** Organization */
             organization: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
             /** Priority */
             priority: number;
+            /** Profile Match Ratio */
+            profile_match_ratio?: number | null;
             /** Published At */
             published_at: string | null;
+            /** Quota Total */
+            quota_total?: number | null;
             /** Raw */
             raw: {
                 [key: string]: unknown;
@@ -6555,15 +6874,28 @@ export interface components {
             remote: string | null;
             /** Requirement Document Id */
             requirement_document_id?: string | null;
+            /** Result At */
+            result_at?: string | null;
             /** Score */
             score?: number | null;
+            /** Score Computed At */
+            score_computed_at?: string | null;
             /** Score Reasons */
             score_reasons?: {
                 [key: string]: unknown;
             } | null;
+            /** Score Source */
+            score_source?: string | null;
             skill_match?: components["schemas"]["SkillMatchOut"] | null;
             /** Source */
             source: string;
+            /**
+             * Source Status
+             * @default active
+             */
+            source_status: string;
+            /** Stage */
+            stage?: string | null;
             /** Status */
             status: string;
             /** Title */
@@ -6823,6 +7155,42 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /**
+         * PrunePreviewOut
+         * @description Silme onizlemesi. Kullaniciya ikinci onaydan once gosterilir.
+         */
+        PrunePreviewOut: {
+            /** Archived */
+            archived: number;
+            /** Candidates */
+            candidates: number;
+            /** Confirm Token */
+            confirm_token: string;
+            /** Days */
+            days: number;
+            /** Estimated Bytes */
+            estimated_bytes: number;
+            /** Protected */
+            protected: number;
+        };
+        /** PruneResultOut */
+        PruneResultOut: {
+            /** Archived */
+            archived: number;
+            /** Days */
+            days: number;
+            /**
+             * Event
+             * @default opportunity.pruned
+             */
+            event: string;
+            /** Freed Bytes */
+            freed_bytes: number;
+            /** Protected */
+            protected: number;
+            /** Pruned */
+            pruned: number;
+        };
         /** RecurringIn */
         RecurringIn: {
             /**
@@ -6930,6 +7298,41 @@ export interface components {
             name: string;
             /** Note */
             note?: string | null;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Status
+             * @default missing
+             * @enum {string}
+             */
+            status: "missing" | "ready" | "submitted" | "waived";
+        };
+        /** RequirementOut */
+        RequirementOut: {
+            /** Document Entity Id */
+            document_entity_id?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
             /**
              * Required
              * @default true
@@ -7349,18 +7752,34 @@ export interface components {
         };
         /**
          * SourceRefreshIn
-         * @description Bos govde = katalogun tamami.
+         * @description Bos govde = genel yenileme (critical + normal; opt-in HARIC).
          */
         SourceRefreshIn: {
             /** Kind */
             kind?: ("job" | "announcement") | null;
+            /**
+             * Mode
+             * @default general
+             * @enum {string}
+             */
+            mode: "general" | "full";
             /** Source Ids */
             source_ids?: string[] | null;
         };
-        /** SourceRefreshOut */
-        SourceRefreshOut: {
+        /** SourceRefreshResult */
+        SourceRefreshResult: {
             /** Batch Id */
             batch_id: string | null;
+            /**
+             * Estimated Seconds
+             * @default 0
+             */
+            estimated_seconds: number;
+            /**
+             * Mode
+             * @default general
+             */
+            mode: string;
             /** Queued */
             queued: number;
             /** Total Sources */
@@ -7947,6 +8366,28 @@ export interface components {
             count: number;
             /** Name */
             name: string;
+        };
+        /**
+         * TimelineEntryOut
+         * @description Basvuru zaman cizelgesi -- event/history kayitlarindan deterministik uretilir.
+         */
+        TimelineEntryOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Detail */
+            detail?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "discovered" | "shortlisted" | "status" | "followup" | "interview" | "note" | "document" | "todo" | "offer" | "rejection";
+            /** Status */
+            status?: string | null;
+            /** Title */
+            title: string;
         };
         /** TodayAgendaOut */
         TodayAgendaOut: {
@@ -8604,6 +9045,39 @@ export interface operations {
             };
         };
     };
+    applications_list_api_applications_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     applications_funnel_api_applications_funnel_get: {
         parameters: {
             query?: never;
@@ -8640,6 +9114,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    application_transition_api_applications__item_id__transition_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -12542,6 +13051,8 @@ export interface operations {
                 max_score?: number | null;
                 skill?: string | null;
                 min_skill_match?: number | null;
+                max_skill_match?: number | null;
+                skill_match_state?: ("any" | "computed" | "uncomputed") | null;
                 sort?: string;
                 offset?: number;
                 limit?: number;
@@ -12603,7 +13114,59 @@ export interface operations {
             };
         };
     };
+    opportunity_lifecycle_api_opportunities_lifecycle_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     prune_opportunities_api_opportunities_prune_post: {
+        parameters: {
+            query: {
+                days?: number;
+                confirm_token: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PruneResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prune_preview_api_opportunities_prune_preview_get: {
         parameters: {
             query?: {
                 days?: number;
@@ -12620,7 +13183,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PrunePreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -13138,7 +13701,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RequirementOut"][];
                 };
             };
             /** @description Validation Error */
@@ -13173,7 +13736,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RequirementOut"];
                 };
             };
             /** @description Validation Error */
@@ -13267,6 +13830,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SalaryConsistencyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    application_timeline_api_opportunities__item_id__timeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationTimelineOut"];
                 };
             };
             /** @description Validation Error */
@@ -14484,7 +15078,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RequirementOut"];
                 };
             };
             /** @description Validation Error */
@@ -15136,7 +15730,113 @@ export interface operations {
             };
         };
     };
+    source_cache_stats_api_sources_cache_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    source_cache_clear_api_sources_cache_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CacheClearIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_cache_prune_api_sources_cache_prune_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CachePruneIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     source_catalog_api_sources_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    source_coverage_api_sources_coverage_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -15334,7 +16034,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SourceRefreshOut"];
+                    "application/json": components["schemas"]["SourceRefreshResult"];
                 };
             };
             /** @description Validation Error */

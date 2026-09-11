@@ -476,6 +476,23 @@
             ],
             "title": "Salary Expectation"
           },
+          "status": {
+            "default": "applied",
+            "title": "Status",
+            "type": "string"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
+          },
           "updated_at": {
             "anyOf": [
               {
@@ -511,6 +528,28 @@
           "updated"
         ],
         "title": "ApplicationReviewStats",
+        "type": "object"
+      },
+      "ApplicationTimelineOut": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "opportunity_id": {
+            "format": "uuid",
+            "title": "Opportunity Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opportunity_id",
+          "entries"
+        ],
+        "title": "ApplicationTimelineOut",
         "type": "object"
       },
       "ApplyIn": {
@@ -1027,6 +1066,45 @@
           }
         },
         "title": "BookmarkUpdate",
+        "type": "object"
+      },
+      "CacheClearIn": {
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          }
+        },
+        "title": "CacheClearIn",
+        "type": "object"
+      },
+      "CachePruneIn": {
+        "properties": {
+          "max_age_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Age Seconds"
+          },
+          "max_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Bytes"
+          }
+        },
+        "title": "CachePruneIn",
         "type": "object"
       },
       "CaptureIn": {
@@ -3264,13 +3342,131 @@
         "title": "FollowupOut",
         "type": "object"
       },
+      "FunnelBreakdownRow": {
+        "description": "Kirilim satiri. Payda ve paylar UI'da acikca yazilir.",
+        "properties": {
+          "interview_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interview Rate"
+          },
+          "interviewed": {
+            "title": "Interviewed",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "offers": {
+            "title": "Offers",
+            "type": "integer"
+          },
+          "responded": {
+            "title": "Responded",
+            "type": "integer"
+          },
+          "response_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Rate"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "total",
+          "responded",
+          "interviewed",
+          "offers"
+        ],
+        "title": "FunnelBreakdownRow",
+        "type": "object"
+      },
       "FunnelOut": {
         "properties": {
+          "avg_applied_to_interview_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Applied To Interview Days"
+          },
+          "avg_first_response_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg First Response Days"
+          },
+          "by_country": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelBreakdownRow"
+            },
+            "title": "By Country",
+            "type": "array"
+          },
+          "by_cv": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelBreakdownRow"
+            },
+            "title": "By Cv",
+            "type": "array"
+          },
+          "by_role": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelBreakdownRow"
+            },
+            "title": "By Role",
+            "type": "array"
+          },
+          "by_source": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelBreakdownRow"
+            },
+            "title": "By Source",
+            "type": "array"
+          },
           "by_status": {
             "items": {
               "$ref": "#/components/schemas/FunnelRow"
             },
             "title": "By Status",
+            "type": "array"
+          },
+          "by_work_mode": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelBreakdownRow"
+            },
+            "title": "By Work Mode",
             "type": "array"
           },
           "conversions": {
@@ -3287,6 +3483,13 @@
             "title": "Conversions",
             "type": "object"
           },
+          "monthly_volume": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelVolumeRow"
+            },
+            "title": "Monthly Volume",
+            "type": "array"
+          },
           "rejection_reasons": {
             "items": {
               "additionalProperties": true,
@@ -3298,10 +3501,22 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "tracked": {
+            "title": "Tracked",
+            "type": "integer"
+          },
+          "weekly_volume": {
+            "items": {
+              "$ref": "#/components/schemas/FunnelVolumeRow"
+            },
+            "title": "Weekly Volume",
+            "type": "array"
           }
         },
         "required": [
           "total",
+          "tracked",
           "by_status",
           "conversions",
           "rejection_reasons"
@@ -3325,6 +3540,24 @@
           "count"
         ],
         "title": "FunnelRow",
+        "type": "object"
+      },
+      "FunnelVolumeRow": {
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "integer"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "applied"
+        ],
+        "title": "FunnelVolumeRow",
         "type": "object"
       },
       "GeocodeOut": {
@@ -3488,6 +3721,11 @@
               }
             ],
             "title": "Note"
+          },
+          "scope": {
+            "default": "application",
+            "title": "Scope",
+            "type": "string"
           },
           "to_status": {
             "title": "To Status",
@@ -8007,6 +8245,67 @@
       },
       "OpportunityOut": {
         "properties": {
+          "allowed_application_transitions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Application Transitions",
+            "type": "array"
+          },
+          "allowed_transitions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Transitions",
+            "type": "array"
+          },
+          "application_end_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application End At"
+          },
+          "application_start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Start At"
+          },
+          "application_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Status"
+          },
+          "application_status_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Status Changed At"
+          },
           "applied_at": {
             "anyOf": [
               {
@@ -8019,6 +8318,17 @@
             ],
             "title": "Applied At"
           },
+          "apply_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apply Url"
+          },
           "category": {
             "anyOf": [
               {
@@ -8029,6 +8339,18 @@
               }
             ],
             "title": "Category"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
           },
           "compensation": {
             "anyOf": [
@@ -8086,6 +8408,18 @@
               }
             ]
           },
+          "exam_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam At"
+          },
           "external_id": {
             "anyOf": [
               {
@@ -8096,6 +8430,13 @@
               }
             ],
             "title": "External Id"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
           },
           "follow_up_at": {
             "anyOf": [
@@ -8113,6 +8454,17 @@
             "format": "date-time",
             "title": "Found At",
             "type": "string"
+          },
+          "guide_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Url"
           },
           "id": {
             "format": "uuid",
@@ -8132,6 +8484,18 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
           },
           "location": {
             "anyOf": [
@@ -8155,6 +8519,17 @@
             ],
             "title": "Notes"
           },
+          "official": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official"
+          },
           "organization": {
             "anyOf": [
               {
@@ -8166,9 +8541,32 @@
             ],
             "title": "Organization"
           },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
           "priority": {
             "title": "Priority",
             "type": "integer"
+          },
+          "profile_match_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Match Ratio"
           },
           "published_at": {
             "anyOf": [
@@ -8181,6 +8579,17 @@
               }
             ],
             "title": "Published At"
+          },
+          "quota_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quota Total"
           },
           "raw": {
             "additionalProperties": true,
@@ -8232,6 +8641,18 @@
             ],
             "title": "Requirement Document Id"
           },
+          "result_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result At"
+          },
           "score": {
             "anyOf": [
               {
@@ -8242,6 +8663,18 @@
               }
             ],
             "title": "Score"
+          },
+          "score_computed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Computed At"
           },
           "score_reasons": {
             "anyOf": [
@@ -8254,6 +8687,17 @@
               }
             ],
             "title": "Score Reasons"
+          },
+          "score_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score Source"
           },
           "skill_match": {
             "anyOf": [
@@ -8268,6 +8712,22 @@
           "source": {
             "title": "Source",
             "type": "string"
+          },
+          "source_status": {
+            "default": "active",
+            "title": "Source Status",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
           },
           "status": {
             "title": "Status",
@@ -9081,6 +9541,83 @@
         "title": "ProjectPatch",
         "type": "object"
       },
+      "PrunePreviewOut": {
+        "description": "Silme onizlemesi. Kullaniciya ikinci onaydan once gosterilir.",
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "integer"
+          },
+          "candidates": {
+            "title": "Candidates",
+            "type": "integer"
+          },
+          "confirm_token": {
+            "title": "Confirm Token",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "estimated_bytes": {
+            "title": "Estimated Bytes",
+            "type": "integer"
+          },
+          "protected": {
+            "title": "Protected",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidates",
+          "protected",
+          "archived",
+          "estimated_bytes",
+          "days",
+          "confirm_token"
+        ],
+        "title": "PrunePreviewOut",
+        "type": "object"
+      },
+      "PruneResultOut": {
+        "properties": {
+          "archived": {
+            "title": "Archived",
+            "type": "integer"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "event": {
+            "default": "opportunity.pruned",
+            "title": "Event",
+            "type": "string"
+          },
+          "freed_bytes": {
+            "title": "Freed Bytes",
+            "type": "integer"
+          },
+          "protected": {
+            "title": "Protected",
+            "type": "integer"
+          },
+          "pruned": {
+            "title": "Pruned",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pruned",
+          "protected",
+          "archived",
+          "freed_bytes",
+          "days"
+        ],
+        "title": "PruneResultOut",
+        "type": "object"
+      },
       "RecurringIn": {
         "properties": {
           "active": {
@@ -9479,6 +10016,75 @@
           "name"
         ],
         "title": "RequirementIn",
+        "type": "object"
+      },
+      "RequirementOut": {
+        "properties": {
+          "document_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Entity Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "opportunity_id": {
+            "format": "uuid",
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "missing",
+            "enum": [
+              "missing",
+              "ready",
+              "submitted",
+              "waived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "opportunity_id",
+          "name"
+        ],
+        "title": "RequirementOut",
         "type": "object"
       },
       "ResolvedLink": {
@@ -10531,7 +11137,7 @@
         "type": "object"
       },
       "SourceRefreshIn": {
-        "description": "Bos govde = katalogun tamami.",
+        "description": "Bos govde = genel yenileme (critical + normal; opt-in HARIC).",
         "properties": {
           "kind": {
             "anyOf": [
@@ -10547,6 +11153,15 @@
               }
             ],
             "title": "Kind"
+          },
+          "mode": {
+            "default": "general",
+            "enum": [
+              "general",
+              "full"
+            ],
+            "title": "Mode",
+            "type": "string"
           },
           "source_ids": {
             "anyOf": [
@@ -10566,7 +11181,7 @@
         "title": "SourceRefreshIn",
         "type": "object"
       },
-      "SourceRefreshOut": {
+      "SourceRefreshResult": {
         "properties": {
           "batch_id": {
             "anyOf": [
@@ -10579,6 +11194,16 @@
               }
             ],
             "title": "Batch Id"
+          },
+          "estimated_seconds": {
+            "default": 0,
+            "title": "Estimated Seconds",
+            "type": "integer"
+          },
+          "mode": {
+            "default": "general",
+            "title": "Mode",
+            "type": "string"
           },
           "queued": {
             "title": "Queued",
@@ -10594,7 +11219,7 @@
           "queued",
           "total_sources"
         ],
-        "title": "SourceRefreshOut",
+        "title": "SourceRefreshResult",
         "type": "object"
       },
       "SourceRunOut": {
@@ -11804,6 +12429,65 @@
           "count"
         ],
         "title": "TagOut",
+        "type": "object"
+      },
+      "TimelineEntryOut": {
+        "description": "Basvuru zaman cizelgesi -- event/history kayitlarindan deterministik uretilir.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "kind": {
+            "enum": [
+              "discovered",
+              "shortlisted",
+              "status",
+              "followup",
+              "interview",
+              "note",
+              "document",
+              "todo",
+              "offer",
+              "rejection"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at",
+          "title"
+        ],
+        "title": "TimelineEntryOut",
         "type": "object"
       },
       "TodayAgendaOut": {
@@ -13514,6 +14198,83 @@
         ]
       }
     },
+    "/api/applications": {
+      "get": {
+        "description": "Başvurular çalışma alanı: YALNIZCA gerçek başvuru kayıtları.\n\nKeşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1).",
+        "operationId": "applications_list_api_applications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 120,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpportunityOut"
+                  },
+                  "title": "Response Applications List Api Applications Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Applications List",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/applications/funnel": {
       "get": {
         "operationId": "applications_funnel_api_applications_funnel_get",
@@ -13549,6 +14310,60 @@
           }
         },
         "summary": "Rejection Reasons",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/applications/{item_id}/transition": {
+      "post": {
+        "description": "Basvuru hatti gecisi (yalnizca gercek basvuru kayitlari).",
+        "operationId": "application_transition_api_applications__item_id__transition_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Application Transition",
         "tags": [
           "opportunities"
         ]
@@ -19582,6 +20397,45 @@
           },
           {
             "in": "query",
+            "name": "max_skill_match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Skill Match"
+            }
+          },
+          {
+            "in": "query",
+            "name": "skill_match_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "any",
+                    "computed",
+                    "uncomputed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Skill Match State"
+            }
+          },
+          {
+            "in": "query",
             "name": "sort",
             "required": false,
             "schema": {
@@ -19686,9 +20540,29 @@
         ]
       }
     },
+    "/api/opportunities/lifecycle": {
+      "get": {
+        "description": "Kesif, basvuru ve duyuru durum makineleri.\n\nFrontend durum seceneklerini ve izinli gecisleri BURADAN okur; elle\nkopyalanmis statu listesi tutmaz (AGENTS.md kural 13).",
+        "operationId": "opportunity_lifecycle_api_opportunities_lifecycle_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Opportunity Lifecycle",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/prune": {
       "post": {
-        "description": "3 aydan (veya belirtilen günden) eski ilanları temizler.",
+        "description": "Onaylanmis silme: yalnizca sahipsiz ham ilanlar gider, event uretilir.",
         "operationId": "prune_opportunities_api_opportunities_prune_post",
         "parameters": [
           {
@@ -19697,8 +20571,21 @@
             "required": false,
             "schema": {
               "default": 90,
+              "maximum": 3650,
+              "minimum": 7,
               "title": "Days",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "confirm_token",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 8,
+              "title": "Confirm Token",
+              "type": "string"
             }
           }
         ],
@@ -19706,7 +20593,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PruneResultOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -19723,6 +20612,52 @@
           }
         },
         "summary": "Prune Opportunities",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/prune/preview": {
+      "get": {
+        "description": "Dry-run: ne silinir, ne korunur, tahmini ne kadar yer bosalir.\n\nSilme yalnizca bu onizlemeden alinan `confirm_token` ile yapilir; boylece\ntek tikla geri alinamaz veri kaybi olmaz (Faz 2.3).",
+        "operationId": "prune_preview_api_opportunities_prune_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 90,
+              "maximum": 3650,
+              "minimum": 7,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrunePreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prune Preview",
         "tags": [
           "opportunities"
         ]
@@ -20001,7 +20936,7 @@
     },
     "/api/opportunities/{item_id}/apply": {
       "post": {
-        "description": "Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir.",
+        "description": "Basvur: basvuru kaydi 'applied' olur, snapshot + CV kunyesi saklanir.",
         "operationId": "apply_api_opportunities__item_id__apply_post",
         "parameters": [
           {
@@ -20454,7 +21389,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RequirementOut"
+                  },
+                  "title": "Response Requirements Api Opportunities  Item Id  Requirements Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -20503,7 +21444,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RequirementOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -20654,6 +21597,50 @@
         ]
       }
     },
+    "/api/opportunities/{item_id}/timeline": {
+      "get": {
+        "description": "Birlesik basvuru zaman cizelgesi (kesif + basvuru + gorusme + not + gorev).",
+        "operationId": "application_timeline_api_opportunities__item_id__timeline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationTimelineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Application Timeline",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/{item_id}/todos": {
       "get": {
         "operationId": "opportunity_todos_api_opportunities__item_id__todos_get",
@@ -20754,7 +21741,7 @@
     },
     "/api/opportunities/{item_id}/transition": {
       "post": {
-        "description": "Durum gecisi: gecmis + event yazar; terminal durumlara takilir.",
+        "description": "Kesif/duyuru durum gecisi: gecmis + event yazar; tur kumesine uyar.",
         "operationId": "transition_api_opportunities__item_id__transition_post",
         "parameters": [
           {
@@ -22315,7 +23302,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RequirementOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -23368,8 +24357,109 @@
         ]
       }
     },
+    "/api/sources/cache": {
+      "get": {
+        "description": "Ozet: boyut, dosya sayisi, en eski kayit, host basina kullanim.",
+        "operationId": "source_cache_stats_api_sources_cache_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Source Cache Stats",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/sources/cache/clear": {
+      "post": {
+        "description": "On-disk scraper onbellegini temizle; acik onay ister.",
+        "operationId": "source_cache_clear_api_sources_cache_clear_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CacheClearIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Cache Clear",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/sources/cache/prune": {
+      "post": {
+        "description": "TTL ve butce sinirlarina gore buda; sinir verilmezse config varsayilani.",
+        "operationId": "source_cache_prune_api_sources_cache_prune_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CachePruneIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Cache Prune",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/sources/catalog": {
       "get": {
+        "description": "Kaynak katalogu: sinif, tahmini sure ve devre kesici durumu.",
         "operationId": "source_catalog_api_sources_catalog_get",
         "responses": {
           "200": {
@@ -23382,6 +24472,26 @@
           }
         },
         "summary": "Source Catalog",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/sources/coverage": {
+      "get": {
+        "description": "Kaynak kapsam matrisi: hangi kurumu takip ediyoruz, hangisi eksik?\n\nHer satir bir kaynaktir; resmi/ikincil ayrimi, son basarili kosu, son yeni\nicerik, ortalama yayin araligi ve ust uste bos kosu sayisi tek yerde durur.",
+        "operationId": "source_coverage_api_sources_coverage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Source Coverage",
         "tags": [
           "opportunities"
         ]
@@ -23575,7 +24685,7 @@
     },
     "/api/sources/refresh": {
       "post": {
-        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi\nde bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi\nAPI arka plan görevi tüketir; worker açıkken aynı kalıcı kuyruğu paylaşır.",
+        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);\naksi halde `mode`: `general` (varsayilan) critical -> normal sirasiyla\nkosar ve opt-in/yavas kaynaklari (eures, linkedin) HARIC tutar; `full`\nkatalogun tamamini (79 kaynak) bilerek kosar. API yalnizca kalici batch\nolusturur; cekimi API arka plan gorevi tuketir; worker acikken ayni kalici\nkuyrugu paylasir.",
         "operationId": "refresh_sources_api_sources_refresh_post",
         "requestBody": {
           "content": {
@@ -23592,7 +24702,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SourceRefreshOut"
+                  "$ref": "#/components/schemas/SourceRefreshResult"
                 }
               }
             },
@@ -23636,7 +24746,7 @@
     },
     "/api/sources/sync": {
       "get": {
-        "description": "Aktif manuel batch ve kaynak bazli kesin ilerleme.",
+        "description": "Aktif manuel batch ve kaynak bazli kesin ilerleme.\n\nOkuma ayni zamanda uzlastirir: worker kapaliyken terk edilmis sahiplikler\ngeri alinir ve kuyruk bos kalmasin diye (taze bir drain yoksa) arka planda\ntuketim devralinir. Boylece batch asla sonsuza kadar `running` kalmaz.",
         "operationId": "sync_status_api_sources_sync_get",
         "parameters": [
           {
