@@ -207,4 +207,14 @@ describe("bookmarks flow", () => {
     removeView?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("views.write");
   });
+
+  it("renders grid and list toggle buttons, and import/export action buttons", () => {
+    harness.queryData = { bookmarks };
+    const markup = renderToStaticMarkup(<BookmarksPage />);
+
+    expect(markup).toContain("Kart Izgarasi (Grid)");
+    expect(markup).toContain("Kompakt Liste (List)");
+    expect(markup).toContain("Ice Aktar");
+    expect(markup).toContain("Disa Aktar");
+  });
 });
