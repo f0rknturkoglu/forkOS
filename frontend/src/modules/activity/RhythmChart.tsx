@@ -3,8 +3,18 @@ import type { MonthlyPoint } from "@/core/types";
 import { cx } from "@/core/ui";
 
 const MONTH_NAMES = [
-  "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-  "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
 ];
 
 const MONTH_SHORT = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
@@ -178,10 +188,7 @@ export function RhythmChart({
 
               {/* Ay Etiketi */}
               <span
-                className={cx(
-                  "text-micro transition-colors",
-                  isHovered ? "font-semibold text-primary" : "text-muted",
-                )}
+                className={cx("text-micro transition-colors", isHovered ? "font-semibold text-primary" : "text-muted")}
               >
                 {monthLabel(point.month)}
               </span>

@@ -49,13 +49,7 @@ interface NotesExplorerProps {
   onClosePane?: () => void;
 }
 
-export function NotesExplorer({
-  focusId,
-  onSelectNote,
-  onNewNote,
-  onOpenHighlights,
-  onClosePane,
-}: NotesExplorerProps) {
+export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighlights, onClosePane }: NotesExplorerProps) {
   const toast = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [inlineParentId, setInlineParentId] = useState<string | null | undefined>(undefined);
@@ -80,15 +74,9 @@ export function NotesExplorer({
     queryFn: () => api.get<Bookmark[]>("/bookmarks?limit=200"),
   });
 
-  const highlightsCount = useMemo(
-    () => bookmarks.filter((b) => Boolean(b.selection?.trim())).length,
-    [bookmarks],
-  );
+  const highlightsCount = useMemo(() => bookmarks.filter((b) => Boolean(b.selection?.trim())).length, [bookmarks]);
 
-  const projectTitles = useMemo(
-    () => new Map(projects.map((project) => [project.id, project.title])),
-    [projects],
-  );
+  const projectTitles = useMemo(() => new Map(projects.map((project) => [project.id, project.title])), [projects]);
 
   const createFolder = useMutation({
     mutationFn: () =>
@@ -357,12 +345,7 @@ export function NotesExplorer({
               </div>
               <div className="space-y-0.5">
                 {unfiled.map((note) => (
-                  <NoteItem
-                    key={note.id}
-                    note={note}
-                    active={focusId === note.id}
-                    onSelectNote={onSelectNote}
-                  />
+                  <NoteItem key={note.id} note={note} active={focusId === note.id} onSelectNote={onSelectNote} />
                 ))}
               </div>
             </section>
@@ -444,9 +427,7 @@ function FolderItem({
   return (
     <div className="space-y-0.5">
       <div
-        className={cx(
-          "group flex min-w-0 items-center rounded-control pr-1 transition hover:bg-surface-hover",
-        )}
+        className={cx("group flex min-w-0 items-center rounded-control pr-1 transition hover:bg-surface-hover")}
         onDragOver={(e) => {
           if (e.dataTransfer.types.includes("application/x-forkos-note")) e.preventDefault();
         }}
@@ -531,12 +512,7 @@ function FolderItem({
           ))}
 
           {folderNotes.map((note) => (
-            <NoteItem
-              key={note.id}
-              note={note}
-              active={focusId === note.id}
-              onSelectNote={onSelectNote}
-            />
+            <NoteItem key={note.id} note={note} active={focusId === note.id} onSelectNote={onSelectNote} />
           ))}
         </div>
       )}

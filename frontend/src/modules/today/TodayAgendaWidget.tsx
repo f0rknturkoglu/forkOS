@@ -39,15 +39,7 @@ import {
   cx,
   useToast,
 } from "@/core/ui";
-import {
-  appTimeParts,
-  appWeekStartKey,
-  isSameAppDay,
-  keyToUtc,
-  localDateKey,
-  todayKey,
-  tomorrowKey,
-} from "@/lib/date";
+import { appTimeParts, appWeekStartKey, isSameAppDay, keyToUtc, localDateKey, todayKey, tomorrowKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 
 const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
@@ -372,11 +364,7 @@ export function TodayAgendaWidget() {
           </div>
 
           {phase === "evening" && plannedTodos.length > 0 && (
-            <Button
-              size="sm"
-              disabled={!online || carryOver.isPending}
-              onClick={() => carryOver.mutate()}
-            >
+            <Button size="sm" disabled={!online || carryOver.isPending} onClick={() => carryOver.mutate()}>
               {carryOver.isPending ? "Taşınıyor…" : "Yarına taşı"}
             </Button>
           )}
@@ -426,12 +414,7 @@ export function TodayAgendaWidget() {
           disabled={!online || createTodo.isPending}
           className="flex-1"
         />
-        <Button
-          size="sm"
-          variant="primary"
-          type="submit"
-          disabled={!online || !draft.trim() || createTodo.isPending}
-        >
+        <Button size="sm" variant="primary" type="submit" disabled={!online || !draft.trim() || createTodo.isPending}>
           <Plus size={14} /> Ekle
         </Button>
       </form>
@@ -620,8 +603,8 @@ function AgendaLine({
   const meta = row.kind === "media" ? row.progress_label : (row.project_title ?? row.feed_title);
   const interactive = Boolean(
     (row.action === "complete_todo" || row.kind === "todo" || row.action === "mark_rss_read") &&
-      !row.context_only &&
-      !row.completed,
+    !row.context_only &&
+    !row.completed,
   );
   return (
     <div data-agenda-id={row.id} className={cx("py-2", nested && "ml-5 border-l border-subtle pl-3")}>

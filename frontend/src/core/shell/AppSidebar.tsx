@@ -57,7 +57,13 @@ function SidebarLink({
       }}
       className={cx(
         "group flex h-9 min-w-0 items-center rounded-control text-body transition-colors",
-        child ? (collapsed ? "justify-center px-0" : "gap-2.5 pl-6 pr-2.5 text-meta") : collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
+        child
+          ? collapsed
+            ? "justify-center px-0"
+            : "gap-2.5 pl-6 pr-2.5 text-meta"
+          : collapsed
+            ? "justify-center px-0"
+            : "gap-2.5 px-2.5",
         active
           ? "bg-surface-selected font-medium text-primary"
           : "text-secondary hover:bg-surface-hover hover:text-primary",

@@ -583,349 +583,349 @@ export function NotesPage() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-heading text-primary">{creating ? "Yeni not" : selected?.title}</p>
-                  <div className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
-                    <span>
-                      {dirty
-                        ? "Kaydedilmemiş değişiklik"
-                        : selected
-                          ? `Kaydedildi · ${dateLabel(selected.updated_at)}`
-                          : "Yeni notu kaydedince ek ekleyebilirsin"}
-                    </span>
-                    {selected?.project_id ? (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-control text-accent hover:underline"
-                        onClick={() => navigate(`/projects?focus=${selected.project_id}`)}
-                      >
-                        <FolderKanban size={11} /> {projectTitles.get(selected.project_id) ?? "Proje notu"}
-                      </button>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                      <span>
+                        {dirty
+                          ? "Kaydedilmemiş değişiklik"
+                          : selected
+                            ? `Kaydedildi · ${dateLabel(selected.updated_at)}`
+                            : "Yeni notu kaydedince ek ekleyebilirsin"}
+                      </span>
+                      {selected?.project_id ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-control text-accent hover:underline"
+                          onClick={() => navigate(`/projects?focus=${selected.project_id}`)}
+                        >
+                          <FolderKanban size={11} /> {projectTitles.get(selected.project_id) ?? "Proje notu"}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-                {!creating && selected && (
-                  <>
-                    <IconButton
-                      title={selected.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
-                      disabled={!online}
-                      onClick={() => patch.mutate({ id: selected.id, pinned: !selected.pinned })}
-                    >
-                      {selected.pinned ? <PinOff size={14} /> : <Pin size={14} />}
-                    </IconButton>
-                    <IconButton title="Arşivle" disabled={!online} onClick={() => archive.mutate(selected.id)}>
-                      <Archive size={14} />
-                    </IconButton>
-                  </>
-                )}
-                <Select
-                  value={draftFolderId ?? ""}
-                  ariaLabel="Not klasörü"
-                  disabled={!online || moveNote.isPending || Boolean(selected?.project_id)}
-                  className="max-w-44"
-                  onChange={(value) => {
-                    const folderId = value || null;
-                    if (creating) setDraftFolderId(folderId);
-                    else moveNote.mutate(folderId);
-                  }}
-                >
-                  <option value="">Kök Notlar</option>
-                  {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </option>
-                  ))}
-                </Select>
-                <div className="inline-flex rounded-control border border-subtle bg-surface-sunken p-0.5">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={cx("border-0 px-2.5", mode === "write" && "bg-surface shadow-raised")}
-                    onClick={() => changeMode("write")}
-                  >
-                    <Pencil size={14} /> Yaz
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={cx("border-0 px-2.5", mode === "preview" && "bg-surface shadow-raised")}
-                    onClick={() => changeMode("preview")}
-                  >
-                    <Eye size={14} /> Önizle
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={creating}
-                    title={creating ? "Tuvali açmak için önce notu kaydet" : "Tuval"}
-                    className={cx("border-0 px-2.5", mode === "canvas" && "bg-surface shadow-raised")}
-                    onClick={() => changeMode("canvas")}
-                  >
-                    <Brush size={14} /> Tuval
-                  </Button>
-                </div>
-                {mode !== "canvas" ? (
-                  <Button
-                    variant="primary"
-                    disabled={!online || !draft.trim() || !dirty || save.isPending}
-                    onClick={() => save.mutate()}
-                  >
-                    <Save size={14} /> {save.isPending ? "Kaydediliyor" : "Kaydet"}
-                  </Button>
-                ) : (
-                  <Chip>{saveCanvas.isPending ? "Tuval kaydediliyor" : "Otomatik kayıt"}</Chip>
-                )}
-              </header>
-
-              {mode !== "canvas" ? (
-                <div className="flex flex-wrap items-center gap-1.5 border-b border-subtle px-4 py-2.5">
-                  <FileInput
-                    ref={imageInput}
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    multiple
-                    onChange={(event) => {
-                      attachFiles(Array.from(event.target.files ?? []));
-                      event.target.value = "";
-                    }}
-                  />
-                  <FileInput
-                    ref={fileInput}
-                    multiple
-                    accept="application/pdf,text/plain,text/markdown,text/csv,video/mp4,video/webm,video/quicktime,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.zip"
-                    onChange={(event) => {
-                      attachFiles(Array.from(event.target.files ?? []));
-                      event.target.value = "";
-                    }}
-                  />
-                  <FileInput
-                    ref={audioInput}
-                    accept="audio/*"
-                    multiple
-                    onChange={(event) => {
-                      attachFiles(Array.from(event.target.files ?? []));
-                      event.target.value = "";
-                    }}
-                  />
-                  <FileInput
-                    ref={drawingInput}
-                    accept=".excalidraw,application/vnd.excalidraw+json"
-                    onChange={(event) => {
-                      attachFiles(Array.from(event.target.files ?? []));
-                      event.target.value = "";
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!online || creating || upload.isPending}
-                    title={creating ? "Önce notu kaydet" : "İmleç konumuna görsel ekle"}
-                    onClick={() => imageInput.current?.click()}
-                  >
-                    <FileImage size={14} /> Resim
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!online || creating || upload.isPending}
-                    title={creating ? "Önce notu kaydet" : "İmleç konumuna ses dosyası ekle"}
-                    onClick={() => audioInput.current?.click()}
-                  >
-                    <FileAudio size={14} /> Ses dosyası
-                  </Button>
-                  <VoiceRecorder
-                    disabled={!online || creating || upload.isPending}
-                    onFile={(file) => attachFiles([file])}
-                    onError={(message) => toast.push(message, { tone: "danger" })}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!online || creating || upload.isPending}
-                    title={creating ? "Önce notu kaydet" : "İmleç konumuna dosya, PDF veya video ekle"}
-                    onClick={() => fileInput.current?.click()}
-                  >
-                    <FileIcon size={14} /> Dosya
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={!online || creating || upload.isPending}
-                    title={creating ? "Önce notu kaydet" : "İmleç konumuna Excalidraw dosyası ekle"}
-                    onClick={() => drawingInput.current?.click()}
-                  >
-                    <FilePenLine size={14} /> Çizim
-                  </Button>
-                  <span className="mx-1 h-5 w-px bg-subtle" aria-hidden />
-                  <Button size="sm" variant="ghost" onClick={() => insertInline("[[]]", -2)}>
-                    <Link2 size={14} /> Wikilink
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setHighlightsOpen(true)}>
-                    <Highlighter size={14} /> Vurgular
-                  </Button>
-                  <span className="min-w-2 flex-1" />
-                  <Chip>{selected?.attachments?.length ?? 0} ek</Chip>
-                  <Kbd>⌘S</Kbd>
-                  <div
-                    className="ml-1 inline-flex rounded-control border border-subtle bg-surface-sunken p-0.5"
-                    aria-label="Sayfa genişliği"
-                  >
-                    {(["compact", "wide", "full"] as const).map((width) => (
-                      <Button
-                        key={width}
-                        size="sm"
-                        variant="ghost"
-                        className={cx(
-                          "h-7 border-0 px-2",
-                          (selected?.page_width ?? "compact") === width && "bg-surface",
-                        )}
-                        onClick={() => notePreference.mutate({ page_width: width })}
+                  {!creating && selected && (
+                    <>
+                      <IconButton
+                        title={selected.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
+                        disabled={!online}
+                        onClick={() => patch.mutate({ id: selected.id, pinned: !selected.pinned })}
                       >
-                        {width === "compact" ? "Dar" : width === "wide" ? "Geniş" : "Tam"}
-                      </Button>
+                        {selected.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                      </IconButton>
+                      <IconButton title="Arşivle" disabled={!online} onClick={() => archive.mutate(selected.id)}>
+                        <Archive size={14} />
+                      </IconButton>
+                    </>
+                  )}
+                  <Select
+                    value={draftFolderId ?? ""}
+                    ariaLabel="Not klasörü"
+                    disabled={!online || moveNote.isPending || Boolean(selected?.project_id)}
+                    className="max-w-44"
+                    onChange={(value) => {
+                      const folderId = value || null;
+                      if (creating) setDraftFolderId(folderId);
+                      else moveNote.mutate(folderId);
+                    }}
+                  >
+                    <option value="">Kök Notlar</option>
+                    {folders.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </option>
                     ))}
+                  </Select>
+                  <div className="inline-flex rounded-control border border-subtle bg-surface-sunken p-0.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={cx("border-0 px-2.5", mode === "write" && "bg-surface shadow-raised")}
+                      onClick={() => changeMode("write")}
+                    >
+                      <Pencil size={14} /> Yaz
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={cx("border-0 px-2.5", mode === "preview" && "bg-surface shadow-raised")}
+                      onClick={() => changeMode("preview")}
+                    >
+                      <Eye size={14} /> Önizle
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={creating}
+                      title={creating ? "Tuvali açmak için önce notu kaydet" : "Tuval"}
+                      className={cx("border-0 px-2.5", mode === "canvas" && "bg-surface shadow-raised")}
+                      onClick={() => changeMode("canvas")}
+                    >
+                      <Brush size={14} /> Tuval
+                    </Button>
                   </div>
-                </div>
-              ) : null}
+                  {mode !== "canvas" ? (
+                    <Button
+                      variant="primary"
+                      disabled={!online || !draft.trim() || !dirty || save.isPending}
+                      onClick={() => save.mutate()}
+                    >
+                      <Save size={14} /> {save.isPending ? "Kaydediliyor" : "Kaydet"}
+                    </Button>
+                  ) : (
+                    <Chip>{saveCanvas.isPending ? "Tuval kaydediliyor" : "Otomatik kayıt"}</Chip>
+                  )}
+                </header>
 
-              {mode === "write" ? (
-                <div
-                  className={cx(
-                    "relative mx-auto px-5 py-5",
-                    (selected?.page_width ?? "compact") === "compact"
-                      ? "max-w-4xl"
-                      : (selected?.page_width ?? "compact") === "wide"
-                        ? "max-w-6xl"
-                        : "max-w-none",
-                  )}
-                >
-                  {slash && <SlashCommandMenu query={slash.query} onChoose={chooseSlashCommand} />}
-                  <Textarea
-                    ref={editor}
-                    value={draft}
-                    onChange={setDraft}
-                    onCaret={(position) => {
-                      caret.current = position;
-                      setCaretPosition(position);
-                    }}
-                    ariaLabel="Not içeriği"
-                    placeholder="# Başlık\n\nDüşünceni yaz…"
-                    onPaste={(event) => {
-                      const files = Array.from(event.clipboardData.files);
-                      if (!files.length || creating || !online) return;
-                      event.preventDefault();
-                      attachFiles(files);
-                    }}
-                    onDragOver={(event) => {
-                      if (event.dataTransfer.types.includes("Files")) event.preventDefault();
-                    }}
-                    onDrop={(event) => {
-                      const files = Array.from(event.dataTransfer.files);
-                      if (!files.length || creating || !online) return;
-                      event.preventDefault();
-                      attachFiles(files);
-                    }}
-                    className="min-h-screen w-full resize-none border-0 bg-transparent p-0 font-mono leading-relaxed focus:border-transparent focus:ring-0"
-                    onKeyDown={(event) => {
-                      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase("tr") === "s") {
-                        event.preventDefault();
-                        if (online && dirty && draft.trim()) save.mutate();
-                        return;
-                      }
-                      if (event.key === "Escape" && slash) {
-                        event.preventDefault();
-                        const next = `${draft.slice(0, slash.start)}${draft.slice(caretPosition)}`;
-                        setDraft(next);
-                        caret.current = slash.start;
-                        setCaretPosition(slash.start);
-                        return;
-                      }
-                      if (event.key === "Enter" && slash) {
-                        const first = SLASH_COMMANDS.find((command) =>
-                          `${command.label} ${command.keywords}`.toLocaleLowerCase("tr").includes(slash.query),
-                        );
-                        if (first) {
-                          event.preventDefault();
-                          chooseSlashCommand(first);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-              ) : mode === "preview" ? (
-                <article
-                  className={cx(
-                    "mx-auto min-h-screen px-5 py-5",
-                    (selected?.page_width ?? "compact") === "compact"
-                      ? "max-w-4xl"
-                      : (selected?.page_width ?? "compact") === "wide"
-                        ? "max-w-6xl"
-                        : "max-w-none",
-                  )}
-                >
-                  <Markdown
-                    source={draft}
-                    links={selected?.resolved_links ?? []}
-                    unresolved={selected?.unresolved_links ?? []}
-                    attachments={selected?.attachments ?? []}
-                    onRemoveAttachment={confirmRemoveAttachment}
-                    onMissingClick={(target) => beginNote(target)}
-                    className="article-content"
-                  />
-                </article>
-              ) : detailLoading || !canvasNote ? (
-                <div className="flex min-h-[36rem] items-center justify-center text-meta text-muted">
-                  Tuval yükleniyor…
-                </div>
-              ) : (
-                <CanvasErrorBoundary key={canvasNote.id}>
-                  <Suspense
-                    fallback={
-                      <div className="flex min-h-[36rem] items-center justify-center text-meta text-muted">
-                        Tuval hazırlanıyor…
-                      </div>
-                    }
-                  >
-                    <NoteCanvas
-                      initialState={canvasNote.canvas_state ?? {}}
-                      noteId={canvasNote.id}
-                      noteTitle={canvasNote.title}
-                      attachments={canvasNote.attachments ?? []}
-                      readOnly={!online}
-                      theme={resolvedTheme(theme)}
-                      onSave={(state) => saveCanvas.mutate(state)}
+                {mode !== "canvas" ? (
+                  <div className="flex flex-wrap items-center gap-1.5 border-b border-subtle px-4 py-2.5">
+                    <FileInput
+                      ref={imageInput}
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      onChange={(event) => {
+                        attachFiles(Array.from(event.target.files ?? []));
+                        event.target.value = "";
+                      }}
                     />
-                  </Suspense>
-                </CanvasErrorBoundary>
-              )}
+                    <FileInput
+                      ref={fileInput}
+                      multiple
+                      accept="application/pdf,text/plain,text/markdown,text/csv,video/mp4,video/webm,video/quicktime,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.zip"
+                      onChange={(event) => {
+                        attachFiles(Array.from(event.target.files ?? []));
+                        event.target.value = "";
+                      }}
+                    />
+                    <FileInput
+                      ref={audioInput}
+                      accept="audio/*"
+                      multiple
+                      onChange={(event) => {
+                        attachFiles(Array.from(event.target.files ?? []));
+                        event.target.value = "";
+                      }}
+                    />
+                    <FileInput
+                      ref={drawingInput}
+                      accept=".excalidraw,application/vnd.excalidraw+json"
+                      onChange={(event) => {
+                        attachFiles(Array.from(event.target.files ?? []));
+                        event.target.value = "";
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!online || creating || upload.isPending}
+                      title={creating ? "Önce notu kaydet" : "İmleç konumuna görsel ekle"}
+                      onClick={() => imageInput.current?.click()}
+                    >
+                      <FileImage size={14} /> Resim
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!online || creating || upload.isPending}
+                      title={creating ? "Önce notu kaydet" : "İmleç konumuna ses dosyası ekle"}
+                      onClick={() => audioInput.current?.click()}
+                    >
+                      <FileAudio size={14} /> Ses dosyası
+                    </Button>
+                    <VoiceRecorder
+                      disabled={!online || creating || upload.isPending}
+                      onFile={(file) => attachFiles([file])}
+                      onError={(message) => toast.push(message, { tone: "danger" })}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!online || creating || upload.isPending}
+                      title={creating ? "Önce notu kaydet" : "İmleç konumuna dosya, PDF veya video ekle"}
+                      onClick={() => fileInput.current?.click()}
+                    >
+                      <FileIcon size={14} /> Dosya
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!online || creating || upload.isPending}
+                      title={creating ? "Önce notu kaydet" : "İmleç konumuna Excalidraw dosyası ekle"}
+                      onClick={() => drawingInput.current?.click()}
+                    >
+                      <FilePenLine size={14} /> Çizim
+                    </Button>
+                    <span className="mx-1 h-5 w-px bg-subtle" aria-hidden />
+                    <Button size="sm" variant="ghost" onClick={() => insertInline("[[]]", -2)}>
+                      <Link2 size={14} /> Wikilink
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setHighlightsOpen(true)}>
+                      <Highlighter size={14} /> Vurgular
+                    </Button>
+                    <span className="min-w-2 flex-1" />
+                    <Chip>{selected?.attachments?.length ?? 0} ek</Chip>
+                    <Kbd>⌘S</Kbd>
+                    <div
+                      className="ml-1 inline-flex rounded-control border border-subtle bg-surface-sunken p-0.5"
+                      aria-label="Sayfa genişliği"
+                    >
+                      {(["compact", "wide", "full"] as const).map((width) => (
+                        <Button
+                          key={width}
+                          size="sm"
+                          variant="ghost"
+                          className={cx(
+                            "h-7 border-0 px-2",
+                            (selected?.page_width ?? "compact") === width && "bg-surface",
+                          )}
+                          onClick={() => notePreference.mutate({ page_width: width })}
+                        >
+                          {width === "compact" ? "Dar" : width === "wide" ? "Geniş" : "Tam"}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
-              {mode !== "canvas" ? (
-                <AttachmentPool
-                  attachments={unplacedAttachments}
-                  disabled={!online || removeAttachment.isPending}
-                  onInsert={insertExistingAttachment}
-                  onRemove={confirmRemoveAttachment}
-                />
-              ) : null}
+                {mode === "write" ? (
+                  <div
+                    className={cx(
+                      "relative mx-auto px-5 py-5",
+                      (selected?.page_width ?? "compact") === "compact"
+                        ? "max-w-4xl"
+                        : (selected?.page_width ?? "compact") === "wide"
+                          ? "max-w-6xl"
+                          : "max-w-none",
+                    )}
+                  >
+                    {slash && <SlashCommandMenu query={slash.query} onChoose={chooseSlashCommand} />}
+                    <Textarea
+                      ref={editor}
+                      value={draft}
+                      onChange={setDraft}
+                      onCaret={(position) => {
+                        caret.current = position;
+                        setCaretPosition(position);
+                      }}
+                      ariaLabel="Not içeriği"
+                      placeholder="# Başlık\n\nDüşünceni yaz…"
+                      onPaste={(event) => {
+                        const files = Array.from(event.clipboardData.files);
+                        if (!files.length || creating || !online) return;
+                        event.preventDefault();
+                        attachFiles(files);
+                      }}
+                      onDragOver={(event) => {
+                        if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+                      }}
+                      onDrop={(event) => {
+                        const files = Array.from(event.dataTransfer.files);
+                        if (!files.length || creating || !online) return;
+                        event.preventDefault();
+                        attachFiles(files);
+                      }}
+                      className="min-h-screen w-full resize-none border-0 bg-transparent p-0 font-mono leading-relaxed focus:border-transparent focus:ring-0"
+                      onKeyDown={(event) => {
+                        if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase("tr") === "s") {
+                          event.preventDefault();
+                          if (online && dirty && draft.trim()) save.mutate();
+                          return;
+                        }
+                        if (event.key === "Escape" && slash) {
+                          event.preventDefault();
+                          const next = `${draft.slice(0, slash.start)}${draft.slice(caretPosition)}`;
+                          setDraft(next);
+                          caret.current = slash.start;
+                          setCaretPosition(slash.start);
+                          return;
+                        }
+                        if (event.key === "Enter" && slash) {
+                          const first = SLASH_COMMANDS.find((command) =>
+                            `${command.label} ${command.keywords}`.toLocaleLowerCase("tr").includes(slash.query),
+                          );
+                          if (first) {
+                            event.preventDefault();
+                            chooseSlashCommand(first);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                ) : mode === "preview" ? (
+                  <article
+                    className={cx(
+                      "mx-auto min-h-screen px-5 py-5",
+                      (selected?.page_width ?? "compact") === "compact"
+                        ? "max-w-4xl"
+                        : (selected?.page_width ?? "compact") === "wide"
+                          ? "max-w-6xl"
+                          : "max-w-none",
+                    )}
+                  >
+                    <Markdown
+                      source={draft}
+                      links={selected?.resolved_links ?? []}
+                      unresolved={selected?.unresolved_links ?? []}
+                      attachments={selected?.attachments ?? []}
+                      onRemoveAttachment={confirmRemoveAttachment}
+                      onMissingClick={(target) => beginNote(target)}
+                      className="article-content"
+                    />
+                  </article>
+                ) : detailLoading || !canvasNote ? (
+                  <div className="flex min-h-[36rem] items-center justify-center text-meta text-muted">
+                    Tuval yükleniyor…
+                  </div>
+                ) : (
+                  <CanvasErrorBoundary key={canvasNote.id}>
+                    <Suspense
+                      fallback={
+                        <div className="flex min-h-[36rem] items-center justify-center text-meta text-muted">
+                          Tuval hazırlanıyor…
+                        </div>
+                      }
+                    >
+                      <NoteCanvas
+                        initialState={canvasNote.canvas_state ?? {}}
+                        noteId={canvasNote.id}
+                        noteTitle={canvasNote.title}
+                        attachments={canvasNote.attachments ?? []}
+                        readOnly={!online}
+                        theme={resolvedTheme(theme)}
+                        onSave={(state) => saveCanvas.mutate(state)}
+                      />
+                    </Suspense>
+                  </CanvasErrorBoundary>
+                )}
 
-              <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-subtle px-4 py-2 text-meta text-muted">
-                <span>{draft.trim() ? draft.trim().split(/\s+/).length : 0} kelime</span>
-                <span>·</span>
-                <span>{draft.length.toLocaleString("tr-TR")} karakter</span>
-                <span>·</span>
-                <span>{mode === "canvas" ? "Excalidraw tuvali" : "Markdown"}</span>
-              </footer>
-            </>
-          )}
-        </main>
-      </Surface>
-    </div>
+                {mode !== "canvas" ? (
+                  <AttachmentPool
+                    attachments={unplacedAttachments}
+                    disabled={!online || removeAttachment.isPending}
+                    onInsert={insertExistingAttachment}
+                    onRemove={confirmRemoveAttachment}
+                  />
+                ) : null}
 
-    {!creating && selected && (
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <RelatedPanel entityId={selected.id} />
-        <BacklinksPanel entityId={selected.id} />
-        {/* Not -> deste bagi varsa "bu notun kartlari" paneli burada cikar. */}
-        <NoteFlashcardPanel noteId={selected.id} />
+                <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-subtle px-4 py-2 text-meta text-muted">
+                  <span>{draft.trim() ? draft.trim().split(/\s+/).length : 0} kelime</span>
+                  <span>·</span>
+                  <span>{draft.length.toLocaleString("tr-TR")} karakter</span>
+                  <span>·</span>
+                  <span>{mode === "canvas" ? "Excalidraw tuvali" : "Markdown"}</span>
+                </footer>
+              </>
+            )}
+          </main>
+        </Surface>
       </div>
-    )}
+
+      {!creating && selected && (
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <RelatedPanel entityId={selected.id} />
+          <BacklinksPanel entityId={selected.id} />
+          {/* Not -> deste bagi varsa "bu notun kartlari" paneli burada cikar. */}
+          <NoteFlashcardPanel noteId={selected.id} />
+        </div>
+      )}
       {highlightsOpen && (
         <BookmarkHighlights
           onClose={closeHighlights}
