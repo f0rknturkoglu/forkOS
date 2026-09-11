@@ -351,6 +351,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bookmarks/bulk-action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bulk Action Bookmarks */
+        post: operations["bulk_action_bookmarks_api_bookmarks_bulk_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Bookmarks
+         * @description Netscape Bookmark HTML formatinda kutuphane dosyasini indirir.
+         */
+        get: operations["export_bookmarks_api_bookmarks_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Bookmarks
+         * @description Netscape HTML veya Pocket JSON formatinda yer imi yukler.
+         */
+        post: operations["import_bookmarks_api_bookmarks_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bookmarks/stats": {
         parameters: {
             query?: never;
@@ -405,6 +462,149 @@ export interface paths {
          * @description Surukle-birak buraya duser: tek UPDATE, link ve event kopmaz.
          */
         patch: operations["move_bookmark_api_bookmarks__bookmark_id__collection_patch"];
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/convert-to-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Convert Bookmark To Task */
+        post: operations["convert_bookmark_to_task_api_bookmarks__bookmark_id__convert_to_task_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/create-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Note From Bookmark */
+        post: operations["create_note_from_bookmark_api_bookmarks__bookmark_id__create_note_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/enrich": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enrich Bookmark */
+        post: operations["enrich_bookmark_api_bookmarks__bookmark_id__enrich_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/fulltext": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Bookmark Fulltext
+         * @description Makalenin tam metni, temizlenmis HTML'i ve vurgulari.
+         */
+        get: operations["get_bookmark_fulltext_api_bookmarks__bookmark_id__fulltext_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/highlights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Bookmark Highlights */
+        get: operations["list_bookmark_highlights_api_bookmarks__bookmark_id__highlights_get"];
+        put?: never;
+        /** Add Bookmark Highlight */
+        post: operations["add_bookmark_highlight_api_bookmarks__bookmark_id__highlights_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/highlights/{highlight_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Bookmark Highlight */
+        delete: operations["delete_bookmark_highlight_api_bookmarks__bookmark_id__highlights__highlight_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/highlights/{highlight_id}/convert-to-flashcard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Convert Highlight To Flashcard */
+        post: operations["convert_highlight_to_flashcard_api_bookmarks__bookmark_id__highlights__highlight_id__convert_to_flashcard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Bookmark Progress
+         * @description Okuma yuzdesini gunceller. Yuzde >= 90 ise otomatik okundu yapilir.
+         */
+        patch: operations["update_bookmark_progress_api_bookmarks__bookmark_id__progress_patch"];
         trace?: never;
     };
     "/api/calendar/events": {
@@ -4267,14 +4467,112 @@ export interface components {
             /** File */
             file: string;
         };
-        /** BookmarkOut */
-        BookmarkOut: {
+        /** BookmarkBulkActionIn */
+        BookmarkBulkActionIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "move" | "delete" | "tag" | "read_status";
+            /** Bookmark Ids */
+            bookmark_ids: string[];
             /** Collection */
-            collection: string;
-            /** Description */
-            description?: string | null;
-            /** Favorite */
-            favorite: boolean;
+            collection?: string | null;
+            /** Read Status */
+            read_status?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+        };
+        /** BookmarkBulkActionResult */
+        BookmarkBulkActionResult: {
+            /** Action */
+            action: string;
+            /** Affected */
+            affected: number;
+        };
+        /** BookmarkFullTextOut */
+        BookmarkFullTextOut: {
+            /** Author */
+            author?: string | null;
+            /** Content Html */
+            content_html?: string | null;
+            /** Content Text */
+            content_text?: string | null;
+            /** Favicon Url */
+            favicon_url?: string | null;
+            /** Hero Image Url */
+            hero_image_url?: string | null;
+            /**
+             * Highlights
+             * @default []
+             */
+            highlights: components["schemas"]["BookmarkHighlightOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Published At */
+            published_at?: string | null;
+            /**
+             * Reading Time Min
+             * @default 1
+             */
+            reading_time_min: number;
+            /**
+             * Scroll Progress
+             * @default 0
+             */
+            scroll_progress: number;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /**
+             * Word Count
+             * @default 0
+             */
+            word_count: number;
+        };
+        /** BookmarkHighlightIn */
+        BookmarkHighlightIn: {
+            /**
+             * Anchor Index
+             * @default 0
+             */
+            anchor_index: number;
+            /**
+             * Color
+             * @default yellow
+             */
+            color: string;
+            /** Note */
+            note?: string | null;
+            /** Text */
+            text: string;
+        };
+        /** BookmarkHighlightOut */
+        BookmarkHighlightOut: {
+            /**
+             * Anchor Index
+             * @default 0
+             */
+            anchor_index: number;
+            /**
+             * Bookmark Id
+             * Format: uuid
+             */
+            bookmark_id: string;
+            /**
+             * Color
+             * @default yellow
+             */
+            color: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /**
              * Id
              * Format: uuid
@@ -4282,15 +4580,63 @@ export interface components {
             id: string;
             /** Note */
             note?: string | null;
+            /** Text */
+            text: string;
+        };
+        /** BookmarkOut */
+        BookmarkOut: {
+            /** Author */
+            author?: string | null;
+            /** Collection */
+            collection: string;
+            /** Description */
+            description?: string | null;
+            /** Existing Collection */
+            existing_collection?: string | null;
+            /** Favicon Url */
+            favicon_url?: string | null;
+            /** Favorite */
+            favorite: boolean;
+            /** Hero Image Url */
+            hero_image_url?: string | null;
+            /**
+             * Highlights Count
+             * @default 0
+             */
+            highlights_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Is Duplicate
+             * @default false
+             */
+            is_duplicate: boolean;
+            /** Note */
+            note?: string | null;
+            /** Published At */
+            published_at?: string | null;
             /** Queue Kind */
             queue_kind?: string | null;
             /** Read Status */
             read_status: string;
             /**
+             * Reading Time Min
+             * @default 1
+             */
+            reading_time_min: number;
+            /**
              * Saved At
              * Format: date-time
              */
             saved_at: string;
+            /**
+             * Scroll Progress
+             * @default 0
+             */
+            scroll_progress: number;
             /** Selection */
             selection?: string | null;
             /** Source */
@@ -4304,6 +4650,16 @@ export interface components {
             title: string;
             /** Url */
             url: string;
+            /**
+             * Word Count
+             * @default 0
+             */
+            word_count: number;
+        };
+        /** BookmarkProgressUpdate */
+        BookmarkProgressUpdate: {
+            /** Scroll Progress */
+            scroll_progress: number;
         };
         /** BookmarkStats */
         BookmarkStats: {
@@ -4323,18 +4679,28 @@ export interface components {
          * @description Kismi guncelleme. Verilmeyen alana dokunulmaz.
          */
         BookmarkUpdate: {
+            /** Author */
+            author?: string | null;
             /** Collection */
             collection?: string | null;
             /** Description */
             description?: string | null;
+            /** Favicon Url */
+            favicon_url?: string | null;
             /** Favorite */
             favorite?: boolean | null;
+            /** Hero Image Url */
+            hero_image_url?: string | null;
             /** Note */
             note?: string | null;
             /** Queue Kind */
             queue_kind?: string | null;
             /** Read Status */
             read_status?: string | null;
+            /** Reading Time Min */
+            reading_time_min?: number | null;
+            /** Scroll Progress */
+            scroll_progress?: number | null;
             /** Tags */
             tags?: string[] | null;
             /** Title */
@@ -4360,6 +4726,8 @@ export interface components {
          * @description Extension ve Life OS ici quick capture ayni endpoint'i kullanir.
          */
         CaptureIn: {
+            /** Author */
+            author?: string | null;
             /** Client Uuid */
             client_uuid?: string | null;
             /**
@@ -4369,8 +4737,14 @@ export interface components {
             collection: string;
             /** Description */
             description?: string | null;
+            /** Favicon Url */
+            favicon_url?: string | null;
+            /** Hero Image Url */
+            hero_image_url?: string | null;
             /** Note */
             note?: string | null;
+            /** Reading Time Min */
+            reading_time_min?: number | null;
             /** Selection */
             selection?: string | null;
             /**
@@ -4390,6 +4764,8 @@ export interface components {
             title: string;
             /** Url */
             url: string;
+            /** Word Count */
+            word_count?: number | null;
         };
         /** CaptureResult */
         CaptureResult: {
@@ -4630,6 +5006,18 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** ConvertToTaskIn */
+        ConvertToTaskIn: {
+            /** Due At */
+            due_at?: string | null;
+            /** Plan Day */
+            plan_day?: string | null;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+        };
         /**
          * CounterBreakdown
          * @description Bir sayacin uc zaman dilimi: bugun (app gunu), son 7 gun, tum zamanlar.
@@ -4783,6 +5171,16 @@ export interface components {
             reps: number;
             /** Suspended */
             suspended: boolean;
+        };
+        /** CreateNoteFromBookmarkIn */
+        CreateNoteFromBookmarkIn: {
+            /** Additional Text */
+            additional_text?: string | null;
+            /**
+             * Pinned
+             * @default false
+             */
+            pinned: boolean;
         };
         /** DeckIn */
         DeckIn: {
@@ -9457,6 +9855,94 @@ export interface operations {
             };
         };
     };
+    bulk_action_bookmarks_api_bookmarks_bulk_action_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookmarkBulkActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkBulkActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_bookmarks_api_bookmarks_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    import_bookmarks_api_bookmarks_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     bookmark_stats_api_bookmarks_stats_get: {
         parameters: {
             query?: never;
@@ -9584,6 +10070,301 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_bookmark_to_task_api_bookmarks__bookmark_id__convert_to_task_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConvertToTaskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_note_from_bookmark_api_bookmarks__bookmark_id__create_note_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNoteFromBookmarkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enrich_bookmark_api_bookmarks__bookmark_id__enrich_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_bookmark_fulltext_api_bookmarks__bookmark_id__fulltext_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkFullTextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_bookmark_highlights_api_bookmarks__bookmark_id__highlights_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkHighlightOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_bookmark_highlight_api_bookmarks__bookmark_id__highlights_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookmarkHighlightIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkHighlightOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_bookmark_highlight_api_bookmarks__bookmark_id__highlights__highlight_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+                highlight_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_highlight_to_flashcard_api_bookmarks__bookmark_id__highlights__highlight_id__convert_to_flashcard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+                highlight_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_bookmark_progress_api_bookmarks__bookmark_id__progress_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookmarkProgressUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

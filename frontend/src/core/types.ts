@@ -104,6 +104,42 @@ export interface Bookmark {
   saved_at: string;
   tags: string[];
   queue_kind?: "watch" | "read" | "listen" | "practice" | null;
+  is_duplicate?: boolean;
+  existing_collection?: string | null;
+  hero_image_url?: string | null;
+  favicon_url?: string | null;
+  author?: string | null;
+  published_at?: string | null;
+  reading_time_min?: number;
+  word_count?: number;
+  scroll_progress?: number;
+  highlights_count?: number;
+}
+
+export interface BookmarkHighlight {
+  id: string;
+  bookmark_id: string;
+  text: string;
+  note?: string | null;
+  color: "yellow" | "green" | "blue" | "pink" | string;
+  anchor_index: number;
+  created_at: string;
+}
+
+export interface BookmarkFullText {
+  id: string;
+  title: string;
+  url: string;
+  content_html?: string | null;
+  content_text?: string | null;
+  hero_image_url?: string | null;
+  favicon_url?: string | null;
+  author?: string | null;
+  published_at?: string | null;
+  reading_time_min: number;
+  word_count: number;
+  scroll_progress: number;
+  highlights: BookmarkHighlight[];
 }
 
 export interface BookmarkStats {

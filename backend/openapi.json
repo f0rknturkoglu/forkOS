@@ -832,13 +832,27 @@
         "title": "Body_upload_document_api_documents_upload_post",
         "type": "object"
       },
-      "BookmarkOut": {
+      "BookmarkBulkActionIn": {
         "properties": {
-          "collection": {
-            "title": "Collection",
+          "action": {
+            "enum": [
+              "move",
+              "delete",
+              "tag",
+              "read_status"
+            ],
+            "title": "Action",
             "type": "string"
           },
-          "description": {
+          "bookmark_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Bookmark Ids",
+            "type": "array"
+          },
+          "collection": {
             "anyOf": [
               {
                 "type": "string"
@@ -847,11 +861,228 @@
                 "type": "null"
               }
             ],
-            "title": "Description"
+            "title": "Collection"
           },
-          "favorite": {
-            "title": "Favorite",
-            "type": "boolean"
+          "read_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Status"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "required": [
+          "bookmark_ids",
+          "action"
+        ],
+        "title": "BookmarkBulkActionIn",
+        "type": "object"
+      },
+      "BookmarkBulkActionResult": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "affected": {
+            "title": "Affected",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "affected",
+          "action"
+        ],
+        "title": "BookmarkBulkActionResult",
+        "type": "object"
+      },
+      "BookmarkFullTextOut": {
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "content_html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Html"
+          },
+          "content_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Text"
+          },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          },
+          "hero_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Url"
+          },
+          "highlights": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BookmarkHighlightOut"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "reading_time_min": {
+            "default": 1,
+            "title": "Reading Time Min",
+            "type": "integer"
+          },
+          "scroll_progress": {
+            "default": 0,
+            "title": "Scroll Progress",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "word_count": {
+            "default": 0,
+            "title": "Word Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url"
+        ],
+        "title": "BookmarkFullTextOut",
+        "type": "object"
+      },
+      "BookmarkHighlightIn": {
+        "properties": {
+          "anchor_index": {
+            "default": 0,
+            "title": "Anchor Index",
+            "type": "integer"
+          },
+          "color": {
+            "default": "yellow",
+            "title": "Color",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "BookmarkHighlightIn",
+        "type": "object"
+      },
+      "BookmarkHighlightOut": {
+        "properties": {
+          "anchor_index": {
+            "default": 0,
+            "title": "Anchor Index",
+            "type": "integer"
+          },
+          "bookmark_id": {
+            "format": "uuid",
+            "title": "Bookmark Id",
+            "type": "string"
+          },
+          "color": {
+            "default": "yellow",
+            "title": "Color",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
           },
           "id": {
             "format": "uuid",
@@ -869,6 +1100,123 @@
             ],
             "title": "Note"
           },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "bookmark_id",
+          "text",
+          "created_at"
+        ],
+        "title": "BookmarkHighlightOut",
+        "type": "object"
+      },
+      "BookmarkOut": {
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "existing_collection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Collection"
+          },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          },
+          "favorite": {
+            "title": "Favorite",
+            "type": "boolean"
+          },
+          "hero_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Url"
+          },
+          "highlights_count": {
+            "default": 0,
+            "title": "Highlights Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_duplicate": {
+            "default": false,
+            "title": "Is Duplicate",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
           "queue_kind": {
             "anyOf": [
               {
@@ -884,10 +1232,20 @@
             "title": "Read Status",
             "type": "string"
           },
+          "reading_time_min": {
+            "default": 1,
+            "title": "Reading Time Min",
+            "type": "integer"
+          },
           "saved_at": {
             "format": "date-time",
             "title": "Saved At",
             "type": "string"
+          },
+          "scroll_progress": {
+            "default": 0,
+            "title": "Scroll Progress",
+            "type": "integer"
           },
           "selection": {
             "anyOf": [
@@ -919,6 +1277,11 @@
           "url": {
             "title": "Url",
             "type": "string"
+          },
+          "word_count": {
+            "default": 0,
+            "title": "Word Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -932,6 +1295,19 @@
           "saved_at"
         ],
         "title": "BookmarkOut",
+        "type": "object"
+      },
+      "BookmarkProgressUpdate": {
+        "properties": {
+          "scroll_progress": {
+            "title": "Scroll Progress",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scroll_progress"
+        ],
+        "title": "BookmarkProgressUpdate",
         "type": "object"
       },
       "BookmarkStats": {
@@ -973,6 +1349,17 @@
       "BookmarkUpdate": {
         "description": "Kismi guncelleme. Verilmeyen alana dokunulmaz.",
         "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
           "collection": {
             "anyOf": [
               {
@@ -995,6 +1382,17 @@
             ],
             "title": "Description"
           },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          },
           "favorite": {
             "anyOf": [
               {
@@ -1005,6 +1403,17 @@
               }
             ],
             "title": "Favorite"
+          },
+          "hero_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Url"
           },
           "note": {
             "anyOf": [
@@ -1038,6 +1447,28 @@
               }
             ],
             "title": "Read Status"
+          },
+          "reading_time_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Time Min"
+          },
+          "scroll_progress": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scroll Progress"
           },
           "tags": {
             "anyOf": [
@@ -1110,6 +1541,17 @@
       "CaptureIn": {
         "description": "Extension ve Life OS ici quick capture ayni endpoint'i kullanir.",
         "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
           "client_uuid": {
             "anyOf": [
               {
@@ -1138,6 +1580,28 @@
             ],
             "title": "Description"
           },
+          "favicon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon Url"
+          },
+          "hero_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hero Image Url"
+          },
           "note": {
             "anyOf": [
               {
@@ -1148,6 +1612,17 @@
               }
             ],
             "title": "Note"
+          },
+          "reading_time_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Time Min"
           },
           "selection": {
             "anyOf": [
@@ -1181,6 +1656,17 @@
           "url": {
             "title": "Url",
             "type": "string"
+          },
+          "word_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Count"
           }
         },
         "required": [
@@ -1931,6 +2417,40 @@
         "title": "ContextOut",
         "type": "object"
       },
+      "ConvertToTaskIn": {
+        "properties": {
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "plan_day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Day"
+          },
+          "priority": {
+            "default": 2,
+            "title": "Priority",
+            "type": "integer"
+          }
+        },
+        "title": "ConvertToTaskIn",
+        "type": "object"
+      },
       "CounterBreakdown": {
         "description": "Bir sayacin uc zaman dilimi: bugun (app gunu), son 7 gun, tum zamanlar.",
         "properties": {
@@ -2431,6 +2951,28 @@
           "deck_title"
         ],
         "title": "CramCardOut",
+        "type": "object"
+      },
+      "CreateNoteFromBookmarkIn": {
+        "properties": {
+          "additional_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Additional Text"
+          },
+          "pinned": {
+            "default": false,
+            "title": "Pinned",
+            "type": "boolean"
+          }
+        },
+        "title": "CreateNoteFromBookmarkIn",
         "type": "object"
       },
       "DeckIn": {
@@ -14806,6 +15348,109 @@
         ]
       }
     },
+    "/api/bookmarks/bulk-action": {
+      "post": {
+        "operationId": "bulk_action_bookmarks_api_bookmarks_bulk_action_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookmarkBulkActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkBulkActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Action Bookmarks",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/export": {
+      "get": {
+        "description": "Netscape Bookmark HTML formatinda kutuphane dosyasini indirir.",
+        "operationId": "export_bookmarks_api_bookmarks_export_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Export Bookmarks",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/import": {
+      "post": {
+        "description": "Netscape HTML veya Pocket JSON formatinda yer imi yukler.",
+        "operationId": "import_bookmarks_api_bookmarks_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Bookmarks",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
     "/api/bookmarks/stats": {
       "get": {
         "operationId": "bookmark_stats_api_bookmarks_stats_get",
@@ -15003,6 +15648,444 @@
           }
         },
         "summary": "Move Bookmark",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/convert-to-task": {
+      "post": {
+        "operationId": "convert_bookmark_to_task_api_bookmarks__bookmark_id__convert_to_task_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertToTaskIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Convert Bookmark To Task",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/create-note": {
+      "post": {
+        "operationId": "create_note_from_bookmark_api_bookmarks__bookmark_id__create_note_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteFromBookmarkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Note From Bookmark",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/enrich": {
+      "post": {
+        "operationId": "enrich_bookmark_api_bookmarks__bookmark_id__enrich_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enrich Bookmark",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/fulltext": {
+      "get": {
+        "description": "Makalenin tam metni, temizlenmis HTML'i ve vurgulari.",
+        "operationId": "get_bookmark_fulltext_api_bookmarks__bookmark_id__fulltext_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkFullTextOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Bookmark Fulltext",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/highlights": {
+      "get": {
+        "operationId": "list_bookmark_highlights_api_bookmarks__bookmark_id__highlights_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BookmarkHighlightOut"
+                  },
+                  "title": "Response List Bookmark Highlights Api Bookmarks  Bookmark Id  Highlights Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Bookmark Highlights",
+        "tags": [
+          "bookmark"
+        ]
+      },
+      "post": {
+        "operationId": "add_bookmark_highlight_api_bookmarks__bookmark_id__highlights_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookmarkHighlightIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkHighlightOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Bookmark Highlight",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/highlights/{highlight_id}": {
+      "delete": {
+        "operationId": "delete_bookmark_highlight_api_bookmarks__bookmark_id__highlights__highlight_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "highlight_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Highlight Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Bookmark Highlight",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/highlights/{highlight_id}/convert-to-flashcard": {
+      "post": {
+        "operationId": "convert_highlight_to_flashcard_api_bookmarks__bookmark_id__highlights__highlight_id__convert_to_flashcard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "highlight_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Highlight Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Convert Highlight To Flashcard",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/progress": {
+      "patch": {
+        "description": "Okuma yuzdesini gunceller. Yuzde >= 90 ise otomatik okundu yapilir.",
+        "operationId": "update_bookmark_progress_api_bookmarks__bookmark_id__progress_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookmarkProgressUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookmarkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Bookmark Progress",
         "tags": [
           "bookmark"
         ]
