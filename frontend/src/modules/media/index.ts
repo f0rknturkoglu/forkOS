@@ -10,6 +10,9 @@ const MediaDetailPage = lazy(() => import("./MediaDetailPage").then((module) => 
 const MediaCollectionsPage = lazy(() =>
   import("./MediaCollectionsPage").then((module) => ({ default: module.MediaCollectionsPage })),
 );
+const MediaCollectionDetailPage = lazy(() =>
+  import("./MediaCollectionDetailPage").then((module) => ({ default: module.MediaCollectionDetailPage })),
+);
 const MediaUpcomingPage = lazy(() =>
   import("./MediaUpcomingPage").then((module) => ({ default: module.MediaUpcomingPage })),
 );
@@ -19,7 +22,7 @@ const MediaTrashPage = lazy(() => import("./MediaTrashPage").then((module) => ({
 registerModule({
   id: "media",
   title: "Medya",
-  description: "Film ve dizilerini puanla, koleksiyonlara ayır, takibini sürdür.",
+  description: "Film, dizi, anime, manga, kitap, sesli kitap, podcast, müzik ve oyunlarını tek kütüphanede takip et.",
   icon: Film,
   group: "track",
   sidebar: MediaSidebar,
@@ -27,6 +30,8 @@ registerModule({
     { path: "/media", element: MediaPage },
     { path: "/media/library", element: MediaPage },
     { path: "/media/collections", element: MediaCollectionsPage },
+    // Statik `/media/:id` detay rotası bu satırı ezmesin diye önce gelir.
+    { path: "/media/collections/:id", element: MediaCollectionDetailPage },
     { path: "/media/upcoming", element: MediaUpcomingPage },
     { path: "/media/stats", element: MediaStatsPage },
     { path: "/media/trash", element: MediaTrashPage },
@@ -42,5 +47,12 @@ registerModule({
       defaultVisible: false,
     },
   ],
-  commands: [{ id: "media.open", label: "Medya kütüphanesini aç", run: () => navigate("/media") }],
+  commands: [
+    { id: "media.open", label: "Medya kütüphanesini aç", run: () => navigate("/media") },
+    {
+      id: "media.search_catalog",
+      label: "Medya kataloğunda ara",
+      run: () => navigate("/media?search=1"),
+    },
+  ],
 });

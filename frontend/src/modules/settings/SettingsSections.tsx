@@ -1,9 +1,25 @@
 import type { FormEvent, RefObject } from "react";
 import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, X } from "lucide-react";
+import { api } from "@/core/api";
+import { invalidateAfter } from "@/core/invalidation";
 import { allModules } from "@/core/registry";
 import type { BackupStatus, SourceHealth } from "@/core/types";
-import { Button, Checkbox, Chip, IconButton, Input, Section, relativeTime, useTheme } from "@/core/ui";
+import type { components } from "@/generated/api-schema";
+import {
+  Button,
+  Checkbox,
+  Chip,
+  Field,
+  IconButton,
+  Input,
+  NumberInput,
+  Section,
+  relativeTime,
+  useTheme,
+  useToast,
+} from "@/core/ui";
 import { BackupMergeControl } from "@/core/BackupMergeControl";
 import { EXPORT_MODULE } from "@/modules/finance";
 import type { Theme } from "@/core/ui";
@@ -326,6 +342,12 @@ export function MediaProvidersSection({
   mediaUrl,
   onMediaUrl,
   onAddLink,
+  upcomingDays,
+  onUpcomingDays,
+  onSaveUpcomingDays,
+  syncIntervalHours,
+  onSyncIntervalHours,
+  onSaveSyncIntervalHours,
   innerRef,
 }: {
   online: boolean;
@@ -339,6 +361,12 @@ export function MediaProvidersSection({
   mediaUrl: string;
   onMediaUrl: (value: string) => void;
   onAddLink: () => void;
+  upcomingDays: number;
+  onUpcomingDays: (value: number) => void;
+  onSaveUpcomingDays: () => void;
+  syncIntervalHours: number;
+  onSyncIntervalHours: (value: number) => void;
+  onSaveSyncIntervalHours: () => void;
   innerRef: RefObject<HTMLDivElement>;
 }) {
   return (
@@ -348,9 +376,12 @@ export function MediaProvidersSection({
       tabIndex={-1}
       className="space-y-4 rounded-card scroll-mt-4 outline-none focus:ring-2 focus:ring-accent"
     >
-      <Section title="Medya bağlantıları">
+      <Section title="Medya sağlayıcı anahtarları">
         <p className="mb-3 text-meta text-muted">
           API anahtarları yedeklere ve dışa aktarıma girmez. Alanı boş bırakıp dışına çıkmak anahtarı siler.
+        </p>
+        <p className="mb-3 text-meta text-muted">
+          RAWG ve Kitsu desteği kaldırıldı; bu kaynaklardan gelen eski kayıtlar okunmaya devam eder.
         </p>
         <div className="space-y-2">
           <SecretField
@@ -391,6 +422,30 @@ export function MediaProvidersSection({
           />
         </div>
       </Section>
+      <Section title="Tarama ve yaklaşanlar">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Yaklaşan penceresi (gün)">
+            <div onBlur={onSaveUpcomingDays}>
+              <NumberInput value={upcomingDays} min={1} max={365} onChange={onUpcomingDays} className="w-full" />
+            </div>
+          </Field>
+          <Field label="Otomatik tarama aralığı (saat)">
+            <div onBlur={onSaveSyncIntervalHours}>
+              <NumberInput
+                value={syncIntervalHours}
+                min={1}
+                max={168}
+                onChange={onSyncIntervalHours}
+                className="w-full"
+              />
+            </div>
+          </Field>
+        </div>
+        <p className="mt-2 text-meta text-muted">
+          Yalnızca takip edilen kayıtlar bu aralıkla yeniden taranır; yaklaşanlar penceresi yayın takvimini belirler.
+        </p>
+      </Section>
+      <MediaArtworkCacheSection online={online} />
       <Section title="Hızlı bağlantılar">
         <div className="space-y-2">
           {media.map((link, index) => (
@@ -413,6 +468,69 @@ export function MediaProvidersSection({
         </div>
       </Section>
     </div>
+  );
+}
+
+type MediaArtworkStats = components["schemas"]["MediaArtworkStatsOut"];
+type MediaArtworkPrune = components["schemas"]["MediaArtworkPruneOut"];
+
+/** Insan dili boyut: 512 KB / 5.0 MB. */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * Gorsel onbellegi: saglayici kapaklarinin yerel kopyalari. Temizleme yalnizca
+ * hicbir kaydin referans etmedigi ve 7 gunden eski dosyalari siler; kendi
+ * yukledigin gorseller korunur.
+ */
+function MediaArtworkCacheSection({ online }: { online: boolean }) {
+  const toast = useToast();
+  const stats = useQuery({
+    queryKey: ["media-artwork-stats"],
+    queryFn: () => api.get<MediaArtworkStats>("/media/artwork/stats"),
+  });
+  const prune = useMutation({
+    mutationFn: () => api.post<MediaArtworkPrune>("/media/artwork/prune"),
+    onSuccess: (result) => {
+      invalidateAfter("settings.write");
+      void stats.refetch();
+      toast.push(`${result.removed} görsel silindi, ${formatBytes(result.freed_bytes)} kazanıldı.`, { tone: "ok" });
+    },
+    onError: (error) => toast.push(`Önbellek temizlenemedi: ${error.message}`, { tone: "danger" }),
+  });
+
+  const data = stats.data;
+  const summary =
+    data && Number.isFinite(data.files) && Number.isFinite(data.bytes) && Number.isFinite(data.max_bytes)
+      ? `${data.files} görsel · ${formatBytes(data.bytes)} / ${formatBytes(data.max_bytes)}`
+      : stats.isLoading
+        ? "Önbellek bilgisi yükleniyor…"
+        : "Önbellek bilgisi okunamadı.";
+
+  return (
+    <Section title="Görsel önbelleği">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-meta text-secondary" aria-live="polite">
+          {summary}
+        </p>
+        <Button
+          size="sm"
+          disabled={!online || prune.isPending || !data}
+          onClick={() => prune.mutate()}
+          ariaLabel="Önbelleği temizle"
+        >
+          Önbelleği temizle
+        </Button>
+      </div>
+      <p className="mt-1.5 text-meta text-muted">
+        Önbellek temizliği kendi görsellerine dokunmaz; yalnızca 7 günden eski ve hiçbir kayda bağlı olmayan kopyaları
+        siler.
+      </p>
+    </Section>
   );
 }
 

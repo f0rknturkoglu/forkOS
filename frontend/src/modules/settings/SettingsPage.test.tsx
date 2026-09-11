@@ -65,6 +65,8 @@ function baseSettings(): Record<string, unknown> {
     "today.auto_suggestions": true,
     "rss.retention_days": 90,
     "media.links": [],
+    "media.upcoming_days": 30,
+    "media.sync_interval_hours": 24,
     "media.tmdb_key": "",
     "media.igdb_client_id": "",
     "media.igdb_client_secret": "",
@@ -161,6 +163,10 @@ beforeEach(() => {
         githubStatus = { connected: true, login: "octocat" };
         return json({ connected: true, login: "octocat" });
       }
+      if (url.pathname === "/api/media/artwork/stats")
+        return json({ files: 128, bytes: 5_242_880, max_bytes: 536_870_912 });
+      if (url.pathname === "/api/media/artwork/prune" && method === "POST")
+        return json({ removed: 12, freed_bytes: 2_097_152 });
       if (url.pathname === "/api/system/stats") return json(STATS);
       if (url.pathname === "/api/system/refresh") return json({ status: "running" });
       if (url.pathname === "/api/weather/geocode") return json({ name: "Berlin", latitude: 52.5, longitude: 13.4 });
@@ -198,7 +204,7 @@ describe("SettingsPage sekmeleri", () => {
     renderPage();
     await ready();
 
-    expect(await screen.findByText("Medya bağlantıları")).toBeTruthy();
+    expect(await screen.findByText("Medya sağlayıcı anahtarları")).toBeTruthy();
     expect(document.activeElement?.id).toBe("media-links");
   });
 });
@@ -285,6 +291,60 @@ describe("SettingsPage yazmalari", () => {
     fireEvent.change(field, { target: { value: "1AbCdEf" } });
     fireEvent.blur(field, { target: { value: "1AbCdEf" } });
     await waitFor(() => expect(lastWrite("backup.drive_folder_id")).toBe("1AbCdEf"));
+  });
+
+  it("medya yaklaşan penceresini ve tarama aralığını blur'da kaydeder", async () => {
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    const upcoming = await screen.findByLabelText("Yaklaşan penceresi (gün)");
+    fireEvent.change(upcoming, { target: { value: "45" } });
+    fireEvent.blur(upcoming, { target: { value: "45" } });
+    await waitFor(() => expect(lastWrite("media.upcoming_days")).toBe(45));
+
+    const interval = screen.getByLabelText("Otomatik tarama aralığı (saat)");
+    fireEvent.change(interval, { target: { value: "12" } });
+    fireEvent.blur(interval, { target: { value: "12" } });
+    await waitFor(() => expect(lastWrite("media.sync_interval_hours")).toBe(12));
+
+    // Degismeyen deger tekrar yazilmaz.
+    const writes = calls.filter((call) => call.method === "PUT" && call.path === "/api/settings/media.upcoming_days");
+    fireEvent.blur(screen.getByLabelText("Yaklaşan penceresi (gün)"), { target: { value: "45" } });
+    await waitFor(() => expect(writes).toHaveLength(1));
+  });
+
+  it("ölü media.rawg_key alanını açmaz, kaldırılma notunu gösterir", async () => {
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    expect(await screen.findByText(/RAWG ve Kitsu desteği kaldırıldı/)).toBeTruthy();
+    expect(screen.queryByLabelText(/RAWG/i)).toBeNull();
+    expect(screen.queryByDisplayValue("media.rawg_key")).toBeNull();
+  });
+
+  it("görsel önbelleği özetini gösterir ve temizler", async () => {
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    expect(await screen.findByText("128 görsel · 5.0 MB / 512.0 MB")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Önbelleği temizle" }));
+    await waitFor(() =>
+      expect(calls.some((call) => call.method === "POST" && call.path === "/api/media/artwork/prune")).toBe(true),
+    );
+    expect(await screen.findByText("12 görsel silindi, 2.0 MB kazanıldı.")).toBeTruthy();
+  });
+
+  it("çevrimdışıyken önbellek temizliğini kapatır", async () => {
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, value: false });
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    const button = (await screen.findByRole("button", { name: "Önbelleği temizle" })) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
   });
 });
 

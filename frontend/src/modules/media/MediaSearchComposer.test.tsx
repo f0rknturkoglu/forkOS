@@ -1,18 +1,25 @@
 // @vitest-environment jsdom
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+/**
+ * Katalog arama govdesi sozlesmesi: debounce'lu saglayici aramasi, kapsam
+ * sekmelerinin `kind` suzgeci, satir ici ekleme panosu ve 409 cakismasinda
+ * mevcut kayda baglanti. Gercek ag yok; `fetch` kaydedici bir stub'dur.
+ */
+
+import { QueryClientProvider } from "@tanstack/react-query";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
+import { queryClient } from "@/core/queryClient";
 import { MediaSearchComposer, providerCreateBody } from "./MediaSearchComposer";
 
-const KINDS = ["movie", "show", "anime", "manga", "book", "audiobook", "podcast", "music", "game"];
 const libraryItem = {
-  id: "media-prophecy",
-  title: "Dune: Prophecy",
-  kind: "show",
-  status: "in_progress",
-  progress: 3,
-  total: 8,
+  id: "media-existing",
+  title: "Dune",
+  kind: "movie",
+  status: "planned",
+  progress: 0,
+  total: 1,
   score: null,
   notes: null,
   started_at: null,
@@ -20,15 +27,15 @@ const libraryItem = {
   meta: {},
   summary: null,
   release_date: null,
-  progress_measure: "episode",
+  progress_measure: "item",
   review: null,
   favorite: false,
   owned: false,
   ownership: {},
   monitored: false,
   provider: "tmdb",
-  provider_id: "tv:42",
-  provider_ids: { tmdb: "42" },
+  provider_id: "99",
+  provider_ids: { tmdb: "99" },
   cover_url: null,
   cover_path: null,
   backdrop_url: null,
@@ -38,29 +45,39 @@ const libraryItem = {
   updated_at: null,
   archived_at: null,
 };
+
 const catalogHit = {
   kind: "movie",
   provider: "tmdb",
   provider_id: "movie:99",
   title: "Dune",
   subtitle: "2021 filmi",
-  summary: "Arrakis",
+  summary: "Arrakis çölünde geçen uyarlama.",
   total: 1,
   progress_measure: "item",
   cover: null,
   backdrop: null,
-  cover_url: "https://image/dune.jpg",
+  cover_url: "https://image.tmdb.org/t/p/w300/dune.jpg",
   backdrop_url: null,
   year: 2021,
   provider_ids: { tmdb: "99" },
   meta: { tmdb_type: "movie" },
   metadata: { ignored: true },
 };
-const sameIdDifferentKind = { ...catalogHit, kind: "show", title: "Dune: Sisterhood" };
-const foundationHit = { ...catalogHit, provider_id: "movie:42", title: "Foundation" };
+
+const showHit = { ...catalogHit, kind: "show", title: "Dune: Prophecy", provider_id: "tv:99" };
+const addedItem = { ...libraryItem, id: "media-dune", status: "in_progress" };
 
 function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
+}
+
+function page(items: unknown[]): unknown {
+  return { items, total: items.length, next_cursor: null };
+}
+
+function catalogPage(results: unknown[], warnings: unknown[] = []): unknown {
+  return { results, warnings, cached: false };
 }
 
 function deferred<T>() {
@@ -71,48 +88,54 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function renderComposer(online = true) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <MediaSearchComposer online={online} onAdded={vi.fn()} />
-    </QueryClientProvider>,
-  );
-}
-
 describe("MediaSearchComposer", () => {
   let calls: { path: string; method: string; body: unknown }[];
   let responder: (path: string, method: string) => Response | Promise<Response>;
-  let posts: number;
-  let duplicate: Record<string, unknown>;
+  let onAdded: Mock;
 
   async function search(term: string) {
-    fireEvent.change(screen.getByRole("searchbox", { name: "Tüm medyada ara" }), { target: { value: term } });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Katalogda ara" }), { target: { value: term } });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(250);
+      await vi.advanceTimersByTimeAsync(300);
     });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
+    await flush();
+  }
+
+  /** Sabit (fake) zamanlayici altinda bekleyen promise'leri bosaltir. */
+  async function flush() {
+    for (let round = 0; round < 3; round += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    }
+  }
+
+  function renderComposer({ online = true, initialKind }: { online?: boolean; initialKind?: string } = {}) {
+    return render(
+      <QueryClientProvider client={queryClient()}>
+        <MediaSearchComposer online={online} initialKind={initialKind} onAdded={onAdded} />
+      </QueryClientProvider>,
+    );
   }
 
   beforeEach(() => {
     vi.useFakeTimers();
+    queryClient().clear();
+    queryClient().setDefaultOptions({ queries: { retry: false, staleTime: 0 } });
     calls = [];
-    posts = 0;
-    duplicate = { detail: "Bu provider kaydı kütüphanede zaten var", existing_id: "media-existing" };
+    onAdded = vi.fn();
     responder = (path, method) => {
-      if (path === "/api/media?q=dune&limit=8") return json({ items: [libraryItem], total: 1, next_cursor: null });
-      if (path === "/api/media/search/global?q=dune") return json({ results: [catalogHit], warnings: [] });
-      if (path === "/api/media?q=foundation&limit=8") return json({ items: [], total: 0, next_cursor: null });
-      if (path === "/api/media/search/global?q=foundation") return json({ results: [foundationHit], warnings: [] });
-      if (path === "/api/media" && method === "POST") {
-        posts += 1;
-        return posts === 1
-          ? json({ ...libraryItem, id: "media-dune", title: "Dune", kind: "movie" }, 201)
-          : json(duplicate, 409);
+      if (path === "/api/media?q=dune&limit=8") return json(page([libraryItem]));
+      if (path === "/api/media/search/global?q=dune&limit=8") return json(catalogPage([catalogHit]));
+      if (path === "/api/media?q=foundation&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=foundation&limit=8")
+        return json(catalogPage([{ ...catalogHit, title: "Foundation" }]));
+      if (path === "/api/media/collections") {
+        return json([{ id: "col-1", title: "Bilim Kurgu", position: 0, item_count: 2, covers: [] }]);
       }
-      return json({ items: [], total: 0, next_cursor: null });
+      if (path === "/api/media" && method === "POST") return json(addedItem, 201);
+      if (path.startsWith("/api/media/collections/") && method === "POST") return new Response(null, { status: 204 });
+      return json({}, 404);
     };
     vi.stubGlobal(
       "fetch",
@@ -133,212 +156,256 @@ describe("MediaSearchComposer", () => {
     vi.unstubAllGlobals();
   });
 
-  it("does not search globally for a one-character term", async () => {
+  it("yazmadan istek atmaz ve en az iki karakter ister", async () => {
     renderComposer();
+
+    expect(screen.getByText("Aramak için en az 2 karakter yaz.")).toBeTruthy();
     await search("d");
-    expect(calls.some(({ path }) => path.startsWith("/api/media/search/global"))).toBe(false);
+    expect(calls).toEqual([]);
+
+    await search("dune");
+    expect(calls.some(({ path }) => path === "/api/media?q=dune&limit=8")).toBe(true);
   });
 
-  it("searches library and catalog after the 250ms boundary, then adds provider hits", async () => {
+  it("kütüphane eşleşmelerini ve katalog sonuçlarını birlikte gösterir", async () => {
+    const { container } = renderComposer();
+    await search("dune");
+
+    expect(screen.getByRole("heading", { level: 2, name: "Kütüphanende" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Katalog sonuçları" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Dune detayını aç" }).getAttribute("href")).toBe("#/media/media-existing");
+
+    // Uzak kapak dogrudan cekilmez; backend onbelleginden servis edilir.
+    expect(container.querySelector("ul img")?.getAttribute("src")).toBe(
+      "/api/media/artwork/proxy?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw300%2Fdune.jpg",
+    );
+    expect(within(screen.getByRole("region", { name: "Katalog sonuçları" })).getAllByText("Film")).toHaveLength(1);
+    expect(screen.getAllByText("TMDB").length).toBeGreaterThan(0);
+    expect(screen.getByText("2021")).toBeTruthy();
+    expect(screen.getByText("Arrakis çölünde geçen uyarlama.").className).toContain("line-clamp-2");
+    expect(screen.getByRole("button", { name: "Dune kaydını ekle" })).toBeTruthy();
+  });
+
+  it("kapsam seçimi kind parametresi gönderir ve tür başına sonuçları birleştirir", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    responder = (path) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=dune&kind=movie&limit=8")
+        return json(catalogPage([catalogHit, catalogHit]));
+      if (path === "/api/media/search/global?q=dune&kind=show&limit=8") return json(catalogPage([showHit]));
+      return json({}, 404);
+    };
+    renderComposer();
+    fireEvent.click(screen.getByRole("tab", { name: "Film/dizi" }));
+    await search("dune");
+
+    const catalogPaths = calls
+      .filter(({ path }) => path.startsWith("/api/media/search/global"))
+      .map(({ path }) => path);
+    expect(catalogPaths).toEqual([
+      "/api/media/search/global?q=dune&kind=movie&limit=8",
+      "/api/media/search/global?q=dune&kind=show&limit=8",
+    ]);
+    // Ayni (provider, provider_id, kind) uc kez gelse de tek satir cizilir.
+    expect(screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent)).toEqual([
+      "Dune",
+      "Dune: Prophecy",
+    ]);
+    expect(consoleError.mock.calls.some(([message]) => String(message).includes("same key"))).toBe(false);
+    consoleError.mockRestore();
+  });
+
+  it("initialKind gelen türü ilgili kapsam sekmesine çevirir", async () => {
+    responder = (path) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=dune&kind=game&limit=8")
+        return json(catalogPage([{ ...catalogHit, kind: "game", title: "Dune II" }]));
+      return json({}, 404);
+    };
+    renderComposer({ initialKind: "game" });
+    expect(screen.getByRole("tab", { name: "Oyun", selected: true })).toBeTruthy();
+
+    await search("dune");
+    expect(calls.some(({ path }) => path === "/api/media/search/global?q=dune&kind=game&limit=8")).toBe(true);
+    expect(screen.getByRole("heading", { level: 3, name: "Dune II" })).toBeTruthy();
+  });
+
+  it("satır içi panodan tür duyarlı durum, koleksiyon ve işaretleri gönderir", async () => {
+    const invalidate = vi.spyOn(queryClient(), "invalidateQueries");
     renderComposer();
     await search("dune");
-    expect(screen.getByRole("heading", { name: "Kütüphanende" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Katalog sonuçları" })).toBeTruthy();
-    expect(screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent)).toEqual([
-      "Dune: Prophecy",
-      "Dune",
-    ]);
-    expect(screen.getByText("Film")).toBeTruthy();
-    expect(screen.getAllByText("TMDB")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "Dune: Prophecy detayını aç" }).getAttribute("href")).toBe(
-      "#/media/media-prophecy",
-    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await act(async () => {});
-    expect(calls.find(({ path, method }) => path === "/api/media" && method === "POST")?.body).toMatchObject({
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını ekle" }));
+    expect(screen.getByRole("button", { name: "Dune kaydını ekle" }).getAttribute("aria-expanded")).toBe("true");
+    const status = screen.getByLabelText("Başlangıç durumu");
+    expect(Array.from(status.querySelectorAll("option")).map((option) => option.textContent)).toEqual([
+      "İzlenecek",
+      "İzleniyor",
+    ]);
+
+    fireEvent.change(status, { target: { value: "in_progress" } });
+    await flush();
+    fireEvent.change(screen.getByLabelText("Koleksiyon"), { target: { value: "col-1" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sahiplik" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Yeni yayınları takip et" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını kütüphaneye ekle" }));
+    await flush();
+
+    expect(calls.find(({ path, method }) => path === "/api/media" && method === "POST")?.body).toEqual({
       source: "provider",
       title: "Dune",
       kind: "movie",
       provider: "tmdb",
       provider_id: "movie:99",
       provider_ids: { tmdb: "99" },
-      cover_url: "https://image/dune.jpg",
+      summary: "Arrakis çölünde geçen uyarlama.",
+      total: 1,
+      progress_measure: "item",
+      cover_url: "https://image.tmdb.org/t/p/w300/dune.jpg",
+      backdrop_url: null,
+      meta: { tmdb_type: "movie" },
+      status: "in_progress",
+      favorite: false,
+      owned: true,
+      monitored: true,
     });
+    expect(
+      calls.some(({ path, method }) => path === "/api/media/collections/col-1/items/media-dune" && method === "POST"),
+    ).toBe(true);
+    expect(onAdded).toHaveBeenCalledWith(addedItem);
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toContainEqual(["media"]);
+    // Ekleme sonrasi pano kapanir.
+    expect(screen.queryByLabelText("Koleksiyon")).toBeNull();
+    invalidate.mockRestore();
   });
 
-  it("keeps cross-kind provider IDs as separate stable catalog rows", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    responder = (path, method) =>
-      path === "/api/media/search/global?q=dune"
-        ? json({ results: [catalogHit, sameIdDifferentKind], warnings: [] })
-        : path === "/api/media?q=dune&limit=8"
-          ? json({ items: [], total: 0, next_cursor: null })
-          : json({}, method === "POST" ? 201 : 200);
+  it("409 çakışmasında mevcut kaydın detayına bağlantı verir", async () => {
+    responder = (path, method) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=dune&limit=8") return json(catalogPage([catalogHit]));
+      if (path === "/api/media?q=Dune&limit=10") return json(page([libraryItem]));
+      if (path === "/api/media" && method === "POST")
+        return json({ detail: "Bu provider kaydi kutuphanede zaten var" }, 409);
+      return json({}, 404);
+    };
     renderComposer();
     await search("dune");
-    expect(screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent)).toEqual([
-      "Dune",
-      "Dune: Sisterhood",
-    ]);
-    expect(consoleError.mock.calls.some(([message]) => String(message).includes("same key"))).toBe(false);
-    consoleError.mockRestore();
-  });
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını ekle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını kütüphaneye ekle" }));
+    await flush();
 
-  it("keeps catalog results visible when the library query fails", async () => {
-    responder = (path) =>
-      path === "/api/media?q=dune&limit=8"
-        ? json({ detail: "library unavailable" }, 500)
-        : path === "/api/media/search/global?q=dune"
-          ? json({ results: [catalogHit], warnings: [] })
-          : json({});
-    renderComposer();
-    await search("dune");
-    expect(screen.getByRole("alert").textContent).toContain("Kütüphane");
-    expect(screen.getByRole("heading", { level: 3, name: "Dune" })).toBeTruthy();
-  });
-
-  it("keeps library results visible when the catalog query fails", async () => {
-    responder = (path) =>
-      path === "/api/media?q=dune&limit=8"
-        ? json({ items: [libraryItem], total: 1, next_cursor: null })
-        : path === "/api/media/search/global?q=dune"
-          ? json({ detail: "catalog unavailable" }, 500)
-          : json({});
-    renderComposer();
-    await search("dune");
-    expect(screen.getByRole("alert").textContent).toContain("Katalog");
-    expect(screen.getByRole("heading", { level: 3, name: "Dune: Prophecy" })).toBeTruthy();
-  });
-
-  it("announces non-409 add failures", async () => {
-    responder = (path, method) =>
-      path === "/api/media?q=dune&limit=8"
-        ? json({ items: [], total: 0, next_cursor: null })
-        : path === "/api/media/search/global?q=dune"
-          ? json({ results: [catalogHit], warnings: [] })
-          : path === "/api/media" && method === "POST"
-            ? json({ detail: "write unavailable" }, 500)
-            : json({});
-    renderComposer();
-    await search("dune");
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await act(async () => {});
-    expect(screen.getByRole("alert").textContent).toContain("Eklenemedi");
-  });
-
-  it("opens the existing item after a duplicate provider response", async () => {
-    renderComposer();
-    await search("dune");
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await act(async () => {});
-    expect(screen.getByRole("status").textContent).toContain("Kütüphanede aç");
+    expect(screen.getByRole("status").textContent).toContain("Kütüphanende var");
     expect(screen.getByRole("link", { name: "Kütüphanede aç" }).getAttribute("href")).toBe("#/media/media-existing");
   });
 
-  it("falls back to the library instead of treating a duplicate title as an item ID", async () => {
-    duplicate = { detail: "Bu provider kaydı kütüphanede zaten var" };
-    renderComposer();
-    await search("dune");
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await act(async () => {});
-    expect(screen.getByRole("link", { name: "Kütüphanede aç" }).getAttribute("href")).toBe("#/media");
-  });
-
-  it("does not show an older in-flight duplicate below a newer search term", async () => {
+  it("geciken 409 yanıtını yeni aramanın altında göstermez", async () => {
     const pending = deferred<Response>();
-    responder = (path, method) =>
-      path === "/api/media?q=dune&limit=8"
-        ? json({ items: [], total: 0, next_cursor: null })
-        : path === "/api/media/search/global?q=dune"
-          ? json({ results: [catalogHit], warnings: [] })
-          : path === "/api/media?q=foundation&limit=8"
-            ? json({ items: [], total: 0, next_cursor: null })
-            : path === "/api/media/search/global?q=foundation"
-              ? json({ results: [foundationHit], warnings: [] })
-              : path === "/api/media" && method === "POST"
-                ? pending.promise
-                : json({});
+    responder = (path, method) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=dune&limit=8") return json(catalogPage([catalogHit]));
+      if (path === "/api/media?q=foundation&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=foundation&limit=8")
+        return json(catalogPage([{ ...catalogHit, title: "Foundation" }]));
+      if (path === "/api/media" && method === "POST") return pending.promise;
+      return json({}, 404);
+    };
     renderComposer();
     await search("dune");
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını ekle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını kütüphaneye ekle" }));
     await search("foundation");
-    pending.resolve(json({ detail: "Bu provider kaydı kütüphanede zaten var", existing_id: "media-existing" }, 409));
-    await act(async () => {});
+    pending.resolve(json({ detail: "Bu provider kaydi kutuphanede zaten var" }, 409));
+    await flush();
+
     expect(screen.queryByRole("link", { name: "Kütüphanede aç" })).toBeNull();
     expect(screen.getByRole("heading", { level: 3, name: "Foundation" })).toBeTruthy();
   });
 
-  it("does not show an older non-conflict add error below a newer search term", async () => {
-    const pending = deferred<Response>();
-    responder = (path, method) =>
-      path === "/api/media?q=dune&limit=8"
-        ? json({ items: [], total: 0, next_cursor: null })
-        : path === "/api/media/search/global?q=dune"
-          ? json({ results: [catalogHit], warnings: [] })
-          : path === "/api/media?q=foundation&limit=8"
-            ? json({ items: [], total: 0, next_cursor: null })
-            : path === "/api/media/search/global?q=foundation"
-              ? json({ results: [foundationHit], warnings: [] })
-              : path === "/api/media" && method === "POST"
-                ? pending.promise
-                : json({});
+  it("409 dışı ekleme hatasını duyurur", async () => {
+    responder = (path, method) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=dune&limit=8") return json(catalogPage([catalogHit]));
+      if (path === "/api/media" && method === "POST") return json({ detail: "yazma kapalı" }, 500);
+      return json({}, 404);
+    };
     renderComposer();
     await search("dune");
-    fireEvent.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await search("foundation");
-    pending.resolve(json({ detail: "write unavailable" }, 500));
-    await act(async () => {});
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(screen.getByRole("heading", { level: 3, name: "Foundation" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını ekle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dune kaydını kütüphaneye ekle" }));
+    await flush();
+
+    expect(screen.getByRole("alert").textContent).toContain("Eklenemedi");
   });
 
-  it("does not mistake temporary ready-provider failures for missing configuration", async () => {
-    responder = (path) =>
-      path === "/api/media?q=dune&limit=8"
-        ? json({ items: [], total: 0, next_cursor: null })
-        : path === "/api/media/search/global?q=dune"
-          ? json({
-              results: [],
-              warnings: KINDS.map((kind) => ({ provider: "test", kind, message: `${kind} araması başarısız` })),
-            })
-          : path === "/api/media/providers"
-            ? json([{ id: "tmdb", kinds: ["movie"], ready: true, missing_settings: [], capabilities: {} }])
-            : json({});
+  it("sağlayıcı uyarılarını insan diliyle gösterir, sonuçları korur", async () => {
+    responder = (path) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=dune&limit=8")
+        return json(
+          catalogPage([catalogHit], [{ provider: "tmdb", kind: "movie", message: "TMDB anahtarı tanımlı değil" }]),
+        );
+      return json({}, 404);
+    };
     renderComposer();
     await search("dune");
-    expect(screen.queryByRole("link", { name: "Medya bağlantılarını aç" })).toBeNull();
-  });
 
-  it("links to the consumed Settings target only when no provider is ready", async () => {
-    responder = (path) =>
-      path === "/api/media?q=dune&limit=8"
-        ? json({ items: [], total: 0, next_cursor: null })
-        : path === "/api/media/search/global?q=dune"
-          ? json({ results: [], warnings: [{ provider: "tmdb", kind: "movie", message: "TMDB hazır değil" }] })
-          : path === "/api/media/providers"
-            ? json([
-                { id: "tmdb", kinds: ["movie"], ready: false, missing_settings: ["media.tmdb_key"], capabilities: {} },
-              ])
-            : json({});
-    renderComposer();
-    await search("dune");
-    expect(screen.getByRole("link", { name: "Medya bağlantılarını aç" }).getAttribute("href")).toBe(
+    expect(screen.getByRole("status").textContent).toContain("TMDB anahtarı tanımlı değil");
+    expect(screen.getByRole("link", { name: "Sağlayıcı anahtarlarını aç" }).getAttribute("href")).toBe(
       "#/settings?section=media-links",
     );
+    expect(screen.getByRole("heading", { level: 3, name: "Dune" })).toBeTruthy();
   });
 
-  it("disables provider adds while offline", async () => {
-    renderComposer(false);
+  it("sonuç yoksa boş durumu yazar", async () => {
+    responder = (path) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([]));
+      if (path === "/api/media/search/global?q=dune&limit=8") return json(catalogPage([]));
+      return json({}, 404);
+    };
+    renderComposer();
     await search("dune");
-    expect((screen.getByRole("button", { name: "Dune kütüphaneye ekle" }) as HTMLButtonElement).disabled).toBe(true);
+
+    expect(screen.getByText("Sonuç bulunamadı.")).toBeTruthy();
+    expect(screen.getByText("Kütüphanende eşleşme yok.")).toBeTruthy();
   });
 
-  it("converts provider metadata to the canonical media create request", () => {
+  it("kütüphane düşse de katalog sonuçlarını korur", async () => {
+    responder = (path) => {
+      if (path === "/api/media?q=dune&limit=8") return json({ detail: "kütüphane kapalı" }, 500);
+      if (path === "/api/media/search/global?q=dune&limit=8") return json(catalogPage([catalogHit]));
+      return json({}, 404);
+    };
+    renderComposer();
+    await search("dune");
+
+    expect(screen.getByRole("alert").textContent).toContain("Kütüphane");
+    expect(screen.getByRole("heading", { level: 3, name: "Dune" })).toBeTruthy();
+  });
+
+  it("katalog düşse de kütüphane sonuçlarını korur", async () => {
+    responder = (path) => {
+      if (path === "/api/media?q=dune&limit=8") return json(page([libraryItem]));
+      if (path === "/api/media/search/global?q=dune&limit=8") return json({ detail: "katalog kapalı" }, 500);
+      return json({}, 404);
+    };
+    renderComposer();
+    await search("dune");
+
+    expect(screen.getByRole("alert").textContent).toContain("Katalog");
+    expect(screen.getByRole("link", { name: "Dune detayını aç" })).toBeTruthy();
+  });
+
+  it("çevrimdışıyken ekleme yapılamaz", async () => {
+    renderComposer({ online: false });
+    await search("dune");
+
+    expect((screen.getByRole("button", { name: "Dune kaydını ekle" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(calls.every(({ method }) => method === "GET")).toBe(true);
+  });
+});
+
+describe("providerCreateBody", () => {
+  it("sağlayıcı sonucunu kanonik medya gövdesine çevirir", () => {
     expect(providerCreateBody(catalogHit)).toEqual({
       source: "provider",
       title: "Dune",
@@ -346,12 +413,16 @@ describe("MediaSearchComposer", () => {
       provider: "tmdb",
       provider_id: "movie:99",
       provider_ids: { tmdb: "99" },
-      summary: "Arrakis",
+      summary: "Arrakis çölünde geçen uyarlama.",
       total: 1,
       progress_measure: "item",
-      cover_url: "https://image/dune.jpg",
+      cover_url: "https://image.tmdb.org/t/p/w300/dune.jpg",
       backdrop_url: null,
       meta: { tmdb_type: "movie" },
+      status: "planned",
+      favorite: false,
+      owned: false,
+      monitored: false,
     });
   });
 });

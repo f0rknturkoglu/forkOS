@@ -1,12 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, Plus } from "lucide-react";
 import { api } from "@/core/api";
 import { Empty, Section, cx, identityClasses } from "@/core/ui";
 import { navigate } from "@/app/router";
 import { invalidateAfter } from "@/core/invalidation";
+import { todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
+import { consumptionBody } from "./MediaProgressActions";
 import { Cover, KIND_LABELS, kindBg, mediaCoverUrl, progressPct, statusLabel } from "./shared";
-import type { MediaPage } from "@/core/types";
+import type { MediaItem, MediaPage } from "@/core/types";
 
 export function MediaContinueWidget() {
   const online = useOnline();
@@ -15,8 +17,15 @@ export function MediaContinueWidget() {
     queryFn: () => api.get<MediaPage>("/media?status=in_progress&limit=8"),
   });
   const plan = useMutation({
-    mutationFn: (item: { id: string; title: string }) => api.post("/plan", { entity_id: item.id }),
+    // PlanSlotIn.day ZORUNLU: gün gönderilmezse API 422 döner (regresyon testi var).
+    mutationFn: (item: { id: string; title: string }) => api.post("/plan", { entity_id: item.id, day: todayKey() }),
     onSuccess: () => invalidateAfter("plan.write"),
+  });
+  // Widget'tan tek dokunusla +1 ilerleme; measure kaydin kendi olcusu.
+  const quick = useMutation({
+    mutationFn: (item: MediaItem) =>
+      api.post(`/media/${encodeURIComponent(item.id)}/consumptions`, consumptionBody("quick", item)),
+    onSuccess: () => invalidateAfter("media.write"),
   });
   const active = data?.items ?? [];
 
@@ -80,11 +89,22 @@ export function MediaContinueWidget() {
                 <button
                   type="button"
                   aria-label={`${item.title} kaydını bugüne ekle`}
+                  title="Bugüne ekle"
                   disabled={!online || plan.isPending}
                   onClick={() => plan.mutate(item)}
                   className="mt-1.5 flex h-6 w-full items-center justify-center gap-1 rounded-control border border-subtle text-micro text-secondary transition hover:border-strong hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <CalendarPlus size={12} aria-hidden="true" /> Bugüne ekle
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${item.title} için hızlı tüketim kaydet`}
+                  title="Hızlı tüketim kaydet"
+                  disabled={!online || quick.isPending}
+                  onClick={() => quick.mutate(item)}
+                  className="mt-1 flex h-6 w-full items-center justify-center gap-1 rounded-control border border-subtle text-micro text-secondary transition hover:border-strong hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Plus size={12} aria-hidden="true" /> Hızlı kaydet
                 </button>
               </div>
             );

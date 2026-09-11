@@ -20,7 +20,7 @@ describe("MediaActionsMenu", () => {
 
   it("opens a labelled ARIA menu, relates it to the trigger, and focuses its first item", async () => {
     const user = userEvent.setup();
-    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
 
     const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
     await user.click(trigger);
@@ -36,7 +36,7 @@ describe("MediaActionsMenu", () => {
 
   it("wraps Arrow keys and honors Home and End for enabled menuitems", async () => {
     const user = userEvent.setup();
-    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
 
     await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
     const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
@@ -58,7 +58,7 @@ describe("MediaActionsMenu", () => {
 
   it("closes on Escape and restores trigger focus", async () => {
     const user = userEvent.setup();
-    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
 
     const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
     await user.click(trigger);
@@ -71,7 +71,7 @@ describe("MediaActionsMenu", () => {
   it("restores trigger focus after selecting an action", async () => {
     const user = userEvent.setup();
     const onTrash = vi.fn();
-    render(<MediaActionsMenu item={item} onTrash={onTrash} disabled={false} />);
+    render(<MediaActionsMenu item={item} onTrash={onTrash} onAddToCollection={vi.fn()} disabled={false} />);
 
     const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
     await user.click(trigger);
@@ -82,9 +82,23 @@ describe("MediaActionsMenu", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("adds a collection entry that closes the menu and restores trigger focus", async () => {
+    const user = userEvent.setup();
+    const onAddToCollection = vi.fn();
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={onAddToCollection} disabled={false} />);
+
+    const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
+    await user.click(trigger);
+    await user.click(screen.getByRole("menuitem", { name: "Koleksiyona ekle" }));
+
+    expect(onAddToCollection).toHaveBeenCalledWith(item);
+    expect(screen.queryByRole("menu", { name: "Dune işlemleri menüsü" })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("closes when a pointer event happens outside the menu", async () => {
     const user = userEvent.setup();
-    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
 
     await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
     expect(screen.getByRole("menu", { name: "Dune işlemleri menüsü" })).toBeTruthy();
@@ -94,7 +108,7 @@ describe("MediaActionsMenu", () => {
 
   it("disables the trash action while an item mutation is pending", async () => {
     const user = userEvent.setup();
-    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled />);
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled />);
 
     await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
     const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
@@ -107,7 +121,7 @@ describe("MediaActionsMenu", () => {
   it("keeps a first-column menu inside a narrow viewport", async () => {
     const originalWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
-    render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+    render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
     const trigger = screen.getByRole("button", { name: "Dune işlemleri" });
     vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
       x: 2,
@@ -148,7 +162,7 @@ describe("MediaActionsMenu", () => {
       return { x: 16, y: 598, top: 598, left: 16, right: 48, bottom: 630, width: 32, height: 32, toJSON: () => ({}) };
     });
     try {
-      render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+      render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
       fireEvent.click(screen.getByRole("button", { name: "Dune işlemleri" }));
       const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
       await waitFor(() => expect(Number.parseFloat(menu.style.top)).toBeLessThan(598));
@@ -178,7 +192,7 @@ describe("MediaActionsMenu", () => {
       return { x: 16, y: 200, top: 200, left: 16, right: 48, bottom: 232, width: 32, height: 32, toJSON: () => ({}) };
     });
     try {
-      render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+      render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
       fireEvent.click(screen.getByRole("button", { name: "Dune işlemleri" }));
       const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
       await waitFor(() => expect(menu.style.maxHeight).toBe("624px"));
@@ -209,7 +223,7 @@ describe("MediaActionsMenu", () => {
       return { x: 16, y: 200, top: 200, left: 16, right: 48, bottom: 232, width: 32, height: 32, toJSON: () => ({}) };
     });
     try {
-      render(<MediaActionsMenu item={item} onTrash={vi.fn()} disabled={false} />);
+      render(<MediaActionsMenu item={item} onTrash={vi.fn()} onAddToCollection={vi.fn()} disabled={false} />);
       fireEvent.click(screen.getByRole("button", { name: "Dune işlemleri" }));
       const menu = screen.getByRole("menu", { name: "Dune işlemleri menüsü" });
       await waitFor(() => expect(menu.style.maxHeight).toBe("624px"));

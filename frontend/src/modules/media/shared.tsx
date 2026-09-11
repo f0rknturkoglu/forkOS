@@ -139,6 +139,22 @@ export function mediaProvider(item: Pick<MediaItem, "provider" | "meta">): strin
   return item.provider ?? (typeof item.meta?.source === "string" ? item.meta.source : null);
 }
 
+/** Uzak görselleri yerel önbelleğe indiren backend ucu (host allowlist backend'de). */
+export const ARTWORK_PROXY_PATH = "/api/media/artwork/proxy";
+
+/**
+ * Kapak kaynağı: yerel asset yolu doğrudan sunulur, uzak http(s) kapaklar
+ * gizlilik için proxy'den geçer — tarayıcı sağlayıcı sunucusuna doğrudan
+ * istek atmaz (Faz 11). Çözülemeyen değer `null` döner (yer tutucu).
+ */
+export function proxiedCover(url: string | null | undefined): string | null {
+  const value = url?.trim();
+  if (!value) return null;
+  if (value.startsWith("/api/media/assets/")) return value;
+  if (/^https?:\/\//i.test(value)) return `${ARTWORK_PROXY_PATH}?url=${encodeURIComponent(value)}`;
+  return null;
+}
+
 const PROVIDER_LABELS: Record<string, string> = {
   tmdb: "TMDB",
   anilist: "AniList",

@@ -69,6 +69,8 @@ export function SettingsPage() {
 
   const [weatherLoc, setWeatherLoc] = useState<string | null>(null);
   const [retentionDays, setRetentionDays] = useState<number | null>(null);
+  const [upcomingDays, setUpcomingDays] = useState<number | null>(null);
+  const [syncIntervalHours, setSyncIntervalHours] = useState<number | null>(null);
   const [driveFolder, setDriveFolder] = useState<string | null>(null);
   const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
   const [githubLogin, setGithubLogin] = useState("");
@@ -149,6 +151,8 @@ export function SettingsPage() {
       setKeyDrafts({});
       setWeatherLoc(null);
       setRetentionDays(null);
+      setUpcomingDays(null);
+      setSyncIntervalHours(null);
       setDriveFolder(null);
       toast.push(`Ayarlar sıfırlandı (${result.removed} kayıt silindi).`, { tone: "ok" });
     },
@@ -193,6 +197,8 @@ export function SettingsPage() {
     setMediaUrl("");
   };
   const retention = retentionDays ?? Number(settings["rss.retention_days"] ?? 90);
+  const upcoming = upcomingDays ?? Number(settings["media.upcoming_days"] ?? 30);
+  const syncInterval = syncIntervalHours ?? Number(settings["media.sync_interval_hours"] ?? 24);
   const go = (id: string) => navigate(`/settings?tab=${id}`);
 
   const rail = (
@@ -339,6 +345,18 @@ export function SettingsPage() {
                 mediaUrl={mediaUrl}
                 onMediaUrl={setMediaUrl}
                 onAddLink={addLink}
+                upcomingDays={upcoming}
+                onUpcomingDays={setUpcomingDays}
+                onSaveUpcomingDays={() => {
+                  if (upcoming !== Number(settings["media.upcoming_days"] ?? 30))
+                    write("media.upcoming_days", upcoming);
+                }}
+                syncIntervalHours={syncInterval}
+                onSyncIntervalHours={setSyncIntervalHours}
+                onSaveSyncIntervalHours={() => {
+                  if (syncInterval !== Number(settings["media.sync_interval_hours"] ?? 24))
+                    write("media.sync_interval_hours", syncInterval);
+                }}
                 innerRef={mediaLinksRef}
               />
             </Pane>

@@ -4,23 +4,70 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import type { MediaProviderStatus } from "@/core/types";
-import { Button, Chip, cx, relativeTime } from "@/core/ui";
-import {} from "@/lib/hooks";
+import { Button, Empty, cx, relativeTime } from "@/core/ui";
 import { SyncProgress } from "@/core/SyncProgress";
 import { KIND_LABELS, providerLabel } from "./shared";
 
-type BadgeTone = "neutral" | "warn" | "ok" | "danger";
+/** Ham ayar anahtari kullaniciya gosterilmez; insan dili karsiligi yazilir. */
+const SETTING_LABELS: Record<string, string> = {
+  "media.tmdb_key": "TMDB anahtarı",
+  "media.igdb_client_id": "IGDB kimlik bilgileri",
+  "media.igdb_client_secret": "IGDB kimlik bilgileri",
+  "media.google_books_key": "Google Books anahtarı",
+};
 
-function isHealthy(provider: MediaProviderStatus): boolean {
-  return provider.ready && provider.last_status === "ok";
+/** Ozet satirinda durum kirilimi; ayni sirada yazilir. */
+const STATE_SUMMARY: Record<string, string> = {
+  never_run: "henüz çalışmadı",
+  running: "taranıyor",
+  ok: "son tarama başarılı",
+  empty: "son tarama boş",
+  error: "son tarama hatalı",
+};
+
+const STATUS_TONE: Record<string, string> = {
+  ok: "text-ok",
+  warn: "text-warn",
+  danger: "text-danger",
+  neutral: "text-muted",
+};
+
+function missingSettingsText(settings: string[]): string {
+  const labels = [...new Set(settings.map((setting) => SETTING_LABELS[setting] ?? setting))];
+  return labels.join(", ");
 }
 
-function providerStatus(provider: MediaProviderStatus): { label: string; tone: BadgeTone } {
-  if (provider.last_status === "error") return { label: "hata", tone: "danger" };
-  if (!provider.ready) return { label: "hazır değil", tone: "warn" };
-  if (provider.last_status === "empty") return { label: "boş", tone: "warn" };
-  if (provider.last_status === "ok") return { label: "sağlıklı", tone: "ok" };
-  return { label: "henüz çalışmadı", tone: "neutral" };
+/** Satir durumu: `provider.state` tek kaynaktir (last_status'a geri dusulmez). */
+function providerStatus(provider: MediaProviderStatus): { label: string; tone: string } {
+  switch (provider.state) {
+    case "missing_settings":
+      return { label: `Eksik yapılandırma: ${missingSettingsText(provider.missing_settings)}`, tone: "warn" };
+    case "running":
+      return { label: "Taranıyor…", tone: "neutral" };
+    case "ok":
+      return { label: `Son tarama başarılı (${provider.last_items_found ?? 0} kayıt)`, tone: "ok" };
+    case "empty":
+      return { label: "Son tarama boş", tone: "warn" };
+    case "error":
+      return { label: `Son tarama hatalı: ${provider.last_error ?? "bilinmeyen hata"}`, tone: "danger" };
+    case "ready":
+      return { label: "Hazır", tone: "ok" };
+    default:
+      return { label: "Henüz çalışmadı", tone: "neutral" };
+  }
+}
+
+/** "N kullanılabilir · M yapılandırılmamış · ..." kirilimi. "0 saglikli"
+ *  gibi tum saglayicilari bozuk gosteren bir ifade uretmez. */
+function statusBreakdown(providers: MediaProviderStatus[]): string {
+  const missing = providers.filter((provider) => provider.state === "missing_settings").length;
+  const parts = [`${providers.length - missing} kullanılabilir`];
+  if (missing > 0) parts.push(`${missing} yapılandırılmamış`);
+  for (const [state, label] of Object.entries(STATE_SUMMARY)) {
+    const count = providers.filter((provider) => provider.state === state).length;
+    if (count > 0) parts.push(`${label}: ${count}`);
+  }
+  return parts.join(" · ");
 }
 
 function latestRun(providers: MediaProviderStatus[]): string | null {
@@ -49,9 +96,9 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
   });
 
   const data = providers.data ?? [];
-  const healthy = data.filter(isHealthy).length;
   const lastRun = latestRun(data);
   const failed = providers.isError;
+  const running = data.some((provider) => provider.state === "running");
 
   useEffect(() => {
     if (failed && !wasProviderError.current) setOpen(true);
@@ -84,7 +131,7 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
             aria-live="polite"
           >
             <span>{data.length} kaynak</span>
-            <Chip tone={healthy === data.length && data.length > 0 ? "ok" : "warn"}>{healthy} sağlıklı</Chip>
+            {data.length > 0 && <span>{statusBreakdown(data)}</span>}
             {lastRun && <span>son çekim {relativeTime(lastRun)}</span>}
           </span>
         )}
@@ -108,9 +155,13 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle px-3.5 py-2.5">
               <p className="text-meta text-secondary">Tüm sağlayıcılar arka planda kuyruğa alınır.</p>
-              <Button size="sm" disabled={!online || sync.isPending} onClick={() => sync.mutate()}>
-                <RefreshCw size={13} aria-hidden="true" className={sync.isPending ? "animate-spin" : undefined} /> Şimdi
-                tara
+              <Button size="sm" disabled={!online || sync.isPending || running} onClick={() => sync.mutate()}>
+                <RefreshCw
+                  size={13}
+                  aria-hidden="true"
+                  className={sync.isPending || running ? "animate-spin" : undefined}
+                />{" "}
+                Şimdi tara
               </Button>
             </div>
 
@@ -121,7 +172,14 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
             )}
 
             {providers.isLoading ? null : data.length === 0 ? (
-              <p className="px-3.5 py-3 text-meta text-muted">Yapılandırılmış medya sağlayıcısı yok.</p>
+              <div className="px-3.5">
+                <Empty variant="inline">
+                  Yapılandırılmış medya sağlayıcısı yok.{" "}
+                  <a href="#/settings?section=media-links" className="text-accent hover:underline">
+                    Sağlayıcı anahtarlarını aç
+                  </a>
+                </Empty>
+              </div>
             ) : (
               <ul>
                 {data.map((provider) => {
@@ -134,22 +192,11 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
                       <div className="min-w-0">
                         <p className="truncate text-body text-primary">{providerLabel(provider.id) ?? provider.id}</p>
                         <p className="truncate text-meta text-secondary">{providerKinds(provider)}</p>
-                        {provider.last_error && (
-                          <p className="break-words text-meta text-danger" title={`Son hata: ${provider.last_error}`}>
-                            Son hata: {provider.last_error}
-                          </p>
-                        )}
-                        {provider.missing_settings.map((setting) => (
-                          <p key={setting} className="break-words text-meta text-warn" title={`Eksik ayar: ${setting}`}>
-                            Eksik ayar: {setting}
-                          </p>
-                        ))}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        {provider.last_items_found !== null && provider.last_items_found !== undefined && (
-                          <span className="text-meta text-muted">{provider.last_items_found} kayıt bulundu</span>
-                        )}
-                        <Chip tone={status.tone}>{status.label}</Chip>
+                      <div className="flex flex-wrap items-start gap-2 sm:justify-end">
+                        <span className={cx("break-words text-meta", STATUS_TONE[status.tone])} title={status.label}>
+                          {status.label}
+                        </span>
                         {provider.last_run_at && (
                           <span className="text-meta text-muted">{relativeTime(provider.last_run_at)}</span>
                         )}

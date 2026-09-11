@@ -2,24 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MediaStatsPage } from "./MediaStatsPage";
-
-const dashboard = {
-  continue_items: [],
-  upcoming: [],
-  recent_consumptions: [],
-  stats: {
-    total: 2,
-    in_progress: 1,
-    completed: 1,
-    planned: 0,
-    by_kind: { show: 1, book: 1 },
-    total_duration_min: 90,
-    scored_count: 1,
-    average_score: 8,
-  },
-};
 
 const recentRows = [
   {
@@ -48,7 +33,30 @@ const recentRows = [
   },
 ];
 
-type FetchCall = { body: Record<string, unknown>; method: string; url: string };
+const dashboard = {
+  continue_items: [],
+  upcoming: [],
+  recent_consumptions: recentRows,
+  stats: {
+    total: 6,
+    in_progress: 1,
+    completed: 4,
+    planned: 1,
+    by_kind: { book: 1, movie: 5 },
+    by_measure: { page: 320, episode: 12, minute: 90, item: 4 },
+    total_duration_min: 205,
+    pomodoro_minutes: 50,
+    scored_count: 3,
+    average_score: 8.666666666666666,
+    score_distribution: { "7": 1, "9": 2 },
+    conversion: { planned: 5, started: 3, completed: 2 },
+    active_days: 6,
+    busiest_day: { day: "2026-09-04", count: 6 },
+    completed_in_range: 2,
+  },
+};
+
+type FetchCall = { method: string; url: string };
 
 function renderPage() {
   const client = new QueryClient({
@@ -61,13 +69,14 @@ function renderPage() {
   );
 }
 
-describe("media stats page recent consumptions", () => {
+describe("media stats page", () => {
   let calls: FetchCall[];
-  let recentPayload: unknown;
+  let payload: unknown;
 
   beforeEach(() => {
     calls = [];
-    recentPayload = recentRows;
+    payload = dashboard;
+    location.hash = "/media/stats";
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() },
@@ -75,13 +84,7 @@ describe("media stats page recent consumptions", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        calls.push({
-          body: init?.body ? JSON.parse(String(init.body)) : {},
-          method: init?.method ?? "GET",
-          url,
-        });
-        const payload = url.startsWith("/api/media/consumptions/recent") ? recentPayload : dashboard;
+        calls.push({ method: init?.method ?? "GET", url: String(input) });
         return new Response(JSON.stringify(payload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -92,45 +95,118 @@ describe("media stats page recent consumptions", () => {
 
   afterEach(() => {
     cleanup();
+    location.hash = "";
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("loads the global recent list from the dedicated endpoint with a limit", async () => {
+  it("reads stats, continuations, upcoming and recent rows from the single dashboard request", async () => {
     renderPage();
+
     expect(await screen.findByRole("heading", { name: "Son tüketimler" })).toBeTruthy();
-    expect(calls.some((call) => call.url === "/api/media/consumptions/recent?limit=10")).toBe(true);
+    expect(calls.map((call) => call.url)).toEqual(["/api/media/dashboard?range=all&recent_limit=20"]);
+    expect(calls.some((call) => call.url.startsWith("/media/stats"))).toBe(false);
+    expect(calls.some((call) => call.url.includes("/consumptions/recent"))).toBe(false);
   });
 
-  it("renders title, kind, action amount and date for every recent consumption", async () => {
+  it("drives the dashboard request from the range in the URL", async () => {
+    location.hash = "/media/stats?range=month";
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Son tüketimler" })).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("Dune: Prophecy")).toBeTruthy());
+    expect(calls.map((call) => call.url)).toEqual(["/api/media/dashboard?range=month&recent_limit=20"]);
+    expect(screen.getByRole("button", { name: "Bu ay" }).getAttribute("aria-pressed")).toBe("true");
+  });
 
-    const showLink = screen.getByRole("link", { name: "Dune: Prophecy detayını aç" });
-    expect(showLink.getAttribute("href")).toBe("#/media/media-1");
+  it("keeps the selected range in the URL", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    expect(await screen.findByRole("heading", { name: "Son tüketimler" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Bu yıl" }));
+    await waitFor(() => expect(location.hash).toBe("#/media/stats?range=year"));
+
+    await user.click(screen.getByRole("button", { name: "Tüm zamanlar" }));
+    await waitFor(() => expect(location.hash).toBe("#/media/stats"));
+  });
+
+  it("rounds the average score to a single decimal", async () => {
+    renderPage();
+
+    expect(await screen.findByText("8.7 / 10")).toBeTruthy();
+    expect(screen.queryByText("8.666666666666666 / 10")).toBeNull();
+    expect(screen.getByText("3 kayıt puanlandı")).toBeTruthy();
+  });
+
+  it("lists every measure on its own row instead of merging them", async () => {
+    renderPage();
+    expect(await screen.findByText("Okunan sayfa")).toBeTruthy();
+
+    const rows = [
+      ["Okunan sayfa", 320],
+      ["İzlenen bölüm", 12],
+      ["Dinlenen dakika", 90],
+      ["Oynanan kayıt", 4],
+    ] as const;
+    for (const [label, value] of rows) {
+      const row = screen.getByText(label).closest("li");
+      expect(row).not.toBeNull();
+      expect(within(row as HTMLElement).getByText(String(value))).toBeTruthy();
+    }
+    expect(screen.queryByText("426")).toBeNull();
+  });
+
+  it("renders the kind distribution sorted with an accessible text summary", async () => {
+    renderPage();
+    expect(await screen.findByRole("heading", { name: "Tür dağılımı" })).toBeTruthy();
+
+    const summary = "Film 5 · Kitap 1";
+    expect(screen.getByText(summary)).toBeTruthy();
+    const chart = screen.getByRole("img", { name: `Tür dağılımı: ${summary}` });
+    const bars = within(chart).getAllByRole("listitem");
+    expect(within(bars[0]).getByText("Film")).toBeTruthy();
+    expect(within(bars[0]).getByText("5")).toBeTruthy();
+  });
+
+  it("renders the planned to started to completed funnel with numbers", async () => {
+    renderPage();
+    expect(await screen.findByRole("heading", { name: "Dönüşüm" })).toBeTruthy();
+
+    const summary = "Planlandı 5 · Başlandı 3 · Tamamlandı 2";
+    expect(screen.getByText(summary)).toBeTruthy();
+    const funnel = screen.getByRole("img", { name: `Dönüşüm: ${summary}` });
+    expect(within(funnel).getByText("Planlandı")).toBeTruthy();
+    expect(within(funnel).getByText("Tamamlandı")).toBeTruthy();
+  });
+
+  it("renders the 1-10 score histogram and the media rhythm summary", async () => {
+    renderPage();
+    expect(await screen.findByRole("heading", { name: "Puan dağılımı" })).toBeTruthy();
+
+    const histogram = screen.getByRole("img", { name: /^Puan dağılımı:/ });
+    expect(histogram.getAttribute("aria-label")).toBe(
+      "Puan dağılımı: 1 puan 0 · 2 puan 0 · 3 puan 0 · 4 puan 0 · 5 puan 0 · 6 puan 0 · 7 puan 1 · 8 puan 0 · 9 puan 2 · 10 puan 0",
+    );
+    expect(screen.getByText((content) => content.startsWith("1 puan 0 · 2 puan 0"))).toBeTruthy();
+    expect(screen.getByText("Bu aralıkta 6 gün medya tükettin.")).toBeTruthy();
+    expect(screen.getByText("En aktif gün: 4 Eylül · 6 kayıt")).toBeTruthy();
+  });
+
+  it("renders recent consumptions with Turkish measure and action labels", async () => {
+    renderPage();
+    expect(await screen.findByRole("heading", { name: "Son tüketimler" })).toBeTruthy();
+
     expect(screen.getByText("Tamamlama")).toBeTruthy();
-    expect(screen.getByText("5 episode")).toBeTruthy();
-    const showRow = showLink.closest("li");
-    expect(showRow).not.toBeNull();
-    expect(within(showRow as HTMLElement).getByText("Dizi")).toBeTruthy();
-
-    const bookLink = screen.getByRole("link", { name: "Yabancı detayını aç" });
-    expect(bookLink.getAttribute("href")).toBe("#/media/media-2");
+    expect(screen.getByText("5 bölüm")).toBeTruthy();
     expect(screen.getByText("Hızlı ilerleme")).toBeTruthy();
-    expect(screen.getByText("30 page")).toBeTruthy();
-    const bookRow = bookLink.closest("li");
-    expect(bookRow).not.toBeNull();
-    expect(within(bookRow as HTMLElement).getByText("Kitap")).toBeTruthy();
-
-    const times = screen.getAllByRole("time");
-    expect(times).toHaveLength(2);
-    expect(times[0].getAttribute("dateTime")).toBe("2026-09-02T18:30:00Z");
+    expect(screen.getByText("30 sayfa")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Dune: Prophecy detayını aç" }).getAttribute("href")).toBe(
+      "#/media/media-1",
+    );
   });
 
   it("shows an empty state when there is no consumption history", async () => {
-    recentPayload = [];
+    payload = { ...dashboard, recent_consumptions: [] };
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Son tüketimler" })).toBeTruthy();

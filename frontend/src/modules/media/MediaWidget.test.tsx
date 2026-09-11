@@ -2,7 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { todayKey } from "@/lib/date";
 import type { MediaItem } from "@/core/types";
 import { MediaContinueWidget } from "./MediaWidget";
 
@@ -99,5 +101,41 @@ describe("media continue widget covers", () => {
     renderWidget();
     expect(await screen.findByText("D")).toBeTruthy();
     await waitFor(() => expect(screen.queryByAltText("")).toBeNull());
+  });
+
+  it("plans the media for today with an explicit day", async () => {
+    const user = userEvent.setup();
+    renderWidget();
+
+    await user.click(await screen.findByRole("button", { name: "Dune kaydını bugüne ekle" }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        body: { entity_id: "media-1", day: todayKey() },
+        method: "POST",
+        url: "/api/plan",
+      }),
+    );
+  });
+
+  it("logs a quick +1 consumption with a fresh client uuid", async () => {
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("11111111-1111-4111-8111-111111111111");
+    const user = userEvent.setup();
+    renderWidget();
+
+    await user.click(await screen.findByRole("button", { name: "Dune için hızlı tüketim kaydet" }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        body: {
+          action: "quick",
+          amount: 1,
+          client_uuid: "11111111-1111-4111-8111-111111111111",
+          measure: "item",
+        },
+        method: "POST",
+        url: "/api/media/media-1/consumptions",
+      }),
+    );
+    // Widget ek sorgu acmaz: tek okuma cagrisi in-progress feed'idir.
+    expect(calls.filter((call) => call.method === "GET")).toHaveLength(1);
   });
 });

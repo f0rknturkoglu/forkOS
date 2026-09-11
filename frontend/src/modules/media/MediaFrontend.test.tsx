@@ -54,6 +54,8 @@ const collection = {
   position: 0,
   created_at: "2026-08-20T10:00:00Z",
   updated_at: "2026-08-20T10:00:00Z",
+  item_count: 2,
+  covers: [],
 };
 
 const units = [
@@ -147,6 +149,8 @@ function defaultResponse(path: string, method: string): Response {
         kinds: ["movie", "show"],
         ready: true,
         missing_settings: [],
+        state: "ok",
+        next_run_at: null,
         last_run_at: "2026-08-23T10:00:00Z",
         last_status: "ok",
         last_error: null,
@@ -178,7 +182,7 @@ function defaultResponse(path: string, method: string): Response {
         average_score: 8,
       },
     });
-  if (path.startsWith("/api/media/upcoming")) return json(units);
+  if (path.startsWith("/api/media/upcoming")) return json({ entries: [], total: 0 });
   if (path.startsWith("/api/media/stats"))
     return json({
       total: 1,
@@ -198,32 +202,48 @@ function defaultResponse(path: string, method: string): Response {
         : method === "DELETE"
           ? json(null, 204)
           : json([collection]);
+  if (path.startsWith("/api/media/media-1/consumptions"))
+    return json({ items: [consumption], total: 1, next_cursor: null });
   if (path === "/api/media/media-1")
-    return json({ item: mediaItem, units, cycles: [cycle], consumptions: [consumption], collections: [collection] });
+    return json({
+      item: mediaItem,
+      units,
+      cycles: [cycle],
+      consumptions: [consumption],
+      consumption_count: 1,
+      collections: [collection],
+      sync: { status: "ok", last_run_at: "2026-08-23T10:00:00Z", last_error: null, items_found: 2 },
+    });
   if (path.startsWith("/api/media/search"))
-    return json([
-      {
-        provider: "tmdb",
-        provider_id: "movie:99",
-        title: "Dune",
-        subtitle: "Film",
-        summary: "Arrakis",
-        total: 1,
-        progress_measure: "item",
-        cover: null,
-        backdrop: null,
-        cover_url: "https://images.example.test/dune-film.jpg",
-        backdrop_url: null,
-        year: 2021,
-        provider_ids: { tmdb: "99" },
-        meta: { tmdb_type: "movie" },
-        metadata: { provider: "tmdb", provider_id: "movie:99" },
-      },
-    ]);
+    return json({
+      results: [
+        {
+          provider: "tmdb",
+          provider_id: "movie:99",
+          title: "Dune",
+          subtitle: "Film",
+          summary: "Arrakis",
+          total: 1,
+          progress_measure: "item",
+          cover: null,
+          backdrop: null,
+          cover_url: "https://images.example.test/dune-film.jpg",
+          backdrop_url: null,
+          year: 2021,
+          provider_ids: { tmdb: "99" },
+          meta: { tmdb_type: "movie" },
+          metadata: { provider: "tmdb", provider_id: "movie:99" },
+        },
+      ],
+      warnings: [],
+      cached: false,
+    });
+  if (path === "/api/media?status=in_progress&limit=6")
+    return json({ items: [mediaItem], total: 1, next_cursor: null });
   if (path === "/api/media" && method === "POST") return json(mediaItem, 201);
   if (path.startsWith("/api/media") && method !== "GET")
     return method === "DELETE" ? json(null, 204) : json(consumption, 201);
-  if (path.startsWith("/api/media")) return json({ items: [mediaItem], total: 2, next_cursor: "next-1" });
+  if (path.startsWith("/api/media")) return json({ items: [mediaItem], total: 8, next_cursor: "next-1" });
   if (path.startsWith("/api/today/agenda"))
     return json({
       auto_suggestions: true,
@@ -262,6 +282,8 @@ function defaultResponse(path: string, method: string): Response {
       },
     });
   if (path.startsWith("/api/plan")) return method === "POST" ? json({ id: "slot-1" }, 201) : json([]);
+  // Detay sayfasının bağlantı panelleri liste bekler; boş liste güvenli taban.
+  if (path.startsWith("/api/entities")) return json([]);
   return json({});
 }
 
@@ -298,8 +320,13 @@ function renderView(path: string, Component: ComponentType = MediaPage) {
   );
 }
 
-// Task 5'in uygulanacak responsive medya sözleşmesi. Task 4 bu ekranı bilinçli olarak
-// kapsam dışında bıraktığı için RED spesifikasyonu aktif regresyon paketine dahil değil.
+/** Kütüphane listesi isteği (devam şeridinin `limit=6` isteği hariç). */
+function libraryCall() {
+  return calls.find(
+    (call) => call.method === "GET" && call.path.startsWith("/api/media?") && !call.path.includes("limit=6"),
+  );
+}
+
 describe("responsive media frontend (Task 5 contract)", () => {
   beforeEach(() => {
     calls = [];
@@ -317,7 +344,7 @@ describe("responsive media frontend (Task 5 contract)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("registers the complete media IA including the dynamic detail route and Today widget", () => {
+  it("registers the complete media IA including the collection detail route and Today widget", () => {
     const paths = allRoutes()
       .filter((route) => route.path.startsWith("/media"))
       .map((route) => route.path);
@@ -325,6 +352,7 @@ describe("responsive media frontend (Task 5 contract)", () => {
       "/media",
       "/media/library",
       "/media/collections",
+      "/media/collections/:id",
       "/media/upcoming",
       "/media/stats",
       "/media/trash",
@@ -333,67 +361,107 @@ describe("responsive media frontend (Task 5 contract)", () => {
     expect(allTodayWidgets().some((widget) => widget.component.name === "MediaContinueWidget")).toBe(true);
   });
 
-  it("keeps filters in the URL and requests the next cursor page", async () => {
+  it("hydrates every filter from the URL, keeps the rest of the query and pages with the cursor", async () => {
     const user = userEvent.setup();
-    renderView("#/media/library?kind=show&status=in_progress&q=dune&owned=true&sort=title");
+    renderView(
+      "#/media/library?kind=show&status=in_progress&q=dune&owned=true&favorite=true&monitored=true&provider=tmdb&collection_id=collection-1&tag=bilim&sort=title",
+    );
 
     expect(await screen.findByText("Dune: Prophecy")).toBeTruthy();
-    await waitFor(() =>
-      expect(
-        calls.some(
-          (call) =>
-            call.path.includes("/api/media?") &&
-            call.path.includes("kind=show") &&
-            call.path.includes("q=dune") &&
-            call.path.includes("owned=true") &&
-            call.path.includes("sort=title"),
-        ),
-      ).toBe(true),
-    );
+    await waitFor(() => {
+      const call = libraryCall();
+      expect(call).toBeTruthy();
+      expect(Object.fromEntries(new URLSearchParams(call!.path.split("?")[1]))).toEqual({
+        kind: "show",
+        status: "in_progress",
+        q: "dune",
+        owned: "true",
+        favorite: "true",
+        monitored: "true",
+        provider: "tmdb",
+        collection_id: "collection-1",
+        tag: "bilim",
+        sort: "title",
+      });
+    });
+
+    // Sonuç sayısı API `total` değerinden gelir, yüklenen satır sayısından değil.
+    expect(screen.getByText("8 kayıt · 1 devam ediyor")).toBeTruthy();
+
     await user.click(screen.getByRole("button", { name: "Daha fazla yükle" }));
     await waitFor(() => expect(calls.some((call) => call.path.includes("cursor=next-1"))).toBe(true));
 
+    // Tek arama alanı: yazarken URL güncellenir, diğer parametreler korunur.
     const search = screen.getByRole("searchbox", { name: "Kütüphanede ara" });
     await user.clear(search);
     await user.type(search, "arrival");
     await waitFor(() => expect(location.hash).toContain("q=arrival"));
+    expect(location.hash).toContain("kind=show");
+    expect(location.hash).toContain("sort=title");
+    expect(screen.queryByRole("searchbox", { name: "Tüm medyada ara" })).toBeNull();
   });
 
-  it("searches a ready provider, creates the discriminated provider body, and explains a duplicate", async () => {
+  it("writes the advanced filter panel to the URL and clears every filter at once", async () => {
     const user = userEvent.setup();
-    let createCount = 0;
-    responder = (path, method) => {
-      if (path === "/api/media" && method === "POST") {
-        createCount += 1;
-        return createCount === 1
-          ? json(mediaItem, 201)
-          : json({ detail: "Bu provider kaydı kütüphanede zaten var" }, 409);
-      }
-      return defaultResponse(path, method);
-    };
+    renderView("#/media/library?kind=show");
+    await screen.findAllByText("Dune: Prophecy");
+
+    await user.click(screen.getByRole("button", { name: "Filtreleri aç" }));
+    const panel = document.querySelector<HTMLElement>("[data-media-filters]");
+    if (!panel) throw new Error("filtre paneli açılmadı");
+
+    await user.selectOptions(within(panel).getByRole("combobox", { name: "Sıralama" }), "score");
+    await waitFor(() => expect(location.hash).toContain("sort=score"));
+    expect(location.hash).toContain("kind=show");
+
+    await user.click(within(panel).getByRole("checkbox", { name: "Favoriler" }));
+    await waitFor(() => expect(location.hash).toContain("favorite=true"));
+
+    expect(await screen.findByRole("button", { name: "Favoriler filtresini kaldır" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Filtreleri temizle" }));
+    await waitFor(() => expect(location.hash).toBe("#/media"));
+    await waitFor(() => expect(libraryCall()).toBeTruthy());
+  });
+
+  it("opens the catalog search dialog from the single primary action and clears the parameter on close", async () => {
+    const user = userEvent.setup();
+    renderView("#/media/library");
+    await screen.findAllByText("Dune: Prophecy");
+
+    await user.click(screen.getByRole("button", { name: "Medya ekle" }));
+    expect(location.hash).toContain("search=1");
+    expect(await screen.findByRole("dialog", { name: "Katalogda ara" })).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Katalogda ara" })).toBeNull());
+    expect(location.hash).not.toContain("search=1");
+  });
+
+  it("shows the continue strip, the monitored badge and the result total on the library page", async () => {
     renderView("#/media/library");
 
-    await user.click(await screen.findByRole("button", { name: "Medya ekle" }));
-    await user.type(screen.getByRole("searchbox", { name: "Provider'da ara" }), "Dune");
-    await user.click(screen.getByRole("button", { name: "Ara" }));
-    expect(await screen.findByText("Dune", { selector: "h3" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    await waitFor(() =>
-      expect(
-        calls.some(
-          (call) =>
-            call.method === "POST" &&
-            call.path === "/api/media" &&
-            (call.body as { source?: string }).source === "provider",
-        ),
-      ).toBe(true),
+    const strip = await waitFor(() => {
+      const node = document.querySelector<HTMLElement>("[data-media-continue]");
+      if (!node) throw new Error("devam şeridi yok");
+      return node;
+    });
+    expect(within(strip).getByRole("link", { name: "Dune: Prophecy kaydına devam et" }).getAttribute("href")).toBe(
+      "#/media/media-1",
     );
+    expect(screen.getByText("Takip ediliyor")).toBeTruthy();
+    expect(screen.getByText("2026")).toBeTruthy();
+    expect(screen.getByText("38%")).toBeTruthy();
+  });
 
-    await user.click(screen.getByRole("button", { name: "Dune kütüphaneye ekle" }));
-    expect(await screen.findByText("Bu kayıt kütüphanende zaten var.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Kütüphanede bul" }).getAttribute("href")).toContain(
-      "#/media/library?q=Dune",
-    );
+  it("explains an empty filtered result separately from an empty library", async () => {
+    responder = (path, method) =>
+      path.startsWith("/api/media?") && !path.includes("limit=6")
+        ? json({ items: [], total: 0, next_cursor: null })
+        : defaultResponse(path, method);
+    renderView("#/media/library?kind=game");
+
+    expect(await screen.findByText(/Bu filtrelerle kayıt bulunamadı/)).toBeTruthy();
+    expect(screen.queryByText(/Kütüphanen boş/)).toBeNull();
   });
 
   it("sends quick, set, finish, unit, cycle and collection membership mutations", async () => {
@@ -401,12 +469,12 @@ describe("responsive media frontend (Task 5 contract)", () => {
     renderView("#/media/media-1");
     expect(await screen.findByRole("heading", { name: "Dune: Prophecy" })).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Sonraki bölüm" }));
+    await user.click(screen.getByRole("button", { name: "+1 bölüm" }));
     await user.click(screen.getByRole("button", { name: "İlerlemeyi ayarla" }));
     await user.clear(screen.getByRole("spinbutton", { name: "İlerleme değeri" }));
     await user.type(screen.getByRole("spinbutton", { name: "İlerleme değeri" }), "5");
     await user.click(screen.getByRole("button", { name: "İlerlemeyi kaydet" }));
-    await user.click(screen.getByRole("button", { name: "Tamamlandı olarak işaretle" }));
+    await user.click(screen.getByRole("button", { name: "İzlemeyi tamamla" }));
     await user.click(screen.getByRole("button", { name: "Birinci bölümü tamamla" }));
     await user.click(screen.getByRole("button", { name: "İkinci bölümün tamamlamasını geri al" }));
     // Açık döngü yokken aynı POST /cycles ucuna bağlanan başlatma kontrolü.
@@ -458,7 +526,7 @@ describe("responsive media frontend (Task 5 contract)", () => {
   it("restores trash rows and permanently deletes only after confirmation", async () => {
     const user = userEvent.setup();
     responder = (path, method) =>
-      path.startsWith("/api/media?") && method === "GET"
+      path.startsWith("/api/media?") && method === "GET" && !path.includes("limit=6")
         ? json({ items: [{ ...mediaItem, archived_at: "2026-08-23T10:00:00Z" }], total: 1, next_cursor: null })
         : defaultResponse(path, method);
     renderView("#/media/trash");
@@ -474,26 +542,28 @@ describe("responsive media frontend (Task 5 contract)", () => {
     );
   });
 
-  it("opens mobile filters as a dismissible sheet and disables every write offline", async () => {
+  it("collapses the filter panel inline and disables every write offline", async () => {
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: false });
     const user = userEvent.setup();
     renderView("#/media/library");
     const add = await screen.findByRole("button", { name: "Medya ekle" });
     expect(add.hasAttribute("disabled")).toBe(true);
+
+    expect(document.querySelector("[data-media-filters]")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Filtreleri aç" }));
-    expect(screen.getByRole("dialog", { name: "Kütüphane filtreleri" })).toBeTruthy();
-    fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Kütüphane filtreleri" })).toBeNull());
+    expect(document.querySelector("[data-media-filters]")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Filtreleri kapat" }));
+    await waitFor(() => expect(document.querySelector("[data-media-filters]")).toBeNull());
 
     renderView("#/media/media-1");
-    expect((await screen.findByRole("button", { name: "Sonraki bölüm" })).hasAttribute("disabled")).toBe(true);
+    expect((await screen.findByRole("button", { name: "+1 bölüm" })).hasAttribute("disabled")).toBe(true);
     expect(document.querySelector("[data-mobile-media-actions]")).toBeTruthy();
   });
 
   it("renders composed loading, retryable error and useful empty library states", async () => {
     let resolveLibrary: ((response: Response) => void) | null = null;
     responder = (path, method) => {
-      if (path.startsWith("/api/media") && !path.includes("providers") && method === "GET") {
+      if (path === "/api/media" && method === "GET") {
         return new Promise<Response>((resolve) => {
           resolveLibrary = resolve;
         });
@@ -510,7 +580,7 @@ describe("responsive media frontend (Task 5 contract)", () => {
 
     let attempts = 0;
     responder = (path, method) => {
-      if (path.startsWith("/api/media") && !path.includes("providers") && method === "GET") {
+      if (path === "/api/media" && method === "GET") {
         attempts += 1;
         return attempts === 1 ? json({ detail: "boom" }, 500) : json({ items: [], total: 0, next_cursor: null });
       }

@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { MediaLibraryControls, MediaMetrics, MediaPosterGrid, MediaPosterGridSkeleton } from "./MediaPosterGrid";
-import { MediaSearchComposer } from "./MediaSearchComposer";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  EMPTY_MEDIA_FILTERS,
+  MediaActiveFilters,
+  MediaFilterPanel,
+  MediaMetrics,
+  MediaPosterGrid,
+  MediaPosterGridSkeleton,
+  type MediaFilterValues,
+  type MediaPosterItem,
+} from "./MediaPosterGrid";
+import type { MediaItem } from "@/core/types";
 
-const dune = {
+const dune: MediaItem = {
   id: "media-dune",
   title: "Dune",
   kind: "movie",
@@ -53,20 +63,53 @@ const completed = {
 };
 const dropped = { ...dune, id: "media-dropped", title: "Dune: Messiah", status: "dropped" };
 
+function renderGrid(
+  items: MediaItem[],
+  props: {
+    online?: boolean;
+    onQuick?: (item: MediaPosterItem) => void;
+    onTrash?: (item: MediaPosterItem) => void;
+  } = {},
+) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MediaPosterGrid
+        items={items}
+        online={props.online ?? true}
+        onQuick={props.onQuick ?? (() => {})}
+        onTrash={props.onTrash ?? (() => {})}
+      />
+    </QueryClientProvider>,
+  );
+}
+
 describe("MediaPosterGrid", () => {
-  afterEach(cleanup);
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () => new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("renders responsive posters with accessible covers and text-bearing metadata chips", () => {
-    const { container } = render(
-      <MediaPosterGrid items={[dune, completed]} online onQuick={vi.fn()} onTrash={vi.fn()} />,
-    );
+    const { container } = renderGrid([dune, completed]);
 
     expect(container.querySelector("[data-media-grid]")?.className).toContain("auto-fill");
     expect(container.querySelectorAll("[data-media-poster]")).toHaveLength(2);
     expect(screen.getByRole("img", { name: "Dune kapağı" }).className).toContain("aspect-[2/3]");
     expect(screen.getByText("TMDB")).toBeTruthy();
     expect(screen.getAllByText("Film")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Dune ilerlemesini bir artır" })).toBeTruthy();
+    expect(screen.getByText("İzleniyor")).toBeTruthy();
+    expect(screen.getByText("Okundu")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Dune için +1 bölüm" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Dune detayını aç" }).getAttribute("href")).toBe("#/media/media-dune");
     const progress = screen.getByRole("progressbar", { name: "Dune ilerlemesi" });
     expect(progress.getAttribute("aria-valuemin")).toBe("0");
@@ -74,21 +117,40 @@ describe("MediaPosterGrid", () => {
     expect(progress.getAttribute("aria-valuenow")).toBe("33");
   });
 
+  it("shows the year, the monitored badge and a two-line title with a tooltip", () => {
+    renderGrid([{ ...dune, release_date: "2024-11-08", monitored: true, meta: { year: 1999 } }]);
+
+    const title = screen.getByRole("link", { name: "Dune detayını aç" });
+    expect(screen.getByTitle("Dune")).toBeTruthy();
+    const heading = screen.getByRole("link", { name: "Dune" });
+    expect(heading.className).toContain("line-clamp-2");
+    expect(heading.className).toContain("break-words");
+    expect(title).toBeTruthy();
+    expect(screen.getByText("2024")).toBeTruthy();
+    expect(screen.queryByText("1999")).toBeNull();
+    expect(screen.getByText("Takip ediliyor")).toBeTruthy();
+    expect(screen.getByText("33%")).toBeTruthy();
+  });
+
+  it("falls back to the legacy meta year when release_date is absent", () => {
+    renderGrid([{ ...dune, release_date: null, meta: { year: 1999 } }]);
+
+    expect(screen.getByText("1999")).toBeTruthy();
+  });
+
   it("uses the local cover before remote urls, falls back to the initial, and omits quick actions for completed items", () => {
-    const { container } = render(
-      <MediaPosterGrid items={[dune, completed]} online onQuick={vi.fn()} onTrash={vi.fn()} />,
-    );
+    const { container } = renderGrid([dune, completed]);
 
     expect(screen.getByRole("img", { name: "Dune kapağı" }).getAttribute("src")).toBe(
       "/api/media/assets/dune-local.webp",
     );
     expect(screen.getByRole("img", { name: "Solaris kapağı" }).textContent).toBe("S");
-    expect(screen.queryByRole("button", { name: "Solaris ilerlemesini bir artır" })).toBeNull();
-    expect(container.querySelectorAll(".h-px")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Solaris için +1 sayfa" })).toBeNull();
+    expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(2);
   });
 
   it("replaces a broken cover image with the title initial", () => {
-    render(<MediaPosterGrid items={[dune]} online onQuick={vi.fn()} onTrash={vi.fn()} />);
+    renderGrid([dune]);
 
     fireEvent.error(screen.getByRole("img", { name: "Dune kapağı" }));
 
@@ -96,28 +158,53 @@ describe("MediaPosterGrid", () => {
     expect(screen.queryByRole("img", { name: "Dune kapağı" })?.tagName).toBe("DIV");
   });
 
-  it("runs enabled quick actions but disables quick and trash actions while offline", () => {
+  it("runs enabled quick actions but disables quick, collection and trash actions while offline", async () => {
+    const user = userEvent.setup();
     const onQuick = vi.fn();
-    const { rerender } = render(<MediaPosterGrid items={[dune]} online onQuick={onQuick} onTrash={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Dune ilerlemesini bir artır" }));
-    expect(onQuick).toHaveBeenCalledWith(dune);
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, value: false });
+    try {
+      renderGrid([dune], { online: false, onQuick });
+      fireEvent(window, new Event("offline"));
 
-    rerender(<MediaPosterGrid items={[dune]} online={false} onQuick={onQuick} onTrash={vi.fn()} />);
-    expect((screen.getByRole("button", { name: "Dune ilerlemesini bir artır" }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Dune işlemleri" }));
-    expect((screen.getByRole("menuitem", { name: "Çöpe taşı" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Dune için +1 bölüm" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("button", { name: "Koleksiyona ekle" }) as HTMLButtonElement).disabled).toBe(true);
+      await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+      expect((screen.getByRole("menuitem", { name: "Çöpe taşı" }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole("menuitem", { name: "Koleksiyona ekle" }) as HTMLButtonElement).disabled).toBe(true);
+    } finally {
+      Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
+      fireEvent(window, new Event("online"));
+    }
+  });
+
+  it("runs the enabled quick action while online", () => {
+    const onQuick = vi.fn();
+    renderGrid([dune], { onQuick });
+
+    fireEvent.click(screen.getByRole("button", { name: "Dune için +1 bölüm" }));
+
+    expect(onQuick).toHaveBeenCalledWith(dune);
   });
 
   it("allows quick progress only for active statuses and never for dropped items", () => {
     const planned = { ...dune, id: "media-planned", title: "Arrival", status: "planned" };
     const paused = { ...dune, id: "media-paused", title: "Blade Runner", status: "paused" };
-    render(<MediaPosterGrid items={[planned, paused, dropped]} online onQuick={vi.fn()} onTrash={vi.fn()} />);
+    renderGrid([planned, paused, dropped]);
 
-    expect(screen.getByRole("button", { name: "Arrival ilerlemesini bir artır" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Blade Runner ilerlemesini bir artır" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Dune: Messiah ilerlemesini bir artır" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Arrival için +1 bölüm" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Blade Runner için +1 bölüm" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Dune: Messiah için +1 bölüm" })).toBeNull();
+  });
+
+  it("opens the card collection picker from the actions menu", async () => {
+    const user = userEvent.setup();
+    renderGrid([dune]);
+
+    await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+    await user.click(screen.getByRole("menuitem", { name: "Koleksiyona ekle" }));
+
+    expect(screen.queryByRole("menu", { name: "Dune işlemleri menüsü" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Koleksiyona ekle" })).toBeTruthy();
   });
 });
 
@@ -139,41 +226,142 @@ describe("MediaPosterGridSkeleton", () => {
   });
 });
 
-describe("MediaMetrics and MediaLibraryControls", () => {
+describe("MediaMetrics", () => {
   afterEach(cleanup);
 
   it("renders the four library metrics in one compact grid", () => {
     const { container } = render(<MediaMetrics stats={{ total: 8, in_progress: 2, completed: 3, planned: 2 }} />);
     const metrics = container.querySelector("[data-media-metrics]");
     const strip = metrics?.querySelector(".grid");
-    expect(strip?.className).toContain("grid");
     expect(strip?.className).toContain("grid-cols-2");
     expect(strip?.className).toContain("sm:grid-cols-4");
     expect(screen.getByText("Toplam")).toBeTruthy();
     expect(screen.getByText("8")).toBeTruthy();
   });
+});
 
-  it("changes kind and status from library controls", () => {
-    const onKindChange = vi.fn();
-    const onStatusChange = vi.fn();
-    const { container } = render(
-      <MediaLibraryControls kind="movie" status="" onKindChange={onKindChange} onStatusChange={onStatusChange} />,
+describe("MediaFilterPanel", () => {
+  afterEach(cleanup);
+
+  function renderPanel(values: Partial<MediaFilterValues> = {}) {
+    const onChange = vi.fn();
+    const view = render(
+      <MediaFilterPanel
+        values={{ ...EMPTY_MEDIA_FILTERS, ...values }}
+        onChange={onChange}
+        providers={["tmdb", "rawg"]}
+        collections={[{ id: "collection-1", title: "Favoriler" }]}
+      />,
     );
+    return { ...view, onChange };
+  }
 
-    fireEvent.click(screen.getByRole("button", { name: /Film/ }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Durum filtresi" }), { target: { value: "completed" } });
-    expect(onKindChange).toHaveBeenCalledWith("movie");
-    expect(onStatusChange).toHaveBeenCalledWith("completed");
-    expect(container.querySelector("[data-media-library-controls]")).toBeTruthy();
+  it("wraps the kind chips instead of clipping them horizontally", () => {
+    const { container } = renderPanel();
+    const group = screen.getByRole("group", { name: "Tür filtresi" });
+
+    expect(group.className).toContain("flex-wrap");
+    expect(group.className).not.toContain("overflow-x-auto");
+    expect(container.querySelector("[data-media-filters]")).toBeTruthy();
+    expect(within(group).getByRole("button", { name: "Tümü" }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("does not place library filter chips inside the global composer", () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  it("reports every advanced filter change", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderPanel({ kind: "movie" });
+
+    await user.click(screen.getByRole("button", { name: "Kitap" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Durum filtresi" }), "completed");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sağlayıcı filtresi" }), "rawg");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Koleksiyon filtresi" }), "collection-1");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sıralama" }), "score");
+    await user.click(screen.getByRole("checkbox", { name: "Sahip olduklarım" }));
+    await user.click(screen.getByRole("checkbox", { name: "Favoriler" }));
+    await user.click(screen.getByRole("checkbox", { name: "Takip ettiklerim" }));
+
+    expect(onChange).toHaveBeenCalledWith({ kind: "book" });
+    expect(onChange).toHaveBeenCalledWith({ status: "completed" });
+    expect(onChange).toHaveBeenCalledWith({ provider: "rawg" });
+    expect(onChange).toHaveBeenCalledWith({ collectionId: "collection-1" });
+    expect(onChange).toHaveBeenCalledWith({ sort: "score" });
+    expect(onChange).toHaveBeenCalledWith({ owned: true });
+    expect(onChange).toHaveBeenCalledWith({ favorite: true });
+    expect(onChange).toHaveBeenCalledWith({ monitored: true });
+    expect(screen.getByText("Alaka sıralaması yalnızca arama sorgusu varken anlamlıdır.")).toBeTruthy();
+  });
+
+  it("commits the tag filter on blur and Enter instead of on every keystroke", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderPanel();
+    const tag = screen.getByRole("textbox", { name: "Etiket filtresi" });
+
+    await user.type(tag, "bilim kurgu");
+    expect(onChange).not.toHaveBeenCalled();
+    await user.tab();
+    expect(onChange).toHaveBeenCalledWith({ tag: "bilim kurgu" });
+
+    onChange.mockClear();
+    await user.clear(tag);
+    await user.type(tag, "klasik{Enter}");
+    await user.click(screen.getByRole("button", { name: "Tümü" }));
+    expect(onChange).toHaveBeenCalledWith({ tag: "klasik" });
+  });
+
+  it("clears the active kind when its chip is pressed again", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderPanel({ kind: "book" });
+
+    await user.click(screen.getByRole("button", { name: "Kitap" }));
+
+    expect(onChange).toHaveBeenCalledWith({ kind: "" });
+  });
+});
+
+describe("MediaActiveFilters", () => {
+  afterEach(cleanup);
+
+  it("summarizes every active filter as a removable chip", async () => {
+    const user = userEvent.setup();
+    const onRemove = vi.fn();
+    const onClear = vi.fn();
     render(
-      <QueryClientProvider client={client}>
-        <MediaSearchComposer online onAdded={vi.fn()} />
-      </QueryClientProvider>,
+      <MediaActiveFilters
+        values={{
+          ...EMPTY_MEDIA_FILTERS,
+          kind: "movie",
+          status: "in_progress",
+          provider: "tmdb",
+          collectionId: "collection-1",
+          tag: "klasik",
+          sort: "score",
+          owned: true,
+          favorite: true,
+          monitored: true,
+        }}
+        query="dune"
+        collectionTitle="Favoriler"
+        onRemove={onRemove}
+        onClear={onClear}
+      />,
     );
-    expect(screen.queryByRole("group", { name: "Tür filtresi" })).toBeNull();
+
+    expect(screen.getByText("Arama: dune")).toBeTruthy();
+    expect(screen.getByText("Tür: Film")).toBeTruthy();
+    expect(screen.getByText("Koleksiyon: Favoriler")).toBeTruthy();
+    expect(screen.getByText("Sıralama: Puan")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Tür: Film filtresini kaldır" }));
+    expect(onRemove).toHaveBeenCalledWith("kind");
+
+    await user.click(screen.getByRole("button", { name: "Filtreleri temizle" }));
+    expect(onClear).toHaveBeenCalled();
+  });
+
+  it("renders nothing when no filter is active", () => {
+    const { container } = render(
+      <MediaActiveFilters values={EMPTY_MEDIA_FILTERS} query="" onRemove={vi.fn()} onClear={vi.fn()} />,
+    );
+
+    expect(container.querySelector("[data-media-active-filters]")).toBeNull();
   });
 });

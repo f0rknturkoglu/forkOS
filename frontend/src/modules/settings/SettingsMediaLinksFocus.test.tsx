@@ -52,7 +52,7 @@ describe("Settings media-links target", () => {
       </QueryClientProvider>,
     );
 
-    await screen.findByText("Medya bağlantıları");
+    await screen.findByText("Medya sağlayıcı anahtarları");
     const target = container.querySelector<HTMLElement>("#media-links");
     await waitFor(() => expect(document.activeElement).toBe(target));
     expect(target?.scrollIntoView).toHaveBeenCalledWith({ block: "center" });

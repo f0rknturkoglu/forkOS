@@ -85,7 +85,6 @@ const items = [
 type FetchCall = { body: unknown; method: string; path: string };
 let calls: FetchCall[];
 let libraryShouldFail: boolean;
-let statsShouldFail: boolean;
 
 function json(value: unknown, status = 200): Response {
   return new Response(status === 204 ? null : JSON.stringify(value), {
@@ -95,47 +94,24 @@ function json(value: unknown, status = 200): Response {
 }
 
 function responseFor(path: string, method: string): Response {
+  if (path === "/api/media?status=in_progress&limit=6" && method === "GET")
+    return json({ items: [items[0]], total: 1, next_cursor: null });
+  if (path.startsWith("/api/media?") && method === "GET") {
+    if (path.includes("kind=book")) return json({ items: [items[1]], total: 1, next_cursor: null });
+    return json({ items, total: items.length, next_cursor: null });
+  }
   if (path === "/api/media" && method === "GET") {
     if (libraryShouldFail) return json({ detail: "library unavailable" }, 500);
     return json({ items, total: items.length, next_cursor: null });
   }
-  if (path.startsWith("/api/media?") && method === "GET") {
-    if (path.includes("q=dune")) return json({ items: [items[1]], total: 1, next_cursor: null });
-    return json({ items, total: items.length, next_cursor: null });
-  }
-  if (path === "/api/media/stats") {
-    if (statsShouldFail) return json({ detail: "stats unavailable" }, 500);
-    return json({ total: 4, in_progress: 1, completed: 1, planned: 1 });
-  }
-  if (path === "/api/media/search/global?q=dune")
-    return json({
-      results: [
-        {
-          kind: "movie",
-          provider: "tmdb",
-          provider_id: "movie:438631",
-          title: "Dune: Part One",
-          subtitle: "Film",
-          summary: null,
-          total: 1,
-          progress_measure: "item",
-          cover: null,
-          backdrop: null,
-          cover_url: null,
-          backdrop_url: null,
-          year: 2021,
-          provider_ids: { tmdb: "438631" },
-          meta: {},
-          metadata: {},
-        },
-      ],
-      warnings: [],
-    });
-  if (path === "/api/media/providers") return json([]);
-  if (path === "/api/sources/sync?scope=media")
-    return json({ active: null, last_completed: null, running: [], sources: [] });
   if (path === "/api/media/movie-1/consumptions" && method === "POST") return json({ id: "consumption-1" }, 201);
   if (path === "/api/media/movie-1" && method === "DELETE") return json(null, 204);
+  if (path.startsWith("/api/media/collections")) return json([]);
+  if (path.startsWith("/api/media/providers")) return json([]);
+  if (path.startsWith("/api/media/search")) return json({ results: [], warnings: [], cached: false });
+  if (path === "/api/sources/sync?scope=media")
+    return json({ active: null, last_completed: null, running: [], sources: [] });
+  if (path.startsWith("/api/entities")) return json([]);
   return json({});
 }
 
@@ -158,7 +134,6 @@ describe("cinematic MediaPage", () => {
     location.hash = "#/media";
     calls = [];
     libraryShouldFail = false;
-    statsShouldFail = false;
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "11111111-1111-4111-8111-111111111111") });
     vi.stubGlobal(
@@ -179,48 +154,60 @@ describe("cinematic MediaPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("composes the cinematic library without legacy inline editing or provider-kind search", async () => {
+  it("composes the compact library header without the metrics strip or a second search box", async () => {
     const { container } = renderPage();
 
-    expect(screen.getByRole("heading", { name: "Medya" })).toBeTruthy();
-    expect(screen.getByRole("searchbox", { name: "Tüm medyada ara" })).toBeTruthy();
-    expect(screen.queryByRole("combobox", { name: "Arama türü" })).toBeNull();
-    await waitFor(() => expect(container.querySelectorAll("[data-media-poster]")).toHaveLength(4));
-    expect(container.querySelector("details[data-media-sync]")?.hasAttribute("open")).toBe(false);
-    expect(screen.getByText("Toplam").closest("[data-media-metrics]")).toBeTruthy();
-    expect(screen.queryByText("İlerleme / toplam")).toBeNull();
-    expect(container.querySelector("[data-media-grid]")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Kütüphane" })).toBeTruthy();
+    expect(screen.getByText("Medya")).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Kütüphanede ara" })).toBeTruthy();
+    expect(screen.queryByRole("searchbox", { name: "Tüm medyada ara" })).toBeNull();
+    expect(screen.queryByRole("searchbox", { name: "Provider'da ara" })).toBeNull();
+    expect(container.querySelector("[data-media-metrics]")).toBeNull();
+    expect(screen.queryByText("Toplam")).toBeNull();
+    expect(screen.getByRole("button", { name: "Medya ekle" })).toBeTruthy();
+    expect(await screen.findByText("4 kayıt · 1 devam ediyor")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Arrival işlemleri" }));
+    await waitFor(() => expect(container.querySelectorAll("[data-media-poster]")).toHaveLength(4));
+    expect(container.querySelector("[data-media-grid]")).toBeTruthy();
+    expect(container.querySelector("details[data-media-sync]")?.hasAttribute("open")).toBe(false);
+
+    // Kaynak durumu ana içeriğin altında kalır.
+    const grid = container.querySelector("[data-media-grid]");
+    const sync = container.querySelector("[data-media-sync]");
+    if (!grid || !sync) throw new Error("grid veya kaynak özeti yok");
+    expect(grid.compareDocumentPosition(sync) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Arrival işlemleri" }));
     const menu = screen.getByRole("menu", { name: "Arrival işlemleri menüsü" });
     expect(within(menu).getByRole("menuitem", { name: "TMDB ↗" })).toBeTruthy();
-    expect(within(menu).getByRole("menuitem", { name: "Letterboxd ↗" })).toBeTruthy();
+    expect(within(menu).getByRole("menuitem", { name: "Koleksiyona ekle" })).toBeTruthy();
     expect(within(menu).getByRole("menuitem", { name: "Çöpe taşı" })).toBeTruthy();
   });
 
-  it("shows library matches before catalog matches in the global composer", async () => {
+  it("moves every quick filter into the URL and requests it from the library", async () => {
     const user = userEvent.setup();
-    const { container } = renderPage();
-    const search = screen.getByRole("searchbox", { name: "Tüm medyada ara" });
-    await user.type(search, "dune");
+    renderPage();
+    await screen.findAllByText("Arrival");
 
-    const libraryHeading = await screen.findByRole("heading", { name: "Kütüphanende" });
-    const catalogHeading = screen.getByRole("heading", { name: "Katalog sonuçları" });
-    expect(libraryHeading.compareDocumentPosition(catalogHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(await screen.findByRole("heading", { level: 3, name: "Dune" })).toBeTruthy();
-    expect(await screen.findByRole("heading", { level: 3, name: "Dune: Part One" })).toBeTruthy();
-    expect(container.querySelector("[data-media-library-controls]")).toBeNull();
-    expect(container.querySelector("[data-media-grid]")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Tamamlandı" }));
+    await waitFor(() => expect(location.hash).toContain("status=completed"));
+    await waitFor(() => expect(calls.some(({ path }) => path.includes("status=completed"))).toBe(true));
 
-    await user.clear(search);
-    await waitFor(() => expect(container.querySelector("[data-media-library-controls]")).toBeTruthy());
-    expect(container.querySelector("[data-media-grid]")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Kitap" }));
+    await waitFor(() => expect(location.hash).toContain("kind=book"));
+    await waitFor(() => expect(calls.some(({ path }) => path.startsWith("/api/media?kind=book"))).toBe(true));
+    expect(location.hash).toContain("status=completed");
+    // Tür seçilince durum cipleri türün dilini konuşur.
+    expect(screen.getByRole("button", { name: "Okundu" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Filtreleri temizle" }));
+    await waitFor(() => expect(location.hash).toBe("#/media"));
   });
 
-  it("posts append-only quick progress with a fresh UUID and invalidates all six families", async () => {
+  it("posts append-only quick progress with a fresh UUID and invalidates the media families", async () => {
     const user = userEvent.setup();
     const { invalidate } = renderPage();
-    await user.click(await screen.findByRole("button", { name: "Arrival ilerlemesini bir artır" }));
+    await user.click(await screen.findByRole("button", { name: "Arrival için +1 kayıt" }));
 
     await waitFor(() =>
       expect(calls).toContainEqual({
@@ -229,40 +216,64 @@ describe("cinematic MediaPage", () => {
         body: { action: "quick", amount: 1, client_uuid: "11111111-1111-4111-8111-111111111111", measure: "item" },
       }),
     );
-    expect(invalidate.mock.calls.map(([filters]) => (filters as { queryKey: string[] }).queryKey)).toEqual([
-      ["media"],
-      ["media-detail"],
-      ["media-stats"],
-      ["media-dashboard"],
-      ["today-agenda"],
-      ["activity"],
-    ]);
+    const invalidated = invalidate.mock.calls.map(([filters]) => (filters as { queryKey: string[] }).queryKey);
+    expect(invalidated).toEqual(
+      expect.arrayContaining([["media"], ["media-detail"], ["media-stats"], ["media-dashboard"], ["today-agenda"]]),
+    );
   });
 
-  it("keeps kind and status filters local while using them in library requests", async () => {
+  it("falls back to the poster skeleton while the first page loads", async () => {
+    let resolveLibrary: ((response: Response) => void) | null = null;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), "http://localhost");
+      const path = url.pathname + url.search;
+      if (path === "/api/media" && (init?.method ?? "GET") === "GET") {
+        return new Promise<Response>((resolve) => {
+          resolveLibrary = resolve;
+        });
+      }
+      return responseFor(path, init?.method ?? "GET");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <MediaPage />
+          <DialogHost />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+
+    const loading = await screen.findByRole("status", { name: "Kütüphane yükleniyor" });
+    expect(loading.querySelectorAll("[data-media-poster-skeleton]")).toHaveLength(6);
+    (resolveLibrary as ((response: Response) => void) | null)?.(
+      json({ items, total: items.length, next_cursor: null }),
+    );
+    await waitFor(() => expect(document.querySelectorAll("[data-media-poster]")).toHaveLength(4));
+  });
+
+  it("keeps the previous grid mounted while a refetch is in flight", async () => {
     const user = userEvent.setup();
     renderPage();
-    await screen.findByText("Arrival");
-    await user.click(screen.getByRole("button", { name: "Kitap" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "Durum filtresi" }), "planned");
+    await waitFor(() => expect(document.querySelectorAll("[data-media-poster]")).toHaveLength(4));
 
-    await waitFor(() => expect(calls.some(({ path }) => path === "/api/media?kind=book&status=planned")).toBe(true));
-    expect(location.hash).toBe("#/media");
+    await user.click(screen.getByRole("button", { name: "Kitap" }));
+
+    await waitFor(() => expect(location.hash).toContain("kind=book"));
+    await waitFor(() => expect(document.querySelectorAll("[data-media-poster]")).toHaveLength(1));
+    expect(document.querySelector("[data-media-grid]")).toBeTruthy();
   });
 
-  it("renders retryable library and stats errors", async () => {
+  it("renders a retryable library error", async () => {
     const user = userEvent.setup();
     libraryShouldFail = true;
-    statsShouldFail = true;
     renderPage();
 
-    const libraryRetry = await screen.findByRole("button", { name: "Kütüphaneyi yeniden dene" });
-    const statsRetry = await screen.findByRole("button", { name: "İstatistikleri yeniden dene" });
+    const retry = await screen.findByRole("button", { name: "Kütüphaneyi yeniden dene" });
     libraryShouldFail = false;
-    statsShouldFail = false;
-    await user.click(libraryRetry);
-    await user.click(statsRetry);
-    expect(await screen.findByText("Arrival")).toBeTruthy();
-    await waitFor(() => expect(screen.queryByRole("button", { name: "İstatistikleri yeniden dene" })).toBeNull());
+    await user.click(retry);
+
+    expect(await screen.findByText("Dune")).toBeTruthy();
   });
 });
