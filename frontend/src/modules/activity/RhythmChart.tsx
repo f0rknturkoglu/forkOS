@@ -14,12 +14,12 @@ export function monthLabel(month: string): string {
   return `${MONTH_SHORT[index - 1]} '${String(year).slice(2)}`;
 }
 
-export function monthLabelLong(month: string): string {
+function monthLabelLong(month: string): string {
   const [year, index] = month.split("-").map(Number);
   return `${MONTH_NAMES[index - 1]} ${year}`;
 }
 
-export interface ActivityBreakdown {
+interface ActivityBreakdown {
   focus: number;
   tasks: number;
   reading: number;
