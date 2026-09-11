@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { OpportunityFilters } from "./OpportunityFilters";
-import { browseQuery, switchOpportunitySection, type OpportunityBrowseFilters } from "./opportunityBrowse";
+import { OpportunityFilterBar } from "./OpportunityFilters";
+import { browseQuery, type OpportunityBrowseFilters } from "./opportunityBrowse";
+import { activeFilterChips, clearAllFilters, switchSection } from "./filterState";
 
 const filters: OpportunityBrowseFilters = {
   section: "jobs",
@@ -19,173 +19,200 @@ const filters: OpportunityBrowseFilters = {
   limit: 60,
 };
 
-describe("opportunity contextual filters", () => {
+function renderBar(overrides: Partial<OpportunityBrowseFilters> = {}, extra: Record<string, unknown> = {}) {
+  const onChange = vi.fn();
+  const onView = vi.fn();
+  render(
+    <OpportunityFilterBar
+      filters={{ ...filters, ...overrides }}
+      facets={{}}
+      shown={12}
+      total={40}
+      loading={false}
+      view="rows"
+      onView={onView}
+      onChange={onChange}
+      onSearchChange={() => undefined}
+      liveMessage=""
+      {...extra}
+    />,
+  );
+  return { onChange, onView };
+}
+
+function openPanel() {
+  fireEvent.click(screen.getByRole("button", { name: /Filtreler/ }));
+}
+
+describe("opportunity filter bar", () => {
   afterEach(cleanup);
 
-  it("only sends filters that belong to the active workspace", () => {
-    expect(browseQuery(filters)).toContain("category=software");
-    expect(browseQuery(filters)).toContain("region=EU");
-    expect(browseQuery({ ...filters, min_skill_match: 0.7 })).toContain("min_skill_match=0.7");
-    expect(browseQuery(filters)).toContain("min_score=40");
-    expect(browseQuery(filters)).toContain("max_score=80");
-    const announcements = switchOpportunitySection(filters, "announcements");
-    const query = browseQuery({ ...announcements, announcement_source: "ylsy", year: 2026 });
-    expect(query).toContain("announcement_source=ylsy");
-    expect(query).toContain("year=2026");
-    expect(query).not.toContain("category=");
-    expect(query).not.toContain("remote=");
-    expect(query).not.toContain("min_score=");
-    expect(query).not.toContain("max_score=");
-    expect(announcements.min_score).toBeUndefined();
-    expect(announcements.max_score).toBeUndefined();
-    expect(announcements.search).toBe("react");
-    expect(announcements.sort).toBe("newest");
+  it("keeps the default surface compact: no slider track until the popover opens", () => {
+    renderBar();
+    expect(screen.queryByRole("slider", { name: /Minimum skor/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Skor aralığı: 40–80/ })).toBeTruthy();
   });
 
-  it("does not render the unused job category filter", () => {
-    const jobs = renderToStaticMarkup(
-      <OpportunityFilters filters={filters} facets={{ categories: { software: 12 } }} onChange={() => undefined} />,
-    );
-    expect(jobs).not.toContain("İş alanı");
-    expect(jobs).not.toContain("Yazılım &amp; mühendislik");
-    const announcements = renderToStaticMarkup(
-      <OpportunityFilters
-        filters={switchOpportunitySection(filters, "announcements")}
-        facets={{ announcement_sources: { ylsy: 4, osym: 7 } }}
-        onChange={() => undefined}
-      />,
-    );
-    expect(announcements).toContain("YLSY");
-    expect(announcements).not.toContain("İş alanı");
+  it("opens the compact score popover and shows the current range", () => {
+    renderBar();
+    fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
+    expect(screen.getByRole("dialog", { name: "Skor aralığı" })).toBeTruthy();
+    expect(screen.getByRole("slider", { name: /Minimum skor/ })).toBeTruthy();
+    expect(screen.getByRole("slider", { name: /Maksimum skor/ })).toBeTruthy();
   });
 
-  it("renders score range and both score sorts only for jobs", () => {
-    const jobs = renderToStaticMarkup(<OpportunityFilters filters={filters} facets={{}} onChange={() => undefined} />);
-    expect(jobs).toContain("Uyum skoru");
-    expect(jobs).toContain("Minimum skor");
-    expect(jobs).toContain("Maksimum skor");
-    expect(jobs).toContain("70–100");
-    expect(jobs).toContain("Skor: yüksekten düşüğe");
-    expect(jobs).toContain("Skor: düşükten yükseğe");
-
-    const announcements = renderToStaticMarkup(
-      <OpportunityFilters
-        filters={switchOpportunitySection(filters, "announcements")}
-        facets={{}}
-        onChange={() => undefined}
-      />,
-    );
-    expect(announcements).not.toContain("Uyum skoru");
-    expect(announcements).not.toContain("Minimum skor");
+  it("shows 'Tüm skorlar' when no score filter is active", () => {
+    renderBar({ min_score: undefined, max_score: undefined });
+    expect(screen.getByRole("button", { name: /Skor aralığı: Tüm skorlar/ })).toBeTruthy();
   });
 
-  it("applies a score preset as an inclusive range", () => {
-    const onChange = vi.fn();
-    render(
-      <OpportunityFilters
-        filters={{ ...filters, min_score: undefined, max_score: undefined }}
-        facets={{}}
-        onChange={onChange}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "70–100" }));
-
-    expect(onChange).toHaveBeenCalledWith({
-      ...filters,
-      min_score: 70,
-      max_score: 100,
-      offset: 0,
-    });
+  it("renders -1 as 'Elendi' on the score control", () => {
+    renderBar({ min_score: -1, max_score: -1 });
+    expect(screen.getByRole("button", { name: /Skor aralığı: Elendi/ })).toBeTruthy();
   });
 
-  it("changes the score interval from the two-ended slider", () => {
-    const onChange = vi.fn();
-    render(<OpportunityFilters filters={filters} facets={{}} onChange={onChange} />);
+  it("applies a score preset with consistent, non-overlapping bands", () => {
+    const { onChange } = renderBar({ min_score: undefined, max_score: undefined });
+    fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: Tüm skorlar/ }));
+    fireEvent.click(screen.getByRole("button", { name: "70–79" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ min_score: 70, max_score: 79.99, offset: 0 }));
+  });
 
-    const minimum = screen.getByRole("slider", { name: "Minimum skor" });
+  it("commits a slider drag exactly once, and not on every pointer move", () => {
+    const { onChange } = renderBar();
+    fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
+    const minimum = screen.getByRole("slider", { name: /Minimum skor/ });
     fireEvent.change(minimum, { target: { value: "55" } });
+    fireEvent.change(minimum, { target: { value: "56" } });
+    fireEvent.change(minimum, { target: { value: "57" } });
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.pointerUp(minimum);
-
-    expect(onChange).toHaveBeenCalledWith({ ...filters, min_score: 55, max_score: 80, offset: 0 });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ min_score: 57 }));
   });
 
-  it("distinguishes unknown location from unknown working mode", () => {
-    render(
-      <OpportunityFilters
-        filters={filters}
-        facets={{ regions: { UNKNOWN: 7 }, remote: { unknown: 11 } }}
-        onChange={() => undefined}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: /Konum bilinmiyor\s*7/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Çalışma biçimi bilinmiyor\s*11/ })).toBeTruthy();
+  it("supports keyboard adjustment of both handles", () => {
+    const { onChange } = renderBar();
+    fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
+    const maximum = screen.getByRole("slider", { name: /Maksimum skor/ });
+    fireEvent.change(maximum, { target: { value: "90" } });
+    expect(maximum.getAttribute("aria-label")).toBe("Maksimum skor");
+    fireEvent.pointerUp(maximum);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ max_score: 90 }));
   });
 
-  it("filters by CV match tier", () => {
-    const onChange = vi.fn();
-    render(<OpportunityFilters filters={filters} facets={{}} onChange={onChange} />);
+  it("resets the score range", () => {
+    const { onChange } = renderBar();
+    fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Sıfırla/ }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ min_score: undefined, max_score: undefined }));
+  });
 
-    // Click CV Match preset without emoji
-    fireEvent.click(screen.getByRole("button", { name: /%70\+ Uyum/ }));
+  it("offers a %70+ profile match preset and never calls it a CV", () => {
+    const { onChange } = renderBar({ min_skill_match: undefined, skill_tier: undefined });
+    openPanel();
+    fireEvent.click(screen.getByRole("button", { name: "%70+" }));
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        min_skill_match: 0.7,
-        skill_tier: "high",
-        offset: 0,
-      }),
+      expect.objectContaining({ min_skill_match: 0.7, skill_tier: "high", offset: 0 }),
+    );
+    expect(screen.queryByText(/CV Uyumu/)).toBeNull();
+    expect(screen.getByText(/Profil .*beceri|Profil \/ beceri/i)).toBeTruthy();
+  });
+
+  it("selects the uncomputed profile-match state explicitly", () => {
+    const { onChange } = renderBar({ min_skill_match: undefined, skill_tier: undefined });
+    openPanel();
+    fireEvent.click(screen.getByRole("button", { name: "Hesaplanmadı" }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ skill_match_state: "uncomputed", min_skill_match: undefined }),
     );
   });
 
-  it("renders active filter chips and clears all filters on click", () => {
-    const onChange = vi.fn();
-    render(
-      <OpportunityFilters
-        filters={{ ...filters, min_skill_match: 0.7, skill_tier: "high" }}
-        facets={{}}
-        onChange={onChange}
-      />,
-    );
+  it("renders every active filter as a removable chip", () => {
+    renderBar({
+      announcement_source: "ylsy",
+      period_days: 30,
+      year: 2026,
+      status: "new",
+      source: "manual",
+      section: "announcements",
+      min_score: undefined,
+      max_score: undefined,
+      category: undefined,
+      region: undefined,
+      remote: undefined,
+    });
+    const bar = screen.getByLabelText("Aktif filtreler");
+    expect(bar.textContent).toContain("Arama: react");
+    expect(bar.textContent).toContain("Kaynak:");
+    expect(bar.textContent).toContain("Durum:");
+    expect(bar.textContent).toContain("Duyuru: YLSY");
+    expect(bar.textContent).toContain("Son 30 gün");
+    expect(bar.textContent).toContain("Yıl: 2026");
+  });
 
-    expect(screen.getByText("Aktif Filtreler:")).toBeTruthy();
-    expect(screen.getByText(/CV Uyumu: ≥%70/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /Tümünü Temizle/ }));
+  it("removes only the clicked filter", () => {
+    const { onChange } = renderBar();
+    openPanel();
+    fireEvent.click(screen.getByRole("button", { name: /Skor: 40–80 filtresini kaldır/ }));
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        min_skill_match: undefined,
-        skill_tier: undefined,
-        min_score: undefined,
-        max_score: undefined,
-        search: undefined,
-        category: undefined,
-        offset: 0,
-      }),
+      expect.objectContaining({ min_score: undefined, max_score: undefined, search: "react" }),
     );
   });
 
-  it("filters by manual source and shows active filter chip", () => {
-    const onChange = vi.fn();
-    render(
-      <OpportunityFilters
-        filters={{ ...filters, source: "" }}
-        facets={{ sources: { manual: 5, arbeitnow: 20 } }}
-        onChange={onChange}
-      />,
-    );
+  it("never puts an emoji on the manual source label", () => {
+    renderBar({ source: undefined });
+    openPanel();
+    const manual = screen.getByRole("button", { name: /Manuel Eklenenler/ });
+    expect(manual.textContent).toContain("Manuel Eklenenler");
+    expect(manual.textContent ?? "").not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u);
+  });
 
-    const manualBtn = screen.getByRole("button", { name: /Manuel Eklenenler/i });
-    expect(manualBtn).toBeTruthy();
-    expect(manualBtn.textContent).toContain("5");
+  it("shows a loading label instead of a fake 0/0 counter", () => {
+    renderBar({}, { shown: 0, total: 0, loading: true });
+    expect(screen.getByText("Yükleniyor…")).toBeTruthy();
+    expect(screen.queryByText("0 / 0 kayıt")).toBeNull();
+  });
 
-    fireEvent.click(manualBtn);
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: "manual",
-        offset: 0,
-      }),
+  it("shows the counter once loaded", () => {
+    renderBar({}, { shown: 60, total: 19117 });
+    expect(screen.getByText("60 / 19117 kayıt")).toBeTruthy();
+  });
+});
+
+describe("filter registry", () => {
+  it("counts and clears every active filter", () => {
+    const chips = activeFilterChips(filters);
+    expect(chips.map((chip) => chip.label)).toEqual(
+      expect.arrayContaining(["Arama: react", "Konum: Avrupa", "Çalışma: Uzaktan"]),
     );
+    const cleared = clearAllFilters(filters);
+    expect(activeFilterChips(cleared)).toHaveLength(0);
+    expect(cleared.section).toBe("jobs");
+  });
+
+  it("keeps shared filters when switching to announcements but drops job-only ones", () => {
+    const next = switchSection(filters, "announcements");
+    expect(next.search).toBe("react");
+    expect(next.min_score).toBeUndefined();
+    expect(next.max_score).toBeUndefined();
+    expect(next.remote).toBeUndefined();
+    expect(next.category).toBeUndefined();
+    expect(next.sort).toBe("newest");
+    expect(activeFilterChips({ ...next, announcement_source: "ylsy" }).map((chip) => chip.label)).toContain(
+      "Duyuru: YLSY",
+    );
+  });
+
+  it("only sends workspace-appropriate query params", () => {
+    expect(browseQuery(filters)).toContain("category=software");
+    expect(browseQuery(filters)).toContain("min_score=40");
+    expect(browseQuery({ ...filters, max_skill_match: 0.6999 })).toContain("max_skill_match=0.6999");
+    expect(browseQuery({ ...filters, skill_match_state: "uncomputed" })).toContain("skill_match_state=uncomputed");
+    const announcements = browseQuery(switchSection({ ...filters, announcement_source: "ylsy" }, "announcements"));
+    expect(announcements).toContain("announcement_source=ylsy");
+    expect(announcements).not.toContain("min_score=");
+    expect(announcements).not.toContain("remote=");
+    expect(announcements).not.toContain("skill_match_state=");
   });
 });

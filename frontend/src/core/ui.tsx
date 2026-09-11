@@ -1,4 +1,4 @@
-import type { ClipboardEventHandler, DragEventHandler, KeyboardEventHandler, ReactNode } from "react";
+import type { ClipboardEventHandler, DragEventHandler, KeyboardEventHandler, ReactNode, RefObject } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
@@ -1228,37 +1228,10 @@ export function Popover({
 }
 
 /**
- * Ortak modal katmani (iOS "sheet" hissi).
- *
- * Neden primitive: ayni desen (sabit katman + scrim + Escape + disari tik)
- * bes ayri dosyada elle tekrarlaniyordu; her kopya kendi kapatma kuralini
- * tasiyor ve biri Escape'i unutunca davranis dosyadan dosyaya degisiyordu.
- * Yeni yuzeyler bunu kullanir.
- *
- * `z-modal` katmani (tailwind zIndex tokeni) modallarin drawer/toast ile
- * dogru siralanmasini garanti eder.
+ * Modal ve Drawer'in ortak odak yonetimi: ilk odak, Tab dongusu, Escape,
+ * kapaninca odagin tetikleyiciye donmesi.
  */
-export function Modal({
-  open,
-  onClose,
-  title,
-  hint,
-  children,
-  footer,
-  ariaLabel,
-  className,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: ReactNode;
-  hint?: ReactNode;
-  children: ReactNode;
-  footer?: ReactNode;
-  /** Baslik gorsel degilse ekran okuyucu adi. */
-  ariaLabel?: string;
-  className?: string;
-}) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | null>, onClose: () => void) {
   useEffect(() => {
     if (!open) return;
     const opener = document.activeElement as HTMLElement | null;
@@ -1317,7 +1290,106 @@ export function Modal({
       // Kapaninca odak tetikleyiciye doner (klavye kullanicisi kaybolmaz).
       opener?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open, onClose, dialogRef]);
+}
+
+/**
+ * Sagdan acilan calisma paneli (kayit detayi, filtre paneli).
+ *
+ * Modal ile ayni odak/Escape sozlesmesini paylasir; fark, tam ekran ortada
+ * degil kenarda acilmasi ve genislik sinifinin cagirana birakilmasidir.
+ */
+export function Drawer({
+  open,
+  onClose,
+  title,
+  hint,
+  children,
+  footer,
+  ariaLabel,
+  className,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, dialogRef, onClose);
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-drawer flex justify-end bg-[color:var(--overlay-scrim)]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <aside
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
+        className={cx(
+          "flex h-full w-full flex-col border-l border-strong bg-surface shadow-overlay outline-none",
+          className ?? "sm:max-w-xl",
+        )}
+      >
+        <header className="flex items-start gap-3 border-b border-subtle px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-heading text-primary">{title}</h2>
+            {hint && <p className="mt-0.5 text-meta text-muted">{hint}</p>}
+          </div>
+          <IconButton title="Kapat" onClick={onClose}>
+            <X size={15} />
+          </IconButton>
+        </header>
+        <div data-modal-body className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {children}
+        </div>
+        {footer && <footer className="border-t border-subtle px-4 py-3">{footer}</footer>}
+      </aside>
+    </div>
+  );
+}
+
+/**
+ * Ortak modal katmani (iOS "sheet" hissi).
+ *
+ * Neden primitive: ayni desen (sabit katman + scrim + Escape + disari tik)
+ * bes ayri dosyada elle tekrarlaniyordu; her kopya kendi kapatma kuralini
+ * tasiyor ve biri Escape'i unutunca davranis dosyadan dosyaya degisiyordu.
+ * Yeni yuzeyler bunu kullanir.
+ *
+ * `z-modal` katmani (tailwind zIndex tokeni) modallarin drawer/toast ile
+ * dogru siralanmasini garanti eder.
+ */
+export function Modal({
+  open,
+  onClose,
+  title,
+  hint,
+  children,
+  footer,
+  ariaLabel,
+  className,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  /** Baslik gorsel degilse ekran okuyucu adi. */
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, dialogRef, onClose);
 
   if (!open) return null;
   return (

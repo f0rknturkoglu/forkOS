@@ -1,33 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
-import { BookOpen, Kanban, LayoutGrid, List, Search, Settings2, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
-import { Button, Empty, FilterChip, IconButton, Input, PageFrame, Section, cx, useToast } from "@/core/ui";
+import { Button, Empty, PageFrame, Section, Tabs, useToast } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import { SavedViewPicker } from "@/core/SavedViewPicker";
+import { SyncProgress } from "@/core/SyncProgress";
 import { useOnline } from "@/lib/hooks";
 import { OpportunityDetail } from "./OpportunityDetail";
-import { JobhunterSettings } from "./JobhunterSettings";
 import { OpportunityCard, OpportunityCollection } from "./OpportunityList";
 import { OpportunityKanban } from "./OpportunityKanban";
-import { OpportunityFilters } from "./OpportunityFilters";
+import { OpportunityFilterBar } from "./OpportunityFilters";
 import { SourcePicker } from "./SourcePicker";
-import { ApplicationCrmPanel } from "./ApplicationCrmPanel";
-import { CareerStoryBank } from "./CareerStoryBank";
-import { CareerConnectionsPanel } from "./CareerConnectionsPanel";
-import { SyncProgress } from "@/core/SyncProgress";
+import { ApplicationsWorkspace } from "./ApplicationsWorkspace";
+import { CareerWorkspace } from "./CareerWorkspace";
+import { SourcesWorkspace } from "./SourcesWorkspace";
+import { browseQuery, type OpportunityBrowseFilters, type OpportunityBrowseResponse } from "./opportunityBrowse";
+import { applySavedView, savableView } from "./filterState";
 import {
-  browseQuery,
-  switchOpportunitySection,
-  type OpportunityBrowseFilters,
-  type OpportunityBrowseResponse,
-  type OpportunitySection,
-} from "./opportunityBrowse";
+  OPPORTUNITY_TABS,
+  parseOpportunityUrl,
+  sectionForTab,
+  serializeOpportunityUrl,
+  tabForSection,
+  type OpportunityTab,
+} from "./opportunityUrl";
 import { remoteKind } from "./labels";
 
 const PAGE = 60;
@@ -37,6 +39,14 @@ const INITIAL_FILTERS: OpportunityBrowseFilters = {
   sort: "score",
   offset: 0,
   limit: PAGE,
+};
+
+const TAB_LABELS: Record<OpportunityTab, string> = {
+  jobs: "İşler",
+  applications: "Başvurular",
+  announcements: "Duyurular",
+  career: "Kariyer",
+  sources: "Kaynaklar",
 };
 
 function initialView(): "rows" | "grid" | "kanban" {
@@ -52,22 +62,55 @@ export function OpportunityPage() {
   const { save } = useSaveToLibrary();
   const { params } = useHashRoute();
   const [filters, setFilters] = useState<OpportunityBrowseFilters>(INITIAL_FILTERS);
+  const [tab, setTab] = useState<OpportunityTab>("jobs");
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<"rows" | "grid" | "kanban">(initialView);
-  const [showSettings, setShowSettings] = useState(false);
-  const [activePanel, setActivePanel] = useState<"crm" | "stories" | "connections" | null>(null);
+  const [searchDraft, setSearchDraft] = useState("");
+
+  // ── URL <-> durum köprüsü ──────────────────────────────────────────
+  // Filtreler ve sekme adres çubuğuna yazılır; tarayıcı geri/ileri çalışır ve
+  // yenilemede seçili kayıt yeniden açılır. Kendi yazdığımız değişikliği
+  // yok sayarak döngüyü kırıyoruz.
+  const lastWritten = useRef<string | null>(null);
 
   useEffect(() => {
-    const focus = params.get("focus");
-    if (focus) setSelected(focus);
-    if (params.get("story")) setActivePanel("stories");
-    else if (params.get("connection")) setActivePanel("connections");
+    const incoming = params.toString();
+    if (lastWritten.current === incoming) return;
+    const parsed = parseOpportunityUrl(params, INITIAL_FILTERS);
+    lastWritten.current = incoming;
+    setFilters(parsed.filters);
+    setSearchDraft(parsed.filters.search ?? "");
+    setTab(parsed.tab);
+    setSelected(parsed.focus);
+    if (parsed.view) setView(parsed.view);
   }, [params]);
 
+  const urlState = useMemo(
+    () => serializeOpportunityUrl({ tab, focus: selected, story: null, connection: null, filters, view }),
+    [tab, selected, filters, view],
+  );
+
+  useEffect(() => {
+    if (lastWritten.current === urlState) return;
+    lastWritten.current = urlState;
+    navigate(`/opportunities?${urlState}`, { replace: true });
+  }, [urlState]);
+
+  // Arama girdisi debounce'lu: her tuşta sorgu gitmez.
+  useEffect(() => {
+    if ((filters.search ?? "") === searchDraft) return;
+    const timer = window.setTimeout(() => {
+      setFilters((current) => ({ ...current, search: searchDraft, offset: 0 }));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchDraft, filters.search]);
+
+  const browseEnabled = tab === "jobs" || tab === "announcements";
   const queryFilters = useMemo(() => ({ ...filters, offset: 0 }), [filters]);
   const browse = useInfiniteQuery({
     queryKey: ["opportunities", "browse", queryFilters],
     initialPageParam: 0,
+    enabled: browseEnabled,
     queryFn: ({ pageParam }) => api.get<OpportunityBrowseResponse>(browseQuery({ ...queryFilters, offset: pageParam })),
     getNextPageParam: (lastPage) => {
       if (lastPage.items.length === 0) return undefined;
@@ -75,36 +118,23 @@ export function OpportunityPage() {
       return next < lastPage.total ? next : undefined;
     },
   });
+
   const pages = browse.data?.pages ?? [];
   const rows = useMemo(() => pages.flatMap((page) => page.items), [pages]);
   const overview = pages[0];
   const counts = overview?.section_counts ?? { jobs: 0, announcements: 0, trash: 0 };
   const facets = overview?.facets ?? {};
   const total = overview?.total ?? 0;
-  const hasActiveFilters = Boolean(
-    filters.search ||
-    filters.category ||
-    filters.status ||
-    filters.source ||
-    filters.region ||
-    filters.remote ||
-    filters.archetype ||
-    filters.recommendation ||
-    filters.announcement_source ||
-    filters.period_days !== undefined ||
-    filters.year !== undefined ||
-    filters.min_score !== undefined ||
-    filters.max_score !== undefined ||
-    filters.skill ||
-    filters.min_skill_match !== undefined ||
-    filters.skill_tier,
-  );
+  const isFetching = browseEnabled && browse.isFetching && !browse.isError;
+
+  // Sayaç: yeni sorgu gelene kadar önceki veri korunur, sahte 0/0 gösterilmez.
+  const shown = rows.length;
 
   const transition = useMutation({
     mutationFn: ({ id, to }: { id: string; to: string }) => api.post(`/opportunities/${id}/transition`, { to }),
     onSuccess: () => invalidateAfter("opportunity.write"),
   });
-  const lifecycle = useMutation({
+  const lifecycleMutation = useMutation({
     mutationFn: ({ action, id }: { action: "trash" | "restore" | "delete"; id: string }) =>
       action === "delete" ? api.del(`/opportunities/${id}`) : api.post(`/opportunities/${id}/${action}`),
     onSuccess: (_, variables) => {
@@ -120,64 +150,36 @@ export function OpportunityPage() {
     },
   });
 
-  const changeView = (next: "rows" | "grid" | "kanban") => {
+  const changeView = useCallback((next: "rows" | "grid" | "kanban") => {
     setView(next);
     if (typeof window !== "undefined") window.localStorage.setItem("forkos:opportunity-view", next);
-  };
-  const changeSection = (section: OpportunitySection) =>
-    setFilters((current) => switchOpportunitySection(current, section));
-  const resetFilters = () => setFilters((current) => switchOpportunitySection(INITIAL_FILTERS, current.section));
+  }, []);
 
-  /** Kayıtlı görünümü uygula: tanınan anahtarları filtreye aktar, gerisini yok say. */
-  function applyView(raw: unknown) {
-    const data = (raw ?? {}) as Record<string, unknown>;
+  const changeTab = useCallback((next: OpportunityTab) => {
+    setTab(next);
+    setFilters((current) => ({ ...current, section: sectionForTab(next, current.section), offset: 0 }));
+    setSelected(null);
+  }, []);
+
+  const openRecord = useCallback((id: string) => setSelected(id), []);
+  const closeRecord = useCallback(() => {
+    setSelected(null);
+  }, []);
+
+  const applyView = useCallback((raw: unknown) => {
     setFilters((current) => {
-      let next = { ...current, offset: 0 };
-      const section = data.section;
-      if (section === "jobs" || section === "announcements" || section === "trash") {
-        if (section !== current.section) next = switchOpportunitySection(next, section);
-      }
-      if (typeof data.search === "string") next.search = data.search;
-      if (typeof data.category === "string") next.category = data.category;
-      if (typeof data.status === "string") next.status = data.status;
-      if (typeof data.source === "string") next.source = data.source;
-      if (typeof data.region === "string") next.region = data.region;
-      if (typeof data.remote === "string") next.remote = data.remote;
-      if (typeof data.archetype === "string") next.archetype = data.archetype;
-      if (typeof data.recommendation === "string") next.recommendation = data.recommendation;
-      if (
-        data.announcement_source === "ylsy" ||
-        data.announcement_source === "osym" ||
-        data.announcement_source === "other"
-      ) {
-        next.announcement_source = data.announcement_source;
-      }
-      if (typeof data.period_days === "number") next.period_days = data.period_days;
-      if (typeof data.year === "number") next.year = data.year;
-      if (typeof data.min_score === "number") next.min_score = data.min_score;
-      if (typeof data.max_score === "number") next.max_score = data.max_score;
-      if (typeof data.skill === "string") next.skill = data.skill;
-      if (typeof data.min_skill_match === "number") next.min_skill_match = data.min_skill_match;
-      if (typeof data.skill_tier === "string") next.skill_tier = data.skill_tier;
-      if (
-        data.sort === "score" ||
-        data.sort === "score_asc" ||
-        data.sort === "skill_match" ||
-        data.sort === "newest" ||
-        data.sort === "oldest" ||
-        data.sort === "deadline"
-      ) {
-        next.sort = data.sort;
-      }
+      const next = applySavedView(current, raw);
+      setTab(tabForSection(next.section));
       return next;
     });
-  }
+  }, []);
 
   const saveItem = (item: Opportunity) => {
     if (item.url) {
       void save({ url: item.url, title: item.title, collection: "reference", entity_id: item.id });
     }
   };
+
   async function trash(item: Opportunity) {
     if (
       await confirmDialog({
@@ -187,7 +189,7 @@ export function OpportunityPage() {
         tone: "danger",
       })
     ) {
-      lifecycle.mutate({ action: "trash", id: item.id });
+      lifecycleMutation.mutate({ action: "trash", id: item.id });
     }
   }
   async function permanentlyDelete(item: Opportunity) {
@@ -199,9 +201,15 @@ export function OpportunityPage() {
         tone: "danger",
       })
     ) {
-      lifecycle.mutate({ action: "delete", id: item.id });
+      lifecycleMutation.mutate({ action: "delete", id: item.id });
     }
   }
+
+  const tabs = OPPORTUNITY_TABS.map((id) => ({
+    id,
+    label: TAB_LABELS[id],
+    badge: id === "jobs" ? counts.jobs : id === "announcements" ? counts.announcements : undefined,
+  }));
 
   return (
     <PageFrame>
@@ -209,218 +217,178 @@ export function OpportunityPage() {
         <WorkspacePaneHeader
           eyebrow="Takip"
           title="Fırsatlar"
-          hint={`${rows.length} / ${total} kayıt`}
-          action={<SyncProgress compact />}
+          hint={
+            tab === "jobs"
+              ? "Keşfedilen iş ilanları ve kısa liste"
+              : tab === "announcements"
+                ? "YLSY, ÖSYM ve kamu duyuruları"
+                : tab === "applications"
+                  ? "Yalnızca gerçek başvurular"
+                  : tab === "career"
+                    ? "CV, hikâye bankası ve bağlantı ağı"
+                    : "Kaynak sağlığı, kapsam ve cache"
+          }
+          action={tab === "sources" ? undefined : <SyncProgress compact />}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-0 flex-[1_1_18rem]">
-              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon" />
-              <Input
-                value={filters.search ?? ""}
-                onChange={(search) => setFilters((current) => ({ ...current, search, offset: 0 }))}
-                placeholder="Başlık, kurum, konum ya da kaynakta ara…"
-                ariaLabel="Fırsatlarda ara"
-                className="w-full pl-9"
-              />
-            </div>
-            <Button
-              size="sm"
-              variant={activePanel === "crm" ? "secondary" : "ghost"}
-              onClick={() => setActivePanel((curr) => (curr === "crm" ? null : "crm"))}
-            >
-              {activePanel === "crm" ? "CRM gizle" : "CRM"}
-            </Button>
-            <Button
-              size="sm"
-              variant={activePanel === "stories" ? "secondary" : "ghost"}
-              onClick={() => setActivePanel((curr) => (curr === "stories" ? null : "stories"))}
-            >
-              <BookOpen size={13} /> {activePanel === "stories" ? "Hikâyeleri gizle" : "Hikâye bankası"}
-            </Button>
-            <Button
-              size="sm"
-              variant={activePanel === "connections" ? "secondary" : "ghost"}
-              onClick={() => setActivePanel((curr) => (curr === "connections" ? null : "connections"))}
-            >
-              <Users size={13} /> {activePanel === "connections" ? "Ağı gizle" : "Bağlantı ağı"}
-            </Button>
-            <IconButton title="Jobhunter ayarları" onClick={() => setShowSettings(true)}>
-              <Settings2 size={15} />
-            </IconButton>
-            <SavedViewPicker module="opportunity" filters={filters} onApply={applyView} />
-            <SourcePicker />
-            <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5">
-              <IconButton
-                title="Yatay satırlar"
-                onClick={() => changeView("rows")}
-                className={view === "rows" ? "bg-surface-sunken text-primary" : "border-transparent"}
-              >
-                <List size={14} />
-              </IconButton>
-              <IconButton
-                title="Karesel kartlar"
-                onClick={() => changeView("grid")}
-                className={view === "grid" ? "bg-surface-sunken text-primary" : "border-transparent"}
-              >
-                <LayoutGrid size={14} />
-              </IconButton>
-              <IconButton
-                title="Kanban panosu"
-                onClick={() => changeView("kanban")}
-                className={view === "kanban" ? "bg-surface-sunken text-primary" : "border-transparent"}
-              >
-                <Kanban size={14} />
-              </IconButton>
+            <Tabs value={tab} onChange={changeTab} items={tabs} ariaLabel="Fırsat çalışma alanları" />
+            <span className="ml-auto flex flex-wrap items-center gap-2">
+              {(tab === "jobs" || tab === "announcements") && (
+                <>
+                  <SavedViewPicker
+                    module="opportunity"
+                    filters={{ ...savableView(filters), tab }}
+                    onApply={applyView}
+                  />
+                  <SourcePicker />
+                </>
+              )}
             </span>
           </div>
         </WorkspacePaneHeader>
 
-        <WorkspaceScrollArea className="space-y-4 p-3">
-          <nav className="flex flex-wrap gap-2" aria-label="Fırsat bölümleri">
-            {(
-              [
-                ["jobs", "İş ilanları"],
-                ["announcements", "Duyurular"],
-                ["trash", "Çöp"],
-              ] as const
-            ).map(([section, label]) => (
-              <FilterChip
-                key={section}
-                label={label}
-                count={counts[section]}
-                active={filters.section === section}
-                onClick={() => changeSection(section)}
+        <WorkspaceScrollArea className="p-3">
+          {browseEnabled ? (
+            <div className="space-y-3">
+              {filters.section !== "announcements" && counts.trash > 0 && (
+                <div>
+                  <Button
+                    size="sm"
+                    variant={filters.section === "trash" ? "secondary" : "ghost"}
+                    onClick={() =>
+                      setFilters((current) => ({
+                        ...current,
+                        section: current.section === "trash" ? "jobs" : "trash",
+                        offset: 0,
+                      }))
+                    }
+                  >
+                    <Trash2 size={12} /> Çöp
+                    <span className="tabular-nums text-muted">{counts.trash}</span>
+                  </Button>
+                </div>
+              )}
+
+              <OpportunityFilterBar
+                filters={filters}
+                facets={facets}
+                shown={shown}
+                total={total}
+                loading={isFetching}
+                view={view}
+                onView={changeView}
+                onChange={setFilters}
+                onSearchChange={setSearchDraft}
+                liveMessage={isFetching ? "Sonuçlar güncelleniyor" : `${total} kayıttan ${shown} tanesi gösteriliyor`}
               />
-            ))}
-          </nav>
 
-          {activePanel === "crm" && (
-            <ApplicationCrmPanel
-              onSelect={(id) => setSelected(id)}
-              onStatusFilter={(status) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  status: prev.status === status ? undefined : status,
-                  offset: 0,
-                }))
-              }
-            />
-          )}
-          {activePanel === "stories" && <CareerStoryBank focusId={params.get("story")} />}
-          {activePanel === "connections" && <CareerConnectionsPanel focusId={params.get("connection")} />}
-          <OpportunityFilters filters={filters} facets={facets} onChange={setFilters} />
-
-          <Section
-            title={
-              filters.section === "jobs" ? "İş ilanları" : filters.section === "announcements" ? "Duyurular" : "Çöp"
-            }
-            hint={`${rows.length} / ${total} kayıt`}
-          >
-            {browse.isLoading ? (
-              <div
-                className={cx(
-                  "animate-pulse",
-                  view === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3",
-                )}
-              >
-                {Array.from({ length: view === "grid" ? 6 : 4 }, (_, index) => (
-                  <div key={index} className="h-24 rounded-card bg-surface-sunken" />
-                ))}
-              </div>
-            ) : browse.isError ? (
-              <Empty
-                variant="page"
-                title="Fırsatlar yüklenemedi"
-                action={<Button onClick={() => void browse.refetch()}>Tekrar dene</Button>}
-              >
-                Kaynak yanıtını alamadım. Bağlantıyı kontrol edip yeniden deneyebilirsin.
-              </Empty>
-            ) : rows.length === 0 ? (
-              <Empty
-                variant="page"
-                title={hasActiveFilters ? "Bu süzgece uyan kayıt yok" : "Henüz kayıt yok"}
-                action={
-                  hasActiveFilters ? (
-                    <Button onClick={resetFilters}>Süzgeci temizle</Button>
-                  ) : (
-                    <Button variant="primary" onClick={() => navigate("/sources")}>
-                      Kaynakları çek
-                    </Button>
-                  )
+              <Section
+                title={
+                  filters.section === "jobs" ? "İş ilanları" : filters.section === "announcements" ? "Duyurular" : "Çöp"
                 }
+                hint={`${shown} / ${total}`}
               >
-                {filters.section === "announcements"
-                  ? "YLSY, ÖSYM ve diğer resmi duyurular burada yayın tarihine göre görünür."
-                  : "Kaynaklar yenilendiğinde uygun kayıtlar burada görünür."}
-              </Empty>
-            ) : (
-              <>
-                {view === "kanban" ? (
-                  <OpportunityKanban
-                    items={rows}
-                    disabled={!online}
-                    onOpen={(id) => setSelected(id)}
-                    onStatus={(id, status) => transition.mutate({ id, to: status })}
-                  />
-                ) : (
-                  <OpportunityCollection layout={view}>
-                    {rows.map((item) => (
-                      <OpportunityCard
-                        key={item.id}
-                        item={item}
-                        disabled={!online}
-                        onOpen={() => setSelected(item.id)}
-                        onStatus={(status) => transition.mutate({ id: item.id, to: status })}
-                        isTrash={filters.section === "trash"}
-                        layout={view}
-                        sourceActive={filters.source === item.source}
-                        remoteActive={filters.remote === remoteKind(item.remote)}
-                        onSource={(source) =>
-                          setFilters((current) => ({
-                            ...current,
-                            source: current.source === source ? "" : source,
-                            offset: 0,
-                          }))
-                        }
-                        onRemote={(remote) =>
-                          setFilters((current) => ({
-                            ...current,
-                            remote: current.remote === remote ? "" : remote,
-                            offset: 0,
-                          }))
-                        }
-                        onKind={(kind) =>
-                          setFilters((current) => {
-                            const section = kind === "job" ? "jobs" : "announcements";
-                            return switchOpportunitySection(current, section);
-                          })
-                        }
-                        onTrash={() => void trash(item)}
-                        onRestore={() => lifecycle.mutate({ action: "restore", id: item.id })}
-                        onDelete={() => void permanentlyDelete(item)}
-                        onSave={() => saveItem(item)}
-                      />
+                {browse.isPending && browseEnabled ? (
+                  <div
+                    className={view === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}
+                  >
+                    {Array.from({ length: view === "grid" ? 6 : 4 }, (_, index) => (
+                      <div key={index} className="h-24 rounded-card bg-surface-sunken" />
                     ))}
-                  </OpportunityCollection>
-                )}
-                {browse.hasNextPage && (
-                  <div className="mt-5 flex items-center justify-center gap-3">
-                    <Button onClick={() => void browse.fetchNextPage()} disabled={browse.isFetchingNextPage}>
-                      {browse.isFetchingNextPage ? "Yükleniyor…" : "Daha fazla"}
-                    </Button>
-                    <span className="text-meta text-muted">
-                      {rows.length} / {total}
-                    </span>
                   </div>
+                ) : browse.isError ? (
+                  <Empty
+                    variant="page"
+                    title="Fırsatlar yüklenemedi"
+                    action={<Button onClick={() => void browse.refetch()}>Tekrar dene</Button>}
+                  >
+                    Kaynak yanıtını alamadım. Bağlantıyı kontrol edip yeniden deneyebilirsin.
+                  </Empty>
+                ) : rows.length === 0 ? (
+                  <Empty
+                    variant="page"
+                    title={total === 0 ? "Bu süzgece uyan kayıt yok" : "Henüz kayıt yok"}
+                    action={<Button onClick={() => setFilters(INITIAL_FILTERS)}>Süzgeci temizle</Button>}
+                  >
+                    {filters.section === "announcements"
+                      ? "YLSY, ÖSYM ve diğer resmî duyurular burada yayın tarihine göre görünür."
+                      : "Kaynaklar yenilendiğinde uygun kayıtlar burada görünür."}
+                  </Empty>
+                ) : (
+                  <>
+                    {view === "kanban" ? (
+                      <OpportunityKanban
+                        items={rows}
+                        disabled={!online}
+                        section={filters.section === "announcements" ? "announcements" : "jobs"}
+                        onOpen={openRecord}
+                        onStatus={(id, to) => transition.mutate({ id, to })}
+                      />
+                    ) : (
+                      <OpportunityCollection layout={view}>
+                        {rows.map((item) => (
+                          <OpportunityCard
+                            key={item.id}
+                            item={item}
+                            disabled={!online}
+                            onOpen={() => openRecord(item.id)}
+                            onStatus={(to) => transition.mutate({ id: item.id, to })}
+                            isTrash={filters.section === "trash"}
+                            layout={view}
+                            sourceActive={filters.source === item.source}
+                            remoteActive={filters.remote === remoteKind(item.remote)}
+                            onSource={(source) =>
+                              setFilters((current) => ({
+                                ...current,
+                                source: current.source === source ? "" : source,
+                                offset: 0,
+                              }))
+                            }
+                            onRemote={(remote) =>
+                              setFilters((current) => ({
+                                ...current,
+                                remote: current.remote === remote ? "" : remote,
+                                offset: 0,
+                              }))
+                            }
+                            onKind={(kind) => {
+                              const section = kind === "job" ? "jobs" : "announcements";
+                              setFilters((current) => ({ ...current, section, offset: 0 }));
+                              setTab(section === "jobs" ? "jobs" : "announcements");
+                            }}
+                            onTrash={() => void trash(item)}
+                            onRestore={() => lifecycleMutation.mutate({ action: "restore", id: item.id })}
+                            onDelete={() => void permanentlyDelete(item)}
+                            onSave={() => saveItem(item)}
+                          />
+                        ))}
+                      </OpportunityCollection>
+                    )}
+                    {browse.hasNextPage && (
+                      <div className="mt-5 flex items-center justify-center gap-3">
+                        <Button onClick={() => void browse.fetchNextPage()} disabled={browse.isFetchingNextPage}>
+                          {browse.isFetchingNextPage ? "Yükleniyor…" : "Daha fazla"}
+                        </Button>
+                        <span className="text-meta text-muted">
+                          {shown} / {total}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </Section>
+              </Section>
+            </div>
+          ) : tab === "applications" ? (
+            <ApplicationsWorkspace online={online} onOpen={openRecord} />
+          ) : tab === "career" ? (
+            <CareerWorkspace focusStoryId={params.get("story")} focusConnectionId={params.get("connection")} />
+          ) : (
+            <SourcesWorkspace />
+          )}
         </WorkspaceScrollArea>
       </Workspace>
 
-      {showSettings && <JobhunterSettings onClose={() => setShowSettings(false)} />}
-      {selected && <OpportunityDetail id={selected} close={() => setSelected(null)} />}
+      {selected && <OpportunityDetail id={selected} close={closeRecord} />}
     </PageFrame>
   );
 }

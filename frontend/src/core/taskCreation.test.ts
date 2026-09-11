@@ -54,7 +54,8 @@ const taskEntryFiles = [
   "src/modules/todo/TodoRow.tsx",
   "src/modules/projects/ProjectTodos.tsx",
   "src/modules/learning/LearningPage.tsx",
-  "src/modules/opportunity/OpportunityDetail.tsx",
+  "src/modules/opportunity/JobDetail.tsx",
+  "src/modules/opportunity/AnnouncementDetail.tsx",
   "src/core/DropCapture.tsx",
   "src/modules/todo/index.ts",
 ];

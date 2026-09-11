@@ -22,6 +22,9 @@ export interface OpportunityBrowseFilters {
   max_score?: number;
   skill?: string;
   min_skill_match?: number;
+  max_skill_match?: number;
+  /** null (hesaplanmadı) durumunu ayrı seçebilmek için. */
+  skill_match_state?: "computed" | "uncomputed" | "";
   skill_tier?: string;
   sort: OpportunitySort;
   offset: number;
@@ -57,41 +60,10 @@ export function browseQuery(filters: OpportunityBrowseFilters): string {
     max_score: jobs ? filters.max_score : undefined,
     skill: jobs ? filters.skill : undefined,
     min_skill_match: jobs ? filters.min_skill_match : undefined,
+    max_skill_match: jobs ? filters.max_skill_match : undefined,
+    skill_match_state: jobs ? filters.skill_match_state : undefined,
     sort: filters.sort,
     offset: filters.offset,
     limit: filters.limit,
   })}`;
-}
-
-export function switchOpportunitySection(
-  filters: OpportunityBrowseFilters,
-  section: OpportunitySection,
-): OpportunityBrowseFilters {
-  const common = { ...filters, section, offset: 0 };
-  if (section === "jobs") {
-    return {
-      ...common,
-      announcement_source: "",
-      period_days: undefined,
-      year: undefined,
-      sort: "score",
-    };
-  }
-  return {
-    ...common,
-    category: "",
-    region: "",
-    remote: "",
-    archetype: undefined,
-    recommendation: undefined,
-    min_score: undefined,
-    max_score: undefined,
-    skill: undefined,
-    min_skill_match: undefined,
-    skill_tier: undefined,
-    announcement_source: section === "announcements" ? common.announcement_source : "",
-    period_days: section === "announcements" ? common.period_days : undefined,
-    year: section === "announcements" ? common.year : undefined,
-    sort: "newest",
-  };
 }

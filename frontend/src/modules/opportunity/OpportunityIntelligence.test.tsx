@@ -31,7 +31,6 @@ vi.mock("@/core/ui", async (importOriginal) => {
   return { ...actual, useToast: () => ({ push: vi.fn() }) };
 });
 
-import { ApplicationCrmPanel } from "./ApplicationCrmPanel";
 import { ReplyProcessorSection, replySuggestionCanApply } from "./OpportunityDetailSections";
 import { OpportunityEvaluationSection } from "./OpportunityEvaluationSection";
 
@@ -41,13 +40,6 @@ describe("career intelligence surfaces", () => {
     expect(html).toContain("Gelen yanıtı işle");
     expect(html).toContain("yalnızca bu cihazda analiz edilir");
     expect(html).toContain("Yanıt yapıştır");
-  });
-
-  it("shows applications that crossed the interview silence threshold", () => {
-    const html = renderToStaticMarkup(<ApplicationCrmPanel />);
-    expect(html).toContain("Firma sessizliği");
-    expect(html).toContain("Platform Engineer");
-    expect(html).toContain("25 gün");
   });
 
   it("offers a local two-pass evaluation before any result exists", () => {

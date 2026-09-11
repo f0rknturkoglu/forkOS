@@ -689,8 +689,50 @@ export interface SystemStats {
 
 export type SourceSyncBatch = ApiSchemas["SourceSyncBatchOut"];
 export type SourceSyncStatus = ApiSchemas["SourceSyncStatusOut"];
-export type SourceRefreshResult = ApiSchemas["SourceRefreshOut"];
+export type SourceRefreshResult = ApiSchemas["SourceRefreshResult"];
 export type ManualRefreshStatus = ApiSchemas["ManualRefreshOut"];
+
+/** `/sources/cache` — sınırlı disk önbelleğinin anlık durumu. */
+export interface SourceCacheStats {
+  dir: string;
+  mode: string;
+  files: number;
+  bytes: number;
+  oldest: string | null;
+  hosts: Record<string, number>;
+  max_bytes: number;
+  max_age_seconds: number;
+}
+
+export interface SourceCachePruneResult {
+  removed: number;
+  bytes_freed: number;
+  bytes_remaining?: number;
+  max_bytes?: number;
+  max_age_seconds?: number;
+}
+
+/** `/sources/coverage` — kaynak kapsam matrisi satırı. */
+export interface SourceCoverageRow {
+  source: string;
+  kind: string;
+  class: string;
+  category: string | null;
+  official: boolean | null;
+  url: string | null;
+  parser_version: string | null;
+  last_status: string | null;
+  last_run_at: string | null;
+  last_success_at: string | null;
+  last_new_content_at: string | null;
+  avg_publish_interval_days: number | null;
+  consecutive_empty: number;
+  last_error: string | null;
+  last_error_kind: string | null;
+  circuit_open: boolean;
+  consecutive_failures: number;
+  tracked: boolean;
+}
 
 export interface Opportunity {
   id: string;
@@ -699,7 +741,10 @@ export interface Opportunity {
   category: string | null;
   organization: string | null;
   url: string | null;
+  /** Keşif/duyuru yaşam döngüsü. CRM hattı `application_status`'tadır. */
   status: string;
+  /** Mevcut durumdan İZİNLİ keşif geçişleri (backend state machine). */
+  allowed_transitions: string[];
   priority: number;
   found_at: string;
   published_at: string | null;
@@ -711,8 +756,11 @@ export interface Opportunity {
   source: string;
   external_id: string | null;
   raw: Record<string, unknown>;
-  /** forkjob uyum puanı (0-100); -1 elenmiş demek. Liste ucunda da dolu. */
+  /** Kural tabanlı genel uygunluk puanı (-1..100); -1 elenmiş demek. */
   score: number | null;
+  /** Puanın kaynağı ve hesaplanma anı (açıklanabilirlik). */
+  score_source?: string | null;
+  score_computed_at?: string | null;
   /** Puanın bileşenleri — yalnızca detay ucunda dolu. */
   score_reasons: Record<string, unknown> | null;
   notes: string | null;
@@ -727,15 +775,72 @@ export interface Opportunity {
   cv_document_id?: string | null;
   /** Belge ters-bağı (DocumentsPage): gereksinime bağlanan ilk belge. */
   requirement_document_id?: string | null;
+  /**
+   * Profil/beceri örtüşmesi (0..1). CV DOSYASI kullanmaz; gerçek CV
+   * değerlendirmesi `evaluation` alanındadır. null = hesaplanmadı.
+   */
+  profile_match_ratio?: number | null;
   /** Profil ve CV beceri eşleşmesi */
   skill_match?: {
     match_ratio: number;
     matched: string[];
     missing: string[];
   } | null;
+  /** Başvuru hattı — yalnızca gerçek başvuru kayıtlarında dolu. */
+  application_status?: string | null;
+  application_status_changed_at?: string | null;
+  allowed_application_transitions?: string[];
   intelligence?: OpportunityIntelligence | null;
   /** career-ops iki aşamalı gereksinim ve aday değerlendirmesi. */
   evaluation?: OpportunityEvaluation | null;
+  /* ── Kaynak gözlemi / kapanma ─────────────────────────────────────── */
+  source_status?: string;
+  last_seen_at?: string | null;
+  closed_at?: string | null;
+  /* ── Duyuru alanları (iş ilanlarında boş kalır) ───────────────────── */
+  official?: boolean | null;
+  parent_id?: string | null;
+  stage?: string | null;
+  application_start_at?: string | null;
+  application_end_at?: string | null;
+  exam_at?: string | null;
+  result_at?: string | null;
+  guide_url?: string | null;
+  apply_url?: string | null;
+  quota_total?: number | null;
+  fields?: string[];
+}
+
+/** `GET /opportunities/lifecycle` — üç durum makinesinin tek kaynağı. */
+export interface OpportunityLifecycle {
+  job_discovery: { flow: string[]; transitions: Record<string, string[]> };
+  announcement: { flow: string[]; transitions: Record<string, string[]> };
+  application: { flow: string[]; transitions: Record<string, string[]>; terminal: string[] };
+  trash_status: string;
+  job_kinds: string[];
+}
+
+export interface ApplicationTimelineEntry {
+  kind:
+    | "discovered"
+    | "shortlisted"
+    | "status"
+    | "followup"
+    | "interview"
+    | "note"
+    | "document"
+    | "todo"
+    | "offer"
+    | "rejection";
+  at: string;
+  title: string;
+  detail: string | null;
+  status: string | null;
+}
+
+export interface ApplicationTimeline {
+  opportunity_id: string;
+  entries: ApplicationTimelineEntry[];
 }
 
 interface OpportunityRiskSignal {
@@ -838,6 +943,9 @@ export interface Application {
   salary_expectation: string | null;
   posting_snapshot: Record<string, unknown>;
   note: string | null;
+  /** Başvuru hattı durumu (APPLICATION_STATUSES). */
+  status: string;
+  status_changed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -848,6 +956,8 @@ export interface ApplicationHistoryRow {
   to_status: string;
   at: string;
   note: string | null;
+  /** "discovery" | "application" */
+  scope: string;
 }
 
 export interface Interview {
@@ -924,11 +1034,39 @@ export interface OpportunityConnections {
   connections: CareerConnection[];
 }
 
-export interface ApplicationFunnel {
+/** Funnel kırılım satırı. Payda ve paylar UI'da açıkça yazılır. */
+export interface FunnelBreakdownRow {
+  key: string;
+  label: string;
   total: number;
+  responded: number;
+  interviewed: number;
+  offers: number;
+  response_rate: number | null;
+  interview_rate: number | null;
+}
+
+export interface FunnelVolumeRow {
+  period: string;
+  applied: number;
+}
+
+export interface ApplicationFunnel {
+  /** Payda: yalnızca gerçek başvuru kayıtları. Keşfedilen ilanlar sayılmaz. */
+  total: number;
+  tracked: number;
   by_status: { status: string; count: number }[];
   conversions: Record<string, number | null>;
   rejection_reasons: { reason: string; count: number }[];
+  avg_first_response_days: number | null;
+  avg_applied_to_interview_days: number | null;
+  by_source: FunnelBreakdownRow[];
+  by_cv: FunnelBreakdownRow[];
+  by_role: FunnelBreakdownRow[];
+  by_country: FunnelBreakdownRow[];
+  by_work_mode: FunnelBreakdownRow[];
+  weekly_volume: FunnelVolumeRow[];
+  monthly_volume: FunnelVolumeRow[];
 }
 
 export interface Followup {

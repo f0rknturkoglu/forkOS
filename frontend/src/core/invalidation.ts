@@ -56,13 +56,21 @@ export const AFTER = {
     "applications-funnel",
     "opportunity-requirements",
     "application",
+    "applications",
     "interviews",
     "salary-consistency",
     "notifications",
     "today-agenda",
     "activity",
   ],
-  "career.write": ["career-stories", "career-connections", "opportunity-connections", "opportunity", "activity"],
+  "career.write": [
+    "career-stories",
+    "career-connections",
+    "opportunity-connections",
+    "applications",
+    "opportunity",
+    "activity",
+  ],
   "project.write": [
     "projects",
     "project-todos",
@@ -170,6 +178,9 @@ export const AFTER = {
     "activity",
   ],
   "link.write": ["related", "backlinks", "graph", "activity"],
+  // jobhunter uyum profili/LinkedIn profilleri config.yaml'a yazilir; ayarlar
+  // paneli kaydettikten sonra kendi sorgularini taze gormelidir.
+  "jobhunter.write": ["jobhunter-config", "jobhunter-linkedin", "jobhunter-env"],
   "notification.write": ["notifications"],
   "note.write": [
     "notes",

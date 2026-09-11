@@ -12,6 +12,7 @@ const item = {
   organization: "forkOS",
   url: "https://example.com/job",
   status: "discovered",
+  allowed_transitions: ["shortlisted", "dismissed", "archived"],
   priority: 2,
   found_at: "2026-08-23T10:00:00Z",
   published_at: "2026-08-22T10:00:00Z",

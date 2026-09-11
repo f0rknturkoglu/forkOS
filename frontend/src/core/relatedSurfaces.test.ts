@@ -48,11 +48,13 @@ function backendEntitySpecs(): Record<string, BackendSpec> {
   return specs;
 }
 
-/** Linklenebilir tip -> yuzey dosyasi (RelatedPanel tasir). */
-const SURFACES: Record<string, string> = {
+/** Linklenebilir tip -> yuzey dosyasi/dosyalari (RelatedPanel tasir).
+ *  Firsat detayi is ilani ve duyuru calisma yuzeylerine ayrildi; ikisi de
+ *  RelatedPanel tasir, bu yuzden birlikte listelenir. */
+const SURFACES: Record<string, string | string[]> = {
   todo: "src/modules/todo/TodoPage.tsx",
   project: "src/modules/projects/ProjectsPage.tsx",
-  opportunity: "src/modules/opportunity/OpportunityDetail.tsx",
+  opportunity: ["src/modules/opportunity/JobDetail.tsx", "src/modules/opportunity/AnnouncementDetail.tsx"],
   // Ogrenme yuzeyi artik konu detayi ("Baglantilar" sekmesi); sayfa yalniz kabuk.
   study_topic: "src/modules/learning/TopicDetail.tsx",
   learning_resource: "src/modules/learning/TopicDetail.tsx",
@@ -77,11 +79,13 @@ describe("entity relation visibility (Faz 18/32)", () => {
     expect(linkable).toEqual(Object.keys(SURFACES).sort());
   });
 
-  it.each(Object.entries(SURFACES))("linklenebilir %s yuzeyinde RelatedPanel var (%s)", (type, path) => {
+  it.each(Object.entries(SURFACES))("linklenebilir %s yuzeyinde RelatedPanel var (%s)", (type, paths) => {
     expect(specs[type]?.linkable).toBe(true);
-    const source = readFileSync(resolve(ROOT, "frontend", path), "utf8");
-    expect(source).toContain("RelatedPanel");
-    expect(source).not.toContain('post("/links"');
+    for (const path of Array.isArray(paths) ? paths : [paths]) {
+      const source = readFileSync(resolve(ROOT, "frontend", path), "utf8");
+      expect(source).toContain("RelatedPanel");
+      expect(source).not.toContain('post("/links"');
+    }
   });
 
   it("linkable=False tipler yuzey listesinde YOK (gerekceli kapatilmis)", () => {

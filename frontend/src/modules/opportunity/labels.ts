@@ -3,6 +3,7 @@
 export const KIND_LABELS: Record<string, string> = {
   job: "İş ilanı",
   internship: "Staj",
+  announcement: "Duyuru",
   exam: "Sınav",
   scholarship: "Burs",
   msc: "Yüksek lisans",
@@ -39,9 +40,58 @@ const ANNOUNCEMENT_CATEGORY_LABELS: Record<string, string> = {
 export const announcementCategoryLabel = (category: string | null) =>
   category ? (ANNOUNCEMENT_CATEGORY_LABELS[category] ?? "YLSY duyuru") : "Duyuru";
 
+/**
+ * Keşif ve duyuru yaşam döngüsü etiketleri (`opportunity.status`).
+ *
+ * Basvuru hatti ARTIK BURADA DEGIL: `APPLICATION_STATUS_LABELS`'ta. İki kume
+ * karıştırılmaz; backend `/opportunities/lifecycle` izinli geçişleri verir.
+ */
 export const STATUS_LABELS: Record<string, string> = {
+  // İş ilanı keşif döngüsü
   discovered: "Keşfedildi",
-  considering: "Değerlendiriliyor",
+  shortlisted: "Kısa listede",
+  dismissed: "Elendi",
+  archived: "Arşivde",
+  closed: "Kapandı",
+  // Duyuru döngüsü
+  new: "Yeni",
+  reviewed: "İncelendi",
+  watching: "Takipte",
+  action_required: "Aksiyon gerekli",
+  applied: "Başvuruldu",
+  completed: "Tamamlandı",
+  expired: "Süresi geçti",
+  // Eski (0050 öncesi) kayıtlar için okunabilir karşılıklar
+  considering: "Kısa listede",
+  preparing: "Kısa listede",
+  interview: "Kısa listede",
+  offer: "Kısa listede",
+  accepted: "Arşivde",
+  rejected: "Arşivde",
+  withdrawn: "Arşivde",
+  trashed: "Elendi",
+};
+
+/** İş ilanı keşif sırası (kanban/liste sırası). */
+export const JOB_DISCOVERY_STATUSES = ["discovered", "shortlisted", "dismissed", "archived", "closed"] as const;
+
+/** Duyuru yaşam döngüsü sırası. */
+export const ANNOUNCEMENT_STATUSES = [
+  "new",
+  "reviewed",
+  "watching",
+  "action_required",
+  "applied",
+  "completed",
+  "expired",
+  "archived",
+] as const;
+
+/** Backend uçmuyorsa kullanılan yedek keşif akışı (kanban/özet için). */
+export const STATUSES = [...JOB_DISCOVERY_STATUSES];
+
+/** Başvuru hattı (`application.status`) — CRM ekranının kümesi. */
+const APPLICATION_STATUS_LABELS: Record<string, string> = {
   preparing: "Hazırlanıyor",
   applied: "Başvuruldu",
   interview: "Görüşme",
@@ -50,13 +100,12 @@ export const STATUS_LABELS: Record<string, string> = {
   rejected: "Red",
   withdrawn: "Geri çekildi",
   closed: "Kapandı",
-  trashed: "Çöp",
+  // Eski kayıtlar
+  considering: "Hazırlanıyor",
+  discovered: "Hazırlanıyor",
 };
 
-/** Basvuru hattinin sirasi. Kart ve suzgecte ayni sira kullanilir. */
-export const STATUSES = [
-  "discovered",
-  "considering",
+export const APPLICATION_STATUSES = [
   "preparing",
   "applied",
   "interview",
@@ -65,14 +114,37 @@ export const STATUSES = [
   "rejected",
   "withdrawn",
   "closed",
-];
+] as const;
+
+export const applicationStatusLabel = (status: string) => APPLICATION_STATUS_LABELS[status] ?? status;
 
 type StatusTone = "neutral" | "accent" | "ok" | "warn" | "danger";
 
 export const STATUS_TONES: Record<string, StatusTone> = {
   discovered: "neutral",
-  considering: "neutral",
+  shortlisted: "accent",
+  dismissed: "neutral",
+  archived: "neutral",
+  closed: "neutral",
+  new: "accent",
+  reviewed: "neutral",
+  watching: "warn",
+  action_required: "warn",
+  applied: "accent",
+  completed: "ok",
+  expired: "danger",
+  trashed: "danger",
+  considering: "accent",
   preparing: "accent",
+  interview: "warn",
+  offer: "accent",
+  accepted: "ok",
+  rejected: "danger",
+  withdrawn: "neutral",
+};
+
+export const APPLICATION_STATUS_TONES: Record<string, StatusTone> = {
+  preparing: "neutral",
   applied: "accent",
   interview: "warn",
   offer: "accent",
@@ -80,7 +152,6 @@ export const STATUS_TONES: Record<string, StatusTone> = {
   rejected: "danger",
   withdrawn: "neutral",
   closed: "neutral",
-  trashed: "danger",
 };
 
 export const kindLabel = (kind: string) => KIND_LABELS[kind] ?? kind;
@@ -97,7 +168,7 @@ export function daysLeft(deadline: string | null): number | null {
    0-100 arasi. Negatif deger "kill" kelimesi yakalandi demek: kayit
    silinmez, listede geriye duser. */
 
-export type ScoreBand = "killed" | "low" | "fair" | "strong";
+type ScoreBand = "killed" | "low" | "fair" | "strong";
 
 export function scoreBand(score: number | null): ScoreBand | null {
   if (score === null) return null;

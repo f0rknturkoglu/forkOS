@@ -1,9 +1,9 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, MailSearch, X } from "lucide-react";
+import { Check, FileText, MailSearch, Plus, Save, X } from "lucide-react";
 import { api } from "@/core/api";
-import { Button, Chip, Input, SectionHeader, Select, Textarea, cx, useToast } from "@/core/ui";
+import { Button, Chip, Input, SectionHeader, Select, Textarea, cx, relativeTime, useToast } from "@/core/ui";
 import type {
   Application,
   CareerStory,
@@ -22,8 +22,20 @@ type Requirement = {
   document_entity_id: string | null;
 };
 
-/** Gereksinimler: belge baglama ve yeni gereksinim ekleme. */
-export function RequirementsSection({ id, online, documents }: { id: string; online: boolean; documents: Document[] }) {
+/** Gereksinimler: belge baglama ve yeni gereksinim ekleme.
+ *  `showAdd=false` yalnizca listeyi/baglamayi gosterir (ekleme formu baska bir
+ *  yuzeyde, ornegin duyuru ozetindeki hizli aksiyonda, yasar). */
+export function RequirementsSection({
+  id,
+  online,
+  documents,
+  showAdd = true,
+}: {
+  id: string;
+  online: boolean;
+  documents: Document[];
+  showAdd?: boolean;
+}) {
   const [requirement, setRequirement] = useState("");
   const { data: requirements = [] } = useQuery({
     queryKey: ["opportunity-requirements", id],
@@ -82,24 +94,26 @@ export function RequirementsSection({ id, online, documents }: { id: string; onl
           ))}
         </ul>
       )}
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (requirement.trim()) addRequirement.mutate();
-        }}
-      >
-        <Input
-          value={requirement}
-          onChange={setRequirement}
-          placeholder="CV, transkript, niyet mektubu…"
-          ariaLabel="Yeni gereksinim"
-          className="flex-1"
-        />
-        <Button type="submit" disabled={!online || !requirement.trim()}>
-          Ekle
-        </Button>
-      </form>
+      {showAdd && (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (requirement.trim()) addRequirement.mutate();
+          }}
+        >
+          <Input
+            value={requirement}
+            onChange={setRequirement}
+            placeholder="CV, transkript, niyet mektubu…"
+            ariaLabel="Yeni gereksinim"
+            className="flex-1"
+          />
+          <Button type="submit" disabled={!online || !requirement.trim()}>
+            Ekle
+          </Button>
+        </form>
+      )}
     </section>
   );
 }
@@ -608,6 +622,141 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
         ariaLabel="Sözlü ücret beyanı"
         className="mt-2 w-full"
       />
+    </section>
+  );
+}
+
+export interface OpportunityNote {
+  id: string;
+  title: string;
+  body: string;
+  updated_at?: string;
+}
+
+/**
+ * Firsat notu paneli — is ilani (sirket/mulakat arastirma notu) ve duyuru
+ * (genel not) ayni davranisi paylasir; yalnizca basliklar ve not olusturma
+ * istegi farklidir.
+ *
+ * Taslak yalnizca NOT KIMLIGI degistiginde yuklenir: body-only refetch
+ * (window focus, baglanti tazeleme) kullanicinin yazmakta oldugu taslagi
+ * ezmez (NotesPage ile ayni desen).
+ */
+export function OpportunityNotesPanel({
+  id,
+  online,
+  title,
+  description,
+  placeholder,
+  createLabel,
+  emptyTitle,
+  emptyText,
+  create,
+}: {
+  id: string;
+  online: boolean;
+  /** Not henuz yokken gosterilen baslik. */
+  title: string;
+  description: string;
+  placeholder: string;
+  createLabel: string;
+  emptyTitle: string;
+  emptyText: string;
+  /** Not olusturma istegi (is ilani: research-note · duyuru: POST /notes). */
+  create: () => Promise<OpportunityNote>;
+}) {
+  const toast = useToast();
+  const { data: notes = [], refetch } = useQuery({
+    queryKey: ["opportunity", id, "notes"],
+    queryFn: () => api.get<OpportunityNote[]>(`/opportunities/${id}/notes`),
+  });
+  const active = notes[0];
+  const [draft, setDraft] = useState<string | null>(null);
+  const draftNoteId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (active && draftNoteId.current !== active.id) {
+      draftNoteId.current = active.id;
+      setDraft(active.body);
+    }
+  }, [active?.id]);
+
+  const save = useMutation({
+    mutationFn: (body: string) => api.patch(`/notes/${active?.id}`, { body }),
+    onSuccess: () => {
+      invalidateAfter("note.write", "opportunity.write");
+      refetch();
+      toast.push("Not kaydedildi", { tone: "ok" });
+    },
+  });
+
+  const createNote = useMutation({
+    mutationFn: () => create(),
+    onSuccess: (note) => {
+      invalidateAfter("note.write", "opportunity.write");
+      refetch();
+      draftNoteId.current = note.id;
+      setDraft(note.body);
+      toast.push("Not oluşturuldu", { tone: "ok" });
+    },
+  });
+
+  return (
+    <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
+      <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3">
+        <div>
+          <SectionHeader
+            label={active ? active.title : title}
+            hint={active?.updated_at ? `Son kayıt: ${relativeTime(active.updated_at)}` : undefined}
+          />
+          <p className="text-meta text-muted">{description}</p>
+        </div>
+        {active && (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!online || save.isPending || draft === active.body}
+            onClick={() => draft !== null && save.mutate(draft)}
+          >
+            <Save size={13} /> {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+          </Button>
+        )}
+      </div>
+
+      {!active ? (
+        <div className="py-8 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent-surface text-accent">
+            <FileText size={24} />
+          </div>
+          <h3 className="text-body font-semibold text-primary">{emptyTitle}</h3>
+          <p className="mx-auto mt-1 max-w-sm text-meta text-muted">{emptyText}</p>
+          <Button
+            variant="primary"
+            className="mt-4"
+            disabled={!online || createNote.isPending}
+            onClick={() => createNote.mutate()}
+          >
+            <Plus size={14} /> {createLabel}
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <Textarea
+            value={draft ?? ""}
+            onChange={setDraft}
+            onBlur={() => {
+              if (draft !== null && draft !== active.body) save.mutate(draft);
+            }}
+            rows={16}
+            placeholder={placeholder}
+            className="font-mono text-meta leading-relaxed"
+          />
+          <div className="flex items-center justify-between text-micro text-muted">
+            <span>* Otomatik kaydeder (veya yukarıdaki Kaydet butonunu kullan).</span>
+            <span>Fırsatlar'dan ayrılmadan notlar güvenle saklanır.</span>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

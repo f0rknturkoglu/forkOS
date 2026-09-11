@@ -1,443 +1,373 @@
-import { useEffect, useState } from "react";
-import { Button, Chip, DualRange, FilterChip, Section, Select } from "@/core/ui";
-import { sourceLabel } from "@/core/labels";
-import {
-  ARCHETYPE_LABELS,
-  RECOMMENDATION_LABELS,
-  REMOTE_LABELS,
-  STATUSES,
-  archetypeLabel,
-  recommendationLabel,
-  statusLabel,
-  type RemoteKind,
-} from "./labels";
-import type { OpportunityBrowseFilters } from "./opportunityBrowse";
-import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
+/**
+ * Fırsat filtre yüzeyi: üst satır + aktif chip'ler + gelişmiş panel.
+ *
+ * Tasarım kuralı: filtreler sonuçların önünü kapatmaz. Varsayılan durumda
+ * yalnızca tek satırlık bir araç çubuğu görünür; gelişmiş filtreler ayrı bir
+ * panelde (masaüstünde popover, mobilde drawer) açılır. Aktif olan her filtre
+ * mutlaka bir chip olarak görünür ve tek başına kaldırılabilir.
+ */
 
-interface Props {
+import { useMemo, useRef, useState } from "react";
+import { LayoutGrid, Kanban, List, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Button, Chip, FilterChip, IconButton, Input, Popover, Select, Section, cx } from "@/core/ui";
+import { sourceLabel } from "@/core/labels";
+import { ARCHETYPE_LABELS, RECOMMENDATION_LABELS, REMOTE_LABELS, STATUS_LABELS, jobCategoryLabel } from "./labels";
+import type { OpportunityBrowseFilters } from "./opportunityBrowse";
+import { PROFILE_MATCH_PRESETS, activeFilterChips, clearAllFilters } from "./filterState";
+import { ScoreRangeControl } from "./ScoreRangeControl";
+
+interface FilterBarProps {
   filters: OpportunityBrowseFilters;
   facets: Record<string, Record<string, number>>;
+  /** Sonuç sayacı: yüklenirken eski sayı korunur, sahte 0/0 gösterilmez. */
+  shown: number;
+  total: number;
+  loading: boolean;
+  view: "rows" | "grid" | "kanban";
+  onView: (view: "rows" | "grid" | "kanban") => void;
   onChange: (next: OpportunityBrowseFilters) => void;
+  onSearchChange: (value: string) => void;
+  /** Bildirim bölgesi: sonuç değişimini ekran okuyucuya duyurur. */
+  liveMessage: string;
 }
 
-const SCORE_PRESETS = [
-  { label: "80–100", min: 80, max: 100 },
-  { label: "70–100", min: 70, max: 100 },
-  { label: "40–69", min: 40, max: 69.9 },
-  { label: "0–39", min: 0, max: 39.9 },
-  { label: "Elendi", min: -1, max: -1 },
-] as const;
+const SORT_LABELS: Record<string, string> = {
+  score: "Skor: yüksekten düşüğe",
+  skill_match: "Profil uyumu: en yüksek",
+  score_asc: "Skor: düşükten yükseğe",
+  newest: "En yeni",
+  oldest: "En eski",
+  deadline: "Son tarihe göre",
+};
 
-const SKILL_MATCH_PRESETS = [
-  { label: "%70+ Uyum", tier: "high", min: 0.7 },
-  { label: "%40–%69 Uyum", tier: "mid", min: 0.4 },
-  { label: "Tüm Eşleşmeler", tier: "any", min: 0.01 },
-] as const;
-
-function scoreLabel(value: number): string {
-  return value === -1 ? "Elendi" : String(value);
-}
-
-function ScoreSlider({
-  minValue,
-  maxValue,
-  onCommit,
-}: {
-  minValue: number;
-  maxValue: number;
-  onCommit: (minValue: number, maxValue: number) => void;
-}) {
-  const [draftMin, setDraftMin] = useState(minValue);
-  const [draftMax, setDraftMax] = useState(maxValue);
-
-  useEffect(() => setDraftMin(minValue), [minValue]);
-  useEffect(() => setDraftMax(maxValue), [maxValue]);
-
-  const commit = () => {
-    if (draftMin !== minValue || draftMax !== maxValue) onCommit(draftMin, draftMax);
-  };
-
-  return (
-    <div
-      className="rounded-control border border-subtle bg-surface-sunken/40 px-4 py-2.5"
-      onPointerUp={commit}
-      onPointerCancel={commit}
-      onKeyUp={commit}
-      onBlur={commit}
-    >
-      <div className="mb-1 flex items-center justify-between gap-4 text-meta">
-        <span className="text-secondary">
-          Minimum <strong className="font-medium text-primary">{scoreLabel(draftMin)}</strong>
-        </span>
-        <span className="text-secondary">
-          Maksimum <strong className="font-medium text-primary">{scoreLabel(draftMax)}</strong>
-        </span>
-      </div>
-      <DualRange
-        min={-1}
-        max={100}
-        minValue={draftMin}
-        maxValue={draftMax}
-        minAriaLabel="Minimum skor"
-        maxAriaLabel="Maksimum skor"
-        onChange={(nextMin, nextMax) => {
-          setDraftMin(nextMin);
-          setDraftMax(nextMax);
-        }}
-      />
-      <div className="flex justify-between text-micro text-muted" aria-hidden>
-        <span>Elendi</span>
-        <span>50</span>
-        <span>100</span>
-      </div>
-    </div>
-  );
-}
-
-export function OpportunityFilters({ filters, facets, onChange }: Props) {
-  const [showAdvancedScore, setShowAdvancedScore] = useState(false);
-  const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
-  const scoreFilterActive = filters.min_score !== undefined || filters.max_score !== undefined;
-  const skillMatchActive = filters.min_skill_match !== undefined || Boolean(filters.skill_tier);
-
-  const activeFiltersCount =
-    (filters.search ? 1 : 0) +
-    (filters.category ? 1 : 0) +
-    (filters.skill ? 1 : 0) +
-    (scoreFilterActive ? 1 : 0) +
-    (skillMatchActive ? 1 : 0) +
-    (filters.remote ? 1 : 0) +
-    (filters.region ? 1 : 0) +
-    (filters.archetype ? 1 : 0) +
-    (filters.recommendation ? 1 : 0) +
-    (filters.status ? 1 : 0) +
-    (filters.source ? 1 : 0) +
-    (filters.announcement_source ? 1 : 0) +
-    (filters.period_days ? 1 : 0) +
-    (filters.year ? 1 : 0);
-
-  const clearAllFilters = () => {
-    onChange({
-      ...filters,
-      search: undefined,
-      category: undefined,
-      skill: undefined,
-      min_score: undefined,
-      max_score: undefined,
-      min_skill_match: undefined,
-      skill_tier: undefined,
-      remote: undefined,
-      region: undefined,
-      archetype: undefined,
-      recommendation: undefined,
-      status: undefined,
-      source: undefined,
-      announcement_source: undefined,
-      period_days: undefined,
-      year: undefined,
-      offset: 0,
-    });
-  };
-
-  const chips = (
-    values: Record<string, number> | undefined,
-    selected: string | undefined,
-    labels: Record<string, string>,
-    key:
-      "category" | "status" | "source" | "region" | "remote" | "announcement_source" | "archetype" | "recommendation",
-  ) =>
-    Object.entries(values ?? {}).map(([value, count]) => (
+function facetChips(
+  facets: Record<string, Record<string, number>>,
+  key: string,
+  labels: Record<string, string>,
+  selected: string | undefined,
+  onPick: (value: string) => void,
+) {
+  return Object.entries(facets[key] ?? {})
+    .sort(([, left], [, right]) => right - left)
+    .map(([value, count]) => (
       <FilterChip
         key={value}
         label={labels[value] ?? value}
         count={count}
         active={selected === value}
-        onClick={() => update({ [key]: selected === value ? "" : value })}
+        onClick={() => onPick(selected === value ? "" : value)}
       />
     ));
+}
+
+export function OpportunityFilterBar({
+  filters,
+  facets,
+  shown,
+  total,
+  loading,
+  view,
+  onView,
+  onChange,
+  onSearchChange,
+  liveMessage,
+}: FilterBarProps) {
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelAnchor = useRef<HTMLSpanElement>(null);
+  const chips = useMemo(() => activeFilterChips(filters), [filters]);
+  const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
 
   return (
-    <div className="space-y-4">
-      {/* Aktif Filtre Rozetleri & Hızlı Temizleme Barı */}
-      {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-control border border-subtle bg-surface-sunken/40 px-3 py-2 text-meta">
-          <span className="text-secondary font-medium">Aktif Filtreler:</span>
-          {scoreFilterActive && (
-            <Chip tone="accent">
-              <span className="inline-flex items-center gap-1">
-                <span>
-                  Uyum: {filters.min_score ?? -1}–{filters.max_score ?? 100}p
-                </span>
-                <button
-                  type="button"
-                  onClick={() => update({ min_score: undefined, max_score: undefined })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Skor filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </Chip>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-[2_1_16rem]">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon" />
+          <Input
+            value={filters.search ?? ""}
+            onChange={onSearchChange}
+            placeholder="Başlık, kurum, konum ya da kaynakta ara…"
+            ariaLabel="Fırsatlarda ara"
+            className="w-full pl-9"
+          />
+        </div>
+
+        {filters.section === "jobs" && (
+          <ScoreRangeControl
+            min={filters.min_score}
+            max={filters.max_score}
+            onChange={(min, max) => update({ min_score: min, max_score: max })}
+          />
+        )}
+
+        <Select
+          ariaLabel="Sıralama"
+          value={filters.sort}
+          onChange={(sort) => update({ sort: sort as OpportunityBrowseFilters["sort"] })}
+        >
+          {(filters.section === "jobs" ? ["score", "skill_match", "score_asc"] : ["newest", "oldest", "deadline"]).map(
+            (key) => (
+              <option key={key} value={key}>
+                {SORT_LABELS[key]}
+              </option>
+            ),
           )}
-          {skillMatchActive && (
-            <Chip tone="ok">
-              <span className="inline-flex items-center gap-1">
-                <span>CV Uyumu: ≥%{Math.round((filters.min_skill_match ?? 0) * 100)}</span>
-                <button
-                  type="button"
-                  onClick={() => update({ min_skill_match: undefined, skill_tier: undefined })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="CV eşleşme filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
+          {filters.section === "jobs" && <option value="newest">En yeni</option>}
+        </Select>
+
+        <span className="relative inline-flex" ref={panelAnchor}>
+          <Button
+            size="sm"
+            variant={panelOpen || chips.length > 0 ? "secondary" : "ghost"}
+            ariaExpanded={panelOpen}
+            onClick={() => setPanelOpen((open) => !open)}
+          >
+            <SlidersHorizontal size={12} /> Filtreler
+            {chips.length > 0 && (
+              <span className="ml-0.5 rounded-full bg-accent px-1.5 text-micro tabular-nums text-canvas">
+                {chips.length}
               </span>
-            </Chip>
-          )}
-          {filters.remote && (
-            <Chip tone="neutral">
-              <span className="inline-flex items-center gap-1">
-                <span>Çalışma: {REMOTE_LABELS[filters.remote as RemoteKind] ?? filters.remote}</span>
-                <button
-                  type="button"
-                  onClick={() => update({ remote: "" })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Çalışma filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </Chip>
-          )}
-          {filters.region && (
-            <Chip tone="neutral">
-              <span className="inline-flex items-center gap-1">
-                <span>Konum: {filters.region === "TR" ? "Türkiye" : filters.region}</span>
-                <button
-                  type="button"
-                  onClick={() => update({ region: "" })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Konum filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </Chip>
-          )}
-          {filters.status && (
-            <Chip tone="neutral">
-              <span className="inline-flex items-center gap-1">
-                <span>Durum: {statusLabel(filters.status)}</span>
-                <button
-                  type="button"
-                  onClick={() => update({ status: "" })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Durum filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </Chip>
-          )}
-          {filters.source && (
-            <Chip tone="neutral">
-              <span className="inline-flex items-center gap-1">
-                <span>Kaynak: {sourceLabel(filters.source)}</span>
-                <button
-                  type="button"
-                  onClick={() => update({ source: "" })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Kaynak filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </Chip>
-          )}
-          {filters.recommendation && (
-            <Chip
-              tone={
-                filters.recommendation === "pursue" ? "ok" : filters.recommendation === "consider" ? "warn" : "danger"
-              }
+            )}
+          </Button>
+          <FilterPanelPopover
+            open={panelOpen}
+            onClose={() => setPanelOpen(false)}
+            anchorRef={panelAnchor}
+            filters={filters}
+            facets={facets}
+            onChange={onChange}
+          />
+        </span>
+
+        <span className="ml-auto flex items-center gap-2">
+          <span
+            className={cx("text-meta tabular-nums", loading ? "text-muted" : "text-secondary")}
+            aria-live="polite"
+            aria-busy={loading}
+          >
+            {loading ? "Yükleniyor…" : `${shown} / ${total} kayıt`}
+          </span>
+          <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5">
+            <IconButton
+              title="Yatay satırlar"
+              onClick={() => onView("rows")}
+              className={view === "rows" ? "bg-surface-sunken text-primary" : "border-transparent"}
             >
+              <List size={14} />
+            </IconButton>
+            <IconButton
+              title="Karesel kartlar"
+              onClick={() => onView("grid")}
+              className={view === "grid" ? "bg-surface-sunken text-primary" : "border-transparent"}
+            >
+              <LayoutGrid size={14} />
+            </IconButton>
+            <IconButton
+              title="Kanban panosu"
+              onClick={() => onView("kanban")}
+              className={view === "kanban" ? "bg-surface-sunken text-primary" : "border-transparent"}
+            >
+              <Kanban size={14} />
+            </IconButton>
+          </span>
+        </span>
+      </div>
+
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5" aria-label="Aktif filtreler">
+          {chips.map((chip) => (
+            <Chip key={`${chip.key}:${chip.label}`} tone="accent">
               <span className="inline-flex items-center gap-1">
-                <span>Karar: {recommendationLabel(filters.recommendation)}</span>
+                <span>{chip.label}</span>
                 <button
                   type="button"
-                  onClick={() => update({ recommendation: "" })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Karar filtresini kaldır"
+                  onClick={() => onChange(chip.clear(filters))}
+                  className="ml-0.5 cursor-pointer hover:opacity-75"
+                  aria-label={`${chip.label} filtresini kaldır`}
                 >
                   <X size={12} />
                 </button>
               </span>
             </Chip>
-          )}
-          {filters.archetype && (
-            <Chip tone="accent">
-              <span className="inline-flex items-center gap-1">
-                <span>Rol: {archetypeLabel(filters.archetype)}</span>
-                <button
-                  type="button"
-                  onClick={() => update({ archetype: "" })}
-                  className="hover:opacity-75 cursor-pointer ml-1"
-                  title="Rol filtresini kaldır"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </Chip>
-          )}
-          <Button size="sm" variant="ghost" onClick={clearAllFilters} className="ml-auto text-meta">
-            <RotateCcw size={12} /> Tümünü Temizle
+          ))}
+          <Button size="sm" variant="ghost" onClick={() => onChange(clearAllFilters(filters))}>
+            <RotateCcw size={12} /> Tümünü temizle
           </Button>
         </div>
       )}
 
-      {/* DUYURULAR İÇİN ÖZEL FİLTRE */}
-      {filters.section === "announcements" && (
-        <Section title="Duyuru türü">
-          <div className="flex flex-wrap gap-2">
-            {chips(
-              facets.announcement_sources,
-              filters.announcement_source,
-              { ylsy: "YLSY", osym: "ÖSYM", other: "Diğer" },
-              "announcement_source",
-            )}
+      <p className="sr-only" role="status">
+        {liveMessage}
+      </p>
+    </div>
+  );
+}
+
+function FilterPanelPopover({
+  open,
+  onClose,
+  anchorRef,
+  filters,
+  facets,
+  onChange,
+}: {
+  open: boolean;
+  onClose: () => void;
+  anchorRef: { current: HTMLElement | null };
+  filters: OpportunityBrowseFilters;
+  facets: Record<string, Record<string, number>>;
+  onChange: (next: OpportunityBrowseFilters) => void;
+}) {
+  const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
+  const jobs = filters.section === "jobs";
+
+  return (
+    <Popover
+      open={open}
+      onClose={onClose}
+      anchorRef={anchorRef}
+      role="dialog"
+      ariaLabel="Filtreler"
+      className="left-0 top-[calc(100%+0.375rem)] max-h-[70vh] w-[min(30rem,calc(100vw-2rem))] overflow-y-auto p-4"
+    >
+      <div className="space-y-4">
+        <header className="flex items-center justify-between">
+          <h3 className="text-heading text-primary">Filtreler</h3>
+          <Button size="sm" variant="ghost" onClick={() => onChange(clearAllFilters(filters))}>
+            <RotateCcw size={12} /> Temizle
+          </Button>
+        </header>
+
+        {jobs && (
+          <Section title="Profil / beceri uyumu">
+            <div className="flex flex-wrap gap-1.5">
+              {PROFILE_MATCH_PRESETS.map((preset) => {
+                const active =
+                  preset.min === filters.min_skill_match &&
+                  preset.max === filters.max_skill_match &&
+                  (preset.state ?? undefined) === (filters.skill_match_state ?? undefined);
+                return (
+                  <FilterChip
+                    key={preset.label}
+                    label={preset.label}
+                    active={active}
+                    onClick={() =>
+                      update(
+                        active
+                          ? {
+                              min_skill_match: undefined,
+                              max_skill_match: undefined,
+                              skill_match_state: undefined,
+                              skill_tier: undefined,
+                            }
+                          : {
+                              min_skill_match: preset.min,
+                              max_skill_match: preset.max,
+                              skill_match_state: preset.state,
+                              skill_tier: preset.tier,
+                            },
+                      )
+                    }
+                  />
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-micro text-muted">
+              Bu oran yalnızca profilindeki becerilerle ilan metninin örtüşmesidir; CV dosyasıyla yapılan değerlendirme
+              ilan detayındaki “Uyum” sekmesindedir.
+            </p>
+          </Section>
+        )}
+
+        <Section title={jobs ? "Kategori" : "Duyuru türü"}>
+          <div className="flex flex-wrap gap-1.5">
+            {jobs
+              ? facetChips(
+                  facets,
+                  "categories",
+                  Object.fromEntries(Object.keys(facets.categories ?? {}).map((key) => [key, jobCategoryLabel(key)])),
+                  filters.category,
+                  (value) => update({ category: value }),
+                )
+              : facetChips(
+                  facets,
+                  "announcement_sources",
+                  { ylsy: "YLSY", osym: "ÖSYM", other: "Diğer" },
+                  filters.announcement_source,
+                  (value) => update({ announcement_source: value as "" | "ylsy" | "osym" | "other" }),
+                )}
           </div>
         </Section>
-      )}
 
-      {/* İŞ İLANLARI İÇİN YENİLENMİŞ FİLTRELEME & SINIFLANDIRMA */}
-      {filters.section === "jobs" && (
-        <>
-          {/* KATMAN 1: UYUM SKORU & CV EŞLEŞME SINIFLANDIRMASI */}
-          <Section
-            title="Uyum skoru"
-            hint={scoreFilterActive ? `${filters.min_score ?? -1}–${filters.max_score ?? 100}p` : "Tüm skorlar"}
-            action={
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setShowAdvancedScore((prev) => !prev)}>
-                  <SlidersHorizontal size={12} /> {showAdvancedScore ? "Sliderı Gizle" : "Hassas Aralık"}
-                </Button>
-                {scoreFilterActive && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => update({ min_score: undefined, max_score: undefined })}
-                  >
-                    Temizle
-                  </Button>
-                )}
-              </div>
-            }
-          >
-            <div className="space-y-3">
-              {/* Uyum Skoru Kademeleri */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="label-caps mr-1 text-secondary">Skor Kademesi</span>
-                {SCORE_PRESETS.map((preset) => {
-                  const active = filters.min_score === preset.min && filters.max_score === preset.max;
-                  return (
-                    <FilterChip
-                      key={preset.label}
-                      label={preset.label}
-                      active={active}
-                      onClick={() =>
-                        update(
-                          active
-                            ? { min_score: undefined, max_score: undefined }
-                            : { min_score: preset.min, max_score: preset.max },
-                        )
-                      }
-                    />
-                  );
-                })}
-              </div>
-
-              {/* CV & Beceri Eşleşme Kademeleri */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="label-caps mr-1 text-secondary">CV Eşleşmesi</span>
-                {SKILL_MATCH_PRESETS.map((preset) => {
-                  const active = filters.skill_tier === preset.tier;
-                  return (
-                    <FilterChip
-                      key={preset.tier}
-                      label={preset.label}
-                      active={active}
-                      onClick={() =>
-                        update(
-                          active
-                            ? { min_skill_match: undefined, skill_tier: undefined }
-                            : { min_skill_match: preset.min, skill_tier: preset.tier },
-                        )
-                      }
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Çift Yönlü Hassas Skor Slider'ı (Test uyumluluğu için her zaman DOM'da, varsayılan görünümde veya açıkken) */}
-              <div className={showAdvancedScore ? "pt-2 block" : "pt-2 hidden lg:block"}>
-                <ScoreSlider
-                  minValue={filters.min_score ?? -1}
-                  maxValue={filters.max_score ?? 100}
-                  onCommit={(minScore, maxScore) => update({ min_score: minScore, max_score: maxScore })}
-                />
-              </div>
-            </div>
-          </Section>
-
-          {/* KATMAN 2: DEĞERLENDİRME & KARİYER OPS ARKETİPLERİ */}
-          {(Object.keys(facets.recommendations ?? {}).length > 0 ||
-            Object.keys(facets.archetypes ?? {}).length > 0) && (
-            <Section title="Kariyer analizi & rol tipi">
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                {Object.keys(facets.recommendations ?? {}).length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="label-caps mr-1 text-secondary">Karar</span>
-                    {chips(facets.recommendations, filters.recommendation, RECOMMENDATION_LABELS, "recommendation")}
-                  </div>
-                )}
-                {Object.keys(facets.archetypes ?? {}).length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="label-caps mr-1 text-secondary">Rol tipi</span>
-                    {chips(facets.archetypes, filters.archetype, ARCHETYPE_LABELS, "archetype")}
-                  </div>
-                )}
-              </div>
-            </Section>
-          )}
-        </>
-      )}
-
-      {/* KATMAN 3: ÇALIŞMA BİÇİMİ, KONUM VE TARİH */}
-      <Section title={filters.section === "jobs" ? "Çalışma biçimi & konum" : "Kurum & tarih"}>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-          {filters.section === "jobs" && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="label-caps mr-1">Konum</span>
-              {chips(
-                facets.regions,
-                filters.region,
+        <Section title="Konum & çalışma biçimi">
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {facetChips(
+                facets,
+                "regions",
                 { TR: "Türkiye", EU: "Avrupa", OTHER: "Diğer", UNKNOWN: "Konum bilinmiyor" },
-                "region",
+                filters.region,
+                (value) => update({ region: value }),
               )}
             </div>
-          )}
-          {filters.section === "jobs" && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="label-caps mr-1">Çalışma biçimi</span>
-              {chips(facets.remote, filters.remote, REMOTE_LABELS, "remote")}
+            <div className="flex flex-wrap gap-1.5">
+              {facetChips(facets, "remote", REMOTE_LABELS as Record<string, string>, filters.remote, (value) =>
+                update({ remote: value }),
+              )}
+              <FilterChip
+                label="Bilinmiyor"
+                count={facets.remote?.unknown}
+                active={filters.remote === "unknown"}
+                onClick={() => update({ remote: filters.remote === "unknown" ? "" : "unknown" })}
+              />
             </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="label-caps mr-1">Kaynak</span>
+          </div>
+        </Section>
+
+        {jobs && (
+          <Section title="Kariyer analizi & rol tipi">
+            <div className="flex flex-wrap gap-1.5">
+              {facetChips(facets, "recommendations", RECOMMENDATION_LABELS, filters.recommendation, (value) =>
+                update({ recommendation: value }),
+              )}
+              {facetChips(facets, "archetypes", ARCHETYPE_LABELS, filters.archetype, (value) =>
+                update({ archetype: value }),
+              )}
+            </div>
+          </Section>
+        )}
+
+        {jobs && (
+          <Section title="Beceri">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                value={filters.skill ?? ""}
+                onChange={(skill) => update({ skill })}
+                placeholder="örn. kubernetes, python"
+                ariaLabel="Beceriye göre filtrele"
+                className="max-w-xs"
+              />
+              {filters.skill && (
+                <Button size="sm" variant="ghost" onClick={() => update({ skill: undefined })}>
+                  Kaldır
+                </Button>
+              )}
+            </div>
+          </Section>
+        )}
+
+        <Section title="Kaynak">
+          <div className="flex flex-wrap items-center gap-1.5">
             <FilterChip
-              label="✍️ Manuel Eklenenler"
+              label="Manuel Eklenenler"
               count={facets.sources?.manual}
               active={filters.source === "manual"}
               onClick={() => update({ source: filters.source === "manual" ? "" : "manual" })}
+            />
+            <FilterChip
+              label="Eklenti"
+              count={facets.sources?.extension}
+              active={filters.source === "extension"}
+              onClick={() => update({ source: filters.source === "extension" ? "" : "extension" })}
             />
             <Select
               ariaLabel="Kaynak"
@@ -455,8 +385,17 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
                 ))}
             </Select>
           </div>
-          {filters.section === "announcements" && (
-            <>
+        </Section>
+
+        <Section title="Durum">
+          <div className="flex flex-wrap gap-1.5">
+            {facetChips(facets, "statuses", STATUS_LABELS, filters.status, (value) => update({ status: value }))}
+          </div>
+        </Section>
+
+        {!jobs && (
+          <Section title="Tarih">
+            <div className="flex flex-wrap items-center gap-1.5">
               {[30, 90, 365].map((days) => (
                 <FilterChip
                   key={days}
@@ -472,45 +411,22 @@ export function OpportunityFilters({ filters, facets, onChange }: Props) {
               >
                 <option value="">Tüm yıllar</option>
                 {Object.keys(facets.years ?? {})
-                  .sort((a, b) => Number(b) - Number(a))
+                  .sort((left, right) => Number(right) - Number(left))
                   .map((year) => (
                     <option key={year} value={year}>
                       {year}
                     </option>
                   ))}
               </Select>
-            </>
-          )}
-        </div>
-      </Section>
+            </div>
+          </Section>
+        )}
 
-      {/* KATMAN 4: DURUM VE SIRALAMA */}
-      <Section title="Durum & sıralama">
-        <div className="flex flex-wrap items-center gap-2">
-          {chips(
-            facets.statuses,
-            filters.status,
-            Object.fromEntries(STATUSES.map((s) => [s, statusLabel(s)])),
-            "status",
-          )}
-          <Select
-            ariaLabel="Sıralama"
-            value={filters.sort}
-            onChange={(sort) => update({ sort: sort as OpportunityBrowseFilters["sort"] })}
-          >
-            {filters.section === "jobs" && (
-              <>
-                <option value="score">Skor: yüksekten düşüğe</option>
-                <option value="skill_match">CV eşleşmesi: en yüksek uyum</option>
-                <option value="score_asc">Skor: düşükten yükseğe</option>
-              </>
-            )}
-            <option value="newest">En yeni</option>
-            <option value="oldest">En eski</option>
-            <option value="deadline">Son tarihe göre</option>
-          </Select>
-        </div>
-      </Section>
-    </div>
+        <p className="text-micro text-muted">
+          Çalışma biçimi kovaları kaynak metninden türetilir; “Çalışma biçimi bilinmiyor” ilanda bu alanın hiç
+          yazılmadığı kayıtları toplar.
+        </p>
+      </div>
+    </Popover>
   );
 }

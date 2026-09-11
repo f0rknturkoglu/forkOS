@@ -1,10 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { REMOTE_LABELS, SCORE_TONE, STATUSES, daysLeft, remoteKind, scoreBand } from "./labels";
+import {
+  ANNOUNCEMENT_STATUSES,
+  APPLICATION_STATUSES,
+  JOB_DISCOVERY_STATUSES,
+  REMOTE_LABELS,
+  SCORE_TONE,
+  STATUSES,
+  applicationStatusLabel,
+  daysLeft,
+  kindLabel,
+  remoteKind,
+  scoreBand,
+} from "./labels";
 
-/** Backend STATUS_FLOW (app/modules/opportunity/application.py) — kart ve suzgec ayni sirayi kullanir. */
-const BACKEND_STATUS_FLOW = [
-  "discovered",
-  "considering",
+/** Backend kesif dongusu (lifecycle.JOB_DISCOVERY_FLOW). */
+const BACKEND_JOB_FLOW = ["discovered", "shortlisted", "dismissed", "archived", "closed"];
+/** Backend duyuru dongusu (lifecycle.ANNOUNCEMENT_FLOW). */
+const BACKEND_ANNOUNCEMENT_FLOW = [
+  "new",
+  "reviewed",
+  "watching",
+  "action_required",
+  "applied",
+  "completed",
+  "expired",
+  "archived",
+];
+/** Backend basvuru hatti (lifecycle.APPLICATION_FLOW). */
+const BACKEND_APPLICATION_FLOW = [
   "preparing",
   "applied",
   "interview",
@@ -84,8 +107,32 @@ describe("remoteKind kanonik kovalari", () => {
 });
 
 describe("STATUSES ve SCORE_TONE backend ile ayni", () => {
-  it("STATUSES sirasi backend STATUS_FLOW ile ayni", () => {
-    expect(STATUSES).toEqual(BACKEND_STATUS_FLOW);
+  it("keşif, duyuru ve başvuru kümeleri backend ile ayni", () => {
+    expect(JOB_DISCOVERY_STATUSES).toEqual(BACKEND_JOB_FLOW);
+    expect(ANNOUNCEMENT_STATUSES).toEqual(BACKEND_ANNOUNCEMENT_FLOW);
+    expect(APPLICATION_STATUSES).toEqual(BACKEND_APPLICATION_FLOW);
+    // Geriye dönük isim kesif akisini tasir; basvuru hatti AYRI kümedir.
+    expect(STATUSES).toEqual(BACKEND_JOB_FLOW);
+  });
+
+  it("başvuru durumları keşif durumlarıyla karışmaz", () => {
+    // İki küme yalnızca "closed" belirtecini paylaşır (her ikisinde de
+    // "kapandı" anlamına gelir); dinî diğer değerler ayrıdır ve ayrı
+    // kolonlarda saklanır.
+    const jobOnly = ["discovered", "shortlisted", "dismissed", "archived"];
+    for (const status of jobOnly) {
+      expect(APPLICATION_STATUSES).not.toContain(status);
+    }
+    for (const status of ["interview", "offer", "accepted", "withdrawn"]) {
+      expect(JOB_DISCOVERY_STATUSES).not.toContain(status);
+    }
+    expect(applicationStatusLabel("interview")).toBe("Görüşme");
+    expect(applicationStatusLabel("discovered")).toBe("Hazırlanıyor");
+  });
+
+  it("her tür için okunabilir bir etiket var", () => {
+    expect(kindLabel("job")).toBe("İş ilanı");
+    expect(kindLabel("announcement")).toBe("Duyuru");
   });
 
   it("SCORE_TONE her band icin renk tanimli", () => {

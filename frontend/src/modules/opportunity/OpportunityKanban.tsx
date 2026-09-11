@@ -1,9 +1,10 @@
 import { memo, useMemo, useState } from "react";
-import { Eye, Users, XCircle } from "lucide-react";
+import { Users } from "lucide-react";
 import type { Opportunity } from "@/core/types";
-import { Chip } from "@/core/ui";
+import { Button, Chip } from "@/core/ui";
 import {
   SCORE_TONE,
+  applicationStatusLabel,
   archetypeLabel,
   daysLeft,
   recommendationLabel,
@@ -18,6 +19,8 @@ interface OpportunityKanbanProps {
   disabled?: boolean;
   onOpen: (id: string) => void;
   onStatus: (id: string, status: string) => void;
+  /** Pano, seçili çalışma alanının yaşam döngüsünü gösterir. */
+  section: "jobs" | "announcements";
 }
 
 interface ColumnDef {
@@ -27,13 +30,25 @@ interface ColumnDef {
   tone?: "accent" | "ok" | "warn" | "danger" | "neutral";
 }
 
-const COLUMNS: ColumnDef[] = [
+const JOB_COLUMNS: ColumnDef[] = [
   { key: "discovered", title: "Keşfedildi", statuses: ["discovered"], tone: "neutral" },
-  { key: "considering", title: "İnceleniyor", statuses: ["considering", "preparing"], tone: "accent" },
-  { key: "applied", title: "Başvuruldu", statuses: ["applied"], tone: "warn" },
-  { key: "interview", title: "Mülakat", statuses: ["interview"], tone: "accent" },
-  { key: "offer", title: "Teklif", statuses: ["offer"], tone: "ok" },
-  { key: "terminal", title: "Sonuçlandı", statuses: ["accepted", "rejected", "withdrawn", "closed"], tone: "neutral" },
+  { key: "shortlisted", title: "Kısa listede", statuses: ["shortlisted"], tone: "accent" },
+  { key: "dismissed", title: "Elendi", statuses: ["dismissed"], tone: "neutral" },
+  { key: "archived", title: "Arşivde", statuses: ["archived", "closed"], tone: "neutral" },
+];
+
+const ANNOUNCEMENT_COLUMNS: ColumnDef[] = [
+  { key: "new", title: "Yeni", statuses: ["new"], tone: "accent" },
+  { key: "reviewed", title: "İncelendi", statuses: ["reviewed"], tone: "neutral" },
+  { key: "watching", title: "Takipte", statuses: ["watching"], tone: "warn" },
+  {
+    key: "action_required",
+    title: "Aksiyon gerekli",
+    statuses: ["action_required"],
+    tone: "warn",
+  },
+  { key: "applied", title: "Başvuruldu", statuses: ["applied", "completed"], tone: "ok" },
+  { key: "closed", title: "Süresi geçti / arşiv", statuses: ["expired", "archived"], tone: "neutral" },
 ];
 
 const INITIAL_LIMIT = 40;
@@ -51,21 +66,13 @@ const KanbanCard = memo(function KanbanCard({ item, disabled, onOpen, onStatus, 
   const tone = band ? SCORE_TONE[band] : "neutral";
   const left = daysLeft(item.deadline_at ?? null);
   const remote = remoteKind(item.remote);
+  // Yalnızca backend'in izin verdiği geçişler düğme olur.
+  const allowed = item.allowed_transitions ?? [];
 
   return (
-    <div
-      onClick={() => onOpen(item.id)}
-      className="group cursor-pointer rounded-control border border-subtle bg-canvas p-3 shadow-card transition hover:border-strong hover:shadow-overlay"
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(item.id);
-        }
-      }}
-    >
-      {/* Üst bilgi: Şirket ve Skor */}
+    // Kart bir kapsayıcıdır, tıklanabilir "role=button" DEĞİL: içinde gerçek
+    // düğmeler var. Açma işi başlıktaki gerçek <button>'a aittir.
+    <article className="group rounded-control border border-subtle bg-canvas p-3 shadow-card transition hover:border-strong hover:shadow-overlay">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="truncate text-meta font-medium text-secondary">{item.organization || "Bilinmeyen kurum"}</span>
         {item.score !== null && item.score !== undefined && (
@@ -73,10 +80,14 @@ const KanbanCard = memo(function KanbanCard({ item, disabled, onOpen, onStatus, 
         )}
       </div>
 
-      {/* Başlık */}
-      <h4 className="mb-2 line-clamp-2 text-body font-medium text-primary">{item.title}</h4>
+      <button
+        type="button"
+        onClick={() => onOpen(item.id)}
+        className="mb-2 line-clamp-2 w-full text-left text-body font-medium text-primary transition hover:text-accent"
+      >
+        {item.title}
+      </button>
 
-      {/* Etiketler */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5 text-micro">
         {remote && remote !== "unknown" && (
           <Chip tone="neutral">{remote === "remote" ? "Remote" : remote === "hybrid" ? "Hybrid" : "Ofis"}</Chip>
@@ -86,7 +97,10 @@ const KanbanCard = memo(function KanbanCard({ item, disabled, onOpen, onStatus, 
             {left < 0 ? "Süresi geçti" : left === 0 ? "Son gün" : `${left}g kaldı`}
           </Chip>
         )}
-        {item.skill_match && <Chip tone="ok">CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}</Chip>}
+        {item.profile_match_ratio !== null && item.profile_match_ratio !== undefined && (
+          <Chip tone="ok">Profil: %{Math.round(item.profile_match_ratio * 100)}</Chip>
+        )}
+        {item.application_status && <Chip tone="accent">Başvuru: {statusLabel(item.application_status)}</Chip>}
         {item.evaluation?.recommendation && (
           <Chip tone={recommendationTone(item.evaluation.recommendation)}>
             {recommendationLabel(item.evaluation.recommendation)} · {item.evaluation.score}p
@@ -106,159 +120,84 @@ const KanbanCard = memo(function KanbanCard({ item, disabled, onOpen, onStatus, 
         {item.status !== primaryStatus && <Chip tone="accent">{statusLabel(item.status)}</Chip>}
       </div>
 
-      {/* Hızlı Aksiyonlar */}
-      <div
-        className="flex items-center justify-between border-t border-subtle pt-2"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={() => onOpen(item.id)}
-          className="flex items-center gap-1 text-micro text-secondary hover:text-primary"
-        >
-          <Eye size={12} />
-          Detay
-        </button>
-
-        <div className="flex items-center gap-1">
-          {item.status === "discovered" && (
-            <button
-              type="button"
+      {allowed.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-subtle pt-2">
+          {allowed.slice(0, 3).map((status) => (
+            <Button
+              key={status}
+              size="sm"
+              variant={status === "dismissed" || status === "expired" ? "ghost" : "secondary"}
               disabled={disabled}
-              onClick={() => onStatus(item.id, "considering")}
-              className="rounded-control bg-accent-surface px-2 py-0.5 text-micro font-medium text-accent hover:bg-accent hover:text-canvas"
-              title="İncelemeye al"
+              onClick={() => onStatus(item.id, status)}
+              title={`${statusLabel(item.status)} → ${statusLabel(status)}`}
             >
-              İncele →
-            </button>
-          )}
-          {(item.status === "considering" || item.status === "preparing") && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onStatus(item.id, "applied")}
-              className="rounded-control bg-warn-surface px-2 py-0.5 text-micro font-medium text-warn hover:bg-warn hover:text-canvas"
-              title="Başvuruldu olarak işaretle"
-            >
-              Başvuruldu →
-            </button>
-          )}
-          {item.status === "applied" && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onStatus(item.id, "interview")}
-              className="rounded-control bg-accent-surface px-2 py-0.5 text-micro font-medium text-accent hover:bg-accent hover:text-canvas"
-              title="Mülakata taşı"
-            >
-              Mülakat →
-            </button>
-          )}
-          {item.status === "interview" && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onStatus(item.id, "offer")}
-              className="rounded-control bg-ok-surface px-2 py-0.5 text-micro font-medium text-ok hover:bg-ok hover:text-canvas"
-              title="Teklif aşamasına taşı"
-            >
-              Teklif →
-            </button>
-          )}
-          {item.status === "offer" && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onStatus(item.id, "accepted")}
-              className="rounded-control bg-ok-surface px-2 py-0.5 text-micro font-medium text-ok hover:bg-ok hover:text-canvas"
-              title="Teklifi kabul et"
-            >
-              Kabul ✓
-            </button>
-          )}
-          {!["accepted", "rejected", "withdrawn", "closed"].includes(item.status) && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onStatus(item.id, "rejected")}
-              className="rounded-control px-1.5 py-0.5 text-micro text-muted hover:bg-danger-surface hover:text-danger"
-              title="Reddedildi olarak işaretle"
-            >
-              <XCircle size={13} />
-            </button>
-          )}
+              {statusLabel(status)}
+            </Button>
+          ))}
         </div>
-      </div>
-    </div>
+      )}
+    </article>
   );
 });
 
-export function OpportunityKanban({ items, disabled = false, onOpen, onStatus }: OpportunityKanbanProps) {
+export function OpportunityKanban({ items, disabled = false, onOpen, onStatus, section }: OpportunityKanbanProps) {
   const [limits, setLimits] = useState<Record<string, number>>({});
+  const columns = section === "jobs" ? JOB_COLUMNS : ANNOUNCEMENT_COLUMNS;
 
   const grouped = useMemo(() => {
     const map = new Map<string, Opportunity[]>();
-    for (const col of COLUMNS) {
-      map.set(col.key, []);
-    }
+    for (const column of columns) map.set(column.key, []);
     for (const item of items) {
-      const col = COLUMNS.find((c) => c.statuses.includes(item.status));
-      if (col) {
-        map.get(col.key)?.push(item);
-      } else {
-        map.get("discovered")?.push(item);
-      }
+      const column = columns.find((candidate) => candidate.statuses.includes(item.status));
+      map.get(column?.key ?? columns[0].key)?.push(item);
     }
     return map;
-  }, [items]);
+  }, [items, columns]);
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-4 pt-1" role="region" aria-label="Fırsat kanban panosu">
-      {COLUMNS.map((col) => {
-        const colItems = grouped.get(col.key) ?? [];
-        const limit = limits[col.key] ?? INITIAL_LIMIT;
-        const visibleItems = colItems.slice(0, limit);
-        const remaining = colItems.length - limit;
+      {columns.map((column) => {
+        const columnItems = grouped.get(column.key) ?? [];
+        const limit = limits[column.key] ?? INITIAL_LIMIT;
+        const visible = columnItems.slice(0, limit);
+        const remaining = columnItems.length - limit;
 
         return (
           <div
-            key={col.key}
+            key={column.key}
             className="flex w-72 shrink-0 flex-col rounded-card border border-subtle bg-surface-sunken/40"
           >
-            {/* Sütun Başlığı */}
             <div className="flex items-center justify-between border-b border-subtle px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-meta font-medium text-primary">{col.title}</span>
-                <Chip tone={col.tone ?? "neutral"}>{colItems.length}</Chip>
+                <span className="text-meta font-medium text-primary">{column.title}</span>
+                <Chip tone={column.tone ?? "neutral"}>{columnItems.length}</Chip>
               </div>
             </div>
 
-            {/* Sütun İçeriği */}
-            <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-2.5 max-h-[calc(100vh-220px)]">
-              {colItems.length === 0 ? (
+            <div className="flex max-h-[calc(100vh-220px)] flex-1 flex-col gap-2.5 overflow-y-auto p-2.5">
+              {columnItems.length === 0 ? (
                 <div className="flex h-24 items-center justify-center rounded-control border border-dashed border-subtle text-meta text-muted">
                   Bu aşamada kayıt yok
                 </div>
               ) : (
                 <>
-                  {visibleItems.map((item) => (
+                  {visible.map((item) => (
                     <KanbanCard
                       key={item.id}
                       item={item}
                       disabled={disabled}
                       onOpen={onOpen}
                       onStatus={onStatus}
-                      primaryStatus={col.statuses[0]}
+                      primaryStatus={column.statuses[0]}
                     />
                   ))}
                   {remaining > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setLimits((prev) => ({ ...prev, [col.key]: limit + INITIAL_LIMIT }))}
-                      className="w-full rounded-control border border-subtle bg-surface py-2 text-meta font-medium text-secondary transition hover:bg-surface-hover hover:text-primary"
+                    <Button
+                      onClick={() => setLimits((prev) => ({ ...prev, [column.key]: limit + INITIAL_LIMIT }))}
+                      className="w-full"
                     >
                       + {remaining} daha fazla göster
-                    </button>
+                    </Button>
                   )}
                 </>
               )}

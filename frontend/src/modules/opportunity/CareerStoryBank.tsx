@@ -1,18 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BookOpen, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Link2, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import { invalidateAfter } from "@/core/invalidation";
-import { Button, Chip, IconButton, Input, Section, Select, Textarea, cx } from "@/core/ui";
-import type { CareerStory, CareerStoryProvenance } from "@/core/types";
-
-const PROVENANCE_LABELS: Record<CareerStoryProvenance, string> = {
-  existing: "Doğrudan yaşandı",
-  supported: "Belgeyle destekli",
-  "derived-unverified": "Türetilmiş · doğrulanmadı",
-  "user-cannot-confirm": "Doğrulanamıyor",
-};
+import { Button, Chip, Empty, Field, IconButton, Input, Section, Select, Textarea, cx } from "@/core/ui";
+import type { Application, CareerStory, CareerStoryProvenance, Opportunity } from "@/core/types";
+import { PROVENANCE_LABELS, storyOverlapsText, storySearchText } from "./careerUtils";
 
 const EMPTY_DRAFT = {
   title: "",
@@ -25,20 +19,113 @@ const EMPTY_DRAFT = {
   tags: "",
 };
 
+const STORY_FIELDS = [
+  ["situation", "S · Durum"],
+  ["task", "T · Görev"],
+  ["action", "A · Eylem"],
+  ["result", "R · Sonuç"],
+  ["reflection", "R · Çıkarım"],
+] as const;
+
+function ApplicationUsage({ story }: { story: CareerStory }) {
+  const storyId = story.id;
+  const { data: applications = [] } = useQuery({
+    queryKey: ["applications"],
+    queryFn: () => api.get<Opportunity[]>("/applications?limit=200"),
+  });
+  const covers = useQuery({
+    queryKey: ["career-cover-letters"],
+    queryFn: async () => {
+      const rows = await Promise.all(
+        applications.map(async (item) => {
+          const detail = await api.get<Application>(`/opportunities/${item.id}/application`);
+          return { opportunity: item, cover_letter: detail.cover_letter ?? "" };
+        }),
+      );
+      return rows.filter((row) => row.cover_letter.trim());
+    },
+  });
+
+  const usedIn = applications
+    .map((item) => ({
+      item,
+      requirements: (item.evaluation?.matches ?? [])
+        .filter((match) => match.story_ids.includes(storyId))
+        .map((match) => match.requirement),
+    }))
+    .filter((entry) => entry.requirements.length > 0);
+  const skills = [...new Set(usedIn.flatMap((entry) => entry.requirements))];
+  const letters = (covers.data ?? []).filter((row) => storyOverlapsText(story, row.cover_letter));
+
+  return (
+    <div className="space-y-3 rounded-card border border-subtle bg-surface p-3">
+      <div>
+        <span className="text-meta font-medium text-secondary">Kullanıldığı başvurular</span>
+        {usedIn.length === 0 ? (
+          <p className="mt-1 text-meta text-muted">Bu hikâye henüz bir başvurunun gereksinim eşleşmesinde geçmiyor.</p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {usedIn.map(({ item, requirements }) => (
+              <li key={item.id} className="text-meta text-secondary">
+                <span className="text-primary">{item.title}</span>
+                {item.organization ? ` · ${item.organization}` : ""} — {requirements.join(", ")}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <span className="text-meta font-medium text-secondary">İlgili beceriler</span>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {skills.length === 0 ? (
+            <span className="text-meta text-muted">Eşleşmiş gereksinim yok.</span>
+          ) : (
+            skills.map((skill) => <Chip key={skill}>{skill}</Chip>)
+          )}
+        </div>
+      </div>
+      <div>
+        <span className="text-meta font-medium text-secondary">Metni bu hikâyele örtüşen ön yazılar</span>
+        {covers.isLoading ? (
+          <p className="mt-1 text-meta text-muted">Yerel ön yazılar taranıyor…</p>
+        ) : letters.length === 0 ? (
+          <p className="mt-1 text-meta text-muted">Örtüşen ön yazı bulunmadı (yerel kelime taraması).</p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {letters.map(({ opportunity }) => (
+              <li key={opportunity.id} className="text-meta text-secondary">
+                <span className="text-primary">{opportunity.title}</span>
+                {opportunity.organization ? ` · ${opportunity.organization}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
   const [selectedId, setSelectedId] = useState<string | null>(focusId ?? null);
+  const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [search, setSearch] = useState("");
+  const [provenanceFilter, setProvenanceFilter] = useState<"" | CareerStoryProvenance>("");
   const { data: stories = [] } = useQuery({
     queryKey: ["career-stories"],
     queryFn: () => api.get<CareerStory[]>("/career/stories"),
   });
   const selected = stories.find((story) => story.id === selectedId) ?? null;
+  const editorOpen = creating || selected !== null;
 
   useEffect(() => {
-    if (!selected) {
-      if (!selectedId) setDraft(EMPTY_DRAFT);
-      return;
-    }
+    if (!focusId) return;
+    setCreating(false);
+    setSelectedId(focusId);
+  }, [focusId]);
+
+  useEffect(() => {
+    if (!selected) return;
     setDraft({
       title: selected.title,
       situation: selected.situation ?? "",
@@ -49,7 +136,16 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
       provenance: selected.provenance,
       tags: selected.tags.join(", "),
     });
-  }, [selected, selectedId]);
+  }, [selected]);
+
+  const visible = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase("tr");
+    return stories.filter(
+      (story) =>
+        (!provenanceFilter || story.provenance === provenanceFilter) &&
+        (!needle || storySearchText(story).includes(needle)),
+    );
+  }, [stories, search, provenanceFilter]);
 
   const payload = () => ({
     ...draft,
@@ -64,6 +160,7 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
         ? api.patch<CareerStory>(`/career/stories/${selectedId}`, payload())
         : api.post<CareerStory>("/career/stories", payload()),
     onSuccess: (story) => {
+      setCreating(false);
       setSelectedId(story.id);
       invalidateAfter("career.write");
     },
@@ -72,6 +169,7 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
     mutationFn: (id: string) => api.del(`/career/stories/${id}`),
     onSuccess: () => {
       setSelectedId(null);
+      setCreating(false);
       setDraft(EMPTY_DRAFT);
       invalidateAfter("career.write");
     },
@@ -88,38 +186,65 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
     if (ok) archive.mutate(selected.id);
   }
 
+  function startNew() {
+    setSelectedId(null);
+    setCreating(true);
+    setDraft(EMPTY_DRAFT);
+  }
+
   return (
     <Section
       title="STAR+R hikâye bankası"
       hint={`${stories.length} hikâye · tamamı yerel`}
       action={
-        <Button
-          size="sm"
-          onClick={() => {
-            setSelectedId(null);
-            setDraft(EMPTY_DRAFT);
-          }}
-        >
+        <Button size="sm" onClick={startNew}>
           <Plus size={13} /> Yeni hikâye
         </Button>
       }
     >
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="mb-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_12rem]">
+        <Input
+          value={search}
+          onChange={setSearch}
+          placeholder="Hikâye, etiket veya içerikte ara…"
+          ariaLabel="Hikâyelerde ara"
+          className="w-full"
+        />
+        <Select
+          value={provenanceFilter}
+          onChange={(value) => setProvenanceFilter(value as "" | CareerStoryProvenance)}
+          ariaLabel="Kaynak filtresi"
+          className="w-full"
+        >
+          <option value="">Tüm kaynaklar</option>
+          {Object.entries(PROVENANCE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <div className={cx("grid gap-4", editorOpen ? "lg:grid-cols-2" : "")}>
         <div className="space-y-2">
-          {stories.length === 0 ? (
-            <div className="rounded-control border border-dashed border-strong p-5 text-center text-meta text-muted">
-              <BookOpen size={18} className="mx-auto mb-2" />
-              Mülakatta tekrar kullanacağın ilk somut hikâyeyi ekle.
-            </div>
+          {visible.length === 0 ? (
+            <Empty title={stories.length === 0 ? "Hikâye bankası henüz boş" : "Bu filtreye uyan hikâye yok"}>
+              {stories.length === 0
+                ? "Mülakatta tekrar kullanacağın ilk somut hikâyeyi “Yeni hikâye” ile ekle."
+                : "Arama ya da kaynak filtresini gevşetebilirsin."}
+            </Empty>
           ) : (
-            stories.map((story) => (
+            visible.map((story) => (
               <button
                 key={story.id}
                 type="button"
-                onClick={() => setSelectedId(story.id)}
+                onClick={() => {
+                  setCreating(false);
+                  setSelectedId(story.id);
+                }}
                 className={cx(
                   "w-full rounded-control border p-3 text-left transition",
-                  selectedId === story.id
+                  selectedId === story.id && !creating
                     ? "border-accent-border bg-accent-surface"
                     : "border-subtle bg-surface hover:bg-surface-hover",
                 )}
@@ -136,63 +261,83 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
           )}
         </div>
 
-        <div className="space-y-3 rounded-card border border-subtle bg-surface-sunken p-4">
-          <div className="flex items-center gap-2">
-            <Input
-              value={draft.title}
-              onChange={(title) => setDraft((current) => ({ ...current, title }))}
-              placeholder="Hikâye başlığı"
-              className="min-w-0 flex-1"
-            />
+        {editorOpen && (
+          <div className="space-y-3 rounded-card border border-subtle bg-surface-sunken p-4">
+            <div className="flex items-center gap-2">
+              <Input
+                value={draft.title}
+                onChange={(title) => setDraft((current) => ({ ...current, title }))}
+                placeholder="Hikâye başlığı"
+                ariaLabel="Hikâye başlığı"
+                className="min-w-0 flex-1"
+              />
+              {selected && (
+                <IconButton title="Hikâyeyi arşivle" tone="danger" onClick={removeSelected}>
+                  <Trash2 size={14} />
+                </IconButton>
+              )}
+            </div>
+            <Select
+              value={draft.provenance}
+              onChange={(provenance) =>
+                setDraft((current) => ({ ...current, provenance: provenance as CareerStoryProvenance }))
+              }
+              ariaLabel="İddia kaynağı"
+              className="w-full"
+            >
+              {Object.entries(PROVENANCE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+            {STORY_FIELDS.map(([key, label]) => (
+              <Textarea
+                key={key}
+                value={draft[key]}
+                onChange={(value) => setDraft((current) => ({ ...current, [key]: value }))}
+                rows={2}
+                placeholder={label}
+                ariaLabel={label}
+              />
+            ))}
+            <Field label="Etiketler (virgülle)">
+              <Input
+                value={draft.tags}
+                onChange={(tags) => setDraft((current) => ({ ...current, tags }))}
+                placeholder="liderlik, ölçekleme, veri"
+                className="w-full"
+              />
+            </Field>
+            <div className="flex items-center justify-between gap-2">
+              <Button variant="primary" disabled={!draft.title.trim() || save.isPending} onClick={() => save.mutate()}>
+                {selected ? "Hikâyeyi güncelle" : "Hikâyeyi kaydet"}
+              </Button>
+              <Button
+                onClick={() => {
+                  setCreating(false);
+                  setSelectedId(null);
+                }}
+              >
+                Kapat
+              </Button>
+            </div>
             {selected && (
-              <IconButton title="Hikâyeyi arşivle" tone="danger" onClick={removeSelected}>
-                <Trash2 size={14} />
-              </IconButton>
+              <div className="border-t border-subtle pt-3">
+                <span className="mb-2 flex items-center gap-1 text-meta font-medium text-secondary">
+                  <Link2 size={13} /> Kullanım izleri
+                </span>
+                <ApplicationUsage story={selected} />
+              </div>
             )}
           </div>
-          <Select
-            value={draft.provenance}
-            onChange={(provenance) =>
-              setDraft((current) => ({ ...current, provenance: provenance as CareerStoryProvenance }))
-            }
-            ariaLabel="İddia kaynağı"
-            className="w-full"
-          >
-            {Object.entries(PROVENANCE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          {(
-            [
-              ["situation", "S · Durum"],
-              ["task", "T · Görev"],
-              ["action", "A · Eylem"],
-              ["result", "R · Sonuç"],
-              ["reflection", "R · Çıkarım"],
-            ] as const
-          ).map(([key, label]) => (
-            <Textarea
-              key={key}
-              value={draft[key]}
-              onChange={(value) => setDraft((current) => ({ ...current, [key]: value }))}
-              rows={2}
-              placeholder={label}
-              ariaLabel={label}
-            />
-          ))}
-          <Input
-            value={draft.tags}
-            onChange={(tags) => setDraft((current) => ({ ...current, tags }))}
-            placeholder="Etiketler (virgülle)"
-            className="w-full"
-          />
-          <Button variant="primary" disabled={!draft.title.trim() || save.isPending} onClick={() => save.mutate()}>
-            {selected ? "Hikâyeyi güncelle" : "Hikâyeyi kaydet"}
-          </Button>
-        </div>
+        )}
       </div>
+      {!editorOpen && stories.length > 0 && (
+        <p className="mt-3 flex items-center gap-1 text-meta text-muted">
+          <BookOpen size={13} /> Düzenlemek için bir hikâye seç, yenisi için “Yeni hikâye”.
+        </p>
+      )}
     </Section>
   );
 }

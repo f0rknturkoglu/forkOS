@@ -3,8 +3,8 @@ import { Button, Chip, FilterChip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
   REMOTE_LABELS,
-  STATUSES,
   announcementCategoryLabel,
+  applicationStatusLabel,
   archetypeLabel,
   daysLeft,
   jobCategoryLabel,
@@ -148,11 +148,20 @@ export function OpportunityCard({
           {announcement && item.category?.startsWith("ylsy-") && (
             <Chip tone="accent">{announcementCategoryLabel(item.category)}</Chip>
           )}
-          {item.skill_match && (
+          {!announcement && item.profile_match_ratio !== null && item.profile_match_ratio !== undefined && (
             <span className="rounded-control border border-ok/30 bg-ok-surface px-2 py-0.5 text-micro font-medium text-ok">
-              CV Uyumu: %{Math.round(item.skill_match.match_ratio * 100)}
+              Profil Uyumu: %{Math.round(item.profile_match_ratio * 100)}
             </span>
           )}
+          {item.application_status && (
+            <Chip tone={item.application_status === "rejected" ? "danger" : "accent"}>
+              Başvuru: {applicationStatusLabel(item.application_status)}
+            </Chip>
+          )}
+          {announcement && item.official !== null && item.official !== undefined && (
+            <Chip tone={item.official ? "ok" : "neutral"}>{item.official ? "Resmî kaynak" : "İkincil kaynak"}</Chip>
+          )}
+          {announcement && item.stage && <Chip tone="neutral">{item.stage}</Chip>}
           {item.evaluation?.recommendation && (
             <Chip tone={recommendationTone(item.evaluation.recommendation)}>
               {recommendationLabel(item.evaluation.recommendation)} · {item.evaluation.score}p
@@ -226,7 +235,9 @@ export function OpportunityCard({
             onChange={onStatus}
             className="min-w-0 flex-1"
           >
-            {STATUSES.map((status) => (
+            {/* Yalnızca mevcut durumdan İZİNLİ geçişler listelenir (backend state machine). */}
+            <option value={item.status}>{statusLabel(item.status)}</option>
+            {(item.allowed_transitions ?? []).map((status) => (
               <option key={status} value={status}>
                 {statusLabel(status)}
               </option>

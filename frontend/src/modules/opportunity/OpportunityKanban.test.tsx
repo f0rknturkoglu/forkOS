@@ -11,7 +11,8 @@ describe("OpportunityKanban", () => {
     category: "software",
     organization: "TechCorp",
     url: "https://example.com/job",
-    status: "interview",
+    status: "shortlisted",
+    allowed_transitions: ["discovered", "dismissed", "archived"],
     priority: 2,
     found_at: "2026-08-30T10:00:00Z",
     published_at: null,
@@ -40,14 +41,14 @@ describe("OpportunityKanban", () => {
   };
 
   it("renders pipeline columns and places items into matching column", () => {
-    const html = renderToStaticMarkup(<OpportunityKanban items={[dummyItem]} onOpen={vi.fn()} onStatus={vi.fn()} />);
+    const html = renderToStaticMarkup(
+      <OpportunityKanban section="jobs" items={[dummyItem]} onOpen={vi.fn()} onStatus={vi.fn()} />,
+    );
 
     expect(html).toContain("Keşfedildi");
-    expect(html).toContain("İnceleniyor");
-    expect(html).toContain("Başvuruldu");
-    expect(html).toContain("Mülakat");
-    expect(html).toContain("Teklif");
-    expect(html).toContain("Sonuçlandı");
+    expect(html).toContain("Kısa listede");
+    expect(html).toContain("Elendi");
+    expect(html).toContain("Arşivde");
     expect(html).toContain("Senior Backend Engineer");
     expect(html).toContain("TechCorp");
     expect(html).toContain("85p");
