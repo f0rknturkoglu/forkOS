@@ -1674,12 +1674,34 @@
         "type": "object"
       },
       "ContextOut": {
-        "description": "Odaklanilabilecek bir kayit: gorev, calisma konusu, kaynak, proje...",
+        "description": "Odaklanilabilecek bir kayit: gorev, calisma konusu, kaynak, proje, medya...",
         "properties": {
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
           },
           "title": {
             "title": "Title",
@@ -3026,6 +3048,11 @@
       },
       "GlobalMetadataSearchOut": {
         "properties": {
+          "cached": {
+            "default": false,
+            "title": "Cached",
+            "type": "boolean"
+          },
           "results": {
             "items": {
               "$ref": "#/components/schemas/MetadataResult"
@@ -3563,6 +3590,101 @@
         "title": "ManualRefreshOut",
         "type": "object"
       },
+      "MediaArtworkPruneOut": {
+        "properties": {
+          "freed_bytes": {
+            "title": "Freed Bytes",
+            "type": "integer"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "removed",
+          "freed_bytes"
+        ],
+        "title": "MediaArtworkPruneOut",
+        "type": "object"
+      },
+      "MediaArtworkStatsOut": {
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "files": {
+            "title": "Files",
+            "type": "integer"
+          },
+          "max_bytes": {
+            "title": "Max Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "files",
+          "bytes",
+          "max_bytes"
+        ],
+        "title": "MediaArtworkStatsOut",
+        "type": "object"
+      },
+      "MediaBusiestDayOut": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "count"
+        ],
+        "title": "MediaBusiestDayOut",
+        "type": "object"
+      },
+      "MediaCollectionDetailOut": {
+        "properties": {
+          "collection": {
+            "$ref": "#/components/schemas/MediaCollectionOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MediaItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "collection",
+          "items",
+          "total"
+        ],
+        "title": "MediaCollectionDetailOut",
+        "type": "object"
+      },
       "MediaCollectionIn": {
         "additionalProperties": false,
         "properties": {
@@ -3619,6 +3741,13 @@
             ],
             "title": "Color"
           },
+          "covers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Covers",
+            "type": "array"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -3646,6 +3775,11 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "item_count": {
+            "default": 0,
+            "title": "Item Count",
+            "type": "integer"
           },
           "position": {
             "title": "Position",
@@ -3959,6 +4093,59 @@
         "title": "MediaConsumptionOut",
         "type": "object"
       },
+      "MediaConsumptionPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MediaConsumptionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "MediaConsumptionPageOut",
+        "type": "object"
+      },
+      "MediaConversionOut": {
+        "properties": {
+          "completed": {
+            "default": 0,
+            "title": "Completed",
+            "type": "integer"
+          },
+          "planned": {
+            "default": 0,
+            "title": "Planned",
+            "type": "integer"
+          },
+          "started": {
+            "default": 0,
+            "title": "Started",
+            "type": "integer"
+          }
+        },
+        "title": "MediaConversionOut",
+        "type": "object"
+      },
       "MediaCycleOut": {
         "properties": {
           "completed_at": {
@@ -4096,6 +4283,7 @@
         "type": "object"
       },
       "MediaDashboardOut": {
+        "description": "Istatistik sayfasinin TEK istegi: ozet + devam + yaklasan + son tuketimler.\n\nNeden toplayici: ayni veri icin ayri uclara ayri istek atmak (ve donen\n`recent_consumptions` alanini yok saymak) gereksiz ag trafigi uretiyordu.\nSon tuketim satirlari baslik/tur tasir (MediaRecentConsumptionOut).",
         "properties": {
           "continue_items": {
             "items": {
@@ -4106,7 +4294,7 @@
           },
           "recent_consumptions": {
             "items": {
-              "$ref": "#/components/schemas/MediaConsumptionOut"
+              "$ref": "#/components/schemas/MediaRecentConsumptionOut"
             },
             "title": "Recent Consumptions",
             "type": "array"
@@ -4140,6 +4328,11 @@
             "title": "Collections",
             "type": "array"
           },
+          "consumption_count": {
+            "default": 0,
+            "title": "Consumption Count",
+            "type": "integer"
+          },
           "consumptions": {
             "items": {
               "$ref": "#/components/schemas/MediaConsumptionOut"
@@ -4156,6 +4349,16 @@
           },
           "item": {
             "$ref": "#/components/schemas/MediaItemOut"
+          },
+          "sync": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaItemSyncOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "units": {
             "items": {
@@ -4716,6 +4919,54 @@
         "title": "MediaItemOut",
         "type": "object"
       },
+      "MediaItemSyncOut": {
+        "description": "Tek kayit icin son senkron durumu (source_run turevi).",
+        "properties": {
+          "items_found": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items Found"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "MediaItemSyncOut",
+        "type": "object"
+      },
       "MediaItemUpdate": {
         "additionalProperties": false,
         "properties": {
@@ -5160,6 +5411,20 @@
           "ready": {
             "title": "Ready",
             "type": "boolean"
+          },
+          "state": {
+            "default": "never_run",
+            "enum": [
+              "ready",
+              "missing_settings",
+              "never_run",
+              "running",
+              "ok",
+              "empty",
+              "error"
+            ],
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -5260,6 +5525,11 @@
       },
       "MediaStats": {
         "properties": {
+          "active_days": {
+            "default": 0,
+            "title": "Active Days",
+            "type": "integer"
+          },
           "average_score": {
             "anyOf": [
               {
@@ -5271,6 +5541,16 @@
             ],
             "title": "Average Score"
           },
+          "busiest_day": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaBusiestDayOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "by_kind": {
             "additionalProperties": {
               "type": "integer"
@@ -5278,9 +5558,24 @@
             "title": "By Kind",
             "type": "object"
           },
+          "by_measure": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "By Measure",
+            "type": "object"
+          },
           "completed": {
             "title": "Completed",
             "type": "integer"
+          },
+          "completed_in_range": {
+            "default": 0,
+            "title": "Completed In Range",
+            "type": "integer"
+          },
+          "conversion": {
+            "$ref": "#/components/schemas/MediaConversionOut"
           },
           "in_progress": {
             "title": "In Progress",
@@ -5289,6 +5584,18 @@
           "planned": {
             "title": "Planned",
             "type": "integer"
+          },
+          "pomodoro_minutes": {
+            "default": 0,
+            "title": "Pomodoro Minutes",
+            "type": "integer"
+          },
+          "score_distribution": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Score Distribution",
+            "type": "object"
           },
           "scored_count": {
             "default": 0,
@@ -5634,6 +5941,127 @@
           "unit_type"
         ],
         "title": "MediaUnitOut",
+        "type": "object"
+      },
+      "MediaUpcomingOut": {
+        "description": "Yaklasan yayin satiri: item yayin tarihi veya unit (bolum/parca) tarihi.",
+        "properties": {
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entry_type": {
+            "enum": [
+              "item",
+              "unit"
+            ],
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "media_id": {
+            "format": "uuid",
+            "title": "Media Id",
+            "type": "string"
+          },
+          "media_title": {
+            "title": "Media Title",
+            "type": "string"
+          },
+          "monitored": {
+            "default": false,
+            "title": "Monitored",
+            "type": "boolean"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "release_at": {
+            "format": "date-time",
+            "title": "Release At",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Type"
+          }
+        },
+        "required": [
+          "entry_type",
+          "entity_id",
+          "media_id",
+          "media_title",
+          "title",
+          "kind",
+          "release_at"
+        ],
+        "title": "MediaUpcomingOut",
+        "type": "object"
+      },
+      "MediaUpcomingPageOut": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/MediaUpcomingOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "total"
+        ],
+        "title": "MediaUpcomingPageOut",
         "type": "object"
       },
       "MetadataResult": {
@@ -14168,6 +14596,22 @@
           },
           {
             "in": "query",
+            "name": "favorite",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
+            "in": "query",
             "name": "monitored",
             "required": false,
             "schema": {
@@ -14180,6 +14624,22 @@
                 }
               ],
               "title": "Monitored"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
             }
           },
           {
@@ -14203,7 +14663,8 @@
                 "created",
                 "title",
                 "score",
-                "progress"
+                "progress",
+                "relevance"
               ],
               "title": "Sort",
               "type": "string"
@@ -14300,6 +14761,90 @@
           }
         },
         "summary": "Create Media",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/artwork/proxy": {
+      "get": {
+        "description": "Uzak saglayici gorselini yerel onbellege alip sunar (local-only gizlilik).",
+        "operationId": "media_artwork_proxy_api_media_artwork_proxy_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "schema": {
+              "minLength": 8,
+              "title": "Url",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Media Artwork Proxy",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/artwork/prune": {
+      "post": {
+        "operationId": "media_artwork_prune_api_media_artwork_prune_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaArtworkPruneOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Media Artwork Prune",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/api/media/artwork/stats": {
+      "get": {
+        "operationId": "media_artwork_stats_api_media_artwork_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaArtworkStatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Media Artwork Stats",
         "tags": [
           "media"
         ]
@@ -14440,6 +14985,108 @@
           }
         },
         "summary": "Delete Collection",
+        "tags": [
+          "media"
+        ]
+      },
+      "get": {
+        "operationId": "collection_detail_api_media_collections__collection_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Collection Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "updated",
+              "enum": [
+                "updated",
+                "created",
+                "title",
+                "score",
+                "progress"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 48,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaCollectionDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Collection Detail",
         "tags": [
           "media"
         ]
@@ -14586,19 +15233,37 @@
         ]
       }
     },
-    "/api/media/consumptions/recent": {
+    "/api/media/dashboard": {
       "get": {
-        "operationId": "recent_media_consumptions_api_media_consumptions_recent_get",
+        "description": "Istatistik ekraninin tek istegi (ozet + devam + yaklasan + son tuketimler).",
+        "operationId": "media_dashboard_api_media_dashboard_get",
         "parameters": [
           {
             "in": "query",
-            "name": "limit",
+            "name": "range",
             "required": false,
             "schema": {
-              "default": 10,
+              "default": "all",
+              "enum": [
+                "week",
+                "month",
+                "90d",
+                "year",
+                "all"
+              ],
+              "title": "Range",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recent_limit",
+            "required": false,
+            "schema": {
+              "default": 20,
               "maximum": 100,
               "minimum": 1,
-              "title": "Limit",
+              "title": "Recent Limit",
               "type": "integer"
             }
           }
@@ -14608,11 +15273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MediaRecentConsumptionOut"
-                  },
-                  "title": "Response Recent Media Consumptions Api Media Consumptions Recent Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/MediaDashboardOut"
                 }
               }
             },
@@ -14627,27 +15288,6 @@
               }
             },
             "description": "Validation Error"
-          }
-        },
-        "summary": "Recent Media Consumptions",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/api/media/dashboard": {
-      "get": {
-        "operationId": "media_dashboard_api_media_dashboard_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaDashboardOut"
-                }
-              }
-            },
-            "description": "Successful Response"
           }
         },
         "summary": "Media Dashboard",
@@ -14694,6 +15334,50 @@
               "title": "Q",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -14727,6 +15411,25 @@
     "/api/media/stats": {
       "get": {
         "operationId": "media_stats_api_media_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "week",
+                "month",
+                "90d",
+                "year",
+                "all"
+              ],
+              "title": "Range",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -14737,6 +15440,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Media Stats",
@@ -14828,11 +15541,49 @@
             "name": "days",
             "required": false,
             "schema": {
-              "default": 30,
-              "maximum": 365,
-              "minimum": 1,
-              "title": "Days",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "maximum": 365,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
             }
           }
         ],
@@ -14841,11 +15592,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MediaUnitOut"
-                  },
-                  "title": "Response Media Upcoming Api Media Upcoming Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/MediaUpcomingPageOut"
                 }
               }
             },
@@ -15016,6 +15763,34 @@
               "title": "Item Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -15023,11 +15798,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MediaConsumptionOut"
-                  },
-                  "title": "Response Media Consumptions Api Media  Item Id  Consumptions Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/MediaConsumptionPageOut"
                 }
               }
             },
