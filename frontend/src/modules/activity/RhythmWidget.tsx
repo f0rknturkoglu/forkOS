@@ -32,43 +32,15 @@ const COUNTER_LABELS: Record<string, string> = {
   flashcards: "Kart",
 };
 
-const MONTH_NAMES = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+import { RhythmChart, monthLabel, calculateBreakdown } from "./RhythmChart";
 
-export function monthLabel(month: string): string {
-  const [year, index] = month.split("-").map(Number);
-  return `${MONTH_NAMES[index - 1]} '${String(year).slice(2)}`;
-}
+export { monthLabel };
 
-export const monthTotal = (point: MonthlyPoint): number =>
-  point.pomodoros + point.todos + point.bookmarks + point.notes + point.rss_read + point.reviews + point.applications;
+export const monthTotal = (point: MonthlyPoint): number => calculateBreakdown(point).total;
 
-/** Aylik hareket barlari; her bar odak/görev/okuma/başvuru kirilimini tooltip'te tasir. */
+/** Geriye donuk uyumluluk icin MonthlyBars wrapper'i */
 export function MonthlyBars({ points }: { points: MonthlyPoint[] }) {
-  const totals = points.map(monthTotal);
-  const max = Math.max(1, ...totals);
-
-  return (
-    <div className="flex h-28 items-end gap-2" role="img" aria-label="Son ayların toplam hareketi">
-      {points.map((point, index) => (
-        <div
-          key={point.month}
-          className="flex min-w-0 flex-1 flex-col items-center gap-1"
-          title={
-            `${monthLabel(point.month)}: ${totals[index]} hareket\n` +
-            `odak ${point.pomodoros} · görev ${point.todos} · ` +
-            `okuma ${point.rss_read + point.bookmarks} · başvuru ${point.applications}`
-          }
-        >
-          <span className="text-micro text-muted">{totals[index] > 0 ? totals[index] : ""}</span>
-          <div
-            className={cx("w-full rounded-sm", totals[index] > 0 ? "bg-accent" : "bg-border")}
-            style={{ height: `${Math.max(2, Math.round((totals[index] / max) * 88))}px` }}
-          />
-          <span className="text-micro text-muted">{monthLabel(point.month)}</span>
-        </div>
-      ))}
-    </div>
-  );
+  return <RhythmChart points={points} />;
 }
 
 export function useRhythmSummary() {
@@ -125,7 +97,7 @@ export function RhythmWidget() {
               </div>
             )}
           </div>
-          {monthly.length > 0 && <MonthlyBars points={monthly} />}
+          {monthly.length > 0 && <RhythmChart points={monthly} compact />}
         </div>
       )}
     </Section>
