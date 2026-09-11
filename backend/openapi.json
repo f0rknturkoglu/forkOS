@@ -58,6 +58,17 @@
             ],
             "title": "Duration Min"
           },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
           "feed_title": {
             "anyOf": [
               {
@@ -110,6 +121,18 @@
               }
             ],
             "title": "Media Status"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
           },
           "parent_id": {
             "anyOf": [
@@ -250,6 +273,13 @@
             "title": "Rss",
             "type": "array"
           },
+          "study": {
+            "items": {
+              "$ref": "#/components/schemas/AgendaRow"
+            },
+            "title": "Study",
+            "type": "array"
+          },
           "todos": {
             "items": {
               "$ref": "#/components/schemas/AgendaRow"
@@ -259,6 +289,25 @@
           }
         },
         "title": "AgendaSuggestions",
+        "type": "object"
+      },
+      "AncestorOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "AncestorOut",
         "type": "object"
       },
       "ApplicationIn": {
@@ -532,6 +581,7 @@
           "color": {
             "anyOf": [
               {
+                "maxLength": 32,
                 "type": "string"
               },
               {
@@ -546,7 +596,7 @@
             "type": "integer"
           },
           "title": {
-            "minLength": 1,
+            "maxLength": 300,
             "title": "Title",
             "type": "string"
           }
@@ -555,6 +605,89 @@
           "title"
         ],
         "title": "AreaIn",
+        "type": "object"
+      },
+      "AreaPatch": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "AreaPatch",
+        "type": "object"
+      },
+      "AttachBookmarkIn": {
+        "properties": {
+          "bookmark_id": {
+            "format": "uuid",
+            "title": "Bookmark Id",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic_id",
+          "bookmark_id"
+        ],
+        "title": "AttachBookmarkIn",
         "type": "object"
       },
       "Body_import_cards_api_flashcard_import_post": {
@@ -1746,6 +1879,138 @@
       },
       "CourseIn": {
         "properties": {
+          "area_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Area Ids",
+            "type": "array"
+          },
+          "certificate_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Entity Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "progress_pct": {
+            "default": 0,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Progress Pct",
+            "type": "integer"
+          },
+          "status": {
+            "default": "planned",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "title": "Title",
+            "type": "string"
+          },
+          "topic_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Topic Ids",
+            "type": "array"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "CourseIn",
+        "type": "object"
+      },
+      "CourseOut": {
+        "properties": {
+          "archived": {
+            "default": false,
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "area_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Area Ids",
+            "type": "array"
+          },
+          "certificate_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Entity Id"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
           "notes": {
             "anyOf": [
               {
@@ -1769,21 +2034,41 @@
             "title": "Platform"
           },
           "progress_pct": {
-            "default": 0,
-            "maximum": 100.0,
-            "minimum": 0.0,
             "title": "Progress Pct",
             "type": "integer"
           },
+          "resource_count": {
+            "default": 0,
+            "title": "Resource Count",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
           "status": {
-            "default": "planned",
             "title": "Status",
             "type": "string"
           },
           "title": {
-            "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "topic_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Topic Ids",
+            "type": "array"
           },
           "url": {
             "anyOf": [
@@ -1798,16 +2083,58 @@
           }
         },
         "required": [
-          "title"
+          "id",
+          "title",
+          "status",
+          "progress_pct"
         ],
-        "title": "CourseIn",
+        "title": "CourseOut",
         "type": "object"
       },
       "CoursePatch": {
         "properties": {
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          },
+          "area_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Ids"
+          },
+          "certificate_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Entity Id"
+          },
           "notes": {
             "anyOf": [
               {
+                "maxLength": 5000,
                 "type": "string"
               },
               {
@@ -1815,6 +2142,18 @@
               }
             ],
             "title": "Notes"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
           },
           "progress_pct": {
             "anyOf": [
@@ -1843,6 +2182,7 @@
           "title": {
             "anyOf": [
               {
+                "maxLength": 300,
                 "type": "string"
               },
               {
@@ -1850,6 +2190,33 @@
               }
             ],
             "title": "Title"
+          },
+          "topic_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Ids"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
           }
         },
         "title": "CoursePatch",
@@ -3135,6 +3502,89 @@
         "title": "HistoryOut",
         "type": "object"
       },
+      "ImportAreaOut": {
+        "properties": {
+          "exists": {
+            "default": false,
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ImportAreaOut",
+        "type": "object"
+      },
+      "ImportConflictOut": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "reason"
+        ],
+        "title": "ImportConflictOut",
+        "type": "object"
+      },
+      "ImportNodePreview": {
+        "properties": {
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "resources": {
+            "default": 0,
+            "title": "Resources",
+            "type": "integer"
+          },
+          "status": {
+            "default": "not_started",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "title"
+        ],
+        "title": "ImportNodePreview",
+        "type": "object"
+      },
       "ImportOut": {
         "properties": {
           "added": {
@@ -3164,6 +3614,78 @@
         "title": "ImportOut",
         "type": "object"
       },
+      "ImportPreviewOut": {
+        "properties": {
+          "area": {
+            "$ref": "#/components/schemas/ImportAreaOut"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/ImportConflictOut"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "creates": {
+            "items": {
+              "$ref": "#/components/schemas/ImportNodePreview"
+            },
+            "title": "Creates",
+            "type": "array"
+          },
+          "invalid": {
+            "items": {
+              "$ref": "#/components/schemas/ImportConflictOut"
+            },
+            "title": "Invalid",
+            "type": "array"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/ImportNodePreview"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "resources_duplicate": {
+            "default": 0,
+            "title": "Resources Duplicate",
+            "type": "integer"
+          },
+          "resources_new": {
+            "default": 0,
+            "title": "Resources New",
+            "type": "integer"
+          },
+          "suggested_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Prefix"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ImportTotalsOut"
+          },
+          "updates": {
+            "items": {
+              "$ref": "#/components/schemas/ImportNodePreview"
+            },
+            "title": "Updates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "area",
+          "totals"
+        ],
+        "title": "ImportPreviewOut",
+        "type": "object"
+      },
       "ImportResult": {
         "properties": {
           "added": {
@@ -3188,6 +3710,37 @@
           "skipped"
         ],
         "title": "ImportResult",
+        "type": "object"
+      },
+      "ImportTotalsOut": {
+        "properties": {
+          "creates": {
+            "default": 0,
+            "title": "Creates",
+            "type": "integer"
+          },
+          "depth": {
+            "default": 0,
+            "title": "Depth",
+            "type": "integer"
+          },
+          "matches": {
+            "default": 0,
+            "title": "Matches",
+            "type": "integer"
+          },
+          "nodes": {
+            "default": 0,
+            "title": "Nodes",
+            "type": "integer"
+          },
+          "updates": {
+            "default": 0,
+            "title": "Updates",
+            "type": "integer"
+          }
+        },
+        "title": "ImportTotalsOut",
         "type": "object"
       },
       "IncomeIn": {
@@ -6904,6 +7457,65 @@
         "title": "NotificationOut",
         "type": "object"
       },
+      "OpenTodoOut": {
+        "properties": {
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "plan_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Day"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "title": "OpenTodoOut",
+        "type": "object"
+      },
       "OpportunityBrowseOut": {
         "properties": {
           "facets": {
@@ -8896,10 +9508,134 @@
       },
       "ResourceIn": {
         "properties": {
+          "estimated_min": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Min"
+          },
           "kind": {
             "default": "link",
             "title": "Kind",
             "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 300,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ResourceIn",
+        "type": "object"
+      },
+      "ResourceOut": {
+        "properties": {
+          "bookmark_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bookmark Id"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "course_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Id"
+          },
+          "estimated_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Min"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "link",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Opened At"
           },
           "note": {
             "anyOf": [
@@ -8917,9 +9653,18 @@
             "title": "Position",
             "type": "integer"
           },
+          "source": {
+            "default": "manual",
+            "title": "Source",
+            "type": "string"
+          },
           "title": {
-            "minLength": 1,
             "title": "Title",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
             "type": "string"
           },
           "url": {
@@ -8935,9 +9680,11 @@
           }
         },
         "required": [
+          "id",
+          "topic_id",
           "title"
         ],
-        "title": "ResourceIn",
+        "title": "ResourceOut",
         "type": "object"
       },
       "ResourcePatch": {
@@ -8953,6 +9700,18 @@
             ],
             "title": "Completed"
           },
+          "estimated_min": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Min"
+          },
           "kind": {
             "anyOf": [
               {
@@ -8967,6 +9726,7 @@
           "note": {
             "anyOf": [
               {
+                "maxLength": 5000,
                 "type": "string"
               },
               {
@@ -8989,6 +9749,7 @@
           "title": {
             "anyOf": [
               {
+                "maxLength": 300,
                 "type": "string"
               },
               {
@@ -9000,6 +9761,7 @@
           "url": {
             "anyOf": [
               {
+                "maxLength": 2000,
                 "type": "string"
               },
               {
@@ -9015,6 +9777,18 @@
       "ResourceSeed": {
         "additionalProperties": false,
         "properties": {
+          "estimated_min": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Min"
+          },
           "kind": {
             "default": "link",
             "title": "Kind",
@@ -9023,7 +9797,7 @@
           "note": {
             "anyOf": [
               {
-                "maxLength": 2000,
+                "maxLength": 5000,
                 "type": "string"
               },
               {
@@ -9034,7 +9808,6 @@
           },
           "title": {
             "maxLength": 300,
-            "minLength": 1,
             "title": "Title",
             "type": "string"
           },
@@ -9055,6 +9828,67 @@
           "title"
         ],
         "title": "ResourceSeed",
+        "type": "object"
+      },
+      "ReviewBlockOut": {
+        "properties": {
+          "due": {
+            "default": false,
+            "title": "Due",
+            "type": "boolean"
+          },
+          "ease": {
+            "default": 2.5,
+            "title": "Ease",
+            "type": "number"
+          },
+          "interval_days": {
+            "default": 0,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "last_reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reviewed At"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
+          },
+          "review_count": {
+            "default": 0,
+            "title": "Review Count",
+            "type": "integer"
+          }
+        },
+        "title": "ReviewBlockOut",
         "type": "object"
       },
       "ReviewPreview": {
@@ -9104,6 +9938,47 @@
           "completed_todos"
         ],
         "title": "ReviewPreview",
+        "type": "object"
+      },
+      "ReviewQueueOut": {
+        "properties": {
+          "due_today": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewTopicOut"
+            },
+            "title": "Due Today",
+            "type": "array"
+          },
+          "new_topics": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewTopicOut"
+            },
+            "title": "New Topics",
+            "type": "array"
+          },
+          "overdue": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewTopicOut"
+            },
+            "title": "Overdue",
+            "type": "array"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewTopicOut"
+            },
+            "title": "Upcoming",
+            "type": "array"
+          },
+          "weak": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewTopicOut"
+            },
+            "title": "Weak",
+            "type": "array"
+          }
+        },
+        "title": "ReviewQueueOut",
         "type": "object"
       },
       "ReviewStats": {
@@ -9156,6 +10031,109 @@
           "github"
         ],
         "title": "ReviewStats",
+        "type": "object"
+      },
+      "ReviewTopicOut": {
+        "properties": {
+          "area_id": {
+            "format": "uuid",
+            "title": "Area Id",
+            "type": "string"
+          },
+          "area_title": {
+            "title": "Area Title",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interval_days": {
+            "default": 0,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "last_reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reviewed At"
+          },
+          "last_studied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Studied At"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
+          },
+          "review_count": {
+            "default": 0,
+            "title": "Review Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "area_id",
+          "area_title",
+          "status"
+        ],
+        "title": "ReviewTopicOut",
         "type": "object"
       },
       "RiskSignalOut": {
@@ -9894,6 +10872,34 @@
         "title": "SourceSyncStatusOut",
         "type": "object"
       },
+      "StalePageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StudyTopicOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "StalePageOut",
+        "type": "object"
+      },
       "StatisticsSummary": {
         "description": "Keyfi verb ailesine gore sayaclar: family adi -> dilimler.",
         "properties": {
@@ -9919,6 +10925,75 @@
         "title": "StatisticsSummary",
         "type": "object"
       },
+      "StatsAreaOut": {
+        "properties": {
+          "area_id": {
+            "format": "uuid",
+            "title": "Area Id",
+            "type": "string"
+          },
+          "minutes": {
+            "default": 0,
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "area_id",
+          "title"
+        ],
+        "title": "StatsAreaOut",
+        "type": "object"
+      },
+      "StatsCourseOut": {
+        "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
+          "in_progress": {
+            "default": 0,
+            "title": "In Progress",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "StatsCourseOut",
+        "type": "object"
+      },
+      "StatsTopicOut": {
+        "properties": {
+          "minutes": {
+            "default": 0,
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic_id",
+          "title"
+        ],
+        "title": "StatsTopicOut",
+        "type": "object"
+      },
       "StreakOut": {
         "properties": {
           "current": {
@@ -9937,6 +11012,100 @@
         "title": "StreakOut",
         "type": "object"
       },
+      "StudyAreaOut": {
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "done_count": {
+            "default": 0,
+            "title": "Done Count",
+            "type": "integer"
+          },
+          "focus_minutes": {
+            "default": 0,
+            "title": "Focus Minutes",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_studied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Studied At"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "resource_count": {
+            "default": 0,
+            "title": "Resource Count",
+            "type": "integer"
+          },
+          "resource_done": {
+            "default": 0,
+            "title": "Resource Done",
+            "type": "integer"
+          },
+          "stale_count": {
+            "default": 0,
+            "title": "Stale Count",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic_count": {
+            "default": 0,
+            "title": "Topic Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "StudyAreaOut",
+        "type": "object"
+      },
       "StudyReviewStats": {
         "properties": {
           "minutes_by_area": {
@@ -9951,6 +11120,654 @@
           "minutes_by_area"
         ],
         "title": "StudyReviewStats",
+        "type": "object"
+      },
+      "StudyStatsOut": {
+        "properties": {
+          "active_days": {
+            "default": 0,
+            "title": "Active Days",
+            "type": "integer"
+          },
+          "actual_minutes": {
+            "default": 0,
+            "title": "Actual Minutes",
+            "type": "integer"
+          },
+          "by_area": {
+            "items": {
+              "$ref": "#/components/schemas/StatsAreaOut"
+            },
+            "title": "By Area",
+            "type": "array"
+          },
+          "by_topic": {
+            "items": {
+              "$ref": "#/components/schemas/StatsTopicOut"
+            },
+            "title": "By Topic",
+            "type": "array"
+          },
+          "confidence_delta": {
+            "default": 0,
+            "title": "Confidence Delta",
+            "type": "integer"
+          },
+          "courses": {
+            "$ref": "#/components/schemas/StatsCourseOut"
+          },
+          "flashcards_reviewed": {
+            "default": 0,
+            "title": "Flashcards Reviewed",
+            "type": "integer"
+          },
+          "focus_minutes": {
+            "default": 0,
+            "title": "Focus Minutes",
+            "type": "integer"
+          },
+          "focus_sessions": {
+            "default": 0,
+            "title": "Focus Sessions",
+            "type": "integer"
+          },
+          "planned_minutes": {
+            "default": 0,
+            "title": "Planned Minutes",
+            "type": "integer"
+          },
+          "resources_done": {
+            "default": 0,
+            "title": "Resources Done",
+            "type": "integer"
+          },
+          "reviews_done": {
+            "default": 0,
+            "title": "Reviews Done",
+            "type": "integer"
+          },
+          "streak_days": {
+            "default": 0,
+            "title": "Streak Days",
+            "type": "integer"
+          },
+          "topics_done": {
+            "default": 0,
+            "title": "Topics Done",
+            "type": "integer"
+          },
+          "topics_started": {
+            "default": 0,
+            "title": "Topics Started",
+            "type": "integer"
+          }
+        },
+        "title": "StudyStatsOut",
+        "type": "object"
+      },
+      "StudyTopicDetailOut": {
+        "properties": {
+          "ancestors": {
+            "items": {
+              "$ref": "#/components/schemas/AncestorOut"
+            },
+            "title": "Ancestors",
+            "type": "array"
+          },
+          "flashcard_deck_count": {
+            "default": 0,
+            "title": "Flashcard Deck Count",
+            "type": "integer"
+          },
+          "note_count": {
+            "default": 0,
+            "title": "Note Count",
+            "type": "integer"
+          },
+          "open_todo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenTodoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/TopicProgressOut"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceOut"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ReviewBlockOut"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/TopicStatsDetailOut"
+          },
+          "topic": {
+            "$ref": "#/components/schemas/StudyTopicOut"
+          }
+        },
+        "required": [
+          "topic",
+          "progress",
+          "stats",
+          "review"
+        ],
+        "title": "StudyTopicDetailOut",
+        "type": "object"
+      },
+      "StudyTopicLegacyNode": {
+        "description": "`GET /study/topics?area_id=` eski (ic ice) sekli -- yol korunur.",
+        "properties": {
+          "area_id": {
+            "format": "uuid",
+            "title": "Area Id",
+            "type": "string"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/StudyTopicLegacyNode"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "ease": {
+            "default": 2.5,
+            "title": "Ease",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interval_days": {
+            "default": 0,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "last_reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reviewed At"
+          },
+          "last_studied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Studied At"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/TopicProgressOut"
+          },
+          "review_count": {
+            "default": 0,
+            "title": "Review Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "target_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "area_id",
+          "status"
+        ],
+        "title": "StudyTopicLegacyNode",
+        "type": "object"
+      },
+      "StudyTopicNode": {
+        "properties": {
+          "child_count": {
+            "default": 0,
+            "title": "Child Count",
+            "type": "integer"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "depth": {
+            "default": 0,
+            "title": "Depth",
+            "type": "integer"
+          },
+          "focus_minutes": {
+            "default": 0,
+            "title": "Focus Minutes",
+            "type": "integer"
+          },
+          "focus_sessions": {
+            "default": 0,
+            "title": "Focus Sessions",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_studied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Studied At"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "path": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "progress_pct": {
+            "default": 0,
+            "title": "Progress Pct",
+            "type": "integer"
+          },
+          "resource_done": {
+            "default": 0,
+            "title": "Resource Done",
+            "type": "integer"
+          },
+          "resource_total": {
+            "default": 0,
+            "title": "Resource Total",
+            "type": "integer"
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resources"
+          },
+          "review_due": {
+            "default": false,
+            "title": "Review Due",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "target_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "title": "StudyTopicNode",
+        "type": "object"
+      },
+      "StudyTopicOut": {
+        "properties": {
+          "area_id": {
+            "format": "uuid",
+            "title": "Area Id",
+            "type": "string"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "ease": {
+            "default": 2.5,
+            "title": "Ease",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interval_days": {
+            "default": 0,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "last_reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reviewed At"
+          },
+          "last_studied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Studied At"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "review_count": {
+            "default": 0,
+            "title": "Review Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "target_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Min"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "area_id",
+          "status"
+        ],
+        "title": "StudyTopicOut",
+        "type": "object"
+      },
+      "StudyTreeOut": {
+        "properties": {
+          "area": {
+            "$ref": "#/components/schemas/StudyAreaOut"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/StudyTopicNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "orphan_count": {
+            "default": 0,
+            "title": "Orphan Count",
+            "type": "integer"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/StudyTreeTotals"
+          }
+        },
+        "required": [
+          "area",
+          "totals"
+        ],
+        "title": "StudyTreeOut",
+        "type": "object"
+      },
+      "StudyTreeTotals": {
+        "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
+          "focus_minutes": {
+            "default": 0,
+            "title": "Focus Minutes",
+            "type": "integer"
+          },
+          "focus_sessions": {
+            "default": 0,
+            "title": "Focus Sessions",
+            "type": "integer"
+          },
+          "in_progress": {
+            "default": 0,
+            "title": "In Progress",
+            "type": "integer"
+          },
+          "resource_done": {
+            "default": 0,
+            "title": "Resource Done",
+            "type": "integer"
+          },
+          "resource_total": {
+            "default": 0,
+            "title": "Resource Total",
+            "type": "integer"
+          },
+          "review_due": {
+            "default": 0,
+            "title": "Review Due",
+            "type": "integer"
+          },
+          "topics": {
+            "default": 0,
+            "title": "Topics",
+            "type": "integer"
+          }
+        },
+        "title": "StudyTreeTotals",
         "type": "object"
       },
       "SyncIn": {
@@ -10579,6 +12396,42 @@
         "title": "TodoUpdate",
         "type": "object"
       },
+      "TopicImpactOut": {
+        "properties": {
+          "links": {
+            "default": 0,
+            "title": "Links",
+            "type": "integer"
+          },
+          "notes": {
+            "default": 0,
+            "title": "Notes",
+            "type": "integer"
+          },
+          "plan_slots": {
+            "default": 0,
+            "title": "Plan Slots",
+            "type": "integer"
+          },
+          "resources": {
+            "default": 0,
+            "title": "Resources",
+            "type": "integer"
+          },
+          "todos": {
+            "default": 0,
+            "title": "Todos",
+            "type": "integer"
+          },
+          "topics": {
+            "default": 0,
+            "title": "Topics",
+            "type": "integer"
+          }
+        },
+        "title": "TopicImpactOut",
+        "type": "object"
+      },
       "TopicImportIn": {
         "additionalProperties": false,
         "properties": {
@@ -10586,7 +12439,6 @@
             "anyOf": [
               {
                 "maxLength": 200,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -10607,6 +12459,16 @@
             ],
             "title": "Area Id"
           },
+          "prune": {
+            "default": false,
+            "title": "Prune",
+            "type": "boolean"
+          },
+          "strip_common_prefix": {
+            "default": false,
+            "title": "Strip Common Prefix",
+            "type": "boolean"
+          },
           "topics": {
             "items": {
               "$ref": "#/components/schemas/TopicSeed"
@@ -10614,6 +12476,11 @@
             "minItems": 1,
             "title": "Topics",
             "type": "array"
+          },
+          "update_existing": {
+            "default": true,
+            "title": "Update Existing",
+            "type": "boolean"
           }
         },
         "required": [
@@ -10633,6 +12500,11 @@
             "title": "Area Title",
             "type": "string"
           },
+          "resources_archived": {
+            "default": 0,
+            "title": "Resources Archived",
+            "type": "integer"
+          },
           "resources_created": {
             "title": "Resources Created",
             "type": "integer"
@@ -10641,12 +12513,27 @@
             "title": "Resources Skipped",
             "type": "integer"
           },
+          "resources_updated": {
+            "default": 0,
+            "title": "Resources Updated",
+            "type": "integer"
+          },
+          "topics_archived": {
+            "default": 0,
+            "title": "Topics Archived",
+            "type": "integer"
+          },
           "topics_created": {
             "title": "Topics Created",
             "type": "integer"
           },
           "topics_matched": {
             "title": "Topics Matched",
+            "type": "integer"
+          },
+          "topics_updated": {
+            "default": 0,
+            "title": "Topics Updated",
             "type": "integer"
           }
         },
@@ -10716,7 +12603,7 @@
             "title": "Target Min"
           },
           "title": {
-            "minLength": 1,
+            "maxLength": 300,
             "title": "Title",
             "type": "string"
           }
@@ -10726,6 +12613,36 @@
           "area_id"
         ],
         "title": "TopicIn",
+        "type": "object"
+      },
+      "TopicMoveIn": {
+        "properties": {
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          }
+        },
+        "title": "TopicMoveIn",
         "type": "object"
       },
       "TopicPatch": {
@@ -10742,6 +12659,19 @@
               }
             ],
             "title": "Confidence"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
           },
           "parent_id": {
             "anyOf": [
@@ -10792,6 +12722,7 @@
           "title": {
             "anyOf": [
               {
+                "maxLength": 300,
                 "type": "string"
               },
               {
@@ -10802,6 +12733,121 @@
           }
         },
         "title": "TopicPatch",
+        "type": "object"
+      },
+      "TopicProgressOut": {
+        "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
+          "pct": {
+            "default": 0,
+            "title": "Pct",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "TopicProgressOut",
+        "type": "object"
+      },
+      "TopicReviewIn": {
+        "properties": {
+          "grade": {
+            "enum": [
+              "forgot",
+              "hard",
+              "medium",
+              "easy",
+              "very_easy"
+            ],
+            "title": "Grade",
+            "type": "string"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
+          }
+        },
+        "required": [
+          "grade"
+        ],
+        "title": "TopicReviewIn",
+        "type": "object"
+      },
+      "TopicReviewOut": {
+        "properties": {
+          "due": {
+            "default": false,
+            "title": "Due",
+            "type": "boolean"
+          },
+          "ease": {
+            "default": 2.5,
+            "title": "Ease",
+            "type": "number"
+          },
+          "interval_days": {
+            "default": 0,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "last_reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reviewed At"
+          },
+          "mastery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mastery"
+          },
+          "next_review_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review At"
+          },
+          "review_count": {
+            "default": 0,
+            "title": "Review Count",
+            "type": "integer"
+          }
+        },
+        "title": "TopicReviewOut",
         "type": "object"
       },
       "TopicReviewStats": {
@@ -10832,6 +12878,18 @@
             "title": "Children",
             "type": "array"
           },
+          "position": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
           "resources": {
             "items": {
               "$ref": "#/components/schemas/ResourceSeed"
@@ -10858,7 +12916,6 @@
           },
           "title": {
             "maxLength": 300,
-            "minLength": 1,
             "title": "Title",
             "type": "string"
           }
@@ -10867,6 +12924,39 @@
           "title"
         ],
         "title": "TopicSeed",
+        "type": "object"
+      },
+      "TopicStatsDetailOut": {
+        "properties": {
+          "last_studied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Studied At"
+          },
+          "minutes": {
+            "default": 0,
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "sessions": {
+            "default": 0,
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "week_minutes": {
+            "default": 0,
+            "title": "Week Minutes",
+            "type": "integer"
+          }
+        },
+        "title": "TopicStatsDetailOut",
         "type": "object"
       },
       "TopicTodoIn": {
@@ -10883,6 +12973,11 @@
               }
             ],
             "title": "Due At"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
           },
           "plan_day": {
             "anyOf": [
@@ -10921,7 +13016,6 @@
             "title": "Recur"
           },
           "tags": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -10930,6 +13024,23 @@
           }
         },
         "title": "TopicTodoIn",
+        "type": "object"
+      },
+      "TopicTodoOut": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "todo": {
+            "$ref": "#/components/schemas/TodoOut"
+          }
+        },
+        "required": [
+          "created",
+          "todo"
+        ],
+        "title": "TopicTodoOut",
         "type": "object"
       },
       "TransitionIn": {
@@ -12495,14 +14606,59 @@
     "/api/courses": {
       "get": {
         "operationId": "courses_api_courses_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "area_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Area Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CourseOut"
+                  },
+                  "title": "Response Courses Api Courses Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Courses",
@@ -12526,7 +14682,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -12548,17 +14706,17 @@
         ]
       }
     },
-    "/api/courses/{id}": {
+    "/api/courses/{course_id}": {
       "delete": {
-        "operationId": "delete_course_api_courses__id__delete",
+        "operationId": "delete_course_api_courses__course_id__delete",
         "parameters": [
           {
             "in": "path",
-            "name": "id",
+            "name": "course_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Id",
+              "title": "Course Id",
               "type": "string"
             }
           }
@@ -12584,15 +14742,15 @@
         ]
       },
       "patch": {
-        "operationId": "patch_course_api_courses__id__patch",
+        "operationId": "patch_course_api_courses__course_id__patch",
         "parameters": [
           {
             "in": "path",
-            "name": "id",
+            "name": "course_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Id",
+              "title": "Course Id",
               "type": "string"
             }
           }
@@ -12611,7 +14769,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -14372,6 +16532,48 @@
           "learning"
         ]
       },
+      "get": {
+        "description": "Tek kaynak (deep-link) + `last_opened_at` damgasi.",
+        "operationId": "get_resource_api_learning_resources__resource_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Resource Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Resource",
+        "tags": [
+          "learning"
+        ]
+      },
       "patch": {
         "operationId": "patch_resource_api_learning_resources__resource_id__patch",
         "parameters": [
@@ -14400,7 +16602,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -21652,14 +23856,42 @@
     "/api/study/areas": {
       "get": {
         "operationId": "areas_api_study_areas_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_stats",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Stats",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudyAreaOut"
+                  },
+                  "title": "Response Areas Api Study Areas Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Areas",
@@ -21683,7 +23915,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StudyAreaOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -21739,11 +23973,148 @@
         "tags": [
           "learning"
         ]
+      },
+      "patch": {
+        "operationId": "patch_area_api_study_areas__area_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "area_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Area Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AreaPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyAreaOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Area",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/areas/{area_id}/tree": {
+      "get": {
+        "operationId": "area_tree_api_study_areas__area_id__tree_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "area_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Area Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_resources",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Resources",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyTreeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Area Tree",
+        "tags": [
+          "learning"
+        ]
       }
     },
     "/api/study/import": {
       "post": {
-        "description": "Konu agacini JSON'dan kurar (disarida uretilmis olabilir).\n\nYeniden yuklenebilir: ayni baslik ayni ebeveyn altinda eslesir, kopya\nolusmaz. Var olan konulari SILMEZ -- ekler ve gunceller.",
+        "description": "Konu agacini JSON'dan kurar/gunceller (atomik: tek commit).\n\nYeniden yuklenebilir: ayni baslik ayni ebeveyn altinda eslesir, kopya\nolusmaz. `prune=true` agacta olmayani SILMEZ, arsivler.",
         "operationId": "import_topics_api_study_import_post",
         "requestBody": {
           "content": {
@@ -21783,6 +24154,147 @@
         ]
       }
     },
+    "/api/study/import/preview": {
+      "post": {
+        "description": "Yazmadan ne olacagini soyler (creates/updates/matches/sayaclar).",
+        "operationId": "import_preview_api_study_import_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicImportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Preview",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/resources/attach-bookmark": {
+      "post": {
+        "description": "Yer imini ogrenme kaynagina baglar (kopyalamaz; ayni bag idempotent).",
+        "operationId": "attach_bookmark_api_study_resources_attach_bookmark_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachBookmarkIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Bookmark",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/review": {
+      "get": {
+        "operationId": "review_queue_api_study_review_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Window",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewQueueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Queue",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
     "/api/study/stale": {
       "get": {
         "operationId": "stale_api_study_stale_get",
@@ -21793,8 +24305,60 @@
             "required": false,
             "schema": {
               "default": 21,
+              "maximum": 365,
+              "minimum": 7,
               "title": "Days",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "area_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Area Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_done",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Done",
+              "type": "boolean"
             }
           }
         ],
@@ -21802,7 +24366,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StalePageOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -21824,8 +24390,53 @@
         ]
       }
     },
+    "/api/study/stats": {
+      "get": {
+        "operationId": "study_stats_api_study_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "schema": {
+              "default": "week",
+              "pattern": "^(week|month|90d|year|all)$",
+              "title": "Range",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyStatsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Study Stats",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
     "/api/study/topics": {
       "get": {
+        "description": "Alan agaci (ic ice, ESKI sekil -- yol degismedi).",
         "operationId": "topics_api_study_topics_get",
         "parameters": [
           {
@@ -21843,7 +24454,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudyTopicLegacyNode"
+                  },
+                  "title": "Response Topics Api Study Topics Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -21880,7 +24497,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StudyTopicOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -21955,7 +24574,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StudyTopicDetailOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -22004,7 +24625,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StudyTopicOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -22021,6 +24644,102 @@
           }
         },
         "summary": "Patch Topic",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/topics/{topic_id}/impact": {
+      "get": {
+        "operationId": "topic_impact_api_study_topics__topic_id__impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Topic Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicImpactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Topic Impact",
+        "tags": [
+          "learning"
+        ]
+      }
+    },
+    "/api/study/topics/{topic_id}/move": {
+      "post": {
+        "operationId": "move_topic_api_study_topics__topic_id__move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "topic_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Topic Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicMoveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyTopicOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Move Topic",
         "tags": [
           "learning"
         ]
@@ -22045,7 +24764,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TopicProgressOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -22086,7 +24807,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceOut"
+                  },
+                  "title": "Response Topic Resources Api Study Topics  Topic Id  Resources Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -22135,7 +24862,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -22157,9 +24886,9 @@
         ]
       }
     },
-    "/api/study/topics/{topic_id}/stats": {
-      "get": {
-        "operationId": "stats_api_study_topics__topic_id__stats_get",
+    "/api/study/topics/{topic_id}/review": {
+      "post": {
+        "operationId": "review_topic_api_study_topics__topic_id__review_post",
         "parameters": [
           {
             "in": "path",
@@ -22172,11 +24901,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TopicReviewOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -22192,7 +24933,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Stats",
+        "summary": "Review Topic",
         "tags": [
           "learning"
         ]
@@ -22200,7 +24941,7 @@
     },
     "/api/study/topics/{topic_id}/todos": {
       "post": {
-        "description": "Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).\n\nGovde ortak TodoIn sozlesmesidir (Faz 31): \"bugune al\" tercihi\nplan_day olarak buradan gelir; title/description konudan sabit kalir.",
+        "description": "Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).\n\nIdempotent: konunun acik gorevi varsa yenisi acilmaz (`created: false`);\n`force=true` ikinci gorevi uretir. Go vde ortak TodoIn sozlesmesidir.",
         "operationId": "create_topic_todo_api_study_topics__topic_id__todos_post",
         "parameters": [
           {
@@ -22235,7 +24976,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TopicTodoOut"
+                }
               }
             },
             "description": "Successful Response"

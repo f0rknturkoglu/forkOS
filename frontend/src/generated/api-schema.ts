@@ -527,7 +527,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/courses/{id}": {
+    "/api/courses/{course_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -538,11 +538,11 @@ export interface paths {
         put?: never;
         post?: never;
         /** Delete Course */
-        delete: operations["delete_course_api_courses__id__delete"];
+        delete: operations["delete_course_api_courses__course_id__delete"];
         options?: never;
         head?: never;
         /** Patch Course */
-        patch: operations["patch_course_api_courses__id__patch"];
+        patch: operations["patch_course_api_courses__course_id__patch"];
         trace?: never;
     };
     "/api/deadlines": {
@@ -1141,7 +1141,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Resource
+         * @description Tek kaynak (deep-link) + `last_opened_at` damgasi.
+         */
+        get: operations["get_resource_api_learning_resources__resource_id__get"];
         put?: never;
         post?: never;
         /** Delete Resource */
@@ -3283,6 +3287,24 @@ export interface paths {
         delete: operations["delete_area_api_study_areas__area_id__delete"];
         options?: never;
         head?: never;
+        /** Patch Area */
+        patch: operations["patch_area_api_study_areas__area_id__patch"];
+        trace?: never;
+    };
+    "/api/study/areas/{area_id}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Area Tree */
+        get: operations["area_tree_api_study_areas__area_id__tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -3297,12 +3319,69 @@ export interface paths {
         put?: never;
         /**
          * Import Topics
-         * @description Konu agacini JSON'dan kurar (disarida uretilmis olabilir).
+         * @description Konu agacini JSON'dan kurar/gunceller (atomik: tek commit).
          *
          *     Yeniden yuklenebilir: ayni baslik ayni ebeveyn altinda eslesir, kopya
-         *     olusmaz. Var olan konulari SILMEZ -- ekler ve gunceller.
+         *     olusmaz. `prune=true` agacta olmayani SILMEZ, arsivler.
          */
         post: operations["import_topics_api_study_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/study/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Preview
+         * @description Yazmadan ne olacagini soyler (creates/updates/matches/sayaclar).
+         */
+        post: operations["import_preview_api_study_import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/study/resources/attach-bookmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Attach Bookmark
+         * @description Yer imini ogrenme kaynagina baglar (kopyalamaz; ayni bag idempotent).
+         */
+        post: operations["attach_bookmark_api_study_resources_attach_bookmark_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/study/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review Queue */
+        get: operations["review_queue_api_study_review_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3326,6 +3405,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/study/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Study Stats */
+        get: operations["study_stats_api_study_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/study/topics": {
         parameters: {
             query?: never;
@@ -3333,7 +3429,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Topics */
+        /**
+         * Topics
+         * @description Alan agaci (ic ice, ESKI sekil -- yol degismedi).
+         */
         get: operations["topics_api_study_topics_get"];
         put?: never;
         /** Add Topic */
@@ -3361,6 +3460,40 @@ export interface paths {
         head?: never;
         /** Patch Topic */
         patch: operations["patch_topic_api_study_topics__topic_id__patch"];
+        trace?: never;
+    };
+    "/api/study/topics/{topic_id}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Topic Impact */
+        get: operations["topic_impact_api_study_topics__topic_id__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/study/topics/{topic_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move Topic */
+        post: operations["move_topic_api_study_topics__topic_id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/study/topics/{topic_id}/progress": {
@@ -3398,17 +3531,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/study/topics/{topic_id}/stats": {
+    "/api/study/topics/{topic_id}/review": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Stats */
-        get: operations["stats_api_study_topics__topic_id__stats_get"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Review Topic */
+        post: operations["review_topic_api_study_topics__topic_id__review_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3428,8 +3561,8 @@ export interface paths {
          * Create Topic Todo
          * @description Konudan gorev + `prepares_for` bagini tek istekte uretir (Faz 17).
          *
-         *     Govde ortak TodoIn sozlesmesidir (Faz 31): "bugune al" tercihi
-         *     plan_day olarak buradan gelir; title/description konudan sabit kalir.
+         *     Idempotent: konunun acik gorevi varsa yenisi acilmaz (`created: false`);
+         *     `force=true` ikinci gorevi uretir. Go vde ortak TodoIn sozlesmesidir.
          */
         post: operations["create_topic_todo_api_study_topics__topic_id__todos_post"];
         delete?: never;
@@ -3699,6 +3832,8 @@ export interface components {
             cover_url?: string | null;
             /** Duration Min */
             duration_min?: number | null;
+            /** Entity Type */
+            entity_type?: string | null;
             /** Feed Title */
             feed_title?: string | null;
             /**
@@ -3715,6 +3850,8 @@ export interface components {
             media_kind?: string | null;
             /** Media Status */
             media_status?: string | null;
+            /** Next Review At */
+            next_review_at?: string | null;
             /** Parent Id */
             parent_id?: string | null;
             /** Progress Label */
@@ -3750,8 +3887,20 @@ export interface components {
             media?: components["schemas"]["AgendaRow"][];
             /** Rss */
             rss?: components["schemas"]["AgendaRow"][];
+            /** Study */
+            study?: components["schemas"]["AgendaRow"][];
             /** Todos */
             todos?: components["schemas"]["AgendaRow"][];
+        };
+        /** AncestorOut */
+        AncestorOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
         };
         /** ApplicationIn */
         ApplicationIn: {
@@ -3833,6 +3982,32 @@ export interface components {
             position: number;
             /** Title */
             title: string;
+        };
+        /** AreaPatch */
+        AreaPatch: {
+            /** Active */
+            active?: boolean | null;
+            /** Archived */
+            archived?: boolean | null;
+            /** Color */
+            color?: string | null;
+            /** Position */
+            position?: number | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** AttachBookmarkIn */
+        AttachBookmarkIn: {
+            /**
+             * Bookmark Id
+             * Format: uuid
+             */
+            bookmark_id: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
         };
         /** Body_import_cards_api_flashcard_import_post */
         Body_import_cards_api_flashcard_import_post: {
@@ -4236,6 +4411,10 @@ export interface components {
         };
         /** CourseIn */
         CourseIn: {
+            /** Area Ids */
+            area_ids?: string[];
+            /** Certificate Entity Id */
+            certificate_entity_id?: string | null;
             /** Notes */
             notes?: string | null;
             /** Platform */
@@ -4252,19 +4431,73 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+            /** Topic Ids */
+            topic_ids?: string[];
+            /** Url */
+            url?: string | null;
+        };
+        /** CourseOut */
+        CourseOut: {
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /** Area Ids */
+            area_ids?: string[];
+            /** Certificate Entity Id */
+            certificate_entity_id?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Notes */
+            notes?: string | null;
+            /** Platform */
+            platform?: string | null;
+            /** Progress Pct */
+            progress_pct: number;
+            /**
+             * Resource Count
+             * @default 0
+             */
+            resource_count: number;
+            /** Started At */
+            started_at?: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Topic Ids */
+            topic_ids?: string[];
             /** Url */
             url?: string | null;
         };
         /** CoursePatch */
         CoursePatch: {
+            /** Archived */
+            archived?: boolean | null;
+            /** Area Ids */
+            area_ids?: string[] | null;
+            /** Certificate Entity Id */
+            certificate_entity_id?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Platform */
+            platform?: string | null;
             /** Progress Pct */
             progress_pct?: number | null;
             /** Status */
             status?: string | null;
             /** Title */
             title?: string | null;
+            /** Topic Ids */
+            topic_ids?: string[] | null;
+            /** Url */
+            url?: string | null;
         };
         /** CoverLetterReviewIn */
         CoverLetterReviewIn: {
@@ -4742,6 +4975,44 @@ export interface components {
             /** To Status */
             to_status: string;
         };
+        /** ImportAreaOut */
+        ImportAreaOut: {
+            /**
+             * Exists
+             * @default false
+             */
+            exists: boolean;
+            /** Id */
+            id?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** ImportConflictOut */
+        ImportConflictOut: {
+            /** Path */
+            path: string;
+            /** Reason */
+            reason: string;
+        };
+        /** ImportNodePreview */
+        ImportNodePreview: {
+            /** Changes */
+            changes?: string[];
+            /** Path */
+            path: string;
+            /**
+             * Resources
+             * @default 0
+             */
+            resources: number;
+            /**
+             * Status
+             * @default not_started
+             */
+            status: string;
+            /** Title */
+            title: string;
+        };
         /** ImportOut */
         ImportOut: {
             /** Added */
@@ -4756,6 +5027,33 @@ export interface components {
             /** Skipped */
             skipped: number;
         };
+        /** ImportPreviewOut */
+        ImportPreviewOut: {
+            area: components["schemas"]["ImportAreaOut"];
+            /** Conflicts */
+            conflicts?: components["schemas"]["ImportConflictOut"][];
+            /** Creates */
+            creates?: components["schemas"]["ImportNodePreview"][];
+            /** Invalid */
+            invalid?: components["schemas"]["ImportConflictOut"][];
+            /** Matches */
+            matches?: components["schemas"]["ImportNodePreview"][];
+            /**
+             * Resources Duplicate
+             * @default 0
+             */
+            resources_duplicate: number;
+            /**
+             * Resources New
+             * @default 0
+             */
+            resources_new: number;
+            /** Suggested Prefix */
+            suggested_prefix?: string | null;
+            totals: components["schemas"]["ImportTotalsOut"];
+            /** Updates */
+            updates?: components["schemas"]["ImportNodePreview"][];
+        };
         /** ImportResult */
         ImportResult: {
             /** Added */
@@ -4767,6 +5065,34 @@ export interface components {
             feeds: string[];
             /** Skipped */
             skipped: number;
+        };
+        /** ImportTotalsOut */
+        ImportTotalsOut: {
+            /**
+             * Creates
+             * @default 0
+             */
+            creates: number;
+            /**
+             * Depth
+             * @default 0
+             */
+            depth: number;
+            /**
+             * Matches
+             * @default 0
+             */
+            matches: number;
+            /**
+             * Nodes
+             * @default 0
+             */
+            nodes: number;
+            /**
+             * Updates
+             * @default 0
+             */
+            updates: number;
         };
         /** IncomeIn */
         IncomeIn: {
@@ -5990,6 +6316,24 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** OpenTodoOut */
+        OpenTodoOut: {
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Plan Day */
+            plan_day?: string | null;
+            /** Priority */
+            priority?: number | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
         /** OpportunityBrowseOut */
         OpportunityBrowseOut: {
             /** Facets */
@@ -6615,6 +6959,8 @@ export interface components {
         };
         /** ResourceIn */
         ResourceIn: {
+            /** Estimated Min */
+            estimated_min?: number | null;
             /**
              * Kind
              * @default link
@@ -6632,10 +6978,56 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** ResourceOut */
+        ResourceOut: {
+            /** Bookmark Id */
+            bookmark_id?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Course Id */
+            course_id?: string | null;
+            /** Estimated Min */
+            estimated_min?: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @default link
+             */
+            kind: string;
+            /** Last Opened At */
+            last_opened_at?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Source
+             * @default manual
+             */
+            source: string;
+            /** Title */
+            title: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Url */
+            url?: string | null;
+        };
         /** ResourcePatch */
         ResourcePatch: {
             /** Completed */
             completed?: boolean | null;
+            /** Estimated Min */
+            estimated_min?: number | null;
             /** Kind */
             kind?: string | null;
             /** Note */
@@ -6649,6 +7041,8 @@ export interface components {
         };
         /** ResourceSeed */
         ResourceSeed: {
+            /** Estimated Min */
+            estimated_min?: number | null;
             /**
              * Kind
              * @default link
@@ -6660,6 +7054,35 @@ export interface components {
             title: string;
             /** Url */
             url?: string | null;
+        };
+        /** ReviewBlockOut */
+        ReviewBlockOut: {
+            /**
+             * Due
+             * @default false
+             */
+            due: boolean;
+            /**
+             * Ease
+             * @default 2.5
+             */
+            ease: number;
+            /**
+             * Interval Days
+             * @default 0
+             */
+            interval_days: number;
+            /** Last Reviewed At */
+            last_reviewed_at?: string | null;
+            /** Mastery */
+            mastery?: number | null;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
         };
         /** ReviewPreview */
         ReviewPreview: {
@@ -6684,6 +7107,19 @@ export interface components {
             /** Unfinished Todos */
             unfinished_todos: components["schemas"]["UnfinishedTodo"][];
         };
+        /** ReviewQueueOut */
+        ReviewQueueOut: {
+            /** Due Today */
+            due_today?: components["schemas"]["ReviewTopicOut"][];
+            /** New Topics */
+            new_topics?: components["schemas"]["ReviewTopicOut"][];
+            /** Overdue */
+            overdue?: components["schemas"]["ReviewTopicOut"][];
+            /** Upcoming */
+            upcoming?: components["schemas"]["ReviewTopicOut"][];
+            /** Weak */
+            weak?: components["schemas"]["ReviewTopicOut"][];
+        };
         /** ReviewStats */
         ReviewStats: {
             applications: components["schemas"]["ApplicationReviewStats"];
@@ -6699,6 +7135,45 @@ export interface components {
             todos: components["schemas"]["TodoReviewStats"];
             /** Topics */
             topics: components["schemas"]["TopicReviewStats"][];
+        };
+        /** ReviewTopicOut */
+        ReviewTopicOut: {
+            /**
+             * Area Id
+             * Format: uuid
+             */
+            area_id: string;
+            /** Area Title */
+            area_title: string;
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Interval Days
+             * @default 0
+             */
+            interval_days: number;
+            /** Last Reviewed At */
+            last_reviewed_at?: string | null;
+            /** Last Studied At */
+            last_studied_at?: string | null;
+            /** Mastery */
+            mastery?: number | null;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
         };
         /** RiskSignalOut */
         RiskSignalOut: {
@@ -6980,6 +7455,26 @@ export interface components {
             /** Sources */
             sources: components["schemas"]["SourceSyncItemOut"][];
         };
+        /** StalePageOut */
+        StalePageOut: {
+            /** Items */
+            items?: components["schemas"]["StudyTopicOut"][];
+            /**
+             * Limit
+             * @default 20
+             */
+            limit: number;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
         /**
          * StatisticsSummary
          * @description Keyfi verb ailesine gore sayaclar: family adi -> dilimler.
@@ -6992,6 +7487,54 @@ export interface components {
             };
             streak: components["schemas"]["StreakOut"];
         };
+        /** StatsAreaOut */
+        StatsAreaOut: {
+            /**
+             * Area Id
+             * Format: uuid
+             */
+            area_id: string;
+            /**
+             * Minutes
+             * @default 0
+             */
+            minutes: number;
+            /** Title */
+            title: string;
+        };
+        /** StatsCourseOut */
+        StatsCourseOut: {
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * In Progress
+             * @default 0
+             */
+            in_progress: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /** StatsTopicOut */
+        StatsTopicOut: {
+            /**
+             * Minutes
+             * @default 0
+             */
+            minutes: number;
+            /** Title */
+            title: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+        };
         /** StreakOut */
         StreakOut: {
             /** Current */
@@ -6999,12 +7542,394 @@ export interface components {
             /** Longest */
             longest: number;
         };
+        /** StudyAreaOut */
+        StudyAreaOut: {
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Archived At */
+            archived_at?: string | null;
+            /** Color */
+            color?: string | null;
+            /**
+             * Done Count
+             * @default 0
+             */
+            done_count: number;
+            /**
+             * Focus Minutes
+             * @default 0
+             */
+            focus_minutes: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Studied At */
+            last_studied_at?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Resource Count
+             * @default 0
+             */
+            resource_count: number;
+            /**
+             * Resource Done
+             * @default 0
+             */
+            resource_done: number;
+            /**
+             * Stale Count
+             * @default 0
+             */
+            stale_count: number;
+            /** Title */
+            title: string;
+            /**
+             * Topic Count
+             * @default 0
+             */
+            topic_count: number;
+        };
         /** StudyReviewStats */
         StudyReviewStats: {
             /** Minutes By Area */
             minutes_by_area: {
                 [key: string]: number;
             };
+        };
+        /** StudyStatsOut */
+        StudyStatsOut: {
+            /**
+             * Active Days
+             * @default 0
+             */
+            active_days: number;
+            /**
+             * Actual Minutes
+             * @default 0
+             */
+            actual_minutes: number;
+            /** By Area */
+            by_area?: components["schemas"]["StatsAreaOut"][];
+            /** By Topic */
+            by_topic?: components["schemas"]["StatsTopicOut"][];
+            /**
+             * Confidence Delta
+             * @default 0
+             */
+            confidence_delta: number;
+            courses?: components["schemas"]["StatsCourseOut"];
+            /**
+             * Flashcards Reviewed
+             * @default 0
+             */
+            flashcards_reviewed: number;
+            /**
+             * Focus Minutes
+             * @default 0
+             */
+            focus_minutes: number;
+            /**
+             * Focus Sessions
+             * @default 0
+             */
+            focus_sessions: number;
+            /**
+             * Planned Minutes
+             * @default 0
+             */
+            planned_minutes: number;
+            /**
+             * Resources Done
+             * @default 0
+             */
+            resources_done: number;
+            /**
+             * Reviews Done
+             * @default 0
+             */
+            reviews_done: number;
+            /**
+             * Streak Days
+             * @default 0
+             */
+            streak_days: number;
+            /**
+             * Topics Done
+             * @default 0
+             */
+            topics_done: number;
+            /**
+             * Topics Started
+             * @default 0
+             */
+            topics_started: number;
+        };
+        /** StudyTopicDetailOut */
+        StudyTopicDetailOut: {
+            /** Ancestors */
+            ancestors?: components["schemas"]["AncestorOut"][];
+            /**
+             * Flashcard Deck Count
+             * @default 0
+             */
+            flashcard_deck_count: number;
+            /**
+             * Note Count
+             * @default 0
+             */
+            note_count: number;
+            open_todo?: components["schemas"]["OpenTodoOut"] | null;
+            progress: components["schemas"]["TopicProgressOut"];
+            /** Resources */
+            resources?: components["schemas"]["ResourceOut"][];
+            review: components["schemas"]["ReviewBlockOut"];
+            stats: components["schemas"]["TopicStatsDetailOut"];
+            topic: components["schemas"]["StudyTopicOut"];
+        };
+        /**
+         * StudyTopicLegacyNode
+         * @description `GET /study/topics?area_id=` eski (ic ice) sekli -- yol korunur.
+         */
+        StudyTopicLegacyNode: {
+            /**
+             * Area Id
+             * Format: uuid
+             */
+            area_id: string;
+            /** Children */
+            children?: components["schemas"]["StudyTopicLegacyNode"][];
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Ease
+             * @default 2.5
+             */
+            ease: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Interval Days
+             * @default 0
+             */
+            interval_days: number;
+            /** Last Reviewed At */
+            last_reviewed_at?: string | null;
+            /** Last Studied At */
+            last_studied_at?: string | null;
+            /** Mastery */
+            mastery?: number | null;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            progress?: components["schemas"]["TopicProgressOut"];
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
+            /** Status */
+            status: string;
+            /** Target Min */
+            target_min?: number | null;
+            /** Title */
+            title: string;
+        };
+        /** StudyTopicNode */
+        StudyTopicNode: {
+            /**
+             * Child Count
+             * @default 0
+             */
+            child_count: number;
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Depth
+             * @default 0
+             */
+            depth: number;
+            /**
+             * Focus Minutes
+             * @default 0
+             */
+            focus_minutes: number;
+            /**
+             * Focus Sessions
+             * @default 0
+             */
+            focus_sessions: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Studied At */
+            last_studied_at?: string | null;
+            /** Mastery */
+            mastery?: number | null;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Path */
+            path?: string[];
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Progress Pct
+             * @default 0
+             */
+            progress_pct: number;
+            /**
+             * Resource Done
+             * @default 0
+             */
+            resource_done: number;
+            /**
+             * Resource Total
+             * @default 0
+             */
+            resource_total: number;
+            /** Resources */
+            resources?: components["schemas"]["ResourceOut"][] | null;
+            /**
+             * Review Due
+             * @default false
+             */
+            review_due: boolean;
+            /** Status */
+            status: string;
+            /** Target Min */
+            target_min?: number | null;
+            /** Title */
+            title: string;
+        };
+        /** StudyTopicOut */
+        StudyTopicOut: {
+            /**
+             * Area Id
+             * Format: uuid
+             */
+            area_id: string;
+            /** Confidence */
+            confidence?: number | null;
+            /**
+             * Ease
+             * @default 2.5
+             */
+            ease: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Interval Days
+             * @default 0
+             */
+            interval_days: number;
+            /** Last Reviewed At */
+            last_reviewed_at?: string | null;
+            /** Last Studied At */
+            last_studied_at?: string | null;
+            /** Mastery */
+            mastery?: number | null;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
+            /** Status */
+            status: string;
+            /** Target Min */
+            target_min?: number | null;
+            /** Title */
+            title: string;
+        };
+        /** StudyTreeOut */
+        StudyTreeOut: {
+            area: components["schemas"]["StudyAreaOut"];
+            /** Nodes */
+            nodes?: components["schemas"]["StudyTopicNode"][];
+            /**
+             * Orphan Count
+             * @default 0
+             */
+            orphan_count: number;
+            totals: components["schemas"]["StudyTreeTotals"];
+        };
+        /** StudyTreeTotals */
+        StudyTreeTotals: {
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Focus Minutes
+             * @default 0
+             */
+            focus_minutes: number;
+            /**
+             * Focus Sessions
+             * @default 0
+             */
+            focus_sessions: number;
+            /**
+             * In Progress
+             * @default 0
+             */
+            in_progress: number;
+            /**
+             * Resource Done
+             * @default 0
+             */
+            resource_done: number;
+            /**
+             * Resource Total
+             * @default 0
+             */
+            resource_total: number;
+            /**
+             * Review Due
+             * @default 0
+             */
+            review_due: number;
+            /**
+             * Topics
+             * @default 0
+             */
+            topics: number;
         };
         /** SyncIn */
         SyncIn: {
@@ -7187,14 +8112,62 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** TopicImpactOut */
+        TopicImpactOut: {
+            /**
+             * Links
+             * @default 0
+             */
+            links: number;
+            /**
+             * Notes
+             * @default 0
+             */
+            notes: number;
+            /**
+             * Plan Slots
+             * @default 0
+             */
+            plan_slots: number;
+            /**
+             * Resources
+             * @default 0
+             */
+            resources: number;
+            /**
+             * Todos
+             * @default 0
+             */
+            todos: number;
+            /**
+             * Topics
+             * @default 0
+             */
+            topics: number;
+        };
         /** TopicImportIn */
         TopicImportIn: {
             /** Area */
             area?: string | null;
             /** Area Id */
             area_id?: string | null;
+            /**
+             * Prune
+             * @default false
+             */
+            prune: boolean;
+            /**
+             * Strip Common Prefix
+             * @default false
+             */
+            strip_common_prefix: boolean;
             /** Topics */
             topics: components["schemas"]["TopicSeed"][];
+            /**
+             * Update Existing
+             * @default true
+             */
+            update_existing: boolean;
         };
         /** TopicImportOut */
         TopicImportOut: {
@@ -7205,14 +8178,34 @@ export interface components {
             area_id: string;
             /** Area Title */
             area_title: string;
+            /**
+             * Resources Archived
+             * @default 0
+             */
+            resources_archived: number;
             /** Resources Created */
             resources_created: number;
             /** Resources Skipped */
             resources_skipped: number;
+            /**
+             * Resources Updated
+             * @default 0
+             */
+            resources_updated: number;
+            /**
+             * Topics Archived
+             * @default 0
+             */
+            topics_archived: number;
             /** Topics Created */
             topics_created: number;
             /** Topics Matched */
             topics_matched: number;
+            /**
+             * Topics Updated
+             * @default 0
+             */
+            topics_updated: number;
         };
         /** TopicIn */
         TopicIn: {
@@ -7240,10 +8233,19 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** TopicMoveIn */
+        TopicMoveIn: {
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Position */
+            position?: number | null;
+        };
         /** TopicPatch */
         TopicPatch: {
             /** Confidence */
             confidence?: number | null;
+            /** Mastery */
+            mastery?: number | null;
             /** Parent Id */
             parent_id?: string | null;
             /** Position */
@@ -7254,6 +8256,63 @@ export interface components {
             target_min?: number | null;
             /** Title */
             title?: string | null;
+        };
+        /** TopicProgressOut */
+        TopicProgressOut: {
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
+            /**
+             * Pct
+             * @default 0
+             */
+            pct: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /** TopicReviewIn */
+        TopicReviewIn: {
+            /**
+             * Grade
+             * @enum {string}
+             */
+            grade: "forgot" | "hard" | "medium" | "easy" | "very_easy";
+            /** Mastery */
+            mastery?: number | null;
+        };
+        /** TopicReviewOut */
+        TopicReviewOut: {
+            /**
+             * Due
+             * @default false
+             */
+            due: boolean;
+            /**
+             * Ease
+             * @default 2.5
+             */
+            ease: number;
+            /**
+             * Interval Days
+             * @default 0
+             */
+            interval_days: number;
+            /** Last Reviewed At */
+            last_reviewed_at?: string | null;
+            /** Mastery */
+            mastery?: number | null;
+            /** Next Review At */
+            next_review_at?: string | null;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
         };
         /** TopicReviewStats */
         TopicReviewStats: {
@@ -7266,6 +8325,8 @@ export interface components {
         TopicSeed: {
             /** Children */
             children?: components["schemas"]["TopicSeed"][];
+            /** Position */
+            position?: number | null;
             /** Resources */
             resources?: components["schemas"]["ResourceSeed"][];
             /**
@@ -7278,6 +8339,26 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** TopicStatsDetailOut */
+        TopicStatsDetailOut: {
+            /** Last Studied At */
+            last_studied_at?: string | null;
+            /**
+             * Minutes
+             * @default 0
+             */
+            minutes: number;
+            /**
+             * Sessions
+             * @default 0
+             */
+            sessions: number;
+            /**
+             * Week Minutes
+             * @default 0
+             */
+            week_minutes: number;
+        };
         /**
          * TopicTodoIn
          * @description Konu gorevi icin ortak alan sozlesmesi (Faz 31).
@@ -7289,17 +8370,25 @@ export interface components {
         TopicTodoIn: {
             /** Due At */
             due_at?: string | null;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
             /** Plan Day */
             plan_day?: string | null;
             /** Priority */
             priority?: number | null;
             /** Recur */
             recur?: string | null;
-            /**
-             * Tags
-             * @default []
-             */
-            tags: string[];
+            /** Tags */
+            tags?: string[];
+        };
+        /** TopicTodoOut */
+        TopicTodoOut: {
+            /** Created */
+            created: boolean;
+            todo: components["schemas"]["TodoOut"];
         };
         /** TransitionIn */
         TransitionIn: {
@@ -8309,7 +9398,10 @@ export interface operations {
     };
     courses_api_courses_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_archived?: boolean;
+                area_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8322,7 +9414,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -8346,7 +9447,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseOut"];
                 };
             };
             /** @description Validation Error */
@@ -8360,12 +9461,12 @@ export interface operations {
             };
         };
     };
-    delete_course_api_courses__id__delete: {
+    delete_course_api_courses__course_id__delete: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                course_id: string;
             };
             cookie?: never;
         };
@@ -8389,12 +9490,12 @@ export interface operations {
             };
         };
     };
-    patch_course_api_courses__id__patch: {
+    patch_course_api_courses__course_id__patch: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                course_id: string;
             };
             cookie?: never;
         };
@@ -8410,7 +9511,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CourseOut"];
                 };
             };
             /** @description Validation Error */
@@ -9647,6 +10748,37 @@ export interface operations {
             };
         };
     };
+    get_resource_api_learning_resources__resource_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_resource_api_learning_resources__resource_id__delete: {
         parameters: {
             query?: never;
@@ -9697,7 +10829,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceOut"];
                 };
             };
             /** @description Validation Error */
@@ -14383,7 +15515,9 @@ export interface operations {
     };
     areas_api_study_areas_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_stats?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14396,7 +15530,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudyAreaOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -14420,7 +15563,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudyAreaOut"];
                 };
             };
             /** @description Validation Error */
@@ -14451,6 +15594,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_area_api_study_areas__area_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyAreaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    area_tree_api_study_areas__area_id__tree_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: string | null;
+                include_resources?: boolean;
+            };
+            header?: never;
+            path: {
+                area_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyTreeOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -14496,10 +15709,77 @@ export interface operations {
             };
         };
     };
-    stale_api_study_stale_get: {
+    import_preview_api_study_import_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicImportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_bookmark_api_study_resources_attach_bookmark_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachBookmarkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_queue_api_study_review_get: {
         parameters: {
             query?: {
-                days?: number;
+                window?: number;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -14513,7 +15793,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReviewQueueOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stale_api_study_stale_get: {
+        parameters: {
+            query?: {
+                days?: number;
+                limit?: number;
+                offset?: number;
+                area_id?: string | null;
+                include_done?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StalePageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    study_stats_api_study_stats_get: {
+        parameters: {
+            query?: {
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyStatsOut"];
                 };
             };
             /** @description Validation Error */
@@ -14544,7 +15890,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudyTopicLegacyNode"][];
                 };
             };
             /** @description Validation Error */
@@ -14577,7 +15923,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudyTopicOut"];
                 };
             };
             /** @description Validation Error */
@@ -14608,7 +15954,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudyTopicDetailOut"];
                 };
             };
             /** @description Validation Error */
@@ -14672,7 +16018,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["StudyTopicOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    topic_impact_api_study_topics__topic_id__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicImpactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_topic_api_study_topics__topic_id__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicMoveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyTopicOut"];
                 };
             };
             /** @description Validation Error */
@@ -14703,7 +16115,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TopicProgressOut"];
                 };
             };
             /** @description Validation Error */
@@ -14734,7 +16146,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceOut"][];
                 };
             };
             /** @description Validation Error */
@@ -14769,7 +16181,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResourceOut"];
                 };
             };
             /** @description Validation Error */
@@ -14783,7 +16195,7 @@ export interface operations {
             };
         };
     };
-    stats_api_study_topics__topic_id__stats_get: {
+    review_topic_api_study_topics__topic_id__review_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -14792,7 +16204,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicReviewIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -14800,7 +16216,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TopicReviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -14835,7 +16251,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TopicTodoOut"];
                 };
             };
             /** @description Validation Error */
