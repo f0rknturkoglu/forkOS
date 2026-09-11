@@ -12,7 +12,10 @@ import re
 
 import app.core.models  # noqa: F401  -- metadata dolsun
 import app.modules  # noqa: F401
+import pytest
 from app.db import Base
+
+pytestmark = pytest.mark.no_database
 
 VERSIONS = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions"
 
@@ -112,6 +115,8 @@ def test_module_tables_reference_entity():
         # kapanma). Bagimsiz aranabilir/linklenebilir nesne degil; yalnizca tek
         # opportunity'yi olcen destek satiri (plan_slot ile ayni sinif).
         "opportunity_source_observation",
+        # Bookmark okuma vurgusu (1:N) -- tek bir bookmark entity'sine bagli destek satiri.
+        "bookmark_highlight",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:
