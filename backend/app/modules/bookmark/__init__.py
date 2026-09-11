@@ -11,7 +11,8 @@ def _spec():
             'bookmark', 'Yer imi', 'Yer imleri', '/bookmarks?focus={id}', 'Bookmark',
         )],
         event_verbs=["bookmark.saved", "bookmark.moved", "bookmark.read",
-                     "bookmark.favorited", "bookmark.deleted"],
+                     "bookmark.favorited", "bookmark.deleted",
+                     "bookmark.highlighted", "bookmark.scrolled"],
     )
 
 
