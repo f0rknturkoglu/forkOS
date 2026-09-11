@@ -99,6 +99,7 @@ export interface Bookmark {
   source: string;
   read_status: "unread" | "reading" | "read";
   favorite: boolean;
+  is_favorite?: boolean;
   note: string | null;
   selection: string | null;
   saved_at: string;

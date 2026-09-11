@@ -50,7 +50,7 @@ export function BookmarkCard({
   });
 
   const isRead = bookmark.read_status === "read";
-  const isFavorite = bookmark.is_favorite ?? bookmark.favorite;
+  const isFavorite = bookmark.favorite;
   const host = hostOf(bookmark.url);
   const initial = (host || "B").charAt(0).toUpperCase();
 

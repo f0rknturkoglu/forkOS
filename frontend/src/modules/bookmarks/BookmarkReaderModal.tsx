@@ -128,7 +128,7 @@ export function BookmarkReaderModal({
   const [highlightNote, setHighlightNote] = useState("");
 
   const [localReadStatus, setLocalReadStatus] = useState<string>(bookmark?.read_status ?? "unread");
-  const [localFavorite, setLocalFavorite] = useState<boolean>(bookmark?.is_favorite ?? false);
+  const [localFavorite, setLocalFavorite] = useState<boolean>(bookmark?.favorite ?? false);
   const [localCollection, setLocalCollection] = useState<Collection>(
     bookmark?.collection ?? "read_later",
   );
@@ -137,7 +137,7 @@ export function BookmarkReaderModal({
     if (bookmark) {
       setScrollProgress(bookmark.scroll_progress ?? 0);
       setLocalReadStatus(bookmark.read_status ?? "unread");
-      setLocalFavorite(bookmark.is_favorite ?? false);
+      setLocalFavorite(bookmark.favorite ?? false);
       setLocalCollection(bookmark.collection ?? "read_later");
       setSelectionPopup(null);
       setHighlightNote("");
@@ -289,6 +289,17 @@ export function BookmarkReaderModal({
     },
   });
 
+  // Zenginlestir (Readability ile tekrar tara)
+  const enrichBookmark = useMutation({
+    mutationFn: () => api.post<Bookmark>(`/bookmarks/${bookmark?.id}/enrich`),
+    onSuccess: (updated) => {
+      invalidateAfter("bookmark.write");
+      toast.push("Icerik yeniden tarandi ve zenginlestirildi", { tone: "ok" });
+      onBookmarkUpdated?.(updated);
+      refetch();
+    },
+  });
+
   // Secilen metni dogrudan Flashcard yap
   const handleConvertSelectionToFlashcard = async () => {
     if (!bookmark || !selectionPopup) return;
@@ -344,13 +355,13 @@ export function BookmarkReaderModal({
   // Favori degisimi
   const toggleFavorite = useMutation({
     mutationFn: () =>
-      api.patch<Bookmark>(`/bookmarks/${bookmark?.id}`, { is_favorite: !localFavorite }),
+      api.patch<Bookmark>(`/bookmarks/${bookmark?.id}`, { favorite: !localFavorite }),
     onSuccess: (updated) => {
-      setLocalFavorite(updated.is_favorite);
+      setLocalFavorite(updated.favorite);
       invalidateAfter("bookmark.write");
       onBookmarkUpdated?.(updated);
       toast.push(
-        updated.is_favorite ? "Favorilere eklendi" : "Favorilerden cikarildi",
+        updated.favorite ? "Favorilere eklendi" : "Favorilerden cikarildi",
         { tone: "neutral" },
       );
     },
@@ -606,10 +617,10 @@ export function BookmarkReaderModal({
                   <div className="flex justify-center gap-3">
                     <Button
                       variant="primary"
-                      onClick={() => refetch()}
-                      disabled={isFetching}
+                      onClick={() => enrichBookmark.mutate()}
+                      disabled={isFetching || enrichBookmark.isPending}
                     >
-                      <RefreshCw size={14} className={cx(isFetching && "animate-spin")} />
+                      <RefreshCw size={14} className={cx((isFetching || enrichBookmark.isPending) && "animate-spin")} />
                       <span>Tam Metni Tekrar Getir</span>
                     </Button>
                     <a

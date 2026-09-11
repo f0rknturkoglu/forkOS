@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
 import { api } from "@/core/api";
@@ -20,17 +20,18 @@ export interface BookmarkImportModalProps {
 
 export function BookmarkImportModal({ open, onClose }: BookmarkImportModalProps) {
   const toast = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileContent, setFileContent] = useState("");
   const [fileName, setFileName] = useState("");
   const [targetCollection, setTargetCollection] = useState<Collection>("read_later");
 
-  const handleFileChange = (files: FileList | null) => {
-    const file = files?.[0];
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setFileContent((e.target?.result as string) || "");
+    reader.onload = (event) => {
+      setFileContent((event.target?.result as string) || "");
     };
     reader.readAsText(file);
   };
@@ -80,11 +81,22 @@ export function BookmarkImportModal({ open, onClose }: BookmarkImportModalProps)
     >
       <div className="space-y-4 font-sans">
         <Field label="Dosya Sec (.html veya .json)">
-          <FileInput
-            accept=".html,.htm,.json"
-            onChange={handleFileChange}
-            className="w-full"
-          />
+          <div className="flex flex-col gap-2">
+            <FileInput
+              ref={fileInputRef}
+              accept=".html,.htm,.json"
+              onChange={handleFileChange}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload size={14} />
+              <span>{fileName ? "Dosyayi Degistir" : "HTML veya JSON Dosyasi Sec"}</span>
+            </Button>
+          </div>
         </Field>
 
         {fileName && (

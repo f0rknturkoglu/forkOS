@@ -111,7 +111,7 @@ function BookmarkRow({
     onSuccess: refresh,
   });
 
-  const isFavorite = bookmark.is_favorite ?? bookmark.favorite;
+  const isFavorite = bookmark.favorite;
 
   return (
     <li
@@ -313,8 +313,9 @@ export function BookmarksPage() {
   });
 
   const handleExport = () => {
+    const exportPath = "/bookmarks/export";
     const a = document.createElement("a");
-    a.href = "/api/bookmarks/export";
+    a.href = `/api${exportPath}`;
     a.download = "forkos-bookmarks.html";
     document.body.appendChild(a);
     a.click();
