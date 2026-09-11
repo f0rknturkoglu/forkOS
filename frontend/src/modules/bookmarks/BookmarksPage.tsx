@@ -193,9 +193,7 @@ function BookmarkRow({
             size="sm"
             disabled={!online}
             title={bookmark.read_status === "read" ? "Okunmadi isaretle" : "Okundu isaretle"}
-            onClick={() =>
-              patch.mutate({ read_status: bookmark.read_status === "read" ? "unread" : "read" })
-            }
+            onClick={() => patch.mutate({ read_status: bookmark.read_status === "read" ? "unread" : "read" })}
           >
             {bookmark.read_status === "read" ? "Okunmadi" : "Okundu"}
           </Button>
@@ -223,10 +221,7 @@ function BookmarkRow({
             <ExternalLink size={14} />
           </a>
 
-          <IconButton
-            title="Odak Okuma Modunda Ac"
-            onClick={onOpenReader}
-          >
+          <IconButton title="Odak Okuma Modunda Ac" onClick={onOpenReader}>
             <BookOpen size={14} />
           </IconButton>
 
@@ -248,7 +243,7 @@ export function BookmarksPage() {
   const q = useDebounced(search, 250);
 
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
-    return (safeGetStorage("forkos_bookmark_view", "grid") as "grid" | "list");
+    return safeGetStorage("forkos_bookmark_view", "grid") as "grid" | "list";
   });
 
   const [activeReaderBookmark, setActiveReaderBookmark] = useState<Bookmark | null>(null);
@@ -431,7 +426,11 @@ export function BookmarksPage() {
                 onClick={() => setFilter({ ...filter, source: filter.source === "rss" ? undefined : "rss" })}
               />
               {filter.tag && (
-                <FilterChip label={`#${filter.tag} x`} active onClick={() => setFilter({ ...filter, tag: undefined })} />
+                <FilterChip
+                  label={`#${filter.tag} x`}
+                  active
+                  onClick={() => setFilter({ ...filter, tag: undefined })}
+                />
               )}
             </div>
 
@@ -465,12 +464,7 @@ export function BookmarksPage() {
                 <span>Ice Aktar</span>
               </Button>
 
-              <Button
-                size="sm"
-                variant="ghost"
-                title="Kutuphaneyi HTML olarak indir"
-                onClick={handleExport}
-              >
+              <Button size="sm" variant="ghost" title="Kutuphaneyi HTML olarak indir" onClick={handleExport}>
                 <Download size={14} />
                 <span>Disa Aktar</span>
               </Button>
@@ -587,10 +581,7 @@ export function BookmarksPage() {
       />
 
       {/* Ice Aktar Modali */}
-      <BookmarkImportModal
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-      />
+      <BookmarkImportModal open={importModalOpen} onClose={() => setImportModalOpen(false)} />
     </PageFrame>
   );
 }

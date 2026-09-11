@@ -17,19 +17,9 @@ import {
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { Bookmark, BookmarkFullText, BookmarkHighlight, Collection } from "@/core/types";
-import {
-  Button,
-  Chip,
-  Empty,
-  IconButton,
-  Input,
-  Select,
-  cx,
-  hostOf,
-  useToast,
-} from "@/core/ui";
+import { Button, Chip, Empty, IconButton, Input, Select, cx, hostOf, useToast } from "@/core/ui";
 
-export interface BookmarkReaderModalProps {
+interface BookmarkReaderModalProps {
   open: boolean;
   bookmark: Bookmark | null;
   onClose: () => void;
@@ -97,24 +87,19 @@ function safeSetStorage(key: string, value: string): void {
   }
 }
 
-export function BookmarkReaderModal({
-  open,
-  bookmark,
-  onClose,
-  onBookmarkUpdated,
-}: BookmarkReaderModalProps) {
+export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated }: BookmarkReaderModalProps) {
   const toast = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [fontFamily, setFontFamily] = useState<FontFamilyChoice>(() => {
-    return (safeGetStorage("forkos_reader_font", "serif") as FontFamilyChoice);
+    return safeGetStorage("forkos_reader_font", "serif") as FontFamilyChoice;
   });
   const [fontSize, setFontSize] = useState<FontSizeChoice>(() => {
-    return (safeGetStorage("forkos_reader_size", "md") as FontSizeChoice);
+    return safeGetStorage("forkos_reader_size", "md") as FontSizeChoice;
   });
   const [columnWidth, setColumnWidth] = useState<ColumnWidthChoice>(() => {
-    return (safeGetStorage("forkos_reader_width", "normal") as ColumnWidthChoice);
+    return safeGetStorage("forkos_reader_width", "normal") as ColumnWidthChoice;
   });
 
   const [showHighlightsPanel, setShowHighlightsPanel] = useState(false);
@@ -129,9 +114,7 @@ export function BookmarkReaderModal({
 
   const [localReadStatus, setLocalReadStatus] = useState<string>(bookmark?.read_status ?? "unread");
   const [localFavorite, setLocalFavorite] = useState<boolean>(bookmark?.favorite ?? false);
-  const [localCollection, setLocalCollection] = useState<Collection>(
-    bookmark?.collection ?? "read_later",
-  );
+  const [localCollection, setLocalCollection] = useState<Collection>(bookmark?.collection ?? "read_later");
 
   useEffect(() => {
     if (bookmark) {
@@ -267,8 +250,7 @@ export function BookmarkReaderModal({
 
   // Vurgu Sil
   const deleteHighlight = useMutation({
-    mutationFn: (highlightId: string) =>
-      api.del(`/bookmarks/${bookmark?.id}/highlights/${highlightId}`),
+    mutationFn: (highlightId: string) => api.del(`/bookmarks/${bookmark?.id}/highlights/${highlightId}`),
     onSuccess: () => {
       invalidateAfter("bookmark.write");
       toast.push("Vurgu silindi", { tone: "neutral" });
@@ -279,10 +261,7 @@ export function BookmarkReaderModal({
   // Vurguyu Flashcard'a Donustur
   const convertHighlightToFlashcard = useMutation({
     mutationFn: (highlightId: string) =>
-      api.post<{ card_id: string }>(
-        `/bookmarks/${bookmark?.id}/highlights/${highlightId}/convert-to-flashcard`,
-        {},
-      ),
+      api.post<{ card_id: string }>(`/bookmarks/${bookmark?.id}/highlights/${highlightId}/convert-to-flashcard`, {}),
     onSuccess: () => {
       invalidateAfter("flashcard.write", "link.write");
       toast.push("Flashcard karti olusturuldu", { tone: "ok" });
@@ -345,25 +324,20 @@ export function BookmarkReaderModal({
       setLocalReadStatus(updated.read_status);
       invalidateAfter("bookmark.write");
       onBookmarkUpdated?.(updated);
-      toast.push(
-        updated.read_status === "read" ? "Okundu olarak isaretlendi" : "Okunmadi olarak isaretlendi",
-        { tone: "ok" },
-      );
+      toast.push(updated.read_status === "read" ? "Okundu olarak isaretlendi" : "Okunmadi olarak isaretlendi", {
+        tone: "ok",
+      });
     },
   });
 
   // Favori degisimi
   const toggleFavorite = useMutation({
-    mutationFn: () =>
-      api.patch<Bookmark>(`/bookmarks/${bookmark?.id}`, { favorite: !localFavorite }),
+    mutationFn: () => api.patch<Bookmark>(`/bookmarks/${bookmark?.id}`, { favorite: !localFavorite }),
     onSuccess: (updated) => {
       setLocalFavorite(updated.favorite);
       invalidateAfter("bookmark.write");
       onBookmarkUpdated?.(updated);
-      toast.push(
-        updated.favorite ? "Favorilere eklendi" : "Favorilerden cikarildi",
-        { tone: "neutral" },
-      );
+      toast.push(updated.favorite ? "Favorilere eklendi" : "Favorilerden cikarildi", { tone: "neutral" });
     },
   });
 
@@ -397,10 +371,7 @@ export function BookmarkReaderModal({
       <div className="relative flex h-[95vh] w-full max-w-5xl flex-col rounded-overlay border border-strong bg-surface shadow-overlay outline-none overflow-hidden">
         {/* Ust Kaydirma Ilerleme Cubugu */}
         <div className="h-1 w-full bg-surface-sunken shrink-0">
-          <div
-            className="h-full bg-accent transition-all duration-150"
-            style={{ width: `${scrollProgress}%` }}
-          />
+          <div className="h-full bg-accent transition-all duration-150" style={{ width: `${scrollProgress}%` }} />
         </div>
 
         {/* Ust Arac Cubugu */}
@@ -494,11 +465,7 @@ export function BookmarkReaderModal({
             </Button>
 
             {/* Okundu / Okunmadi */}
-            <Button
-              size="sm"
-              variant={isRead ? "secondary" : "primary"}
-              onClick={() => toggleReadStatus.mutate()}
-            >
+            <Button size="sm" variant={isRead ? "secondary" : "primary"} onClick={() => toggleReadStatus.mutate()}>
               {isRead ? <Check size={14} /> : <BookOpen size={14} />}
               <span>{isRead ? "Okundu" : "Okunmadi"}</span>
             </Button>
@@ -647,9 +614,7 @@ export function BookmarkReaderModal({
               <header className="flex items-center justify-between border-b border-subtle px-3 py-3">
                 <div className="flex items-center gap-2">
                   <Highlighter size={14} className="text-icon" />
-                  <span className="text-body font-medium text-primary">
-                    Vurgular ({highlights.length})
-                  </span>
+                  <span className="text-body font-medium text-primary">Vurgular ({highlights.length})</span>
                 </div>
                 <IconButton title="Paneli Kapat" onClick={() => setShowHighlightsPanel(false)}>
                   <X size={14} />
@@ -658,9 +623,7 @@ export function BookmarkReaderModal({
 
               <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-3">
                 {highlights.length === 0 ? (
-                  <Empty title="Henuz vurgu yok">
-                    Makale uzerinde metin secerek vurgu ve not ekleyebilirsiniz.
-                  </Empty>
+                  <Empty title="Henuz vurgu yok">Makale uzerinde metin secerek vurgu ve not ekleyebilirsiniz.</Empty>
                 ) : (
                   highlights.map((h) => {
                     const colorStyle = COLOR_STYLES[(h.color as HighlightColor) || "yellow"];
@@ -679,16 +642,10 @@ export function BookmarkReaderModal({
                             {h.color}
                           </span>
                           <div className="flex items-center gap-1">
-                            <IconButton
-                              title="Flashcard yap"
-                              onClick={() => convertHighlightToFlashcard.mutate(h.id)}
-                            >
+                            <IconButton title="Flashcard yap" onClick={() => convertHighlightToFlashcard.mutate(h.id)}>
                               <Layers size={13} />
                             </IconButton>
-                            <IconButton
-                              title="Vurguyu sil"
-                              onClick={() => deleteHighlight.mutate(h.id)}
-                            >
+                            <IconButton title="Vurguyu sil" onClick={() => deleteHighlight.mutate(h.id)}>
                               <Trash2 size={13} />
                             </IconButton>
                           </div>
@@ -699,9 +656,7 @@ export function BookmarkReaderModal({
                         </p>
 
                         {h.note && (
-                          <p className="text-meta text-muted bg-surface-sunken p-2 rounded-control">
-                            {h.note}
-                          </p>
+                          <p className="text-meta text-muted bg-surface-sunken p-2 rounded-control">{h.note}</p>
                         )}
                       </article>
                     );
@@ -751,24 +706,15 @@ export function BookmarkReaderModal({
                 <span>Vurgula</span>
               </Button>
 
-              <IconButton
-                title="Flashcard yap"
-                onClick={handleConvertSelectionToFlashcard}
-              >
+              <IconButton title="Flashcard yap" onClick={handleConvertSelectionToFlashcard}>
                 <Layers size={14} />
               </IconButton>
 
-              <IconButton
-                title="Gorev yap"
-                onClick={handleConvertSelectionToTodo}
-              >
+              <IconButton title="Gorev yap" onClick={handleConvertSelectionToTodo}>
                 <CheckSquare size={14} />
               </IconButton>
 
-              <IconButton
-                title="Iptal"
-                onClick={() => setSelectionPopup(null)}
-              >
+              <IconButton title="Iptal" onClick={() => setSelectionPopup(null)}>
                 <X size={14} />
               </IconButton>
             </div>

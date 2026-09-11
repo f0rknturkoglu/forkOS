@@ -174,7 +174,7 @@ async def convert_highlight_to_flashcard(
         card_id = await service.convert_highlight_to_flashcard(session, bookmark_id, highlight_id)
         return {"card_id": card_id}
     except ValueError as err:
-        raise HTTPException(404, str(err))
+        raise HTTPException(404, str(err)) from err
 
 
 @router.patch("/bookmarks/{bookmark_id}", response_model=BookmarkOut)
@@ -234,7 +234,7 @@ async def convert_bookmark_to_task(
         todo_id = await service.convert_to_task(session, bookmark_id, body)
         return {"todo_id": todo_id}
     except ValueError as err:
-        raise HTTPException(404, str(err))
+        raise HTTPException(404, str(err)) from err
 
 
 @router.post("/bookmarks/{bookmark_id}/create-note")
@@ -247,7 +247,7 @@ async def create_note_from_bookmark(
         note_id = await service.create_note_from_bookmark(session, bookmark_id, body)
         return {"note_id": note_id}
     except ValueError as err:
-        raise HTTPException(404, str(err))
+        raise HTTPException(404, str(err)) from err
 
 
 @router.post("/bookmarks/{bookmark_id}/enrich", response_model=BookmarkOut)

@@ -38,16 +38,12 @@ describe("BookmarkImportModal", () => {
   });
 
   it("kapaliyken render edilmez", () => {
-    const markup = renderToStaticMarkup(
-      <BookmarkImportModal open={false} onClose={vi.fn()} />,
-    );
+    const markup = renderToStaticMarkup(<BookmarkImportModal open={false} onClose={vi.fn()} />);
     expect(markup).toBe("");
   });
 
   it("acildiginda baslik, dosya secici ve koleksiyon secicisini render eder", () => {
-    const markup = renderToStaticMarkup(
-      <BookmarkImportModal open={true} onClose={vi.fn()} />,
-    );
+    const markup = renderToStaticMarkup(<BookmarkImportModal open={true} onClose={vi.fn()} />);
 
     expect(markup).toContain("Yer Imlerini Ice Aktar");
     expect(markup).toContain("Netscape HTML (Chrome, Firefox, Safari)");
@@ -57,13 +53,9 @@ describe("BookmarkImportModal", () => {
   });
 
   it("ice aktarma mutasyonunu dogru cagirir ve invalidation tetikler", async () => {
-    renderToStaticMarkup(
-      <BookmarkImportModal open={true} onClose={vi.fn()} />,
-    );
+    renderToStaticMarkup(<BookmarkImportModal open={true} onClose={vi.fn()} />);
 
-    const importMutation = harness.mutations.find((m) =>
-      m.mutationFn?.toString().includes("/bookmarks/import"),
-    );
+    const importMutation = harness.mutations.find((m) => m.mutationFn?.toString().includes("/bookmarks/import"));
     expect(importMutation).toBeDefined();
 
     harness.apiPost.mockResolvedValueOnce({ imported: 42 });

@@ -6,6 +6,7 @@ yazar, tahmini okuma suresi ve guvenli HTML/metin cikarimi yapar.
 
 from __future__ import annotations
 
+import contextlib
 import math
 import re
 from dataclasses import dataclass
@@ -149,10 +150,8 @@ def extract_article(html: str | bytes, base_url: str = "") -> ArticleContent:
     if time_el:
         raw_date = time_el.attributes.get("content") or time_el.attributes.get("datetime")
         if raw_date:
-            try:
+            with contextlib.suppress(Exception):
                 published_at = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-            except Exception:
-                pass
 
     favicon_url = None
     fav_el = root.css_first("link[rel~='icon']")

@@ -4,16 +4,9 @@ import { Upload } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { Collection } from "@/core/types";
-import {
-  Button,
-  Field,
-  FileInput,
-  Modal,
-  Select,
-  useToast,
-} from "@/core/ui";
+import { Button, Field, FileInput, Modal, Select, useToast } from "@/core/ui";
 
-export interface BookmarkImportModalProps {
+interface BookmarkImportModalProps {
   open: boolean;
   onClose: () => void;
 }
@@ -82,17 +75,8 @@ export function BookmarkImportModal({ open, onClose }: BookmarkImportModalProps)
       <div className="space-y-4 font-sans">
         <Field label="Dosya Sec (.html veya .json)">
           <div className="flex flex-col gap-2">
-            <FileInput
-              ref={fileInputRef}
-              accept=".html,.htm,.json"
-              onChange={handleFileChange}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => fileInputRef.current?.click()}
-            >
+            <FileInput ref={fileInputRef} accept=".html,.htm,.json" onChange={handleFileChange} />
+            <Button type="button" size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
               <Upload size={14} />
               <span>{fileName ? "Dosyayi Degistir" : "HTML veya JSON Dosyasi Sec"}</span>
             </Button>
@@ -106,10 +90,7 @@ export function BookmarkImportModal({ open, onClose }: BookmarkImportModalProps)
         )}
 
         <Field label="Hedef Koleksiyon" hint="Ice aktarilan ogeler bu koleksiyona kaydedilir">
-          <Select
-            value={targetCollection}
-            onChange={(c) => setTargetCollection(c as Collection)}
-          >
+          <Select value={targetCollection} onChange={(c) => setTargetCollection(c as Collection)}>
             <option value="read_later">Daha Sonra Oku</option>
             <option value="inbox">Gelen Kutusu</option>
             <option value="archive">Arsiv</option>

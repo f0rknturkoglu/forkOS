@@ -64,12 +64,7 @@ describe("BookmarkCard", () => {
 
   it("kapak gorseli, alan adi, baslik, okuma suresi ve ozeti render eder", () => {
     const markup = renderToStaticMarkup(
-      <BookmarkCard
-        bookmark={mockCardBookmark}
-        selected={false}
-        onToggleSelect={vi.fn()}
-        onOpenReader={vi.fn()}
-      />,
+      <BookmarkCard bookmark={mockCardBookmark} selected={false} onToggleSelect={vi.fn()} onOpenReader={vi.fn()} />,
     );
 
     expect(markup).toContain("news.ycombinator.com");
@@ -83,17 +78,10 @@ describe("BookmarkCard", () => {
 
   it("favori degistirme mutasyonunu dogru cagirir", async () => {
     renderToStaticMarkup(
-      <BookmarkCard
-        bookmark={mockCardBookmark}
-        selected={false}
-        onToggleSelect={vi.fn()}
-        onOpenReader={vi.fn()}
-      />,
+      <BookmarkCard bookmark={mockCardBookmark} selected={false} onToggleSelect={vi.fn()} onOpenReader={vi.fn()} />,
     );
 
-    const favMutation = harness.mutations.find((m) =>
-      m.mutationFn?.toString().includes("favorite"),
-    );
+    const favMutation = harness.mutations.find((m) => m.mutationFn?.toString().includes("favorite"));
     expect(favMutation).toBeDefined();
 
     await favMutation?.mutationFn?.();
@@ -105,17 +93,10 @@ describe("BookmarkCard", () => {
 
   it("silme mutasyonunu dogru cagirir", async () => {
     renderToStaticMarkup(
-      <BookmarkCard
-        bookmark={mockCardBookmark}
-        selected={false}
-        onToggleSelect={vi.fn()}
-        onOpenReader={vi.fn()}
-      />,
+      <BookmarkCard bookmark={mockCardBookmark} selected={false} onToggleSelect={vi.fn()} onOpenReader={vi.fn()} />,
     );
 
-    const delMutation = harness.mutations.find((m) =>
-      m.mutationFn?.toString().includes("del"),
-    );
+    const delMutation = harness.mutations.find((m) => m.mutationFn?.toString().includes("del"));
     expect(delMutation).toBeDefined();
 
     await delMutation?.mutationFn?.();

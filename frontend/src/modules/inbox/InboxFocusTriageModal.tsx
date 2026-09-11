@@ -18,19 +18,7 @@ import {
 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
-import {
-  Button,
-  Chip,
-  Empty,
-  IconButton,
-  Input,
-  Kbd,
-  Modal,
-  cx,
-  hostOf,
-  relativeTime,
-  useToast,
-} from "@/core/ui";
+import { Button, Chip, Empty, IconButton, Input, Kbd, Modal, cx, hostOf, relativeTime, useToast } from "@/core/ui";
 import type { Bookmark, Collection } from "@/core/types";
 
 interface InboxFocusTriageModalProps {
@@ -44,7 +32,11 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
 
-  const { data: items = [], isLoading, refetch } = useQuery({
+  const {
+    data: items = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["bookmarks", "inbox", "triage-modal"],
     queryFn: () => api.get<Bookmark[]>(`/bookmarks${qs({ collection: "inbox", limit: 200 })}`),
     enabled: open,
@@ -85,8 +77,7 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
   });
 
   const convertToTask = useMutation({
-    mutationFn: (id: string) =>
-      api.post<{ todo_id: string }>(`/bookmarks/${id}/convert-to-task`, { priority: 2 }),
+    mutationFn: (id: string) => api.post<{ todo_id: string }>(`/bookmarks/${id}/convert-to-task`, { priority: 2 }),
     onSuccess: () => {
       invalidateAfter("bookmark.write", "todo.write", "link.write");
       toast.push("Goreve donusturuldu ve arsivlendi", { tone: "ok" });
@@ -95,8 +86,7 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
   });
 
   const createNote = useMutation({
-    mutationFn: (id: string) =>
-      api.post<{ note_id: string }>(`/bookmarks/${id}/create-note`, { pinned: false }),
+    mutationFn: (id: string) => api.post<{ note_id: string }>(`/bookmarks/${id}/create-note`, { pinned: false }),
     onSuccess: () => {
       invalidateAfter("bookmark.write", "note.write", "link.write");
       toast.push("Baglantili not olusturuldu", { tone: "ok" });
@@ -104,8 +94,7 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
   });
 
   const updateTitle = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) =>
-      api.patch(`/bookmarks/${id}`, { title }),
+    mutationFn: ({ id, title }: { id: string; title: string }) => api.patch(`/bookmarks/${id}`, { title }),
     onSuccess: () => {
       invalidateAfter("bookmark.write");
       setEditingTitle(false);
@@ -184,9 +173,7 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
         <div className="py-12 text-center text-meta text-muted">Kayitlar yukleniyor...</div>
       ) : items.length === 0 ? (
         <div className="py-8 text-center space-y-3">
-          <Empty title="Gelen kutusu temiz">
-            Tebrikler, bekleyen tum kayitlar ayiklandi. Gelen kutusu sifirlandi.
-          </Empty>
+          <Empty title="Gelen kutusu temiz">Tebrikler, bekleyen tum kayitlar ayiklandi. Gelen kutusu sifirlandi.</Empty>
           <Button variant="primary" onClick={onClose}>
             Bugun Paneline Don
           </Button>
@@ -226,10 +213,7 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
                     <h3 className="text-title font-medium text-primary break-words">
                       {currentItem.title || currentItem.url}
                     </h3>
-                    <IconButton
-                      title="Basligi duzenle"
-                      onClick={() => setEditingTitle(true)}
-                    >
+                    <IconButton title="Basligi duzenle" onClick={() => setEditingTitle(true)}>
                       <Pencil size={13} />
                     </IconButton>
                   </div>
@@ -241,9 +225,7 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
                   <span>{relativeTime(currentItem.saved_at)}</span>
                   <Chip>{currentItem.source}</Chip>
                   {currentItem.is_duplicate && (
-                    <Chip tone="warn">
-                      Zaten kayitli: {currentItem.existing_collection || "kutuphane"}
-                    </Chip>
+                    <Chip tone="warn">Zaten kayitli: {currentItem.existing_collection || "kutuphane"}</Chip>
                   )}
                   {currentItem.tags.map((tag) => (
                     <Chip key={tag}>#{tag}</Chip>
@@ -374,11 +356,7 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
               </IconButton>
             </div>
 
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => remove.mutate(currentItem.id)}
-            >
+            <Button variant="danger" size="sm" onClick={() => remove.mutate(currentItem.id)}>
               <Trash2 size={13} />
               <span>Cope At (D)</span>
             </Button>

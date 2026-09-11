@@ -313,7 +313,8 @@ function OverviewStep({
         ) : (
           <div className="space-y-3">
             <p className="text-body text-secondary">
-              Dönemi net kapatmak için gelen kutusundaki {inboxItems.length} kaydı inceleyin, arşivleyin veya göreve dönüştürün.
+              Dönemi net kapatmak için gelen kutusundaki {inboxItems.length} kaydı inceleyin, arşivleyin veya göreve
+              dönüştürün.
             </p>
             <RowList as="ul">
               {inboxItems.slice(0, 4).map((bm) => (
@@ -323,9 +324,7 @@ function OverviewStep({
                 </li>
               ))}
             </RowList>
-            {inboxItems.length > 4 && (
-              <p className="text-meta text-muted">+{inboxItems.length - 4} kayıt daha</p>
-            )}
+            {inboxItems.length > 4 && <p className="text-meta text-muted">+{inboxItems.length - 4} kayıt daha</p>}
           </div>
         )}
       </Section>

@@ -41,8 +41,7 @@ export function InboxTodayWidget() {
   });
 
   const convertToTask = useMutation({
-    mutationFn: (id: string) =>
-      api.post<{ todo_id: string }>(`/bookmarks/${id}/convert-to-task`, { priority: 2 }),
+    mutationFn: (id: string) => api.post<{ todo_id: string }>(`/bookmarks/${id}/convert-to-task`, { priority: 2 }),
     onSuccess: () => {
       invalidateAfter("bookmark.write", "todo.write", "link.write");
       toast.push("Goreve donusturuldu ve arsivlendi", { tone: "ok" });
@@ -96,10 +95,7 @@ export function InboxTodayWidget() {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1">
-                    <IconButton
-                      title="Goreve donustur"
-                      onClick={() => convertToTask.mutate(bookmark.id)}
-                    >
+                    <IconButton title="Goreve donustur" onClick={() => convertToTask.mutate(bookmark.id)}>
                       <CheckSquare size={14} className="text-accent" />
                     </IconButton>
                     <IconButton
@@ -108,10 +104,7 @@ export function InboxTodayWidget() {
                     >
                       <Clock size={14} />
                     </IconButton>
-                    <IconButton
-                      title="Arsivle"
-                      onClick={() => move.mutate({ id: bookmark.id, collection: "archive" })}
-                    >
+                    <IconButton title="Arsivle" onClick={() => move.mutate({ id: bookmark.id, collection: "archive" })}>
                       <Archive size={14} />
                     </IconButton>
                   </div>
@@ -119,12 +112,7 @@ export function InboxTodayWidget() {
               ))}
             </RowList>
 
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full"
-              onClick={() => setTriageOpen(true)}
-            >
+            <Button variant="secondary" size="sm" className="w-full" onClick={() => setTriageOpen(true)}>
               <Sparkles size={13} />
               <span>Tumunu Ayikla (Triage Modu)</span>
             </Button>
@@ -132,10 +120,7 @@ export function InboxTodayWidget() {
         )}
       </Section>
 
-      <InboxFocusTriageModal
-        open={triageOpen}
-        onClose={() => setTriageOpen(false)}
-      />
+      <InboxFocusTriageModal open={triageOpen} onClose={() => setTriageOpen(false)} />
     </>
   );
 }

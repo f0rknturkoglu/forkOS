@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from app.core.readability import extract_article
 
 pytestmark = pytest.mark.no_database

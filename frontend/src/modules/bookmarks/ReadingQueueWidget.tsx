@@ -77,10 +77,7 @@ export function ReadingQueueWidget() {
                   >
                     <ExternalLink size={13} />
                   </a>
-                  <IconButton
-                    title="Odak Okuma Modunda Ac"
-                    onClick={() => setActiveBookmark(bookmark)}
-                  >
+                  <IconButton title="Odak Okuma Modunda Ac" onClick={() => setActiveBookmark(bookmark)}>
                     <BookOpen size={14} />
                   </IconButton>
                 </div>

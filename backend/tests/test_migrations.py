@@ -10,9 +10,10 @@ import ast
 import pathlib
 import re
 
+import pytest
+
 import app.core.models  # noqa: F401  -- metadata dolsun
 import app.modules  # noqa: F401
-import pytest
 from app.db import Base
 
 pytestmark = pytest.mark.no_database

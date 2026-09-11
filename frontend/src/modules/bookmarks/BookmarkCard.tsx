@@ -4,35 +4,21 @@ import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { Bookmark } from "@/core/types";
 import { COLLECTION_LABELS } from "@/core/types";
-import {
-  Button,
-  Checkbox,
-  Chip,
-  IconButton,
-  cx,
-  hostOf,
-  relativeTime,
-} from "@/core/ui";
+import { Button, Checkbox, Chip, IconButton, cx, hostOf, relativeTime } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 
-export interface BookmarkCardProps {
+interface BookmarkCardProps {
   bookmark: Bookmark;
   selected: boolean;
   onToggleSelect: () => void;
   onOpenReader: () => void;
 }
 
-export function BookmarkCard({
-  bookmark,
-  selected,
-  onToggleSelect,
-  onOpenReader,
-}: BookmarkCardProps) {
+export function BookmarkCard({ bookmark, selected, onToggleSelect, onOpenReader }: BookmarkCardProps) {
   const online = useOnline();
 
   const toggleFavorite = useMutation({
-    mutationFn: () =>
-      api.patch(`/bookmarks/${bookmark.id}`, { favorite: !isFavorite }),
+    mutationFn: () => api.patch(`/bookmarks/${bookmark.id}`, { favorite: !isFavorite }),
     onSuccess: () => invalidateAfter("bookmark.write"),
   });
 
@@ -78,9 +64,7 @@ export function BookmarkCard({
             onClick={onOpenReader}
             className="flex h-full w-full items-center justify-center bg-surface-sunken hover:bg-surface-hover transition cursor-pointer"
           >
-            <span className="text-display-lg font-serif font-bold text-muted/30 uppercase select-none">
-              {initial}
-            </span>
+            <span className="text-display-lg font-serif font-bold text-muted/30 uppercase select-none">{initial}</span>
           </button>
         )}
 
@@ -102,10 +86,7 @@ export function BookmarkCard({
         {/* Kaydirma Ilerleme Cubugu */}
         {Boolean(bookmark.scroll_progress && bookmark.scroll_progress > 0) && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface-sunken">
-            <div
-              className="h-full bg-accent transition-all"
-              style={{ width: `${bookmark.scroll_progress}%` }}
-            />
+            <div className="h-full bg-accent transition-all" style={{ width: `${bookmark.scroll_progress}%` }} />
           </div>
         )}
       </div>
@@ -139,11 +120,7 @@ export function BookmarkCard({
           </button>
 
           {/* Not / Ozet */}
-          {bookmark.note && (
-            <p className="text-meta text-muted line-clamp-2 italic">
-              {bookmark.note}
-            </p>
-          )}
+          {bookmark.note && <p className="text-meta text-muted line-clamp-2 italic">{bookmark.note}</p>}
 
           {/* Etiketler */}
           {Boolean(bookmark.tags && bookmark.tags.length > 0) && (
@@ -168,10 +145,7 @@ export function BookmarkCard({
               disabled={!online}
               onClick={() => toggleFavorite.mutate()}
             >
-              <Star
-                size={14}
-                className={isFavorite ? "fill-accent text-accent" : "text-muted"}
-              />
+              <Star size={14} className={isFavorite ? "fill-accent text-accent" : "text-muted"} />
             </IconButton>
 
             <Button
@@ -194,19 +168,11 @@ export function BookmarkCard({
               <ExternalLink size={14} />
             </a>
 
-            <IconButton
-              title="Odak Okuma Modunda Ac"
-              onClick={onOpenReader}
-            >
+            <IconButton title="Odak Okuma Modunda Ac" onClick={onOpenReader}>
               <BookOpen size={14} />
             </IconButton>
 
-            <IconButton
-              title="Sil"
-              tone="danger"
-              disabled={!online}
-              onClick={() => remove.mutate()}
-            >
+            <IconButton title="Sil" tone="danger" disabled={!online} onClick={() => remove.mutate()}>
               <Trash2 size={14} />
             </IconButton>
           </div>

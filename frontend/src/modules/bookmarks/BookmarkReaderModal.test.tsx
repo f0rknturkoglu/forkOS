@@ -111,16 +111,12 @@ describe("BookmarkReaderModal", () => {
     );
     expect(markupClosed).toBe("");
 
-    const markupNoBm = renderToStaticMarkup(
-      <BookmarkReaderModal open={true} bookmark={null} onClose={vi.fn()} />,
-    );
+    const markupNoBm = renderToStaticMarkup(<BookmarkReaderModal open={true} bookmark={null} onClose={vi.fn()} />);
     expect(markupNoBm).toBe("");
   });
 
   it("acildiginda baslik, alan adi, sure ve icerigi basariyla render eder", () => {
-    const markup = renderToStaticMarkup(
-      <BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />,
-    );
+    const markup = renderToStaticMarkup(<BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />);
 
     expect(markup).toContain("blog.example.com");
     expect(markup).toContain("Ajan Mimarisi ve Yerel Sistemler");
@@ -130,9 +126,7 @@ describe("BookmarkReaderModal", () => {
   });
 
   it("tipografi, font boyutu ve genislik kontrollerini barindirir", () => {
-    const markup = renderToStaticMarkup(
-      <BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />,
-    );
+    const markup = renderToStaticMarkup(<BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />);
 
     expect(markup).toContain("Serif");
     expect(markup).toContain("Sans");
@@ -142,9 +136,7 @@ describe("BookmarkReaderModal", () => {
   });
 
   it("okundu ve favori aksiyonlarini dogru gosterir", () => {
-    const markup = renderToStaticMarkup(
-      <BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />,
-    );
+    const markup = renderToStaticMarkup(<BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />);
 
     expect(markup).toContain("Okunmadi");
     expect(markup).toContain("Favoriye ekle");
@@ -152,13 +144,9 @@ describe("BookmarkReaderModal", () => {
   });
 
   it("vurgu ekleme mutasyonunu dogru cagirir ve invalidation tetikler", async () => {
-    renderToStaticMarkup(
-      <BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />,
-    );
+    renderToStaticMarkup(<BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />);
 
-    const addHighlightMutation = harness.mutations.find((m) =>
-      m.mutationFn?.toString().includes("highlights"),
-    );
+    const addHighlightMutation = harness.mutations.find((m) => m.mutationFn?.toString().includes("highlights"));
     expect(addHighlightMutation).toBeDefined();
 
     harness.apiPost.mockResolvedValueOnce({
@@ -188,22 +176,15 @@ describe("BookmarkReaderModal", () => {
   });
 
   it("vurguyu flashcarda donusturme mutasyonunu dogru cagirir", async () => {
-    renderToStaticMarkup(
-      <BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />,
-    );
+    renderToStaticMarkup(<BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={vi.fn()} />);
 
-    const convertMutation = harness.mutations.find((m) =>
-      m.mutationFn?.toString().includes("convert-to-flashcard"),
-    );
+    const convertMutation = harness.mutations.find((m) => m.mutationFn?.toString().includes("convert-to-flashcard"));
     expect(convertMutation).toBeDefined();
 
     harness.apiPost.mockResolvedValueOnce({ card_id: "card-123" });
     await convertMutation?.mutationFn?.("hl-1");
 
-    expect(harness.apiPost).toHaveBeenCalledWith(
-      "/bookmarks/bm-pocket-1/highlights/hl-1/convert-to-flashcard",
-      {},
-    );
+    expect(harness.apiPost).toHaveBeenCalledWith("/bookmarks/bm-pocket-1/highlights/hl-1/convert-to-flashcard", {});
 
     convertMutation?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("flashcard.write", "link.write");
