@@ -251,6 +251,7 @@ export function Button({
   className,
   autoFocus,
   ariaLabel,
+  ariaExpanded,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -263,12 +264,15 @@ export function Button({
   autoFocus?: boolean;
   /** Erisilebilir ad; title verilmezse title kullanilir. */
   ariaLabel?: string;
+  /** Acilir paneli tetikleyen dugmeler icin (ekran okuyucu durumu). */
+  ariaExpanded?: boolean;
 }) {
   return (
     <button
       type={type}
       title={title}
       aria-label={ariaLabel ?? title}
+      aria-expanded={ariaExpanded}
       autoFocus={autoFocus}
       disabled={disabled}
       onClick={onClick}
@@ -537,6 +541,7 @@ export function Range({
   step = 1,
   disabled,
   ariaLabel,
+  ariaValueText,
   className,
 }: {
   value: number;
@@ -546,6 +551,8 @@ export function Range({
   step?: number;
   disabled?: boolean;
   ariaLabel?: string;
+  /** Ekran okuyucuya sayinin anlami: "7 / 10" gibi. */
+  ariaValueText?: string;
   className?: string;
 }) {
   return (
@@ -557,6 +564,7 @@ export function Range({
       step={step}
       disabled={disabled}
       aria-label={ariaLabel}
+      aria-valuetext={ariaValueText}
       onChange={(e) => onChange(Number(e.target.value))}
       className={cx("h-4 w-full cursor-pointer accent-accent", className)}
     />
@@ -974,12 +982,16 @@ interface Toast {
 }
 
 interface ToastApi {
-  push: (message: string, options?: { tone?: Toast["tone"]; action?: Toast["action"] }) => void;
+  push: (
+    message: string,
+    /** `durationMs`: geri alma gibi aksiyonlu bildirimler daha uzun kalsin. */
+    options?: { tone?: Toast["tone"]; action?: Toast["action"]; durationMs?: number },
+  ) => void;
 }
 
 type GlobalToastInput = {
   message: string;
-  options?: { tone?: Toast["tone"]; action?: Toast["action"] };
+  options?: { tone?: Toast["tone"]; action?: Toast["action"]; durationMs?: number };
 };
 
 const globalToastListeners = new Set<(toast: GlobalToastInput) => void>();
@@ -1010,7 +1022,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback<ToastApi["push"]>((message, options) => {
     const id = Date.now() + Math.random();
     setToasts((current) => [...current, { id, message, tone: options?.tone ?? "neutral", action: options?.action }]);
-    window.setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 6000);
+    window.setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), options?.durationMs ?? 6000);
   }, []);
 
   const api = useMemo(() => ({ push }), [push]);
@@ -1246,16 +1258,65 @@ export function Modal({
   ariaLabel?: string;
   className?: string;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const node = dialogRef.current;
+    // Odaklanabilir ogeler: gizli/disabled olanlar atlanir (gorunurluk kontrolu
+    // jsdom'da guvenilir olmadigi icin yalnizca acik isaretlere bakilir).
+    const focusables = () =>
+      node
+        ? Array.from(
+            node.querySelectorAll<HTMLElement>(
+              'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+            ),
+          ).filter((el) => !el.hasAttribute("hidden"))
+        : [];
+    // Ilk odak: isaretli alan > govdedeki ilk alan > ilk odaklanabilir oge >
+    // diyalogun kendisi. (Basliktaki kapatma dugmesi odagi kapmasin diye
+    // govde tercih edilir -- klavye kullanicisi dogrudan icerige girer.)
+    const firstField =
+      node?.querySelector<HTMLElement>("[data-autofocus]") ??
+      node
+        ?.querySelector<HTMLElement>("[data-modal-body]")
+        ?.querySelector<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ??
+      focusables()[0] ??
+      node;
+    firstField?.focus();
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      onClose();
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) {
+        event.preventDefault();
+        node?.focus();
+        return;
+      }
+      const current = document.activeElement as HTMLElement | null;
+      const index = current ? items.indexOf(current) : -1;
+      if (event.shiftKey && index <= 0) {
+        event.preventDefault();
+        items[items.length - 1].focus();
+      } else if (!event.shiftKey && (index === -1 || index === items.length - 1)) {
+        event.preventDefault();
+        items[0].focus();
+      }
     };
     // Capture fazinda: icerdeki bir alan Escape'i yutsa bile modal kapanir.
     document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      // Kapaninca odak tetikleyiciye doner (klavye kullanicisi kaybolmaz).
+      opener?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -1267,11 +1328,13 @@ export function Modal({
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
         className={cx(
-          "max-h-[92vh] w-full overflow-y-auto rounded-t-overlay border border-strong bg-surface shadow-overlay sm:rounded-overlay",
+          "max-h-[92vh] w-full overflow-y-auto rounded-t-overlay border border-strong bg-surface shadow-overlay outline-none sm:rounded-overlay",
           className ?? "sm:max-w-md",
         )}
       >
@@ -1284,7 +1347,9 @@ export function Modal({
             <X size={15} />
           </IconButton>
         </header>
-        <div className="px-4 py-4">{children}</div>
+        <div data-modal-body className="px-4 py-4">
+          {children}
+        </div>
         {footer && <footer className="border-t border-subtle px-4 py-3">{footer}</footer>}
       </div>
     </div>

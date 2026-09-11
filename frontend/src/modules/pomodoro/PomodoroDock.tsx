@@ -5,6 +5,7 @@ import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { Button, Field, IconButton, Input, cx, useToast } from "@/core/ui";
+import { MediaSessionTransfer } from "@/modules/media/MediaSessionTransfer";
 import { useOnline } from "@/lib/hooks";
 import { ContextChip, ContextPicker } from "./ContextPicker";
 import { FocusMode } from "./FocusMode";
@@ -43,6 +44,8 @@ export function PomodoroDock() {
     queryFn: () => api.get<PomodoroSession | null>("/pomodoro/active"),
     refetchInterval: 30_000,
   });
+  // Seans bittiğinde medya bağlamlıysa süreyi tüketime aktarmayı öneririz.
+  const [finished, setFinished] = useState<PomodoroSession | null>(null);
   const { data: stats } = useQuery({
     queryKey: ["pomodoro-stats", "today"],
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day"),
@@ -72,7 +75,15 @@ export function PomodoroDock() {
   });
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),
-    onSuccess: refresh,
+    onSuccess: (_data, interrupted) => {
+      // Aktif seans refetch'te temizlenmeden yakala: medya bağlamlı biten seans
+      // tüketime aktarılabilir (Faz 8 köprüsü).
+      const ended = active;
+      refresh();
+      if (!interrupted && ended?.context_type === "media_item" && ended.context_entity_id) {
+        setFinished(ended);
+      }
+    },
   });
   const togglePause = useMutation({
     mutationFn: () => api.post(`/pomodoro/${active?.id}/${active?.paused_at ? "resume" : "pause"}`),
@@ -230,6 +241,7 @@ export function PomodoroDock() {
       </button>
 
       {focusMode && active && <FocusMode onClose={() => setFocusMode(false)} />}
+      <MediaSessionTransfer session={finished} onClose={() => setFinished(null)} />
     </>
   );
 }

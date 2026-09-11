@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CalendarClock } from "lucide-react";
 import { api } from "@/core/api";
+import { entityRoute } from "@/core/entityRegistry";
 import { RowList, Section } from "@/core/ui";
 import type { Deadline, Followup, Notification } from "@/core/types";
 
@@ -18,7 +19,9 @@ export function DeadlineWidget() {
           {data.slice(0, 5).map((x) => (
             <a
               key={x.entity_id}
-              href={x.module === "opportunity" ? "#/opportunities" : "#/todos"}
+              // Rota tip bazli: medya son tarihleri artik #/todos'a degil
+              // kaydin kendi sayfasina gider (kural 13: tip->rota kayit defterinde).
+              href={entityRoute(x.type, x.entity_id)}
               className="flex justify-between gap-3 py-2 text-meta hover:text-accent"
             >
               <span className="truncate">{x.title}</span>

@@ -69,6 +69,9 @@ const DYNAMIC_KNOWN = new Set([
   "/api/pomodoro/{pomo_id}/pause",  // api.post(`/pomodoro/${id}/${paused ? "resume" : "pause"}`)
   "/api/pomodoro/{pomo_id}/resume",
   "/api/media/assets/{asset_name}", // mediaCoverUrl assemble eder
+  // Artwork proxy'si <img src> icin kurulur (shared.proxiedCover:
+  // `${ARTWORK_PROXY_PATH}?url=...`), api cagrisi degil.
+  "/api/media/artwork/proxy",
   "/api/export/bookmarks",          // <a href={`/api/export/${path}`}>
   "/api/export/csv",
   "/api/export/markdown",

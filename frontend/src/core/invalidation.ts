@@ -10,9 +10,24 @@ import { queryClient } from "./queryClient";
 
 export const AFTER = {
   "todo.write": ["todos", "today-agenda", "plan", "deadlines", "activity", "review-preview", "tags"],
-  "bookmark.write": ["bookmarks", "bookmark-stats", "tags", "activity"],
+  "bookmark.write": ["bookmarks", "bookmark-stats", "tags", "activity", "related"],
   "rss.write": ["items", "rss-item", "feeds", "rss-stats", "today-agenda", "activity"],
-  "media.write": ["media", "media-detail", "media-stats", "media-dashboard", "today-agenda", "activity"],
+  // Medya yazmasi koleksiyon uyeligi, bagli kayitlar, graf ve son tarihleri de
+  // etkiler (release tarihleri deadline uretir); yalniz "media" tazelemek
+  // Today/graf/son tarih panellerini bayat birakir.
+  "media.write": [
+    "media",
+    "media-detail",
+    "media-stats",
+    "media-dashboard",
+    "media-collections",
+    "today-agenda",
+    "activity",
+    "statistics",
+    "deadlines",
+    "graph",
+    "related",
+  ],
   "opportunity.write": [
     "opportunities",
     "opportunity",
@@ -98,6 +113,8 @@ export const AFTER = {
     "notifications",
     "media-providers",
     "media",
+    "media-dashboard",
+    "media-detail",
     "items",
     "feeds",
     "calendar-events",
@@ -109,7 +126,7 @@ export const AFTER = {
     "rss-stats",
     "activity",
   ],
-  "link.write": ["related", "activity"],
+  "link.write": ["related", "backlinks", "graph", "activity"],
   "notification.write": ["notifications"],
   "note.write": [
     "notes",

@@ -209,12 +209,15 @@ export function TodayAgendaWidget() {
   const checklistRows = agenda ? agenda.checklist.filter((row) => !hasRoutine(row)) : [];
   // Açık görevler kendi grubunda; API sorgusu hata verirse öneriler geri dönüş olur.
   // Kart desteleri basta: vadesi gecen tekrar birikir, RSS bekleyebilir.
+  // Medya (devam eden kayitlar) da onerilir: "media.continue" widget'i varsayilan
+  // olarak gizli oldugu icin Today'de gorunen yuzey burasidir.
   const suggestions = agenda
     ? [
         ...agenda.suggestions.flashcards,
+        ...agenda.suggestions.media,
         ...(todosQuery.isError ? agenda.suggestions.todos : []),
         ...agenda.suggestions.rss,
-      ].slice(0, 3)
+      ].slice(0, 4)
     : [];
   const busy = complete.isPending || schedule.isPending || remove.isPending || toggleAuto.isPending;
 

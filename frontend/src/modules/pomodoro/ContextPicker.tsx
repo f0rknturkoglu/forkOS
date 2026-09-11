@@ -22,6 +22,8 @@ interface ContextOption {
   id: string;
   type: string;
   title: string;
+  kind?: string | null;
+  cover_url?: string | null;
 }
 
 /** Tip -> rozet tonu. "Nereden geldi" tek bakista ayrissin. */
@@ -29,7 +31,31 @@ function toneOf(type: string): "accent" | "ok" | "warn" | "neutral" {
   if (type === "todo") return "warn";
   if (type === "study_topic" || type === "learning_resource") return "accent";
   if (type === "project") return "ok";
+  if (type === "media_item") return "ok";
   return "neutral";
+}
+
+/** Medya kapagi: yerel onbellek yolu varsa onu, yoksa uzak adresi kullanir. */
+function coverSrc(option: ContextOption): string | null {
+  const raw = (option.cover_url ?? "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("/api/media/assets/")) return raw;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  return null;
+}
+
+function CoverThumb({ option }: { option: ContextOption }) {
+  const src = coverSrc(option);
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      className="h-7 w-5 shrink-0 rounded-control border border-subtle object-cover"
+    />
+  );
 }
 
 export function ContextPicker({
@@ -95,6 +121,7 @@ export function ContextPicker({
       >
         {picked ? (
           <>
+            <CoverThumb option={picked} />
             <span className="min-w-0 flex-1 truncate text-primary">{picked.title}</span>
             <Chip size="xs" tone={toneOf(picked.type)}>
               {typeLabel(picked.type)}
@@ -146,6 +173,7 @@ export function ContextPicker({
                     option.id === value ? "bg-accent-surface text-accent" : "text-primary",
                   )}
                 >
+                  <CoverThumb option={option} />
                   <span className="min-w-0 flex-1 truncate">{option.title}</span>
                   <Chip size="xs" tone={toneOf(option.type)}>
                     {typeLabel(option.type)}
