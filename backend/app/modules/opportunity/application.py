@@ -462,14 +462,16 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     from app.modules.opportunity.models import Interview, Opportunity
 
     ACTIVE = ("discovered", "considering", "preparing", "applied", "interview", "offer")
-    opps = (
+    # ScalarResult tek gezinmelidir; aksi halde id/due haritalari bos kalir
+    # ve satirlar /api/deadlines'tan sessizce duser (bkz. todo/service.py).
+    opps = list((
         await session.execute(
             select(Opportunity).where(
                 Opportunity.deadline_at.is_not(None),
                 Opportunity.status.in_(ACTIVE),
             )
         )
-    ).scalars()
+    ).scalars())
     ids = [o.id for o in opps]
     due = {o.id: o.deadline_at for o in opps}
     sub = {o.id: o.kind for o in opps}
@@ -484,9 +486,9 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
         priority=prio,
     )
 
-    interviews = (
+    interviews = list((
         await session.execute(select(Interview).where(Interview.scheduled_at.is_not(None)))
-    ).scalars()
+    ).scalars())
     ids = [i.id for i in interviews]
     due = {i.id: i.scheduled_at for i in interviews}
     rows += await rows_with_titles(

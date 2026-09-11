@@ -13,7 +13,7 @@ from uuid import UUID
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.time import local_datetime
+from app.core.time import local_datetime, local_end_of_day, local_zone
 from app.db import Base
 from app.modules.system.secrets import is_secret_setting
 
@@ -291,7 +291,12 @@ async def opml(session: AsyncSession) -> str:
     )
 
 
-def ics_datetime(value: datetime) -> str:
+def ics_datetime(value: datetime | date) -> str:
+    """ICS zaman damgasi; ciplak `date` yerel gun sonuna yerlestirilir."""
+    if not isinstance(value, datetime):
+        value = local_end_of_day(value)
+    elif value.tzinfo is None:
+        value = value.replace(tzinfo=local_zone())
     return value.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 

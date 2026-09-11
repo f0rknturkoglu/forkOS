@@ -530,12 +530,14 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     """Son tarihli acik gorevler (kural 16 -- deadline_v yerine)."""
     from app.core.deadlines import rows_with_titles
 
-    todos = (await session.execute(
+    # ScalarResult TEK gezinmelidir: ayni sonucu iki kez gezmek ikinci turda
+    # bos doner (kayitlar sessizce /api/deadlines disinda kalirdi).
+    todos = list((await session.execute(
         select(Todo).where(
             Todo.status.in_(("open", "doing")),
             Todo.due_at.is_not(None),
         )
-    )).scalars()
+    )).scalars())
     ids = [t.id for t in todos]
     due = {t.id: t.due_at for t in todos}
     prio = {t.id: t.priority for t in todos}

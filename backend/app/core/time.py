@@ -33,6 +33,15 @@ def local_datetime(day: date, minute: int = 0) -> datetime:
     return datetime.combine(day, wall_time, tzinfo=local_zone())
 
 
+def local_end_of_day(day: date) -> datetime:
+    """Ciplak `date` alanlarini (orn. medya release_date) zaman cizgisine koyar.
+
+    Gun sonu 23:59:59 yerel saat: "14 Eylul'de cikiyor" bilgisi gun icinde
+    hicbir zaman gecmis sayilmaz.
+    """
+    return local_datetime(day, 23 * 60 + 59)
+
+
 def streak_stats(days: Collection[date], *, today: date) -> tuple[int, int]:
     """Kesintisiz gun serisi: (guncel, en uzun).
 

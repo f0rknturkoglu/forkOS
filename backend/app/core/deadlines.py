@@ -7,12 +7,13 @@ yeni son-tarihli modul eklemek = ModuleSpec.deadline_provider'a bir fonksiyon.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
+from app.core.time import local_end_of_day, local_zone
 from app.modules import MODULES, DeadlineRow
 
 
@@ -48,12 +49,29 @@ async def rows_with_titles(
     ]
 
 
+def _due_sort_key(value: object) -> float | None:
+    """date/datetime karisimini tek eksende karsilastirilabilir yapar.
+
+    Medya `release_date` bir `date` tasir; diger moduller tz-aware `datetime`
+    dondurur. Python ikisini karsilastirmaz (TypeError) -- bu yuzden hepsi
+    yerel saat diliminde timestamp'e cevrilir.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        moment = value if value.tzinfo is not None else value.replace(tzinfo=local_zone())
+        return moment.timestamp()
+    if isinstance(value, date):
+        return local_end_of_day(value).timestamp()
+    return None
+
+
 async def collect_deadlines(session: AsyncSession, *, limit: int = 200) -> list[dict]:
     rows: list[DeadlineRow] = []
     for module in MODULES:
         if module.deadline_provider is not None:
             rows.extend(await module.deadline_provider(session))
-    rows.sort(key=lambda r: (r.due_at is None, r.due_at or datetime.min))
+    rows.sort(key=lambda r: (_due_sort_key(r.due_at) is None, _due_sort_key(r.due_at) or 0.0))
     return [
         {
             "entity_id": str(row.entity_id),

@@ -30,6 +30,10 @@ RELATIONS: dict[str, tuple[str, str]] = {
     "learns_from": ("Kaynakları", "Çalışıldığı konu"),
     # Faz 21: not -> konu/entity. from = not, to = hakkinda oldugu kayit.
     "notes_about": ("Hakkında not", "Notları"),
+    # Medya alintisi: from = yer imi (bookmark.selection), to = medya kaydi.
+    # Ayri bir highlight tablosu YOK: alinti metni bookmark.selection'ta durur,
+    # baglami (sayfa/zaman kodu) bookmark.note'una yazilir (mevcut altyapi).
+    "highlights": ("Alıntıları", "Alıntılandığı kayıt"),
     # Govde metnindeki [[wikilink]]'ten uretilir (core/refs.py). Backlink
     # paneli ve graf bu iliskiyi okur; elle kurulmaz, metinden turer.
     "mentions": ("Bahsettikleri", "Buraya bağlananlar"),

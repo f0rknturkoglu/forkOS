@@ -191,12 +191,13 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     from app.modules.calendar.models import ExternalEvent
 
     now = datetime.now(UTC)
-    events = (await session.execute(
+    # ScalarResult tek gezinmelidir (bkz. todo/service.py ayni duzeltme).
+    events = list((await session.execute(
         select(ExternalEvent).where(
             ExternalEvent.starts_at >= now,
             ExternalEvent.starts_at <= now + timedelta(days=3),
         )
-    )).scalars()
+    )).scalars())
     ids = [e.id for e in events]
     due = {e.id: e.starts_at for e in events}
     return await rows_with_titles(
