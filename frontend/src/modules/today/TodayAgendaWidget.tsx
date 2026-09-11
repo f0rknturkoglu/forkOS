@@ -1,24 +1,31 @@
-import { navigate } from "@/app/router";
-import { invalidateAfter } from "@/core/invalidation";
-import { useState, type ReactNode } from "react";
+import { useState, useMemo, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  AlertTriangle,
+  ArrowRight,
   BookOpen,
   CalendarClock,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Circle,
   CreditCard,
   ExternalLink,
+  Moon,
   Plus,
   RotateCw,
+  Sun,
+  Sunrise,
+  Sunset,
   Target,
   Trash2,
 } from "lucide-react";
-import { api } from "@/core/api";
+import { navigate } from "@/app/router";
+import { api, qs } from "@/core/api";
 import { entityRoute } from "@/core/entityRegistry";
-import type { AgendaRow, FeedItem, TodayAgenda, Todo } from "@/core/types";
+import { invalidateAfter } from "@/core/invalidation";
+import type { ActivityEvent, AgendaRow, PlanSlot, TodayAgenda, Todo } from "@/core/types";
 import {
   Button,
   Chip,
@@ -28,12 +35,19 @@ import {
   RowList,
   Section,
   SectionHeader,
-  Select,
   Spinner,
   cx,
   useToast,
 } from "@/core/ui";
-import { localDateKey } from "@/lib/date";
+import {
+  appTimeParts,
+  appWeekStartKey,
+  isSameAppDay,
+  keyToUtc,
+  localDateKey,
+  todayKey,
+  tomorrowKey,
+} from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 
 const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
@@ -55,9 +69,7 @@ function clockLabel(value: string | null | undefined): string | null {
   return new Date(value).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function pickerRow(item: Todo | FeedItem, kind: "todo" | "rss"): AgendaRow {
-  const todo = kind === "todo" ? (item as Todo) : null;
-  const rss = kind === "rss" ? (item as FeedItem) : null;
+function pickerRow(item: Todo, kind: "todo"): AgendaRow {
   return {
     kind,
     source: "suggestion",
@@ -65,20 +77,20 @@ function pickerRow(item: Todo | FeedItem, kind: "todo" | "rss"): AgendaRow {
     slot_id: null,
     title: item.title,
     completed: false,
-    action: kind === "todo" ? "complete_todo" : "mark_rss_read",
+    action: "complete_todo",
     read_only: false,
     context_only: false,
     starts_at: null,
     duration_min: null,
-    parent_id: todo?.parent_id ?? null,
-    project_title: todo?.project_title ?? null,
-    feed_title: rss?.feed_title ?? null,
-    url: rss?.url ?? null,
+    parent_id: item.parent_id ?? null,
+    project_title: item.project_title ?? null,
+    feed_title: null,
+    url: null,
     media_kind: null,
     media_status: null,
     progress_label: null,
     cover_url: null,
-    recur: (todo?.recur as AgendaRow["recur"]) ?? null,
+    recur: (item.recur as AgendaRow["recur"]) ?? null,
     children: [],
   };
 }
@@ -113,16 +125,16 @@ function hasRoutine(row: AgendaRow): boolean {
 }
 
 export function TodayAgendaWidget() {
-  // Tek "bugun" kaynagi: lib/date.ts::localDateKey (Europe/Istanbul).
-  // Tarayicinin yerel saati farkli bir gun uretebilir; planlama ve agenda
-  // ayni gunu sormali (Faz 13).
-  const day = localDateKey(new Date());
+  const day = todayKey();
+  const tomorrow = tomorrowKey();
+  const now = new Date();
+  const { hour } = appTimeParts(now);
+  const phase = hour >= 18 || hour < 4 ? "evening" : hour < 12 ? "morning" : "afternoon";
+
   const online = useOnline();
   const toast = useToast();
-  const [adding, setAdding] = useState(false);
-  const [selected, setSelected] = useState("");
-  const [start, setStart] = useState("");
-  const [duration, setDuration] = useState("");
+
+  const [draft, setDraft] = useState("");
   const [completedOpen, setCompletedOpen] = useState(false);
 
   const agendaQuery = useQuery({
@@ -135,25 +147,66 @@ export function TodayAgendaWidget() {
     queryKey: ["todos", "today-open"],
     queryFn: () => api.get<Todo[]>("/todos?limit=300"),
   });
-  const rssQuery = useQuery({
-    queryKey: ["items", "today-picker"],
-    queryFn: () => api.get<FeedItem[]>("/rss/items?unread_only=true&limit=100"),
-    enabled: adding,
+  const todos = todosQuery.data ?? [];
+
+  const slotsQuery = useQuery({
+    queryKey: ["plan", day],
+    queryFn: () => api.get<PlanSlot[]>(`/plan${qs({ week: day })}`),
   });
+  const slots = slotsQuery.data ?? [];
+
+  const reviewEventsQuery = useQuery({
+    queryKey: ["activity", "review-check"],
+    queryFn: () => api.get<ActivityEvent[]>("/activity?limit=40&verbs=review.completed"),
+  });
+  const reviewEvents = reviewEventsQuery.data ?? [];
+
+  const weeklyReviewsQuery = useQuery({
+    queryKey: ["reviews", "weekly"],
+    queryFn: () => api.get<{ period_start: string }[]>("/reviews?kind=weekly&limit=5"),
+  });
+  const weeklyReviews = weeklyReviewsQuery.data ?? [];
 
   const refreshed = () => invalidateAfter("todo.write", "plan.write", "rss.write", "media.write", "calendar.write");
   const failed = () => toast.push("İşlem tamamlanamadı. Satır korunuyor; tekrar deneyebilirsin.", { tone: "danger" });
 
+  const createTodo = useMutation({
+    mutationKey: ["today-create-todo"],
+    mutationFn: (title: string) =>
+      api.post<Todo>("/todos", {
+        title,
+        plan_day: day,
+        priority: 2,
+      }),
+    onSuccess: () => {
+      setDraft("");
+      refreshed();
+      toast.push("Görev bugünün planına eklendi.", { tone: "ok" });
+    },
+    onError: failed,
+  });
+
   const complete = useMutation({
     mutationKey: ["today-complete"],
     mutationFn: (row: AgendaRow) => {
-      if (row.action === "complete_todo") return api.post(`/todos/${row.id}/complete`);
+      if (row.action === "complete_todo" || row.kind === "todo") return api.post(`/todos/${row.id}/complete`);
       if (row.action === "mark_rss_read") return api.post(`/rss/items/${row.id}/read`);
       throw new Error("Bu satır tamamlanamaz");
     },
     onSuccess: refreshed,
     onError: failed,
   });
+
+  const deleteTodo = useMutation({
+    mutationKey: ["today-delete-todo"],
+    mutationFn: (todoId: string) => api.del(`/todos/${todoId}`),
+    onSuccess: () => {
+      refreshed();
+      toast.push("Görev silindi.", { tone: "ok" });
+    },
+    onError: failed,
+  });
+
   const schedule = useMutation({
     mutationKey: ["today-schedule"],
     mutationFn: ({
@@ -176,21 +229,27 @@ export function TodayAgendaWidget() {
         ...(!minutes || minutes < 1 ? {} : { duration_min: minutes }),
       });
     },
-    onSuccess: () => {
-      setSelected("");
-      setStart("");
-      setDuration("");
-      setAdding(false);
-      refreshed();
-    },
+    onSuccess: refreshed,
     onError: failed,
   });
+
   const remove = useMutation({
     mutationKey: ["today-remove"],
     mutationFn: (row: AgendaRow) => api.del(`/plan/${row.slot_id}`),
     onSuccess: refreshed,
     onError: failed,
   });
+
+  const carryOver = useMutation({
+    mutationKey: ["today-carry-over"],
+    mutationFn: () => api.post<{ moved: number }>("/plan/carry-over", { day, target: tomorrow }),
+    onSuccess: (result) => {
+      invalidateAfter("plan.write");
+      toast.push(`${result.moved} görev yarına taşındı.`, { tone: "ok" });
+    },
+    onError: () => toast.push("Taşıma başarısız — hiçbir slot değişmedi.", { tone: "danger" }),
+  });
+
   const toggleAuto = useMutation({
     mutationKey: ["today-auto"],
     mutationFn: (enabled: boolean) => api.put("/settings/today.auto_suggestions", { value: enabled }),
@@ -198,20 +257,47 @@ export function TodayAgendaWidget() {
     onError: failed,
   });
 
-  const todoOptions = (todosQuery.data ?? [])
-    .filter((item) => item.status === "open" || item.status === "doing")
-    .map((item) => pickerRow(item, "todo"));
-  const rssOptions = (rssQuery.data ?? []).map((item) => pickerRow(item, "rss"));
-  const options = [...todoOptions, ...rssOptions];
-  const selectedRow = options.find((row) => `${row.kind}:${row.id}` === selected);
-  const openTodos = agenda ? unplannedTodoRows(todosQuery.data ?? [], agenda) : [];
+  const todaySlots = useMemo(
+    () => slots.filter((slot) => slot.day === day).sort((a, b) => (a.start_min ?? 999) - (b.start_min ?? 999)),
+    [slots, day],
+  );
+  const openTodoIds = useMemo(
+    () => new Set(todos.filter((todo) => todo.status === "open" || todo.status === "doing").map((todo) => todo.id)),
+    [todos],
+  );
+  const plannedTodos = todaySlots.filter((slot) => slot.entity_type === "todo" && openTodoIds.has(slot.entity_id));
+  const overdue = todos.filter((todo) => todo.due_at && localDateKey(new Date(todo.due_at)) < day).length;
+  const reviewDone = reviewEvents.some((event) => isSameAppDay(new Date(event.occurred_at), new Date()));
+  const weekStart = appWeekStartKey(now);
+  const weekDay = keyToUtc(day).getUTCDay();
+  const weeklyReviewDue =
+    (weekDay === 0 || weekDay === 1) && !weeklyReviews.some((review) => review.period_start === weekStart);
+
+  const conflictCount = useMemo(() => {
+    const calendarRows = (agenda?.timed ?? []).filter(
+      (row) => row.kind === "calendar" && row.starts_at && localDateKey(new Date(row.starts_at)) === day,
+    );
+    return plannedTodos.reduce((count, slot) => {
+      if (slot.start_min == null) return count;
+      const slotEnd = slot.start_min + (slot.duration_min ?? 30);
+      return (
+        count +
+        calendarRows.filter((row) => {
+          const startsAt = new Date(row.starts_at!);
+          const parts = appTimeParts(startsAt);
+          const eventStart = parts.hour * 60 + parts.minute;
+          const eventEnd = eventStart + (row.duration_min ?? 30);
+          return slot.start_min! < eventEnd && eventStart < slotEnd;
+        }).length
+      );
+    }, 0);
+  }, [agenda, plannedTodos, day]);
+
+  const openTodos = agenda ? unplannedTodoRows(todos, agenda) : [];
   const routineRows = agenda ? [...agenda.timed, ...agenda.checklist].filter(hasRoutine) : [];
   const timedRows = agenda ? agenda.timed.filter((row) => !hasRoutine(row)) : [];
   const checklistRows = agenda ? agenda.checklist.filter((row) => !hasRoutine(row)) : [];
-  // Açık görevler kendi grubunda; API sorgusu hata verirse öneriler geri dönüş olur.
-  // Kart desteleri basta: vadesi gecen tekrar birikir, RSS bekleyebilir.
-  // Medya (devam eden kayitlar) da onerilir: "media.continue" widget'i varsayilan
-  // olarak gizli oldugu icin Today'de gorunen yuzey burasidir.
+
   const suggestions = agenda
     ? [
         ...agenda.suggestions.flashcards,
@@ -220,7 +306,26 @@ export function TodayAgendaWidget() {
         ...agenda.suggestions.rss,
       ].slice(0, 4)
     : [];
-  const busy = complete.isPending || schedule.isPending || remove.isPending || toggleAuto.isPending;
+
+  const busy =
+    createTodo.isPending ||
+    complete.isPending ||
+    deleteTodo.isPending ||
+    schedule.isPending ||
+    remove.isPending ||
+    carryOver.isPending ||
+    toggleAuto.isPending;
+
+  const phaseIcon = phase === "morning" ? Sunrise : phase === "evening" ? Sunset : Sun;
+  const PhaseIcon = phaseIcon;
+  const phaseLabel = phase === "morning" ? "Sabah" : phase === "afternoon" ? "Gün içinde" : "Akşam";
+
+  const handleQuickAdd = (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = draft.trim();
+    if (!trimmed || !online || createTodo.isPending) return;
+    createTodo.mutate(trimmed);
+  };
 
   return (
     <Section
@@ -241,14 +346,6 @@ export function TodayAgendaWidget() {
           >
             oto {agenda?.auto_suggestions ? "açık" : "kapalı"}
           </button>
-          <button
-            type="button"
-            onClick={() => setAdding((value) => !value)}
-            disabled={!online}
-            className="flex items-center gap-1 text-meta text-accent hover:underline disabled:opacity-40"
-          >
-            <Plus size={13} /> {adding ? "kapat" : "ekle"}
-          </button>
         </div>
       }
     >
@@ -258,41 +355,86 @@ export function TodayAgendaWidget() {
         </p>
       )}
 
-      {adding && (
-        <div className="grid gap-2 border-b border-subtle pb-4 sm:grid-cols-[minmax(0,1fr)_92px_92px_auto]">
-          <Select value={selected} onChange={setSelected} ariaLabel="Bugüne eklenecek öğe" className="min-w-0">
-            <option value="">Görev veya RSS seç…</option>
-            {todoOptions.length > 0 && (
-              <optgroup label="Görevler">
-                {todoOptions.map((row) => (
-                  <option key={`todo:${row.id}`} value={`todo:${row.id}`}>
-                    {row.title}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {rssOptions.length > 0 && (
-              <optgroup label="RSS yazıları">
-                {rssOptions.map((row) => (
-                  <option key={`rss:${row.id}`} value={`rss:${row.id}`}>
-                    {row.title}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </Select>
-          <Input type="time" value={start} onChange={setStart} ariaLabel="Başlangıç saati" />
-          <Input type="number" value={duration} onChange={setDuration} placeholder="dakika" ariaLabel="Süre (dakika)" />
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={!online || !selectedRow || schedule.isPending}
-            onClick={() => selectedRow && schedule.mutate({ row: selectedRow, day, start, duration })}
-          >
-            Bugüne ekle
-          </Button>
+      {/* Gün Özeti ve Ritim Durumu */}
+      <div className="rounded-card border border-subtle bg-surface-hover/30 p-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-muted">
+          <div className="flex items-center gap-1.5">
+            <PhaseIcon size={14} className="shrink-0 text-icon" />
+            <span className="font-semibold text-primary">{phaseLabel}</span>
+            <span>·</span>
+            <span>
+              Bugün <strong className="font-medium text-primary">{plannedTodos.length}</strong> planlı
+            </span>
+            <span>·</span>
+            <span className={overdue > 0 ? "font-medium text-warn" : ""}>
+              <strong className="font-medium">{overdue}</strong> geciken
+            </span>
+          </div>
+
+          {phase === "evening" && plannedTodos.length > 0 && (
+            <Button
+              size="sm"
+              disabled={!online || carryOver.isPending}
+              onClick={() => carryOver.mutate()}
+            >
+              {carryOver.isPending ? "Taşınıyor…" : "Yarına taşı"}
+            </Button>
+          )}
         </div>
-      )}
+
+        {conflictCount > 0 && (
+          <p className="flex items-center gap-1.5 text-meta text-warn">
+            <AlertTriangle size={13} /> {conflictCount} takvim çakışması
+          </p>
+        )}
+
+        {phase === "evening" && (
+          <div className="flex items-center justify-between gap-2 pt-1 border-t border-subtle">
+            {reviewDone ? (
+              <span className="flex items-center gap-1 text-meta text-ok">
+                <CheckCircle2 size={13} /> Günü değerlendirdin
+              </span>
+            ) : (
+              <div className="flex items-center justify-between w-full gap-2">
+                <span className="flex items-center gap-1 text-meta text-muted">
+                  <Moon size={13} /> Gün sonu değerlendirmesi bekliyor
+                </span>
+                <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/daily")}>
+                  <ArrowRight size={13} /> Değerlendirmeye git
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {weeklyReviewDue && (
+          <div className="pt-1 border-t border-subtle">
+            <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/weekly")}>
+              <ArrowRight size={13} /> Haftalık değerlendirme bekliyor
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Tek Satırlık Hızlı Görev Ekleme Formu */}
+      <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
+        <Input
+          value={draft}
+          onChange={setDraft}
+          placeholder="Bugüne hızlı görev ekle... (Enter ile kaydet)"
+          ariaLabel="Bugüne görev ekle"
+          disabled={!online || createTodo.isPending}
+          className="flex-1"
+        />
+        <Button
+          size="sm"
+          variant="primary"
+          type="submit"
+          disabled={!online || !draft.trim() || createTodo.isPending}
+        >
+          <Plus size={14} /> Ekle
+        </Button>
+      </form>
 
       {agendaQuery.isLoading ? (
         <Spinner />
@@ -314,6 +456,7 @@ export function TodayAgendaWidget() {
             online={online}
             complete={(row) => complete.mutate(row)}
             remove={(row) => remove.mutate(row)}
+            deleteTodo={(id) => deleteTodo.mutate(id)}
           />
           <AgendaGroup
             label="Rutinler"
@@ -321,6 +464,7 @@ export function TodayAgendaWidget() {
             online={online}
             complete={(row) => complete.mutate(row)}
             remove={(row) => remove.mutate(row)}
+            deleteTodo={(id) => deleteTodo.mutate(id)}
           />
           <AgendaGroup
             label="Yapılacaklar"
@@ -328,13 +472,15 @@ export function TodayAgendaWidget() {
             online={online}
             complete={(row) => complete.mutate(row)}
             remove={(row) => remove.mutate(row)}
+            deleteTodo={(id) => deleteTodo.mutate(id)}
           />
           <AgendaGroup
             label="Açık görevler"
             rows={openTodos}
             online={online}
             complete={(row) => complete.mutate(row)}
-            remove={() => {}}
+            remove={(row) => remove.mutate(row)}
+            deleteTodo={(id) => deleteTodo.mutate(id)}
           />
 
           {suggestions.length > 0 && agenda.auto_suggestions && (
@@ -348,6 +494,7 @@ export function TodayAgendaWidget() {
                     online={online}
                     complete={() => {}}
                     remove={() => {}}
+                    deleteTodo={() => {}}
                     suggestionAction={
                       row.kind === "flashcard" ? (
                         <Button size="sm" variant="ghost" onClick={() => navigate(`/flashcard?deck=${row.id}`)}>
@@ -397,6 +544,7 @@ export function TodayAgendaWidget() {
                         online={online}
                         complete={() => {}}
                         remove={(item) => remove.mutate(item)}
+                        deleteTodo={(id) => deleteTodo.mutate(id)}
                       />
                     ))}
                   </RowList>
@@ -422,12 +570,14 @@ function AgendaGroup({
   online,
   complete,
   remove,
+  deleteTodo,
 }: {
   label: string;
   rows: AgendaRow[];
   online: boolean;
   complete: (row: AgendaRow) => void;
   remove: (row: AgendaRow) => void;
+  deleteTodo: (id: string) => void;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -435,7 +585,14 @@ function AgendaGroup({
       <SectionHeader label={label} hint={`${rows.length}`} />
       <RowList>
         {rows.map((row) => (
-          <AgendaLine key={`${row.kind}:${row.id}`} row={row} online={online} complete={complete} remove={remove} />
+          <AgendaLine
+            key={`${row.kind}:${row.id}`}
+            row={row}
+            online={online}
+            complete={complete}
+            remove={remove}
+            deleteTodo={deleteTodo}
+          />
         ))}
       </RowList>
     </div>
@@ -447,6 +604,7 @@ function AgendaLine({
   online,
   complete,
   remove,
+  deleteTodo,
   suggestionAction,
   nested = false,
 }: {
@@ -454,13 +612,16 @@ function AgendaLine({
   online: boolean;
   complete: (row: AgendaRow) => void;
   remove: (row: AgendaRow) => void;
+  deleteTodo: (id: string) => void;
   suggestionAction?: ReactNode;
   nested?: boolean;
 }) {
   const time = clockLabel(row.starts_at);
   const meta = row.kind === "media" ? row.progress_label : (row.project_title ?? row.feed_title);
   const interactive = Boolean(
-    (row.action === "complete_todo" || row.action === "mark_rss_read") && !row.context_only && !row.completed,
+    (row.action === "complete_todo" || row.kind === "todo" || row.action === "mark_rss_read") &&
+      !row.context_only &&
+      !row.completed,
   );
   return (
     <div data-agenda-id={row.id} className={cx("py-2", nested && "ml-5 border-l border-subtle pl-3")}>
@@ -492,8 +653,6 @@ function AgendaLine({
           <div className="flex min-w-0 items-baseline gap-2">
             {time && <span className="numeral shrink-0 text-meta text-accent">{time}</span>}
             {(() => {
-              // Rota kayit defterinden gelir (kural 13): todo kendi sayfasina,
-              // ogrenme konusu/alan ve diger tipler EntityTypeSpec rotasina.
               const href =
                 row.kind === "todo"
                   ? `#/todos?focus=${encodeURIComponent(row.id)}`
@@ -541,12 +700,32 @@ function AgendaLine({
         )}
         {suggestionAction}
         {interactive && (
-          <IconButton title="Tamamla" disabled={!online} onClick={() => complete(row)}>
+          <IconButton
+            title="Tamamla"
+            ariaLabel={`${row.title} görevini tamamla`}
+            disabled={!online}
+            onClick={() => complete(row)}
+          >
             <Check size={14} />
           </IconButton>
         )}
-        {row.slot_id && (
-          <IconButton title="Bugünden çıkar" disabled={!online} onClick={() => remove(row)}>
+        {row.kind === "todo" && (
+          <IconButton
+            title="Görevi sil"
+            ariaLabel={`${row.title} görevini sil`}
+            disabled={!online}
+            onClick={() => deleteTodo(row.id)}
+          >
+            <Trash2 size={14} />
+          </IconButton>
+        )}
+        {row.slot_id && row.kind !== "todo" && (
+          <IconButton
+            title="Bugünden çıkar"
+            ariaLabel={`${row.title} öğesini bugünden çıkar`}
+            disabled={!online}
+            onClick={() => remove(row)}
+          >
             <Trash2 size={14} />
           </IconButton>
         )}
@@ -559,6 +738,7 @@ function AgendaLine({
           online={online}
           complete={complete}
           remove={remove}
+          deleteTodo={deleteTodo}
           nested
         />
       ))}

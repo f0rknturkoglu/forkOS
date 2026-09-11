@@ -320,4 +320,44 @@ describe("unified Today agenda", () => {
 
     await waitFor(() => expect(harness.apiPost).toHaveBeenCalledWith("/todos/todo-1/complete"));
   });
+
+  it("creates a todo with plan_day=today directly from the inline composer", async () => {
+    render(<TodayAgendaWidget />);
+
+    const input = screen.getByPlaceholderText("Bugüne hızlı görev ekle... (Enter ile kaydet)");
+    const submitBtn = screen.getByRole("button", { name: "Ekle" });
+
+    fireEvent.change(input, { target: { value: "Yeni acil görev" } });
+    fireEvent.click(submitBtn);
+
+    const createMutation = mutationNamed("today-create-todo");
+    expect(createMutation).toBeDefined();
+    await createMutation?.mutationFn?.("Yeni acil görev" as never);
+    expect(harness.apiPost).toHaveBeenCalledWith("/todos", {
+      title: "Yeni acil görev",
+      plan_day: localDateKey(new Date()),
+      priority: 2,
+    });
+  });
+
+  it("deletes a todo directly from the agenda row", async () => {
+    const { container } = render(<TodayAgendaWidget />);
+    const todo = container.querySelector('[data-agenda-id="todo-1"]');
+
+    expect(todo).not.toBeNull();
+    const deleteBtn = within(todo as HTMLElement).getByRole("button", { name: "Görevi sil" });
+    fireEvent.click(deleteBtn);
+
+    const deleteMutation = mutationNamed("today-delete-todo");
+    expect(deleteMutation).toBeDefined();
+    await deleteMutation?.mutationFn?.("todo-1" as never);
+    expect(harness.apiDel).toHaveBeenCalledWith("/todos/todo-1");
+  });
+
+  it("renders unified day rhythm summary banner", () => {
+    const markup = renderToStaticMarkup(<TodayAgendaWidget />);
+
+    expect(markup).toContain("planlı");
+    expect(markup).toContain("geciken");
+  });
 });
