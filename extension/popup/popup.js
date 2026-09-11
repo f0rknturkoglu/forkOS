@@ -1,14 +1,16 @@
 import {
   clearFailed,
   enqueue,
+  enqueueNote,
   enqueueOpportunity,
+  enqueueTodo,
   failedCount,
   moveTo,
   pendingCount,
   ping,
   retryFailed,
 } from "../outbox.js";
-import { collectPageDom, extractJobDetails } from "../extractor.js";
+import { collectPageDom, extractJobDetails, extractPageMetadata } from "../extractor.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -17,31 +19,39 @@ const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 const activeTitle = tab?.title ?? "";
 const activeUrl = tab?.url ?? "";
 
-// Bookmark formunu doldur
+// Form varsayılanlarını doldur
 $("title").value = activeTitle;
 $("url").value = activeUrl;
 $("job-url").value = activeUrl;
+$("todo-title").value = activeTitle;
+$("note-title").value = activeTitle;
 
 let lastExtracted = null;
+let lastPageMeta = null;
 
-// Sekme geçiş fonksiyonları
-function switchToJobTab() {
-  $("tab-job").classList.add("active");
-  $("tab-bookmark").classList.remove("active");
-  $("panel-job").hidden = false;
-  $("panel-bookmark").hidden = true;
+// 4 Sekmeli geçiş fonksiyonları
+const tabs = ["bookmark", "todo", "note", "job"];
+
+function switchTab(activeName) {
+  for (const name of tabs) {
+    const tabBtn = $(`tab-${name}`);
+    const panel = $(`panel-${name}`);
+    if (!tabBtn || !panel) continue;
+    if (name === activeName) {
+      tabBtn.classList.add("active");
+      panel.hidden = false;
+    } else {
+      tabBtn.classList.remove("active");
+      panel.hidden = true;
+    }
+  }
 }
 
-function switchToBookmarkTab() {
-  $("tab-bookmark").classList.add("active");
-  $("tab-job").classList.remove("active");
-  $("panel-bookmark").hidden = false;
-  $("panel-job").hidden = true;
-}
-
-$("tab-bookmark").addEventListener("click", switchToBookmarkTab);
+$("tab-bookmark").addEventListener("click", () => switchTab("bookmark"));
+$("tab-todo").addEventListener("click", () => switchTab("todo"));
+$("tab-note").addEventListener("click", () => switchTab("note"));
 $("tab-job").addEventListener("click", () => {
-  switchToJobTab();
+  switchTab("job");
   if (!lastExtracted) {
     inspectPageForJob();
   }
@@ -65,6 +75,16 @@ async function inspectPageForJob() {
     });
 
     if (injection?.result) {
+      // Sayfa meta verilerini çıkar ve not/alıntı alanlarına yerleştir
+      const pageMeta = extractPageMetadata(injection.result, activeUrl);
+      lastPageMeta = pageMeta;
+      if (pageMeta.selectedText) {
+        if (!$("note").value) $("note").value = pageMeta.selectedText;
+        if (!$("note-body").value) $("note-body").value = pageMeta.selectedText;
+      } else if (pageMeta.description && !$("note").value) {
+        $("note").placeholder = pageMeta.description.slice(0, 150) + "…";
+      }
+
       const details = extractJobDetails(injection.result, activeUrl);
       if (details.found) {
         lastExtracted = details;
@@ -77,11 +97,11 @@ async function inspectPageForJob() {
         if (details.notes) $("job-notes").value = details.notes;
 
         $("extraction-badge").hidden = false;
-        $("extraction-text").textContent = `✨ ${details.sourceLabel} ile tespit edildi`;
+        $("extraction-text").textContent = `[${details.sourceLabel}] ile tespit edildi`;
 
         // Güçlü bir iş ilanı kaynağı (JSON-LD veya ATS) tespit edildiyse otomatik iş ilanı sekmesine geç
         if (details.sourceType === "schema_org" || details.sourceType === "ats") {
-          switchToJobTab();
+          switchTab("job");
         }
       }
     }
@@ -161,6 +181,10 @@ $("panel-bookmark").addEventListener("submit", async (e) => {
       note: $("note").value || null,
       tags: $("tags").value.split(",").map((t) => t.trim()).filter(Boolean),
       collection: $("collection").value,
+      hero_image_url: lastPageMeta?.image || null,
+      favicon_url: lastPageMeta?.favicon || null,
+      reading_time_min: lastPageMeta?.readingTimeMinutes || null,
+      author: lastPageMeta?.author || null,
     });
 
     const rejected = result.rejected.find((entry) => entry.url === $("url").value);
@@ -226,6 +250,56 @@ $("panel-job").addEventListener("submit", async (e) => {
   } catch (err) {
     btn.disabled = false;
     $("status").textContent = `Eklenemedi: ${err?.message ?? err}`;
+  }
+});
+
+// Form 3: Görev Kaydet
+$("panel-todo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("todo-save");
+  const title = $("todo-title").value.trim();
+  if (!title) return;
+
+  btn.disabled = true;
+  $("status").textContent = "Görev ekleniyor…";
+
+  try {
+    const result = await enqueueTodo({
+      title,
+      priority: Number($("todo-priority").value) || 2,
+      plan_day: $("todo-day").value || null,
+    });
+
+    $("status").textContent = result.pending ? "Kuyruğa alındı (forkOS kapalı)" : "Görev eklendi!";
+    setTimeout(() => window.close(), 700);
+  } catch (err) {
+    btn.disabled = false;
+    $("status").textContent = `Eklenemedi: ${err?.message ?? err}`;
+  }
+});
+
+// Form 4: Not Kaydet
+$("panel-note").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("note-save");
+  const title = $("note-title").value.trim();
+  if (!title) return;
+
+  btn.disabled = true;
+  $("status").textContent = "Not kaydediliyor…";
+
+  try {
+    const result = await enqueueNote({
+      title,
+      body_text: $("note-body").value.trim(),
+      folder: $("note-folder").value.trim() || "general",
+    });
+
+    $("status").textContent = result.pending ? "Kuyruğa alındı (forkOS kapalı)" : "Not kaydedildi!";
+    setTimeout(() => window.close(), 700);
+  } catch (err) {
+    btn.disabled = false;
+    $("status").textContent = `Kaydedilemedi: ${err?.message ?? err}`;
   }
 });
 

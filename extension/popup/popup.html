@@ -38,10 +38,16 @@
     <!-- Sekmeler (Tabs) -->
     <nav class="tab-nav" aria-label="Kayıt Modu">
       <button id="tab-bookmark" class="tab-btn active" type="button">
-        <span>📑 Bağlantı & Not</span>
+        <span>Bağlantı</span>
+      </button>
+      <button id="tab-todo" class="tab-btn" type="button">
+        <span>Görev</span>
+      </button>
+      <button id="tab-note" class="tab-btn" type="button">
+        <span>Not</span>
       </button>
       <button id="tab-job" class="tab-btn" type="button">
-        <span>💼 İş İlanı</span>
+        <span>İş İlanı</span>
       </button>
     </nav>
 
@@ -67,22 +73,62 @@
         <div class="field flex-1">
           <label for="collection">Koleksiyon</label>
           <select id="collection">
-            <option value="inbox">📥 Inbox</option>
-            <option value="read_later">⏱️ Read Later</option>
-            <option value="learning">🧠 Learning</option>
-            <option value="reference">📚 Reference</option>
-            <option value="projects">🚀 Projects</option>
+            <option value="inbox">Gelen Kutusu (Inbox)</option>
+            <option value="read_later">Sonra Oku (Read Later)</option>
+            <option value="learning">Öğrenme (Learning)</option>
+            <option value="reference">Referans (Reference)</option>
+            <option value="projects">Projeler (Projects)</option>
           </select>
         </div>
       </div>
       <button id="save" class="btn btn-primary" type="submit">Kütüphaneye Kaydet</button>
     </form>
 
-    <!-- Panel 2: İş İlanı (Opportunity) -->
+    <!-- Panel 2: Görev (Todo) -->
+    <form id="panel-todo" class="tab-panel" hidden>
+      <div class="field">
+        <label for="todo-title">Görev Başlığı <span class="required">*</span></label>
+        <input id="todo-title" type="text" required placeholder="ör. Dokümantasyonu incele" />
+      </div>
+      <div class="row">
+        <div class="field flex-1">
+          <label for="todo-priority">Öncelik</label>
+          <select id="todo-priority">
+            <option value="1">1 · Düşük</option>
+            <option value="2" selected>2 · Normal</option>
+            <option value="3">3 · Yüksek</option>
+          </select>
+        </div>
+        <div class="field flex-1">
+          <label for="todo-day">Plan Günü</label>
+          <input id="todo-day" type="date" />
+        </div>
+      </div>
+      <button id="todo-save" class="btn btn-accent" type="submit">Görev Olarak Ekle</button>
+    </form>
+
+    <!-- Panel 3: Not (Note) -->
+    <form id="panel-note" class="tab-panel" hidden>
+      <div class="field">
+        <label for="note-title">Not Başlığı <span class="required">*</span></label>
+        <input id="note-title" type="text" required placeholder="ör. Hızlı Not veya Alıntı" />
+      </div>
+      <div class="field">
+        <label for="note-body">Not İçeriği</label>
+        <textarea id="note-body" rows="4" placeholder="Metin, düşünceler, sayfa alıntıları…"></textarea>
+      </div>
+      <div class="field">
+        <label for="note-folder">Klasör</label>
+        <input id="note-folder" type="text" placeholder="general" value="general" />
+      </div>
+      <button id="note-save" class="btn btn-accent" type="submit">Not Olarak Kaydet</button>
+    </form>
+
+    <!-- Panel 4: İş İlanı (Opportunity) -->
     <form id="panel-job" class="tab-panel" hidden>
       <div id="extraction-badge" class="extraction-card" hidden>
         <div class="extraction-header">
-          <span class="extraction-icon">✨</span>
+          <span class="extraction-icon">[bilgi]</span>
           <span id="extraction-text" class="extraction-text">Sayfadan tespit edildi</span>
           <button id="reextract-btn" class="extraction-btn" type="button" title="Sayfayı yeniden tara">Yenile</button>
         </div>

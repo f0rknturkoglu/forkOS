@@ -395,10 +395,22 @@ function wrapDoc(docOrSnapshot) {
   if (typeof docOrSnapshot.querySelectorAll === "function") {
     return docOrSnapshot;
   }
-  const { scripts = [], metas = {}, elements = {}, title = "", url = "" } = docOrSnapshot;
+  const {
+    scripts = [],
+    metas = {},
+    elements = {},
+    title = "",
+    url = "",
+    selectedText = "",
+    favicon = "",
+    readingTimeMinutes = 1,
+  } = docOrSnapshot;
   return {
     title,
     url,
+    selectedText,
+    favicon,
+    readingTimeMinutes,
     querySelectorAll(selector) {
       if (selector === 'script[type="application/ld+json"]') {
         return scripts.map((s) => ({ textContent: typeof s === "string" ? s : JSON.stringify(s) }));
@@ -437,6 +449,13 @@ export function collectPageDom() {
     const key = el.getAttribute("property") || el.getAttribute("name");
     if (key) metas[key] = el.getAttribute("content");
   }
+
+  const selectedText = window.getSelection ? window.getSelection().toString().trim() : "";
+  const faviconEl = document.querySelector('link[rel~="icon"]');
+  const favicon = faviconEl ? faviconEl.href : `${window.location.origin}/favicon.ico`;
+  const bodyText = document.body ? document.body.innerText || "" : "";
+  const wordCount = bodyText.trim().split(/\s+/).filter(Boolean).length;
+  const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
 
   const selectors = [
     ".app-title",
@@ -490,6 +509,52 @@ export function collectPageDom() {
     scripts,
     metas,
     elements,
+    selectedText,
+    favicon,
+    readingTimeMinutes,
+  };
+}
+
+// Sayfa Meta Verileri ve Okuma Süresi Çıkarıcı
+export function extractPageMetadata(docOrSnapshot, pageUrl) {
+  const doc = wrapDoc(docOrSnapshot);
+  if (!doc) {
+    return {
+      title: "",
+      url: pageUrl || "",
+      description: "",
+      image: "",
+      favicon: "",
+      selectedText: "",
+      readingTimeMinutes: 1,
+    };
+  }
+
+  const effectiveUrl = pageUrl || doc.url || "";
+  const title = doc.title || "";
+
+  const getMeta = (names) => {
+    for (const name of names) {
+      const el = doc.querySelector(`meta[property="${name}"]`) || doc.querySelector(`meta[name="${name}"]`);
+      const content = el?.getAttribute?.("content");
+      if (content && content.trim()) return content.trim();
+    }
+    return "";
+  };
+
+  const description = getMeta(["og:description", "description", "twitter:description"]);
+  const image = getMeta(["og:image", "og:image:secure_url", "twitter:image"]);
+  const author = getMeta(["author", "article:author", "twitter:creator", "byl"]);
+
+  return {
+    title,
+    url: effectiveUrl,
+    description,
+    image,
+    author: author || null,
+    favicon: doc.favicon || "",
+    selectedText: doc.selectedText || "",
+    readingTimeMinutes: doc.readingTimeMinutes || 1,
   };
 }
 

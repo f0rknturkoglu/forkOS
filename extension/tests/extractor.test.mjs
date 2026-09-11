@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractJobDetails, cleanHtmlText } from "../extractor.js";
+import { extractJobDetails, cleanHtmlText, extractPageMetadata } from "../extractor.js";
 
 // Minimal DOM mock helper for Node tests
 function createMockDoc({ scripts = [], elements = {}, meta = {}, title = "", bodyText = "" }) {
@@ -211,5 +211,29 @@ test("extractJobDetails supports snapshot objects returned by collectPageDom", (
   assert.equal(result.remote, "remote");
   assert.match(result.compensation, /180,000/);
   assert.match(result.notes, /autonomous multi-agent/);
+});
+
+test("extractPageMetadata extracts description, og:image, favicon and reading time", () => {
+  const snapshot = {
+    url: "https://blog.example.com/deep-dive",
+    title: "Deep Dive into Multi-Agent Architecture",
+    metas: {
+      "og:description": "A comprehensive guide to orchestrating agents.",
+      "og:image": "https://blog.example.com/cover.png",
+      author: "Dr. Alice Turing",
+    },
+    favicon: "https://blog.example.com/favicon.ico",
+    selectedText: "Important quote from article",
+    readingTimeMinutes: 5,
+  };
+
+  const meta = extractPageMetadata(snapshot);
+  assert.equal(meta.title, "Deep Dive into Multi-Agent Architecture");
+  assert.equal(meta.description, "A comprehensive guide to orchestrating agents.");
+  assert.equal(meta.image, "https://blog.example.com/cover.png");
+  assert.equal(meta.author, "Dr. Alice Turing");
+  assert.equal(meta.favicon, "https://blog.example.com/favicon.ico");
+  assert.equal(meta.selectedText, "Important quote from article");
+  assert.equal(meta.readingTimeMinutes, 5);
 });
 

@@ -52,7 +52,10 @@ async function saveLastResult(result) {
 
 export async function enqueue(item) {
   const isJob = item.type === "opportunity";
-  const urlError = invalidUrlMessage(item.url, isJob);
+  const isTodo = item.type === "todo";
+  const isNote = item.type === "note";
+  const isOptionalUrl = isJob || isTodo || isNote;
+  const urlError = invalidUrlMessage(item.url, isOptionalUrl);
   if (urlError) {
     const result = {
       sent: 0,
@@ -66,9 +69,16 @@ export async function enqueue(item) {
 
   await withStorageLock(async () => {
     const queue = await readQueue();
-    const entry = isJob
-      ? { client_uuid: crypto.randomUUID(), type: "opportunity", kind: "job", status: "discovered", priority: 2, ...item }
-      : { client_uuid: crypto.randomUUID(), type: "bookmark", collection: "inbox", ...item };
+    let entry;
+    if (isJob) {
+      entry = { client_uuid: crypto.randomUUID(), type: "opportunity", kind: "job", status: "discovered", priority: 2, ...item };
+    } else if (isTodo) {
+      entry = { client_uuid: crypto.randomUUID(), type: "todo", priority: 2, ...item };
+    } else if (isNote) {
+      entry = { client_uuid: crypto.randomUUID(), type: "note", ...item };
+    } else {
+      entry = { client_uuid: crypto.randomUUID(), type: "bookmark", collection: "inbox", ...item };
+    }
     queue.push(entry);
     await writeQueue(queue);
   });
@@ -77,6 +87,14 @@ export async function enqueue(item) {
 
 export async function enqueueOpportunity(jobItem) {
   return enqueue({ type: "opportunity", ...jobItem });
+}
+
+export async function enqueueTodo(todoItem) {
+  return enqueue({ type: "todo", ...todoItem });
+}
+
+export async function enqueueNote(noteItem) {
+  return enqueue({ type: "note", ...noteItem });
 }
 
 export async function pendingCount() {
@@ -115,22 +133,44 @@ async function flushQueue() {
   for (const item of queue) {
     try {
       const isJob = item.type === "opportunity";
-      const targetUrl = isJob ? `${apiBase}/opportunities` : `${apiBase}/capture`;
-      const payload = isJob
-        ? {
-            title: item.title,
-            kind: item.kind || "job",
-            organization: item.organization || null,
-            url: item.url || null,
-            status: item.status || "discovered",
-            priority: item.priority ?? 2,
-            deadline_at: item.deadline_at || null,
-            location: item.location || null,
-            remote: item.remote || null,
-            compensation: item.compensation || null,
-            notes: item.notes || null,
-          }
-        : item;
+      const isTodo = item.type === "todo";
+      const isNote = item.type === "note";
+      let targetUrl = `${apiBase}/capture`;
+      let payload = item;
+
+      if (isJob) {
+        targetUrl = `${apiBase}/opportunities`;
+        payload = {
+          title: item.title,
+          kind: item.kind || "job",
+          organization: item.organization || null,
+          url: item.url || null,
+          status: item.status || "discovered",
+          priority: item.priority ?? 2,
+          deadline_at: item.deadline_at || null,
+          location: item.location || null,
+          remote: item.remote || null,
+          compensation: item.compensation || null,
+          notes: item.notes || null,
+        };
+      } else if (isTodo) {
+        targetUrl = `${apiBase}/todos`;
+        payload = {
+          title: item.title,
+          priority: item.priority ?? 2,
+          plan_day: item.plan_day || null,
+          due_at: item.due_at || null,
+        };
+      } else if (isNote) {
+        targetUrl = `${apiBase}/notes`;
+        payload = {
+          title: item.title || "Not",
+          body_text: item.body_text || "",
+          folder: item.folder || "general",
+          pinned: Boolean(item.pinned),
+        };
+      }
+
       const res = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

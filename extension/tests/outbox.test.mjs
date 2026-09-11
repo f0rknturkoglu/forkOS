@@ -175,3 +175,107 @@ test("enqueues and flushes job opportunities to /opportunities endpoint", { conc
   assert.equal(state.outbox.length, 0);
 });
 
+test("enqueues and flushes todos to /todos endpoint", { concurrency: false }, async () => {
+  const state = installChrome();
+  let requestedUrl = null;
+  let sentBody = null;
+
+  globalThis.fetch = async (url, options) => {
+    requestedUrl = url;
+    sentBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 201,
+      async json() {
+        return { id: "todo-123", title: sentBody.title };
+      },
+    };
+  };
+
+  const { enqueueTodo } = await loadOutbox();
+  const result = await enqueueTodo({
+    title: "Review PR #42",
+    priority: 1,
+  });
+
+  assert.equal(result.sent, 1);
+  assert.equal(result.pending, 0);
+  assert.match(requestedUrl, /\/todos$/);
+  assert.equal(sentBody.title, "Review PR #42");
+  assert.equal(sentBody.priority, 1);
+  assert.equal(state.outbox.length, 0);
+});
+
+test("enqueues and flushes notes to /notes endpoint", { concurrency: false }, async () => {
+  const state = installChrome();
+  let requestedUrl = null;
+  let sentBody = null;
+
+  globalThis.fetch = async (url, options) => {
+    requestedUrl = url;
+    sentBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 201,
+      async json() {
+        return { id: "note-123", title: sentBody.title };
+      },
+    };
+  };
+
+  const { enqueueNote } = await loadOutbox();
+  const result = await enqueueNote({
+    title: "Architecture Decisions",
+    body_text: "Single bookmark table for inbox and library.",
+    folder: "system",
+  });
+
+  assert.equal(result.sent, 1);
+  assert.equal(result.pending, 0);
+  assert.match(requestedUrl, /\/notes$/);
+  assert.equal(sentBody.title, "Architecture Decisions");
+  assert.equal(sentBody.body_text, "Single bookmark table for inbox and library.");
+  assert.equal(sentBody.folder, "system");
+  assert.equal(state.outbox.length, 0);
+});
+
+test("enqueues and flushes bookmarks with pocket metadata to /capture endpoint", { concurrency: false }, async () => {
+  const state = installChrome();
+  let requestedUrl = null;
+  let sentBody = null;
+
+  globalThis.fetch = async (url, options) => {
+    requestedUrl = url;
+    sentBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 201,
+      async json() {
+        return { id: "bm-pocket-1", title: sentBody.title };
+      },
+    };
+  };
+
+  const { enqueue } = await loadOutbox();
+  const result = await enqueue({
+    url: "https://blog.example.com/deep-dive",
+    title: "Deep Dive into Multi-Agent Architecture",
+    collection: "read_later",
+    hero_image_url: "https://blog.example.com/cover.png",
+    favicon_url: "https://blog.example.com/favicon.ico",
+    reading_time_min: 7,
+    author: "Dr. Alice Turing",
+  });
+
+  assert.equal(result.sent, 1);
+  assert.equal(result.pending, 0);
+  assert.match(requestedUrl, /\/capture$/);
+  assert.equal(sentBody.title, "Deep Dive into Multi-Agent Architecture");
+  assert.equal(sentBody.hero_image_url, "https://blog.example.com/cover.png");
+  assert.equal(sentBody.favicon_url, "https://blog.example.com/favicon.ico");
+  assert.equal(sentBody.reading_time_min, 7);
+  assert.equal(sentBody.author, "Dr. Alice Turing");
+  assert.equal(sentBody.collection, "read_later");
+  assert.equal(state.outbox.length, 0);
+});
+
