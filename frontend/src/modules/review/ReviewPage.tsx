@@ -16,14 +16,16 @@ import {
   Surface,
   Textarea,
   cx,
+  hostOf,
   useToast,
 } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
-import type { ReviewPreview } from "@/core/types";
+import type { Bookmark, ReviewPreview } from "@/core/types";
 import { navigate } from "@/app/router";
 import { appWeekStartKey, formatTrDate, formatTrDateTime, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { reviewMetricRows } from "./reviewMetrics";
+import { InboxFocusTriageModal } from "@/modules/inbox/InboxFocusTriageModal";
 
 function startOf(kind: "daily" | "weekly") {
   return kind === "weekly" ? appWeekStartKey() : todayKey();
@@ -204,6 +206,13 @@ function OverviewStep({
   completionPct: number;
   onNext: () => void;
 }) {
+  const [triageOpen, setTriageOpen] = useState(false);
+  const { data: rawInboxItems = [] } = useQuery({
+    queryKey: ["bookmarks", "inbox", "review-check"],
+    queryFn: () => api.get<Bookmark[]>(`/bookmarks${qs({ collection: "inbox", limit: 50 })}`),
+  });
+  const inboxItems = Array.isArray(rawInboxItems) ? rawInboxItems : [];
+
   const stats = data.stats;
   const maxTopic = Math.max(...stats.topics.map((topic) => topic.minutes), 1);
   const signals = [
@@ -285,6 +294,42 @@ function OverviewStep({
           )}
         </Section>
       </div>
+
+      <Section
+        title="Gelen Kutusunu Temizle (Inbox Zero)"
+        hint={inboxItems.length === 0 ? "Temiz" : `${inboxItems.length} bekleyen kayıt`}
+        action={
+          inboxItems.length > 0 ? (
+            <Button size="sm" onClick={() => setTriageOpen(true)}>
+              Triage Modunu Başlat
+            </Button>
+          ) : (
+            <Chip tone="ok">Sıfırlandı</Chip>
+          )
+        }
+      >
+        {inboxItems.length === 0 ? (
+          <Empty>Gelen kutusunda bekleyen kayıt yok. Zihniniz temiz.</Empty>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-body text-secondary">
+              Dönemi net kapatmak için gelen kutusundaki {inboxItems.length} kaydı inceleyin, arşivleyin veya göreve dönüştürün.
+            </p>
+            <RowList as="ul">
+              {inboxItems.slice(0, 4).map((bm) => (
+                <li key={bm.id} className="flex items-center justify-between gap-3 py-1.5 text-meta">
+                  <span className="truncate text-primary">{bm.title || bm.url}</span>
+                  <span className="text-muted shrink-0">{hostOf(bm.url)}</span>
+                </li>
+              ))}
+            </RowList>
+            {inboxItems.length > 4 && (
+              <p className="text-meta text-muted">+{inboxItems.length - 4} kayıt daha</p>
+            )}
+          </div>
+        )}
+      </Section>
+      <InboxFocusTriageModal open={triageOpen} onClose={() => setTriageOpen(false)} />
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Section title="Odak dağılımı" className="xl:col-span-2">

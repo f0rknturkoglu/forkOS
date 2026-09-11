@@ -4,7 +4,7 @@ import { Inbox } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
-import { InboxWidget } from "./InboxWidget";
+import { InboxTodayWidget } from "./InboxTodayWidget";
 import { InboxStats } from "./InboxStats";
 
 const InboxPage = lazy(() => import("./InboxPage").then((module) => ({ default: module.InboxPage })));
@@ -14,12 +14,12 @@ registerModule({
   title: "Gelen Kutusu",
   description: "Gelen bağlantı ve notları tek kuyrukta topla, sonra düzenle.",
   icon: Inbox,
-  group: "capture",
+  hidden: true,
   routes: [{ path: "/inbox", element: InboxPage }],
   todayStats: [InboxStats],
-  todayWidgets: [{ id: "inbox.widget", title: "Gelen kutusu", component: InboxWidget, slot: "right", order: 40 }],
+  todayWidgets: [{ id: "inbox.widget", title: "Gelen kutusu", component: InboxTodayWidget, slot: "right", order: 40 }],
   commands: [
-    { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/inbox") },
+    { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/today?triage=inbox") },
     {
       id: "inbox.capture",
       label: "Bağlantı kaydet",
@@ -33,7 +33,7 @@ registerModule({
           client_uuid: crypto.randomUUID(),
         });
         invalidateAfter("bookmark.write");
-        navigate("/inbox");
+        navigate("/today?triage=inbox");
       },
     },
   ],

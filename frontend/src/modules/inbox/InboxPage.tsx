@@ -13,7 +13,7 @@ import {
 import type { DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Tag, Trash2 } from "lucide-react";
+import { CheckSquare, StickyNote, Tag, Trash2 } from "lucide-react";
 import {
   Button,
   Chip,
@@ -61,6 +61,7 @@ function InboxCard({
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(bookmark.tags.join(", "));
+  const [titleDraft, setTitleDraft] = useState(bookmark.title || bookmark.url);
   // Duzenleme formu acikken kart kisayollarini yut, yoksa "1" yazamazsin.
   const swallow = (e: React.KeyboardEvent) => {
     if (editing) e.stopPropagation();
@@ -79,14 +80,25 @@ function InboxCard({
     onSuccess: () => invalidateAfter("bookmark.write"),
   });
 
+  const updateTitle = useMutation({
+    mutationFn: (title: string) => api.patch(`/bookmarks/${bookmark.id}`, { title }),
+    onSuccess: () => invalidateAfter("bookmark.write"),
+  });
+
+  const convertToTask = useMutation({
+    mutationFn: () => api.post(`/bookmarks/${bookmark.id}/convert-to-task`, { priority: 2 }),
+    onSuccess: () => {
+      invalidateAfter("bookmark.write", "todo.write", "link.write");
+      toast.push("Goreve donusturuldu ve arsivlendi", { tone: "ok" });
+    },
+  });
+
   return (
     <li
       ref={(node) => {
         setNodeRef(node);
         registerRef(node);
       }}
-      // Klavye yolu: kart odaklanabilir; secim ok tuslariyla gezer,
-      // tasima 1-4 ile yapilir. Sayfanin altindaki lejant bunu anlatir.
       tabIndex={0}
       aria-current={selected ? "true" : undefined}
       onFocus={onSelect}
@@ -102,7 +114,7 @@ function InboxCard({
           {...listeners}
           {...attributes}
           disabled={disabled}
-          title={disabled ? "Çevrimdışı — taşıma kapalı" : "Sürükle"}
+          title={disabled ? "Cevrimdisi — tasima kapali" : "Surukle"}
           className="mt-0.5 cursor-grab text-muted hover:text-secondary disabled:cursor-not-allowed"
         >
           ⠿
@@ -121,10 +133,21 @@ function InboxCard({
             <span>·</span>
             <span>{relativeTime(bookmark.saved_at)}</span>
             <Chip>{bookmark.source}</Chip>
+            {bookmark.is_duplicate && (
+              <Chip tone="warn">Zaten kayitli: {bookmark.existing_collection || "kutuphane"}</Chip>
+            )}
             {bookmark.tags.map((tag) => (
               <Chip key={tag}>#{tag}</Chip>
             ))}
           </div>
+
+          {bookmark.note && (
+            <div className="mt-2 flex items-start gap-1.5 rounded-control border border-subtle bg-surface-sunken p-2 text-meta text-primary">
+              <StickyNote size={14} className="mt-0.5 shrink-0 text-muted" />
+              <p className="whitespace-pre-line">{bookmark.note}</p>
+            </div>
+          )}
+
           {bookmark.selection && (
             <p className="mt-2 border-l-2 border-strong pl-2 text-meta italic text-secondary">
               {bookmark.selection.slice(0, 220)}
@@ -132,7 +155,10 @@ function InboxCard({
           )}
         </div>
         <div className="flex shrink-0 gap-1">
-          <IconButton title="Etiketleri düzenle" disabled={disabled} onClick={() => setEditing((v) => !v)}>
+          <IconButton title="Goreve donustur" disabled={disabled} onClick={() => convertToTask.mutate()}>
+            <CheckSquare size={15} className="text-accent" />
+          </IconButton>
+          <IconButton title="Duzenle" disabled={disabled} onClick={() => setEditing((v) => !v)}>
             <Tag size={15} />
           </IconButton>
           <IconButton title="Sil" tone="danger" disabled={disabled} onClick={() => remove.mutate()}>
@@ -144,9 +170,12 @@ function InboxCard({
       {editing && (
         <form
           onKeyDown={swallow}
-          className="mt-3 flex gap-2 border-t border-subtle pt-3"
+          className="mt-3 space-y-2 border-t border-subtle pt-3"
           onSubmit={(e) => {
             e.preventDefault();
+            if (titleDraft.trim() && titleDraft !== bookmark.title) {
+              updateTitle.mutate(titleDraft.trim());
+            }
             setTags.mutate(
               draft
                 .split(",")
@@ -157,22 +186,31 @@ function InboxCard({
           }}
         >
           <Input
-            autoFocus
-            value={draft}
-            onChange={setDraft}
-            ariaLabel="Etiketler, virgülle ayrılmış"
-            placeholder="etiketler, virgülle"
-            className="flex-1"
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setEditing(false);
-            }}
+            value={titleDraft}
+            onChange={setTitleDraft}
+            ariaLabel="Baslik"
+            placeholder="Baslik"
+            className="w-full"
           />
-          <Button type="submit" variant="primary" size="sm">
-            Kaydet
-          </Button>
-          <Button size="sm" onClick={() => setEditing(false)}>
-            Vazgeç
-          </Button>
+          <div className="flex gap-2">
+            <Input
+              autoFocus
+              value={draft}
+              onChange={setDraft}
+              ariaLabel="Etiketler, virgulle ayrilmis"
+              placeholder="etiketler, virgulle"
+              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setEditing(false);
+              }}
+            />
+            <Button type="submit" variant="primary" size="sm">
+              Kaydet
+            </Button>
+            <Button size="sm" onClick={() => setEditing(false)}>
+              Vazgec
+            </Button>
+          </div>
         </form>
       )}
     </li>

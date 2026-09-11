@@ -1,6 +1,6 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
-import { Download, Link2, ListChecks } from "lucide-react";
+import { Download, FileText, Link2, ListChecks } from "lucide-react";
 import { api } from "./api";
 import { openCapture } from "./CaptureDialog";
 import { useToast } from "./ui";
@@ -10,10 +10,9 @@ import { useOnline } from "@/lib/hooks";
  * Pencereye birakilan seyi yakalar.
  *
  * Ayrimi birakilan icerik yapar, kullaniciya soru sorulmaz:
- *   bagalanti -> gelen kutusuna yer imi (/capture, client_uuid ile idempotent)
- *   duz metin  -> gorev (/todos)
- *   dosya      -> desteklenmiyor; bookmark bir URL bekliyor ve dosya
- *                 icerigi local-only mimaride bir yere kopyalanmiyor.
+ *   baglanti -> gelen kutusuna yer imi (/capture, client_uuid ile idempotent)
+ *   duz metin -> gorev (/todos)
+ *   dosya     -> yerel belge olarak yuklenir (/documents/upload)
  *
  * Offline'da yazma kapali (plan bolum 7), o yuzden katman hic acilmaz.
  */
@@ -22,8 +21,8 @@ const URL_PATTERN = /https?:\/\/[^\s<>"']+/i;
 
 type Kind = "link" | "text" | "file";
 
-function readDrop(transfer: DataTransfer): { kind: Kind; value: string } | null {
-  if (transfer.files.length > 0) return { kind: "file", value: transfer.files[0].name };
+function readDrop(transfer: DataTransfer): { kind: Kind; value: string; file?: File } | null {
+  if (transfer.files.length > 0) return { kind: "file", value: transfer.files[0].name, file: transfer.files[0] };
 
   const uri = transfer.getData("text/uri-list").trim();
   if (uri) {
@@ -83,7 +82,31 @@ export function DropCapture() {
       if (!dropped) return;
 
       if (dropped.kind === "file") {
-        toast.push(`"${dropped.value}" — dosya yakalanamıyor, bağlantı ya da metin bırak.`, { tone: "warn" });
+        if (dropped.file) {
+          setBusy(true);
+          try {
+            const form = new FormData();
+            form.append("file", dropped.file);
+            form.append("category", "other");
+            const res = await api.post<{ title?: string }>("/documents/upload", form);
+            invalidateAfter("document.write");
+            toast.push(`"${res?.title || dropped.value}" belgelere eklendi.`, {
+              tone: "ok",
+              action: {
+                label: "aç",
+                run: () => {
+                  location.hash = "/documents";
+                },
+              },
+            });
+          } catch {
+            toast.push(`"${dropped.value}" yüklenemedi.`, { tone: "danger" });
+          } finally {
+            setBusy(false);
+          }
+          return;
+        }
+        toast.push(`"${dropped.value}" — dosya okunamadı.`, { tone: "warn" });
         return;
       }
 
@@ -102,7 +125,7 @@ export function DropCapture() {
             action: {
               label: "aç",
               run: () => {
-                location.hash = "/inbox";
+                location.hash = "/today?triage=inbox";
               },
             },
           });
@@ -146,6 +169,9 @@ export function DropCapture() {
           </li>
           <li className="flex items-center justify-center gap-1.5">
             <ListChecks size={13} className="text-icon" /> Metin → görev
+          </li>
+          <li className="flex items-center justify-center gap-1.5">
+            <FileText size={13} className="text-icon" /> Dosya → belgeler
           </li>
         </ul>
       </div>

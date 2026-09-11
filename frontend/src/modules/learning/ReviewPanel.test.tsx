@@ -88,6 +88,8 @@ describe("dueLabel", () => {
 
 describe("ReviewPanel", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-09-10T10:00:00Z"));
     harness.apiPost.mockReset();
     harness.invalidate.mockReset();
     harness.listDecks.mockReset();
@@ -106,7 +108,10 @@ describe("ReviewPanel", () => {
     ]);
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it("review blogunu ve gecikme durumunu gosterir", async () => {
     renderPanel();
