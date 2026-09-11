@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.core import runs
 from app.core.models import SourceRun
@@ -13,7 +14,25 @@ from app.db import SessionLocal
 from app.modules.opportunity import service
 from app.modules.opportunity import sync as sync_service
 from app.sources.announcements import SOURCES
+from app.sources.base import source_class, source_timeout_seconds
 from app.sources.forkjob_port import forkjob_sources
+
+log = logging.getLogger("worker.opportunity")
+
+#: Kaynak basina ust sinif tekrar deneme (ilk deneme haric).
+MAX_SOURCE_RETRIES = 2
+RETRY_BACKOFF_BASE = 1.0
+RETRY_BACKOFF_CAP = 20.0
+
+#: Kapanma bekleme suresi (gun) kaynak sinifina gore.
+CLOSE_GRACE_DAYS = {"critical": 1, "normal": 3, "slow_optin": 14}
+
+#: Ayni kaynagi ayni anda iki kez kosmamak icin surec-ici kilitler.
+_SOURCE_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def _lock_for(source_id: str) -> asyncio.Lock:
+    return _SOURCE_LOCKS.setdefault(source_id, asyncio.Lock())
 
 
 def _error_message(exc: Exception) -> str:
@@ -60,31 +79,164 @@ class NativeJob:
         }
 
 
-async def poll_source(source, *, batch_id=None) -> int:
-    async with SessionLocal() as session:
-        run = await runs.start_run(session, source.id, batch_id=batch_id)
-        await session.commit()
+async def _fetch_with_retries(source, limit: float) -> list:
+    """Sert sure butcesi icinde getir; gecici hatalarda sinirli tekrar dene.
+
+    Butce asildiginda `TimeoutError` yukselir -- kaynak iptal edilir, kardes
+    kaynaklar etkilenmez. Tekrar denemeler ayni butceden yer; boylece toplam
+    sure `timeout_seconds`i asla asmaz.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + limit
+    attempt = 0
+    while True:
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            raise TimeoutError(f"{source.id} exceeded {limit:.0f}s budget")
         try:
-            raw_items = await source.fetch()
-            payloads = [NativeJob(raw) for raw in raw_items]
-            added = await service.ingest_jobs(session, payloads, source.id)
-            status = runs.OK if raw_items else runs.EMPTY
+            return await asyncio.wait_for(source.fetch(), timeout=remaining)
+        except Exception as exc:
+            kind = runs.classify_error(exc)
+            if attempt >= MAX_SOURCE_RETRIES or not runs.is_retryable(kind):
+                raise
+            delay = min(RETRY_BACKOFF_BASE * (2**attempt), RETRY_BACKOFF_CAP)
+            delay = min(delay, max(remaining / 2, 0.05))
+            attempt += 1
+            log.info("source %s transient %s; retry %d in %.1fs", source.id, kind, attempt, delay)
+            await asyncio.sleep(delay)
+
+
+async def _sweep_missing(source, payloads: list) -> None:
+    """Kosu `ok` ve en az bir item urettiyse gorunmeyenleri kademeli kapat.
+
+    Bos/hata kosusunda ASLA cagrilmaz: basarisiz kaynak ilan kapatamaz.
+    """
+    from app.modules.opportunity.models import OpportunitySourceObservation
+
+    external_ids = {str(item.external_id) for item in payloads if getattr(item, "external_id", None)}
+    urls = {item.url for item in payloads if getattr(item, "url", None)}
+    conditions = []
+    if external_ids:
+        conditions.append(OpportunitySourceObservation.external_id.in_(external_ids))
+    if urls:
+        conditions.append(OpportunitySourceObservation.canonical_url.in_(urls))
+    if not conditions:
+        return
+    async with SessionLocal() as session:
+        seen = list(
+            (
+                await session.execute(
+                    select(OpportunitySourceObservation.opportunity_id).where(
+                        OpportunitySourceObservation.source == source.id, or_(*conditions)
+                    )
+                )
+            ).scalars()
+        )
+        grace = CLOSE_GRACE_DAYS[source_class(source).value]
+        await service.sweep_missing_opportunities(
+            session,
+            source_label=source.id,
+            seen_opportunity_ids=list(set(seen)),
+            grace_days=grace,
+        )
+
+
+async def _fail_reserved_run(
+    run_id: int, *, batch_id, error: str, error_kind: str, status: str = runs.ERROR
+) -> None:
+    async with SessionLocal() as session:
+        run = await session.get(SourceRun, run_id)
+        if run is not None:
+            await runs.finish_run(session, run, status=status, error=error, error_kind=error_kind)
+        if batch_id is not None:
+            await sync_service.finish_batch_source(session, batch_id, status=status)
+        await session.commit()
+
+
+async def poll_source(source, *, batch_id=None, timeout: float | None = None) -> int:
+    """Tek kaynagi kos; sert timeout, sinirli tekrar ve devre kesici ile.
+
+    Kaynak basina kilitle ayni kaynak iki kez kosmaz; rezervasyon yarisinda
+    kaybeden kosum `abandoned` yazip sessizce cekilir.
+    """
+    limit = float(timeout) if timeout is not None else source_timeout_seconds(source)
+    async with _lock_for(source.id):
+        return await _poll_source_locked(source, batch_id=batch_id, limit=limit)
+
+
+async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
+    source_id = source.id
+    async with SessionLocal() as session:
+        state = await runs.circuit_state(session, source_id)
+        run = await runs.start_run(session, source_id, batch_id=batch_id)
+        run_id = run.id
+        if state["open"]:
+            log.info("source %s circuit open; skipping", source_id)
+            await runs.finish_run(
+                session,
+                run,
+                status=runs.ERROR,
+                error=(
+                    f"circuit open after {state['consecutive_failures']} consecutive failures"
+                ),
+                error_kind="circuit_open",
+            )
+            if batch_id is not None:
+                await sync_service.finish_batch_source(session, batch_id, status=runs.ERROR)
+            await session.commit()
+            return 0
+        duplicate = await runs.has_live_claim(
+            session, source_id, exclude_run_id=run_id, lease=timedelta(seconds=limit)
+        )
+        if duplicate:
+            log.info("source %s already running elsewhere; skipping duplicate", source_id)
+            await runs.finish_run(
+                session, run, status=runs.ABANDONED, error="duplicate concurrent claim"
+            )
+            await session.commit()
+            return 0
+        await session.commit()
+
+    try:
+        raw_items = await _fetch_with_retries(source, limit)
+    except Exception as exc:
+        message = _error_message(exc)
+        kind = runs.classify_error(exc)
+        log.warning("source %s failed (%s): %s", source_id, kind, message)
+        await _fail_reserved_run(run_id, batch_id=batch_id, error=message, error_kind=kind)
+        return 0
+
+    payloads = [NativeJob(raw) for raw in raw_items]
+    added = 0
+    try:
+        async with SessionLocal() as session:
+            run = await session.get(SourceRun, run_id)
+            if run is None:
+                return 0
+            status = runs.OK if payloads else runs.EMPTY
+            if payloads:
+                added = await service.ingest_jobs(session, payloads, source_id)
             await runs.finish_run(session, run, status=status, items_found=added)
             if batch_id is not None:
                 await sync_service.finish_batch_source(
                     session, batch_id, status=status, items_found=added
                 )
             await session.commit()
-            if status == runs.EMPTY:
-                await runs.check_stalled(session, source.id)
-                await session.commit()
-            return added
-        except Exception as exc:
-            await runs.finish_run(session, run, status=runs.ERROR, error=_error_message(exc))
-            if batch_id is not None:
-                await sync_service.finish_batch_source(session, batch_id, status=runs.ERROR)
-            await session.commit()
-            return 0
+    except Exception as exc:
+        message = _error_message(exc)
+        kind = runs.classify_error(exc)
+        log.warning("source %s ingest failed (%s): %s", source_id, kind, message)
+        await _fail_reserved_run(run_id, batch_id=batch_id, error=message, error_kind=kind)
+        return 0
+
+    if payloads:
+        await _sweep_missing(source, payloads)
+        return added
+
+    async with SessionLocal() as session:
+        await runs.check_stalled(session, source_id, label=getattr(source, "label", "") or source_id)
+        await session.commit()
+    return added
 
 
 async def poll_opportunities(*, limit: int = 4) -> int:
@@ -129,5 +281,20 @@ async def poll_named_source(source_id: str, *, batch_id=None) -> int:
         None,
     )
     if source is None:
-        raise KeyError(source_id)
+        # Bilinmeyen kaynak batch'i sonsuza kadar `running` birakmamali: terminal
+        # bir hata kosumu yazip cekiliriz.
+        if batch_id is None:
+            raise KeyError(source_id)
+        async with SessionLocal() as session:
+            run = await runs.start_run(session, source_id, batch_id=batch_id)
+            await runs.finish_run(
+                session,
+                run,
+                status=runs.ERROR,
+                error=f"unknown source: {source_id}",
+                error_kind="unknown",
+            )
+            await sync_service.finish_batch_source(session, batch_id, status=runs.ERROR)
+            await session.commit()
+        return 0
     return await poll_source(source, batch_id=batch_id)

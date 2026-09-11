@@ -16,6 +16,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from app.sources.base import retry_after_seconds
+
 from ..geo import region_for
 from ..models import Company, Job, Region
 
@@ -80,6 +82,7 @@ class HttpClient:
         last_error: Exception | None = None
 
         for attempt in range(self.config.max_retries):
+            response: httpx.Response | None = None
             async with self._semaphore:
                 await self._space_out(host)
                 try:
@@ -93,8 +96,14 @@ class HttpClient:
                     if isinstance(last_error, PermanentError):
                         raise last_error
 
+            delay = self.config.backoff_base * (2**attempt)
+            if response is not None and response.status_code == 429:
+                retry_after = retry_after_seconds(response.headers.get("Retry-After"))
+                if retry_after is not None:
+                    # Sunucunun soyledigi sureye uy; kotu baslik kosuyu kilitlemesin.
+                    delay = min(retry_after, 300)
             if attempt < self.config.max_retries - 1:
-                await asyncio.sleep(self.config.backoff_base * (2**attempt))
+                await asyncio.sleep(delay)
 
         raise last_error or TransientError("request failed")
 

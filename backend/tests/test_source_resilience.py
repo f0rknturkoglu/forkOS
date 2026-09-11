@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from sqlalchemy import select, text
 
 from app.core import runs as run_svc
@@ -13,6 +17,7 @@ from app.core.source_sync import reconcile_stale_runs
 from app.db import engine
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.service import ingest_jobs
+from app.sources.base import RawItem
 from app.sources.forkjob_core.models import WorkMode
 
 
@@ -236,3 +241,263 @@ async def test_ingest_jobs_deduplicates_same_source_url():
         ).scalars().all()
         assert len(opps) == 1
         assert opps[0].country == "ES"
+
+
+# ---------------------------------------------------------------------------
+# Hata siniflandirma / devre kesici / timeout / kapanma tespiti
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _FakeSource:
+    id: str
+    interval_minutes: int = 60
+    timeout_seconds: float = 5.0
+    result: list | None = None
+    exc: Exception | None = None
+    sleep: float = 0.0
+
+    async def fetch(self) -> list:
+        if self.sleep:
+            await asyncio.sleep(self.sleep)
+        if self.exc is not None:
+            raise self.exc
+        return list(self.result or [])
+
+
+def _raw_item(tag: str) -> RawItem:
+    return RawItem(
+        external_id=f"ext-{tag}",
+        title="Backend Dev",
+        url=f"https://example.com/jobs/{tag}",
+        summary="python async developer",
+        extra={"organization": "Acme", "location": "Remote", "remote": "remote", "kind": "job"},
+    )
+
+
+@pytest.mark.no_database
+def test_classify_error_kinds():
+    import socket
+    import ssl
+
+    assert run_svc.classify_error(TimeoutError("boom")) == "timeout"
+    assert run_svc.classify_error(socket.gaierror("Name or service not known")) == "dns"
+    assert run_svc.classify_error(ssl.SSLError("certificate verify failed")) == "tls"
+    assert run_svc.classify_error(RuntimeError("HTTP 403 (blocked) for https://x")) == "http_403"
+    assert run_svc.classify_error(RuntimeError("HTTP 404 for https://x")) == "http_404"
+    assert run_svc.classify_error(RuntimeError("HTTP 429 for https://x")) == "http_429"
+    assert run_svc.classify_error(RuntimeError("HTTP 503 for https://x")) == "http_5xx"
+    assert run_svc.classify_error(json.JSONDecodeError("x", "y", 0)) == "parser"
+    assert run_svc.classify_error(RuntimeError("weird failure")) == "unknown"
+
+
+@pytest.mark.no_database
+def test_sanitize_error_never_leaks_credentials_or_tokens():
+    dirty = (
+        "ProxyError: http://fork:s3cret@proxy.local:8080/ failed "
+        "&token=abc123XYZ Bearer sk-live-999"
+    )
+
+    clean = run_svc.sanitize_error(dirty)
+
+    assert "s3cret" not in clean
+    assert "abc123XYZ" not in clean
+    assert "sk-live-999" not in clean
+    assert "fork:***@proxy.local:8080" in clean
+
+
+async def test_finish_run_sanitizes_secret_and_records_kind():
+    from app.db import SessionLocal
+
+    async with SessionLocal() as session:
+        run = await run_svc.start_run(session, "osym")
+        await run_svc.finish_run(
+            session,
+            run,
+            status=run_svc.ERROR,
+            error="ProxyError: http://user:s3cret@proxy:8080/?api_key=abc123XYZ",
+        )
+        await session.commit()
+
+        assert run.error is not None
+        assert "s3cret" not in run.error
+        assert "abc123XYZ" not in run.error
+        assert run_svc.error_kind_of(run) in run_svc.ERROR_KINDS
+
+
+async def test_per_source_timeout_does_not_block_siblings(monkeypatch: pytest.MonkeyPatch):
+    from app.db import SessionLocal
+    from app.modules.opportunity import worker
+
+    monkeypatch.setattr(worker, "MAX_SOURCE_RETRIES", 0)
+    slow = _FakeSource("osym", timeout_seconds=0.2, sleep=5.0, result=[_raw_item("slow")])
+    fast = _FakeSource("ylsy", result=[_raw_item("fast")])
+
+    started = time.monotonic()
+    results = await asyncio.gather(worker.poll_source(slow), worker.poll_source(fast))
+    elapsed = time.monotonic() - started
+
+    assert results == [0, 1]
+    assert elapsed < 3
+    async with SessionLocal() as session:
+        rows = {row.source: row for row in (await session.execute(select(SourceRun))).scalars()}
+    assert rows["osym"].status == "error"
+    assert run_svc.error_kind_of(rows["osym"]) == "timeout"
+    assert rows["ylsy"].status == "ok"
+
+
+async def test_circuit_breaker_skips_source_after_consecutive_failures():
+    from app.db import SessionLocal
+    from app.modules.opportunity import worker
+
+    now = datetime.now(UTC)
+    async with engine.begin() as conn:
+        for step in range(run_svc.CIRCUIT_FAILURE_THRESHOLD):
+            await conn.execute(
+                text(
+                    "insert into source_run (source, status, started_at, finished_at) "
+                    "values ('osym', 'error', :t, :t)"
+                ),
+                {"t": now - timedelta(minutes=step + 1)},
+            )
+
+    async with SessionLocal() as session:
+        state = await run_svc.circuit_state(session, "osym")
+    assert state["open"] is True
+    assert state["consecutive_failures"] == run_svc.CIRCUIT_FAILURE_THRESHOLD
+    assert state["retry_at"] is not None
+
+    called = {"fetch": False}
+    source = _FakeSource("osym")
+
+    async def boom() -> list:
+        called["fetch"] = True
+        raise AssertionError("devre acikken aga cikilmamali")
+
+    source.fetch = boom  # type: ignore[method-assign]
+    assert await worker.poll_source(source) == 0
+    assert called["fetch"] is False
+
+    async with SessionLocal() as session:
+        run = (
+            await session.execute(
+                select(SourceRun).where(SourceRun.source == "osym").order_by(SourceRun.id.desc())
+            )
+        ).scalars().first()
+    assert run is not None
+    assert run.status == "error"
+    assert run_svc.error_kind_of(run) == "circuit_open"
+
+
+async def test_empty_and_error_are_distinct_and_only_ok_sweeps(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from app.db import SessionLocal
+    from app.modules.opportunity import service, worker
+
+    monkeypatch.setattr(worker, "MAX_SOURCE_RETRIES", 0)
+    calls: list[dict] = []
+
+    async def fake_sweep(session, **kwargs):
+        calls.append(kwargs)
+        return {"missing": 0, "likely_closed": 0, "closed": 0}
+
+    monkeypatch.setattr(service, "sweep_missing_opportunities", fake_sweep)
+
+    ok = _FakeSource("ylsy", result=[_raw_item("ok")])
+    empty = _FakeSource("osym", result=[])
+    failing = _FakeSource("yok-msc", exc=RuntimeError("HTTP 500 for https://x"))
+    await asyncio.gather(
+        worker.poll_source(ok), worker.poll_source(empty), worker.poll_source(failing)
+    )
+
+    async with SessionLocal() as session:
+        rows = {
+            row.source: row
+            for row in (await session.execute(select(SourceRun).order_by(SourceRun.id))).scalars()
+        }
+    assert rows["ylsy"].status == "ok" and rows["ylsy"].items_found == 1
+    assert rows["osym"].status == "empty"
+    assert rows["yok-msc"].status == "error"
+    assert run_svc.error_kind_of(rows["yok-msc"]) == "http_5xx"
+    # Hata ve bos kosumlar kapanma taramasini TETIKLEMEZ.
+    assert len(calls) == 1
+    assert calls[0]["source_label"] == "ylsy"
+    assert calls[0]["grace_days"] == 1  # ylsy = critical
+
+
+async def test_sweep_grace_transitions_and_reopen():
+    from app.db import SessionLocal
+    from app.modules.opportunity import service
+    from app.modules.opportunity.models import OpportunitySourceObservation
+
+    source = f"test-close-{uuid.uuid4().hex[:8]}"
+    url = f"https://example.com/close/{uuid.uuid4().hex}"
+    job = _MockJob(
+        title="Closing Job",
+        url=url,
+        company="Acme",
+        location="Remote",
+        description="python",
+        external_id="close-1",
+    )
+
+    async with SessionLocal() as session:
+        await ingest_jobs(session, [job], source_label=source)
+        await session.commit()
+        opp_id = (
+            await session.execute(select(Opportunity.id).where(Opportunity.url == url))
+        ).scalar_one()
+
+    async with SessionLocal() as session:
+        result = await service.sweep_missing_opportunities(
+            session, source_label=source, seen_opportunity_ids=[opp_id], grace_days=1
+        )
+        assert result == {"missing": 0, "likely_closed": 0, "closed": 0}
+
+    async with SessionLocal() as session:
+        result = await service.sweep_missing_opportunities(
+            session, source_label=source, seen_opportunity_ids=[], grace_days=1
+        )
+        assert result["missing"] == 1
+        opp = (
+            await session.execute(select(Opportunity).where(Opportunity.id == opp_id))
+        ).scalar_one()
+        assert opp.source_status == "missing"
+
+    async with SessionLocal() as session:
+        result = await service.sweep_missing_opportunities(
+            session,
+            source_label=source,
+            seen_opportunity_ids=[],
+            grace_days=1,
+            now=datetime.now(UTC) + timedelta(days=1, minutes=1),
+        )
+        assert result["likely_closed"] == 1
+
+    async with SessionLocal() as session:
+        result = await service.sweep_missing_opportunities(
+            session,
+            source_label=source,
+            seen_opportunity_ids=[],
+            grace_days=1,
+            now=datetime.now(UTC) + timedelta(days=2, minutes=2),
+        )
+        assert result["closed"] == 1
+        opp = (
+            await session.execute(select(Opportunity).where(Opportunity.id == opp_id))
+        ).scalar_one()
+        assert opp.status == "closed"
+
+    # Kaynakta tekrar gorununce yeniden acilir.
+    async with SessionLocal() as session:
+        await ingest_jobs(session, [job], source_label=source)
+        await session.commit()
+        observation = (
+            await session.execute(
+                select(OpportunitySourceObservation).where(
+                    OpportunitySourceObservation.source == source
+                )
+            )
+        ).scalar_one()
+        assert observation.source_status == "active"

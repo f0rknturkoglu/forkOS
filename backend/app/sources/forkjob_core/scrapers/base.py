@@ -15,12 +15,14 @@ Key differences from Layer A's HttpClient:
 from __future__ import annotations
 
 import asyncio
+import gzip
 import json
 import sys
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import StrEnum
 from hashlib import sha1
 from pathlib import Path
@@ -30,6 +32,8 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 from selectolax.parser import HTMLParser
+
+from app.sources.base import retry_after_seconds
 
 from ..models import Job
 
@@ -65,8 +69,8 @@ class RobotsPolicy(StrEnum):
 
 
 class CacheMode(StrEnum):
-    OFF = "off"  # never cache
-    WRITE = "write"  # cache every fresh response
+    OFF = "off"  # never cache (default)
+    WRITE = "write"  # write-on-miss + conditional revalidation
     READ = "read"  # replay from cache, never hit the network
 
 
@@ -89,13 +93,22 @@ class ScraperConfig:
     backoff_base: float = 1.0
     #: robots.txt policy.
     robots: RobotsPolicy = RobotsPolicy.RESPECT
-    #: Caching mode.
-    cache: CacheMode = CacheMode.WRITE
+    #: Caching mode. OFF by default: caching is opt-in, never a silent 441 MB
+    #: directory that grows forever.
+    cache: CacheMode = CacheMode.OFF
     #: User-Agent header.
     user_agent: str = USER_AGENT
     #: Where cached responses live for offline replay. Absolute so a run works
     #: regardless of the process working directory.
     cache_dir: Path = Path(__file__).resolve().parents[4] / "data" / "cache"
+    #: Toplam disk butcesi; asilinca en eski (LRU) kayitlar silinir. 0 = sinirsiz.
+    cache_max_bytes: int = 256 * 1024 * 1024
+    #: Kayit omru; bu sureden eski kayitlar okunmaz ve budanir. 0 = sinirsiz.
+    cache_max_age_seconds: int = 7 * 24 * 3600
+    #: Govdeyi diskte gzip'le.
+    cache_compress: bool = True
+    #: Butce/temizlik kontrolunu bu kadar saniyede birden fazla calistirma.
+    cache_prune_interval_seconds: float = 60.0
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +131,8 @@ class ScraperHttpClient:
         self._host_last: dict[str, float] = {}
         self._host_locks: dict[str, asyncio.Lock] = {}
         self._robots_cache: dict[str, RobotFileParser | None] = {}
+        #: Butce/TTL kontrolunu her yazimda degil, araliklarla calistir.
+        self._last_prune = 0.0
 
     async def __aenter__(self) -> ScraperHttpClient:
         self._client = httpx.AsyncClient(
@@ -182,26 +197,40 @@ class ScraperHttpClient:
         if method != "GET" and "json" in kwargs:
             cache_key = f"{url}#{json.dumps(kwargs['json'], sort_keys=True)}"
 
-        # Cache read
-        if self.config.cache is CacheMode.READ:
-            cached = self._load_cache(cache_key)
-            if cached is not None:
-                return _cached_response(cached)
+        cached = None
+        if self.config.cache is not CacheMode.OFF:
+            cached = self._load_cache(cache_key, url)
+        if cached is not None and self.config.cache is CacheMode.READ:
+            return _cached_response(cached)
+
+        # Acik onbellekte kosullu istek: ETag/Last-Modified ile 304 bekle.
+        request_kwargs = kwargs
+        if cached is not None and self.config.cache is CacheMode.WRITE:
+            headers = dict(kwargs.get("headers") or {})
+            if cached.get("etag"):
+                headers.setdefault("If-None-Match", cached["etag"])
+            if cached.get("last_modified"):
+                headers.setdefault("If-Modified-Since", cached["last_modified"])
+            if headers:
+                request_kwargs = {**kwargs, "headers": headers}
 
         # Actual request with retries
         last_error: Exception | None = None
         for attempt in range(self.config.max_retries):
             await self._rate_limit(host)
             try:
-                response = await self._client.request(method, url, **kwargs)
+                response = await self._client.request(method, url, **request_kwargs)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = ScraperTransientError(f"{type(exc).__name__}: {exc}")
                 response = None
             else:
+                if response.status_code == 304 and cached is not None:
+                    self._touch_cache(cache_key, cached)
+                    return _cached_response(cached)
                 if response.status_code < 400:
                     # Cache write
                     if self.config.cache is CacheMode.WRITE:
-                        self._save_cache(cache_key, response)
+                        self._save_cache(cache_key, url, response)
                     return response
                 last_error = _classify_scraper(response)
                 if isinstance(last_error, ScraperPermanentError):
@@ -259,21 +288,44 @@ class ScraperHttpClient:
 
     # -- cache ---------------------------------------------------------------
 
-    def _cache_path(self, cache_key: str) -> Path:
-        """Cache filename. `cache_key` is the URL, plus the body for a POST."""
-        key = sha1(cache_key.encode()).hexdigest()[:16]
-        return self.config.cache_dir / key
+    def _cache_path(self, cache_key: str, url: str) -> Path:
+        """Cache filename: `<host>--<sha1>.json[.gz]`.
 
-    def _load_cache(self, url: str) -> dict[str, Any] | None:
-        path = self._cache_path(url)
-        if not path.exists():
-            return None
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return None
+        Host oneki dosya adinda kalir; istatistik ve host bazli kullanim
+        dosyalari ACMADAN hesaplanabilsin.
+        """
+        host = urlsplit(url).netloc or "unknown"
+        host = "".join(ch if (ch.isalnum() or ch in "._-") else "_" for ch in host)
+        digest = sha1(cache_key.encode()).hexdigest()[:16]
+        suffix = ".json.gz" if self.config.cache_compress else ".json"
+        return self.config.cache_dir / f"{host}--{digest}{suffix}"
 
-    def _save_cache(self, url: str, response: httpx.Response) -> None:
+    def _legacy_cache_path(self, cache_key: str) -> Path:
+        """Eski surumun uzantisiz sha1 dosyasi -- hala okunur."""
+        return self.config.cache_dir / sha1(cache_key.encode()).hexdigest()[:16]
+
+    def _load_cache(self, cache_key: str, url: str) -> dict[str, Any] | None:
+        for path in (self._cache_path(cache_key, url), self._legacy_cache_path(cache_key)):
+            if not path.exists():
+                continue
+            data = _read_cache_entry(path)
+            if data is None:
+                continue
+            max_age = self.config.cache_max_age_seconds
+            # mtime, prune ile ayni saati kullanir: yazma/304 tazeleme mtime'i
+            # gunceller, boylece TTL ve LRU tek bir olcut uzerinden calisir.
+            try:
+                saved_at = path.stat().st_mtime
+            except OSError:
+                saved_at = data.get("saved_at") or time.time()
+            if max_age > 0 and (time.time() - saved_at) > max_age:
+                _unlink(path)
+                return None
+            data["_path"] = str(path)
+            return data
+        return None
+
+    def _save_cache(self, cache_key: str, url: str, response: httpx.Response) -> None:
         try:
             self.config.cache_dir.mkdir(parents=True, exist_ok=True)
             payload = {
@@ -281,12 +333,36 @@ class ScraperHttpClient:
                 "status": response.status_code,
                 "headers": dict(response.headers),
                 "text": response.text,
+                "saved_at": time.time(),
+                "etag": response.headers.get("ETag"),
+                "last_modified": response.headers.get("Last-Modified"),
             }
-            self._cache_path(url).write_text(
-                json.dumps(payload, ensure_ascii=False), encoding="utf-8"
-            )
+            _write_cache_entry(self._cache_path(cache_key, url), payload, self.config)
+            self._enforce_budget()
         except OSError:
             pass  # cache failure must never break the scrape
+
+    def _touch_cache(self, cache_key: str, data: dict[str, Any]) -> None:
+        """304 yanitinda kaydin tazeligini isaretle (yeniden indirmeden)."""
+        path = Path(data.get("_path") or self._cache_path(cache_key, data.get("url", "")))
+        try:
+            payload = {key: value for key, value in data.items() if not key.startswith("_")}
+            payload["saved_at"] = time.time()
+            _write_cache_entry(path, payload, self.config)
+        except OSError:
+            pass
+
+    def _enforce_budget(self) -> None:
+        """TTL ve toplam byte butcesini uygula; sik cagrilmasin (throttle)."""
+        now = time.monotonic()
+        if now - self._last_prune < self.config.cache_prune_interval_seconds:
+            return
+        self._last_prune = now
+        prune_cache(
+            self.config,
+            max_bytes=self.config.cache_max_bytes,
+            max_age_seconds=self.config.cache_max_age_seconds,
+        )
 
 
 def _cached_response(data: dict[str, Any]) -> httpx.Response:
@@ -297,6 +373,153 @@ def _cached_response(data: dict[str, Any]) -> httpx.Response:
         text=data.get("text", ""),
         request=httpx.Request("GET", data.get("url", "")),
     )
+
+
+# ---------------------------------------------------------------------------
+# On-disk onbellek yardimcilari
+#
+# Bunlarin hepsi YALNIZCA dosya sistemiyle calisir; PostgreSQL'e hicbir
+# erisimleri yoktur ve olmamalidir.
+# ---------------------------------------------------------------------------
+
+
+def _iter_cache_files(cache_dir: Path):
+    if not cache_dir.exists():
+        return
+    try:
+        entries = list(cache_dir.iterdir())
+    except OSError:
+        return
+    for path in entries:
+        if path.is_file() and not path.name.startswith("."):
+            yield path
+
+
+def _unlink(path: Path) -> bool:
+    try:
+        path.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def _read_cache_entry(path: Path) -> dict[str, Any] | None:
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None
+    try:
+        if raw[:2] == b"\x1f\x8b":
+            raw = gzip.decompress(raw)
+        return json.loads(raw.decode("utf-8"))
+    except (OSError, gzip.BadGzipFile, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+def _write_cache_entry(path: Path, payload: dict[str, Any], config: ScraperConfig) -> None:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    if config.cache_compress:
+        body = gzip.compress(body)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(body)
+    tmp.replace(path)
+
+
+def prune_cache(
+    config: ScraperConfig | None = None,
+    *,
+    max_bytes: int | None = None,
+    max_age_seconds: int | None = None,
+) -> dict[str, Any]:
+    """TTL'i gecenleri sil, sonra byte butcesine inene kadar en eskileri (LRU).
+
+    Yalnizca bellek dosyalarina dokunur; PostgreSQL satirlari etkilenmez.
+    """
+    cfg = config or ScraperConfig()
+    max_bytes = cfg.cache_max_bytes if max_bytes is None else max_bytes
+    max_age_seconds = cfg.cache_max_age_seconds if max_age_seconds is None else max_age_seconds
+    now = time.time()
+    entries: list[tuple[Path, float, int]] = []
+    total = 0
+    for path in _iter_cache_files(cfg.cache_dir):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        entries.append((path, stat.st_mtime, stat.st_size))
+        total += stat.st_size
+
+    removed = 0
+    freed = 0
+    if max_age_seconds and max_age_seconds > 0:
+        for path, mtime, size in entries:
+            if now - mtime > max_age_seconds and _unlink(path):
+                removed += 1
+                freed += size
+                total -= size
+        entries = [entry for entry in entries if entry[0].exists()]
+
+    if max_bytes and max_bytes > 0 and total > max_bytes:
+        for path, _mtime, size in sorted(entries, key=lambda entry: entry[1]):
+            if total <= max_bytes:
+                break
+            if _unlink(path):
+                removed += 1
+                freed += size
+                total -= size
+
+    return {
+        "removed": removed,
+        "bytes_freed": freed,
+        "bytes_remaining": max(total, 0),
+        "max_bytes": max_bytes,
+        "max_age_seconds": max_age_seconds,
+    }
+
+
+def clear_cache(config: ScraperConfig | None = None) -> dict[str, Any]:
+    """Onbellek dizinindeki TUM dosyalari sil. PostgreSQL'e dokunmaz."""
+    cfg = config or ScraperConfig()
+    removed = 0
+    freed = 0
+    for path in _iter_cache_files(cfg.cache_dir):
+        try:
+            size = path.stat().st_size
+        except OSError:
+            size = 0
+        if _unlink(path):
+            removed += 1
+            freed += size
+    return {"removed": removed, "bytes_freed": freed, "dir": str(cfg.cache_dir)}
+
+
+def cache_stats(config: ScraperConfig | None = None) -> dict[str, Any]:
+    """Boyut, dosya sayisi, en eski kayit ve host basina kullanim."""
+    cfg = config or ScraperConfig()
+    files = 0
+    total = 0
+    oldest: float | None = None
+    hosts: dict[str, int] = {}
+    for path in _iter_cache_files(cfg.cache_dir):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        files += 1
+        total += stat.st_size
+        oldest = stat.st_mtime if oldest is None else min(oldest, stat.st_mtime)
+        host = path.name.split("--", 1)[0] if "--" in path.name else "legacy"
+        hosts[host] = hosts.get(host, 0) + stat.st_size
+    return {
+        "dir": str(cfg.cache_dir),
+        "mode": cfg.cache.value,
+        "files": files,
+        "bytes": total,
+        "oldest": datetime.fromtimestamp(oldest, UTC).isoformat() if oldest else None,
+        "hosts": dict(sorted(hosts.items(), key=lambda item: -item[1])),
+        "max_bytes": cfg.cache_max_bytes,
+        "max_age_seconds": cfg.cache_max_age_seconds,
+    }
 
 
 def _classify_scraper(response: httpx.Response) -> ScraperError:
@@ -312,17 +535,8 @@ def _classify_scraper(response: httpx.Response) -> ScraperError:
 
 
 def _retry_after_seconds(value: str | None) -> int | None:
-    """Seconds from a Retry-After header, or None when it is not a number.
-
-    Only the integer-seconds form is handled; the HTTP-date form is rare on
-    429s. Callers cap the result so a bad header cannot stall a run.
-    """
-    if not value:
-        return None
-    try:
-        return int(value.strip())
-    except ValueError:
-        return None
+    """Retry-After: hem tamsayi saniye hem HTTP-date bicimini destekler."""
+    return retry_after_seconds(value)
 
 
 # ---------------------------------------------------------------------------

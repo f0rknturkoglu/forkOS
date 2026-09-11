@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import socket
+import time
 from datetime import UTC, datetime, timedelta
 
 from app.core import source_sync
@@ -98,14 +101,116 @@ async def poll_opportunities(*, limit: int = 4) -> int:
     return total
 
 
+DRAIN_HEARTBEAT_KEY = "source_sync.drain"
+#: Bir drain bu kadar saniye kalp atmazsa olu sayilir; API okuma tarafi
+#: kuyrugu devralmak icin yeni bir drain baslatir.
+DRAIN_HEARTBEAT_STALE = timedelta(seconds=90)
+#: Kaynak sinifinin sert timeout'una eklenen kiralama payi.
+LEASE_GRACE = timedelta(seconds=30)
+
+
+def _source_catalog() -> list:
+    from app.sources.announcements import SOURCES
+    from app.sources.forkjob_port import forkjob_sources
+
+    return [*forkjob_sources(include_opt_in=True), *SOURCES]
+
+
+_LEASE_CACHE: tuple[float, dict[str, timedelta]] | None = None
+_LEASE_CACHE_SECONDS = 300.0
+
+
+def _lease_map() -> dict[str, timedelta]:
+    """Kaynak basina kiralama: sert timeout + pay (kisa sureli onbellekli)."""
+    global _LEASE_CACHE
+
+    from app.sources.base import source_timeout_seconds
+
+    now = time.monotonic()
+    if _LEASE_CACHE is None or now - _LEASE_CACHE[0] > _LEASE_CACHE_SECONDS:
+        _LEASE_CACHE = (
+            now,
+            {
+                source.id: timedelta(seconds=source_timeout_seconds(source)) + LEASE_GRACE
+                for source in _source_catalog()
+            },
+        )
+    return _LEASE_CACHE[1]
+
+
+async def touch_drain_heartbeat(session, *, batch_id=None) -> None:
+    value = {
+        "owner": f"{socket.gethostname()}:{os.getpid()}",
+        "batch_id": str(batch_id) if batch_id else None,
+        "at": datetime.now(UTC).isoformat(),
+    }
+    row = await session.get(Setting, DRAIN_HEARTBEAT_KEY)
+    if row is None:
+        session.add(Setting(key=DRAIN_HEARTBEAT_KEY, value=value))
+    else:
+        row.value = value
+
+
+async def drain_heartbeat(session) -> datetime | None:
+    row = await session.get(Setting, DRAIN_HEARTBEAT_KEY)
+    value = row.value if row is not None and isinstance(row.value, dict) else None
+    at = (value or {}).get("at")
+    if not isinstance(at, str):
+        return None
+    try:
+        return datetime.fromisoformat(at)
+    except ValueError:
+        return None
+
+
+async def drain_is_alive(session, *, now: datetime | None = None) -> bool:
+    """Kalp atisi taze bir drain var mi? API okumasi buna gore devralir."""
+    at = await drain_heartbeat(session)
+    return at is not None and at >= (now or datetime.now(UTC)) - DRAIN_HEARTBEAT_STALE
+
+
+#: Taze olusturulmus bir batch'i GET okumasi hemen devralmasin: POST'un kendi
+#: arka plan gorevi once baslasin. Bu sureden eski, tuketicisi olmayan batch
+#: (olmus drain) okuma sirasinda devralinir.
+AUTO_DRAIN_GRACE = timedelta(seconds=30)
+
+
+def batch_waiting_too_long(batch: dict, *, now: datetime | None = None) -> bool:
+    reference = batch.get("started_at") or batch.get("created_at")
+    if isinstance(reference, str):
+        try:
+            reference = datetime.fromisoformat(reference)
+        except ValueError:
+            return False
+    if not isinstance(reference, datetime):
+        return False
+    return reference <= (now or datetime.now(UTC)) - AUTO_DRAIN_GRACE
+
+
+async def reclaim_stale_source_runs(session, *, now: datetime | None = None) -> int:
+    """API tarafi uzlastirma: sinif bazli lease ile kirli kosumlari geri al.
+
+    Worker kapaliyken `running` kalan batch'ler burada `queued`a doner; commit
+    cagirana aittir.
+    """
+    moment = now or datetime.now(UTC)
+    return await source_sync.reconcile_stale_runs(
+        session,
+        older_than=moment - source_sync.DEFAULT_LEASE,
+        leases=_lease_map(),
+        now=moment,
+    )
+
+
 async def _consume_source_sync_batch(*, limit: int = CONCURRENCY) -> tuple[int, int]:
     """Kuyruktan bir dilim tüket; (işlenen kaynak, eklenen kayıt) döndür."""
     async with SessionLocal() as session:
-        await source_sync.reconcile_stale_runs(
-            session, older_than=datetime.now(UTC) - timedelta(minutes=15)
-        )
-        await session.commit()
+        # Her dilim once kirli sahiplikleri geri alir: drain olduyse bile is
+        # yeniden sahiplenilebilir hale gelir.
+        await reclaim_stale_source_runs(session)
         batch, pending = await source_sync.claim_pending_sources(session, limit=limit)
+        await touch_drain_heartbeat(session, batch_id=batch.id if batch else None)
+        await session.commit()
 
     if batch is None or not pending:
         return 0, 0
@@ -118,6 +223,9 @@ async def _consume_source_sync_batch(*, limit: int = CONCURRENCY) -> tuple[int, 
             return await poll_named_source(source_id, batch_id=batch.id)
 
     total = sum(await asyncio.gather(*(one(source_id) for source_id in pending)))
+    async with SessionLocal() as session:
+        await touch_drain_heartbeat(session, batch_id=batch.id)
+        await session.commit()
     log.info(
         "consume_source_sync_batches: %d kaynak, %d yeni fırsat",
         len(pending),
@@ -133,12 +241,20 @@ async def consume_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
 
 
 async def drain_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
-    """Worker kapalıyken manuel yenilemenin oluşturduğu kuyruğu tamamen tüket."""
+    """Worker kapalıyken manuel yenilemenin oluşturduğu kuyruğu tamamen tüket.
+
+    Baslangicta terk edilmis sahiplikleri geri alir (crash sonrasi devam) ve
+    kuyruk bosalana kadar dilim dilim tuketir. Batch her zaman terminal bir
+    duruma (`completed` / `completed_with_errors`) ulasir.
+    """
     total = 0
     while True:
         processed, added = await _consume_source_sync_batch(limit=limit)
         total += added
         if processed == 0:
+            async with SessionLocal() as session:
+                await touch_drain_heartbeat(session)
+                await session.commit()
             return total
 
 

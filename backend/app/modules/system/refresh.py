@@ -33,6 +33,11 @@ async def status(session: AsyncSession) -> dict[str, Any]:
 async def queue(session: AsyncSession) -> tuple[dict[str, Any], bool]:
     from app.modules.media import sync as media_sync
     from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
+    from app.sources.base import (
+        is_general_refresh_source,
+        order_by_class,
+        source_estimated_seconds,
+    )
     from app.sources.forkjob_port import forkjob_sources
 
     current = await status(session)
@@ -44,10 +49,16 @@ async def queue(session: AsyncSession) -> tuple[dict[str, Any], bool]:
         except ValueError:
             pass
 
-    opportunity_ids = [
-        source.id
-        for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
-    ]
+    # Genel yenileme: critical once, sonra normal. Opt-in/yavas kaynaklar
+    # (eures, linkedin) buraya GIRMEZ; yalnizca kullanici acikca secince kosar.
+    opportunity_sources = order_by_class(
+        [
+            source
+            for source in [*forkjob_sources(), *ANNOUNCEMENT_SOURCES]
+            if is_general_refresh_source(source)
+        ]
+    )
+    opportunity_ids = [source.id for source in opportunity_sources]
     batch, newly_queued = await source_sync.create_or_extend_batch(
         session,
         opportunity_ids,
@@ -61,6 +72,9 @@ async def queue(session: AsyncSession) -> tuple[dict[str, Any], bool]:
         "results": {
             "opportunity_sources": batch.total_sources,
             "opportunity_sources_queued": len(newly_queued),
+            "opportunity_estimated_seconds": sum(
+                source_estimated_seconds(source) for source in opportunity_sources
+            ),
         },
         "errors": [],
     }

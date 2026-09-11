@@ -9,9 +9,10 @@ from typing import Literal
 import yaml
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import runs as runs_service
 from app.core.models import SourceRun
 from app.db import get_session
 from app.modules.opportunity import sync as sync_service
@@ -22,33 +23,84 @@ from app.modules.opportunity.schemas import (
 )
 from app.sources import forkjob_port
 from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
+from app.sources.base import (
+    is_general_refresh_source,
+    is_opt_in,
+    order_by_class,
+    source_class,
+    source_estimated_seconds,
+    source_timeout_seconds,
+)
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.linkedin_profiles import LinkedInProfile, LinkedInProfiles
+from app.sources.forkjob_core.scrapers.base import (
+    ScraperConfig,
+    cache_stats,
+    clear_cache,
+    prune_cache,
+)
 from app.sources.forkjob_port import forkjob_sources
 
 router = APIRouter(tags=["opportunities"])
 
 
 class SourceRefreshIn(BaseModel):
-    """Bos govde = katalogun tamami."""
+    """Bos govde = genel yenileme (critical + normal; opt-in HARIC)."""
 
     source_ids: list[str] | None = None
     kind: Literal["job", "announcement"] | None = None
+    #: general = opt-in/yavas kaynaklar haric; full = 79 kaynagin tamami.
+    mode: Literal["general", "full"] = "general"
+
+
+class SourceRefreshResult(SourceRefreshOut):
+    estimated_seconds: int = 0
+    mode: str = "general"
+
+
+class CachePruneIn(BaseModel):
+    max_bytes: int | None = None
+    max_age_seconds: int | None = None
+
+
+class CacheClearIn(BaseModel):
+    confirm: bool = False
+
+
+def _catalog_sources() -> list:
+    return [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
 
 
 @router.get("/sources/runs")
 async def source_runs(session: AsyncSession = Depends(get_session)):
-    return list(
+    rows = list(
         (
             await session.execute(
                 select(SourceRun).order_by(SourceRun.started_at.desc()).limit(100)
             )
         ).scalars()
     )
+    return [
+        {
+            "id": run.id,
+            "source": run.source,
+            "status": run.status,
+            "items_found": run.items_found,
+            "error": runs_service.error_message_of(run),
+            "error_kind": runs_service.error_kind_of(run),
+            "batch_id": run.batch_id,
+            "started_at": run.started_at,
+            "finished_at": run.finished_at,
+        }
+        for run in rows
+    ]
 
 
 @router.get("/sources/catalog")
-async def source_catalog():
+async def source_catalog(session: AsyncSession = Depends(get_session)):
+    """Kaynak katalogu: sinif, tahmini sure ve devre kesici durumu."""
+    sources = _catalog_sources()
+    states = await runs_service.circuit_states(session, [source.id for source in sources])
     return [
         {
             "id": source.id,
@@ -57,30 +109,155 @@ async def source_catalog():
             #: Portalin katalog kategorisi (startup/regional/...) — LayerB portal
             #: kayitlarinda tanimli; ATS/duyuru kaynaklarinda yoktur.
             "category": getattr(source, "category", None),
+            #: Yenileme sirasi / timeout / kapanma bekleme sinifi.
+            "class": source_class(source).value,
+            "estimated_seconds": source_estimated_seconds(source),
+            "timeout_seconds": source_timeout_seconds(source),
+            "opt_in": is_opt_in(source),
+            "circuit_open": states.get(source.id, {}).get("open", False),
+            "consecutive_failures": states.get(source.id, {}).get("consecutive_failures", 0),
         }
-        for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+        for source in sources
     ]
+
+
+@router.get("/sources/coverage")
+async def source_coverage(session: AsyncSession = Depends(get_session)):
+    """Kaynak kapsam matrisi: hangi kurumu takip ediyoruz, hangisi eksik?
+
+    Her satir bir kaynaktir; resmi/ikincil ayrimi, son basarili kosu, son yeni
+    icerik, ortalama yayin araligi ve ust uste bos kosu sayisi tek yerde durur.
+    """
+    sources = _catalog_sources()
+    ids = [source.id for source in sources]
+    recent = (
+        await session.execute(
+            select(
+                SourceRun.source,
+                SourceRun.status,
+                SourceRun.started_at,
+                SourceRun.items_found,
+                SourceRun.error,
+                SourceRun.error_kind,
+                func.row_number()
+                .over(partition_by=SourceRun.source, order_by=SourceRun.started_at.desc())
+                .label("rank"),
+            ).where(SourceRun.source.in_(ids))
+        )
+    ).all()
+    history: dict[str, list] = {source.id: [] for source in sources}
+    for row in recent:
+        if row.rank > 50:
+            continue
+        history.setdefault(row.source, []).append(row)
+
+    states = await runs_service.circuit_states(session, ids)
+    rows = []
+    for source in sources:
+        runs = history.get(source.id, [])
+        last = runs[0] if runs else None
+        ok_runs = [run for run in runs if run.status == "ok"]
+        with_content = [run for run in ok_runs if run.items_found > 0]
+        gaps = [
+            (with_content[index].started_at - with_content[index + 1].started_at).total_seconds()
+            / 86400
+            for index in range(len(with_content) - 1)
+        ]
+        consecutive_empty = 0
+        for run in runs:
+            if run.status == "empty":
+                consecutive_empty += 1
+            else:
+                break
+        state = states.get(source.id, {})
+        rows.append(
+            {
+                "source": source.id,
+                "kind": "announcement" if source in ANNOUNCEMENT_SOURCES else "job",
+                "class": source_class(source).value,
+                "category": getattr(source, "category", None),
+                #: Resmi kaynak mi, ikincil/aggregator mu? Adapter bilmiyorsa null.
+                "official": getattr(source, "official", None),
+                "url": getattr(source, "url", None) or getattr(source, "homepage", None),
+                "parser_version": getattr(source, "parser_version", None),
+                "last_status": last.status if last else None,
+                "last_run_at": last.started_at if last else None,
+                "last_success_at": ok_runs[0].started_at if ok_runs else None,
+                "last_new_content_at": with_content[0].started_at if with_content else None,
+                "avg_publish_interval_days": (
+                    round(sum(gaps) / len(gaps), 1) if gaps else None
+                ),
+                "consecutive_empty": consecutive_empty,
+                "last_error": (last.error if last and last.status == "error" else None),
+                "last_error_kind": (
+                    runs_service.error_kind_of(last) if last and last.status == "error" else None
+                ),
+                "circuit_open": state.get("open", False),
+                "consecutive_failures": state.get("consecutive_failures", 0),
+                "tracked": True,
+            }
+        )
+    return rows
 
 
 @router.get("/sources/sync", response_model=SourceSyncStatusOut)
 async def sync_status(
+    background: BackgroundTasks,
     scope: Literal["opportunity", "media"] = "opportunity",
     session: AsyncSession = Depends(get_session),
 ):
-    """Aktif manuel batch ve kaynak bazli kesin ilerleme."""
-    return await sync_service.current_status(session, scope=scope)
+    """Aktif manuel batch ve kaynak bazli kesin ilerleme.
+
+    Okuma ayni zamanda uzlastirir: worker kapaliyken terk edilmis sahiplikler
+    geri alinir ve kuyruk bos kalmasin diye (taze bir drain yoksa) arka planda
+    tuketim devralinir. Boylece batch asla sonsuza kadar `running` kalmaz.
+    """
+    from app.worker.jobs import (
+        batch_waiting_too_long,
+        drain_is_alive,
+        drain_source_sync_batches,
+        reclaim_stale_source_runs,
+    )
+
+    await reclaim_stale_source_runs(session)
+    await session.commit()
+    status = await sync_service.current_status(session, scope=scope)
+    if (
+        status["active"] is not None
+        and batch_waiting_too_long(status["active"])
+        and not await drain_is_alive(session)
+    ):
+        background.add_task(drain_source_sync_batches)
+    return status
 
 
 @router.get("/sources/sync/history", response_model=list[SourceSyncBatchOut])
 async def sync_history(
+    background: BackgroundTasks,
     limit: int = 10,
     scope: Literal["opportunity", "media"] = "opportunity",
     session: AsyncSession = Depends(get_session),
 ):
+    from app.worker.jobs import (
+        batch_waiting_too_long,
+        drain_is_alive,
+        drain_source_sync_batches,
+        reclaim_stale_source_runs,
+    )
+
+    await reclaim_stale_source_runs(session)
+    await session.commit()
+    active = await sync_service.current_status(session, scope=scope)
+    if (
+        active["active"] is not None
+        and batch_waiting_too_long(active["active"])
+        and not await drain_is_alive(session)
+    ):
+        background.add_task(drain_source_sync_batches)
     return await sync_service.history(session, min(limit, 50), scope=scope)
 
 
-@router.post("/sources/refresh", response_model=SourceRefreshOut)
+@router.post("/sources/refresh", response_model=SourceRefreshResult)
 async def refresh_sources(
     body: SourceRefreshIn,
     background: BackgroundTasks,
@@ -88,42 +265,60 @@ async def refresh_sources(
 ):
     """Secmeli ya da toplu cekim.
 
-    source_ids verilirse yalnizca onlar; kind verilirse o turun tamami; ikisi
-    de bossa katalogun hepsi. API yalnızca kalıcı batch oluşturur; çekimi
-    API arka plan görevi tüketir; worker açıkken aynı kalıcı kuyruğu paylaşır.
+    source_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);
+    aksi halde `mode`: `general` (varsayilan) critical -> normal sirasiyla
+    kosar ve opt-in/yavas kaynaklari (eures, linkedin) HARIC tutar; `full`
+    katalogun tamamini (79 kaynak) bilerek kosar. API yalnizca kalici batch
+    olusturur; cekimi API arka plan gorevi tuketir; worker acikken ayni kalici
+    kuyrugu paylasir.
     """
-    from app.worker.jobs import drain_source_sync_batches
+    from app.worker.jobs import drain_source_sync_batches, reclaim_stale_source_runs
 
-    catalog = {
-        source.id: source
-        for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
-    }
+    catalog = {source.id: source for source in _catalog_sources()}
     announcement_ids = {source.id for source in ANNOUNCEMENT_SOURCES}
 
     if body.source_ids:
         unknown = [item for item in body.source_ids if item not in catalog]
         if unknown:
             raise HTTPException(404, f"kaynak bulunamadı: {', '.join(unknown[:5])}")
-        ids = list(dict.fromkeys(body.source_ids))
-    elif body.kind:
-        ids = [
-            source_id
-            for source_id in catalog
-            if ("announcement" if source_id in announcement_ids else "job") == body.kind
-        ]
+        selected = [catalog[item] for item in dict.fromkeys(body.source_ids)]
     else:
-        ids = list(catalog)
+        pool = list(catalog.values())
+        if body.kind:
+            pool = [
+                source
+                for source in pool
+                if ("announcement" if source.id in announcement_ids else "job") == body.kind
+            ]
+        if body.mode == "general":
+            pool = [source for source in pool if is_general_refresh_source(source)]
+        selected = order_by_class(pool)
 
+    ids = [source.id for source in selected]
     if not ids:
-        return {"batch_id": None, "queued": 0, "total_sources": 0}
+        return {
+            "batch_id": None,
+            "queued": 0,
+            "total_sources": 0,
+            "estimated_seconds": 0,
+            "mode": body.mode,
+        }
 
+    await reclaim_stale_source_runs(session)
     batch, newly_queued = await sync_service.create_or_extend_batch(session, ids)
     await session.commit()
     background.add_task(drain_source_sync_batches)
+    estimated = sum(
+        source_estimated_seconds(catalog[source_id])
+        for source_id in batch.source_ids
+        if source_id in catalog
+    )
     return {
         "batch_id": str(batch.id),
         "queued": len(newly_queued),
         "total_sources": batch.total_sources,
+        "estimated_seconds": estimated,
+        "mode": body.mode,
     }
 
 
@@ -133,14 +328,13 @@ async def refresh_source(
     background: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
-    from app.worker.jobs import drain_source_sync_batches
+    from app.worker.jobs import drain_source_sync_batches, reclaim_stale_source_runs
 
     try:
-        catalog = {
-            source.id for source in [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
-        }
+        catalog = {source.id for source in _catalog_sources()}
         if source_id not in catalog:
             raise KeyError(source_id)
+        await reclaim_stale_source_runs(session)
         batch, newly_queued = await sync_service.create_or_extend_batch(session, [source_id])
         await session.commit()
         if not newly_queued:
@@ -150,6 +344,34 @@ async def refresh_source(
         raise HTTPException(404, "kaynak bulunamadı") from exc
     background.add_task(drain_source_sync_batches)
     return {"source": source_id, "added": 0, "batch_id": str(batch.id)}
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Scraper HTTP cache — disk istatistigi, budama ve temizleme
+#
+# Temizlik YALNIZCA diski hedefler; PostgreSQL satirlarina ASLA dokunmaz.
+
+
+@router.get("/sources/cache")
+async def source_cache_stats():
+    """Ozet: boyut, dosya sayisi, en eski kayit, host basina kullanim."""
+    return cache_stats(ScraperConfig())
+
+
+@router.post("/sources/cache/prune")
+async def source_cache_prune(body: CachePruneIn):
+    """TTL ve butce sinirlarina gore buda; sinir verilmezse config varsayilani."""
+    return prune_cache(
+        ScraperConfig(), max_bytes=body.max_bytes, max_age_seconds=body.max_age_seconds
+    )
+
+
+@router.post("/sources/cache/clear")
+async def source_cache_clear(body: CacheClearIn):
+    """On-disk scraper onbellegini temizle; acik onay ister."""
+    if not body.confirm:
+        raise HTTPException(400, "onbellek temizlemek icin confirm=true gerekli")
+    return clear_cache(ScraperConfig())
 
 
 # ═════════════════════════════════════════════════════════════════════

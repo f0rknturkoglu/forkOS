@@ -351,3 +351,283 @@ async def test_sync_status_keeps_the_latest_completed_summary(client: AsyncClien
                 text("delete from source_sync_batch where id = cast(:id as uuid)"),
                 {"id": batch_id},
             )
+
+
+async def test_sync_read_reconciles_and_resumes_abandoned_batch(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    """10 saat `running` kalan batch gibi: okuma geri alir ve tuketimi devralir."""
+    jobs = import_module("app.worker.jobs")
+    drained = {"count": 0}
+
+    async def fake_drain():
+        drained["count"] += 1
+
+    monkeypatch.setattr(jobs, "drain_source_sync_batches", fake_drain)
+
+    batch_id = str(uuid.uuid4())
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                """insert into source_sync_batch
+                (id, status, source_ids, total_sources, completed_sources,
+                 ok_sources, empty_sources, error_sources, items_found, created_at, started_at)
+                values (cast(:id as uuid), 'running', '["osym"]', 1, 0, 0, 0, 0, 0,
+                        now() - interval '10 hours', now() - interval '10 hours')"""
+            ),
+            {"id": batch_id},
+        )
+        await connection.execute(
+            text(
+                "insert into source_run (source, status, batch_id, started_at) "
+                "values ('osym', 'running', cast(:id as uuid), now() - interval '10 hours')"
+            ),
+            {"id": batch_id},
+        )
+
+    payload = (await client.get("/api/sources/sync")).json()
+
+    assert payload["active"]["id"] == batch_id
+    assert payload["active"]["status"] == "queued"
+    assert payload["sources"][0]["status"] == "queued"
+    assert drained["count"] == 1
+
+
+async def test_cache_endpoints_wire_stats_prune_and_confirm(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    router_module = import_module("app.modules.opportunity.sources_router")
+    calls: dict[str, bool] = {}
+
+    def fake_stats(config=None):
+        calls["stats"] = True
+        return {"files": 0}
+
+    monkeypatch.setattr(router_module, "cache_stats", fake_stats)
+    monkeypatch.setattr(router_module, "prune_cache", lambda config=None, **kwargs: {"removed": 0})
+    monkeypatch.setattr(router_module, "clear_cache", lambda config=None: {"removed": 0})
+
+    assert (await client.get("/api/sources/cache")).json() == {"files": 0}
+    assert (await client.post("/api/sources/cache/prune", json={})).json() == {"removed": 0}
+    assert calls.get("stats") is True
+
+    refused = await client.post("/api/sources/cache/clear", json={"confirm": False})
+    assert refused.status_code == 400
+    allowed = await client.post("/api/sources/cache/clear", json={"confirm": True})
+    assert allowed.status_code == 200
+    assert allowed.json() == {"removed": 0}
+
+
+async def test_exhausted_abandoned_source_finalizes_without_a_live_run():
+    """Uc kez terk edilmis, hic canli kosumu olmayan kaynak batch'i kapatir."""
+    from app.core.models import SourceRun
+    from app.core.source_sync import (
+        MAX_CLAIM_ATTEMPTS,
+        claim_pending_sources,
+        create_or_extend_batch,
+    )
+    from app.modules.opportunity import sync as sync_service
+
+    async with SessionLocal() as session:
+        batch, _ = await create_or_extend_batch(session, ["osym"])
+        batch.status = "running"
+        moment = datetime.now(UTC)
+        for step in range(MAX_CLAIM_ATTEMPTS):
+            session.add(
+                SourceRun(
+                    source="osym",
+                    status="abandoned",
+                    batch_id=batch.id,
+                    started_at=moment - timedelta(minutes=step + 1),
+                    finished_at=moment - timedelta(minutes=step),
+                )
+            )
+        await session.commit()
+        batch_id = batch.id
+
+    async with SessionLocal() as session:
+        claimed, pending = await claim_pending_sources(session, limit=4)
+        assert claimed is not None
+        assert pending == []
+
+    async with SessionLocal() as session:
+        status = await sync_service.current_status(session)
+    assert status["active"] is None
+    assert status["last_completed"]["id"] == str(batch_id)
+    assert status["last_completed"]["status"] == "completed_with_errors"
+
+
+async def test_reclaim_uses_per_source_lease():
+    """Critical kaynak 90 sn'de, EURES 930 sn'de geri alinir."""
+    from app.core.models import SourceRun
+    from app.core.source_sync import create_or_extend_batch, pending_source_ids
+    from app.modules.opportunity.sync import current_status
+    from app.worker.jobs import reclaim_stale_source_runs
+
+    async with SessionLocal() as session:
+        batch, _ = await create_or_extend_batch(session, ["osym", "jobhunter:eures"])
+        batch.status = "running"
+        started = datetime.now(UTC) - timedelta(minutes=10)
+        session.add(SourceRun(source="osym", status="running", batch_id=batch.id, started_at=started))
+        session.add(
+            SourceRun(
+                source="jobhunter:eures", status="running", batch_id=batch.id, started_at=started
+            )
+        )
+        await session.commit()
+
+        changed = await reclaim_stale_source_runs(session)
+        await session.commit()
+
+        assert changed == 1
+        assert await pending_source_ids(session, batch) == ["osym"]
+        status = await current_status(session)
+        by_source = {row["source"]: row["status"] for row in status["sources"]}
+        assert by_source == {"osym": "queued", "jobhunter:eures": "running"}
+
+
+async def test_crashed_batch_reaches_terminal_state_without_worker():
+    """Drain olmus olsa bile okuma/reconcile sonrasi batch terminal olur."""
+    from app.core.models import SourceRun
+    from app.core.source_sync import create_or_extend_batch
+    from app.modules.opportunity import sync as sync_service
+    from app.worker import jobs
+
+    async with SessionLocal() as session:
+        batch, _ = await create_or_extend_batch(session, ["alpha"])
+        batch.status = "running"
+        batch.started_at = datetime.now(UTC) - timedelta(hours=2)
+        session.add(
+            SourceRun(
+                source="alpha",
+                status="running",
+                batch_id=batch.id,
+                started_at=datetime.now(UTC) - timedelta(hours=2),
+            )
+        )
+        await session.commit()
+        batch_id = batch.id
+
+    assert await jobs.drain_source_sync_batches(limit=2) == 0
+
+    async with SessionLocal() as session:
+        status = await sync_service.current_status(session)
+    assert status["active"] is None
+    assert status["last_completed"]["id"] == str(batch_id)
+    assert status["last_completed"]["status"] == "completed_with_errors"
+
+
+async def test_repeated_abandonment_errors_and_completes_batch():
+    """Butcesini asan kaynak `error` yazilir; batch `running` kalmaz."""
+    from app.core.models import SourceRun
+    from app.core.source_sync import MAX_CLAIM_ATTEMPTS, create_or_extend_batch
+    from app.worker.jobs import reclaim_stale_source_runs
+
+    async with SessionLocal() as session:
+        batch, _ = await create_or_extend_batch(session, ["osym"])
+        batch.status = "running"
+        moment = datetime.now(UTC)
+        for step in range(MAX_CLAIM_ATTEMPTS - 1):
+            session.add(
+                SourceRun(
+                    source="osym",
+                    status="abandoned",
+                    batch_id=batch.id,
+                    started_at=moment - timedelta(minutes=step + 5),
+                    finished_at=moment - timedelta(minutes=step + 4),
+                )
+            )
+        stale = SourceRun(
+            source="osym",
+            status="running",
+            batch_id=batch.id,
+            started_at=moment - timedelta(minutes=10),
+        )
+        session.add(stale)
+        await session.commit()
+
+        changed = await reclaim_stale_source_runs(session)
+        await session.commit()
+
+        assert changed == 1
+        assert stale.status == "error"
+        await session.refresh(batch)
+        assert batch.status == "completed_with_errors"
+
+
+async def test_catalog_exposes_class_estimate_and_circuit(client: AsyncClient):
+    rows = (await client.get("/api/sources/catalog")).json()
+    by_id = {row["id"]: row for row in rows}
+
+    assert by_id["osym"]["class"] == "critical"
+    assert by_id["jobhunter:linkedin"]["class"] == "slow_optin"
+    assert by_id["jobhunter:linkedin"]["opt_in"] is True
+    assert by_id["jobhunter:eures"]["class"] == "slow_optin"
+    assert by_id["osym"]["circuit_open"] is False
+    assert by_id["osym"]["estimated_seconds"] > 0
+    assert by_id["osym"]["timeout_seconds"] == 60.0
+
+
+async def test_general_refresh_excludes_opt_in_sources(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    jobs = import_module("app.worker.jobs")
+
+    async def fake_drain():
+        return 0
+
+    monkeypatch.setattr(jobs, "drain_source_sync_batches", fake_drain)
+
+    response = await client.post("/api/sources/refresh", json={})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "general"
+    assert body["estimated_seconds"] > 0
+
+    status = (await client.get("/api/sources/sync")).json()
+    queued = status["active"]["source_ids"]
+    assert "jobhunter:linkedin" not in queued
+    assert "jobhunter:eures" not in queued
+    assert "osym" in queued
+    # critical once gelir: ilk kaynak ATS/duyuru olmali
+    assert queued[0] in {"osym", "ylsy", "yok-msc"} or queued[0].startswith("jobhunter:greenhouse")
+    assert body["total_sources"] == len(queued)
+
+
+async def test_explicit_linkedin_selection_is_still_allowed(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    jobs = import_module("app.worker.jobs")
+
+    async def fake_drain():
+        return 0
+
+    monkeypatch.setattr(jobs, "drain_source_sync_batches", fake_drain)
+
+    response = await client.post(
+        "/api/sources/refresh", json={"source_ids": ["jobhunter:linkedin"]}
+    )
+    assert response.status_code == 200
+    assert response.json()["queued"] == 1
+
+    status = (await client.get("/api/sources/sync")).json()
+    assert status["active"]["source_ids"] == ["jobhunter:linkedin"]
+
+
+async def test_full_mode_deliberately_includes_opt_in_sources(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    jobs = import_module("app.worker.jobs")
+
+    async def fake_drain():
+        return 0
+
+    monkeypatch.setattr(jobs, "drain_source_sync_batches", fake_drain)
+
+    response = await client.post("/api/sources/refresh", json={"mode": "full"})
+    assert response.status_code == 200
+    assert response.json()["mode"] == "full"
+
+    status = (await client.get("/api/sources/sync")).json()
+    assert "jobhunter:linkedin" in status["active"]["source_ids"]
+    assert status["active"]["total_sources"] > 77
