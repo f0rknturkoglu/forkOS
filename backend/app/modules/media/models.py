@@ -50,7 +50,10 @@ UNIT_TYPES = [
     "podcast_episode",
 ]
 CYCLE_STATUSES = ["active", "paused", "completed", "dropped"]
-CONSUMPTION_ACTIONS = ["quick", "set", "complete_unit", "uncomplete_unit", "finish"]
+#: "session": yalnizca sure kaydi (ilerleme DEGISMEZ). Pomodoro seansi medyaya
+#: aktarildiginda kullanilir -- sure ile ilerleme birbirine karismasin diye
+#: ayri bir eylem; `amount` 0'dir, bu yuzden etkinlik sayaclarina girmez.
+CONSUMPTION_ACTIONS = ["quick", "set", "complete_unit", "uncomplete_unit", "finish", "session"]
 MEASURES = ["item", "episode", "chapter", "page", "minute", "hour", "track"]
 MEDIA_COLLECTION_ITEM_RELATION = "media.collection_item"
 

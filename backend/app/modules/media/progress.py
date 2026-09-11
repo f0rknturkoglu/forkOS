@@ -282,6 +282,14 @@ async def _consume_locked(
             raise MediaCommandError("set icin negatif olmayan progress_after gerekli")
         progress_after = data.progress_after
         amount = progress_after - current
+    elif data.action == "session":
+        # Yalniz sure kaydi: ilerleme degismez, tamamlama tetiklenmez.
+        # (Pomodoro seansi -> medya tuketimi koprusu; amount 0 kaldigi icin
+        # etkinlik/istatistik sayaclarinda cift sayim olmaz.)
+        if not data.duration_min or data.duration_min <= 0:
+            raise MediaCommandError("session icin pozitif duration_min gerekli")
+        amount = 0.0
+        progress_after = current
     elif data.action == "complete_unit":
         already_completed = await _unit_completed(session, cycle.id, unit.id)
         amount = 0.0 if already_completed else float(unit.progress_total or 1)
@@ -342,6 +350,21 @@ async def _consume_locked(
                 "amount": amount,
                 "progress_after": progress_after,
                 "kind": item.kind,
+            },
+        )
+    elif data.action == "session":
+        # Yalniz sure kaydi: ilerleme sayaci degismedigi icin media.consumed
+        # yazilmaz (etkinlik haritasi ilerleme bazlidir); ayri verb ile izlenir.
+        await log_event(
+            session,
+            verb="media.session_logged",
+            entity_id=item.id,
+            entity_type="media_item",
+            payload={
+                "measure": measure,
+                "duration_min": data.duration_min,
+                "kind": item.kind,
+                "pomodoro_session_id": (data.meta or {}).get("pomodoro_session_id"),
             },
         )
     elif amount > 0:

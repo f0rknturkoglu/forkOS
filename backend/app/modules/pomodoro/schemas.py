@@ -54,8 +54,11 @@ class PomodoroStats(BaseModel):
 
 
 class ContextOut(BaseModel):
-    """Odaklanilabilecek bir kayit: gorev, calisma konusu, kaynak, proje..."""
+    """Odaklanilabilecek bir kayit: gorev, calisma konusu, kaynak, proje, medya..."""
 
     id: uuid.UUID
     type: str
     title: str
+    #: Medya kayitlari icin: tur ve kapak (secicide dogru rozet/gorsel cizilir).
+    kind: str | None = None
+    cover_url: str | None = None

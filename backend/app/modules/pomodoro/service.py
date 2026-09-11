@@ -285,7 +285,9 @@ async def recent(session: AsyncSession, *, limit: int = 20) -> list[PomodoroOut]
 #: modul basina import etmek yerine entity tipiyle suzulur (tek sorgu).
 #: Firsat (is ilani) BILEREK yok -- ilanin kendisine odaklanilmaz; ona
 #: hazirlanan gorev zaten listede (todo -> prepares_for).
-FOCUS_CONTEXT_TYPES = ["todo", "study_topic", "learning_resource", "project"]
+#: Medya (media_item) VAR: "Su kitabi 50 dakika oku" gercek bir odak seansidir
+#: ve seans suresi medya tuketimine aktarilabilir.
+FOCUS_CONTEXT_TYPES = ["todo", "study_topic", "learning_resource", "project", "media_item"]
 
 
 async def contexts(
@@ -299,11 +301,13 @@ async def contexts(
     from sqlalchemy import func, or_
 
     from app.core.search import match_clause, rank_expr
+    from app.modules.media.models import MediaItem
     from app.modules.todo.models import Todo
 
     stmt = (
-        select(Entity.id, Entity.type, Entity.title)
+        select(Entity.id, Entity.type, Entity.title, MediaItem.kind, MediaItem.cover_path, MediaItem.cover_url)
         .outerjoin(Todo, Todo.id == Entity.id)
+        .outerjoin(MediaItem, MediaItem.id == Entity.id)
         .where(Entity.type.in_(FOCUS_CONTEXT_TYPES), Entity.archived_at.is_(None))
         .where(or_(Entity.type != "todo", Todo.status.in_(["open", "doing"])))
     )
@@ -320,4 +324,15 @@ async def contexts(
     else:
         stmt = stmt.order_by(Entity.updated_at.desc())
     rows = (await session.execute(stmt.limit(limit))).all()
-    return [{"id": id_, "type": type_, "title": title} for id_, type_, title in rows]
+    return [
+        {
+            "id": id_,
+            "type": type_,
+            "title": title,
+            "kind": kind,
+            # Yerel onbellek varsa onu, yoksa uzak kapak adresini ver; arayuz
+            # ayni kurallari (mediaCoverUrl) uygular.
+            "cover_url": cover_path or cover_url,
+        }
+        for id_, type_, title, kind, cover_path, cover_url in rows
+    ]
