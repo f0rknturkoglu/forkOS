@@ -22,14 +22,14 @@ Helper'lar: `backend/app/core/entity.py` (`create_entity`, `touch_entity`,
 
 ## 2. Kayıt defterleri
 
-| Kayıt defteri | Yer | Görevi |
-|---|---|---|
-| `MODULES` | `backend/app/modules/__init__.py` | Modül listesi; main.py'ye dokunmadan router'lar otomatik bağlanır |
-| `EntityTypeSpec` | aynı dosya | Tip → etiket/rota/ikon (kural 13). Frontend `GET /api/registry/entity-types`'tan beslenir |
-| `event_verbs` | `ModuleSpec.event_verbs` | Modülün ürettiği verb'ler |
-| `deadline_provider` | `ModuleSpec.deadline_provider` | Son tarih sağlayıcı (kural 16); `GET /api/deadlines` toplar |
-| Frontend `registerModule` | `frontend/src/modules/<ad>/index.ts` | Router, Today widget'ları, komut paleti, sidebar |
-| İnvalidation haritası | `frontend/src/core/invalidation.ts::AFTER` | Mutation sonrası hangi query key'lerinin tazeleneceği (kural 14) |
+| Kayıt defteri             | Yer                                        | Görevi                                                                                    |
+| ------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `MODULES`                 | `backend/app/modules/__init__.py`          | Modül listesi; main.py'ye dokunmadan router'lar otomatik bağlanır                         |
+| `EntityTypeSpec`          | aynı dosya                                 | Tip → etiket/rota/ikon (kural 13). Frontend `GET /api/registry/entity-types`'tan beslenir |
+| `event_verbs`             | `ModuleSpec.event_verbs`                   | Modülün ürettiği verb'ler                                                                 |
+| `deadline_provider`       | `ModuleSpec.deadline_provider`             | Son tarih sağlayıcı (kural 16); `GET /api/deadlines` toplar                               |
+| Frontend `registerModule` | `frontend/src/modules/<ad>/index.ts`       | Router, Today widget'ları, komut paleti, sidebar                                          |
+| İnvalidation haritası     | `frontend/src/core/invalidation.ts::AFTER` | Mutation sonrası hangi query key'lerinin tazeleneceği (kural 14)                          |
 
 **Yeni modül = backend'e bir klasör + `MODULES`'a satır; frontend'e bir klasör +
 `src/modules/index.ts`'e import.** Router, arama, Bugün, komut paleti otomatik dolar.
@@ -37,12 +37,13 @@ Helper'lar: `backend/app/core/entity.py` (`create_entity`, `touch_entity`,
 ## 3. Bugün widget sözleşmesi
 
 `registerModule({ todayWidgets: [{ component, slot, order }] })`:
+
 - `slot`: `"left" | "center" | "right"` (sütun).
 - `order`: zorunlu, küçük önce.
 - Widget veri yokken `Empty` bileşenini `variant="inline"` ile gösterir
   (kural: boş durum düz metin değil).
 - Agenda `kind`'ları: `calendar | todo | rss | media | opportunity | interview |
-  payment | study` (`backend/app/modules/today/schemas.py::AgendaKind`).
+payment | study` (`backend/app/modules/today/schemas.py::AgendaKind`).
 
 ## 4. Tasarım tokenları
 
@@ -51,7 +52,7 @@ Helper'lar: `backend/app/core/entity.py` (`create_entity`, `touch_entity`,
   `kind-*` / `src-*` / `feed-*`; grafik: `chart-1..8`.
 - Bileşenler: `frontend/src/core/ui.tsx` — `Chip` (tone semantik, identity
   kimlik rengi; ikisi aynı anda olmaz), `Button/IconButton/Input/Select/
-  Textarea/Checkbox/Range/NumberInput/FileInput/Field`.
+Textarea/Checkbox/Range/NumberInput/FileInput/Field`.
 - Tipografi: `tailwind.config.js` ölçeği (`micro…display-2xl`); keyfi
   `text-[Npx]` yasak.
 - Koruyan test: `frontend/src/core/designSystem.test.ts`.
@@ -125,7 +126,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 ### Faz 15: secret güvenli yedekleme
 
 - Secret ayar sınıflandırması TEK kaynakta: `backend/app/modules/system/
-  secrets.py::SECRET_SETTING_KEYS`. İsimde "key" geçmesine güvenilmez;
+secrets.py::SECRET_SETTING_KEYS`. İsimde "key" geçmesine güvenilmez;
   açık listedir. Yeni secret ayar eklenirken key bu listeye yazılmalıdır
   (koruyan test `backend/tests/test_backup_secrets.py` kod taraması yapar).
 - Yedek/export aynı politikayı kullanır (`export.public_rows`): secret
@@ -134,9 +135,9 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   `oauth_token` tablosu ayrıca dışlanmaya devam eder.
 - Eski yedeklerdeki secret satırları restore/import tarafından atlanır
   (`restore` `secret_skipped` sayacı bildirir).
- - **Eski yedekler otomatik güvenli hâle gelmez**: diskteki dosya içeriği
-   değişmez. Geçmişte alınmış yedeklerdeki API anahtarlarının döndürülmesi
-   (rotation) önerilir.
+- **Eski yedekler otomatik güvenli hâle gelmez**: diskteki dosya içeriği
+  değişmez. Geçmişte alınmış yedeklerdeki API anahtarlarının döndürülmesi
+  (rotation) önerilir.
 
 ### Faz 16: merge import ile gerçek disaster restore ayrımı
 
@@ -150,12 +151,12 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   payload'ın kendi kendini doğrulaması. v1 yedekler okunmaya devam eder;
   v3+ bilinmeyen sürümler reddedilir.
 - **Gerçek felaket kurtarması app dışıdır**: `make disaster-restore
-  FILE=... CONFIRM=DISASTER-RESTORE`. Sıra: API/worker durur → mevcut DB'nin
+FILE=... CONFIRM=DISASTER-RESTORE`. Sıra: API/worker durur → mevcut DB'nin
   pg_dump güvenlik yedeği → temiz schema → migration → yedek yükleme →
   entity/link/event + self-FK bütünlük doğrulaması. Hata durumunda güvenlik
   yedeğinin yolu raporlanır. Normal FastAPI endpoint'inden tablo
   truncate/event DELETE yapılmaz; bu CLI, dokümante edilmiş ayrı bir
-     disaster recovery sınırıdır. UI'da tek tık destructive buton yoktur.
+  disaster recovery sınırıdır. UI'da tek tık destructive buton yoktur.
 
 ### Faz 17: ortak task creation intent'i
 
@@ -178,6 +179,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   yönlendirmez; başarı toast'ı verir ("bugüne planlandı" rozetli).
 - Otomatik üretilen rutin occurrence'ları (`_spawn_next_occurrence`) bu
   katmandan geçmez ve kullanıcı istemedikçe plana yazılmaz.
+
 ### Faz 18: sistem genelinde görünür entity ilişkileri
 
 - `RelatedPanel` (`frontend/src/core/RelatedPanel.tsx`) her linklenebilir
@@ -191,6 +193,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   bağlama ve duplicate (`link_uniq`) backend'de engellenir. Koruyan testler:
   `frontend/src/core/relatedSurfaces.test.ts` (tip→yüzey matrisi),
   `backend/tests/test_links_api.py` (self/duplicate/direction/labels).
+
 ### Faz 19: Today widget sozlesmesi ve kisilestirme
 
 - Her Today widget'i benzersiz kalici `id` + gorunen `title` tasir
@@ -207,6 +210,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   varsayilana don. React key = widget id.
 - Koruyan testler: `frontend/src/core/todayWidgets.test.ts` (benzersiz id,
   kullanici sirasi, gizleme, legacy goc, bilinmeyen id).
+
 ### Faz 20: Today sadelestirme, performans ve dogrulama
 
 - Bilgi hiyerarsisi odakli varsayilanla saglanir: ikincil widget'lar
@@ -220,6 +224,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   varsayilan bozulmaz. React Query istekleri dedupe eder; Today yuklemesi
   ~17 benzersiz kucuk uca bolunur -- aggregator endpoint gerekmedi.
   Tek widget'in hatasi panoyu bozmaz (her widget kendi query'sini yonetir).
+
 ### Faz 21: yerel hizli notlar
 
 - Backend `note` modulu: PK entity.id'ye FK (kural 1); baslik Entity.title'da
@@ -231,7 +236,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Documents icindeki focused nota gider (EntityTypeSpec rotasi) -- ayri
   sidebar modulu YOK. Documents sayfasi "Yerel Notlar" + "Drive Belgeleri"
   ayrimini gosterir.
-- Migration `0036_milestone_entity` (head). Not: `test_media_domain_migration` artik
+- Migration `0047_media_session_action` (head). Not: `test_media_domain_migration` artik
   ortak test DB'sini her zaman head'e birakiyor (son iki test book
   revizyonunda kaliyordu ve yeni head tablolarini dusuruyordu).
 - Faz 28: disaster restore transaction-safe. `restore.restore(commit=False)`
@@ -279,6 +284,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   cozuldu" seridinde gosterilir, alanlar kullanici dokunmadikca
   on-doldurulur (kullanici override'i parserdan once gelir); onay olmadan
   kayit olusmaz. 12 parser testi (sinirlar dahil).
+
 ### Faz 24: rutin gorev semantigi (dogrulama + UX)
 
 - Mevcut backend davranisi dogrulandi ve DEGISTIRILMEDI (testlerle
@@ -290,6 +296,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
 - TodoRow: rutin cipi "her gun" + sonraki tarihi gosterir; "Rutini
   durdur" aksiyonu PATCH recur:'' yapar -- gorev SILINMEZ, yalnizca
   gelecekte yeni occurrence uretimi kapanir (gecmis Activity'de kalir).
+
 ### Faz 25: gunluk ritim orkestrasyonu
 
 - `Today` modulunde `today.rhythm` widget'i (sol, order 5): sabah
@@ -304,6 +311,7 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Kullanici widget gizleme ile kapatabilir (Faz 19); gamification yok.
 - ReviewWidget'daki tam degerlendirme kartini tekrarlamaz (ritim yalniz
   durum satiri + yonlendirme verir).
+
 ### Faz 26: PWA bildirimleri + servis sagligi
 
 - `core/desktopNotifications.ts`: mevcut `notification` tablosu + panel
@@ -361,12 +369,47 @@ auth yönlendirmeleri + registry sözleşmeleri muaftır).
   Bildirim id'si yalniz Notification constructor basariliysa delivered
   listesine yazilir; hata sonraki turda yeniden denenir.
 
+### Faz 35: medya modulu uctan uca (kutuphane → katalog → detay → istatistik)
+
+Kararlar ve degismezler:
+
+- **Tek uretilmis sozlesme**: medya uclari `provider`/`favorite`/`tag`/
+  `collection_id`/`monitored` filtrelerini ve `sort=relevance`'i destekler;
+  yerel arama `match_clause` + `immutable_unaccent` + `pg_trgm` kullanir
+  (liste aramasi ile global arama ayni semantigi paylasir, kural 12).
+- **Katalog aramasi** sinirli eszamanlilik + 8 sn butce + 60 sn TTL cache ile
+  calisir; kismi saglayici hatasi diger sonuclari engellemez ve uyari metni
+  ham ayar anahtari (`media.tmdb_key`) yerine insan dili tasir.
+- **`media_consumption.action='session'`**: pomodoro seansi medyaya
+  aktarildiginda YALNIZ sure yazilir (amount 0, ilerleme degismez). Bu yuzden
+  etkinlik haritasi/istatistik sayaclari (pozitif amount kurali) ile cift
+  sayim olmaz. Idempotency anahtari = pomodoro seans id'si (`client_uuid`
+  UNIQUE). Migration `0047_media_session_action`.
+- **Alinti = yer imi**: ayri highlight tablosu yok; `bookmark.selection` metni,
+  `bookmark.note` baglami (sayfa/zaman kodu) tasir ve kayda `highlights`
+  iliskisiyle baglanir (`core/links.RELATIONS`).
+- **Artwork**: uzak kapaklar tarayicidan dogrudan cekilmez; `/api/media/artwork/proxy`
+  (host allowlist) yerel onbellege indirir, `stats`/`prune` toplam 512 MiB butce
+  ve 7 gun kuraliyla calisir. Yerel asset yolu `/api/media/assets/<sha>`.
+- **Son tarihler**: `deadline_provider` date/datetime karisimini yerel saat
+  diliminde normalize eder (`local_end_of_day`); unit yayini varsa item satiri
+  tekrarlanmaz. Not: `ScalarResult` TEK gezinmelidir — ayni sonucu iki kez
+  gezmek id/due haritalarini bosaltip modulun tum satirlarini sessizce
+  dusuruyordu (todo/calendar/opportunity duzeltildi).
+- **Istatistik**: `/api/media/dashboard?range=&recent_limit=` tek toplayicidir
+  (ozet + devam + yaklasan + son tuketimler); ayni veriyi ikinci kez sunan
+  `/media/consumptions/recent` kaldirildi (kural 17). Olcu (sayfa/bolum/dakika)
+  toplamlari `by_measure` altinda AYRI tutulur, tek toplama birlesmez.
+- **Arayuz**: tum medya filtreleri URL'de; modal `Modal` primitifi odak tuzagi +
+  odak iadesi saglar; tazeleme yalniz `invalidateAfter` ile (kural 14).
+
 #### macOS otomatik baslatma (launchd) -- KAYIT: dokuman, calistirilmaz
 
 Sistem durumunu DEGISTIRMEK icin bu betigi calistirmak gerekir; repo
 calistirma yapmaz. Mutlak proje yolu: `REPO=/Users/<kullanici>/forkOS`.
 
 `~/Library/LaunchAgents/com.forkos.stack.plist`:
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -388,5 +431,6 @@ calistirma yapmaz. Mutlak proje yolu: `REPO=/Users/<kullanici>/forkOS`.
 </dict>
 </plist>
 ```
+
 Kaldirma: `launchctl unload ~/Library/LaunchAgents/com.forkos.stack.plist` ve
 dosyayi sil. Docker/Podman'in de oturum acilisinda calismasi gerekir.
