@@ -67,8 +67,7 @@ export default {
         sans: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
         // Serif kasitli olarak kaldirildi (kullanici karari): font-serif sinifi
         // artik sans ile ayni yigini uretir -- yanlislikla kalan kullanim Georgia
-        // gibi bir serife dusmesin.
-        serif: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ['"Newsreader Variable"', "Georgia", "serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       fontSize: {

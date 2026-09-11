@@ -6,10 +6,10 @@ const client = queryClient();
 import App from "./app/App";
 
 // Fontlar pakete gomulur; offline'da da yuklenir, CDN'e cikilmaz.
-// Newsreader (serif) kaldirildi -- site tamamen IBM Plex Sans.
 import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource-variable/newsreader";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
