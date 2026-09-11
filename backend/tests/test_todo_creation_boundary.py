@@ -57,7 +57,9 @@ async def test_learning_topic_todo_is_one_transaction_with_link() -> None:
 
         response = await client.post(f"/api/study/topics/{topic['id']}/todos")
         assert response.status_code == 201, response.text
-        todo = response.json()
+        payload = response.json()
+        assert payload["created"] is True
+        todo = payload["todo"]
         assert todo["title"] == "Türev"
 
         listed = (await client.get("/api/todos", params={"limit": 100})).json()
@@ -111,7 +113,7 @@ async def test_context_todos_accept_plan_day() -> None:
         })).json()
         todo = (await c.post(f"/api/study/topics/{topic['id']}/todos", json={
             "plan_day": local_today().isoformat(),
-        })).json()
+        })).json()["todo"]
         week2 = (await c.get("/api/plan", params={"week": local_today().isoformat()})).json()
         assert todo["id"] in {row["entity_id"] for row in week2}
         assert todo["due_at"] is None

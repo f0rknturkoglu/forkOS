@@ -57,3 +57,9 @@ def test_module_entity_types_are_registered_in_their_module():
 def test_study_topic_route_opens_the_exact_topic():
     study_topic = next(spec for spec in all_entity_types() if spec.type == "study_topic")
     assert study_topic.route == "/learning?focus={id}"
+
+
+def test_learning_resource_route_opens_the_exact_resource():
+    """Kaynak deep-link'i konu rotasina DUSMEZ: ayri `?resource=` tasir."""
+    resource = next(spec for spec in all_entity_types() if spec.type == "learning_resource")
+    assert resource.route == "/learning?resource={id}"

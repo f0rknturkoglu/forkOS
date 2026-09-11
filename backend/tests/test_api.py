@@ -672,7 +672,13 @@ async def test_today_agenda_hides_suggestions_when_auto_mode_is_disabled(client:
             "/api/today/agenda", params={"day": local_today().isoformat()}
         )).json()
         assert agenda["auto_suggestions"] is False
-        assert agenda["suggestions"] == {"todos": [], "rss": [], "media": [], "flashcards": []}
+        assert agenda["suggestions"] == {
+            "todos": [],
+            "rss": [],
+            "media": [],
+            "flashcards": [],
+            "study": [],
+        }
     finally:
         await client.put("/api/settings/today.auto_suggestions", json={"value": True})
         await client.delete(f"/api/todos/{todo['id']}")
@@ -902,12 +908,16 @@ async def test_phase4_learning_flow(client: AsyncClient):
     # Registry deep-link'i alan agacini onceden bilmeden tek konuyu cozebilir.
     focused_response = await client.get(f"/api/study/topics/{topic['id']}")
     assert focused_response.status_code == 200
-    # Faz 35: konu detayi kaynak sayacindan turetilen ilerlemeyi de tasir.
-    assert focused_response.json() == {
-        **topic,
-        "children": [],
-        "progress": {"total": 0, "done": 0, "pct": 0},
-    }
+    # Konu detayi: konu + atalar + kaynaklar + ilerleme + tekrar blogu.
+    detail = focused_response.json()
+    assert detail["topic"]["id"] == topic["id"]
+    assert detail["topic"]["title"] == topic["title"]
+    assert detail["ancestors"] == []
+    assert detail["resources"] == []
+    assert detail["progress"] == {"total": 0, "done": 0, "pct": 0}
+    assert detail["stats"] == {"minutes": 0, "sessions": 0, "week_minutes": 0, "last_studied_at": None}
+    assert detail["open_todo"] is None
+    assert detail["review"]["review_count"] == 0
 
     pomo = (
         await client.post(
@@ -917,8 +927,10 @@ async def test_phase4_learning_flow(client: AsyncClient):
     ).json()
     created_ids.append(pomo["id"])
     assert (await client.post(f"/api/pomodoro/{pomo['id']}/stop", json={})).status_code == 200
-    stats = (await client.get(f"/api/study/topics/{topic['id']}/stats")).json()
-    assert stats == {"minutes": 1, "sessions": 1}
+    # Konu odak ozeti detay yanitinda gelir (ayri /stats ucu kaldirildi).
+    topic_detail = (await client.get(f"/api/study/topics/{topic['id']}")).json()
+    assert topic_detail["stats"]["minutes"] == 1
+    assert topic_detail["stats"]["sessions"] == 1
 
     course = (await client.post("/api/courses", json={"title": f"Course {suffix}"})).json()
     created_ids.append(course["id"])
