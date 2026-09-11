@@ -21,7 +21,8 @@ from app.modules.media.providers.base import (
     ProviderExpectedEmpty,
     ProviderUnit,
 )
-from app.modules.media.schemas import MediaUnitUpsert
+from app.modules.media.schemas import MediaItemSyncOut, MediaUnitUpsert
+from app.modules.media.search import _item_search_text
 from app.modules.media.service import provider_registry
 from app.modules.system.models import Setting
 from app.sources.base import RawItem
@@ -94,6 +95,15 @@ async def provider_statuses(session: AsyncSession) -> list[dict]:
         providers = [provider for _, provider in variants]
         capabilities = [provider.capabilities for provider in providers]
         row = latest.get(provider_id)
+        ready = any(provider.ready for provider in providers)
+        if not ready:
+            state = "missing_settings"
+        elif row is None:
+            state = "never_run"
+        elif row.status in {"running", "ok", "empty", "error"}:
+            state = row.status
+        else:
+            state = "never_run"
         output.append(
             {
                 "id": provider_id,
@@ -114,7 +124,7 @@ async def provider_statuses(session: AsyncSession) -> list[dict]:
                         )
                     ),
                 },
-                "ready": any(provider.ready for provider in providers),
+                "ready": ready,
                 "missing_settings": list(
                     dict.fromkeys(
                         setting
@@ -122,6 +132,7 @@ async def provider_statuses(session: AsyncSession) -> list[dict]:
                         for setting in provider.missing_settings
                     )
                 ),
+                "state": state,
                 "last_run_at": row.finished_at if row else None,
                 "last_status": row.status if row else None,
                 "last_items_found": row.items_found if row else None,
@@ -129,6 +140,37 @@ async def provider_statuses(session: AsyncSession) -> list[dict]:
             }
         )
     return output
+
+
+async def _latest_source_run(session: AsyncSession, source: str) -> SourceRun | None:
+    return (
+        await session.execute(
+            select(SourceRun)
+            .where(SourceRun.source == source)
+            .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def item_sync_state(
+    session: AsyncSession, item_id: uuid.UUID
+) -> MediaItemSyncOut | None:
+    """Tek medya icin son senkron kosusu (source_run turevi); kosu yoksa None."""
+    item = await session.get(MediaItem, item_id)
+    if item is None or not item.provider:
+        return None
+    row = await _latest_source_run(session, f"media:{item.provider}:{item_id}")
+    if row is None:
+        row = await _latest_source_run(session, f"media:{item.provider}")
+    if row is None:
+        return None
+    return MediaItemSyncOut(
+        status=row.status,
+        last_run_at=row.finished_at or row.started_at,
+        last_error=row.error,
+        items_found=row.items_found,
+    )
 
 
 async def queue_sync(
@@ -160,7 +202,7 @@ async def queue_sync(
         source_ids = [f"media:{selected}:{item.id}"]
     else:
         stmt = (
-            select(MediaItem.provider, MediaItem.kind)
+            select(MediaItem.id, MediaItem.provider, MediaItem.kind)
             .join(Entity, Entity.id == MediaItem.id)
             .where(
                 MediaItem.monitored.is_(True),
@@ -170,13 +212,14 @@ async def queue_sync(
             .distinct()
         )
         rows = (await session.execute(stmt)).all()
-        applicable = [
-            (selected, kind)
-            for selected, kind in rows
-            if not provider_id or selected == provider_id
-        ]
-        if provider_id and applicable:
-            readiness = [registry.by_id(provider_id, kind=kind) for _, kind in applicable]
+        if provider_id and not registry.by_id(provider_id):
+            raise ValueError("Provider bulunamadı")
+        if provider_id:
+            readiness = [
+                registry.by_id(provider_id, kind=kind)
+                for _, selected, kind in rows
+                if selected == provider_id
+            ]
             not_ready = [
                 provider
                 for provider in readiness
@@ -193,16 +236,16 @@ async def queue_sync(
                 )
                 suffix = f": {', '.join(missing)}" if missing else ""
                 raise ValueError(f"Provider hazır değil{suffix}")
+        # Kaynak kimligi OGE BASINA: tek bozuk oge provider'in tum ogelerini
+        # iptal etmesin (rollback yalnizca kendi source_run'ini dusurur).
         source_ids = []
-        for selected, kind in rows:
+        for item_id, selected, kind in rows:
             if provider_id and selected != provider_id:
                 continue
             provider = registry.by_id(selected, kind=kind)
             if provider and provider.ready:
-                source_ids.append(f"media:{selected}")
+                source_ids.append(f"media:{selected}:{item_id}")
         source_ids = list(dict.fromkeys(source_ids))
-        if provider_id and not registry.by_id(provider_id):
-            raise ValueError("Provider bulunamadı")
     if not source_ids:
         return None
     batch, _ = await create_or_extend_batch(session, source_ids, scope="media")
@@ -275,7 +318,11 @@ async def _apply_snapshot(
     )
     metadata_changed = before != after
     item.last_synced_at = datetime.now(UTC)
-    await touch_entity(session, item.id, title=details.title, search_text=details.summary or "")
+    # Ozet/not/review/meta BIRLESIK arama metni: senkron yalnizca ozeti
+    # yazsaydi kullanicinin notlari aramadan silinirdi.
+    await touch_entity(
+        session, item.id, title=details.title, search_text=_item_search_text(item)
+    )
 
     discovered = 0
     changed_units = 0

@@ -446,5 +446,218 @@ async def test_snapshot_unit_and_release_event_roll_back_together(monkeypatch):
         assert entity.title == "Atomic"
 
 
+async def test_sync_keeps_user_notes_and_review_in_search_text(monkeypatch):
+    from app.modules.media import sync as media_sync
+
+    monkeypatch.setattr(media_sync, "provider_registry", lambda session: _async(FakeRegistry()))
+    async with SessionLocal() as session:
+        item = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Severance",
+                kind="show",
+                provider="tmdb",
+                provider_id="95396",
+                monitored=True,
+                notes="kullanici notu",
+                review="inceleme metni",
+                meta={"language": "tr"},
+            ),
+        )
+
+    assert await poll_media_source(f"media:tmdb:{item.id}") == 1
+
+    async with SessionLocal() as session:
+        entity = await session.get(Entity, item.id)
+        # Saglayici ozeti eklenir ama kullanicinin alanlari SILINMEZ.
+        assert "Work is mysterious." in entity.search_text
+        assert "kullanici notu" in entity.search_text
+        assert "inceleme metni" in entity.search_text
+        assert "language" in entity.search_text
+        page = await service.list_items(session, q="kullanici notu")
+        assert [row.id for row in page.items] == [item.id]
+
+
+async def test_item_sync_state_prefers_item_run_and_falls_back_to_provider(monkeypatch):
+    from app.modules.media import sync as media_sync
+
+    async with SessionLocal() as session:
+        item = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Severance",
+                kind="show",
+                provider="tmdb",
+                provider_id="95396",
+                monitored=True,
+            ),
+        )
+
+    async with SessionLocal() as session:
+        assert await media_sync.item_sync_state(session, item.id) is None
+
+    async with SessionLocal() as session:
+        session.add(
+            SourceRun(
+                source="media:tmdb",
+                status="empty",
+                items_found=0,
+                started_at=datetime(2026, 1, 1, tzinfo=UTC),
+                finished_at=datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
+            )
+        )
+        await session.commit()
+    async with SessionLocal() as session:
+        state = await media_sync.item_sync_state(session, item.id)
+    assert state is not None
+    assert (state.status, state.items_found) == ("empty", 0)
+    assert state.last_run_at == datetime(2026, 1, 1, 0, 5, tzinfo=UTC)
+
+    async with SessionLocal() as session:
+        session.add(
+            SourceRun(
+                source=f"media:tmdb:{item.id}",
+                status="ok",
+                items_found=3,
+                started_at=datetime(2026, 1, 2, tzinfo=UTC),
+                finished_at=datetime(2026, 1, 2, 0, 5, tzinfo=UTC),
+            )
+        )
+        await session.commit()
+    async with SessionLocal() as session:
+        state = await media_sync.item_sync_state(session, item.id)
+        detail = await service.get_detail(session, item.id)
+    assert (state.status, state.items_found, state.last_error) == ("ok", 3, None)
+    # Detay ucu da ayni durumu tasir.
+    assert detail.sync is not None
+    assert detail.sync.status == "ok"
+
+    async with SessionLocal() as session:
+        session.add(
+            SourceRun(
+                source=f"media:tmdb:{item.id}",
+                status="error",
+                error="boom",
+                started_at=datetime(2026, 1, 3, tzinfo=UTC),
+                finished_at=datetime(2026, 1, 3, tzinfo=UTC),
+            )
+        )
+        await session.commit()
+    async with SessionLocal() as session:
+        state = await media_sync.item_sync_state(session, item.id)
+    assert (state.status, state.last_error) == ("error", "boom")
+
+
+class StatusRegistry:
+    """provider_statuses icin sabit registry: ayar gerektirmeyen hazir provider."""
+
+    def provider_groups(self):
+        return {"tmdb": [("movie", FakeProvider()), ("show", FakeProvider())]}
+
+    def by_id(self, provider_id: str, *, kind: str | None = None):
+        return FakeProvider() if provider_id == "tmdb" else None
+
+
+async def _provider_state(status: str, **fields) -> str:
+    from app.modules.media import sync as media_sync
+
+    async with SessionLocal() as session:
+        session.add(
+            SourceRun(
+                source="media:tmdb",
+                status=status,
+                started_at=datetime.now(UTC),
+                **fields,
+            )
+        )
+        await session.commit()
+    async with SessionLocal() as session:
+        rows = await media_sync.provider_statuses(session)
+    return next(row for row in rows if row["id"] == "tmdb")["state"]
+
+
+async def test_provider_statuses_reports_run_state(monkeypatch):
+    from app.modules.media import sync as media_sync
+
+    monkeypatch.setattr(
+        media_sync, "provider_registry", lambda session: _async(StatusRegistry())
+    )
+    async with SessionLocal() as session:
+        rows = await media_sync.provider_statuses(session)
+    tmdb = next(row for row in rows if row["id"] == "tmdb")
+    assert tmdb["ready"] is True
+    assert tmdb["state"] == "never_run"
+
+    assert await _provider_state("running") == "running"
+    assert await _provider_state("ok", items_found=4) == "ok"
+    assert await _provider_state("empty") == "empty"
+    assert await _provider_state("error", error="boom") == "error"
+
+
+async def test_provider_statuses_marks_missing_settings_over_stale_run():
+    from app.modules.media import sync as media_sync
+
+    async with SessionLocal() as session:
+        session.add(
+            SourceRun(
+                source="media:tmdb",
+                status="ok",
+                started_at=datetime.now(UTC),
+            )
+        )
+        await session.commit()
+    async with SessionLocal() as session:
+        rows = await media_sync.provider_statuses(session)
+    tmdb = next(row for row in rows if row["id"] == "tmdb")
+    # Ayar yokken eski "ok" kosusu saglayiciyi hazir gostermez.
+    assert tmdb["ready"] is False
+    assert tmdb["state"] == "missing_settings"
+    assert tmdb["missing_settings"] == ["media.tmdb_key"]
+    assert tmdb["last_status"] == "ok"
+
+
+async def test_bulk_queue_uses_per_item_source_ids():
+    from app.modules.media import sync as media_sync
+    from app.modules.system.models import Setting
+
+    async with SessionLocal() as session:
+        session.add(Setting(key="media.tmdb_key", value="test-key"))
+        await session.commit()
+    async with SessionLocal() as session:
+        first = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="First",
+                kind="movie",
+                provider="tmdb",
+                provider_id="movie:1",
+                monitored=True,
+            ),
+        )
+        second = await service.create_item(
+            session,
+            MediaItemIn(
+                source="provider",
+                title="Second",
+                kind="movie",
+                provider="tmdb",
+                provider_id="movie:2",
+                monitored=True,
+            ),
+        )
+
+    async with SessionLocal() as session:
+        batch = await media_sync.queue_sync(session)
+    assert batch is not None
+    assert set(batch["source_ids"]) == {
+        f"media:tmdb:{first.id}",
+        f"media:tmdb:{second.id}",
+    }
+    assert batch["total_sources"] == 2
+
+
 async def _async(value):
     return value

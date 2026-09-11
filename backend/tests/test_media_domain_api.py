@@ -6,9 +6,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
-from app.core.models import Entity, Event
+from app.core.models import Entity, Event, Link
 from app.db import SessionLocal
 from app.main import app
 from app.modules.media import MODULE, service
@@ -198,7 +198,7 @@ async def test_consumptions_are_idempotent_and_keep_correction_history(client: A
         assert verbs.count("media.progress_corrected") == 1
 
 
-async def test_consumption_history_route_is_newest_first_and_in_openapi(
+async def test_consumption_history_route_is_newest_first_and_paged_in_openapi(
     client: AsyncClient,
 ):
     item = await _create(client, progress=0)
@@ -218,15 +218,91 @@ async def test_consumption_history_route_is_newest_first_and_in_openapi(
 
     history = await client.get(f"/api/media/{item_id}/consumptions")
     assert history.status_code == 200, history.text
-    assert [row["occurred_at"] for row in history.json()] == sorted(
-        [row["occurred_at"] for row in history.json()], reverse=True
+    payload = history.json()
+    assert payload["total"] == 2
+    assert payload["next_cursor"] is None
+    assert [row["occurred_at"] for row in payload["items"]] == sorted(
+        [row["occurred_at"] for row in payload["items"]], reverse=True
     )
     assert (await client.get(f"/api/media/{uuid.uuid4()}/consumptions")).status_code == 404
 
     operation = app.openapi()["paths"]["/api/media/{item_id}/consumptions"]["get"]
     schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
-    assert schema["type"] == "array"
-    assert schema["items"]["$ref"].endswith("/MediaConsumptionOut")
+    assert schema["$ref"].endswith("/MediaConsumptionPageOut")
+
+
+async def test_consumption_history_cursor_pages_newest_first(client: AsyncClient):
+    item = await _create(client, progress=0)
+    item_id = item["id"]
+    for index in range(5):
+        response = await client.post(
+            f"/api/media/{item_id}/consumptions",
+            json={
+                "client_uuid": str(uuid.uuid4()),
+                "action": "quick",
+                "occurred_at": (datetime.now(UTC) - timedelta(hours=index)).isoformat(),
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    pages = []
+    cursor = None
+    for _ in range(3):
+        params = {"limit": 2}
+        if cursor:
+            params["cursor"] = cursor
+        page = (
+            await client.get(f"/api/media/{item_id}/consumptions", params=params)
+        ).json()
+        pages.append(page)
+        cursor = page["next_cursor"]
+    assert [len(page["items"]) for page in pages] == [2, 2, 1]
+    assert [page["total"] for page in pages] == [5, 5, 5]
+    assert pages[0]["next_cursor"] and pages[1]["next_cursor"]
+    assert pages[2]["next_cursor"] is None
+    seen = [row["id"] for page in pages for row in page["items"]]
+    assert len(set(seen)) == 5
+    # Bozuk imlec 500 uretmez; ilk sayfadan devam eder.
+    stale = (
+        await client.get(
+            f"/api/media/{item_id}/consumptions", params={"cursor": "!!!", "limit": 2}
+        )
+    ).json()
+    assert stale["total"] == 5
+    assert [row["id"] for row in stale["items"]] == [
+        row["id"] for row in pages[0]["items"]
+    ]
+
+
+async def test_detail_exposes_consumption_count_and_caps_history_at_twenty(
+    client: AsyncClient,
+):
+    item = await _create(client, progress=0)
+    item_id = item["id"]
+    fresh = (await client.get(f"/api/media/{item_id}")).json()
+    assert fresh["consumption_count"] == 0
+    assert fresh["consumptions"] == []
+    # Kosu yokken sync alani None (source_run turevi).
+    assert fresh["sync"] is None
+
+    for index in range(21):
+        response = await client.post(
+            f"/api/media/{item_id}/consumptions",
+            json={
+                "client_uuid": str(uuid.uuid4()),
+                "action": "quick",
+                "occurred_at": (datetime.now(UTC) - timedelta(minutes=index)).isoformat(),
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    detail = (await client.get(f"/api/media/{item_id}")).json()
+    assert detail["consumption_count"] == 21
+    assert len(detail["consumptions"]) == 20
+    newest = (await client.get(f"/api/media/{item_id}/consumptions")).json()
+    assert [row["id"] for row in detail["consumptions"]] == [
+        row["id"] for row in newest["items"][:20]
+    ]
 
 
 async def test_concurrent_distinct_consumptions_serialize_progress_and_first_cycle():
@@ -610,13 +686,27 @@ async def test_collection_crud_membership_detail_dashboard(client: AsyncClient):
 
     member_path = f"/api/media/collections/{collection_id}/items/{item_id}"
     assert (await client.post(member_path)).status_code == 204
-    assert (await client.post(member_path)).status_code == 204
+    duplicate = await client.post(member_path)
+    assert duplicate.status_code == 409, duplicate.text
     detail = (await client.get(f"/api/media/{item_id}")).json()
     assert [row["id"] for row in detail["collections"]] == [collection_id]
     filtered = (
         await client.get("/api/media", params={"collection_id": collection_id})
     ).json()
     assert filtered["total"] == 1
+
+    listed = (await client.get("/api/media/collections")).json()
+    row = next(entry for entry in listed if entry["id"] == collection_id)
+    assert row["item_count"] == 1
+    assert row["covers"] == []
+
+    members = (await client.get(f"/api/media/collections/{collection_id}")).json()
+    assert members["collection"]["id"] == collection_id
+    assert members["collection"]["item_count"] == 1
+    assert members["total"] == 1
+    assert [entry["id"] for entry in members["items"]] == [item_id]
+    assert members["next_cursor"] is None
+    assert (await client.get(f"/api/media/collections/{uuid.uuid4()}")).status_code == 404
 
     await client.post(
         f"/api/media/{item_id}/consumptions",
@@ -637,6 +727,146 @@ async def test_collection_crud_membership_detail_dashboard(client: AsyncClient):
     async with SessionLocal() as session:
         assert await session.get(MediaCollection, uuid.UUID(collection_id)) is None
         assert await session.get(Entity, uuid.UUID(item_id)) is not None
+
+
+async def test_collection_covers_member_search_sort_and_paging(client: AsyncClient):
+    collection = await client.post("/api/media/collections", json={"title": "Kapaklar"})
+    collection_id = collection.json()["id"]
+    created = []
+    for title, overrides in (
+        ("Dune", {"cover_path": "dune.jpg", "score": 5}),
+        ("Arrival", {"cover_url": "https://cdn.example/arrival.jpg", "score": 9}),
+        ("Severance", {"cover_path": "/api/media/assets/severance.webp", "score": 7}),
+        ("Nope", {"cover_path": "../evil.png"}),
+    ):
+        item = await _create(client, title=title, **overrides)
+        created.append(item)
+        response = await client.post(
+            f"/api/media/collections/{collection_id}/items/{item['id']}"
+        )
+        assert response.status_code == 204, response.text
+
+    listed = next(
+        entry
+        for entry in (await client.get("/api/media/collections")).json()
+        if entry["id"] == collection_id
+    )
+    assert listed["item_count"] == 4
+    # En yeni uye once; yerel kapak asset URL'ine cevrilir, guvensiz yol atlanir.
+    assert listed["covers"] == [
+        "/api/media/assets/severance.webp",
+        "https://cdn.example/arrival.jpg",
+        "/api/media/assets/dune.jpg",
+    ]
+
+    sorted_rows = (
+        await client.get(
+            f"/api/media/collections/{collection_id}", params={"sort": "title"}
+        )
+    ).json()
+    assert [entry["title"] for entry in sorted_rows["items"]] == [
+        "Arrival",
+        "Dune",
+        "Nope",
+        "Severance",
+    ]
+    by_score = (
+        await client.get(
+            f"/api/media/collections/{collection_id}", params={"sort": "score"}
+        )
+    ).json()
+    assert [entry["title"] for entry in by_score["items"]] == [
+        "Arrival",
+        "Severance",
+        "Dune",
+        "Nope",
+    ]
+
+    searched = (
+        await client.get(
+            f"/api/media/collections/{collection_id}", params={"q": "dune"}
+        )
+    ).json()
+    assert [entry["title"] for entry in searched["items"]] == ["Dune"]
+    assert searched["total"] == 1
+    assert searched["collection"]["item_count"] == 4
+
+    first = (
+        await client.get(f"/api/media/collections/{collection_id}", params={"limit": 2})
+    ).json()
+    assert len(first["items"]) == 2
+    assert first["next_cursor"]
+    second = (
+        await client.get(
+            f"/api/media/collections/{collection_id}",
+            params={"limit": 2, "cursor": first["next_cursor"]},
+        )
+    ).json()
+    assert len(second["items"]) == 2
+    assert second["next_cursor"] is None
+    assert {entry["id"] for entry in first["items"]} & {
+        entry["id"] for entry in second["items"]
+    } == set()
+    # Bozuk imlec 500 uretmez; ilk sayfadan devam eder.
+    stale = (
+        await client.get(
+            f"/api/media/collections/{collection_id}", params={"cursor": "!!!"}
+        )
+    ).json()
+    assert len(stale["items"]) == 4
+
+
+async def test_collection_covers_are_capped_at_four_but_count_every_member(
+    client: AsyncClient,
+):
+    collection = await client.post("/api/media/collections", json={"title": "Kuyruk"})
+    collection_id = collection.json()["id"]
+    for index in range(6):
+        item = await _create(client, title=f"Member {index}", cover_path=f"cover-{index}.jpg")
+        response = await client.post(
+            f"/api/media/collections/{collection_id}/items/{item['id']}"
+        )
+        assert response.status_code == 204, response.text
+
+    listed = next(
+        entry
+        for entry in (await client.get("/api/media/collections")).json()
+        if entry["id"] == collection_id
+    )
+    assert listed["item_count"] == 6
+    assert listed["covers"] == [
+        f"/api/media/assets/cover-{index}.jpg" for index in (5, 4, 3, 2)
+    ]
+
+
+async def test_concurrent_collection_membership_has_one_winner_and_one_conflict():
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as setup_client:
+        item = await _create(setup_client, title="Race collection", progress=0)
+        collection = await setup_client.post(
+            "/api/media/collections", json={"title": "Race"}
+        )
+    collection_id = uuid.UUID(collection.json()["id"])
+    item_id = uuid.UUID(item["id"])
+
+    async def add_once():
+        async with SessionLocal() as session:
+            return await service.add_collection_item(session, collection_id, item_id)
+
+    results = await asyncio.gather(add_once(), add_once())
+    assert sorted(results, key=str) == [False, True]
+    async with SessionLocal() as session:
+        count = await session.scalar(
+            select(func.count())
+            .select_from(Link)
+            .where(
+                Link.from_id == collection_id,
+                Link.to_id == item_id,
+                Link.relation == "media.collection_item",
+            )
+        )
+    assert count == 1
 
 
 async def test_nonzero_create_builds_matching_initial_cycle_and_consumption(
@@ -1070,7 +1300,8 @@ async def test_archived_media_does_not_leak_into_dashboard_upcoming_or_stats(
     )
     assert dashboard["stats"]["total"] == 0
     assert dashboard["stats"]["total_duration_min"] == 0
-    assert (await client.get("/api/media/upcoming")).json() == []
+    upcoming = (await client.get("/api/media/upcoming")).json()
+    assert upcoming == {"entries": [], "total": 0}
 
 
 async def test_mutation_schema_and_cursor_validation_is_strict(client: AsyncClient):
@@ -1120,6 +1351,7 @@ def test_media_registers_complete_event_contract_and_restoration_helper():
         "media.cycle_completed",
         "media.cycle_reopened",
         "media.consumed",
+        "media.session_logged",
         "media.progress_corrected",
         "media.collection_created",
         "media.collection_updated",
@@ -1136,7 +1368,7 @@ def test_media_registers_complete_event_contract_and_restoration_helper():
     assert callable(entity.restore_entity)
 
 
-async def test_recent_consumptions_route_returns_newest_with_title_kind_and_openapi(
+async def test_dashboard_recent_consumptions_carry_title_kind_and_limit(
     client: AsyncClient,
 ):
     movie = await _create(client, kind="movie", progress=0, total=1)
@@ -1161,7 +1393,7 @@ async def test_recent_consumptions_route_returns_newest_with_title_kind_and_open
         },
     )
 
-    recent = (await client.get("/api/media/consumptions/recent")).json()
+    recent = (await client.get("/api/media/dashboard")).json()["recent_consumptions"]
     assert recent, recent
     assert [row["media_id"] for row in recent] == [str(book_id), str(movie_id)]
     assert [row["title"] for row in recent] == [book["title"], movie["title"]]
@@ -1171,17 +1403,22 @@ async def test_recent_consumptions_route_returns_newest_with_title_kind_and_open
     assert book_row["duration_min"] == 35
     assert book_row["occurred_at"]
 
-    limited = (await client.get("/api/media/consumptions/recent", params={"limit": 1})).json()
-    assert [row["media_id"] for row in limited] == [str(book_id)]
-    assert (await client.get("/api/media/consumptions/recent", params={"limit": 0})).status_code == 422
+    limited = (await client.get("/api/media/dashboard", params={"recent_limit": 1})).json()
+    assert [row["media_id"] for row in limited["recent_consumptions"]] == [str(book_id)]
+    assert (await client.get("/api/media/dashboard", params={"recent_limit": 0})).status_code == 422
 
-    operation = app.openapi()["paths"]["/api/media/consumptions/recent"]["get"]
-    schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
-    assert schema["type"] == "array"
-    assert schema["items"]["$ref"].endswith("/MediaRecentConsumptionOut")
+    operation = app.openapi()["paths"]["/api/media/dashboard"]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/MediaDashboardOut"
+    )
+    dashboard_schema = app.openapi()["components"]["schemas"]["MediaDashboardOut"]
+    assert (
+        dashboard_schema["properties"]["recent_consumptions"]["items"]["$ref"]
+        .endswith("/MediaRecentConsumptionOut")
+    )
 
 
-async def test_recent_consumptions_exclude_archived_media(client: AsyncClient):
+async def test_dashboard_recent_consumptions_exclude_archived_media(client: AsyncClient):
     item = await _create(client, kind="show", progress=0, total=10)
     item_id = uuid.UUID(item["id"])
     await client.post(
@@ -1192,6 +1429,6 @@ async def test_recent_consumptions_exclude_archived_media(client: AsyncClient):
             "duration_min": 44,
         },
     )
-    assert len((await client.get("/api/media/consumptions/recent")).json()) == 1
+    assert len((await client.get("/api/media/dashboard")).json()["recent_consumptions"]) == 1
     assert (await client.delete(f"/api/media/{item_id}")).status_code == 200
-    assert (await client.get("/api/media/consumptions/recent")).json() == []
+    assert (await client.get("/api/media/dashboard")).json()["recent_consumptions"] == []

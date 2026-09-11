@@ -14,11 +14,15 @@ from app.modules.media.artwork import ArtworkStore
 from app.modules.media.models import KINDS, STATUSES
 from app.modules.media.schemas import (
     GlobalMetadataSearchOut,
+    MediaArtworkPruneOut,
+    MediaArtworkStatsOut,
+    MediaCollectionDetailOut,
     MediaCollectionIn,
     MediaCollectionOut,
     MediaCollectionUpdate,
     MediaConsumptionIn,
     MediaConsumptionOut,
+    MediaConsumptionPageOut,
     MediaCycleOut,
     MediaCycleStart,
     MediaDashboardOut,
@@ -28,11 +32,10 @@ from app.modules.media.schemas import (
     MediaItemUpdate,
     MediaPageOut,
     MediaProviderStatusOut,
-    MediaRecentConsumptionOut,
     MediaStats,
     MediaSyncBatchOut,
     MediaSyncIdleOut,
-    MediaUnitOut,
+    MediaUpcomingPageOut,
 )
 
 router = APIRouter(tags=["media"])
@@ -61,9 +64,11 @@ async def list_media(
     collection_id: uuid.UUID | None = None,
     tag: str | None = None,
     owned: bool | None = None,
+    favorite: bool | None = None,
     monitored: bool | None = None,
+    provider: str | None = None,
     trashed: bool = False,
-    sort: Literal["updated", "created", "title", "score", "progress"] = "updated",
+    sort: Literal["updated", "created", "title", "score", "progress", "relevance"] = "updated",
     cursor: str | None = None,
     limit: int = Query(48, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
@@ -81,7 +86,9 @@ async def list_media(
             collection_id=collection_id,
             tag=tag,
             owned=owned,
+            favorite=favorite,
             monitored=monitored,
+            provider=provider,
             trashed=trashed,
             sort=sort,
             cursor=cursor,
@@ -92,29 +99,49 @@ async def list_media(
 
 
 @router.get("/media/stats", response_model=MediaStats)
-async def media_stats(session: AsyncSession = Depends(get_session)):
-    return await service.stats(session)
+async def media_stats(
+    range_: Literal["week", "month", "90d", "year", "all"] = Query("all", alias="range"),
+    session: AsyncSession = Depends(get_session),
+):
+    return await service.stats(session, range_=range_)
 
 
 @router.get("/media/dashboard", response_model=MediaDashboardOut)
-async def media_dashboard(session: AsyncSession = Depends(get_session)):
-    return await service.dashboard(session)
-
-
-@router.get("/media/upcoming", response_model=list[MediaUnitOut])
-async def media_upcoming(
-    days: int = Query(30, ge=1, le=365),
+async def media_dashboard(
+    range_: Literal["week", "month", "90d", "year", "all"] = Query("all", alias="range"),
+    recent_limit: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
 ):
-    return await service.upcoming_units(session, days)
+    """Istatistik ekraninin tek istegi (ozet + devam + yaklasan + son tuketimler)."""
+    return await service.dashboard(session, range_=range_, recent_limit=recent_limit)
+
+
+@router.get("/media/upcoming", response_model=MediaUpcomingPageOut)
+async def media_upcoming(
+    days: int | None = Query(None, ge=1, le=365),
+    kind: str | None = None,
+    provider: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    if kind:
+        _check_kind(kind)
+    return await service.list_upcoming(session, days=days, kind=kind, provider=provider)
 
 
 @router.get("/media/search/global", response_model=GlobalMetadataSearchOut)
 async def search_all_metadata(
     q: str = Query(min_length=2),
+    kind: str | None = None,
+    provider: str | None = None,
+    limit: int = Query(6, ge=1, le=20),
     session: AsyncSession = Depends(get_session),
 ):
-    return await service.search_all_metadata(session, q)
+    if kind:
+        _check_kind(kind)
+    try:
+        return await service.search_all_metadata(session, q, kind=kind, provider=provider, limit=limit)
+    except service.MediaCommandError as exc:
+        raise _command_error(exc) from exc
 
 
 @router.get("/media/providers", response_model=list[MediaProviderStatusOut])
@@ -157,9 +184,51 @@ async def media_asset(asset_name: str):
     )
 
 
+@router.get("/media/artwork/stats", response_model=MediaArtworkStatsOut)
+async def media_artwork_stats():
+    return await service.artwork_stats()
+
+
+@router.post("/media/artwork/prune", response_model=MediaArtworkPruneOut)
+async def media_artwork_prune(session: AsyncSession = Depends(get_session)):
+    return await service.prune_artwork(session)
+
+
+@router.get("/media/artwork/proxy")
+async def media_artwork_proxy(url: str = Query(min_length=8)):
+    """Uzak saglayici gorselini yerel onbellege alip sunar (local-only gizlilik)."""
+    try:
+        path = await service.cache_artwork(url)
+    except service.MediaCommandError as exc:
+        raise _command_error(exc) from exc
+    if path is None:
+        raise HTTPException(404)
+    return FileResponse(
+        path,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 @router.get("/media/collections", response_model=list[MediaCollectionOut])
 async def collections(session: AsyncSession = Depends(get_session)):
     return await service.list_collections(session)
+
+
+@router.get("/media/collections/{collection_id}", response_model=MediaCollectionDetailOut)
+async def collection_detail(
+    collection_id: uuid.UUID,
+    q: str | None = None,
+    sort: Literal["updated", "created", "title", "score", "progress"] = "updated",
+    cursor: str | None = None,
+    limit: int = Query(48, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await service.collection_detail(
+        session, collection_id, q=q, sort=sort, cursor=cursor, limit=limit
+    )
+    if result is None:
+        raise HTTPException(404)
+    return result
 
 
 @router.post("/media/collections", response_model=MediaCollectionOut, status_code=201)
@@ -192,8 +261,11 @@ async def add_collection_item(
     item_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
 ):
-    if await service.add_collection_item(session, collection_id, item_id) is None:
+    result = await service.add_collection_item(session, collection_id, item_id)
+    if result is None:
         raise HTTPException(404)
+    if result is False:
+        raise HTTPException(409, "Kayit zaten bu koleksiyonda")
     return Response(status_code=204)
 
 
@@ -306,19 +378,13 @@ async def consume_media(
     return result
 
 
-@router.get("/media/{item_id}/consumptions", response_model=list[MediaConsumptionOut])
-async def media_consumptions(item_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    if await service.get_item(session, item_id) is None:
-        raise HTTPException(404)
-    return await service.list_consumptions(session, item_id)
-
-
-@router.get(
-    "/media/consumptions/recent",
-    response_model=list[MediaRecentConsumptionOut],
-)
-async def recent_media_consumptions(
-    limit: int = Query(10, ge=1, le=100),
+@router.get("/media/{item_id}/consumptions", response_model=MediaConsumptionPageOut)
+async def media_consumptions(
+    item_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    cursor: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    return await service.recent_consumptions(session, limit=limit)
+    if await service.get_item(session, item_id) is None:
+        raise HTTPException(404)
+    return await service.list_consumptions(session, item_id, limit=limit, cursor=cursor)

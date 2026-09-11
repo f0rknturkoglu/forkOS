@@ -214,13 +214,20 @@ def test_media_domain_constraints_and_partial_indexes_are_declared():
 
 
 def test_media_module_registers_all_searchable_entity_types():
-    assert {spec.type for spec in MODULE.entity_types} == {
+    specs = {spec.type: spec for spec in MODULE.entity_types}
+    assert set(specs) == {
         "media_item",
         "media_unit",
         "media_cycle",
         "media_consumption",
         "media_collection",
     }
+    # Ic muhasebe kayitlari (bolum/dongu/tuketim) global aramada gorunmez;
+    # yalnizca kutuphane kaydi ve koleksiyon aranabilir.
+    assert specs["media_item"].searchable is True
+    assert specs["media_collection"].searchable is True
+    for entity_type in ("media_unit", "media_cycle", "media_consumption"):
+        assert specs[entity_type].searchable is False, entity_type
 
 
 def test_notification_ownership_and_routes_are_core_scoped():

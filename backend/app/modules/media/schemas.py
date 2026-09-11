@@ -365,8 +365,26 @@ class MediaCollectionOut(BaseModel):
     description: str | None = None
     color: str | None = None
     position: int
+    item_count: int = 0
+    covers: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class MediaCollectionDetailOut(BaseModel):
+    collection: MediaCollectionOut
+    items: list[MediaItemOut]
+    total: int
+    next_cursor: str | None = None
+
+
+class MediaItemSyncOut(BaseModel):
+    """Tek kayit icin son senkron durumu (source_run turevi)."""
+
+    status: str
+    last_run_at: datetime | None = None
+    last_error: str | None = None
+    items_found: int | None = None
 
 
 class MediaDetailOut(BaseModel):
@@ -375,6 +393,47 @@ class MediaDetailOut(BaseModel):
     cycles: list[MediaCycleOut]
     consumptions: list[MediaConsumptionOut]
     collections: list[MediaCollectionOut]
+    consumption_count: int = 0
+    sync: MediaItemSyncOut | None = None
+
+
+class MediaConsumptionPageOut(BaseModel):
+    items: list[MediaConsumptionOut]
+    total: int
+    next_cursor: str | None = None
+
+
+class MediaUpcomingOut(BaseModel):
+    """Yaklasan yayin satiri: item yayin tarihi veya unit (bolum/parca) tarihi."""
+
+    entry_type: Literal["item", "unit"]
+    entity_id: uuid.UUID
+    media_id: uuid.UUID
+    media_title: str
+    title: str
+    kind: str
+    provider: str | None = None
+    release_at: datetime
+    cover_url: str | None = None
+    monitored: bool = False
+    unit_type: str | None = None
+    number: float | None = None
+
+
+class MediaUpcomingPageOut(BaseModel):
+    entries: list[MediaUpcomingOut]
+    total: int
+
+
+class MediaConversionOut(BaseModel):
+    planned: int = 0
+    started: int = 0
+    completed: int = 0
+
+
+class MediaBusiestDayOut(BaseModel):
+    day: str
+    count: int
 
 
 class MediaStats(BaseModel):
@@ -383,15 +442,29 @@ class MediaStats(BaseModel):
     completed: int
     planned: int
     by_kind: dict[str, int]
+    by_measure: dict[str, float] = Field(default_factory=dict)
     total_duration_min: int = 0
+    pomodoro_minutes: int = 0
     scored_count: int = 0
     average_score: float | None = None
+    score_distribution: dict[str, int] = Field(default_factory=dict)
+    conversion: MediaConversionOut = Field(default_factory=MediaConversionOut)
+    active_days: int = 0
+    busiest_day: MediaBusiestDayOut | None = None
+    completed_in_range: int = 0
 
 
 class MediaDashboardOut(BaseModel):
+    """Istatistik sayfasinin TEK istegi: ozet + devam + yaklasan + son tuketimler.
+
+    Neden toplayici: ayni veri icin ayri uclara ayri istek atmak (ve donen
+    `recent_consumptions` alanini yok saymak) gereksiz ag trafigi uretiyordu.
+    Son tuketim satirlari baslik/tur tasir (MediaRecentConsumptionOut).
+    """
+
     continue_items: list[MediaItemOut]
     upcoming: list[MediaUnitOut]
-    recent_consumptions: list[MediaConsumptionOut]
+    recent_consumptions: list[MediaRecentConsumptionOut]
     stats: MediaStats
 
 
@@ -425,6 +498,7 @@ class MetadataSearchWarning(BaseModel):
 class GlobalMetadataSearchOut(BaseModel):
     results: list[MetadataResult]
     warnings: list[MetadataSearchWarning]
+    cached: bool = False
 
 
 class MediaProviderCapabilitiesOut(BaseModel):
@@ -442,10 +516,30 @@ class MediaProviderStatusOut(BaseModel):
     capabilities: MediaProviderCapabilitiesOut
     ready: bool
     missing_settings: list[str]
+    state: Literal[
+        "ready",
+        "missing_settings",
+        "never_run",
+        "running",
+        "ok",
+        "empty",
+        "error",
+    ] = "never_run"
     last_run_at: datetime | None = None
     last_status: str | None = None
     last_items_found: int | None = None
     last_error: str | None = None
+
+
+class MediaArtworkStatsOut(BaseModel):
+    files: int
+    bytes: int
+    max_bytes: int
+
+
+class MediaArtworkPruneOut(BaseModel):
+    removed: int
+    freed_bytes: int
 
 
 class MediaSyncBatchOut(BaseModel):
