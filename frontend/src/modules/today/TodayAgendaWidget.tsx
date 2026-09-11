@@ -683,32 +683,17 @@ function AgendaLine({
         )}
         {suggestionAction}
         {interactive && (
-          <IconButton
-            title="Tamamla"
-            ariaLabel={`${row.title} görevini tamamla`}
-            disabled={!online}
-            onClick={() => complete(row)}
-          >
+          <IconButton title="Tamamla" disabled={!online} onClick={() => complete(row)}>
             <Check size={14} />
           </IconButton>
         )}
         {row.kind === "todo" && (
-          <IconButton
-            title="Görevi sil"
-            ariaLabel={`${row.title} görevini sil`}
-            disabled={!online}
-            onClick={() => deleteTodo(row.id)}
-          >
+          <IconButton title="Görevi sil" disabled={!online} onClick={() => deleteTodo(row.id)}>
             <Trash2 size={14} />
           </IconButton>
         )}
         {row.slot_id && row.kind !== "todo" && (
-          <IconButton
-            title="Bugünden çıkar"
-            ariaLabel={`${row.title} öğesini bugünden çıkar`}
-            disabled={!online}
-            onClick={() => remove(row)}
-          >
+          <IconButton title="Bugünden çıkar" disabled={!online} onClick={() => remove(row)}>
             <Trash2 size={14} />
           </IconButton>
         )}

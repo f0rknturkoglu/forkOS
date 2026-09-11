@@ -570,7 +570,6 @@ export function NotesPage() {
                   {!explorerOpen && (
                     <IconButton
                       title="Kasa gezginini aç"
-                      ariaLabel="Kasa gezginini aç"
                       onClick={() => {
                         setExplorerOpen(true);
                         try {

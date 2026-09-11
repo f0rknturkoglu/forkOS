@@ -149,13 +149,12 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
       <div className="flex items-center justify-between gap-1 border-b border-subtle px-3 py-2.5">
         <div className="flex items-center gap-2 min-w-0">
           <span className="truncate text-meta font-bold uppercase tracking-wider text-primary">Kasa</span>
-          <Chip tone="muted">{notes.length}</Chip>
+          <Chip tone="neutral">{notes.length}</Chip>
         </div>
 
         <div className="flex items-center gap-0.5">
           <IconButton
             title="Yeni not oluştur"
-            ariaLabel="Yeni not oluştur"
             onClick={() => {
               if (onNewNote) onNewNote(null);
               else {
@@ -170,7 +169,6 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
           </IconButton>
           <IconButton
             title="Yeni klasör oluştur"
-            ariaLabel="Yeni klasör oluştur"
             onClick={() => {
               setInlineParentId(null);
               setFolderDraft("");
@@ -181,13 +179,12 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
           </IconButton>
           <IconButton
             title={allCollapsed ? "Tümünü genişlet" : "Tümünü daralt"}
-            ariaLabel={allCollapsed ? "Tümünü genişlet" : "Tümünü daralt"}
             onClick={() => setAllCollapsed((c) => !c)}
           >
             <ChevronsDownUp size={14} />
           </IconButton>
           {onClosePane && (
-            <IconButton title="Gezgini kapat" ariaLabel="Gezgini kapat" onClick={onClosePane}>
+            <IconButton title="Gezgini kapat" onClick={onClosePane}>
               <PanelLeftClose size={14} />
             </IconButton>
           )}
@@ -455,7 +452,6 @@ function FolderItem({
         <span className="hidden items-center group-hover:flex group-focus-within:flex gap-0.5">
           <IconButton
             title={`${folder.name} içine not ekle`}
-            ariaLabel={`${folder.name} içine not ekle`}
             onClick={() => {
               if (onNewNote) onNewNote(folder.id);
               else {
@@ -468,25 +464,13 @@ function FolderItem({
           >
             <Plus size={12} />
           </IconButton>
-          <IconButton
-            title={`${folder.name} içine alt klasör ekle`}
-            ariaLabel={`${folder.name} içine alt klasör ekle`}
-            onClick={() => onCreateChild(folder.id)}
-          >
+          <IconButton title={`${folder.name} içine alt klasör ekle`} onClick={() => onCreateChild(folder.id)}>
             <FolderPlus size={12} />
           </IconButton>
-          <IconButton
-            title={`${folder.name} adını değiştir`}
-            ariaLabel={`${folder.name} adını değiştir`}
-            onClick={() => onRename(folder)}
-          >
+          <IconButton title={`${folder.name} adını değiştir`} onClick={() => onRename(folder)}>
             <Pencil size={12} />
           </IconButton>
-          <IconButton
-            title={`${folder.name} klasörünü sil`}
-            ariaLabel={`${folder.name} klasörünü sil`}
-            onClick={() => onDelete(folder)}
-          >
+          <IconButton title={`${folder.name} klasörünü sil`} onClick={() => onDelete(folder)}>
             <Trash2 size={12} />
           </IconButton>
         </span>
