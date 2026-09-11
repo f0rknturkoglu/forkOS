@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { HeartPulse } from "lucide-react";
+import { HeartPulse, Radio } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { SourceHealthMiniWidget } from "./SourceHealthMiniWidget";
@@ -18,7 +18,7 @@ registerModule({
   group: "system",
   routes: [
     { path: "/health", element: HealthPage, title: "Sağlık" },
-    { path: "/sources", element: SourceHealthPage, title: "Kaynaklar", navigation: "child" },
+    { path: "/sources", element: SourceHealthPage, title: "Kaynaklar", icon: Radio, navigation: "child" },
   ],
   todayWidgets: [
     {

@@ -52,9 +52,18 @@ describe("AppSidebar", () => {
 
     expect(screen.getByRole("link", { name: "Bugün" }).getAttribute("href")).toBe("#/");
     expect(screen.getByRole("link", { name: "Notlar" }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("link", { name: "Rutinler" }).getAttribute("href")).toBe("#/habits");
-    expect(screen.getByRole("link", { name: "Haftalık plan" }).getAttribute("href")).toBe("#/planner");
-    expect(screen.getByRole("link", { name: "Bilgi grafı" }).getAttribute("href")).toBe("#/graph");
+    const habitsLink = screen.getByRole("link", { name: "Rutinler" });
+    expect(habitsLink.getAttribute("href")).toBe("#/habits");
+    expect(habitsLink.querySelector("svg")).not.toBeNull();
+
+    const plannerLink = screen.getByRole("link", { name: "Haftalık plan" });
+    expect(plannerLink.getAttribute("href")).toBe("#/planner");
+    expect(plannerLink.querySelector("svg")).not.toBeNull();
+
+    const graphLink = screen.getByRole("link", { name: "Bilgi grafı" });
+    expect(graphLink.getAttribute("href")).toBe("#/graph");
+    expect(graphLink.querySelector("svg")).not.toBeNull();
+
     expect(screen.queryByRole("link", { name: "Pomodoro" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Gün" })).toBeNull();
   });

@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { ListChecks } from "lucide-react";
+import { CalendarRange, ListChecks, Repeat } from "lucide-react";
 import { OverdueTodosWidget } from "./OverdueTodosWidget";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
@@ -19,8 +19,8 @@ registerModule({
   group: "do",
   routes: [
     { path: "/todos", element: TodoPage },
-    { path: "/habits", element: TodoPage, title: "Rutinler", navigation: "child" },
-    { path: "/planner", element: WeeklyPlannerPage, title: "Haftalık plan", navigation: "child" },
+    { path: "/habits", element: TodoPage, title: "Rutinler", icon: Repeat, navigation: "child" },
+    { path: "/planner", element: WeeklyPlannerPage, title: "Haftalık plan", icon: CalendarRange, navigation: "child" },
   ],
   todayWidgets: [
     {

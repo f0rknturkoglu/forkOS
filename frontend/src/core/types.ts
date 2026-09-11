@@ -1219,6 +1219,8 @@ export interface ModuleSpec {
     path: string;
     element: ComponentType;
     title?: string;
+    /** Lucide ikonu veya SVG bileseni. Alt rotalarda da gosterilir. */
+    icon?: LucideIcon | ComponentType<{ size?: number | string; className?: string }>;
     /** Birincil rota modül satırıdır; yalnız bilinçli ikincil girişler sidebar çocuğu olur. */
     navigation?: "child" | "hidden";
   }[];

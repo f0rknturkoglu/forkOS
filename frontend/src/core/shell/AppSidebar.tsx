@@ -57,13 +57,19 @@ function SidebarLink({
       }}
       className={cx(
         "group flex h-9 min-w-0 items-center rounded-control text-body transition-colors",
-        child ? "pl-9 pr-2" : collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
+        child ? (collapsed ? "justify-center px-0" : "gap-2.5 pl-6 pr-2.5 text-meta") : collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
         active
           ? "bg-surface-selected font-medium text-primary"
           : "text-secondary hover:bg-surface-hover hover:text-primary",
       )}
     >
-      {!child && <LinkIcon size={16} className="shrink-0 text-icon transition-colors group-hover:text-primary" />}
+      <LinkIcon
+        size={child ? 14 : 16}
+        className={cx(
+          "shrink-0 transition-colors",
+          child ? "text-muted group-hover:text-primary" : "text-icon group-hover:text-primary",
+        )}
+      />
       <span className={cx("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>{label}</span>
       {active && (
         <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full bg-accent", collapsed && "md:hidden")} aria-hidden />
@@ -125,7 +131,7 @@ export function AppSidebar({
       <aside
         aria-label="Ana navigasyon"
         className={cx(
-          "fixed inset-y-0 left-0 z-drawer flex w-sidebar -translate-x-full flex-col border-r border-subtle bg-sidebar transition-[width,transform] duration-200 md:sticky md:top-0 md:h-dvh md:translate-x-0",
+          "fixed inset-y-0 left-0 z-drawer flex w-sidebar -translate-x-full flex-col border-r border-subtle bg-sidebar transition-[width,transform] duration-300 ease-in-out md:sticky md:top-0 md:h-dvh md:translate-x-0",
           mobileOpen && "translate-x-0",
           collapsed ? "md:w-rail" : "md:w-sidebar",
         )}
@@ -247,8 +253,9 @@ export function AppSidebar({
                                   key={route.path}
                                   href={route.path}
                                   label={route.title ?? module.title}
+                                  icon={route.icon}
                                   active={Boolean(findRouteMatch([route], path))}
-                                  collapsed={false}
+                                  collapsed={collapsed}
                                   child
                                   onNavigate={onCloseMobile}
                                 />
