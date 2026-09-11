@@ -186,6 +186,21 @@ describe("NotesPage draft korumasi", () => {
     expect(confirmMock).toHaveBeenCalled();
     expect(textarea.value).toBe("# İkinci\n\ngövde 2");
   });
+
+  it("sol panelde NotesExplorer vault gezginini sunar ve gizlenip açılabilir", async () => {
+    renderPage();
+    expect(await screen.findByLabelText("Not içeriği")).toBeTruthy();
+    expect(screen.getByText("Kasa")).toBeTruthy();
+    expect(screen.getByText("Okuma Vurguları")).toBeTruthy();
+
+    const closeBtn = screen.getByRole("button", { name: "Gezgini kapat" });
+    fireEvent.click(closeBtn);
+    expect(screen.queryByText("Kasa")).toBeNull();
+
+    const openBtn = screen.getByRole("button", { name: "Kasa gezginini aç" });
+    fireEvent.click(openBtn);
+    expect(screen.getByText("Kasa")).toBeTruthy();
+  });
 });
 
 describe("not eki markdown yerleşimi", () => {

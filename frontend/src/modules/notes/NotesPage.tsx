@@ -12,6 +12,7 @@ import {
   Highlighter,
   Link2,
   Mic,
+  PanelLeftOpen,
   Paperclip,
   Pencil,
   Pin,
@@ -51,6 +52,7 @@ import { useOnline } from "@/lib/hooks";
 import { formatTrDateTime } from "@/lib/date";
 import { CanvasErrorBoundary } from "./CanvasErrorBoundary";
 import { BookmarkHighlights } from "./BookmarkHighlights";
+import { NotesExplorer } from "./NotesExplorer";
 import { NOTE_NAVIGATION_EVENT, type NoteNavigationRequest } from "./NoteSidebarTree";
 import { SLASH_COMMANDS, SlashCommandMenu, slashContext, type SlashCommand } from "./SlashCommandMenu";
 
@@ -171,6 +173,13 @@ export function NotesPage() {
   const caret = useRef(0);
   const [caretPosition, setCaretPosition] = useState(0);
   const [highlightsOpen, setHighlightsOpen] = useState(route.params.get("highlights") === "1");
+  const [explorerOpen, setExplorerOpen] = useState(() => {
+    try {
+      return localStorage.getItem("lifeos.notesExplorerOpen") !== "false";
+    } catch {
+      return true;
+    }
+  });
   const [mode, setMode] = useState<EditorMode>("write");
   const [selectedId, setSelectedId] = useState(focusId);
   const [creating, setCreating] = useState(route.params.get("new") === "1");
@@ -500,24 +509,80 @@ export function NotesPage() {
   };
   return (
     <PageFrame className="py-3">
-      <Surface className="min-h-workspace-body overflow-hidden">
-        <main className="min-w-0">
-          {!creating && !selected ? (
-            <div className="flex min-h-screen items-center justify-center p-6">
-              <Empty variant="page" title="Bir not seç">
-                Ana menüde Notlar altından bir kayıt aç veya yeni bir düşünce yakala.
-                <span className="mt-3 block">
-                  <Button variant="primary" onClick={() => beginNote()}>
-                    <Plus size={14} /> Yeni not
+      <div className="flex items-stretch gap-3 min-h-workspace-body">
+        {explorerOpen && (
+          <aside
+            aria-label="Kasa Gezgini"
+            className="w-72 shrink-0 overflow-hidden rounded-control border border-subtle bg-surface flex flex-col"
+          >
+            <NotesExplorer
+              focusId={selectedId}
+              onSelectNote={(id) => {
+                const note = notes.find((item) => item.id === id);
+                if (note) void openNote(note);
+              }}
+              onNewNote={(folderId) => void beginNote(undefined, folderId)}
+              onOpenHighlights={() => {
+                setHighlightsOpen(true);
+                navigate("/notes?highlights=1");
+              }}
+              onClosePane={() => {
+                setExplorerOpen(false);
+                try {
+                  localStorage.setItem("lifeos.notesExplorerOpen", "false");
+                } catch {}
+              }}
+            />
+          </aside>
+        )}
+
+        <Surface className="min-w-0 flex-1 overflow-hidden flex flex-col">
+          <main className="min-w-0 flex-1 flex flex-col">
+            {!creating && !selected ? (
+              <div className="flex min-h-[65vh] flex-1 flex-col items-center justify-center p-6 text-center">
+                {!explorerOpen && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="mb-4"
+                    onClick={() => {
+                      setExplorerOpen(true);
+                      try {
+                        localStorage.setItem("lifeos.notesExplorerOpen", "true");
+                      } catch {}
+                    }}
+                  >
+                    <PanelLeftOpen size={14} /> Kasa Gezginini Aç
                   </Button>
-                </span>
-              </Empty>
-            </div>
-          ) : (
-            <>
-              <header className="flex flex-wrap items-center gap-2 border-b border-subtle px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-heading text-primary">{creating ? "Yeni not" : selected?.title}</p>
+                )}
+                <Empty variant="page" title="Bir not seç">
+                  Kasa gezgininden bir not aç veya yeni bir düşünce yakala.
+                  <span className="mt-3 block">
+                    <Button variant="primary" onClick={() => beginNote()}>
+                      <Plus size={14} /> Yeni not
+                    </Button>
+                  </span>
+                </Empty>
+              </div>
+            ) : (
+              <>
+                <header className="flex flex-wrap items-center gap-2 border-b border-subtle px-4 py-3">
+                  {!explorerOpen && (
+                    <IconButton
+                      title="Kasa gezginini aç"
+                      ariaLabel="Kasa gezginini aç"
+                      onClick={() => {
+                        setExplorerOpen(true);
+                        try {
+                          localStorage.setItem("lifeos.notesExplorerOpen", "true");
+                        } catch {}
+                      }}
+                    >
+                      <PanelLeftOpen size={15} />
+                    </IconButton>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-heading text-primary">{creating ? "Yeni not" : selected?.title}</p>
                   <div className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
                     <span>
                       {dirty
@@ -851,15 +916,16 @@ export function NotesPage() {
           )}
         </main>
       </Surface>
+    </div>
 
-      {!creating && selected && (
-        <div className="grid gap-4 xl:grid-cols-2">
-          <RelatedPanel entityId={selected.id} />
-          <BacklinksPanel entityId={selected.id} />
-          {/* Not -> deste bagi varsa "bu notun kartlari" paneli burada cikar. */}
-          <NoteFlashcardPanel noteId={selected.id} />
-        </div>
-      )}
+    {!creating && selected && (
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <RelatedPanel entityId={selected.id} />
+        <BacklinksPanel entityId={selected.id} />
+        {/* Not -> deste bagi varsa "bu notun kartlari" paneli burada cikar. */}
+        <NoteFlashcardPanel noteId={selected.id} />
+      </div>
+    )}
       {highlightsOpen && (
         <BookmarkHighlights
           onClose={closeHighlights}
