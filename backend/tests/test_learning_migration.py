@@ -16,13 +16,18 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import settings
 
-HEAD_REVISION = "0048_learning_workspace"
+MIGRATION_REVISION = "0048_learning_workspace"
 LEGACY_REVISION = "0047_media_session_action"
 BACKEND = pathlib.Path(__file__).resolve().parents[1]
 
 
-def _alembic(revision: str) -> None:
-    direction = "upgrade" if revision == HEAD_REVISION else "downgrade"
+def _alembic(revision: str, direction: str = "upgrade") -> None:
+    """Alembic'i acik yon ile calistirir.
+
+    Onceden yon, revizyonun sabit "head" sabitine esitliginden turetiliyordu;
+    yeni migration eklendiginde head degisti ve test paylasilan test
+    veritabanini 0048'de birakip sonraki testleri kirdi. Yon artik acik.
+    """
     env = {**os.environ, "DATABASE_URL": settings.database_url}
     result = subprocess.run(
         ["alembic", direction, revision],
@@ -121,7 +126,10 @@ def _index_count(name: str) -> int:
 
 
 def test_learning_workspace_migration_roundtrip_keeps_rows() -> None:
-    _alembic(HEAD_REVISION)
+    # Paylasilan test veritabani once bilinen bir noktaya cekilir:
+    # 0048 "head" DEGIL, arada bir revizyondur; ona ancak downgrade ile inilir.
+    _alembic("head")
+    _alembic(MIGRATION_REVISION, "downgrade")
     _seed()
     try:
         # Upgrade hali: yeni kolon/kisit/index'ler yerinde.
@@ -135,7 +143,7 @@ def test_learning_workspace_migration_roundtrip_keeps_rows() -> None:
         assert _index_count("study_topic_next_review_idx") == 1
         assert _index_count("study_topic_last_studied_idx") == 1
 
-        _alembic(LEGACY_REVISION)
+        _alembic(LEGACY_REVISION, "downgrade")
         # Downgrade kolonlari ve kisitlari dusurur.
         assert _column_count("study_topic", "mastery") == 0
         assert _column_count("study_topic", "ease") == 0
@@ -154,7 +162,8 @@ def test_learning_workspace_migration_roundtrip_keeps_rows() -> None:
         )
         assert remaining[0]["status"] == "done"
     finally:
-        _alembic(HEAD_REVISION)
+        # Paylasilan test veritabanini HER ZAMAN gercek head'e dondur.
+        _alembic("head")
 
     # Yeniden upgrade: kolonlar geri gelir, satirlar hala yerinde.
     assert _column_count("study_topic", "mastery") == 1

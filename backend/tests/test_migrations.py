@@ -108,6 +108,10 @@ def test_module_tables_reference_entity():
         "application_history",
         # Opportunity alt kaydi (1:N) -- plan_slot gibi tek entity'yi olcen destek tablosu.
         "interview",
+        # Bir ilanin KAYNAK karsisindaki gozlemi (first/last seen, payload hash,
+        # kapanma). Bagimsiz aranabilir/linklenebilir nesne degil; yalnizca tek
+        # opportunity'yi olcen destek satiri (plan_slot ile ayni sinif).
+        "opportunity_source_observation",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

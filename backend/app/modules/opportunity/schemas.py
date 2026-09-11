@@ -150,6 +150,8 @@ class OpportunityOut(BaseModel):
     organization: str | None
     url: str | None
     status: str
+    #: Mevcut durumdan izinli kesif/duyuru gecisleri (backend state machine).
+    allowed_transitions: list[str] = Field(default_factory=list)
     priority: int
     found_at: datetime
     published_at: datetime | None
@@ -161,8 +163,12 @@ class OpportunityOut(BaseModel):
     source: str
     external_id: str | None
     raw: dict[str, Any]
-    #: forkjob uyum puani (0-100). -1 = kill kelimesi yakalandi, eleme.
+    #: Kural tabanli genel uygunluk puani: -1..100.
+    #: -1 = kill kelimesi yakalandi (elendi) · null = henuz hesaplanmadi.
     score: float | None = None
+    #: Puanin kaynagi ve hesaplanma ani (aciklanabilirlik).
+    score_source: str | None = None
+    score_computed_at: datetime | None = None
     #: Puanin bilesenleri. Yalnizca detay ucunda dolu -- liste hafif kalsin.
     score_reasons: dict[str, Any] | None = None
     notes: str | None
@@ -177,12 +183,35 @@ class OpportunityOut(BaseModel):
     cv_document_id: UUID | None = None
     #: Belge ters-bağı (DocumentsPage): gereksinime bağlanan ilk belge.
     requirement_document_id: UUID | None = None
+    #: Profil/beceri ortusmesi (0..1). CV DOSYASI kullanmaz; gercek CV
+    #: degerlendirmesi `evaluation` alanindadir. null = hesaplanmadi.
+    profile_match_ratio: float | None = None
     #: Profil ve CV beceri uyumu (eşleşen ve eksik teknolojiler)
     skill_match: SkillMatchOut | None = None
+    #: Basvuru hatti (yalnizca gercek basvuru kayitlarinda dolu).
+    application_status: str | None = None
+    application_status_changed_at: datetime | None = None
+    allowed_application_transitions: list[str] = Field(default_factory=list)
     #: career-ops esinli, tamamen yerel hizli risk ve meşruiyet sinyalleri.
     intelligence: OpportunityIntelligenceOut | None = None
-    #: career-ops iki asamali gereksinim ve aday eslestirmesi.
+    #: Gercek CV belgesiyle yapilan iki asamali degerlendirme (belge + parmak izi).
     evaluation: OpportunityEvaluationOut | None = None
+    # ── Kaynak gozlemi / kapanma ───────────────────────────────────────
+    source_status: str = "active"
+    last_seen_at: datetime | None = None
+    closed_at: datetime | None = None
+    # ── Duyuru alanlari (job kayitlarinda bos kalir) ───────────────────
+    official: bool | None = None
+    parent_id: UUID | None = None
+    stage: str | None = None
+    application_start_at: datetime | None = None
+    application_end_at: datetime | None = None
+    exam_at: datetime | None = None
+    result_at: datetime | None = None
+    guide_url: str | None = None
+    apply_url: str | None = None
+    quota_total: int | None = None
+    fields: list[str] = Field(default_factory=list)
 
 
 class ReplyAnalysisIn(BaseModel):
@@ -228,6 +257,37 @@ class RequirementIn(BaseModel):
     required: bool = True
     status: Literal["missing", "ready", "submitted", "waived"] = "missing"
     note: str | None = None
+
+
+class RequirementOut(BaseModel):
+    id: UUID
+    opportunity_id: UUID
+    name: str
+    required: bool = True
+    status: Literal["missing", "ready", "submitted", "waived"] = "missing"
+    document_entity_id: UUID | None = None
+    note: str | None = None
+    position: int = 0
+
+
+class PrunePreviewOut(BaseModel):
+    """Silme onizlemesi. Kullaniciya ikinci onaydan once gosterilir."""
+
+    candidates: int
+    protected: int
+    archived: int
+    estimated_bytes: int
+    days: int
+    confirm_token: str
+
+
+class PruneResultOut(BaseModel):
+    pruned: int
+    protected: int
+    archived: int
+    freed_bytes: int
+    days: int
+    event: str = "opportunity.pruned"
 
 
 class DeadlineOut(BaseModel):
@@ -289,6 +349,9 @@ class ApplicationOut(BaseModel):
     salary_expectation: str | None = None
     posting_snapshot: dict[str, Any] = {}
     note: str | None = None
+    #: Basvuru hatti durumu (lifecycle.APPLICATION_FLOW).
+    status: str = "applied"
+    status_changed_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -317,6 +380,8 @@ class HistoryOut(BaseModel):
     to_status: str
     at: datetime
     note: str | None = None
+    #: 'discovery' | 'application' -- kesif ve basvuru gecmisi ayrisir.
+    scope: str = "application"
 
 
 class InterviewOut(BaseModel):
@@ -442,11 +507,67 @@ class FunnelRow(BaseModel):
     count: int
 
 
-class FunnelOut(BaseModel):
+class FunnelBreakdownRow(BaseModel):
+    """Kirilim satiri. Payda ve paylar UI'da acikca yazilir."""
+
+    key: str
+    label: str
     total: int
+    responded: int
+    interviewed: int
+    offers: int
+    response_rate: float | None = None
+    interview_rate: float | None = None
+
+
+class FunnelVolumeRow(BaseModel):
+    period: str
+    applied: int
+
+
+class FunnelOut(BaseModel):
+    #: Payda: yalnizca gercek basvuru kayitlari. Kesfedilmis ilanlar sayilmaz.
+    total: int
+    #: Takip edilen (preparing + applied ve sonrasi) kayit sayisi.
+    tracked: int
     by_status: list[FunnelRow]
     conversions: dict[str, float | None]
     rejection_reasons: list[dict[str, Any]]
+    avg_first_response_days: float | None = None
+    avg_applied_to_interview_days: float | None = None
+    by_source: list[FunnelBreakdownRow] = Field(default_factory=list)
+    by_cv: list[FunnelBreakdownRow] = Field(default_factory=list)
+    by_role: list[FunnelBreakdownRow] = Field(default_factory=list)
+    by_country: list[FunnelBreakdownRow] = Field(default_factory=list)
+    by_work_mode: list[FunnelBreakdownRow] = Field(default_factory=list)
+    weekly_volume: list[FunnelVolumeRow] = Field(default_factory=list)
+    monthly_volume: list[FunnelVolumeRow] = Field(default_factory=list)
+
+
+class TimelineEntryOut(BaseModel):
+    """Basvuru zaman cizelgesi -- event/history kayitlarindan deterministik uretilir."""
+
+    kind: Literal[
+        "discovered",
+        "shortlisted",
+        "status",
+        "followup",
+        "interview",
+        "note",
+        "document",
+        "todo",
+        "offer",
+        "rejection",
+    ]
+    at: datetime
+    title: str
+    detail: str | None = None
+    status: str | None = None
+
+
+class ApplicationTimelineOut(BaseModel):
+    opportunity_id: UUID
+    entries: list[TimelineEntryOut]
 
 
 class FollowupOut(BaseModel):

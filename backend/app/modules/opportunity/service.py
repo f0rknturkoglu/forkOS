@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -15,10 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
+from app.core.links import link
 from app.core.models import Entity, Link
 from app.core.notifications import notify
 
 # Application CRM -- service.py uzerinden dogrudan import edenler bu isimleri korur.
+from app.modules.opportunity import lifecycle
 from app.modules.opportunity.application import (  # noqa: F401 (re-export: router service.X ile erisir)
     REJECTION_REASONS,
     TERMINAL_STATUSES,
@@ -42,13 +45,17 @@ from app.modules.opportunity.application import (  # noqa: F401 (re-export: rout
     list_history,
     list_interviews,
     patch_interview,
+    timeline,
+    transition_application,
     transition_status,
     upsert_application,
 )
 from app.modules.opportunity.models import (
     Application,
+    Interview,
     Opportunity,
     OpportunityRequirement,
+    OpportunitySourceObservation,
 )
 from app.modules.opportunity.schemas import (
     OpportunityEvaluationOut,
@@ -185,15 +192,19 @@ def _skill_match_ratio(opportunity: Opportunity, title: str) -> float | None:
     return 0.0 if opportunity.kind == "job" else None
 
 
-def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> OpportunityOut:
+def _out(
+    row: tuple[Opportunity, str],
+    *,
+    include_raw: bool = True,
+    #: `Application` ORM kaydi veya `ApplicationOut` semasi olabilir; ikisi de
+    #: status/status_changed_at tasir.
+    application: Any = None,
+) -> OpportunityOut:
+    from app.modules.opportunity import lifecycle
+
     o, title = row
-    # Skor raw'in icinde duruyor; listede raw'i tasimadan yalnizca sayiyi
-    # cikariyoruz, cunku kart siralamasi ve elemesi buna dayaniyor.
-    forkjob = (o.raw or {}).get("forkjob") or {}
-    score = forkjob.get("score")
-    # forkjob'in to_row() ciktisinda reasons JSON metni olarak duruyor;
-    # dict bekleyen sema icin cozuyoruz. Bozuksa alan bos gecer.
-    reasons = _score_reasons(o.raw)
+    # Skor kanonik kolondan okunur; raw yalnizca aciklama (reasons) tasir.
+    reasons = _score_reasons(o.raw) if include_raw else None
     evaluation = None
     if o.evaluation:
         try:
@@ -210,6 +221,7 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
         organization=o.organization,
         url=o.url,
         status=o.status,
+        allowed_transitions=lifecycle.allowed_discovery_transitions(o.kind, o.status),
         priority=o.priority,
         found_at=o.found_at,
         published_at=o.published_at,
@@ -221,8 +233,10 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
         source=o.source,
         external_id=o.external_id,
         raw=o.raw if include_raw else {},
-        score=score if isinstance(score, (int, float)) else None,
-        score_reasons=reasons if include_raw else None,
+        score=o.score,
+        score_source=o.score_source,
+        score_computed_at=o.score_computed_at,
+        score_reasons=reasons,
         notes=o.notes,
         trashed_at=o.trashed_at,
         trashed_from_status=o.trashed_from_status,
@@ -230,9 +244,70 @@ def _out(row: tuple[Opportunity, str], *, include_raw: bool = True) -> Opportuni
         region=o.region,
         follow_up_at=o.follow_up_at,
         rejection_reason=o.rejection_reason,
-        skill_match=_calculate_skill_match(o, title, reasons),
+        profile_match_ratio=o.skill_match_ratio,
+        skill_match=_calculate_skill_match(o, title, _score_reasons(o.raw)),
+        application_status=application.status if application is not None else None,
+        application_status_changed_at=(
+            application.status_changed_at if application is not None else None
+        ),
+        allowed_application_transitions=(
+            lifecycle.allowed_application_transitions(application.status)
+            if application is not None
+            else []
+        ),
         evaluation=evaluation,
+        source_status=o.source_status,
+        last_seen_at=o.last_seen_at,
+        closed_at=o.closed_at,
+        official=o.official,
+        parent_id=o.parent_id,
+        stage=o.stage,
+        application_start_at=o.application_start_at,
+        application_end_at=o.application_end_at,
+        exam_at=o.exam_at,
+        result_at=o.result_at,
+        guide_url=o.guide_url,
+        apply_url=o.apply_url,
+        quota_total=o.quota_total,
+        fields=list(o.fields or []),
     )
+
+
+async def attach_applications(
+    session: AsyncSession,
+    rows: Sequence[tuple[Opportunity, str]],
+    outs: list[OpportunityOut],
+) -> list[OpportunityOut]:
+    """Liste cikislarina basvuru hattini tek sorguda ekler (N+1 yok)."""
+    ids = [row[0].id for row in rows]
+    if not ids:
+        return outs
+    applications = {
+        app.opportunity_id: app
+        for app in (
+            await session.execute(select(Application).where(Application.opportunity_id.in_(ids)))
+        ).scalars()
+    }
+    return [
+        out.model_copy(
+            update={
+                "application_status": applications[out.id].status,
+                "application_status_changed_at": applications[out.id].status_changed_at,
+                "allowed_application_transitions": _allowed_application(
+                    applications[out.id].status
+                ),
+            }
+        )
+        if out.id in applications
+        else out
+        for out in outs
+    ]
+
+
+def _allowed_application(status: str) -> list[str]:
+    from app.modules.opportunity import lifecycle
+
+    return lifecycle.allowed_application_transitions(status)
 
 
 async def list_opportunities(
@@ -261,6 +336,7 @@ async def list_opportunities(
     stmt = stmt.limit(limit)
     rows = (await session.execute(stmt)).all()
     outs = [_out(row, include_raw=False) for row in rows]
+    outs = await attach_applications(session, rows, outs)
     if not outs:
         return outs
     from app.modules.opportunity.intelligence import enrich_opportunities
@@ -304,12 +380,17 @@ async def list_opportunities(
 
 
 async def trash_opportunity(session: AsyncSession, item_id: uuid.UUID) -> OpportunityOut | None:
+    from app.modules.opportunity import lifecycle
+
     item = await session.get(Opportunity, item_id)
     if item is None:
         return None
     if item.trashed_at is None:
         item.trashed_from_status = item.status
-        item.status = "trashed"
+        # Kesif dongusunde "elendi" durumu; is basvurusu hatti bundan etkilenmez.
+        if item.status != lifecycle.TRASH_STATUS:
+            await _record_discovery_change(session, item, lifecycle.TRASH_STATUS)
+            item.status = lifecycle.TRASH_STATUS
         item.trashed_at = datetime.now(UTC)
         await touch_entity(session, item.id)
         await log_event(
@@ -329,11 +410,16 @@ async def trash_opportunity(session: AsyncSession, item_id: uuid.UUID) -> Opport
 
 
 async def restore_opportunity(session: AsyncSession, item_id: uuid.UUID) -> OpportunityOut | None:
+    from app.modules.opportunity import lifecycle
+
     item = await session.get(Opportunity, item_id)
     if item is None:
         return None
     if item.trashed_at is not None:
-        restored_status = item.trashed_from_status or "discovered"
+        restored_status = lifecycle.coerce_discovery_status(item.kind, item.trashed_from_status)
+        if restored_status == lifecycle.TRASH_STATUS:
+            restored_status = lifecycle.discovery_flow(item.kind)[0]
+        await _record_discovery_change(session, item, restored_status)
         item.status = restored_status
         item.trashed_at = None
         item.trashed_from_status = None
@@ -352,6 +438,15 @@ async def restore_opportunity(session: AsyncSession, item_id: uuid.UUID) -> Oppo
         )
     ).one()
     return _out(row)
+
+
+async def _record_discovery_change(
+    session: AsyncSession, item: Opportunity, to_status: str
+) -> None:
+    """Kesif durumu degisimini ortak gecmis/olay yolundan yazar."""
+    await _record_status_change(
+        session, item, to_status, from_status=item.status, scope="discovery"
+    )
 
 
 async def delete_opportunity(session: AsyncSession, item_id: uuid.UUID) -> bool:
@@ -377,6 +472,8 @@ async def delete_opportunity(session: AsyncSession, item_id: uuid.UUID) -> bool:
 
 
 async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
+    from app.modules.opportunity import lifecycle
+
     entity = await create_entity(
         session,
         type="opportunity",
@@ -390,22 +487,23 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
         id=entity.id,
         kind=data.kind,
         category=classify_job(data.title, data.organization, data.notes)
-        if data.kind == "job"
+        if lifecycle.is_job_kind(data.kind)
         else None,
         organization=data.organization,
         url=str(data.url) if data.url else None,
-        status=data.status,
+        # Serbest metin durum kabul edilmez: tur bazli kume tek hakikat kaynagi.
+        status=lifecycle.coerce_discovery_status(data.kind, data.status),
         priority=data.priority,
         found_at=now,
         published_at=None,
         deadline_at=data.deadline_at,
-        applied_at=now if data.status == "applied" else None,
         location=data.location,
         remote=data.remote,
         compensation=data.compensation,
         source="manual",
         raw={},
         notes=data.notes,
+        last_seen_at=now,
     )
     item.skill_match_ratio = _skill_match_ratio(item, data.title)
     session.add(item)
@@ -417,12 +515,14 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
         payload={"kind": item.kind, "status": item.status},
     )
     await session.commit()
-    return (await list_opportunities(session))[0] if False else _out((item, data.title))
+    return _out((item, data.title))
 
 
 async def patch(
     session: AsyncSession, item_id: uuid.UUID, data: OpportunityPatch
 ) -> OpportunityOut | None:
+    from app.modules.opportunity import lifecycle
+
     item = await session.get(Opportunity, item_id)
     if item is None:
         return None
@@ -435,8 +535,8 @@ async def patch(
     next_status = changes.pop("status", None)
     # Durum degisikligi her zaman akistan gecer: gecmis + event yazilir.
     if next_status is not None and next_status != old_status:
-        _validate_transition(old_status, next_status)
-        await _record_status_change(session, item, next_status, note=None)
+        lifecycle.validate_discovery_transition(item.kind, old_status, next_status)
+        await _record_discovery_change(session, item, next_status)
         item.status = next_status
     for key, value in changes.items():
         setattr(item, key, value)
@@ -608,22 +708,211 @@ async def merge_duplicate_clusters(
     )
 
 
+def _parse_dt(value: Any) -> datetime | None:
+    """ISO-8601 metnini datetime'a cevirir; gecersizde None doner."""
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _announcement_columns(raw: dict[str, Any]) -> dict[str, Any]:
+    """`raw['announcement']` yukunu Opportunity kolonlarina cevirir.
+
+    Duyuru kaynaklari (YLSY/OSYM/kurum) ek alanlari bu anahtar altinda tasir;
+    alan yoksa kolonlar bos kalir -- tahmin edilmez.
+    """
+    payload = raw.get("announcement")
+    if not isinstance(payload, dict):
+        return {}
+    official = payload.get("official")
+    quota = payload.get("quota_total")
+    fields = payload.get("fields")
+    return {
+        "official": official if isinstance(official, bool) else None,
+        "stage": payload.get("stage") if isinstance(payload.get("stage"), str) else None,
+        "application_start_at": _parse_dt(payload.get("application_start_at")),
+        "application_end_at": _parse_dt(payload.get("application_end_at")),
+        "exam_at": _parse_dt(payload.get("exam_at")),
+        "result_at": _parse_dt(payload.get("result_at")),
+        "guide_url": payload.get("guide_url") if isinstance(payload.get("guide_url"), str) else None,
+        "apply_url": payload.get("apply_url") if isinstance(payload.get("apply_url"), str) else None,
+        "quota_total": quota if isinstance(quota, int) else None,
+        "fields": [str(item) for item in fields] if isinstance(fields, list) else [],
+    }
+
+
+def _payload_hash(raw: dict[str, Any]) -> str:
+    """Icerik degisimini yakalayan hash; gozlem zamani alanlari disarida."""
+    stable = {
+        key: value
+        for key, value in raw.items()
+        if key not in {"first_seen", "last_seen", "missed_syncs", "is_open", "last_seen_at"}
+    }
+    return hashlib.sha256(
+        json.dumps(stable, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()[:32]
+
+
+def _cluster_keys(jobs: list[Any]) -> list[str]:
+    keys: list[str] = []
+    for job in jobs:
+        raw = job.to_row() if hasattr(job, "to_row") else {}
+        forkjob = raw.get("forkjob", raw) if isinstance(raw, dict) else {}
+        key = forkjob.get("cluster_key")
+        if key:
+            keys.append(str(key))
+    return keys
+
+
+async def _load_observations(
+    session: AsyncSession, opportunity_ids: list[uuid.UUID], source_label: str
+) -> dict[uuid.UUID, OpportunitySourceObservation]:
+    if not opportunity_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(OpportunitySourceObservation).where(
+                OpportunitySourceObservation.opportunity_id.in_(opportunity_ids),
+                OpportunitySourceObservation.source == source_label,
+            )
+        )
+    ).scalars()
+    return {row.opportunity_id: row for row in rows}
+
+
+async def _touch_observation(
+    session: AsyncSession,
+    *,
+    opportunity: Opportunity,
+    source_label: str,
+    external_id: str | None,
+    url: str | None,
+    payload_hash: str,
+    source_published_at: datetime | None,
+    now: datetime,
+    cache: dict[uuid.UUID, OpportunitySourceObservation],
+) -> None:
+    """Kaynak gozlemini yazar; tekrar gorulen ilan yeniden acilir."""
+    row = cache.get(opportunity.id)
+    if row is None:
+        row = OpportunitySourceObservation(
+            opportunity_id=opportunity.id,
+            source=source_label,
+            external_id=external_id,
+            canonical_url=url,
+            payload_hash=payload_hash,
+            source_status="active",
+            first_seen_at=now,
+            last_seen_at=now,
+            last_successful_seen_at=now,
+            source_published_at=source_published_at,
+        )
+        session.add(row)
+        cache[opportunity.id] = row
+        return
+    row.external_id = external_id or row.external_id
+    row.canonical_url = url or row.canonical_url
+    row.payload_hash = payload_hash
+    row.last_seen_at = now
+    row.last_successful_seen_at = now
+    row.source_published_at = source_published_at or row.source_published_at
+    if row.source_status != "active":
+        # Kaynakta tekrar gorundu: yeniden ac ve olayi kaydet.
+        row.source_status = "active"
+        row.source_removed_at = None
+        await log_event(
+            session,
+            verb="opportunity.source_reopened",
+            entity_id=opportunity.id,
+            entity_type="opportunity",
+            payload={"source": source_label},
+        )
+
+
+def _refresh_opportunity(
+    opportunity: Opportunity,
+    *,
+    job: Any,
+    raw: dict[str, Any],
+    forkjob: dict[str, Any],
+    category: str | None,
+    published_at: datetime | None,
+    deadline_at: datetime | None,
+    source_label: str,
+    now: datetime,
+) -> None:
+    """Kaynak verisiyle tazelenen alanlar. Kullanici alanlarina dokunulmaz."""
+    opportunity.raw = raw
+    opportunity.category = category
+    opportunity.published_at = published_at
+    opportunity.deadline_at = deadline_at
+    opportunity.skill_match_ratio = _skill_match_ratio(opportunity, job.title)
+    score = forkjob.get("score")
+    if isinstance(score, (int, float)):
+        opportunity.score = float(score)
+        opportunity.score_source = "forkjob-rules"
+        opportunity.score_computed_at = now
+    if forkjob.get("country") and not opportunity.country:
+        opportunity.country = forkjob.get("country")
+    if forkjob.get("region") and not opportunity.region:
+        opportunity.region = forkjob.get("region")
+    if job.company:
+        opportunity.organization = job.company
+    if job.url:
+        opportunity.url = job.url
+    if job.location:
+        opportunity.location = job.location
+    if forkjob.get("work_mode"):
+        opportunity.remote = str(forkjob["work_mode"])
+    elif getattr(job, "work_mode", None) is not None:
+        opportunity.remote = job.work_mode.value
+    if job.salary:
+        opportunity.compensation = job.salary
+    opportunity.last_seen_at = now
+    opportunity.source_status = "active"
+    opportunity.missing_since = None
+    opportunity.closed_at = None
+    # Duyuru alanlari kaynak sahipli; tazelenir. Kullanici alanlarina dokunulmaz.
+    for key, value in _announcement_columns(raw).items():
+        if value is not None and value != []:
+            setattr(opportunity, key, value)
+
+
 async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str) -> int:
-    """forkjob Job nesnelerini forkOS entity/opportunity kayıtlarına çevirir."""
+    """forkjob Job nesnelerini forkOS entity/opportunity kayitlarina cevirir.
+
+    Kayit basina SORGU YOK: external_id, url ve cluster_key lookup'lari tek
+    seferde toplu yapilir; gozlemler de toplu okunur/yazilir (Faz 6.3).
+    """
     if not jobs:
         return 0
     added = 0
+    now = datetime.now(UTC)
 
-    # Toplu on-yukleme: N+1 sorgu yerine batch lookup ile var olan kayitlari tek seferde al
+    rows_by_job: list[tuple[Any, dict[str, Any], dict[str, Any]]] = []
+    for job in jobs:
+        raw = job.to_row()
+        forkjob = raw.get("forkjob", raw) if isinstance(raw, dict) else {}
+        rows_by_job.append((job, raw, forkjob))
+
     external_ids = [
-        str(j.external_id or getattr(j, "job_id", None))
-        for j in jobs
-        if (getattr(j, "external_id", None) or getattr(j, "job_id", None))
+        str(job.external_id or getattr(job, "job_id", None))
+        for job, _raw, _fk in rows_by_job
+        if (getattr(job, "external_id", None) or getattr(job, "job_id", None))
     ]
+    urls = [job.url for job, _raw, _fk in rows_by_job if getattr(job, "url", None)]
+    cluster_keys = [fk.get("cluster_key") for _job, _raw, fk in rows_by_job if fk.get("cluster_key")]
+
     existing_by_ext: dict[str, Opportunity] = {}
     if external_ids:
-        ext_rows = (
-            (
+        existing_by_ext = {
+            row.external_id: row
+            for row in (
                 await session.execute(
                     select(Opportunity).where(
                         Opportunity.source == source_label,
@@ -633,24 +922,41 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             )
             .scalars()
             .all()
-        )
-        existing_by_ext = {o.external_id: o for o in ext_rows if o.external_id}
+            if row.external_id
+        }
 
-    urls = [j.url for j in jobs if getattr(j, "url", None)]
     existing_by_url: dict[str, Opportunity] = {}
     if urls:
-        url_rows = (
-            (await session.execute(select(Opportunity).where(Opportunity.url.in_(urls))))
+        existing_by_url = {
+            row.url: row
+            for row in (
+                await session.execute(select(Opportunity).where(Opportunity.url.in_(urls)))
+            )
             .scalars()
             .all()
-        )
-        existing_by_url = {o.url: o for o in url_rows if o.url}
+            if row.url
+        }
 
-    for job in jobs:
+    # cluster_key lookup'i kayit basina degil, tek sorguda (eski N+1 buradaydi).
+    existing_by_cluster: dict[str, list[Opportunity]] = {}
+    if cluster_keys:
+        cluster_expr = Opportunity.raw["forkjob"]["cluster_key"].astext
+        for row in (
+            (
+                await session.execute(
+                    select(Opportunity).where(cluster_expr.in_(cluster_keys))
+                )
+            )
+            .scalars()
+            .all()
+        ):
+            key = ((row.raw or {}).get("forkjob") or {}).get("cluster_key")
+            if key:
+                existing_by_cluster.setdefault(str(key), []).append(row)
+
+    touched: list[Opportunity] = []
+    for job, raw, forkjob in rows_by_job:
         external_id = job.external_id or getattr(job, "job_id", None)
-        existing = existing_by_ext.get(str(external_id)) if external_id else None
-        raw = job.to_row()
-        forkjob = raw.get("forkjob", raw)
         published_at = getattr(job, "published_at", None)
         deadline_at = getattr(job, "deadline_at", None)
         department = forkjob.get("department") or forkjob.get("departments")
@@ -665,61 +971,49 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             if getattr(job, "kind", "job") == "job"
             else forkjob.get("category")
         )
+
         cluster_key = forkjob.get("cluster_key")
-        cluster_matches: list[Opportunity] = []
-        if cluster_key:
-            cluster_matches = list(
-                (
-                    await session.execute(
-                        select(Opportunity).where(
-                            Opportunity.raw["forkjob"]["cluster_key"].astext == cluster_key
-                        )
-                    )
-                )
-                .scalars()
-                .all()
-            )
+        cluster_matches = existing_by_cluster.get(str(cluster_key), []) if cluster_key else []
         if cluster_matches:
             canonical = canonical_cluster(cluster_matches)
             _merge_cluster_sources(canonical, cluster_matches, source_label)
-            if existing is not None:
-                existing.raw = raw if existing is canonical else existing.raw
-                existing.category = category
-                existing.published_at = published_at
-                existing.deadline_at = deadline_at
-                existing.skill_match_ratio = _skill_match_ratio(existing, job.title)
+            _refresh_opportunity(
+                canonical,
+                job=job,
+                raw=raw if canonical.source == source_label else canonical.raw,
+                forkjob=forkjob,
+                category=category,
+                published_at=published_at,
+                deadline_at=deadline_at,
+                source_label=source_label,
+                now=now,
+            )
+            touched.append(canonical)
             continue
-        if existing:
-            existing.raw = raw
-            existing.category = category
-            existing.published_at = published_at
-            existing.deadline_at = deadline_at
-            existing.skill_match_ratio = _skill_match_ratio(existing, job.title)
-            if existing.country is None and forkjob.get("country"):
-                existing.country = forkjob.get("country")
-            if existing.region is None and forkjob.get("region"):
-                existing.region = forkjob.get("region")
+
+        existing = existing_by_ext.get(str(external_id)) if external_id else None
+        if existing is None and job.url:
+            existing = existing_by_url.get(job.url)
+        if existing is not None:
+            if existing.source != source_label and job.url and existing_by_url.get(job.url) is existing:
+                sources = list((existing.raw or {}).get("sources", [existing.source]))
+                if source_label not in sources:
+                    sources.append(source_label)
+                existing.raw = {**(existing.raw or {}), "sources": sources}
+            _refresh_opportunity(
+                existing,
+                job=job,
+                raw=raw,
+                forkjob=forkjob,
+                category=category,
+                published_at=published_at,
+                deadline_at=deadline_at,
+                source_label=source_label,
+                now=now,
+            )
+            touched.append(existing)
             continue
-        # Ikinci savunma: ayni URL farkli kaynaktan geliyorsa birlestir; ayni kaynaktan geliyorsa guncelle.
-        if job.url:
-            by_url = existing_by_url.get(job.url)
-            if by_url is not None:
-                if by_url.source != source_label:
-                    sources = list(by_url.raw.get("sources", [by_url.source]))
-                    if source_label not in sources:
-                        sources.append(source_label)
-                    by_url.raw = {**by_url.raw, "sources": sources}
-                else:
-                    by_url.raw = raw
-                    by_url.category = category
-                    by_url.published_at = published_at
-                    by_url.deadline_at = deadline_at
-                    by_url.skill_match_ratio = _skill_match_ratio(by_url, job.title)
-                    if by_url.country is None and forkjob.get("country"):
-                        by_url.country = forkjob.get("country")
-                    if by_url.region is None and forkjob.get("region"):
-                        by_url.region = forkjob.get("region")
-                continue
+
         entity = await create_entity(
             session,
             type="opportunity",
@@ -730,15 +1024,17 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         )
         score = forkjob.get("score")
         priority = 3 if isinstance(score, (int, float)) and score >= 50 else 2
+        kind = getattr(job, "kind", "job")
         new_opp = Opportunity(
             id=entity.id,
-            kind=getattr(job, "kind", "job"),
+            kind=kind,
             category=category,
             organization=job.company,
             url=job.url,
-            status="discovered",
+            # Kesif dongusu is ilanlarinda 'discovered', duyurularda 'new' baslar.
+            status=lifecycle.coerce_discovery_status(kind, None),
             priority=priority,
-            found_at=datetime.now(UTC),
+            found_at=now,
             published_at=published_at,
             deadline_at=deadline_at,
             location=job.location,
@@ -749,6 +1045,12 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             raw=raw,
             country=forkjob.get("country"),
             region=forkjob.get("region"),
+            score=float(score) if isinstance(score, (int, float)) else None,
+            score_source="forkjob-rules" if isinstance(score, (int, float)) else None,
+            score_computed_at=now if isinstance(score, (int, float)) else None,
+            source_status="active",
+            last_seen_at=now,
+            **_announcement_columns(raw),
         )
         new_opp.skill_match_ratio = _skill_match_ratio(new_opp, job.title)
         session.add(new_opp)
@@ -756,7 +1058,33 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             existing_by_ext[str(external_id)] = new_opp
         if job.url:
             existing_by_url[job.url] = new_opp
+        touched.append(new_opp)
         added += 1
+
+    # Gozlemler icin kimlikler: create_entity flush ettigi icin hazir.
+    await session.flush()
+    await _link_announcement_hierarchy(
+        session,
+        rows_by_job=rows_by_job,
+        touched=touched,
+        source_label=source_label,
+    )
+    observation_cache = await _load_observations(
+        session, [row.id for row in touched], source_label
+    )
+    for (job, raw, _forkjob), opportunity in zip(rows_by_job, touched, strict=False):
+        await _touch_observation(
+            session,
+            opportunity=opportunity,
+            source_label=source_label,
+            external_id=str(job.external_id or getattr(job, "job_id", "") or "") or None,
+            url=job.url,
+            payload_hash=_payload_hash(raw),
+            source_published_at=getattr(job, "published_at", None),
+            now=now,
+            cache=observation_cache,
+        )
+
     if added:
         await log_event(
             session,
@@ -769,9 +1097,138 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             kind="opportunity.digest",
             title=f"{source_label}: {added} yeni fırsat",
             body="Yeni kayıtlar Fırsatlar ekranına eklendi.",
-            dedup_key=f"digest:{source_label}:{datetime.now(UTC).date()}",
+            dedup_key=f"digest:{source_label}:{now.date()}",
         )
     return added
+
+
+#: Kaynak sinifina gore kapanma bekleme suresi (gun).
+_CLOSE_GRACE_DAYS = {"critical": 1, "normal": 3, "slow": 14}
+
+
+async def sweep_missing_opportunities(
+    session: AsyncSession,
+    *,
+    source_label: str,
+    seen_opportunity_ids: list[uuid.UUID],
+    grace_days: int = 3,
+    now: datetime | None = None,
+) -> dict[str, int]:
+    """Kaynakta gorunmeyen ilanlari kademeli kapatir (kayit basina sorgu yok).
+
+    Hemen kapatmaz: once ``missing``, grace sonrasi ``likely_closed``, bir tur
+    daha sonra ``closed``. Kaynakta tekrar gorunurse ``ingest_jobs`` yeniden acar.
+    """
+    moment = now or datetime.now(UTC)
+    seen = set(seen_opportunity_ids)
+    rows = list(
+        (
+            await session.execute(
+                select(OpportunitySourceObservation).where(
+                    OpportunitySourceObservation.source == source_label,
+                    OpportunitySourceObservation.source_status != "closed",
+                )
+            )
+        ).scalars()
+    )
+    missing = likely_closed = closed = 0
+    for row in rows:
+        if row.opportunity_id in seen:
+            continue
+        if row.source_status == "active":
+            row.source_status = "missing"
+            row.source_removed_at = moment
+            missing += 1
+        elif row.source_status == "missing":
+            since = row.source_removed_at or row.last_seen_at
+            if (moment - since).days >= grace_days:
+                row.source_status = "likely_closed"
+                likely_closed += 1
+        elif row.source_status == "likely_closed":
+            since = row.source_removed_at or row.last_seen_at
+            if (moment - since).days >= grace_days * 2:
+                row.source_status = "closed"
+                closed += 1
+        else:
+            continue
+        opportunity = await session.get(Opportunity, row.opportunity_id)
+        if opportunity is None:
+            continue
+        opportunity.source_status = row.source_status
+        if row.source_status == "missing":
+            opportunity.missing_since = opportunity.missing_since or moment
+        elif row.source_status == "closed":
+            opportunity.closed_at = moment
+            if opportunity.status in {"discovered", "shortlisted"}:
+                await _record_discovery_change(session, opportunity, "closed")
+                opportunity.status = "closed"
+        if row.source_status != "active":
+            await log_event(
+                session,
+                verb="opportunity.source_status_changed",
+                entity_id=opportunity.id,
+                entity_type="opportunity",
+                payload={"source": source_label, "status": row.source_status},
+            )
+    if missing or likely_closed or closed:
+        await session.commit()
+    return {"missing": missing, "likely_closed": likely_closed, "closed": closed}
+
+
+async def _link_announcement_hierarchy(
+    session: AsyncSession,
+    *,
+    rows_by_job: list[tuple[Any, dict[str, Any], dict[str, Any]]],
+    touched: list[Opportunity],
+    source_label: str,
+) -> None:
+    """YLSY ana kilavuz/çocuk kontenjan ve düzeltme ilişkilerini kurar.
+
+    Kaynak `external_id` ile referans verir; biz aynı kaynak içinde
+    `external_id -> opportunity.id` çözerek `parent_id` ve `references`
+    bağlantısını yazarız. Tek sorgu; kayıt başına arama yok.
+    """
+    references: list[tuple[str, str, str]] = []
+    for (job, raw, _forkjob), _opportunity in zip(rows_by_job, touched, strict=False):
+        payload = raw.get("announcement")
+        if not isinstance(payload, dict):
+            continue
+        parent_external = payload.get("parent_external_id")
+        corrects_external = payload.get("corrects_external_id")
+        own = str(job.external_id or getattr(job, "job_id", "") or "")
+        if parent_external and own:
+            references.append((str(parent_external), own, "parent"))
+        if corrects_external and own:
+            references.append((str(corrects_external), own, "corrects"))
+    if not references:
+        return
+
+    wanted = {reference[0] for reference in references} | {reference[1] for reference in references}
+    known: dict[str, uuid.UUID] = {
+        row.external_id: row.id
+        for row in (
+            await session.execute(
+                select(Opportunity).where(
+                    Opportunity.source == source_label,
+                    Opportunity.external_id.in_(list(wanted)),
+                )
+            )
+        )
+        .scalars()
+        .all()
+        if row.external_id
+    }
+    for parent_external, child_external, kind in references:
+        parent_id = known.get(parent_external)
+        child_id = known.get(child_external)
+        if parent_id is None or child_id is None or parent_id == child_id:
+            continue
+        if kind == "parent":
+            child = await session.get(Opportunity, child_id)
+            if child is not None and child.parent_id != parent_id:
+                child.parent_id = parent_id
+        else:
+            await link(session, child_id, parent_id, "references")
 
 
 async def backfill_skill_match_ratios(session: AsyncSession, *, batch_size: int = 500) -> int:
@@ -800,33 +1257,140 @@ async def backfill_skill_match_ratios(session: AsyncSession, *, batch_size: int 
         await session.commit()
 
 
-async def prune_stale_opportunities(session: AsyncSession, *, days: int = 90) -> int:
-    """3 aydan (days=90) eski iş ilanlarını ve çöpteki/reddedilen ilanları temizler.
-    Kullanıcının aktif takip ettiği (applied, interview, offer, accepted, considering, preparing) ilanlar korunur.
-    """
+@dataclass(frozen=True)
+class PrunePreview:
+    """Silme onizlemesi -- kullaniciya ikinci onaydan once gosterilir."""
+
+    candidates: int = 0
+    protected: int = 0
+    archived: int = 0
+    estimated_bytes: int = 0
+    days: int = 90
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "candidates": self.candidates,
+            "protected": self.protected,
+            "archived": self.archived,
+            "estimated_bytes": self.estimated_bytes,
+            "days": self.days,
+        }
+
+
+async def _average_row_bytes(session: AsyncSession) -> int:
+    """Bir ilanin kabaca kapladigi yer (opportunity tablosu / satir sayisi)."""
+    size, count = (
+        await session.execute(
+            select(
+                func.pg_relation_size("opportunity"),
+                select(func.count()).select_from(Opportunity).scalar_subquery(),
+            )
+        )
+    ).one()
+    return int(size / count) if count else 0
+
+
+async def _prune_candidates(session: AsyncSession, *, days: int) -> tuple[list[uuid.UUID], int, int]:
+    """(silinebilir id'ler, korunan sayisi, arsivlenen sayisi)."""
     cutoff = datetime.now(UTC) - timedelta(days=days)
-    active_statuses = {"considering", "preparing", "applied", "interview", "offer", "accepted"}
-    stale_ids = list(
+    stale_filter = (
+        func.coalesce(Opportunity.found_at, Opportunity.published_at) < cutoff,
+        Opportunity.trashed_at.is_(None),
+    )
+    # Kullanici ilgisi olan her kayit korunur: basvuru, gorusme, gereksinim,
+    # not, yer imi ya da herhangi bir entity link'i.
+    linked_ids = select(Link.from_id).union(select(Link.to_id))
+    user_touched = (
+        select(Application.opportunity_id)
+        .union(
+            select(Interview.opportunity_id),
+            select(OpportunityRequirement.opportunity_id),
+            linked_ids,
+        )
+    )
+    protected = (
+        await session.execute(
+            select(func.count())
+            .select_from(Opportunity)
+            .where(
+                *stale_filter,
+                or_(
+                    Opportunity.id.in_(user_touched),
+                    Opportunity.status != "discovered",
+                    Opportunity.source == "manual",
+                ),
+            )
+        )
+    ).scalar_one()
+
+    candidate_ids = list(
         (
             await session.execute(
                 select(Opportunity.id).where(
-                    or_(
-                        Opportunity.trashed_at.is_not(None),
-                        Opportunity.status.not_in(active_statuses),
-                    ),
-                    func.coalesce(Opportunity.found_at, Opportunity.published_at) < cutoff,
+                    *stale_filter,
+                    Opportunity.kind == "job",
+                    Opportunity.status == "discovered",
+                    Opportunity.source != "manual",
+                    Opportunity.id.not_in(user_touched),
                 )
             )
         )
         .scalars()
         .all()
     )
-    if not stale_ids:
-        return 0
-    for item_id in stale_ids:
+    # Reddedilmis/kapanmis gercek basvurular analitik icin arsivde tutulur.
+    archived = (
+        await session.execute(
+            select(func.count())
+            .select_from(Application)
+            .join(Opportunity, Opportunity.id == Application.opportunity_id)
+            .where(
+                Application.status.in_(list(lifecycle.APPLICATION_TERMINAL)),
+                Opportunity.trashed_at.is_(None),
+            )
+        )
+    ).scalar_one()
+    return candidate_ids, protected, archived
+
+
+async def prune_preview(session: AsyncSession, *, days: int = 90) -> PrunePreview:
+    """Dry-run: ne silinir, ne korunur, tahmini ne kadar yer bosalir."""
+    candidates, protected, archived = await _prune_candidates(session, days=days)
+    avg_bytes = await _average_row_bytes(session)
+    return PrunePreview(
+        candidates=len(candidates),
+        protected=protected,
+        archived=archived,
+        estimated_bytes=avg_bytes,
+        days=days,
+    )
+
+
+async def prune_stale_opportunities(session: AsyncSession, *, days: int = 90) -> dict[str, int]:
+    """Yalnizca sahipsiz, hic islenmemis ham ilanlari siler.
+
+    Basvurusu, notu, yer imi, iliskisi, gorevi, gorusmesi, gereksinimi veya
+    belgesi olan kayitlar korunur (Faz 2.3). Her kosu event uretir.
+    """
+    candidates, protected, archived = await _prune_candidates(session, days=days)
+    avg_bytes = await _average_row_bytes(session)
+    for item_id in candidates:
         await delete_entity(session, item_id)
+    result = {
+        "pruned": len(candidates),
+        "protected": protected,
+        "archived": archived,
+        "freed_bytes": avg_bytes,
+        "days": days,
+    }
+    await log_event(
+        session,
+        verb="opportunity.pruned",
+        entity_type="opportunity",
+        payload=result,
+    )
     await session.commit()
-    return len(stale_ids)
+    return result
 
 
 async def deadline_ladder(session: AsyncSession) -> int:
@@ -857,12 +1421,13 @@ async def deadline_ladder(session: AsyncSession) -> int:
     follow_rows = (
         await session.execute(
             select(Opportunity, Entity.title)
+            .join(Application, Application.opportunity_id == Opportunity.id)
             .join(Entity, Entity.id == Opportunity.id)
             .where(
                 Opportunity.follow_up_at.is_not(None),
                 Opportunity.follow_up_at >= now,
                 Opportunity.follow_up_at < now + timedelta(days=31),
-                Opportunity.status.not_in(list(TERMINAL_STATUSES)),
+                Application.status.not_in(list(lifecycle.APPLICATION_TERMINAL)),
                 Opportunity.trashed_at.is_(None),
             )
         )

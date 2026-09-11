@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Float, case, cast, extract, func, select
+from sqlalchemy import Integer, String, case, cast, extract, func, literal, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.schemas import OpportunityBrowseOut
-from app.modules.opportunity.service import _out
+from app.modules.opportunity.service import _out, attach_applications
 
 
 @dataclass(frozen=True)
@@ -32,9 +32,16 @@ class BrowseFilters:
     max_score: float | None = None
     skill: str | None = None
     min_skill_match: float | None = None
+    max_skill_match: float | None = None
+    #: any | computed | uncomputed -- null semantigini kaybetmemek icin.
+    skill_match_state: str | None = None
     sort: str = "score"
     offset: int = 0
     limit: int = 40
+
+
+def _effective_date():
+    return func.coalesce(Opportunity.published_at, Opportunity.found_at)
 
 
 def _conditions(filters: BrowseFilters):
@@ -66,32 +73,37 @@ def _conditions(filters: BrowseFilters):
         conditions.append(Opportunity.evaluation["archetype"].astext == filters.archetype)
     if filters.recommendation:
         conditions.append(Opportunity.evaluation["recommendation"].astext == filters.recommendation)
-    score = _score_expression()
+    # Skor araligi KAPSAYICIDIR (min <= score <= max). null skor aralik
+    # filtrelerine girmez; 0 ile -1 ayri degerlerdir.
     if filters.min_score is not None:
-        conditions.append(score >= filters.min_score)
+        conditions.append(Opportunity.score >= filters.min_score)
     if filters.max_score is not None:
-        conditions.append(score <= filters.max_score)
-    effective_date = func.coalesce(Opportunity.published_at, Opportunity.found_at)
+        conditions.append(Opportunity.score <= filters.max_score)
+    effective_date = _effective_date()
     if filters.period_days:
         conditions.append(effective_date >= datetime.now(UTC) - timedelta(days=filters.period_days))
     if filters.year:
         conditions.append(extract("year", effective_date) == filters.year)
     if filters.skill and filters.skill.strip():
-        s = filters.skill.strip().lower()
+        # reasons JSONB'de METIN olarak duruyor; beceri eslesmesi baslik ve
+        # aciklamadan yapilir (has_key ifadesi sessizce hicbir sey dondurmuyordu).
+        needle = f"%{filters.skill.strip().lower()}%"
+        description = func.lower(func.coalesce(Opportunity.raw["forkjob"]["description"].astext, ""))
         conditions.append(
-            Opportunity.raw["forkjob"]["reasons"]["skills"].has_key(s)
-            | Entity.title.ilike(f"%{s}%")
+            func.lower(Entity.title).like(needle) | description.like(needle)
         )
-    if filters.min_skill_match is not None and filters.min_skill_match > 0:
+    if filters.min_skill_match is not None:
         conditions.append(Opportunity.skill_match_ratio >= filters.min_skill_match)
+    if filters.max_skill_match is not None:
+        conditions.append(Opportunity.skill_match_ratio <= filters.max_skill_match)
+    if filters.skill_match_state == "computed":
+        conditions.append(Opportunity.skill_match_ratio.is_not(None))
+    elif filters.skill_match_state == "uncomputed":
+        conditions.append(Opportunity.skill_match_ratio.is_(None))
     if filters.search and filters.search.strip():
         query = func.plainto_tsquery("simple", func.immutable_unaccent(filters.search.strip()))
         conditions.append(Entity.search_vec.op("@@")(query))
     return conditions
-
-
-def _score_expression():
-    return cast(Opportunity.raw["forkjob"]["score"].astext, Float)
 
 
 def _remote_bucket():
@@ -120,38 +132,81 @@ def _remote_bucket():
 
 
 def _order(filters: BrowseFilters):
-    effective_date = func.coalesce(Opportunity.published_at, Opportunity.found_at)
+    effective_date = _effective_date()
+    # Deterministik tie-break: sayfalama sirasinda kayit atlanmaz/tekrarlanmaz.
     stable = (Entity.title.asc(), Opportunity.id.asc())
-    score = _score_expression()
     if filters.sort == "oldest":
         return (effective_date.asc(), *stable)
     if filters.sort == "deadline":
         return (Opportunity.deadline_at.asc().nulls_last(), effective_date.desc(), *stable)
     if filters.sort == "skill_match":
+        # Yuksek oran once; esitlikte genel skor, sonra tarih, sonra id/title.
+        # Hesaplanmamis (null) oranlar en sonda kalir.
         return (
             Opportunity.skill_match_ratio.desc().nulls_last(),
-            score.desc().nulls_last(),
+            Opportunity.score.desc().nulls_last(),
             effective_date.desc(),
             *stable,
         )
     if filters.sort == "newest" or filters.section == "announcements":
         return (effective_date.desc(), *stable)
     if filters.sort == "score_asc":
-        return (score.asc().nulls_last(), effective_date.desc(), *stable)
-    return (score.desc().nulls_last(), effective_date.desc(), *stable)
+        return (Opportunity.score.asc().nulls_last(), effective_date.desc(), *stable)
+    return (Opportunity.score.desc().nulls_last(), effective_date.desc(), *stable)
 
 
-async def _facet(session: AsyncSession, conditions, expression, *, label: str) -> dict[str, int]:
-    rows = (
-        await session.execute(
-            select(expression.label(label), func.count())
-            .select_from(Opportunity)
-            .join(Entity, Entity.id == Opportunity.id)
-            .where(*conditions, expression.is_not(None))
-            .group_by(expression)
+def _facet_expressions(filters: BrowseFilters) -> dict[str, object]:
+    """Facet ifadeleri. Filtre ile facet AYNI ifadeyi kullanir."""
+    items: dict[str, object] = {
+        "categories": Opportunity.category,
+        "sources": Opportunity.source,
+        "statuses": Opportunity.status,
+        "regions": Opportunity.region,
+        "remote": _remote_bucket(),
+        "archetypes": Opportunity.evaluation["archetype"].astext,
+        "recommendations": Opportunity.evaluation["recommendation"].astext,
+        "years": cast(extract("year", _effective_date()), Integer),
+    }
+    if filters.section == "announcements":
+        items["announcement_sources"] = case(
+            (Opportunity.source == "ylsy", literal("ylsy")),
+            (Opportunity.source == "osym", literal("osym")),
+            else_=literal("other"),
         )
-    ).all()
-    return {str(value): count for value, count in rows if value is not None and str(value).strip()}
+    return items
+
+
+async def _facets(
+    session: AsyncSession, conditions, filters: BrowseFilters
+) -> dict[str, dict[str, int]]:
+    """Tum facet'leri TEK gidis-donusle uretir (onceden 8 ardil sorgu vardi).
+
+    Her facet ayni WHERE kosullarini ve filtreyle ayni ifadeyi kullanir; bu
+    yuzden chip sayisi ile chip'e tiklayinca gelen kayit sayisi tutarlidir.
+    """
+    expressions = _facet_expressions(filters)
+    parts = [
+        select(
+            literal(name, String).label("facet"),
+            cast(expr, String).label("value"),
+            func.count().label("count"),
+        )
+        .select_from(Opportunity)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(*conditions, expr.is_not(None))
+        .group_by(cast(expr, String))
+        for name, expr in expressions.items()
+    ]
+    rows = (await session.execute(union_all(*parts))).all()
+    facets: dict[str, dict[str, int]] = {name: {} for name in expressions}
+    for facet, value, count in rows:
+        if facet is None or value is None:
+            continue
+        text = str(value).strip()
+        if not text:
+            continue
+        facets[facet][text] = facets[facet].get(text, 0) + count
+    return facets
 
 
 async def browse_opportunities(
@@ -187,45 +242,14 @@ async def browse_opportunities(
             ).select_from(Opportunity)
         )
     ).one()
-    announcement_group = case(
-        (Opportunity.source == "ylsy", "ylsy"),
-        (Opportunity.source == "osym", "osym"),
-        else_="other",
-    )
-    # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada (offset == 0) hesaplanir.
-    if filters.offset == 0:
-        facets = {
-            "categories": await _facet(session, conditions, Opportunity.category, label="category"),
-            "sources": await _facet(session, conditions, Opportunity.source, label="source"),
-            "statuses": await _facet(session, conditions, Opportunity.status, label="status"),
-            "regions": await _facet(session, conditions, Opportunity.region, label="region"),
-            "remote": await _facet(session, conditions, _remote_bucket(), label="remote"),
-            "archetypes": await _facet(
-                session, conditions, Opportunity.evaluation["archetype"].astext, label="archetype"
-            ),
-            "recommendations": await _facet(
-                session,
-                conditions,
-                Opportunity.evaluation["recommendation"].astext,
-                label="recommendation",
-            ),
-            "years": await _facet(
-                session,
-                conditions,
-                extract("year", func.coalesce(Opportunity.published_at, Opportunity.found_at)),
-                label="year",
-            ),
-        }
-        if filters.section == "announcements":
-            facets["announcement_sources"] = await _facet(
-                session, conditions, announcement_group, label="announcement_source"
-            )
-    else:
-        facets = {}
+    # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada hesaplanir.
+    facets = await _facets(session, conditions, filters) if filters.offset == 0 else {}
+
     out_items = [_out(row, include_raw=False) for row in rows]
     from app.modules.opportunity.intelligence import enrich_opportunities
 
     out_items = await enrich_opportunities(session, rows, out_items)
+    out_items = await attach_applications(session, rows, out_items)
     return OpportunityBrowseOut(
         items=out_items,
         total=total,

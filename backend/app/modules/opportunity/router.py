@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -14,7 +17,7 @@ from app.db import get_session
 from app.modules.note import service as note_service
 from app.modules.note.schemas import NoteIn, NoteOut
 from app.modules.opportunity import career as career_service
-from app.modules.opportunity import service
+from app.modules.opportunity import lifecycle, service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
 from app.modules.opportunity.intelligence import (
     classify_reply,
@@ -23,8 +26,9 @@ from app.modules.opportunity.intelligence import (
     list_silent_applications,
     update_evaluation,
 )
-from app.modules.opportunity.models import Opportunity, OpportunityRequirement
+from app.modules.opportunity.models import Application, Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
+    ApplicationTimelineOut,
     CareerConnectionOut,
     CareerConnectionsImportOut,
     CareerStoryIn,
@@ -39,9 +43,12 @@ from app.modules.opportunity.schemas import (
     OpportunityIn,
     OpportunityOut,
     OpportunityPatch,
+    PrunePreviewOut,
+    PruneResultOut,
     ReplyAnalysisIn,
     ReplyAnalysisOut,
     RequirementIn,
+    RequirementOut,
     SalaryConsistencyOut,
     SilentApplicationOut,
     TransitionIn,
@@ -56,6 +63,28 @@ router = APIRouter(tags=["opportunities"])
 
 class RequirementDocumentIn(BaseModel):
     document_entity_id: UUID | None
+
+
+async def _load_opportunity(session: AsyncSession, item_id: UUID) -> Opportunity:
+    item = await session.get(Opportunity, item_id)
+    if item is None:
+        raise HTTPException(404, "Fırsat bulunamadı")
+    return item
+
+
+def _require_job(item: Opportunity) -> None:
+    """Basvuru/CV/mulakat uclari duyurularda calismaz (Faz 1.3)."""
+    if not lifecycle.is_job_kind(item.kind):
+        raise HTTPException(
+            409, "Bu işlem yalnızca iş ilanları için geçerlidir; duyurularda kullanılamaz"
+        )
+
+
+def _require_announcement(item: Opportunity) -> None:
+    if lifecycle.is_job_kind(item.kind):
+        raise HTTPException(
+            409, "Bu işlem yalnızca duyurular için geçerlidir; iş ilanlarında kullanılamaz"
+        )
 
 
 @router.get("/career/stories", response_model=list[CareerStoryOut])
@@ -133,9 +162,10 @@ async def connections_for_opportunity(
     item_id: UUID,
     session: AsyncSession = Depends(get_session),
 ):
+    _require_job(await _load_opportunity(session, item_id))
     result = await career_service.opportunity_connections(session, item_id)
     if result is None:
-        raise HTTPException(404, "Firsat bulunamadi")
+        raise HTTPException(404, "Fırsat bulunamadı")
     return result
 
 
@@ -170,6 +200,8 @@ async def opportunity_browse(
     max_score: float | None = Query(None, ge=-1, le=100),
     skill: str | None = None,
     min_skill_match: float | None = Query(None, ge=0, le=1),
+    max_skill_match: float | None = Query(None, ge=0, le=1),
+    skill_match_state: Literal["any", "computed", "uncomputed"] | None = None,
     sort: str = "score",
     offset: int = 0,
     limit: int = 40,
@@ -181,6 +213,12 @@ async def opportunity_browse(
         raise HTTPException(422, "Geçersiz sıralama")
     if min_score is not None and max_score is not None and min_score > max_score:
         raise HTTPException(422, "Minimum skor maksimum skordan büyük olamaz")
+    if (
+        min_skill_match is not None
+        and max_skill_match is not None
+        and min_skill_match > max_skill_match
+    ):
+        raise HTTPException(422, "Minimum uyum maksimum uyumdan büyük olamaz")
     return await browse_opportunities(
         session,
         BrowseFilters(
@@ -200,11 +238,27 @@ async def opportunity_browse(
             max_score=max_score if section == "jobs" else None,
             skill=skill if section == "jobs" else None,
             min_skill_match=min_skill_match if section == "jobs" else None,
+            max_skill_match=max_skill_match if section == "jobs" else None,
+            skill_match_state=(
+                skill_match_state
+                if section == "jobs" and skill_match_state not in (None, "any")
+                else None
+            ),
             sort=sort,
             offset=max(offset, 0),
             limit=min(max(limit, 1), 120),
         ),
     )
+
+
+@router.get("/opportunities/lifecycle")
+async def opportunity_lifecycle():
+    """Kesif, basvuru ve duyuru durum makineleri.
+
+    Frontend durum seceneklerini ve izinli gecisleri BURADAN okur; elle
+    kopyalanmis statu listesi tutmaz (AGENTS.md kural 13).
+    """
+    return lifecycle.lifecycle_payload()
 
 
 @router.get("/opportunities/followups", response_model=list[service.FollowupOut])
@@ -231,8 +285,7 @@ async def opportunity_salary_consistency(
     item_id: UUID,
     session: AsyncSession = Depends(get_session),
 ):
-    if await session.get(Opportunity, item_id) is None:
-        raise HTTPException(404, "Fırsat bulunamadı")
+    _require_job(await _load_opportunity(session, item_id))
     return await career_service.salary_consistency(session, item_id)
 
 
@@ -244,6 +297,7 @@ async def generate_evaluation(
     item_id: UUID,
     session: AsyncSession = Depends(get_session),
 ):
+    _require_job(await _load_opportunity(session, item_id))
     result = await evaluate_opportunity(session, item_id)
     if result is None:
         raise HTTPException(404, "Fırsat bulunamadı")
@@ -259,8 +313,7 @@ async def save_evaluation(
     body: OpportunityEvaluationPatch,
     session: AsyncSession = Depends(get_session),
 ):
-    if await session.get(Opportunity, item_id) is None:
-        raise HTTPException(404, "Fırsat bulunamadı")
+    _require_job(await _load_opportunity(session, item_id))
     try:
         result = await update_evaluation(session, item_id, body)
     except ValueError as exc:
@@ -281,7 +334,10 @@ async def opportunity_detail(item_id: UUID, session: AsyncSession = Depends(get_
     ).first()
     if row is None:
         raise HTTPException(404)
-    enriched = await enrich_opportunities(session, [row], [service._out(row)])
+    app = await service.get_application(session, item_id)
+    enriched = await enrich_opportunities(
+        session, [row], [service._out(row, application=app)]
+    )
     return enriched[0]
 
 
@@ -294,8 +350,7 @@ async def reply_analysis(
     body: ReplyAnalysisIn,
     session: AsyncSession = Depends(get_session),
 ):
-    if await session.get(Opportunity, item_id) is None:
-        raise HTTPException(404, "Fırsat bulunamadı")
+    _require_job(await _load_opportunity(session, item_id))
     return classify_reply(body.text)
 
 
@@ -341,7 +396,7 @@ async def delete(item_id: UUID, session: AsyncSession = Depends(get_session)):
         raise HTTPException(404)
 
 
-@router.get("/opportunities/{item_id}/requirements")
+@router.get("/opportunities/{item_id}/requirements", response_model=list[RequirementOut])
 async def requirements(item_id: UUID, session: AsyncSession = Depends(get_session)):
     return list(
         (
@@ -354,17 +409,19 @@ async def requirements(item_id: UUID, session: AsyncSession = Depends(get_sessio
     )
 
 
-@router.post("/opportunities/{item_id}/requirements", status_code=201)
+@router.post("/opportunities/{item_id}/requirements", response_model=RequirementOut, status_code=201)
 async def requirement(
     item_id: UUID, body: RequirementIn, session: AsyncSession = Depends(get_session)
 ):
+    # Belge gereksinimi duyurularda da anlamli (kilavuz, ek belge, basvuru kosulu).
+    await _load_opportunity(session, item_id)
     result = await service.add_requirement(session, item_id, body)
     if result is None:
         raise HTTPException(404)
     return result
 
 
-@router.patch("/requirements/{requirement_id}/document")
+@router.patch("/requirements/{requirement_id}/document", response_model=RequirementOut)
 async def bind_requirement_document(
     requirement_id: UUID,
     body: RequirementDocumentIn,
@@ -477,8 +534,46 @@ async def applications_funnel(session: AsyncSession = Depends(get_session)):
     return await service.funnel(session)
 
 
+@router.get("/applications", response_model=list[OpportunityOut])
+async def applications_list(
+    status: str | None = None,
+    limit: int = Query(120, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    """Başvurular çalışma alanı: YALNIZCA gerçek başvuru kayıtları.
+
+    Keşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1).
+    """
+    if status is not None and status not in lifecycle.APPLICATION_FLOW:
+        raise HTTPException(422, "Geçersiz başvuru durumu")
+    rows = (
+        await session.execute(
+            select(Opportunity, Entity.title, Application)
+            .join(Entity, Entity.id == Opportunity.id)
+            .join(Application, Application.opportunity_id == Opportunity.id)
+            .where(
+                Opportunity.trashed_at.is_(None),
+                *( [Application.status == status] if status else [] ),
+            )
+            .order_by(
+                Application.status_changed_at.desc().nulls_last(),
+                Opportunity.found_at.desc(),
+            )
+            .offset(offset)
+            .limit(limit)
+        )
+    ).all()
+    outs = [
+        service._out((opportunity, title), include_raw=False, application=application)
+        for opportunity, title, application in rows
+    ]
+    return outs
+
+
 @router.get("/opportunities/{item_id}/application", response_model=service.ApplicationOut)
 async def application_detail(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    _require_job(await _load_opportunity(session, item_id))
     result = await service.get_application(session, item_id)
     if result is None:
         raise HTTPException(404)
@@ -491,7 +586,11 @@ async def application_update(
     body: service.ApplicationIn,
     session: AsyncSession = Depends(get_session),
 ):
-    result = await service.upsert_application(session, item_id, body)
+    _require_job(await _load_opportunity(session, item_id))
+    try:
+        result = await service.upsert_application(session, item_id, body)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
     if result is None:
         raise HTTPException(404)
     return result
@@ -503,11 +602,42 @@ async def apply(
     body: service.ApplyIn,
     session: AsyncSession = Depends(get_session),
 ):
-    """Basvur: durum applied, snapshot + CV kunyesi ilk kayitta saklanir."""
+    """Basvur: basvuru kaydi 'applied' olur, snapshot + CV kunyesi saklanir."""
     try:
         result = await service.apply(session, item_id, body)
     except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise HTTPException(409, str(exc)) from exc
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.post("/applications/{item_id}/transition", response_model=service.ApplicationOut)
+async def application_transition(
+    item_id: UUID,
+    body: TransitionIn,
+    session: AsyncSession = Depends(get_session),
+):
+    """Basvuru hatti gecisi (yalnizca gercek basvuru kayitlari)."""
+    try:
+        result = await service.transition_application(
+            session,
+            item_id,
+            to=body.to,
+            note=body.note,
+            rejection_reason=body.rejection_reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    if result is None:
+        raise HTTPException(404, "Bu fırsat için başvuru kaydı yok")
+    return await service.get_application(session, item_id)
+
+
+@router.get("/opportunities/{item_id}/timeline", response_model=ApplicationTimelineOut)
+async def application_timeline(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    """Birlesik basvuru zaman cizelgesi (kesif + basvuru + gorusme + not + gorev)."""
+    result = await service.timeline(session, item_id)
     if result is None:
         raise HTTPException(404)
     return result
@@ -524,17 +654,11 @@ async def transition(
     body: TransitionIn,
     session: AsyncSession = Depends(get_session),
 ):
-    """Durum gecisi: gecmis + event yazar; terminal durumlara takilir."""
+    """Kesif/duyuru durum gecisi: gecmis + event yazar; tur kumesine uyar."""
     try:
-        result = await service.transition_status(
-            session,
-            item_id,
-            to=body.to,
-            note=body.note,
-            rejection_reason=body.rejection_reason,
-        )
+        result = await service.transition_status(session, item_id, to=body.to, note=body.note)
     except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise HTTPException(409, str(exc)) from exc
     if result is None:
         raise HTTPException(404)
     return result
@@ -542,6 +666,7 @@ async def transition(
 
 @router.get("/opportunities/{item_id}/interviews", response_model=list[service.InterviewOut])
 async def interviews(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    _require_job(await _load_opportunity(session, item_id))
     return await service.list_interviews(session, item_id)
 
 
@@ -553,6 +678,7 @@ async def add_interview(
     body: service.InterviewIn,
     session: AsyncSession = Depends(get_session),
 ):
+    _require_job(await _load_opportunity(session, item_id))
     result = await service.add_interview(session, item_id, body)
     if result is None:
         raise HTTPException(404)
@@ -577,14 +703,49 @@ async def delete_interview(interview_id: UUID, session: AsyncSession = Depends(g
         raise HTTPException(404)
 
 
-@router.post("/opportunities/prune")
-async def prune_opportunities(
-    days: int = 90,
+def _prune_token(preview) -> str:
+    """Onizleme ile uygulama arasinda bag: veri degisirse token da degisir."""
+    stamp = datetime.now(UTC).strftime("%Y%m%d%H")
+    payload = f"prune:{preview.days}:{preview.candidates}:{preview.protected}:{preview.archived}:{stamp}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+@router.get("/opportunities/prune/preview", response_model=PrunePreviewOut)
+async def prune_preview(
+    days: int = Query(90, ge=7, le=3650),
     session: AsyncSession = Depends(get_session),
 ):
-    """3 aydan (veya belirtilen günden) eski ilanları temizler."""
-    pruned = await service.prune_stale_opportunities(session, days=days)
-    return {"pruned": pruned, "days": days}
+    """Dry-run: ne silinir, ne korunur, tahmini ne kadar yer bosalir.
+
+    Silme yalnizca bu onizlemeden alinan `confirm_token` ile yapilir; boylece
+    tek tikla geri alinamaz veri kaybi olmaz (Faz 2.3).
+    """
+    preview = await service.prune_preview(session, days=days)
+    return PrunePreviewOut(
+        candidates=preview.candidates,
+        protected=preview.protected,
+        archived=preview.archived,
+        estimated_bytes=preview.estimated_bytes,
+        days=preview.days,
+        confirm_token=_prune_token(preview),
+    )
+
+
+@router.post("/opportunities/prune", response_model=PruneResultOut)
+async def prune_opportunities(
+    days: int = Query(90, ge=7, le=3650),
+    confirm_token: str = Query(..., min_length=8, max_length=64),
+    session: AsyncSession = Depends(get_session),
+):
+    """Onaylanmis silme: yalnizca sahipsiz ham ilanlar gider, event uretilir."""
+    preview = await service.prune_preview(session, days=days)
+    if confirm_token != _prune_token(preview):
+        raise HTTPException(
+            409,
+            "Önizleme bayatladı: önce /opportunities/prune/preview ile yeniden onay alın",
+        )
+    result = await service.prune_stale_opportunities(session, days=days)
+    return PruneResultOut(**result)
 
 
 # Kaynak/jobhunter uclari (sources*, sync*, jobhunter) sources_router'da.

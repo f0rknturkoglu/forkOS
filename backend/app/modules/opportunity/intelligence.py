@@ -1176,18 +1176,25 @@ async def list_silent_applications(
                 Opportunity.id,
                 Entity.title,
                 Opportunity.organization,
-                Opportunity.status,
+                Application.status,
                 last_interview,
             )
             .join(Entity, Entity.id == Opportunity.id)
+            .join(Application, Application.opportunity_id == Opportunity.id)
             .join(Interview, Interview.opportunity_id == Opportunity.id)
             .where(
-                Opportunity.status == "interview",
+                # Sessizlik radarı yalnızca gerçek başvurular için; keşif durumu değil.
+                Application.status == "interview",
                 Opportunity.trashed_at.is_(None),
                 Interview.scheduled_at.is_not(None),
                 Interview.scheduled_at <= now - timedelta(days=days),
             )
-            .group_by(Opportunity.id, Entity.title, Opportunity.organization, Opportunity.status)
+            .group_by(
+                Opportunity.id,
+                Entity.title,
+                Opportunity.organization,
+                Application.status,
+            )
             .order_by(last_interview)
         )
     ).all()

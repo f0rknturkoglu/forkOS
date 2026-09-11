@@ -64,34 +64,54 @@ async def test_apply_snapshot_and_history(client: AsyncClient):
             f"/api/opportunities/{item_id}/apply", json={"cover_letter": "merhaba"}
         )
         assert response.status_code == 200, response.text
-        assert response.json()["status"] == "applied"
+        # Kesif durumu kisayokta alinir; basvuru hatti application.status'tadir.
+        assert response.json()["status"] == "shortlisted"
+        assert response.json()["application_status"] == "applied"
         history = (await client.get(f"/api/opportunities/{item_id}/history")).json()
         assert any(
-            h["from_status"] == "discovered" and h["to_status"] == "applied" for h in history
+            h["scope"] == "discovery"
+            and h["from_status"] == "discovered"
+            and h["to_status"] == "shortlisted"
+            for h in history
+        )
+        assert any(
+            h["scope"] == "application" and h["to_status"] == "applied" for h in history
         )
         application = (await client.get(f"/api/opportunities/{item_id}/application")).json()
         assert application["cover_letter"] == "merhaba"
+        assert application["status"] == "applied"
     finally:
         await _delete_entities(item_id)
 
 
-async def test_transition_rules_and_terminal_lock(client: AsyncClient):
+async def test_application_transitions_and_terminal_lock(client: AsyncClient):
     item_id = await _seed_opportunity()
     try:
-        bad = await client.post(f"/api/opportunities/{item_id}/transition", json={"to": "offer"})
-        assert bad.status_code == 400
-        ok = await client.post(f"/api/opportunities/{item_id}/transition", json={"to": "applied"})
-        assert ok.status_code == 200
-        offer = await client.post(f"/api/opportunities/{item_id}/transition", json={"to": "offer"})
+        bad = await client.post(f"/api/applications/{item_id}/transition", json={"to": "offer"})
+        assert bad.status_code == 404  # basvuru kaydi yok
+
+        applied = await client.post(f"/api/opportunities/{item_id}/apply", json={})
+        assert applied.status_code == 200, applied.text
+
+        invalid = await client.post(
+            f"/api/applications/{item_id}/transition", json={"to": "accepted"}
+        )
+        assert invalid.status_code == 409  # applied -> accepted gecersiz
+
+        interview = await client.post(
+            f"/api/applications/{item_id}/transition", json={"to": "interview"}
+        )
+        assert interview.status_code == 200
+        offer = await client.post(f"/api/applications/{item_id}/transition", json={"to": "offer"})
         assert offer.status_code == 200
         accepted = await client.post(
-            f"/api/opportunities/{item_id}/transition", json={"to": "accepted"}
+            f"/api/applications/{item_id}/transition", json={"to": "accepted"}
         )
         assert accepted.status_code == 200
         locked = await client.post(
-            f"/api/opportunities/{item_id}/transition", json={"to": "interview"}
+            f"/api/applications/{item_id}/transition", json={"to": "interview"}
         )
-        assert locked.status_code == 400
+        assert locked.status_code == 409
 
         # Kural 3: her gecis opportunity.status_changed event'i yazar (append-only).
         events = (await client.get("/api/activity", params={"limit": 200})).json()
@@ -99,13 +119,16 @@ async def test_transition_rules_and_terminal_lock(client: AsyncClient):
             (
                 e
                 for e in events
-                if e["verb"] == "opportunity.status_changed" and e["entity_id"] == str(item_id)
+                if e["verb"] == "opportunity.status_changed"
+                and e["entity_id"] == str(item_id)
+                and e["payload"].get("scope") == "application"
             ),
             key=lambda e: e["id"],
         )
         assert [(e["payload"].get("from"), e["payload"].get("to")) for e in status_events] == [
-            ("discovered", "applied"),
-            ("applied", "offer"),
+            (None, "applied"),
+            ("applied", "interview"),
+            ("interview", "offer"),
             ("offer", "accepted"),
         ]
     finally:
@@ -115,16 +138,18 @@ async def test_transition_rules_and_terminal_lock(client: AsyncClient):
 async def test_rejection_reason_and_funnel(client: AsyncClient):
     item_id = await _seed_opportunity()
     try:
-        await client.post(f"/api/opportunities/{item_id}/transition", json={"to": "applied"})
+        await client.post(f"/api/opportunities/{item_id}/apply", json={})
         rejected = await client.post(
-            f"/api/opportunities/{item_id}/transition",
+            f"/api/applications/{item_id}/transition",
             json={"to": "rejected", "rejection_reason": "maas uyumsuz"},
         )
         assert rejected.status_code == 200
         funnel = (await client.get("/api/applications/funnel")).json()
         assert any(r["reason"] == "maas uyumsuz" for r in funnel["rejection_reasons"])
+        assert funnel["total"] >= 1
         detail = (await client.get(f"/api/opportunities/{item_id}")).json()
         assert detail["rejection_reason"] == "maas uyumsuz"
+        assert detail["application_status"] == "rejected"
     finally:
         await _delete_entities(item_id)
 
@@ -132,6 +157,7 @@ async def test_rejection_reason_and_funnel(client: AsyncClient):
 async def test_followups_listing(client: AsyncClient):
     item_id = await _seed_opportunity()
     try:
+        await client.post(f"/api/opportunities/{item_id}/apply", json={})
         future = datetime.now(UTC) + timedelta(days=5)
         update = await client.patch(
             f"/api/opportunities/{item_id}",
@@ -183,8 +209,8 @@ async def test_reply_analysis_is_local_and_suggests_a_confirmable_action(client:
 async def test_interview_silence_radar(client: AsyncClient):
     item_id = await _seed_opportunity()
     try:
-        await client.post(f"/api/opportunities/{item_id}/transition", json={"to": "applied"})
-        await client.post(f"/api/opportunities/{item_id}/transition", json={"to": "interview"})
+        await client.post(f"/api/opportunities/{item_id}/apply", json={})
+        await client.post(f"/api/applications/{item_id}/transition", json={"to": "interview"})
         scheduled_at = datetime.now(UTC) - timedelta(days=25)
         created = await client.post(
             f"/api/opportunities/{item_id}/interviews",

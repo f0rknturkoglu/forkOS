@@ -21,16 +21,17 @@ async def test_opportunity_trash_restore_and_permanent_delete(client: AsyncClien
     title = f"Trash lifecycle {uuid.uuid4().hex[:8]}"
     created = await client.post(
         "/api/opportunities",
-        json={"title": title, "kind": "job", "status": "considering"},
+        json={"title": title, "kind": "job", "status": "shortlisted"},
     )
     assert created.status_code == 201
     item = created.json()
     assert item["category"] == "other"
     assert item["published_at"] is None
+    assert item["status"] == "shortlisted"
 
     trashed = await client.post(f"/api/opportunities/{item['id']}/trash")
     assert trashed.status_code == 200
-    assert trashed.json()["status"] == "trashed"
+    assert trashed.json()["status"] == "dismissed"
     assert trashed.json()["trashed_at"] is not None
 
     normal = (await client.get("/api/opportunities", params={"limit": 2000})).json()
@@ -44,7 +45,7 @@ async def test_opportunity_trash_restore_and_permanent_delete(client: AsyncClien
 
     restored = await client.post(f"/api/opportunities/{item['id']}/restore")
     assert restored.status_code == 200
-    assert restored.json()["status"] == "considering"
+    assert restored.json()["status"] == "shortlisted"
     assert restored.json()["trashed_at"] is None
 
     assert (await client.post(f"/api/opportunities/{item['id']}/trash")).status_code == 200

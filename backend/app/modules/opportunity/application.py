@@ -11,9 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import touch_entity
 from app.core.events import log_event
+from app.core.links import Link
 from app.core.models import Entity
 from app.modules import DeadlineRow
 from app.modules.document.models import Document
+from app.modules.opportunity import lifecycle
 from app.modules.opportunity.models import (
     Application,
     ApplicationHistory,
@@ -23,45 +25,23 @@ from app.modules.opportunity.models import (
 from app.modules.opportunity.schemas import (
     ApplicationIn,
     ApplicationOut,
+    ApplicationTimelineOut,
     ApplyIn,
     FollowupOut,
+    FunnelBreakdownRow,
     FunnelOut,
     FunnelRow,
+    FunnelVolumeRow,
     HistoryOut,
     InterviewIn,
     InterviewOut,
     OpportunityOut,
+    TimelineEntryOut,
 )
 
-STATUS_FLOW = [
-    "discovered",
-    "considering",
-    "preparing",
-    "applied",
-    "interview",
-    "offer",
-    "accepted",
-    "rejected",
-    "withdrawn",
-    "closed",
-]
-
-
-TERMINAL_STATUSES = {"accepted", "rejected", "closed"}
-
-
-_TRANSITIONS: dict[str, set[str]] = {
-    "discovered": {"considering", "preparing", "applied", "rejected", "withdrawn", "closed"},
-    "considering": {"discovered", "preparing", "applied", "rejected", "withdrawn", "closed"},
-    "preparing": {"considering", "applied", "rejected", "withdrawn", "closed"},
-    "applied": {"interview", "offer", "rejected", "withdrawn", "closed", "preparing"},
-    "interview": {"applied", "offer", "rejected", "withdrawn", "closed"},
-    "offer": {"accepted", "rejected", "withdrawn", "closed"},
-    "accepted": set(),
-    "rejected": set(),
-    "withdrawn": {"discovered"},
-    "closed": set(),
-}
+#: Geriye donuk isim: CRM akisinin sirasi artik lifecycle'dan gelir.
+STATUS_FLOW = list(lifecycle.APPLICATION_FLOW)
+TERMINAL_STATUSES = set(lifecycle.APPLICATION_TERMINAL)
 
 
 REJECTION_REASONS = [
@@ -75,9 +55,10 @@ REJECTION_REASONS = [
 
 
 def _validate_transition(from_status: str, to_status: str) -> None:
-    allowed = _TRANSITIONS.get(from_status, set())
-    if to_status not in allowed:
-        raise ValueError(f"{from_status} -> {to_status} gecisi gecersiz")
+    lifecycle.validate_application_transition(from_status, to_status)
+
+
+_UNSET = object()
 
 
 async def _record_status_change(
@@ -85,15 +66,23 @@ async def _record_status_change(
     item: Opportunity,
     to_status: str,
     *,
+    from_status: object = _UNSET,
+    scope: str = "application",
     note: str | None = None,
 ) -> None:
-    """Gecis gecmisini ve event i yazar; item.status henuz degismemistir."""
+    """Gecis gecmisini ve event i yazar; durum alani henuz degismemistir.
+
+    ``from_status`` verilmezse ``item.status`` kullanilir; acikca ``None``
+    verilirse "onceki durum yok" (ornek: ilk basvuru kaydi) demektir.
+    """
+    previous = item.status if from_status is _UNSET else from_status
     session.add(
         ApplicationHistory(
             id=uuid.uuid4(),
             opportunity_id=item.id,
-            from_status=item.status,
+            from_status=previous,
             to_status=to_status,
+            scope=scope,
             note=note,
         )
     )
@@ -102,7 +91,7 @@ async def _record_status_change(
         verb="opportunity.status_changed",
         entity_id=item.id,
         entity_type="opportunity",
-        payload={"from": item.status, "to": to_status, "note": note},
+        payload={"from": previous, "to": to_status, "scope": scope, "note": note},
     )
 
 
@@ -112,8 +101,8 @@ async def transition_status(
     *,
     to: str,
     note: str | None = None,
-    rejection_reason: str | None = None,
 ) -> OpportunityOut | None:
+    """Kesif/duyuru durumu gecisi (tur bazli kume)."""
     from app.modules.opportunity.service import _out
 
     item = await session.get(Opportunity, item_id)
@@ -121,14 +110,8 @@ async def transition_status(
         return None
     if item.trashed_at is not None:
         raise ValueError("cop durumundaki kayit gecis kabul etmez")
-    _validate_transition(item.status, to)
-    if to == "rejected" and rejection_reason:
-        item.rejection_reason = rejection_reason
-    if to == "applied" and item.applied_at is None:
-        item.applied_at = datetime.now(UTC)
-    if to in TERMINAL_STATUSES:
-        item.follow_up_at = None
-    await _record_status_change(session, item, to, note=note)
+    lifecycle.validate_discovery_transition(item.kind, item.status, to)
+    await _record_status_change(session, item, to, scope="discovery", note=note)
     item.status = to
     await touch_entity(session, item.id)
     await session.commit()
@@ -138,6 +121,40 @@ async def transition_status(
         )
     ).one()
     return _out(row)
+
+
+async def transition_application(
+    session: AsyncSession,
+    item_id: uuid.UUID,
+    *,
+    to: str,
+    note: str | None = None,
+    rejection_reason: str | None = None,
+) -> Application | None:
+    """Basvuru hatti gecisi; basvuru kaydi yoksa dokunmaz."""
+    app = await session.get(Application, item_id)
+    item = await session.get(Opportunity, item_id)
+    if app is None or item is None:
+        return None
+    if item.trashed_at is not None:
+        raise ValueError("cop durumundaki kayit gecis kabul etmez")
+    lifecycle.validate_application_transition(app.status, to)
+    from_status = app.status
+    if to == "rejected" and rejection_reason:
+        item.rejection_reason = rejection_reason
+    if to == "applied" and item.applied_at is None:
+        item.applied_at = datetime.now(UTC)
+    if to in lifecycle.APPLICATION_TERMINAL:
+        item.follow_up_at = None
+    app.status = to
+    app.status_changed_at = datetime.now(UTC)
+    app.updated_at = datetime.now(UTC)
+    await _record_status_change(
+        session, item, to, from_status=from_status, scope="application", note=note
+    )
+    await touch_entity(session, item.id)
+    await session.commit()
+    return app
 
 
 async def get_application(
@@ -157,6 +174,8 @@ async def get_application(
         salary_expectation=app.salary_expectation,
         posting_snapshot=app.posting_snapshot or {},
         note=app.note,
+        status=app.status,
+        status_changed_at=app.status_changed_at,
         created_at=app.created_at,
         updated_at=app.updated_at,
     )
@@ -181,11 +200,14 @@ async def apply(
     item_id: uuid.UUID,
     data: ApplyIn,
 ) -> OpportunityOut | None:
-    """Basvuru: durum applied olur; ilk kayitta snapshot + CV kunyesi saklanir."""
+    """Basvuru: basvuru kaydi 'applied' olur; kesif durumu kisayokta alinir."""
     from app.modules.opportunity.service import _out
 
-    if await session.get(Opportunity, item_id) is None:
+    item = await session.get(Opportunity, item_id)
+    if item is None:
         return None
+    if not lifecycle.is_job_kind(item.kind):
+        raise ValueError("Başvuru yalnızca iş ilanları için oluşturulabilir")
     doc = None
     doc_title = None
     if data.cv_document_id is not None:
@@ -200,11 +222,13 @@ async def apply(
             doc, doc_title = row
 
     app = await session.get(Application, item_id)
+    created = app is None
     if app is None:
-        item = await session.get(Opportunity, item_id)
         app = Application(
             opportunity_id=item_id,
             posting_snapshot=_snapshot_posting(item),
+            status="applied",
+            status_changed_at=datetime.now(UTC),
         )
         session.add(app)
     if doc is not None:
@@ -217,20 +241,25 @@ async def apply(
             setattr(app, key, value)
     app.updated_at = datetime.now(UTC)
 
-    item = await session.get(Opportunity, item_id)
-    if item.status != "applied":
-        _validate_transition(item.status, "applied")
-        if item.applied_at is None:
-            item.applied_at = datetime.now(UTC)
-        await _record_status_change(session, item, "applied")
-        item.status = "applied"
+    if created:
+        await _record_status_change(
+            session, item, "applied", from_status=None, scope="application"
+        )
+    if item.applied_at is None:
+        item.applied_at = datetime.now(UTC)
+    # Kesif dongusunde ilan artik "kesfedildi" degil, takip ediliyor.
+    if lifecycle.is_job_kind(item.kind) and item.status in {"discovered", "dismissed"}:
+        await _record_status_change(
+            session, item, "shortlisted", from_status=item.status, scope="discovery"
+        )
+        item.status = "shortlisted"
     await session.commit()
     row = (
         await session.execute(
             select(Opportunity, Entity.title).join(Entity).where(Opportunity.id == item_id)
         )
     ).one()
-    return _out(row)
+    return _out(row, application=app)
 
 
 async def upsert_application(
@@ -242,7 +271,15 @@ async def upsert_application(
         return None
     app = await session.get(Application, item_id)
     if app is None:
-        app = Application(opportunity_id=item_id)
+        item = await session.get(Opportunity, item_id)
+        if item is not None and not lifecycle.is_job_kind(item.kind):
+            raise ValueError("Başvuru kaydı yalnızca iş ilanları için oluşturulabilir")
+        # CRM alanlari kaydediliyorsa kayit artik takip ediliyor: hazirlik asamasi.
+        app = Application(
+            opportunity_id=item_id,
+            status="preparing",
+            status_changed_at=datetime.now(UTC),
+        )
         session.add(app)
     if data.cv_document_id is not None:
         row = (
@@ -273,9 +310,154 @@ async def list_history(session: AsyncSession, item_id: uuid.UUID) -> list[Histor
         .order_by(ApplicationHistory.at.desc())
     )
     return [
-        HistoryOut(id=r.id, from_status=r.from_status, to_status=r.to_status, at=r.at, note=r.note)
+        HistoryOut(
+            id=r.id,
+            from_status=r.from_status,
+            to_status=r.to_status,
+            at=r.at,
+            note=r.note,
+            scope=r.scope,
+        )
         for r in rows.scalars()
     ]
+
+
+_DISCOVERY_LABELS = {
+    "discovered": "İlan keşfedildi",
+    "shortlisted": "Kısa listeye alındı",
+    "dismissed": "İlan elendi",
+    "archived": "İlan arşivlendi",
+    "closed": "İlan kapandı",
+    "new": "Duyuru alındı",
+    "reviewed": "Duyuru incelendi",
+    "watching": "Duyuru takibe alındı",
+    "action_required": "Duyuruda aksiyon gerekiyor",
+    "applied": "Başvuru yapıldı",
+    "completed": "Duyuru tamamlandı",
+    "expired": "Duyurunun süresi geçti",
+}
+
+_APPLICATION_LABELS = {
+    "preparing": "Başvuru hazırlanıyor",
+    "applied": "Başvuru gönderildi",
+    "interview": "Görüşme aşamasına geçildi",
+    "offer": "Teklif alındı",
+    "accepted": "Teklif kabul edildi",
+    "rejected": "Ret alındı",
+    "withdrawn": "Başvuru geri çekildi",
+    "closed": "Başvuru kapatıldı",
+}
+
+
+async def timeline(session: AsyncSession, item_id: uuid.UUID) -> ApplicationTimelineOut | None:
+    """Birlesik basvuru zaman cizelgesi -- event/history kayitlarindan deterministik.
+
+    Ayni girdiler her cagrida ayni sirada uretilir; hicbir alan tahmin edilmez.
+    """
+    from app.modules.opportunity.models import Interview
+    from app.modules.todo.models import Todo
+
+    item = await session.get(Opportunity, item_id)
+    if item is None:
+        return None
+
+    entries: list[TimelineEntryOut] = []
+
+    def add(
+        kind: str,
+        at: datetime | None,
+        title: str,
+        *,
+        detail: str | None = None,
+        status: str | None = None,
+    ) -> None:
+        if at is None:
+            return
+        entries.append(
+            TimelineEntryOut(kind=kind, at=at, title=title, detail=detail, status=status)
+        )
+
+    add("discovered", item.found_at, "İlan keşfedildi", detail=item.source)
+
+    history = (
+        await session.execute(
+            select(ApplicationHistory)
+            .where(ApplicationHistory.opportunity_id == item_id)
+            .order_by(ApplicationHistory.at)
+        )
+    ).scalars()
+    for entry in history:
+        if entry.scope == "discovery":
+            add(
+                "status",
+                entry.at,
+                _DISCOVERY_LABELS.get(entry.to_status, entry.to_status),
+                detail=entry.note,
+                status=entry.to_status,
+            )
+        else:
+            kind = "status"
+            if entry.to_status == "offer":
+                kind = "offer"
+            elif entry.to_status == "rejected":
+                kind = "rejection"
+            add(
+                kind,
+                entry.at,
+                _APPLICATION_LABELS.get(entry.to_status, entry.to_status),
+                detail=entry.note,
+                status=entry.to_status,
+            )
+
+    app = await session.get(Application, item_id)
+    if app is not None:
+        if app.cv_title:
+            add(
+                "document",
+                app.cv_modified_at or app.created_at,
+                f"Kullanılan CV: {app.cv_title}",
+                detail=app.cv_modified_at.isoformat() if app.cv_modified_at else None,
+            )
+        add("followup", item.follow_up_at, "Takip tarihi belirlendi")
+
+    interviews = (
+        await session.execute(
+            select(Interview)
+            .where(Interview.opportunity_id == item_id)
+            .order_by(Interview.scheduled_at)
+        )
+    ).scalars()
+    for interview in interviews:
+        add(
+            "interview",
+            interview.scheduled_at,
+            f"Görüşme planlandı: {interview.stage}",
+            detail=interview.notes or interview.outcome,
+        )
+
+    todo_rows = (
+        await session.execute(
+            select(Todo, Entity.title)
+            .join(Entity, Entity.id == Todo.id)
+            .join(Link, Link.to_id == Todo.id)
+            .where(Link.from_id == item_id, Link.relation == "application_step")
+        )
+    ).all()
+    for todo, title in todo_rows:
+        add("todo", todo.created_at or todo.due_at, f"Görev: {title}", detail=todo.status)
+
+    note_rows = (
+        await session.execute(
+            select(Entity.id, Entity.title, Entity.created_at)
+            .join(Link, Link.from_id == Entity.id)
+            .where(Link.to_id == item_id, Link.relation == "notes_about")
+        )
+    ).all()
+    for _note_id, note_title, created_at in note_rows:
+        add("note", created_at, f"Not: {note_title}")
+
+    entries.sort(key=lambda entry: entry.at)
+    return ApplicationTimelineOut(opportunity_id=item_id, entries=entries)
 
 
 async def list_interviews(session: AsyncSession, item_id: uuid.UUID) -> list[InterviewOut]:
@@ -392,13 +574,132 @@ async def delete_interview(session: AsyncSession, interview_id: uuid.UUID) -> bo
     return True
 
 
+def _pct(numerator: int, denominator: int) -> float | None:
+    """Sifir paydada yaniltici %0 yerine None doner (UI '—' gosterir)."""
+    return round(numerator / denominator * 100, 1) if denominator else None
+
+
+#: Ilk yanit sayilan durumlar.
+_RESPONSE_STATUSES = {"interview", "offer", "accepted", "rejected"}
+_INTERVIEW_STATUSES = {"interview", "offer", "accepted"}
+
+
+def _breakdown(rows: list[dict[str, Any]], key: str, label_key: str | None = None) -> list[
+    FunnelBreakdownRow
+]:
+    buckets: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        raw = row.get(key) or ""
+        bucket_key = raw.strip() or "bilinmiyor"
+        bucket = buckets.setdefault(
+            bucket_key,
+            {
+                "label": (row.get(label_key) if label_key else None) or bucket_key,
+                "total": 0,
+                "responded": 0,
+                "interviewed": 0,
+                "offers": 0,
+            },
+        )
+        bucket["total"] += 1
+        status = row.get("status")
+        if row.get("responded"):
+            bucket["responded"] += 1
+        if status in _INTERVIEW_STATUSES:
+            bucket["interviewed"] += 1
+        if status in {"offer", "accepted"}:
+            bucket["offers"] += 1
+    out = [
+        FunnelBreakdownRow(
+            key=key_value,
+            label=str(data["label"]),
+            total=data["total"],
+            responded=data["responded"],
+            interviewed=data["interviewed"],
+            offers=data["offers"],
+            response_rate=_pct(data["responded"], data["total"]),
+            interview_rate=_pct(data["interviewed"], data["total"]),
+        )
+        for key_value, data in buckets.items()
+    ]
+    out.sort(key=lambda row: (-row.total, row.key))
+    return out
+
+
 async def funnel(session: AsyncSession) -> FunnelOut:
+    """CRM hunisi: yalnizca gercek basvuru kayitlari uzerinden.
+
+    Kesfedilmis ilanlar (``opportunity.status``) buraya hicbir sekilde girmez;
+    payda ``application`` tablosudur.
+    """
     rows = (
-        await session.execute(select(Opportunity.status, func.count()).group_by(Opportunity.status))
+        await session.execute(
+            select(Application, Opportunity, Entity.title)
+            .join(Opportunity, Opportunity.id == Application.opportunity_id)
+            .join(Entity, Entity.id == Application.opportunity_id)
+            .where(Opportunity.trashed_at.is_(None))
+        )
     ).all()
-    counts = {status: count for status, count in rows}
-    by_status = [FunnelRow(status=status, count=counts.get(status, 0)) for status in STATUS_FLOW]
+
+    counts: dict[str, int] = {}
+    for app, _opp, _title in rows:
+        counts[app.status] = counts.get(app.status, 0) + 1
     total = sum(counts.values())
+    tracked = sum(counts.get(status, 0) for status in lifecycle.APPLICATION_FLOW)
+    by_status = [FunnelRow(status=status, count=counts.get(status, 0)) for status in lifecycle.APPLICATION_FLOW]
+
+    history_rows = (
+        await session.execute(
+            select(ApplicationHistory).where(ApplicationHistory.scope == "application")
+        )
+    ).scalars()
+    history: dict[uuid.UUID, list[ApplicationHistory]] = {}
+    for entry in history_rows:
+        history.setdefault(entry.opportunity_id, []).append(entry)
+
+    enriched: list[dict[str, Any]] = []
+    first_response_deltas: list[float] = []
+    interview_deltas: list[float] = []
+    for app, opp, title in rows:
+        entries = sorted(history.get(app.opportunity_id, []), key=lambda e: e.at)
+        applied_at = next(
+            (e.at for e in entries if e.to_status == "applied"), opp.applied_at
+        )
+        response_at = next(
+            (
+                e.at
+                for e in entries
+                if e.to_status in _RESPONSE_STATUSES and applied_at is not None and e.at > applied_at
+            ),
+            None,
+        )
+        interview_at = next(
+            (
+                e.at
+                for e in entries
+                if e.to_status in _INTERVIEW_STATUSES and applied_at is not None and e.at > applied_at
+            ),
+            None,
+        )
+        responded = response_at is not None or app.status in _RESPONSE_STATUSES
+        if applied_at is not None and response_at is not None:
+            first_response_deltas.append((response_at - applied_at).total_seconds() / 86400)
+        if applied_at is not None and interview_at is not None:
+            interview_deltas.append((interview_at - applied_at).total_seconds() / 86400)
+        enriched.append(
+            {
+                "status": app.status,
+                "responded": responded,
+                "source": opp.source,
+                "cv": app.cv_title or "CV kaydedilmemis",
+                "role": opp.category or "kategorisiz",
+                "country": opp.country or "bilinmiyor",
+                "work_mode": (opp.remote or "").strip().lower() or "bilinmiyor",
+                "organization": opp.organization,
+                "title": title,
+                "applied_at": applied_at,
+            }
+        )
 
     def ratio(lower: str, upper: str) -> float | None:
         base = counts.get(lower, 0)
@@ -410,22 +711,58 @@ async def funnel(session: AsyncSession) -> FunnelOut:
         "offer_to_accepted": ratio("offer", "accepted"),
         "applied_to_rejected": ratio("applied", "rejected"),
         "applied_total": counts.get("applied", 0),
+        "response_rate": _pct(sum(1 for row in enriched if row["responded"]), len(enriched)),
+        "interview_rate": _pct(
+            sum(1 for row in enriched if row["status"] in _INTERVIEW_STATUSES), len(enriched)
+        ),
     }
+
     reason_rows = (
         await session.execute(
             select(Opportunity.rejection_reason, func.count())
-            .where(Opportunity.status == "rejected", Opportunity.rejection_reason.is_not(None))
+            .select_from(Application)
+            .join(Opportunity, Opportunity.id == Application.opportunity_id)
+            .where(Application.status == "rejected", Opportunity.rejection_reason.is_not(None))
             .group_by(Opportunity.rejection_reason)
             .order_by(func.count().desc())
         )
     ).all()
+
+    def avg(values: list[float]) -> float | None:
+        return round(sum(values) / len(values), 1) if values else None
+
+    now = datetime.now(UTC)
+
+    def volume(rows_in: list[dict[str, Any]], fmt: str, count: int, days: int) -> list[FunnelVolumeRow]:
+        buckets = {
+            (now - timedelta(days=days * index)).strftime(fmt): 0 for index in range(count)
+        }
+        for row in rows_in:
+            applied_at = row["applied_at"]
+            if applied_at is None:
+                continue
+            key = applied_at.strftime(fmt)
+            if key in buckets:
+                buckets[key] += 1
+        return [FunnelVolumeRow(period=key, applied=value) for key, value in buckets.items()]
+
     return FunnelOut(
         total=total,
+        tracked=tracked,
         by_status=by_status,
         conversions=conversions,
         rejection_reasons=[
             {"reason": reason or "belirsiz", "count": count} for reason, count in reason_rows
         ],
+        avg_first_response_days=avg(first_response_deltas),
+        avg_applied_to_interview_days=avg(interview_deltas),
+        by_source=_breakdown(enriched, "source"),
+        by_cv=_breakdown(enriched, "cv"),
+        by_role=_breakdown(enriched, "role"),
+        by_country=_breakdown(enriched, "country"),
+        by_work_mode=_breakdown(enriched, "work_mode"),
+        weekly_volume=volume(enriched, "%G-W%V", 12, 7),
+        monthly_volume=volume(enriched, "%Y-%m", 12, 30),
     )
 
 
@@ -434,15 +771,17 @@ async def list_followups(
     *,
     days: int = 30,
 ) -> list[FollowupOut]:
+    """Yaklasan takipler -- yalnizca gercek basvuru kayitlari uzerinden."""
     cutoff = datetime.now(UTC) + timedelta(days=days)
     rows = (
         await session.execute(
-            select(Opportunity, Entity.title)
-            .join(Entity, Entity.id == Opportunity.id)
+            select(Application, Opportunity, Entity.title)
+            .join(Opportunity, Opportunity.id == Application.opportunity_id)
+            .join(Entity, Entity.id == Application.opportunity_id)
             .where(
                 Opportunity.follow_up_at.is_not(None),
                 Opportunity.follow_up_at <= cutoff,
-                Opportunity.status.not_in(list(TERMINAL_STATUSES)),
+                Application.status.not_in(list(lifecycle.APPLICATION_TERMINAL)),
                 Opportunity.trashed_at.is_(None),
             )
             .order_by(Opportunity.follow_up_at)
@@ -450,9 +789,13 @@ async def list_followups(
     ).all()
     return [
         FollowupOut(
-            id=o.id, title=title, status=o.status, follow_up_at=o.follow_up_at, note=o.notes
+            id=app.opportunity_id,
+            title=title,
+            status=app.status,
+            follow_up_at=opp.follow_up_at,
+            note=opp.notes,
         )
-        for o, title in rows
+        for app, opp, title in rows
     ]
 
 
@@ -461,17 +804,21 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     from app.core.deadlines import rows_with_titles
     from app.modules.opportunity.models import Interview, Opportunity
 
-    ACTIVE = ("discovered", "considering", "preparing", "applied", "interview", "offer")
+    # Kesif dongusunde hala ilgilenilen ilanlar + duyurular.
+    ACTIVE = ("discovered", "shortlisted", "new", "reviewed", "watching", "action_required")
     # ScalarResult tek gezinmelidir; aksi halde id/due haritalari bos kalir
     # ve satirlar /api/deadlines'tan sessizce duser (bkz. todo/service.py).
-    opps = list((
-        await session.execute(
-            select(Opportunity).where(
-                Opportunity.deadline_at.is_not(None),
-                Opportunity.status.in_(ACTIVE),
+    opps = list(
+        (
+            await session.execute(
+                select(Opportunity).where(
+                    Opportunity.deadline_at.is_not(None),
+                    Opportunity.status.in_(ACTIVE),
+                    Opportunity.trashed_at.is_(None),
+                )
             )
-        )
-    ).scalars())
+        ).scalars()
+    )
     ids = [o.id for o in opps]
     due = {o.id: o.deadline_at for o in opps}
     sub = {o.id: o.kind for o in opps}
@@ -486,17 +833,33 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
         priority=prio,
     )
 
-    interviews = list((
-        await session.execute(select(Interview).where(Interview.scheduled_at.is_not(None)))
-    ).scalars())
-    ids = [i.id for i in interviews]
-    due = {i.id: i.scheduled_at for i in interviews}
-    rows += await rows_with_titles(
-        session,
-        type_="opportunity",
-        module="opportunity",
-        ids=ids,
-        due_at=due,
-        priority={i: 1 for i in ids},
-    )
+    # Mulakatlar kendi entity'sine sahip DEGIL: deadline satiri ust firsatin
+    # entity'sine baglanir, basligi gorusme baglamini tasir, sub_kind=interview.
+    # rows_with_titles entity id'sine gore tekillestirdigi icin burada elle
+    # kurulur -- ayni ilanin birden fazla gorusmesi olabilir.
+    interviews = (
+        await session.execute(
+            select(Interview, Entity.title)
+            .join(Opportunity, Opportunity.id == Interview.opportunity_id)
+            .join(Entity, Entity.id == Interview.opportunity_id)
+            .where(
+                Interview.scheduled_at.is_not(None),
+                Opportunity.trashed_at.is_(None),
+                Entity.archived_at.is_(None),
+            )
+            .order_by(Interview.scheduled_at)
+        )
+    ).all()
+    for interview, title in interviews:
+        rows.append(
+            DeadlineRow(
+                entity_id=interview.opportunity_id,
+                type="opportunity",
+                title=f"{title} — Görüşme ({interview.stage})",
+                due_at=interview.scheduled_at,
+                module="opportunity",
+                sub_kind="interview",
+                priority=1,
+            )
+        )
     return rows

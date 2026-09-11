@@ -36,6 +36,10 @@ class Opportunity(EntityBacked, Base):
     category: Mapped[str | None] = mapped_column(Text)
     organization: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
+    # Kesif / duyuru yasam dongusu. Izinli kume ture baglidir (lifecycle.py):
+    # job -> discovered|shortlisted|dismissed|archived|closed
+    # duyuru -> new|reviewed|watching|action_required|applied|completed|expired|archived
+    # Basvuru hatti ARTIK BURADA TUTULMAZ; application.status'tadir.
     status: Mapped[str] = mapped_column(Text, default="discovered")
     priority: Mapped[int] = mapped_column(SmallInteger, default=2)
     found_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -48,6 +52,11 @@ class Opportunity(EntityBacked, Base):
     source: Mapped[str] = mapped_column(Text, default="manual")
     external_id: Mapped[str | None] = mapped_column(Text)
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    # Kanonik kural-tabanli uygunluk skoru: -1..100. -1 = elendi (kill kelimesi).
+    # null = henuz hesaplanmadi. raw.forkjob.score aciklama/log icin korunur.
+    score: Mapped[float | None] = mapped_column(Float)
+    score_source: Mapped[str | None] = mapped_column(Text)
+    score_computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     skill_match_ratio: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
     trashed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -61,6 +70,63 @@ class Opportunity(EntityBacked, Base):
     # surumlu JSON belgesi olarak tutulur.
     evaluation: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # ── Kaynak gozlemi ve kapanma (job + duyuru) ───────────────────────
+    # active | missing | likely_closed | closed
+    source_status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    missing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # ── Duyuruya ozel alanlar (job kayitlari bunlari kullanmaz) ────────
+    official: Mapped[bool | None] = mapped_column(Boolean)
+    # YLSY ana kilavuz -> universite/kurum kontenjani hiyerarsisi.
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="SET NULL")
+    )
+    stage: Mapped[str | None] = mapped_column(Text)
+    application_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    application_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    exam_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    result_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    guide_url: Mapped[str | None] = mapped_column(Text)
+    apply_url: Mapped[str | None] = mapped_column(Text)
+    quota_total: Mapped[int | None] = mapped_column(Integer)
+    fields: Mapped[list[str]] = mapped_column(JSONB, default=list)
+
+
+class OpportunitySourceObservation(Base):
+    """Bir ilanin kaynak bazli gozlemi.
+
+    Destek tablosu: bagimsiz aranabilir/linklenebilir bir nesne degil, tek bir
+    opportunity'yi kaynak karsisinda olcen satirdir. Bu yuzden PK'si entity.id'ye
+    FK DEGILDIR (AGENTS.md kural 1 istisnasi; tests/test_migrations.py listesi).
+    `opportunity.raw.forkjob` icindeki first_seen/last_seen tek kaynak icin
+    yeterliydi; coklu kaynak birlestirmede kaynak bazli gorunurluk kayboluyordu.
+    """
+
+    __tablename__ = "opportunity_source_observation"
+    __table_args__ = (
+        UniqueConstraint("opportunity_id", "source", name="opportunity_source_observation_uniq"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    opportunity_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("opportunity.id", ondelete="CASCADE")
+    )
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    external_id: Mapped[str | None] = mapped_column(Text)
+    canonical_url: Mapped[str | None] = mapped_column(Text)
+    payload_hash: Mapped[str | None] = mapped_column(Text)
+    # active | missing | likely_closed | closed
+    source_status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_successful_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class OpportunityRequirement(Base):
@@ -98,6 +164,11 @@ class Application(EntityBacked, Base):
     salary_expectation: Mapped[str | None] = mapped_column(Text)
     posting_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     note: Mapped[str | None] = mapped_column(Text)
+    # Basvuru hatti: preparing|applied|interview|offer|accepted|rejected|withdrawn|closed
+    # Tek hakikat kaynagi lifecycle.APPLICATION_FLOW; kesif durumu (opportunity.status)
+    # ile karistirilmaz.
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="applied")
+    status_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -119,6 +190,8 @@ class ApplicationHistory(Base):
     )
     from_status: Mapped[str | None] = mapped_column(Text)
     to_status: Mapped[str] = mapped_column(Text, nullable=False)
+    #: 'discovery' (kesif/duyuru dongusu) | 'application' (basvuru hatti).
+    scope: Mapped[str] = mapped_column(Text, nullable=False, default="application")
     at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
