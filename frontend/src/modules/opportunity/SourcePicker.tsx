@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Check, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
 import { navigate } from "@/app/router";
-import { Button, Checkbox, Input, Popover, cx, relativeTime, useToast } from "@/core/ui";
+import { Button, Checkbox, Input, Popover, Spinner, cx, relativeTime, useToast } from "@/core/ui";
 import type { SourceHealth, SourceRefreshResult, SourceSyncStatus } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
 import { sourceLabel } from "@/core/labels";
@@ -26,11 +26,15 @@ export function SourcePicker() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const { data: catalog = [] } = useQuery({
+  const {
+    data: catalog = [],
+    isPending: catalogLoading,
+    isError: catalogFailed,
+  } = useQuery({
     queryKey: ["source-catalog"],
     queryFn: () => api.get<Catalog[]>("/sources/catalog"),
   });
-  const { data: runs = [] } = useQuery({
+  const { data: runs = [], isError: runsFailed } = useQuery({
     queryKey: ["source-runs"],
     queryFn: () => api.get<SourceHealth[]>("/sources/runs"),
   });
@@ -91,7 +95,7 @@ export function SourcePicker() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         className={cx(
           "flex h-control items-center gap-2 rounded-control border px-4 text-meta font-medium transition",
           open
@@ -111,11 +115,14 @@ export function SourcePicker() {
         )}
       </button>
 
+      {/* Arama Input + Checkbox listesi + footer butonlari liste degil; listbox
+          rolu ARIA ihlaliydi (cocuklari `option` olmak zorunda). Panel bir
+          dialog'dur: odak yonetimini Popover saglar, arama adi korunur. */}
       <Popover
         open={open}
         onClose={() => setOpen(false)}
         anchorRef={rootRef}
-        role="listbox"
+        role="dialog"
         ariaLabel="Çekilecek kaynaklar"
         className="right-0 top-11 w-[420px]"
       >
@@ -134,10 +141,25 @@ export function SourcePicker() {
         <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-3 py-2">
           <Checkbox checked={allPicked} onChange={toggleAll} label={allPicked ? "Seçimi kaldır" : "Hepsini seç"} />
           <span className="flex-1" />
-          <span className="text-meta text-muted">{visible.length} kaynak</span>
+          <span className="text-meta text-muted">{catalogLoading ? "yükleniyor…" : `${visible.length} kaynak`}</span>
         </div>
 
         <ul className="max-h-[300px] overflow-y-auto">
+          {runsFailed && (
+            <li className="border-b border-subtle bg-warn-surface px-3 py-2 text-meta text-warn">
+              Koşu bilgisi yüklenemedi; saat ve sonuç sütunları eksik görünebilir.
+            </li>
+          )}
+          {catalogLoading && (
+            <li className="flex items-center justify-center gap-2 px-3 py-6 text-meta text-muted">
+              <Spinner /> Kaynak listesi yükleniyor…
+            </li>
+          )}
+          {catalogFailed && (
+            <li className="px-3 py-6 text-center text-meta text-danger">
+              Kaynak listesi yüklenemedi. Paneli kapatıp yeniden dene.
+            </li>
+          )}
           {visible.map((source) => {
             const run = latest.get(source.id);
             const busy = running.has(source.id);
@@ -187,10 +209,12 @@ export function SourcePicker() {
               </li>
             );
           })}
-          {visible.length === 0 && <li className="px-3 py-6 text-center text-meta text-muted">Eşleşen kaynak yok.</li>}
+          {!catalogLoading && !catalogFailed && visible.length === 0 && (
+            <li className="px-3 py-6 text-center text-meta text-muted">Eşleşen kaynak yok.</li>
+          )}
         </ul>
 
-        <div className="flex items-center gap-2 border-t border-subtle bg-canvas px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 border-t border-subtle bg-canvas px-3 py-2.5">
           <button
             type="button"
             onClick={() => {
@@ -202,6 +226,7 @@ export function SourcePicker() {
             Ayrı sayfada aç <ArrowUpRight size={13} />
           </button>
           <span className="flex-1" />
+          {!online && <span className="text-meta text-warn">Çevrimdışı: çekim başlatılamaz.</span>}
           <Button
             size="sm"
             variant="primary"

@@ -1119,7 +1119,8 @@ export function SkeletonRows({ rows = 5, className }: { rows?: number; className
   );
 }
 
-/** WAI-ARIA tablist. Sol/sag ok ile gecis; badge sayisi saga yazilir. */
+/** WAI-ARIA tablist. Sol/sag ok ile gecis; badge sayisi saga yazilir.
+ *  Serit dar ekranda YATAY KAYAR: sekmeler sikismaz/kirpilmaz. */
 export interface TabItem {
   id: string;
   label: string;
@@ -1131,11 +1132,14 @@ export function Tabs<T extends string>({
   onChange,
   items,
   ariaLabel,
+  panelId,
 }: {
   value: T;
   onChange: (next: T) => void;
   items: TabItem[];
   ariaLabel: string;
+  /** Sekme -> panel bagi. Verilirse `aria-controls` yazilir. */
+  panelId?: (id: string) => string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const onKeyDown: KeyboardEventHandler = (event) => {
@@ -1151,28 +1155,40 @@ export function Tabs<T extends string>({
     target?.focus();
   };
   return (
-    <div role="tablist" aria-label={ariaLabel} ref={listRef} onKeyDown={onKeyDown} className="flex items-center gap-1">
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      ref={listRef}
+      onKeyDown={onKeyDown}
+      className="flex items-center gap-1 overflow-x-auto"
+    >
       {items.map((tab) => {
         const active = tab.id === value;
+        // Rozet yalnizca gorsel: ekran okuyucu adi tek parca okunur ("İşler, 12 kayıt").
+        const badge = tab.badge !== undefined && tab.badge > 0 ? tab.badge : null;
         return (
           <button
             key={tab.id}
             type="button"
             role="tab"
             data-id={tab.id}
+            aria-label={badge === null ? tab.label : `${tab.label}, ${badge} kayıt`}
             aria-selected={active}
+            aria-controls={panelId?.(tab.id)}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(tab.id as T)}
             className={cx(
-              "flex h-8 items-center gap-1.5 border-b-2 px-2.5 text-meta transition",
+              "flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 text-meta transition",
               active
                 ? "border-accent font-medium text-primary"
                 : "border-transparent text-muted hover:border-strong hover:text-primary",
             )}
           >
             <span>{tab.label}</span>
-            {tab.badge !== undefined && tab.badge > 0 && (
-              <span className={cx("tabular-nums", active ? "text-accent" : "text-muted")}>{tab.badge}</span>
+            {badge !== null && (
+              <span aria-hidden="true" className={cx("tabular-nums", active ? "text-accent" : "text-muted")}>
+                {badge}
+              </span>
             )}
           </button>
         );
@@ -1182,7 +1198,12 @@ export function Tabs<T extends string>({
 }
 
 /** Capanali acilir panel: disari tik + Escape kapatir, z-popover katmaninda.
- *  `anchorRef` verilirse tetikleyiciye tiklamak kapatmaz (toggle disarida yapilir). */
+ *  `anchorRef` verilirse tetikleyiciye tiklamak kapatmaz (toggle disarida yapilir).
+ *
+ *  `role="dialog"` verilen kullanimlar Drawer ile ayni odak sozlesmesini alir:
+ *  acilista odak panele, Escape ile kapanista odak tetikleyiciye doner ve Tab
+ *  panelden kacmaz. `listbox`/`menu` rolleri kendi klavye sozlesmesini tasir;
+ *  onlarin odagini biz kapmayiz. */
 export function Popover({
   open,
   onClose,
@@ -1201,6 +1222,8 @@ export function Popover({
   className?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const isDialog = role === "dialog";
+  useDialogFocus(open && isDialog, panelRef, onClose);
   useEffect(() => {
     if (!open) return;
     function onDown(event: MouseEvent) {
@@ -1225,6 +1248,7 @@ export function Popover({
       ref={panelRef}
       role={role}
       aria-label={ariaLabel}
+      tabIndex={isDialog ? -1 : undefined}
       className={cx(
         "absolute z-popover overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay",
         className,
@@ -1240,6 +1264,13 @@ export function Popover({
  * kapaninca odagin tetikleyiciye donmesi.
  */
 function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | null>, onClose: () => void) {
+  // Cagiranlar genelde satir ici ok fonksiyonu gecer; onClose kimligi her
+  // render'da degisir. Efekt onu ref'ten okur, boylece odak yalnizca panel
+  // acilip kapanirken kurulur -- yazarken odak ilk alana geri sicramaz.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
     const opener = document.activeElement as HTMLElement | null;
@@ -1271,7 +1302,7 @@ function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | nul
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -1298,7 +1329,7 @@ function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | nul
       // Kapaninca odak tetikleyiciye doner (klavye kullanicisi kaybolmaz).
       opener?.focus?.();
     };
-  }, [open, onClose, dialogRef]);
+  }, [open, dialogRef]);
 }
 
 /**
