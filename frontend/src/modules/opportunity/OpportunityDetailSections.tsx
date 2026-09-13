@@ -2,8 +2,9 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, FileText, MailSearch, Plus, Save, X } from "lucide-react";
-import { api } from "@/core/api";
-import { Button, Chip, Input, SectionHeader, Select, Textarea, cx, relativeTime, useToast } from "@/core/ui";
+import { ApiError, api } from "@/core/api";
+import { Button, Chip, Input, SectionHeader, Select, Spinner, Textarea, cx, relativeTime, useToast } from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
 import type {
   Application,
   CareerStory,
@@ -22,6 +23,9 @@ type Requirement = {
   document_entity_id: string | null;
 };
 
+/** Yazma kapaliyken dugme basligina yazilan gerekce (offline sozlesmesi). */
+const OFFLINE_WRITE_TITLE = "Çevrimdışısın: yazma kapalı";
+
 /** Gereksinimler: belge baglama ve yeni gereksinim ekleme.
  *  `showAdd=false` yalnizca listeyi/baglamayi gosterir (ekleme formu baska bir
  *  yuzeyde, ornegin duyuru ozetindeki hizli aksiyonda, yasar). */
@@ -37,7 +41,13 @@ export function RequirementsSection({
   showAdd?: boolean;
 }) {
   const [requirement, setRequirement] = useState("");
-  const { data: requirements = [] } = useQuery({
+  const {
+    data: requirements = [],
+    isError: requirementsFailed,
+    error: requirementsError,
+    isFetching: requirementsFetching,
+    refetch: refetchRequirements,
+  } = useQuery({
     queryKey: ["opportunity-requirements", id],
     queryFn: () => api.get<Requirement[]>(`/opportunities/${id}/requirements`),
   });
@@ -58,9 +68,26 @@ export function RequirementsSection({
     <section>
       <SectionHeader
         label="Gereksinimler"
-        hint={`${requirements.filter((r) => r.document_entity_id).length}/${requirements.length} hazır`}
+        hint={
+          requirementsFailed
+            ? "okunamadı"
+            : `${requirements.filter((r) => r.document_entity_id).length}/${requirements.length} hazır`
+        }
       />
-      {requirements.length === 0 ? (
+      {requirementsFailed ? (
+        <div
+          role="alert"
+          className="mb-3 space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+        >
+          <p className="text-meta text-danger">
+            Gereksinimler yüklenemedi:{" "}
+            {requirementsError instanceof Error ? requirementsError.message : "bilinmeyen hata"}
+          </p>
+          <Button size="sm" disabled={requirementsFetching} onClick={() => void refetchRequirements()}>
+            Tekrar dene
+          </Button>
+        </div>
+      ) : requirements.length === 0 ? (
         <p className="py-3 text-meta text-muted">Henüz gereksinim eklenmedi.</p>
       ) : (
         <ul className="mb-3 flex flex-col gap-2">
@@ -109,10 +136,19 @@ export function RequirementsSection({
             ariaLabel="Yeni gereksinim"
             className="flex-1"
           />
-          <Button type="submit" disabled={!online || !requirement.trim()}>
+          <Button
+            type="submit"
+            disabled={!online || !requirement.trim()}
+            title={online ? undefined : OFFLINE_WRITE_TITLE}
+          >
             Ekle
           </Button>
         </form>
+      )}
+      {!online && (
+        <p role="status" className="mt-2 text-meta text-warn">
+          Çevrimdışısın: gereksinim eklenemez, belge bağlanamaz.
+        </p>
       )}
     </section>
   );
@@ -154,10 +190,21 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
     setCoverDraft((prev) => (prev ? `${prev.trimEnd()}${snippet}` : `${story.action}\n${story.result}`));
     setCoverReview(null);
   };
-  const { data: app, refetch: refetchApp } = useQuery({
+  const {
+    data: app = null,
+    isPending: appPending,
+    isError: appQueryFailed,
+    error: appError,
+    isFetching: appFetching,
+    refetch: refetchApp,
+  } = useQuery({
     queryKey: ["application", id],
-    queryFn: () => api.get<Application>(`/opportunities/${id}/application`).catch(() => null),
+    queryFn: () => api.get<Application>(`/opportunities/${id}/application`),
   });
+  // Gerçek 404 "başvuru kaydı yok" demektir; diğer hatalar (500/ağ/offline)
+  // veri yokluğu DEĞİLDİR ve yeni başvuru formu açılmaz.
+  const applicationMissing = appQueryFailed && appError instanceof ApiError && appError.status === 404;
+  const appFailed = appQueryFailed && !applicationMissing;
   useEffect(() => {
     if (app) {
       setCoverDraft(app.cover_letter ?? "");
@@ -170,165 +217,212 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
 
   return (
     <section>
-      <SectionHeader label="Başvuru" hint={app ? `cv: ${app.cv_title ?? "—"}` : "henüz yapılmadı"} />
-      {!app && (
-        <div className="space-y-2">
-          <Select value={cvDraft} onChange={setCvDraft} ariaLabel="Kullanılan CV" className="w-full border-strong">
-            <option value="">CV seç (varsa)</option>
-            {documents.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                {doc.title}
-              </option>
-            ))}
-          </Select>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-meta text-muted">Niyet mektubu (Cover Letter)</span>
-            {stories.length > 0 && (
-              <Select value="" onChange={insertStory} ariaLabel="STAR Hikâyesi Ekle" className="max-w-48 text-micro">
-                <option value="">+ STAR Hikâyesi Ekle</option>
-                {stories.map((story) => (
-                  <option key={story.id} value={story.id}>
-                    {story.title}
+      <SectionHeader
+        label="Başvuru"
+        hint={
+          appPending ? "yükleniyor…" : app ? `cv: ${app.cv_title ?? "—"}` : appFailed ? "okunamadı" : "henüz yapılmadı"
+        }
+      />
+      {appPending ? (
+        <Spinner label="Başvuru bilgisi yükleniyor…" />
+      ) : appFailed ? (
+        <div role="alert" className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
+          <p className="text-meta text-danger">
+            {!online
+              ? "Çevrimdışısın: başvuru bilgisi şu an okunamıyor."
+              : `Başvuru bilgisi yüklenemedi: ${appError instanceof Error ? appError.message : "bilinmeyen hata"}`}
+          </p>
+          <p className="text-meta text-secondary">
+            Veri gelmeden yeni başvuru formu açılmaz; yanlış kayıt oluşmasın diye form gizlendi.
+          </p>
+          <Button size="sm" disabled={appFetching} onClick={() => void refetchApp()}>
+            Tekrar dene
+          </Button>
+        </div>
+      ) : (
+        <>
+          {!app && (
+            <div className="space-y-2">
+              <Select value={cvDraft} onChange={setCvDraft} ariaLabel="Kullanılan CV" className="w-full border-strong">
+                <option value="">CV seç (varsa)</option>
+                {documents.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.title}
                   </option>
                 ))}
               </Select>
-            )}
-          </div>
-          <Textarea
-            value={coverDraft}
-            onChange={(value) => {
-              setCoverDraft(value);
-              setCoverReview(null);
-            }}
-            rows={3}
-            placeholder="Cover letter (niyet mektubu)…"
-          />
-          <Button
-            size="sm"
-            disabled={coverDraft.trim().length < 20 || reviewCover.isPending}
-            onClick={() => reviewCover.mutate()}
-          >
-            Üslubu yerelde denetle
-          </Button>
-          {coverReview && <CoverLetterReviewCard review={coverReview} />}
-          <Button
-            variant="primary"
-            disabled={!online}
-            onClick={() => apply.mutate({ cv_document_id: cvDraft || null, cover_letter: coverDraft || null })}
-          >
-            Başvur
-          </Button>
-        </div>
-      )}
-      {app && !editingApp && (
-        <div className="space-y-2 text-meta text-secondary">
-          {app.cv_title && (
-            <p>
-              CV: <strong className="text-primary">{app.cv_title}</strong>
-              {app.cv_modified_at ? " · " + new Date(app.cv_modified_at).toLocaleDateString("tr-TR") : ""}
-            </p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-meta text-muted">Niyet mektubu (Cover Letter)</span>
+                {stories.length > 0 && (
+                  <Select
+                    value=""
+                    onChange={insertStory}
+                    ariaLabel="STAR Hikâyesi Ekle"
+                    className="max-w-48 text-micro"
+                  >
+                    <option value="">+ STAR Hikâyesi Ekle</option>
+                    {stories.map((story) => (
+                      <option key={story.id} value={story.id}>
+                        {story.title}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+              <Textarea
+                value={coverDraft}
+                onChange={(value) => {
+                  setCoverDraft(value);
+                  setCoverReview(null);
+                }}
+                rows={3}
+                placeholder="Cover letter (niyet mektubu)…"
+              />
+              <Button
+                size="sm"
+                disabled={coverDraft.trim().length < 20 || reviewCover.isPending}
+                onClick={() => reviewCover.mutate()}
+              >
+                Üslubu yerelde denetle
+              </Button>
+              {coverReview && <CoverLetterReviewCard review={coverReview} />}
+              <Button
+                variant="primary"
+                disabled={!online}
+                title={online ? undefined : OFFLINE_WRITE_TITLE}
+                onClick={() => apply.mutate({ cv_document_id: cvDraft || null, cover_letter: coverDraft || null })}
+              >
+                Başvur
+              </Button>
+              {!online && (
+                <p role="status" className="text-meta text-warn">
+                  Çevrimdışısın: başvuru gönderilemez.
+                </p>
+              )}
+            </div>
           )}
-          {app.cover_letter && <p className="whitespace-pre-line text-secondary">{app.cover_letter}</p>}
-          {app.salary_expectation && <p>Maaş beklentisi: {app.salary_expectation}</p>}
-          {app.company_research && <p className="whitespace-pre-line">Araştırma: {app.company_research}</p>}
-          {app.posting_snapshot && Object.keys(app.posting_snapshot).length > 0 && (
-            <details className="rounded-control border border-subtle bg-surface px-3 py-2">
-              <summary className="cursor-pointer text-meta text-muted">Başvuru anındaki ilan (snapshot)</summary>
-              <dl className="mt-2 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 text-meta text-secondary">
-                {[
-                  ["Kurum", String(app.posting_snapshot.organization ?? "—")],
-                  ["Lokasyon", String(app.posting_snapshot.location ?? "—")],
-                  ["Ücret", String(app.posting_snapshot.compensation ?? "—")],
-                ].map(([k, v]) => (
-                  <div key={k} className="contents">
-                    <dt className="text-muted">{k}</dt>
-                    <dd>{v}</dd>
-                  </div>
-                ))}
-              </dl>
-            </details>
+          {app && !editingApp && (
+            <div className="space-y-2 text-meta text-secondary">
+              {app.cv_title && (
+                <p>
+                  CV: <strong className="text-primary">{app.cv_title}</strong>
+                  {app.cv_modified_at ? " · " + new Date(app.cv_modified_at).toLocaleDateString("tr-TR") : ""}
+                </p>
+              )}
+              {app.cover_letter && <p className="whitespace-pre-line text-secondary">{app.cover_letter}</p>}
+              {app.salary_expectation && <p>Maaş beklentisi: {app.salary_expectation}</p>}
+              {app.company_research && <p className="whitespace-pre-line">Araştırma: {app.company_research}</p>}
+              {app.posting_snapshot && Object.keys(app.posting_snapshot).length > 0 && (
+                <details className="rounded-control border border-subtle bg-surface px-3 py-2">
+                  <summary className="cursor-pointer text-meta text-muted">Başvuru anındaki ilan (snapshot)</summary>
+                  <dl className="mt-2 grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 text-meta text-secondary">
+                    {[
+                      ["Kurum", String(app.posting_snapshot.organization ?? "—")],
+                      ["Lokasyon", String(app.posting_snapshot.location ?? "—")],
+                      ["Ücret", String(app.posting_snapshot.compensation ?? "—")],
+                    ].map(([k, v]) => (
+                      <div key={k} className="contents">
+                        <dt className="text-muted">{k}</dt>
+                        <dd>{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setEditingApp(true);
+                    refetchApp();
+                  }}
+                >
+                  Düzenle
+                </Button>
+              </div>
+            </div>
           )}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => {
-                setEditingApp(true);
-                refetchApp();
-              }}
-            >
-              Düzenle
-            </Button>
-          </div>
-        </div>
-      )}
-      {app && editingApp && (
-        <div className="space-y-2">
-          <Select value={cvDraft} onChange={setCvDraft} ariaLabel="Kullanılan CV" className="w-full border-strong">
-            <option value="">CV seç (varsa)</option>
-            {documents.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                {doc.title}
-              </option>
-            ))}
-          </Select>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-meta text-muted">Niyet mektubu</span>
-            {stories.length > 0 && (
-              <Select value="" onChange={insertStory} ariaLabel="STAR Hikâyesi Ekle" className="max-w-48 text-micro">
-                <option value="">+ STAR Hikâyesi Ekle</option>
-                {stories.map((story) => (
-                  <option key={story.id} value={story.id}>
-                    {story.title}
+          {app && editingApp && (
+            <div className="space-y-2">
+              <Select value={cvDraft} onChange={setCvDraft} ariaLabel="Kullanılan CV" className="w-full border-strong">
+                <option value="">CV seç (varsa)</option>
+                {documents.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.title}
                   </option>
                 ))}
               </Select>
-            )}
-          </div>
-          <Textarea
-            value={coverDraft}
-            onChange={(value) => {
-              setCoverDraft(value);
-              setCoverReview(null);
-            }}
-            rows={3}
-            placeholder="Cover letter…"
-          />
-          <Button
-            size="sm"
-            disabled={coverDraft.trim().length < 20 || reviewCover.isPending}
-            onClick={() => reviewCover.mutate()}
-          >
-            Üslubu yerelde denetle
-          </Button>
-          {coverReview && <CoverLetterReviewCard review={coverReview} />}
-          <Input
-            value={salaryDraft}
-            onChange={setSalaryDraft}
-            placeholder="Maaş beklentisi (örn. 3000 EUR)"
-            className="w-full"
-          />
-          <Textarea value={researchDraft} onChange={setResearchDraft} rows={2} placeholder="Şirket araştırması…" />
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={!online}
-              onClick={() =>
-                updateApp.mutate({
-                  cv_document_id: cvDraft || null,
-                  cover_letter: coverDraft || null,
-                  salary_expectation: salaryDraft || null,
-                  company_research: researchDraft || null,
-                })
-              }
-            >
-              Kaydet
-            </Button>
-            <Button size="sm" onClick={() => setEditingApp(false)}>
-              Vazgeç
-            </Button>
-          </div>
-        </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-meta text-muted">Niyet mektubu</span>
+                {stories.length > 0 && (
+                  <Select
+                    value=""
+                    onChange={insertStory}
+                    ariaLabel="STAR Hikâyesi Ekle"
+                    className="max-w-48 text-micro"
+                  >
+                    <option value="">+ STAR Hikâyesi Ekle</option>
+                    {stories.map((story) => (
+                      <option key={story.id} value={story.id}>
+                        {story.title}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+              <Textarea
+                value={coverDraft}
+                onChange={(value) => {
+                  setCoverDraft(value);
+                  setCoverReview(null);
+                }}
+                rows={3}
+                placeholder="Cover letter…"
+              />
+              <Button
+                size="sm"
+                disabled={coverDraft.trim().length < 20 || reviewCover.isPending}
+                onClick={() => reviewCover.mutate()}
+              >
+                Üslubu yerelde denetle
+              </Button>
+              {coverReview && <CoverLetterReviewCard review={coverReview} />}
+              <Input
+                value={salaryDraft}
+                onChange={setSalaryDraft}
+                placeholder="Maaş beklentisi (örn. 3000 EUR)"
+                className="w-full"
+              />
+              <Textarea value={researchDraft} onChange={setResearchDraft} rows={2} placeholder="Şirket araştırması…" />
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={!online}
+                  title={online ? undefined : OFFLINE_WRITE_TITLE}
+                  onClick={() =>
+                    updateApp.mutate({
+                      cv_document_id: cvDraft || null,
+                      cover_letter: coverDraft || null,
+                      salary_expectation: salaryDraft || null,
+                      company_research: researchDraft || null,
+                    })
+                  }
+                >
+                  Kaydet
+                </Button>
+                <Button size="sm" onClick={() => setEditingApp(false)}>
+                  Vazgeç
+                </Button>
+              </div>
+              {!online && (
+                <p role="status" className="text-meta text-warn">
+                  Çevrimdışısın: başvuru kaydedilemez.
+                </p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -350,6 +444,7 @@ function CoverLetterReviewCard({ review }: { review: CoverLetterReview }) {
 
 /** Takip tarihi: blur'da kaydedilen tek alanli form. */
 export function FollowUpSection({ id, followUpAt }: { id: string; followUpAt: string | null }) {
+  const online = useOnline();
   const [followUpDraft, setFollowUpDraft] = useState("");
   // Takip tarihi: veri gelince alani doldur; duzenleme taslakta, blur'da kaydedilir.
   useEffect(() => {
@@ -369,16 +464,27 @@ export function FollowUpSection({ id, followUpAt }: { id: string; followUpAt: st
         <Input
           type="datetime-local"
           value={followUpDraft}
+          disabled={!online}
           onChange={setFollowUpDraft}
-          onBlur={(value) => value && followUp.mutate(new Date(value).toISOString())}
+          onBlur={(value) => online && value && followUp.mutate(new Date(value).toISOString())}
           ariaLabel="Takip tarihi"
         />
         {followUpAt && (
-          <Button size="sm" onClick={() => followUp.mutate(null)}>
+          <Button
+            size="sm"
+            disabled={!online}
+            title={online ? undefined : OFFLINE_WRITE_TITLE}
+            onClick={() => followUp.mutate(null)}
+          >
             Temizle
           </Button>
         )}
       </div>
+      {!online && (
+        <p role="status" className="mt-2 text-meta text-warn">
+          Çevrimdışısın: takip tarihi kaydedilemez.
+        </p>
+      )}
     </section>
   );
 }
@@ -471,11 +577,17 @@ export function ReplyProcessorSection({ id, status, online }: { id: string; stat
               variant="primary"
               size="sm"
               disabled={!online || replyText.trim().length < 8 || analyze.isPending}
+              title={online ? undefined : OFFLINE_WRITE_TITLE}
               onClick={() => analyze.mutate()}
             >
               Yerelde analiz et
             </Button>
             <span className="text-micro text-muted">Hiçbir e-posta hesabına bağlanılmaz.</span>
+            {!online && (
+              <span role="status" className="text-micro text-warn">
+                Çevrimdışısın: yanıt analiz edilemez.
+              </span>
+            )}
           </div>
           {analysis && (
             <div className="rounded-control border border-subtle bg-surface-sunken p-3">
@@ -498,7 +610,8 @@ export function ReplyProcessorSection({ id, status, online }: { id: string; stat
                   className="mt-3"
                   variant="primary"
                   size="sm"
-                  disabled={applySuggestion.isPending}
+                  disabled={!online || applySuggestion.isPending}
+                  title={online ? undefined : OFFLINE_WRITE_TITLE}
                   onClick={() => applySuggestion.mutate()}
                 >
                   {analysis.suggested_todo_title
@@ -527,7 +640,13 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
     notes: "",
     salary_stated: "",
   });
-  const { data: interviews = [] } = useQuery({
+  const {
+    data: interviews = [],
+    isError: interviewsFailed,
+    error: interviewsError,
+    isFetching: interviewsFetching,
+    refetch: refetchInterviews,
+  } = useQuery({
     queryKey: ["interviews", id],
     queryFn: () => api.get<Interview[]>(`/opportunities/${id}/interviews`),
   });
@@ -549,8 +668,21 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
 
   return (
     <section>
-      <SectionHeader label="Görüşmeler" hint={`${interviews.length} kayıt`} />
-      {interviews.length > 0 && (
+      <SectionHeader label="Görüşmeler" hint={interviewsFailed ? "okunamadı" : `${interviews.length} kayıt`} />
+      {interviewsFailed && (
+        <div
+          role="alert"
+          className="mb-3 space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+        >
+          <p className="text-meta text-danger">
+            Görüşmeler yüklenemedi: {interviewsError instanceof Error ? interviewsError.message : "bilinmeyen hata"}
+          </p>
+          <Button size="sm" disabled={interviewsFetching} onClick={() => void refetchInterviews()}>
+            Tekrar dene
+          </Button>
+        </div>
+      )}
+      {!interviewsFailed && interviews.length > 0 && (
         <ul className="mb-3 space-y-1.5">
           {interviews.map((iv) => (
             <li
@@ -569,8 +701,10 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
               <button
                 type="button"
                 onClick={() => removeInterview.mutate(iv.id)}
-                title="Görüşmeyi sil"
-                className="text-muted transition hover:text-danger"
+                disabled={!online}
+                aria-label={`${iv.stage} görüşmesini sil`}
+                title={online ? "Görüşmeyi sil" : OFFLINE_WRITE_TITLE}
+                className="text-muted transition hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <X size={13} />
               </button>
@@ -587,11 +721,13 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
       <div className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
         <Input
           value={interviewDraft.stage}
+          disabled={!online}
           onChange={(v) => setInterviewDraft({ ...interviewDraft, stage: v })}
           placeholder="Aşama (örn. teknik, HR…)"
         />
         <Select
           value={interviewDraft.mode}
+          disabled={!online}
           onChange={(v) => setInterviewDraft({ ...interviewDraft, mode: v })}
           ariaLabel="Görüşme tipi"
         >
@@ -602,6 +738,7 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
         <Button
           size="sm"
           disabled={!online || !interviewDraft.stage.trim()}
+          title={online ? undefined : OFFLINE_WRITE_TITLE}
           onClick={() =>
             addInterview.mutate({
               stage: interviewDraft.stage.trim(),
@@ -617,11 +754,17 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
       </div>
       <Input
         value={interviewDraft.salary_stated}
+        disabled={!online}
         onChange={(salary_stated) => setInterviewDraft({ ...interviewDraft, salary_stated })}
         placeholder="Bu turda söylenen ücret (örn. €60k–€70k)"
         ariaLabel="Sözlü ücret beyanı"
         className="mt-2 w-full"
       />
+      {!online && (
+        <p role="status" className="mt-2 text-meta text-warn">
+          Çevrimdışısın: görüşme eklenemez veya silinemez.
+        </p>
+      )}
     </section>
   );
 }
@@ -666,7 +809,13 @@ export function OpportunityNotesPanel({
   create: () => Promise<OpportunityNote>;
 }) {
   const toast = useToast();
-  const { data: notes = [], refetch } = useQuery({
+  const {
+    data: notes = [],
+    refetch,
+    isError: notesFailed,
+    error: notesError,
+    isFetching: notesFetching,
+  } = useQuery({
     queryKey: ["opportunity", id, "notes"],
     queryFn: () => api.get<OpportunityNote[]>(`/opportunities/${id}/notes`),
   });
@@ -716,6 +865,7 @@ export function OpportunityNotesPanel({
             variant="primary"
             size="sm"
             disabled={!online || save.isPending || draft === active.body}
+            title={online ? undefined : OFFLINE_WRITE_TITLE}
             onClick={() => draft !== null && save.mutate(draft)}
           >
             <Save size={13} /> {save.isPending ? "Kaydediliyor…" : "Kaydet"}
@@ -723,7 +873,19 @@ export function OpportunityNotesPanel({
         )}
       </div>
 
-      {!active ? (
+      {notesFailed ? (
+        <div
+          role="alert"
+          className="mt-4 space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+        >
+          <p className="text-meta text-danger">
+            Notlar yüklenemedi: {notesError instanceof Error ? notesError.message : "bilinmeyen hata"}
+          </p>
+          <Button size="sm" disabled={notesFetching} onClick={() => void refetch()}>
+            Tekrar dene
+          </Button>
+        </div>
+      ) : !active ? (
         <div className="py-8 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent-surface text-accent">
             <FileText size={24} />
@@ -734,6 +896,7 @@ export function OpportunityNotesPanel({
             variant="primary"
             className="mt-4"
             disabled={!online || createNote.isPending}
+            title={online ? undefined : OFFLINE_WRITE_TITLE}
             onClick={() => createNote.mutate()}
           >
             <Plus size={14} /> {createLabel}

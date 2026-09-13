@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, CheckCircle2, Circle, Wallet } from "lucide-react";
 import { api } from "@/core/api";
-import { Checkbox, Chip, Empty, Section, Spinner, cx } from "@/core/ui";
+import { Button, Checkbox, Chip, Empty, Section, Spinner, cx } from "@/core/ui";
 import type { CareerStory, Interview, InterviewPrepGroup, Opportunity, SalaryConsistency } from "@/core/types";
 import { applicationStatusLabel } from "./labels";
 
@@ -32,7 +32,14 @@ function isUpcoming(interview: Interview): boolean {
 
 export function InterviewPrepPanel() {
   const [checks, setChecks] = useState<ChecklistState>(readChecklist);
-  const { data: groups = [], isLoading } = useQuery({
+  const {
+    data: groups = [],
+    isLoading,
+    isError,
+    error,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ["career-interview-prep"],
     // Kayıt başına iki istek yerine TEK toplu okuma (eskiden 2N istek vardı).
     queryFn: async (): Promise<PrepGroup[]> => {
@@ -44,7 +51,7 @@ export function InterviewPrepPanel() {
       }));
     },
   });
-  const { data: stories = [] } = useQuery({
+  const { data: stories = [], isError: storiesFailed } = useQuery({
     queryKey: ["career-stories"],
     queryFn: () => api.get<CareerStory[]>("/career/stories"),
   });
@@ -78,6 +85,20 @@ export function InterviewPrepPanel() {
   }
 
   if (isLoading) return <Spinner label="Mülakat hazırlığı yükleniyor…" />;
+  if (isError) {
+    return (
+      <Section title="Mülakat hazırlığı" hint="okunamadı">
+        <div role="alert" className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
+          <p className="text-meta text-danger">
+            Mülakat hazırlığı yüklenemedi: {error instanceof Error ? error.message : "bilinmeyen hata"}
+          </p>
+          <Button size="sm" disabled={isFetching} onClick={() => void refetch()}>
+            Tekrar dene
+          </Button>
+        </div>
+      </Section>
+    );
+  }
   if (upcoming.length === 0) {
     return (
       <Section title="Mülakat hazırlığı" hint="Yaklaşan görüşme yok">
@@ -91,6 +112,11 @@ export function InterviewPrepPanel() {
   return (
     <Section title="Mülakat hazırlığı" hint={`${upcoming.length} başvuruda yaklaşan görüşme`}>
       <div className="space-y-4">
+        {storiesFailed && (
+          <p role="alert" className="text-meta text-danger">
+            Hikâye bankası okunamadı: eşleşen hikâye adları gösterilemiyor.
+          </p>
+        )}
         {upcoming.map(({ application, interviews, salary }) => {
           const relevant = (application.evaluation?.matches ?? [])
             .filter((match) => match.story_ids.length > 0)

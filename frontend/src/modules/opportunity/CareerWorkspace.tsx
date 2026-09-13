@@ -53,6 +53,8 @@ export function CareerWorkspace({
 
   return (
     <div className="space-y-3">
+      {/* Sekme şeridi artık `Tabs` içinde yatay kayar (dar ekranda taşmaz);
+          etiketler kırpılmaz, erişilebilir adlar rozetle birlikte verilir. */}
       <Tabs value={tab} onChange={setTab} items={[...TABS]} ariaLabel="Kariyer çalışma alanı sekmeleri" />
       {tab === "stories" && <CareerStoryBank focusId={focusStoryId} />}
       {tab === "connections" && <CareerConnectionsPanel focusId={focusConnectionId} />}

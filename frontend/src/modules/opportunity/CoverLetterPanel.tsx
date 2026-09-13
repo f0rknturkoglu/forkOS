@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { FileText, Sparkles } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Chip, Empty, Field, Metric, MetricStrip, Section, Select, Textarea, useToast } from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
 import type { CareerStory, CoverLetter, CoverLetterReview } from "@/core/types";
 
 /** Kaydedilmiş ön yazı: toplu uçtan gelen düz kayıt (ilan nesnesi taşımaz). */
@@ -10,17 +11,24 @@ type SavedLetter = CoverLetter;
 
 export function CoverLetterPanel() {
   const toast = useToast();
+  const online = useOnline();
   const [text, setText] = useState("");
   const [selectedLetterId, setSelectedLetterId] = useState("");
   const [review, setReview] = useState<CoverLetterReview | null>(null);
-  const { data: letters = [] } = useQuery({
+  const {
+    data: letters = [],
+    isError: lettersFailed,
+    error: lettersError,
+    isFetching: lettersFetching,
+    refetch: refetchLetters,
+  } = useQuery({
     queryKey: ["career-cover-letters"],
     // Kayıt başına istek YOK: kaydedilmiş ön yazılar tek uçtan gelir.
     queryFn: async (): Promise<SavedLetter[]> => {
       return api.get<CoverLetter[]>("/career/cover-letters");
     },
   });
-  const { data: stories = [] } = useQuery({
+  const { data: stories = [], isError: storiesFailed } = useQuery({
     queryKey: ["career-stories"],
     queryFn: () => api.get<CareerStory[]>("/career/stories"),
   });
@@ -41,8 +49,29 @@ export function CoverLetterPanel() {
     : "warn";
 
   return (
-    <Section title="Ön yazı denetimi" hint="Değerlendirme tamamen yerel çalışır">
+    <Section
+      title="Ön yazı denetimi"
+      hint={lettersFailed ? "kayıtlı ön yazılar okunamadı" : "Değerlendirme tamamen yerel çalışır"}
+    >
       <div className="space-y-3">
+        {lettersFailed && (
+          <div
+            role="alert"
+            className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+          >
+            <p className="text-meta text-danger">
+              Kayıtlı ön yazılar yüklenemedi: {lettersError instanceof Error ? lettersError.message : "bilinmeyen hata"}
+            </p>
+            <Button size="sm" disabled={lettersFetching} onClick={() => void refetchLetters()}>
+              Tekrar dene
+            </Button>
+          </div>
+        )}
+        {storiesFailed && (
+          <p role="alert" className="text-meta text-danger">
+            Hikâye bankası okunamadı: eşleşen hikâye adları gösterilemiyor.
+          </p>
+        )}
         <Field label="Kayıtlı ön yazıdan yükle">
           <Select
             value={selectedLetterId}
@@ -78,10 +107,20 @@ export function CoverLetterPanel() {
           />
         </Field>
         <div className="flex items-center gap-2">
-          <Button variant="primary" disabled={tooShort || evaluate.isPending} onClick={() => evaluate.mutate(text)}>
+          <Button
+            variant="primary"
+            disabled={!online || tooShort || evaluate.isPending}
+            title={online ? undefined : "Çevrimdışısın: yazma kapalı"}
+            onClick={() => evaluate.mutate(text)}
+          >
             <Sparkles size={14} /> {evaluate.isPending ? "Değerlendiriliyor…" : "Ön yazıyı değerlendir"}
           </Button>
           {tooShort && <span className="text-meta text-muted">En az 20 karakter gerekir.</span>}
+          {!online && (
+            <span role="status" className="text-meta text-warn">
+              Çevrimdışısın: ön yazı değerlendirilemez.
+            </span>
+          )}
         </div>
 
         {review && (

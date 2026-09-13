@@ -4,16 +4,25 @@ import { ExternalLink, Search, ShieldCheck, Upload, Users } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { Button, Chip, Empty, FileInput, Input, Modal, Section, cx, useToast } from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
 import type { ApplicationListPage, CareerConnection, CareerConnectionsImportResult, Opportunity } from "@/core/types";
 import { normalizeCompany, previewConnectionsCsv, type ConnectionPreview } from "./careerUtils";
 
 export function CareerConnectionsPanel({ focusId }: { focusId?: string | null }) {
   const toast = useToast();
+  const online = useOnline();
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [lastImport, setLastImport] = useState<CareerConnectionsImportResult | null>(null);
   const [pending, setPending] = useState<{ file: File; preview: ConnectionPreview } | null>(null);
-  const { data: connections = [], isLoading } = useQuery({
+  const {
+    data: connections = [],
+    isLoading,
+    isError: connectionsFailed,
+    error: connectionsError,
+    isFetching: connectionsFetching,
+    refetch: refetchConnections,
+  } = useQuery({
     queryKey: ["career-connections", search],
     queryFn: () =>
       api.get<CareerConnection[]>(
@@ -72,7 +81,7 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
   return (
     <Section
       title="Yerel bağlantı ağı"
-      hint={`${connections.length} kişi · dış ağ çağrısı yok`}
+      hint={connectionsFailed ? "okunamadı" : `${connections.length} kişi · dış ağ çağrısı yok`}
       action={
         <>
           <FileInput
@@ -83,7 +92,12 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
               if (file) void chooseFile(file);
             }}
           />
-          <Button size="sm" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
+          <Button
+            size="sm"
+            disabled={!online || upload.isPending}
+            title={online ? undefined : "Çevrimdışısın: yazma kapalı"}
+            onClick={() => fileRef.current?.click()}
+          >
             <Upload size={13} /> {upload.isPending ? "İçe aktarılıyor…" : "Connections.csv seç"}
           </Button>
         </>
@@ -106,6 +120,12 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
         </span>
       </div>
 
+      {!online && (
+        <p role="status" className="mb-4 text-meta text-warn">
+          Çevrimdışısın: CSV içe aktarılamaz, bağlantı ağı salt okunur.
+        </p>
+      )}
+
       {lastImport && (
         <div className="mb-4 flex flex-wrap gap-2 rounded-control border border-ok-border bg-ok-surface p-3">
           <Chip tone="ok">{lastImport.created} yeni</Chip>
@@ -117,6 +137,15 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
 
       {isLoading ? (
         <div className="h-24 animate-pulse rounded-card bg-surface-sunken" />
+      ) : connectionsFailed ? (
+        <div role="alert" className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
+          <p className="text-meta text-danger">
+            Bağlantılar yüklenemedi: {connectionsError instanceof Error ? connectionsError.message : "bilinmeyen hata"}
+          </p>
+          <Button size="sm" disabled={connectionsFetching} onClick={() => void refetchConnections()}>
+            Tekrar dene
+          </Button>
+        </div>
       ) : connections.length === 0 ? (
         <Empty title={search ? "Bu aramaya uyan bağlantı yok" : "Bağlantı ağı henüz boş"}>
           {search
@@ -209,7 +238,8 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
             </Button>
             <Button
               variant="primary"
-              disabled={upload.isPending}
+              disabled={!online || upload.isPending}
+              title={online ? undefined : "Çevrimdışısın: yazma kapalı"}
               onClick={() => pending && upload.mutate(pending.file)}
             >
               <Upload size={13} /> {upload.isPending ? "İçe aktarılıyor…" : "İçe aktar"}

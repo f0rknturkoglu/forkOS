@@ -185,6 +185,8 @@ function mockGet(path: string): unknown {
   }
   if (path.startsWith("/career/stories")) return [STORY];
   if (path.startsWith("/career/connections")) return CONNECTIONS;
+  if (path.startsWith("/career/interview-prep")) return [];
+  if (path.startsWith("/career/cover-letters")) return [];
   if (path.startsWith("/applications?")) {
     return { items: [APPLICATION], total: 1, offset: 0, limit: 500 };
   }
@@ -268,6 +270,24 @@ describe("CareerWorkspace", () => {
     expect(screen.getAllByText("Şirket Notu")).toHaveLength(1);
     expect(screen.getByText("Duyuru notu")).toBeTruthy();
     expect(screen.getByText("İlana özel not")).toBeTruthy();
+  });
+
+  it("altı kariyer sekmesini taşmadan kaydırır ve erişilebilir adlarını korur", async () => {
+    renderWorkspace();
+
+    const list = await screen.findByRole("tablist", { name: "Kariyer çalışma alanı sekmeleri" });
+    // Dar ekranda şerit yatay kayar; sekme etiketleri kırpılmaz.
+    expect(list.className).toContain("overflow-x-auto");
+    for (const name of [
+      "Hikâye bankası",
+      "Bağlantı ağı",
+      "Şirket araştırması",
+      "Mülakat hazırlığı",
+      "Ön yazı",
+      "Jobhunter ayarları",
+    ]) {
+      expect(screen.getByRole("tab", { name })).toBeTruthy();
+    }
   });
 
   it("Jobhunter ayarlarını Basit/Advanced olarak ayırır ve ham metin alanı bırakmaz", async () => {

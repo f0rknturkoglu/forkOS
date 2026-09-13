@@ -5,6 +5,7 @@ import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import { invalidateAfter } from "@/core/invalidation";
 import { Button, Chip, Empty, Field, IconButton, Input, Section, Select, Textarea, cx } from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
 import type { ApplicationListPage, CareerStory, CareerStoryProvenance, CoverLetter, Opportunity } from "@/core/types";
 import { PROVENANCE_LABELS, storyOverlapsText, storySearchText } from "./careerUtils";
 
@@ -85,6 +86,10 @@ function ApplicationUsage({ story }: { story: CareerStory }) {
         <span className="text-meta font-medium text-secondary">Metni bu hikâyele örtüşen ön yazılar</span>
         {covers.isLoading ? (
           <p className="mt-1 text-meta text-muted">Yerel ön yazılar taranıyor…</p>
+        ) : covers.isError ? (
+          <p role="alert" className="mt-1 text-meta text-danger">
+            Ön yazılar yüklenemedi: {covers.error instanceof Error ? covers.error.message : "bilinmeyen hata"}
+          </p>
         ) : letters.length === 0 ? (
           <p className="mt-1 text-meta text-muted">Örtüşen ön yazı bulunmadı (yerel kelime taraması).</p>
         ) : (
@@ -103,12 +108,19 @@ function ApplicationUsage({ story }: { story: CareerStory }) {
 }
 
 export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
+  const online = useOnline();
   const [selectedId, setSelectedId] = useState<string | null>(focusId ?? null);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [search, setSearch] = useState("");
   const [provenanceFilter, setProvenanceFilter] = useState<"" | CareerStoryProvenance>("");
-  const { data: stories = [] } = useQuery({
+  const {
+    data: stories = [],
+    isError: storiesFailed,
+    error: storiesError,
+    isFetching: storiesFetching,
+    refetch: refetchStories,
+  } = useQuery({
     queryKey: ["career-stories"],
     queryFn: () => api.get<CareerStory[]>("/career/stories"),
   });
@@ -192,7 +204,7 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
   return (
     <Section
       title="STAR+R hikâye bankası"
-      hint={`${stories.length} hikâye · tamamı yerel`}
+      hint={storiesFailed ? "okunamadı" : `${stories.length} hikâye · tamamı yerel`}
       action={
         <Button size="sm" onClick={startNew}>
           <Plus size={13} /> Yeni hikâye
@@ -224,7 +236,19 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
 
       <div className={cx("grid gap-4", editorOpen ? "lg:grid-cols-2" : "")}>
         <div className="space-y-2">
-          {visible.length === 0 ? (
+          {storiesFailed ? (
+            <div
+              role="alert"
+              className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+            >
+              <p className="text-meta text-danger">
+                Hikâyeler yüklenemedi: {storiesError instanceof Error ? storiesError.message : "bilinmeyen hata"}
+              </p>
+              <Button size="sm" disabled={storiesFetching} onClick={() => void refetchStories()}>
+                Tekrar dene
+              </Button>
+            </div>
+          ) : visible.length === 0 ? (
             <Empty title={stories.length === 0 ? "Hikâye bankası henüz boş" : "Bu filtreye uyan hikâye yok"}>
               {stories.length === 0
                 ? "Mülakatta tekrar kullanacağın ilk somut hikâyeyi “Yeni hikâye” ile ekle."
@@ -269,7 +293,7 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
                 className="min-w-0 flex-1"
               />
               {selected && (
-                <IconButton title="Hikâyeyi arşivle" tone="danger" onClick={removeSelected}>
+                <IconButton title="Hikâyeyi arşivle" tone="danger" disabled={!online} onClick={removeSelected}>
                   <Trash2 size={14} />
                 </IconButton>
               )}
@@ -307,7 +331,12 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
               />
             </Field>
             <div className="flex items-center justify-between gap-2">
-              <Button variant="primary" disabled={!draft.title.trim() || save.isPending} onClick={() => save.mutate()}>
+              <Button
+                variant="primary"
+                disabled={!online || !draft.title.trim() || save.isPending}
+                title={online ? undefined : "Çevrimdışısın: yazma kapalı"}
+                onClick={() => save.mutate()}
+              >
                 {selected ? "Hikâyeyi güncelle" : "Hikâyeyi kaydet"}
               </Button>
               <Button
@@ -319,6 +348,11 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
                 Kapat
               </Button>
             </div>
+            {!online && (
+              <p role="status" className="text-meta text-warn">
+                Çevrimdışısın: hikâye kaydedilemez veya arşivlenemez.
+              </p>
+            )}
             {selected && (
               <div className="border-t border-subtle pt-3">
                 <span className="mb-2 flex items-center gap-1 text-meta font-medium text-secondary">
