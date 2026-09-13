@@ -8651,6 +8651,11 @@
           "gate": {
             "$ref": "#/components/schemas/EvaluationGateOut"
           },
+          "listing_fingerprint": {
+            "default": "",
+            "title": "Listing Fingerprint",
+            "type": "string"
+          },
           "matches": {
             "items": {
               "$ref": "#/components/schemas/EvaluationMatchOut"
@@ -8668,6 +8673,11 @@
               }
             ],
             "title": "Notes"
+          },
+          "profile_fingerprint": {
+            "default": "",
+            "title": "Profile Fingerprint",
+            "type": "string"
           },
           "recommendation": {
             "enum": [
@@ -9145,6 +9155,17 @@
                 "type": "null"
               }
             ]
+          },
+          "evaluation_stale_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Stale Reason"
           },
           "exam_at": {
             "anyOf": [
@@ -12055,6 +12076,11 @@
           },
           "ok_sources": {
             "title": "Ok Sources",
+            "type": "integer"
+          },
+          "partial_sources": {
+            "default": 0,
+            "title": "Partial Sources",
             "type": "integer"
           },
           "progress_pct": {
@@ -21687,6 +21713,27 @@
                 }
               ],
               "title": "Max Score"
+            }
+          },
+          {
+            "in": "query",
+            "name": "score_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "any",
+                    "computed",
+                    "uncomputed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Score State"
             }
           },
           {

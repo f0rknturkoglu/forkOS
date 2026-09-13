@@ -26,6 +26,7 @@ from app.core.events import log_event
 from app.core.models import Entity
 from app.modules.document.models import Document
 from app.modules.document.service import extract_local_document_text, get_local_file_path
+from app.modules.opportunity import scoring
 from app.modules.opportunity.models import Application, Interview, Opportunity
 from app.modules.opportunity.schemas import (
     EvaluationGateOut,
@@ -767,6 +768,66 @@ def _evaluation_score(
     return score, recommendation
 
 
+def listing_fingerprint(opportunity: Opportunity, *, title: str) -> str:
+    """ILAN tarafinin parmak izi (profil ve CV haric).
+
+    Kucuk ve ucuzdur: liste yanitinda her ilan icin PDF metni cikarmak mumkun
+    olmadigi icin bayatlama kontrolu bu iki parcaya ayrilir.
+    """
+    payload = {
+        "title": title,
+        "description": _description(opportunity),
+        "location": opportunity.location,
+        "country": opportunity.country,
+        "remote": opportunity.remote,
+    }
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
+
+
+def profile_fingerprint(profile: dict[str, Any]) -> str:
+    """Profil + beceri kurallarinin parmak izi: ikisi degisince skor bayatlar."""
+    payload = {"profile": profile, "skills": sorted(_configured_profile_skills()[0])}
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
+
+
+#: Bayatlama nedenleri. Arayuz bunlari Turkce metne cevirir.
+EVALUATION_STALE_REASONS = (
+    scoring.STALE_VERSION,
+    scoring.STALE_LISTING,
+    scoring.STALE_PROFILE,
+    scoring.STALE_MISSING,
+)
+
+
+def evaluation_staleness(
+    opportunity: Opportunity, *, title: str, profile: dict[str, Any]
+) -> str | None:
+    """Kayitli degerlendirme bayat mi? Guncelse ``None``.
+
+    Eski skoru guncel gibi sunmamak icin kayitli parmak izleri YENIDEN
+    hesaplananlarla karsilastirilir; eski surumle ya da parmak izi hic
+    yazilmadan uretilmis degerlendirmeler "missing" sayilir (yeniden hesapla).
+    """
+    evaluation = opportunity.evaluation or {}
+    if not evaluation:
+        return None
+    if evaluation.get("version") != EVALUATION_VERSION:
+        return scoring.STALE_VERSION
+    stored_listing = evaluation.get("listing_fingerprint")
+    stored_profile = evaluation.get("profile_fingerprint")
+    if not stored_listing or not stored_profile:
+        return scoring.STALE_MISSING
+    if stored_listing != listing_fingerprint(opportunity, title=title):
+        return scoring.STALE_LISTING
+    if stored_profile != profile_fingerprint(profile):
+        return scoring.STALE_PROFILE
+    return None
+
+
 def _evaluation_fingerprint(
     opportunity: Opportunity,
     *,
@@ -821,6 +882,8 @@ def build_evaluation(
     return OpportunityEvaluationOut(
         version=EVALUATION_VERSION,
         evaluated_at=now,
+        listing_fingerprint=listing_fingerprint(opportunity, title=title),
+        profile_fingerprint=profile_fingerprint(profile),
         source_fingerprint=_evaluation_fingerprint(
             opportunity,
             title=title,
@@ -1055,6 +1118,8 @@ async def enrich_opportunities(
             norm = normalize_company(opportunity.organization)
             connection_counts[opportunity.id] = org_conn_counts.get(norm, 0)
 
+    # Profil tek kez okunur; bayatlama kontrolu ilan basina yeniden hesaplanir.
+    profile = await _career_profile(session)
     return [
         output.model_copy(
             update={
@@ -1063,7 +1128,10 @@ async def enrich_opportunities(
                     title=title,
                     repost_count=counts.get(opportunity.id, 0),
                     connection_count=connection_counts.get(opportunity.id, 0),
-                )
+                ),
+                "evaluation_stale_reason": evaluation_staleness(
+                    opportunity, title=title, profile=profile
+                ),
             }
         )
         for (opportunity, title), output in zip(rows, outputs, strict=True)

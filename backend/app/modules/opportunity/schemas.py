@@ -76,6 +76,9 @@ class EvaluationGateOut(BaseModel):
 class OpportunityEvaluationOut(BaseModel):
     version: str
     evaluated_at: datetime
+    #: Kayitli parmak izleri: profil/ilan degisince degerlendirme BAYAT olur.
+    listing_fingerprint: str = ""
+    profile_fingerprint: str = ""
     source_fingerprint: str
     engine: Literal["local_rules"] = "local_rules"
     candidate_source: Literal["document", "profile"] = "profile"
@@ -196,6 +199,9 @@ class OpportunityOut(BaseModel):
     intelligence: OpportunityIntelligenceOut | None = None
     #: Gercek CV belgesiyle yapilan iki asamali degerlendirme (belge + parmak izi).
     evaluation: OpportunityEvaluationOut | None = None
+    #: Degerlendirme bayatsa nedeni, guncelse null (bkz. intelligence.
+    #: EVALUATION_STALE_REASONS). Eski skor guncel gibi sunulmaz.
+    evaluation_stale_reason: str | None = None
     # ── Kaynak gozlemi / kapanma ───────────────────────────────────────
     source_status: str = "active"
     last_seen_at: datetime | None = None
@@ -313,6 +319,8 @@ class SourceSyncBatchOut(BaseModel):
     total_sources: int
     completed_sources: int
     ok_sources: int
+    #: Kaynak calisti ama kapsamin tamamini taramadi (bkz. source_run.partial).
+    partial_sources: int = 0
     empty_sources: int
     error_sources: int
     items_found: int

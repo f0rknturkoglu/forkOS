@@ -17,7 +17,7 @@ from app.db import get_session
 from app.modules.note import service as note_service
 from app.modules.note.schemas import NoteIn, NoteOut
 from app.modules.opportunity import career as career_service
-from app.modules.opportunity import lifecycle, service
+from app.modules.opportunity import lifecycle, scoring, service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
 from app.modules.opportunity.intelligence import (
     classify_reply,
@@ -211,8 +211,9 @@ async def opportunity_browse(
     recommendation: str | None = None,
     period_days: int | None = None,
     year: int | None = None,
-    min_score: float | None = Query(None, ge=-1, le=100),
-    max_score: float | None = Query(None, ge=-1, le=100),
+    min_score: float | None = Query(None, ge=scoring.SCORE_FLOOR, le=scoring.SCORE_CAP),
+    max_score: float | None = Query(None, ge=scoring.SCORE_FLOOR, le=scoring.SCORE_CAP),
+    score_state: Literal["any", "computed", "uncomputed"] | None = None,
     skill: str | None = None,
     min_skill_match: float | None = Query(None, ge=0, le=1),
     max_skill_match: float | None = Query(None, ge=0, le=1),
@@ -252,6 +253,9 @@ async def opportunity_browse(
             year=year,
             min_score=min_score if section == "jobs" else None,
             max_score=max_score if section == "jobs" else None,
+            score_state=(
+                score_state if section == "jobs" and score_state not in (None, "any") else None
+            ),
             skill=skill if section == "jobs" else None,
             min_skill_match=min_skill_match if section == "jobs" else None,
             max_skill_match=max_skill_match if section == "jobs" else None,

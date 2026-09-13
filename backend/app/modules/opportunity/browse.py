@@ -30,6 +30,8 @@ class BrowseFilters:
     year: int | None = None
     min_score: float | None = None
     max_score: float | None = None
+    #: any | computed | uncomputed -- null (hesaplanmadi) skoru ayri secilebilsin.
+    score_state: str | None = None
     skill: str | None = None
     min_skill_match: float | None = None
     max_skill_match: float | None = None
@@ -89,6 +91,10 @@ def _conditions(filters: BrowseFilters):
         conditions.append(Opportunity.score >= filters.min_score)
     if filters.max_score is not None:
         conditions.append(Opportunity.score <= filters.max_score)
+    if filters.score_state == "computed":
+        conditions.append(Opportunity.score.is_not(None))
+    elif filters.score_state == "uncomputed":
+        conditions.append(Opportunity.score.is_(None))
     effective_date = _effective_date()
     if filters.period_days:
         conditions.append(effective_date >= datetime.now(UTC) - timedelta(days=filters.period_days))

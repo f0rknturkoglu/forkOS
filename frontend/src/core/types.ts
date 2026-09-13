@@ -837,6 +837,11 @@ export interface Opportunity {
   intelligence?: OpportunityIntelligence | null;
   /** career-ops iki aşamalı gereksinim ve aday değerlendirmesi. */
   evaluation?: OpportunityEvaluation | null;
+  /**
+   * Değerlendirme bayatsa nedeni ("version" | "listing" | "profile" | "missing"),
+   * güncelse null. Bayat değerlendirme güncel gibi sunulmaz.
+   */
+  evaluation_stale_reason?: string | null;
   /* ── Kaynak gözlemi / kapanma ─────────────────────────────────────── */
   source_status?: string;
   last_seen_at?: string | null;

@@ -7261,10 +7261,20 @@ export interface components {
              */
             evaluated_at: string;
             gate: components["schemas"]["EvaluationGateOut"];
+            /**
+             * Listing Fingerprint
+             * @default
+             */
+            listing_fingerprint: string;
             /** Matches */
             matches?: components["schemas"]["EvaluationMatchOut"][];
             /** Notes */
             notes?: string | null;
+            /**
+             * Profile Fingerprint
+             * @default
+             */
+            profile_fingerprint: string;
             /**
              * Recommendation
              * @enum {string}
@@ -7399,6 +7409,8 @@ export interface components {
             /** Deadline At */
             deadline_at: string | null;
             evaluation?: components["schemas"]["OpportunityEvaluationOut"] | null;
+            /** Evaluation Stale Reason */
+            evaluation_stale_reason?: string | null;
             /** Exam At */
             exam_at?: string | null;
             /** External Id */
@@ -8407,6 +8419,11 @@ export interface components {
             items_found: number;
             /** Ok Sources */
             ok_sources: number;
+            /**
+             * Partial Sources
+             * @default 0
+             */
+            partial_sources: number;
             /** Progress Pct */
             progress_pct: number;
             /**
@@ -14052,6 +14069,7 @@ export interface operations {
                 year?: number | null;
                 min_score?: number | null;
                 max_score?: number | null;
+                score_state?: ("any" | "computed" | "uncomputed") | null;
                 skill?: string | null;
                 min_skill_match?: number | null;
                 max_skill_match?: number | null;

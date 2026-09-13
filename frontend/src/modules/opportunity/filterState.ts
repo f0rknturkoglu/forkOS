@@ -11,6 +11,7 @@
 import { sourceLabel } from "@/core/labels";
 import type { OpportunityBrowseFilters, OpportunitySection } from "./opportunityBrowse";
 import { REMOTE_LABELS, archetypeLabel, recommendationLabel, statusLabel, type RemoteKind } from "./labels";
+import { SCORE_RANGES, scoreBand } from "./scoreDomain";
 
 type FilterKey = keyof OpportunityBrowseFilters;
 
@@ -36,14 +37,8 @@ const ALL: readonly OpportunitySection[] = ["jobs", "announcements", "trash"];
 const JOBS: readonly OpportunitySection[] = ["jobs"];
 const RESULTS: readonly OpportunitySection[] = ["jobs", "announcements"];
 
-export const SCORE_PRESETS = [
-  { label: "Tümü", min: undefined, max: undefined },
-  { label: "80–100", min: 80, max: 100 },
-  { label: "70–79", min: 70, max: 79.99 },
-  { label: "40–69", min: 40, max: 69.99 },
-  { label: "0–39", min: 0, max: 39.99 },
-  { label: "Elendi", min: -1, max: -1 },
-] as const;
+/** Hazır skor aralıkları: eşikler ve kapsam `scoreDomain`'de tanımlıdır. */
+export const SCORE_PRESETS = SCORE_RANGES;
 
 /** Hazır uyum presetleri. Aralıklar ÖRTÜŞMEZ; eşikler tek yerden gelir. */
 export const PROFILE_MATCH_PRESETS = [
@@ -151,7 +146,18 @@ const FILTER_DESCRIPTORS: readonly FilterDescriptor[] = [
   },
 ];
 
-/** Skor ve uyum chip'leri tek anahtar değil, ikili alan taşıdığı için ayrı. */
+/**
+ * Skor chip'leri tek anahtar değil, ikili/türev alan taşıdığı için ayrı.
+ * `score_state` (hesaplanmadı) ayrı bir chip üretir: null ile 0 karışmasın.
+ */
+function scoreStateChip(filters: OpportunityBrowseFilters): ActiveFilterChip | null {
+  if (!filters.score_state) return null;
+  return {
+    key: "score_state",
+    label: "Skor: hesaplanmadı",
+    clear: (current) => ({ ...current, score_state: undefined, offset: 0 }),
+  };
+}
 
 function scoreChip(filters: OpportunityBrowseFilters): ActiveFilterChip | null {
   if (filters.min_score === undefined && filters.max_score === undefined) return null;
@@ -218,6 +224,8 @@ export function activeFilterChips(filters: OpportunityBrowseFilters): ActiveFilt
   }
   const score = scoreChip(filters);
   if (score && filters.section === "jobs") chips.push(score);
+  const scoreState = scoreStateChip(filters);
+  if (scoreState && filters.section === "jobs") chips.push(scoreState);
   const profile = profileMatchChip(filters);
   if (profile && filters.section === "jobs") chips.push(profile);
   if (filters.skill_tier && !profile) {
@@ -241,6 +249,7 @@ export function savableView(filters: OpportunityBrowseFilters): Record<string, u
     ...VIEW_KEYS,
     "min_score",
     "max_score",
+    "score_state",
     "min_skill_match",
     "max_skill_match",
     "skill_match_state",
@@ -272,6 +281,9 @@ export function applySavedView(filters: OpportunityBrowseFilters, raw: unknown):
     const value = data[key];
     if (typeof value === "number") draft[key] = value;
   }
+  if (data.score_state === "computed" || data.score_state === "uncomputed") {
+    draft.score_state = data.score_state;
+  }
   if (data.skill_match_state === "computed" || data.skill_match_state === "uncomputed") {
     draft.skill_match_state = data.skill_match_state;
   }
@@ -299,6 +311,7 @@ export function switchSection(
   if (section !== "jobs") {
     draft.min_score = undefined;
     draft.max_score = undefined;
+    draft.score_state = undefined;
     draft.min_skill_match = undefined;
     draft.max_skill_match = undefined;
     draft.skill_match_state = undefined;
@@ -315,6 +328,7 @@ export function clearAllFilters(filters: OpportunityBrowseFilters): OpportunityB
   }
   draft.min_score = undefined;
   draft.max_score = undefined;
+  draft.score_state = undefined;
   draft.min_skill_match = undefined;
   draft.max_skill_match = undefined;
   draft.skill_match_state = undefined;

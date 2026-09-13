@@ -3,6 +3,8 @@ import { Button, Chip, FilterChip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
   REMOTE_LABELS,
+  SOURCE_STATUS_LABELS,
+  STALE_REASON_HINTS,
   announcementCategoryLabel,
   applicationStatusLabel,
   archetypeLabel,
@@ -17,6 +19,21 @@ import {
 } from "./labels";
 import { sourceLabel } from "@/core/labels";
 import type { RemoteKind } from "./labels";
+
+/**
+ * İkincil skorlar tek satırda: profil uyumu (oran) ve tavsiye skoru (puan).
+ * Satırdaki TEK ana skor kalite skorudur; bu metin açıklanabilir detaydır.
+ */
+function secondaryScoreLabel(item: Opportunity): string | null {
+  const parts: string[] = [];
+  if (item.profile_match_ratio !== null && item.profile_match_ratio !== undefined) {
+    parts.push(`Uyum %${Math.round(item.profile_match_ratio * 100)}`);
+  }
+  if (item.evaluation?.recommendation) {
+    parts.push(`Tavsiye ${item.evaluation.score}p`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
 
 export function OpportunityCollection({ layout, children }: { layout: "rows" | "grid"; children: React.ReactNode }) {
   return (
@@ -89,7 +106,7 @@ export function OpportunityCard({
         layout === "rows"
           ? "grid grid-cols-[52px_minmax(0,1fr)] gap-3 px-1 py-3 sm:grid-cols-[58px_minmax(0,1fr)_auto]"
           : "flex h-full flex-col gap-3 rounded-card border border-subtle bg-surface p-4",
-        band === "killed" && "opacity-60",
+        band === "eliminated" && "opacity-60",
       )}
     >
       {announcement ? (
@@ -104,7 +121,15 @@ export function OpportunityCard({
           </time>
         </div>
       ) : (
-        <div className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}>
+        <div
+          className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}
+          title="Kalite skoru: kaynak ve kural tabanlı ilan kalitesi (−1 = elendi)"
+          aria-label={
+            item.score === null
+              ? "Kalite skoru hesaplanmadı"
+              : `Kalite skoru ${Math.round(item.score)} / 100`
+          }
+        >
           <div
             className={cx(
               "numeral leading-none",
@@ -113,7 +138,7 @@ export function OpportunityCard({
                 ? "text-ok"
                 : band === "fair"
                   ? "text-warn"
-                  : band === "killed"
+                  : band === "eliminated"
                     ? "text-danger"
                     : "text-muted",
             )}
@@ -148,10 +173,26 @@ export function OpportunityCard({
           {announcement && item.category?.startsWith("ylsy-") && (
             <Chip tone="accent">{announcementCategoryLabel(item.category)}</Chip>
           )}
-          {!announcement && item.profile_match_ratio !== null && item.profile_match_ratio !== undefined && (
-            <span className="rounded-control border border-ok/30 bg-ok-surface px-2 py-0.5 text-micro font-medium text-ok">
-              Profil Uyumu: %{Math.round(item.profile_match_ratio * 100)}
-            </span>
+          {/* Ikincil skorlar TEK açıklanabilir chip'te toplanir: satirda tek
+              ana skor (kalite) kalir, digerleri ayrinti olarak sunulur. */}
+          {!announcement && secondaryScoreLabel(item) && (
+            <Chip tone="neutral">
+              <span title="Profil uyumu: becerilerin ilan metniyle örtüşmesi · Tavsiye skoru: CV ile iki aşamalı değerlendirme">
+                {secondaryScoreLabel(item)}
+              </span>
+            </Chip>
+          )}
+          {item.evaluation_stale_reason && (
+            <Chip tone="warn">
+              <span title={STALE_REASON_HINTS[item.evaluation_stale_reason] ?? "Yeniden hesapla"}>
+                Değerlendirme güncel değil
+              </span>
+            </Chip>
+          )}
+          {!announcement && item.source_status && item.source_status !== "active" && (
+            <Chip tone={item.source_status === "closed" ? "danger" : "warn"}>
+              {SOURCE_STATUS_LABELS[item.source_status] ?? "Kaynakta bulunamıyor"}
+            </Chip>
           )}
           {item.application_status && (
             <Chip tone={item.application_status === "rejected" ? "danger" : "accent"}>
@@ -164,7 +205,7 @@ export function OpportunityCard({
           {announcement && item.stage && <Chip tone="neutral">{item.stage}</Chip>}
           {item.evaluation?.recommendation && (
             <Chip tone={recommendationTone(item.evaluation.recommendation)}>
-              {recommendationLabel(item.evaluation.recommendation)} · {item.evaluation.score}p
+              {recommendationLabel(item.evaluation.recommendation)}
             </Chip>
           )}
           {item.evaluation?.archetype && <Chip tone="neutral">{archetypeLabel(item.evaluation.archetype)}</Chip>}

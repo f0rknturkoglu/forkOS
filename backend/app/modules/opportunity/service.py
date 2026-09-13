@@ -66,6 +66,7 @@ from app.modules.opportunity.schemas import (
     SkillMatchOut,
 )
 from app.modules.opportunity.taxonomy import classify_job
+from app.sources.forkjob_core.models import canonical_url
 
 TECH_KEYWORDS = (
     "python",
@@ -186,10 +187,16 @@ def _score_reasons(raw: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def _skill_match_ratio(opportunity: Opportunity, title: str) -> float | None:
+    """Profil uyum orani; HESAPLANAMADIYSA `None`.
+
+    Eskiden is ilanlarinda `0.0` yaziliyordu: "hic ortusme yok" ile "hic
+    hesaplanmadi" ayni goruntuye dusuyor ve "Hesaplanmadi" filtresi is
+    ilanlarinda asla eslesmiyordu. Artik null korunur.
+    """
     match = _calculate_skill_match(opportunity, title, _score_reasons(opportunity.raw))
-    if match is not None:
-        return match.match_ratio
-    return 0.0 if opportunity.kind == "job" else None
+    if match is None:
+        return None
+    return match.match_ratio
 
 
 def _out(
@@ -895,6 +902,39 @@ async def _refresh_opportunity(
             setattr(opportunity, key, value)
 
 
+
+async def _sync_entity_titles(
+    session: AsyncSession,
+    *,
+    rows_by_job: list[tuple[Any, dict[str, Any], dict[str, Any]]],
+    touched: list[Opportunity],
+) -> None:
+    """Kaynak basligi degistiyse Entity basligini ve arama vektorunu senkronla.
+
+    `_refresh_opportunity` yalnizca `opportunity` satirini tazeler; Entity
+    basligi eski kalirsa guncellenmis ilan global aramada ESKI baslikla
+    bulunur.
+    """
+    titles: dict[uuid.UUID, str] = {}
+    for (job, _raw, _forkjob), opportunity in zip(rows_by_job, touched, strict=False):
+        title = getattr(job, "title", None)
+        if title:
+            titles[opportunity.id] = str(title)
+    if not titles:
+        return
+    current = dict(
+        (
+            await session.execute(
+                select(Entity.id, Entity.title).where(Entity.id.in_(list(titles)))
+            )
+        ).all()
+    )
+    for entity_id, title in titles.items():
+        if current.get(entity_id) == title:
+            continue
+        await touch_entity(session, entity_id, title=title)
+
+
 async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str) -> int:
     """forkjob Job nesnelerini forkOS entity/opportunity kayitlarina cevirir.
 
@@ -937,17 +977,21 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             if row.external_id
         }
 
+    # URL eslesmesi HEM ham hem de normalize edilmis bicimle yapilir: ayni ilan
+    # `http://x/1/`, `https://x/1` ve `?utm_source=...` varyantlariyla
+    # gelebiliyor ve her varyant ayri kayit aciyordu.
+    canonical_urls = [canonical_url(url) for url in urls if isinstance(url, str) and url.strip()]
     existing_by_url: dict[str, Opportunity] = {}
-    if urls:
-        existing_by_url = {
-            row.url: row
-            for row in (
-                await session.execute(select(Opportunity).where(Opportunity.url.in_(urls)))
-            )
-            .scalars()
-            .all()
-            if row.url
-        }
+    existing_by_canonical_url: dict[str, Opportunity] = {}
+    lookups = list(dict.fromkeys([*urls, *canonical_urls]))
+    if lookups:
+        for row in (
+            await session.execute(select(Opportunity).where(Opportunity.url.in_(lookups)))
+        ).scalars():
+            if not row.url:
+                continue
+            existing_by_url.setdefault(row.url, row)
+            existing_by_canonical_url.setdefault(canonical_url(row.url), row)
 
     # cluster_key lookup'i kayit basina degil, tek sorguda (eski N+1 buradaydi).
     existing_by_cluster: dict[str, list[Opportunity]] = {}
@@ -1006,7 +1050,9 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
 
         existing = existing_by_ext.get(str(external_id)) if external_id else None
         if existing is None and job.url:
-            existing = existing_by_url.get(job.url)
+            existing = existing_by_url.get(job.url) or existing_by_canonical_url.get(
+                canonical_url(job.url)
+            )
         if existing is not None:
             if existing.source != source_label and job.url and existing_by_url.get(job.url) is existing:
                 sources = list((existing.raw or {}).get("sources", [existing.source]))
@@ -1072,11 +1118,17 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             existing_by_ext[str(external_id)] = new_opp
         if job.url:
             existing_by_url[job.url] = new_opp
+            existing_by_canonical_url.setdefault(canonical_url(job.url), new_opp)
+        # AYNI batch icinde kumelenmis ikinci bir kayit gelirse yeni kayit
+        # acilmasin: cluster haritasi her kayittan SONRA guncellenir.
+        if cluster_key:
+            existing_by_cluster.setdefault(str(cluster_key), []).append(new_opp)
         touched.append(new_opp)
         added += 1
 
     # Gozlemler icin kimlikler: create_entity flush ettigi icin hazir.
     await session.flush()
+    await _sync_entity_titles(session, rows_by_job=rows_by_job, touched=touched)
     await _link_announcement_hierarchy(
         session,
         rows_by_job=rows_by_job,
@@ -1315,28 +1367,34 @@ async def _link_announcement_hierarchy(
 
 
 async def backfill_skill_match_ratios(session: AsyncSession, *, batch_size: int = 500) -> int:
-    """Eski ilanlarin CV oran cache'ini kucuk transaction'larla tamamla."""
+    """Eski ilanlarin uyum orani cache'ini kucuk transaction'larla tamamla.
+
+    Isaretci (cursor) ile ilerler: hesaplanamayan ilan `None` kalir, bu yuzden
+    `skill_match_ratio IS NULL` sorgusuyla yeniden secilirse dongu ASLA bitmez.
+    """
     updated = 0
+    cursor: uuid.UUID | None = None
     while True:
-        rows = list(
-            (
-                await session.execute(
-                    select(Opportunity, Entity.title)
-                    .join(Entity, Entity.id == Opportunity.id)
-                    .where(
-                        Opportunity.kind == "job",
-                        Opportunity.skill_match_ratio.is_(None),
-                    )
-                    .order_by(Opportunity.id)
-                    .limit(batch_size)
-                )
-            ).all()
+        statement = (
+            select(Opportunity, Entity.title)
+            .join(Entity, Entity.id == Opportunity.id)
+            .where(Opportunity.kind == "job")
+            .order_by(Opportunity.id)
+            .limit(batch_size)
         )
+        if cursor is not None:
+            statement = statement.where(Opportunity.id > cursor)
+        rows = list((await session.execute(statement)).all())
         if not rows:
             return updated
         for opportunity, title in rows:
-            opportunity.skill_match_ratio = _skill_match_ratio(opportunity, title)
-        updated += len(rows)
+            if opportunity.skill_match_ratio is not None:
+                continue
+            ratio = _skill_match_ratio(opportunity, title)
+            if ratio is not None:
+                opportunity.skill_match_ratio = ratio
+                updated += 1
+        cursor = rows[-1][0].id
         await session.commit()
 
 

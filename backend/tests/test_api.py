@@ -678,6 +678,7 @@ async def test_today_agenda_hides_suggestions_when_auto_mode_is_disabled(client:
             "media": [],
             "flashcards": [],
             "study": [],
+            "career": [],
         }
     finally:
         await client.put("/api/settings/today.auto_suggestions", json={"value": True})

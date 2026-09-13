@@ -207,7 +207,7 @@ function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
         <Chip tone={STATUS_TONES[item.status] ?? "neutral"}>{statusLabel(item.status)}</Chip>
         {band && (
           <Chip tone={SCORE_TONE[band]}>
-            {band === "killed" ? "Elendi" : `${Math.round(item.score as number)} Puan`}
+            {band === "eliminated" ? "Elendi" : `${Math.round(item.score as number)} Puan`}
           </Chip>
         )}
       </div>
@@ -326,10 +326,10 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
           <>
             <div className="flex flex-wrap items-center gap-3">
               <span className="numeral text-numeral-xl leading-none text-primary">
-                {band === "killed" ? "Elendi" : Math.round(item.score)}
+                {band === "eliminated" ? "Elendi" : Math.round(item.score)}
               </span>
               {band && (
-                <Chip tone={SCORE_TONE[band]}>{band === "killed" ? "Elendi" : `${Math.round(item.score)} / 100`}</Chip>
+                <Chip tone={SCORE_TONE[band]}>{band === "eliminated" ? "Elendi" : `${Math.round(item.score)} / 100`}</Chip>
               )}
               {item.score_source && <Chip>{item.score_source}</Chip>}
               {item.score_computed_at && (

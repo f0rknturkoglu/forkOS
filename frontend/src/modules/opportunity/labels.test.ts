@@ -39,13 +39,15 @@ const BACKEND_APPLICATION_FLOW = [
 ];
 
 describe("scoreBand sinirlari", () => {
-  it("null girdiyi null dondurur", () => {
-    expect(scoreBand(null)).toBeNull();
+  it("skor yokken 'unknown' doner: 0 ile karistirilmaz", () => {
+    expect(scoreBand(null)).toBe("unknown");
+    expect(scoreBand(undefined)).toBe("unknown");
+    expect(scoreBand(0)).toBe("low");
   });
 
-  it("negatif skoru killed sayar", () => {
-    expect(scoreBand(-1)).toBe("killed");
-    expect(scoreBand(-100)).toBe("killed");
+  it("negatif skoru elenmiş sayar", () => {
+    expect(scoreBand(-1)).toBe("eliminated");
+    expect(scoreBand(-100)).toBe("eliminated");
   });
 
   it("0-39 arasini low sayar", () => {
@@ -136,7 +138,13 @@ describe("STATUSES ve SCORE_TONE backend ile ayni", () => {
   });
 
   it("SCORE_TONE her band icin renk tanimli", () => {
-    expect(SCORE_TONE).toEqual({ killed: "danger", low: "neutral", fair: "warn", strong: "ok" });
+    expect(SCORE_TONE).toEqual({
+      unknown: "neutral",
+      eliminated: "danger",
+      low: "neutral",
+      fair: "warn",
+      strong: "ok",
+    });
   });
 
   it("REMOTE_LABELS dört kanonik kovayi kapsar", () => {

@@ -453,14 +453,103 @@ async def jobhunter_config_update(body: dict):
     """
     if not isinstance(body.get("scoring"), dict):
         raise HTTPException(422, "scoring objesi gerekli")
+    _validate_scoring_payload(body)
+
     _JOBHUNTER_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     header = "# forkjob scoring & balance -- forkOS ayarlar panelinden yonetilir.\n\n"
-    _JOBHUNTER_CONFIG.write_text(
-        header + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100),
-        encoding="utf-8",
-    )
-    forkjob_port.SCORING = load_config(_JOBHUNTER_CONFIG)
+    payload = header + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100)
+    previous = _JOBHUNTER_CONFIG.read_text(encoding="utf-8") if _JOBHUNTER_CONFIG.exists() else None
+    _JOBHUNTER_CONFIG.write_text(payload, encoding="utf-8")
+    try:
+        reloaded = load_config(_JOBHUNTER_CONFIG)
+    except Exception as exc:  # noqa: BLE001 - bozuk config CALISAN ayari bozmamali
+        if previous is None:
+            _JOBHUNTER_CONFIG.unlink(missing_ok=True)
+        else:
+            _JOBHUNTER_CONFIG.write_text(previous, encoding="utf-8")
+        raise HTTPException(422, f"skorlama ayarı yüklenemedi: {type(exc).__name__}") from exc
+    forkjob_port.SCORING = reloaded
     return {"ok": True}
+
+
+#: Govdede sayisal olmasi gereken skorlama alanlari.
+_SCORING_NUMERIC_FIELDS = (
+    "base",
+    "skill_max",
+    "skill_title_multiplier",
+    "role_mismatch_penalty",
+    "role_description_relief",
+    "level_bonus",
+    "level_description_factor",
+    "visa_bonus",
+    "visa_penalty",
+    "spanish_requirement_penalty",
+    "english_working_bonus",
+    "tr_relocation_penalty",
+    "freshness_grace_days",
+    "freshness_penalty_per_day",
+    "freshness_max_penalty",
+    "kill_score",
+    "score_cap",
+    "score_floor",
+)
+
+
+def _validate_scoring_payload(body: dict) -> None:
+    """Skorlama govdesini dogrula; gecersizse 422 yukseltir.
+
+    Dogrulama YAZMADAN ONCE yapilir: eskiden her govde oldugu gibi diske
+    yaziliyor ve sicak yukleniyordu; tek bir hatali alan calisan skorlamayi
+    bozabiliyordu (ve `config.yaml` bozuk kaliyordu).
+    """
+    scoring = body["scoring"]
+
+    def number(container: dict, key: str) -> float | None:
+        value = container.get(key)
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise HTTPException(422, f"scoring.{key} sayı olmalı")
+        if value != value or value in (float("inf"), float("-inf")):
+            raise HTTPException(422, f"scoring.{key} sonlu bir sayı olmalı")
+        return float(value)
+
+    for key in _SCORING_NUMERIC_FIELDS:
+        number(scoring, key)
+
+    floor = number(scoring, "score_floor")
+    cap = number(scoring, "score_cap")
+    if floor is not None and cap is not None and floor > cap:
+        raise HTTPException(422, "scoring.score_floor, score_cap'ten büyük olamaz")
+    kill = number(scoring, "kill_score")
+    if kill is not None and floor is not None and cap is not None and not floor <= kill <= cap:
+        raise HTTPException(422, "scoring.kill_score skor aralığının dışında")
+
+    skills = scoring.get("skills")
+    if skills is not None:
+        if not isinstance(skills, list):
+            raise HTTPException(422, "scoring.skills liste olmalı")
+        for entry in skills:
+            if not isinstance(entry, dict) or not str(entry.get("name", "")).strip():
+                raise HTTPException(422, "her beceri en az 'name' ister")
+            if not isinstance(entry.get("points"), (int, float)) or isinstance(
+                entry.get("points"), bool
+            ):
+                raise HTTPException(422, "beceri puanı sayı olmalı")
+
+    balance = body.get("balance")
+    if balance is not None:
+        if not isinstance(balance, dict):
+            raise HTTPException(422, "balance objesi gerekli")
+        quotas = balance.get("quotas")
+        if quotas is not None:
+            if not isinstance(quotas, dict) or not quotas:
+                raise HTTPException(422, "balance.quotas boş olamaz")
+            for key, value in quotas.items():
+                if not str(key).strip() or isinstance(value, bool) or not isinstance(value, int):
+                    raise HTTPException(422, "balance.quotas anahtar/sayı çiftleri istiyor")
+                if value < 0:
+                    raise HTTPException(422, "balance.quotas negatif olamaz")
 
 
 @router.get("/sources/jobhunter/linkedin-profiles")

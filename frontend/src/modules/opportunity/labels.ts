@@ -1,3 +1,4 @@
+import { type ScoreBand, scoreBand } from "./scoreDomain";
 /** Fırsat türü ve durumu için Türkçe etiketler. Tek kaynak burasi. */
 
 export const KIND_LABELS: Record<string, string> = {
@@ -168,22 +169,22 @@ export function daysLeft(deadline: string | null): number | null {
    0-100 arasi. Negatif deger "kill" kelimesi yakalandi demek: kayit
    silinmez, listede geriye duser. */
 
-type ScoreBand = "killed" | "low" | "fair" | "strong";
-
-export function scoreBand(score: number | null): ScoreBand | null {
-  if (score === null) return null;
-  if (score < 0) return "killed";
-  if (score >= 70) return "strong";
-  if (score >= 40) return "fair";
-  return "low";
-}
-
-/** Skor renkleri: yeşil (>=70) · sarı (40-69) · kırmızı (<0) · gri (0-39). */
+/** Skor renkleri: yeşil (>=70) · sarı (40-69) · kırmızı (elendi) · gri (0-39). */
 export const SCORE_TONE: Record<ScoreBand, "neutral" | "warn" | "ok" | "danger"> = {
-  killed: "danger",
+  unknown: "neutral",
+  eliminated: "danger",
   low: "neutral",
   fair: "warn",
   strong: "ok",
+};
+
+/** Bandın kullanıcı dilindeki adı; `unknown` "hesaplanmadı" demektir. */
+export const SCORE_BAND_LABELS: Record<ScoreBand, string> = {
+  unknown: "Skor hesaplanmadı",
+  eliminated: "Elendi",
+  low: "Düşük uyum",
+  fair: "Orta uyum",
+  strong: "Güçlü uyum",
 };
 
 /** Kanonik remote kovalari — backend browse facet'i (_remote_bucket) ile ayni. */
@@ -242,3 +243,24 @@ export function recommendationTone(rec: string | null | undefined): "ok" | "warn
   if (rec === "skip") return "danger";
   return "neutral";
 }
+
+// Skor bandı tek kaynaktan gelir (scoreDomain); burada yeniden dışa aktarılır.
+export { scoreBand };
+
+/* ── Kaynak ve değerlendirme durumu ──────────────────────────────────── */
+
+/** Kaynak gözlemi durumları (backend SOURCE_STATUS_PRIORITY ile aynı küme). */
+export const SOURCE_STATUS_LABELS: Record<string, string> = {
+  active: "Yayında",
+  missing: "Kaynakta bulunamıyor",
+  likely_closed: "Muhtemelen kapandı",
+  closed: "Kaynakta kapandı",
+};
+
+/** Değerlendirme bayatlama nedenleri (backend EVALUATION_STALE_REASONS). */
+export const STALE_REASON_HINTS: Record<string, string> = {
+  version: "Değerlendirme kuralları güncellendi; yeniden hesapla.",
+  listing: "İlan metni değişti; değerlendirme eski içeriğe göre.",
+  profile: "Profil veya beceri ağırlıkları değişti; değerlendirme eski ayara göre.",
+  missing: "Değerlendirme parmak izi yazılmamış; yeniden hesapla.",
+};

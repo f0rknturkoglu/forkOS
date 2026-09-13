@@ -78,6 +78,7 @@ export function serializeOpportunityUrl(state: OpportunityUrlState): string {
     query.set(key, String(value));
   }
   if (state.filters.skill_match_state) query.set("skill_match_state", state.filters.skill_match_state);
+  if (state.filters.score_state) query.set("score_state", state.filters.score_state);
   if (state.filters.skill_tier) query.set("skill_tier", state.filters.skill_tier);
   return query.toString();
 }
@@ -111,6 +112,10 @@ export function parseOpportunityUrl(params: URLSearchParams, base: OpportunityBr
     if (value === null || value === "") continue;
     const parsed = Number(value);
     if (Number.isFinite(parsed)) (filters as unknown as Record<string, unknown>)[key] = parsed;
+  }
+  const scoreState = params.get("score_state");
+  if (scoreState === "computed" || scoreState === "uncomputed") {
+    filters.score_state = scoreState;
   }
   const skillState = params.get("skill_match_state");
   if (skillState === "computed" || skillState === "uncomputed") {

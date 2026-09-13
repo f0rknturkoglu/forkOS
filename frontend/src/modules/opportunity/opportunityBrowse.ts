@@ -20,6 +20,8 @@ export interface OpportunityBrowseFilters {
   year?: number;
   min_score?: number;
   max_score?: number;
+  /** Kalite skoru hesaplanmış mı? `null` skoru ayri secmek icin. */
+  score_state?: "computed" | "uncomputed" | "";
   skill?: string;
   min_skill_match?: number;
   max_skill_match?: number;
@@ -64,6 +66,7 @@ export function browseQuery(filters: OpportunityBrowseFilters): string {
     year: announcements ? filters.year : undefined,
     min_score: jobs ? filters.min_score : undefined,
     max_score: jobs ? filters.max_score : undefined,
+    score_state: jobs ? filters.score_state : undefined,
     skill: jobs ? filters.skill : undefined,
     min_skill_match: jobs ? filters.min_skill_match : undefined,
     max_skill_match: jobs ? filters.max_skill_match : undefined,
