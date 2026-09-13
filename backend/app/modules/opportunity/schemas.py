@@ -289,6 +289,8 @@ class PrunePreviewOut(BaseModel):
     archived: int
     estimated_bytes: int
     days: int
+    #: Silinecek tam kimlik kumesinin deterministik ozeti (denetim icin).
+    candidate_digest: str = ""
     confirm_token: str
 
 

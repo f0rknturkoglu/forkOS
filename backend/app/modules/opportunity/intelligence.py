@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import touch_entity
@@ -1099,16 +1099,32 @@ async def enrich_opportunities(
         from app.modules.opportunity.models import CareerConnection
 
         normalized_orgs = {normalize_company(org): org for org in organizations if org}
-        connections = (
-            await session.execute(
-                select(CareerConnection.normalized_company)
-                .join(Entity, Entity.id == CareerConnection.id)
-                .where(
-                    Entity.archived_at.is_(None),
-                    CareerConnection.normalized_company.is_not(None),
+        # Yalnizca EKRANDAKI kurumlarla ilgili baglantilar okunur; onceki hal
+        # tum baglanti tablosunu cekip Python'da N*M dongu kuruyordu.
+        candidates = {
+            token
+            for norm_org in normalized_orgs
+            for token in {norm_org, norm_org[:4]}
+            if len(token) >= 3
+        }
+        stmt = (
+            select(CareerConnection.normalized_company)
+            .join(Entity, Entity.id == CareerConnection.id)
+            .where(
+                Entity.archived_at.is_(None),
+                CareerConnection.normalized_company.is_not(None),
+            )
+        )
+        if candidates:
+            stmt = stmt.where(
+                or_(
+                    *[
+                        CareerConnection.normalized_company.ilike(f"%{token}%")
+                        for token in sorted(candidates)
+                    ]
                 )
             )
-        ).scalars().all()
+        connections = (await session.execute(stmt)).scalars().all()
         org_conn_counts: dict[str, int] = defaultdict(int)
         for conn_norm in connections:
             for norm_org in normalized_orgs:

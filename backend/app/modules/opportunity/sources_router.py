@@ -46,6 +46,10 @@ from app.sources.forkjob_port import forkjob_sources
 router = APIRouter(tags=["opportunities"])
 
 
+#: Kapsam matrisi kaynak basina bu kadar son kosuya bakar.
+COVERAGE_RUN_WINDOW = 50
+
+
 class SourceRefreshIn(BaseModel):
     """Bos govde = genel yenileme (critical + normal; opt-in HARIC)."""
 
@@ -133,25 +137,30 @@ async def source_coverage(session: AsyncSession = Depends(get_session)):
     """
     sources = _catalog_sources()
     ids = [source.id for source in sources]
-    recent = (
-        await session.execute(
-            select(
-                SourceRun.source,
-                SourceRun.status,
-                SourceRun.started_at,
-                SourceRun.items_found,
-                SourceRun.error,
-                SourceRun.error_kind,
-                func.row_number()
-                .over(partition_by=SourceRun.source, order_by=SourceRun.started_at.desc())
-                .label("rank"),
-            ).where(SourceRun.source.in_(ids))
+    # Tum kosu gecmisi BELLEGE ALINMAZ: pencere SQL'de kirpilir (onceden tum
+    # satirlar cekilip Python'da `rank > 50` ile atiliyordu).
+    ranked = (
+        select(
+            SourceRun.source,
+            SourceRun.status,
+            SourceRun.started_at,
+            SourceRun.items_found,
+            SourceRun.error,
+            SourceRun.error_kind,
+            func.row_number()
+            .over(
+                partition_by=SourceRun.source,
+                order_by=(SourceRun.started_at.desc(), SourceRun.id.desc()),
+            )
+            .label("rank"),
         )
-    ).all()
+        .where(SourceRun.source.in_(ids))
+        .subquery()
+    )
     history: dict[str, list] = {source.id: [] for source in sources}
-    for row in recent:
-        if row.rank > 50:
-            continue
+    for row in (
+        await session.execute(select(ranked).where(ranked.c.rank <= COVERAGE_RUN_WINDOW))
+    ).all():
         history.setdefault(row.source, []).append(row)
 
     states = await runs_service.circuit_states(session, ids)

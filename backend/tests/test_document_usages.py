@@ -59,14 +59,15 @@ async def test_document_usages_cv_requirement_and_skips_trashed(client: AsyncCli
             session,
             "Kıdemli Frontend",
             kind="job",
-            status="applied",
+            # 'applied' artik application.status'tadir; kesif durumu shortlisted.
+            status="shortlisted",
             found_at=datetime(2026, 8, 10, tzinfo=UTC),
         )
         opp_req = await _seed_opportunity(
             session,
             "Stajyer Veri",
             kind="internship",
-            status="interviewing",
+            status="discovered",
             found_at=datetime(2026, 8, 1, tzinfo=UTC),
         )
         opp_trashed = await _seed_opportunity(

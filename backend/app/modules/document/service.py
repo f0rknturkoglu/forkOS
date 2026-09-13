@@ -270,12 +270,14 @@ async def list_document_usages(session: AsyncSession) -> list[dict]:
         OpportunityRequirement,
     )
 
-    def _usage_columns(document_column, relation):
+    def _usage_columns(document_column, relation, status_column):
         return (
             document_column.label("document_id"),
             Opportunity.id.label("opportunity_id"),
             Entity.title.label("title"),
-            Opportunity.status.label("status"),
+            # CV bagi icin BASVURU durumu (application.status) gosterilir;
+            # kesif durumu kullaniciya "basvurdum" bilgisini vermez.
+            status_column.label("status"),
             Opportunity.kind.label("kind"),
             Opportunity.priority.label("priority"),
             Opportunity.found_at.label("found_at"),
@@ -283,7 +285,7 @@ async def list_document_usages(session: AsyncSession) -> list[dict]:
         )
 
     cv_part = (
-        select(*_usage_columns(Application.cv_document_id, "cv"))
+        select(*_usage_columns(Application.cv_document_id, "cv", Application.status))
         .join(Opportunity, Opportunity.id == Application.opportunity_id)
         .join(Entity, Entity.id == Opportunity.id)
         .where(
@@ -292,7 +294,11 @@ async def list_document_usages(session: AsyncSession) -> list[dict]:
         )
     )
     req_part = (
-        select(*_usage_columns(OpportunityRequirement.document_entity_id, "requirement"))
+        select(
+            *_usage_columns(
+                OpportunityRequirement.document_entity_id, "requirement", Opportunity.status
+            )
+        )
         .join(Opportunity, Opportunity.id == OpportunityRequirement.opportunity_id)
         .join(Entity, Entity.id == Opportunity.id)
         .where(

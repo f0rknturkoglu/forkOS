@@ -322,3 +322,71 @@ async def test_interview_deadline_points_at_parent_opportunity(client: AsyncClie
         assert interview_rows[0]["priority"] == 1
     finally:
         await _delete_entities(item_id)
+
+
+async def test_prune_token_is_bound_to_the_exact_candidate_set(client: AsyncClient):
+    """Onay ile silme arasında aday kümesi değişirse silme REDDEDİLİR (TOCTOU)."""
+    from datetime import UTC, datetime, timedelta
+    from typing import Any
+
+    from sqlalchemy import text
+
+    from app.db import engine
+
+    async def seed(title: str, *, age_days: int) -> str:
+        item_id = uuid.uuid4()
+        found = datetime.now(UTC) - timedelta(days=age_days)
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "insert into entity (id, type, title, search_text) values "
+                    "(:id, 'opportunity', :title, '')"
+                ),
+                {"id": item_id, "title": title},
+            )
+            await connection.execute(
+                text(
+                    "insert into opportunity (id, kind, status, found_at, source) "
+                    "values (:id, 'job', 'discovered', :found, 'sweep-test')"
+                ),
+                {"id": item_id, "found": found},
+            )
+        return str(item_id)
+
+    leftovers: list[str] = []
+    try:
+        old_id = await seed(f"Eski aday {uuid.uuid4().hex[:6]}", age_days=400)
+        leftovers.append(old_id)
+        preview = await client.get("/api/opportunities/prune/preview", params={"days": 90})
+        assert preview.status_code == 200
+        body: dict[str, Any] = preview.json()
+        token = body["confirm_token"]
+        assert body["candidate_digest"], "token aday kümesinin özetini taşımalı"
+
+        # Onaydan SONRA kümeye yeni bir aday giriyor: token artık geçersiz.
+        new_id = await seed(f"Yeni aday {uuid.uuid4().hex[:6]}", age_days=400)
+        leftovers.append(new_id)
+
+        stale = await client.post(
+            "/api/opportunities/prune", params={"days": 90, "confirm_token": token}
+        )
+        assert stale.status_code == 409, stale.text
+        # Hiçbir aday silinmedi: kullanıcı görmediği kümeyi silmiş olmamalı.
+        assert (await client.get(f"/api/opportunities/{old_id}")).status_code == 200
+        assert (await client.get(f"/api/opportunities/{new_id}")).status_code == 200
+
+        # Yeniden önizleme + yeni token ile silme çalışır.
+        again = (await client.get("/api/opportunities/prune/preview", params={"days": 90})).json()
+        assert again["candidate_digest"] != body["candidate_digest"]
+        ok = await client.post(
+            "/api/opportunities/prune",
+            params={"days": 90, "confirm_token": again["confirm_token"]},
+        )
+        assert ok.status_code == 200, ok.text
+        assert ok.json()["pruned"] >= 2
+    finally:
+        async with engine.begin() as connection:
+            for item_id in leftovers:
+                await connection.execute(
+                    text("delete from entity where id = :id"), {"id": item_id}
+                )

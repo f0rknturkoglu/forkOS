@@ -748,9 +748,17 @@ async def delete_interview(interview_id: UUID, session: AsyncSession = Depends(g
 
 
 def _prune_token(preview) -> str:
-    """Onizleme ile uygulama arasinda bag: veri degisirse token da degisir."""
+    """Onizleme ile uygulama arasinda bag.
+
+    Token silinecek TAM kimlik kumesinin ozetini (`candidate_digest`) tasir:
+    yalnizca sayi/tarih/saat tasisaydi, ayni saat icinde bir aday dusup
+    yerine baskasi geldiginde token gecerli kalirdi.
+    """
     stamp = datetime.now(UTC).strftime("%Y%m%d%H")
-    payload = f"prune:{preview.days}:{preview.candidates}:{preview.protected}:{preview.archived}:{stamp}"
+    payload = (
+        f"prune:{preview.days}:{preview.candidates}:{preview.protected}:"
+        f"{preview.archived}:{preview.candidate_digest}:{stamp}"
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
@@ -771,6 +779,7 @@ async def prune_preview(
         archived=preview.archived,
         estimated_bytes=preview.estimated_bytes,
         days=preview.days,
+        candidate_digest=preview.candidate_digest,
         confirm_token=_prune_token(preview),
     )
 
@@ -788,7 +797,13 @@ async def prune_opportunities(
             409,
             "Önizleme bayatladı: önce /opportunities/prune/preview ile yeniden onay alın",
         )
-    result = await service.prune_stale_opportunities(session, days=days)
+    try:
+        # Aday kumesi silme aninda BIR KEZ DAHA dogrulanir (TOCTOU).
+        result = await service.prune_stale_opportunities(
+            session, days=days, expected_digest=preview.candidate_digest
+        )
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
     return PruneResultOut(**result)
 
 

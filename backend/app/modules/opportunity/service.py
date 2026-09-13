@@ -1407,6 +1407,9 @@ class PrunePreview:
     archived: int = 0
     estimated_bytes: int = 0
     days: int = 90
+    #: Silinecek TAM kimlik kumesinin deterministik ozeti. Onay token'i bunu
+    #: tasir; kume onay ile silme arasinda degisirse silme reddedilir.
+    candidate_digest: str = ""
 
     def to_dict(self) -> dict[str, int]:
         return {
@@ -1494,6 +1497,12 @@ async def _prune_candidates(session: AsyncSession, *, days: int) -> tuple[list[u
     return candidate_ids, protected, archived
 
 
+def candidate_digest(candidate_ids: Iterable[uuid.UUID]) -> str:
+    """Aday kumesinin deterministik ozeti (sirali, kimlige bagli)."""
+    joined = "|".join(sorted(str(item) for item in candidate_ids))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
+
+
 async def prune_preview(session: AsyncSession, *, days: int = 90) -> PrunePreview:
     """Dry-run: ne silinir, ne korunur, tahmini ne kadar yer bosalir."""
     candidates, protected, archived = await _prune_candidates(session, days=days)
@@ -1504,16 +1513,27 @@ async def prune_preview(session: AsyncSession, *, days: int = 90) -> PrunePrevie
         archived=archived,
         estimated_bytes=avg_bytes,
         days=days,
+        candidate_digest=candidate_digest(candidates),
     )
 
 
-async def prune_stale_opportunities(session: AsyncSession, *, days: int = 90) -> dict[str, int]:
+async def prune_stale_opportunities(
+    session: AsyncSession, *, days: int = 90, expected_digest: str | None = None
+) -> dict[str, int]:
     """Yalnizca sahipsiz, hic islenmemis ham ilanlari siler.
 
     Basvurusu, notu, yer imi, iliskisi, gorevi, gorusmesi, gereksinimi veya
     belgesi olan kayitlar korunur (Faz 2.3). Her kosu event uretir.
+
+    `expected_digest` verilirse aday kumesi SILME ANINDA yeniden hesaplanir ve
+    ozet tutmuyorsa islem reddedilir: onay ile silme arasinda kume degisirse
+    (TOCTOU) kullanici gormedigi kayitlar silinemez.
     """
     candidates, protected, archived = await _prune_candidates(session, days=days)
+    if expected_digest is not None and candidate_digest(candidates) != expected_digest:
+        raise ValueError(
+            "Aday kümesi onaydan sonra değişti: önizlemeyi yenileyip yeniden onaylayın"
+        )
     avg_bytes = await _average_row_bytes(session)
     for item_id in candidates:
         await delete_entity(session, item_id)

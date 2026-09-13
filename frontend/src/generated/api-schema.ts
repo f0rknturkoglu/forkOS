@@ -7754,6 +7754,11 @@ export interface components {
         PrunePreviewOut: {
             /** Archived */
             archived: number;
+            /**
+             * Candidate Digest
+             * @default
+             */
+            candidate_digest: string;
             /** Candidates */
             candidates: number;
             /** Confirm Token */

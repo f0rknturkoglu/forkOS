@@ -77,8 +77,10 @@ async def test_application_counter_reads_opportunity_table(client: AsyncClient) 
         entity = await create_entity(session, type="opportunity", title="fırsat")
         await session.execute(
             text(
+                # Durum kesif dongusune aittir ('applied' artik application.status'ta);
+                # sayac `applied_at` kolonundan gelir.
                 "insert into opportunity (id, kind, status, applied_at) "
-                "values (:id, 'job', 'applied', now())"
+                "values (:id, 'job', 'shortlisted', now())"
             ),
             {"id": entity.id},
         )
@@ -204,8 +206,10 @@ async def test_monthly_reports_applications(client: AsyncClient) -> None:
         entity = await create_entity(session, type="opportunity", title="fırsat")
         await session.execute(
             text(
+                # Durum kesif dongusune aittir ('applied' artik application.status'ta);
+                # sayac `applied_at` kolonundan gelir.
                 "insert into opportunity (id, kind, status, applied_at) "
-                "values (:id, 'job', 'applied', now())"
+                "values (:id, 'job', 'shortlisted', now())"
             ),
             {"id": entity.id},
         )

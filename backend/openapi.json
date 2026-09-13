@@ -10307,6 +10307,11 @@
             "title": "Archived",
             "type": "integer"
           },
+          "candidate_digest": {
+            "default": "",
+            "title": "Candidate Digest",
+            "type": "string"
+          },
           "candidates": {
             "title": "Candidates",
             "type": "integer"

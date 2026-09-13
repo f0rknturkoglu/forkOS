@@ -13,6 +13,7 @@ from app.core.entity import touch_entity
 from app.core.events import log_event
 from app.core.links import Link
 from app.core.models import Entity
+from app.core.time import local_zone
 from app.modules import DeadlineRow
 from app.modules.document.models import Document
 from app.modules.opportunity import lifecycle
@@ -670,6 +671,56 @@ def _breakdown(rows: list[dict[str, Any]], key: str, label_key: str | None = Non
     return out
 
 
+#: (etiket, baslangic, bitis) uclusu; bitis HARIC.
+Bucket = tuple[str, datetime, datetime]
+
+
+def _weekly_buckets(count: int) -> list[Bucket]:
+    """Gercek takvim haftalari (ISO): 7 gunluk kayar blok degil."""
+    zone = local_zone()
+    now = datetime.now(zone)
+    monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    starts = [monday - timedelta(weeks=index) for index in range(count)]
+    return [
+        (start.strftime("%G-W%V"), start, start + timedelta(weeks=1)) for start in reversed(starts)
+    ]
+
+
+def _monthly_buckets(count: int) -> list[Bucket]:
+    """Gercek takvim aylari: `30 gunluk blok` ay etiketiyle gizlenmez."""
+    zone = local_zone()
+    now = datetime.now(zone)
+    cursor = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    starts: list[datetime] = []
+    for _ in range(count):
+        starts.append(cursor)
+        cursor = (cursor - timedelta(days=1)).replace(day=1)
+    buckets: list[Bucket] = []
+    for start in reversed(starts):
+        # Bir sonraki ayin ilk gunu: 32 gun ekleyip gun 1'e sabitlemek her ay icin dogrudur.
+        end = (start + timedelta(days=32)).replace(day=1)
+        buckets.append((start.strftime("%Y-%m"), start, end))
+    return buckets
+
+
+def _calendar_volume(rows: list[dict[str, Any]], *, buckets: list[Bucket]) -> list[FunnelVolumeRow]:
+    """Basvuru hacmini takvim kovalarina yerlestirir (yerel saat dilimi)."""
+    zone = local_zone()
+    counts = {key: 0 for key, _start, _end in buckets}
+    for row in rows:
+        applied_at = row["applied_at"]
+        if applied_at is None:
+            continue
+        moment = applied_at.astimezone(zone)
+        for key, start, end in buckets:
+            if start <= moment < end:
+                counts[key] += 1
+                break
+    return [FunnelVolumeRow(period=key, applied=value) for key, value in counts.items()]
+
+
 async def funnel(session: AsyncSession) -> FunnelOut:
     """CRM hunisi: yalnizca gercek basvuru kayitlari uzerinden.
 
@@ -692,14 +743,20 @@ async def funnel(session: AsyncSession) -> FunnelOut:
     tracked = sum(counts.get(status, 0) for status in lifecycle.APPLICATION_FLOW)
     by_status = [FunnelRow(status=status, count=counts.get(status, 0)) for status in lifecycle.APPLICATION_FLOW]
 
-    history_rows = (
-        await session.execute(
-            select(ApplicationHistory).where(ApplicationHistory.scope == "application")
-        )
-    ).scalars()
+    # Gecmis YALNIZCA bu basvurular icin okunur: tum tablo bellege alinmaz.
+    application_ids = [app.opportunity_id for app, _opp, _title in rows]
     history: dict[uuid.UUID, list[ApplicationHistory]] = {}
-    for entry in history_rows:
-        history.setdefault(entry.opportunity_id, []).append(entry)
+    if application_ids:
+        history_rows = (
+            await session.execute(
+                select(ApplicationHistory).where(
+                    ApplicationHistory.scope == "application",
+                    ApplicationHistory.opportunity_id.in_(application_ids),
+                )
+            )
+        ).scalars()
+        for entry in history_rows:
+            history.setdefault(entry.opportunity_id, []).append(entry)
 
     enriched: list[dict[str, Any]] = []
     first_response_deltas: list[float] = []
@@ -785,20 +842,8 @@ async def funnel(session: AsyncSession) -> FunnelOut:
     def avg(values: list[float]) -> float | None:
         return round(sum(values) / len(values), 1) if values else None
 
-    now = datetime.now(UTC)
-
-    def volume(rows_in: list[dict[str, Any]], fmt: str, count: int, days: int) -> list[FunnelVolumeRow]:
-        buckets = {
-            (now - timedelta(days=days * index)).strftime(fmt): 0 for index in range(count)
-        }
-        for row in rows_in:
-            applied_at = row["applied_at"]
-            if applied_at is None:
-                continue
-            key = applied_at.strftime(fmt)
-            if key in buckets:
-                buckets[key] += 1
-        return [FunnelVolumeRow(period=key, applied=value) for key, value in buckets.items()]
+    weekly_volume = _calendar_volume(enriched, buckets=_weekly_buckets(12))
+    monthly_volume = _calendar_volume(enriched, buckets=_monthly_buckets(12))
 
     cohort_size = cohort.get("applied", 0)
     return FunnelOut(
@@ -820,8 +865,8 @@ async def funnel(session: AsyncSession) -> FunnelOut:
         by_role=_breakdown(enriched, "role"),
         by_country=_breakdown(enriched, "country"),
         by_work_mode=_breakdown(enriched, "work_mode"),
-        weekly_volume=volume(enriched, "%G-W%V", 12, 7),
-        monthly_volume=volume(enriched, "%Y-%m", 12, 30),
+        weekly_volume=weekly_volume,
+        monthly_volume=monthly_volume,
     )
 
 
