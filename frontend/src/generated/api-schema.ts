@@ -75,7 +75,9 @@ export interface paths {
          * Applications List
          * @description Başvurular çalışma alanı: YALNIZCA gerçek başvuru kayıtları.
          *
-         *     Keşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1).
+         *     Keşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1). Yanıt bir
+         *     zarftır: `items` sayfayı, `total` filtrenin GERÇEK toplamını taşır; aksi
+         *     halde 120'lik limit "tüm başvurular" gibi okunurdu.
          */
         get: operations["applications_list_api_applications_get"];
         put?: never;
@@ -709,6 +711,46 @@ export interface paths {
         put?: never;
         /** Cover Letter Review */
         post: operations["cover_letter_review_api_career_cover_letter_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/cover-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Career Cover Letters
+         * @description Kaydedilmiş ön yazılar: TEK istek (panel başına kayıt-başına istek yok).
+         */
+        get: operations["career_cover_letters_api_career_cover_letters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/interview-prep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Career Interview Prep
+         * @description Mülakat hazırlığı grupları: görüşmeler + maaş tutarlılığı TEK turda.
+         */
+        get: operations["career_interview_prep_api_career_interview_prep_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4329,6 +4371,20 @@ export interface components {
             /** Salary Expectation */
             salary_expectation?: string | null;
         };
+        /**
+         * ApplicationListOut
+         * @description Basvuru listesi ZARFI. Limitli liste "toplam" gibi sunulmaz.
+         */
+        ApplicationListOut: {
+            /** Items */
+            items: components["schemas"]["OpportunityOut"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** ApplicationOut */
         ApplicationOut: {
             /** Company Research */
@@ -5133,6 +5189,23 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /**
+         * CoverLetterOut
+         * @description Kaydedilmis on yazi. Panel bunlari TEK istekle alir.
+         */
+        CoverLetterOut: {
+            /** Cover Letter */
+            cover_letter: string;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /** Organization */
+            organization?: string | null;
+            /** Title */
+            title: string;
+        };
         /** CoverLetterReviewIn */
         CoverLetterReviewIn: {
             /** Text */
@@ -5572,16 +5645,35 @@ export interface components {
             by_status: components["schemas"]["FunnelRow"][];
             /** By Work Mode */
             by_work_mode?: components["schemas"]["FunnelBreakdownRow"][];
+            /** Cohort */
+            cohort?: {
+                [key: string]: number;
+            };
+            /**
+             * Cohort Size
+             * @default 0
+             */
+            cohort_size: number;
             /** Conversions */
             conversions: {
                 [key: string]: number | null;
             };
+            /**
+             * Min Cohort Size
+             * @default 10
+             */
+            min_cohort_size: number;
             /** Monthly Volume */
             monthly_volume?: components["schemas"]["FunnelVolumeRow"][];
             /** Rejection Reasons */
             rejection_reasons: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Sufficient
+             * @default false
+             */
+            sufficient: boolean;
             /** Total */
             total: number;
             /** Tracked */
@@ -5882,6 +5974,16 @@ export interface components {
             scheduled_at?: string | null;
             /** Stage */
             stage: string;
+        };
+        /**
+         * InterviewPrepOut
+         * @description Mulakat hazirligi grubu: ilan + gorusmeler + maas tutarliligi.
+         */
+        InterviewPrepOut: {
+            /** Interviews */
+            interviews: components["schemas"]["InterviewOut"][];
+            opportunity: components["schemas"]["OpportunityOut"];
+            salary: components["schemas"]["SalaryConsistencyOut"];
         };
         /** IssueToTodoIn */
         IssueToTodoIn: {
@@ -9499,7 +9601,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OpportunityOut"][];
+                    "application/json": components["schemas"]["ApplicationListOut"];
                 };
             };
             /** @description Validation Error */
@@ -10602,6 +10704,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    career_cover_letters_api_career_cover_letters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverLetterOut"][];
+                };
+            };
+        };
+    };
+    career_interview_prep_api_career_interview_prep_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewPrepOut"][];
                 };
             };
         };

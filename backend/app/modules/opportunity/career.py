@@ -11,12 +11,13 @@ import uuid
 from collections.abc import Sequence
 from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import archive_entity, create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
+from app.modules.opportunity import service
 from app.modules.opportunity.intelligence import parse_compensation
 from app.modules.opportunity.models import (
     Application,
@@ -31,7 +32,10 @@ from app.modules.opportunity.schemas import (
     CareerStoryIn,
     CareerStoryOut,
     CareerStoryPatch,
+    CoverLetterOut,
     CoverLetterReviewOut,
+    InterviewOut,
+    InterviewPrepOut,
     OpportunityConnectionsOut,
     SalaryClaimOut,
     SalaryConsistencyOut,
@@ -486,6 +490,14 @@ async def salary_consistency(
         ).scalars()
     )
     application = await session.get(Application, opportunity_id)
+    return salary_consistency_of(application, interviews)
+
+
+def salary_consistency_of(
+    application: Application | None,
+    interviews: Sequence[Interview],
+) -> SalaryConsistencyOut:
+    """Saf hesap: toplu okuma yapan cagiranlar da ayni kurali kullanir."""
     claims: list[SalaryClaimOut] = []
     normalized: set[tuple[int | None, int | None, str | None]] = set()
     if application and application.salary_expectation:
@@ -605,3 +617,90 @@ async def review_cover_letter(session: AsyncSession, text: str) -> CoverLetterRe
         flags=flags,
         suggestions=suggestions,
     )
+
+
+# ---------------------------------------------------------------------------
+# Toplu okumalar: kariyer panelleri kayit basina istek atmaz.
+# ---------------------------------------------------------------------------
+
+
+def _job_application_rows_stmt():
+    """Basvuru kayitlari: ilan + baslik + CRM satiri (tek sorgu)."""
+    return (
+        select(Opportunity, Entity.title, Application)
+        .join(Entity, Entity.id == Opportunity.id)
+        .join(Application, Application.opportunity_id == Opportunity.id)
+        .where(Opportunity.trashed_at.is_(None))
+        .order_by(Application.status_changed_at.desc().nulls_last(), Opportunity.id.asc())
+    )
+
+
+async def cover_letters(session: AsyncSession) -> list[CoverLetterOut]:
+    """Kaydedilmis on yazilar TEK sorguda; panel kayit basina istek atmaz."""
+    rows = (
+        await session.execute(
+            select(Opportunity.id, Entity.title, Opportunity.organization, Application.cover_letter)
+            .join(Entity, Entity.id == Opportunity.id)
+            .join(Application, Application.opportunity_id == Opportunity.id)
+            .where(
+                Opportunity.trashed_at.is_(None),
+                Application.cover_letter.is_not(None),
+                func.length(func.trim(Application.cover_letter)) > 0,
+            )
+            .order_by(Application.updated_at.desc(), Opportunity.id.asc())
+        )
+    ).all()
+    return [
+        CoverLetterOut(
+            opportunity_id=opportunity_id, title=title, organization=organization, cover_letter=text
+        )
+        for opportunity_id, title, organization, text in rows
+    ]
+
+
+async def interview_prep(session: AsyncSession) -> list[InterviewPrepOut]:
+    """Mulakat hazirligi: gorusmeler ve maas tutarliligi TEK turda okunur.
+
+    Onceden her basvuru icin iki ayri istek atiliyordu (2N istek). Burada
+    basvurular, gorusmeler ve CRM satirlari uc sorguda alinip bellekte
+    gruplanir; maas tutarliligi ayni saf helper ile hesaplanir.
+    """
+    rows = (await session.execute(_job_application_rows_stmt())).all()
+    if not rows:
+        return []
+    opportunity_ids = [opportunity.id for opportunity, _title, _app in rows]
+    interviews: dict[uuid.UUID, list[Interview]] = {item_id: [] for item_id in opportunity_ids}
+    for interview in (
+        await session.execute(
+            select(Interview)
+            .where(Interview.opportunity_id.in_(opportunity_ids))
+            .order_by(Interview.position)
+        )
+    ).scalars():
+        interviews.setdefault(interview.opportunity_id, []).append(interview)
+
+    groups: list[InterviewPrepOut] = []
+    for opportunity, title, application in rows:
+        rows_for_item = interviews.get(opportunity.id, [])
+        groups.append(
+            InterviewPrepOut(
+                opportunity=service._out((opportunity, title), include_raw=False),
+                interviews=[
+                    InterviewOut(
+                        id=interview.id,
+                        opportunity_id=interview.opportunity_id,
+                        stage=interview.stage,
+                        mode=interview.mode,
+                        scheduled_at=interview.scheduled_at,
+                        duration_min=interview.duration_min,
+                        notes=interview.notes,
+                        outcome=interview.outcome,
+                        salary_stated=interview.salary_stated,
+                        position=interview.position,
+                    )
+                    for interview in rows_for_item
+                ],
+                salary=salary_consistency_of(application, rows_for_item),
+            )
+        )
+    return groups

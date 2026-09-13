@@ -39,6 +39,18 @@ def rank_expr(query: str):
     return func.similarity(Entity.title, query)
 
 
+def searchable_types() -> list[str]:
+    """Global aramaya giren entity tipleri.
+
+    `EntityTypeSpec.searchable` su ana kadar yalnizca belge niteligindeydi:
+    rota/link hedefi olmayan destek tipleri (medya birimi, klasor) global
+    aramada cikiyor ve kullanici tiklayacak yer bulamiyordu.
+    """
+    from app.core.registry import all_entity_types
+
+    return [spec.type for spec in all_entity_types() if spec.searchable]
+
+
 async def search_entities(
     session: AsyncSession,
     query: str,
@@ -52,6 +64,7 @@ async def search_entities(
     stmt = (
         select(Entity)
         .where(Entity.archived_at.is_(None))
+        .where(Entity.type.in_(searchable_types()))
         .where(match_clause(query))
         .order_by(
             (func.lower(Entity.title) == query.casefold()).desc(),

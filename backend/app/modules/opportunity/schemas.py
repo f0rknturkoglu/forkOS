@@ -252,10 +252,15 @@ class OpportunityBrowseOut(BaseModel):
     facets: dict[str, dict[str, int]]
 
 
+#: Gereksinim durumlari. Kaynak: ``lifecycle.REQUIREMENT_STATUSES``; ayni
+#: kumede kaldiklarini ``test_application_crm`` dogrular.
+RequirementStatus = Literal["missing", "ready", "submitted", "waived"]
+
+
 class RequirementIn(BaseModel):
     name: str = Field(min_length=1)
     required: bool = True
-    status: Literal["missing", "ready", "submitted", "waived"] = "missing"
+    status: RequirementStatus = "missing"
     note: str | None = None
 
 
@@ -264,7 +269,7 @@ class RequirementOut(BaseModel):
     opportunity_id: UUID
     name: str
     required: bool = True
-    status: Literal["missing", "ready", "submitted", "waived"] = "missing"
+    status: RequirementStatus = "missing"
     document_entity_id: UUID | None = None
     note: str | None = None
     position: int = 0
@@ -465,6 +470,23 @@ class SalaryConsistencyOut(BaseModel):
     warning: str | None = None
 
 
+class CoverLetterOut(BaseModel):
+    """Kaydedilmis on yazi. Panel bunlari TEK istekle alir."""
+
+    opportunity_id: UUID
+    title: str
+    organization: str | None = None
+    cover_letter: str
+
+
+class InterviewPrepOut(BaseModel):
+    """Mulakat hazirligi grubu: ilan + gorusmeler + maas tutarliligi."""
+
+    opportunity: OpportunityOut
+    interviews: list[InterviewOut]
+    salary: SalaryConsistencyOut
+
+
 class CoverLetterReviewIn(BaseModel):
     text: str = Field(min_length=20, max_length=50_000)
 
@@ -531,7 +553,16 @@ class FunnelOut(BaseModel):
     #: Takip edilen (preparing + applied ve sonrasi) kayit sayisi.
     tracked: int
     by_status: list[FunnelRow]
+    #: Kohort tabanli donusum oranlari (stok sayimi degil).
     conversions: dict[str, float | None]
+    #: Hangi asamaya kac basvuru ULASTI (gecmis + guncel durum).
+    cohort: dict[str, int] = Field(default_factory=dict)
+    #: `applied` asamasina ulasan basvuru sayisi = donusum paydasi.
+    cohort_size: int = 0
+    #: Bu sayinin altinda yuzde yerine ham sayi gosterilir.
+    min_cohort_size: int = 10
+    #: Kohort esigin altinda mi? Yuzdeler yaniltici olabilir.
+    sufficient: bool = False
     rejection_reasons: list[dict[str, Any]]
     avg_first_response_days: float | None = None
     avg_applied_to_interview_days: float | None = None
@@ -542,6 +573,16 @@ class FunnelOut(BaseModel):
     by_work_mode: list[FunnelBreakdownRow] = Field(default_factory=list)
     weekly_volume: list[FunnelVolumeRow] = Field(default_factory=list)
     monthly_volume: list[FunnelVolumeRow] = Field(default_factory=list)
+
+
+class ApplicationListOut(BaseModel):
+    """Basvuru listesi ZARFI. Limitli liste "toplam" gibi sunulmaz."""
+
+    items: list[OpportunityOut]
+    #: Filtreye uyan GERCEK toplam (limit'ten bagimsiz).
+    total: int
+    offset: int
+    limit: int
 
 
 class TimelineEntryOut(BaseModel):

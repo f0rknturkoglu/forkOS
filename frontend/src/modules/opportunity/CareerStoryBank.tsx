@@ -5,7 +5,7 @@ import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import { invalidateAfter } from "@/core/invalidation";
 import { Button, Chip, Empty, Field, IconButton, Input, Section, Select, Textarea, cx } from "@/core/ui";
-import type { Application, CareerStory, CareerStoryProvenance, Opportunity } from "@/core/types";
+import type { ApplicationListPage, CareerStory, CareerStoryProvenance, CoverLetter, Opportunity } from "@/core/types";
 import { PROVENANCE_LABELS, storyOverlapsText, storySearchText } from "./careerUtils";
 
 const EMPTY_DRAFT = {
@@ -29,20 +29,17 @@ const STORY_FIELDS = [
 
 function ApplicationUsage({ story }: { story: CareerStory }) {
   const storyId = story.id;
-  const { data: applications = [] } = useQuery({
+  // Aynı sorgu anahtarı diğer panellerle paylaşılır: tek istek, tek önbellek.
+  const { data: applicationsPage } = useQuery({
     queryKey: ["applications"],
-    queryFn: () => api.get<Opportunity[]>("/applications?limit=200"),
+    queryFn: () => api.get<ApplicationListPage>("/applications?limit=200"),
   });
+  const applications = applicationsPage?.items ?? [];
   const covers = useQuery({
     queryKey: ["career-cover-letters"],
+    // Kayıt başına istek YOK: kaydedilmiş ön yazılar tek uçtan gelir.
     queryFn: async () => {
-      const rows = await Promise.all(
-        applications.map(async (item) => {
-          const detail = await api.get<Application>(`/opportunities/${item.id}/application`);
-          return { opportunity: item, cover_letter: detail.cover_letter ?? "" };
-        }),
-      );
-      return rows.filter((row) => row.cover_letter.trim());
+      return api.get<CoverLetter[]>("/career/cover-letters");
     },
   });
 
@@ -92,10 +89,10 @@ function ApplicationUsage({ story }: { story: CareerStory }) {
           <p className="mt-1 text-meta text-muted">Örtüşen ön yazı bulunmadı (yerel kelime taraması).</p>
         ) : (
           <ul className="mt-1 space-y-1">
-            {letters.map(({ opportunity }) => (
-              <li key={opportunity.id} className="text-meta text-secondary">
-                <span className="text-primary">{opportunity.title}</span>
-                {opportunity.organization ? ` · ${opportunity.organization}` : ""}
+            {letters.map((letter) => (
+              <li key={letter.opportunity_id} className="text-meta text-secondary">
+                <span className="text-primary">{letter.title}</span>
+                {letter.organization ? ` · ${letter.organization}` : ""}
               </li>
             ))}
           </ul>

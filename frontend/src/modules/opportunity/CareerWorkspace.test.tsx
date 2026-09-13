@@ -185,7 +185,9 @@ function mockGet(path: string): unknown {
   }
   if (path.startsWith("/career/stories")) return [STORY];
   if (path.startsWith("/career/connections")) return CONNECTIONS;
-  if (path.startsWith("/applications?")) return [APPLICATION];
+  if (path.startsWith("/applications?")) {
+    return { items: [APPLICATION], total: 1, offset: 0, limit: 500 };
+  }
   if (path.startsWith("/opportunities?")) return [APPLICATION, ANNOUNCEMENT];
   if (path.endsWith("/application")) return APPLICATION_DETAIL;
   if (path.endsWith("/interviews")) return [] as Interview[];

@@ -35,6 +35,7 @@ import type {
   FunnelBreakdownRow,
   FunnelVolumeRow,
   Opportunity,
+  ApplicationListPage,
   OpportunityLifecycle,
   SilentApplication,
 } from "@/core/types";
@@ -72,8 +73,43 @@ function applicationColumns(lifecycle: OpportunityLifecycle | undefined): Applic
 }
 
 /** Oran etiketi: null oran "—" olur; asla yanıltıcı %0 yazılmaz. */
-function rateLabel(rate: number | null | undefined): string {
-  return rate === null || rate === undefined ? "—" : `%${rate}`;
+/**
+ * Oran etiketi. Küçük örneklemde yüzde yanıltıcıdır (1 kayıttan "%100"):
+ * eşiğin altında yüzde yerine ham sayı gösterilir.
+ */
+function rateLabel(
+  rate: number | null | undefined,
+  counted: number,
+  sample: number,
+  minimum: number,
+): string {
+  if (rate === null || rate === undefined || sample === 0) return "—";
+  return sample < minimum ? `${counted}/${sample}` : `%${rate}`;
+}
+
+/** Kohort dönüşümü: pay/payda ham sayıları ve yüzdesi. */
+function CohortRow({
+  label,
+  reached,
+  base,
+  minimum,
+}: {
+  label: string;
+  reached: number;
+  base: number;
+  minimum: number;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="min-w-0 flex-1 truncate text-meta text-secondary">{label}</span>
+      <span className="shrink-0 text-meta tabular-nums text-muted">
+        {reached}/{base}
+      </span>
+      <span className="w-12 shrink-0 text-right text-meta tabular-nums text-primary">
+        {rateLabel(base ? Math.round((reached / base) * 1000) / 10 : null, reached, base, minimum)}
+      </span>
+    </div>
+  );
 }
 
 const VIEW_TABS = [
@@ -142,12 +178,15 @@ function BreakdownTable({
   rows,
   hint,
   labelFor,
+  minimumSample,
 }: {
   title: string;
   rows: FunnelBreakdownRow[];
   hint: string;
   /** Ham anahtarı okunabilir etikete çevirir (kaynak kimlikleri gibi). */
   labelFor?: (row: FunnelBreakdownRow) => string;
+  /** Bu sayının altında yüzde yerine ham sayı gösterilir. */
+  minimumSample: number;
 }) {
   const shown = rows.slice(0, 6);
   return (
@@ -164,11 +203,11 @@ function BreakdownTable({
                   {label}
                 </span>
                 <span className="w-10 shrink-0 text-right text-meta tabular-nums text-muted">{row.total}</span>
-                <span className="w-12 shrink-0 text-right text-meta tabular-nums text-secondary">
-                  {rateLabel(row.response_rate)}
+                <span className="w-14 shrink-0 text-right text-meta tabular-nums text-secondary">
+                  {rateLabel(row.response_rate, row.responded, row.total, minimumSample)}
                 </span>
-                <span className="w-12 shrink-0 text-right text-meta tabular-nums text-secondary">
-                  {rateLabel(row.interview_rate)}
+                <span className="w-14 shrink-0 text-right text-meta tabular-nums text-secondary">
+                  {rateLabel(row.interview_rate, row.interviewed, row.total, minimumSample)}
                 </span>
               </div>
             );
@@ -230,7 +269,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
 
   const applications = useQuery({
     queryKey: ["opportunities", "applications", "list"],
-    queryFn: () => api.get<Opportunity[]>(`/applications${qs({ limit: 500 })}`),
+    queryFn: () => api.get<ApplicationListPage>(`/applications${qs({ limit: 500 })}`),
   });
   const lifecycle = useQuery({
     queryKey: ["opportunity-lifecycle"],
@@ -265,7 +304,8 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
     },
   });
 
-  const rows = applications.data ?? [];
+  const rows = applications.data?.items ?? [];
+  const applicationsTotal = applications.data?.total ?? rows.length;
   const funnelData = funnel.data;
   const cvTitles = useMemo(() => new Map((documents.data ?? []).map((doc) => [doc.id, doc.title])), [documents.data]);
   const columns = useMemo(() => applicationColumns(lifecycle.data), [lifecycle.data]);
@@ -280,19 +320,28 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
   const changeStatus = (id: string, to: string) => transition.mutate({ id, to });
 
   const maxStatusCount = Math.max(1, ...(funnelData?.by_status ?? []).map((row) => row.count));
+  const minimumSample = funnelData?.min_cohort_size ?? 10;
+  const cohort = funnelData?.cohort ?? {};
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Tabs value={view} onChange={setView} items={VIEW_TABS} ariaLabel="Başvuru görünümü" />
         <span className="flex-1" />
-        <span className="text-meta text-muted">Payda: yalnızca gerçek başvurular · {rows.length} kayıt</span>
+        <span className="text-meta text-muted">
+          Payda: yalnızca gerçek başvurular · {applicationsTotal} kayıt
+          {applicationsTotal > rows.length ? ` (${rows.length} tanesi gösteriliyor)` : ""}
+        </span>
       </div>
 
       {view === "list" && (
         <Section
           title="Başvuru listesi"
-          hint={applications.isLoading ? "Yükleniyor…" : `${rows.length} kayıt · payda: yalnızca gerçek başvurular`}
+          hint={
+            applications.isLoading
+              ? "Yükleniyor…"
+              : `${applicationsTotal} kayıt · payda: yalnızca gerçek başvurular`
+          }
         >
           {applications.isLoading ? (
             <SkeletonRows rows={5} />
@@ -434,11 +483,49 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
             </Section>
           </div>
 
-          <p className="text-meta text-muted">
-            Mülakatlar başvuru kaydına bağlıdır; toplu liste ucu olmadığı için burada tek tek açılır.
-          </p>
         </div>
       )}
+
+        <Section
+          title="Kohort dönüşümü"
+          hint={`Payda: ${funnelData?.cohort_size ?? 0} başvuru · eşik ${minimumSample}`}
+        >
+          {funnel.isLoading ? (
+            <SkeletonRows rows={4} />
+          ) : (
+            <div className="space-y-1.5">
+              <CohortRow
+                label="Başvuru → görüşme"
+                reached={cohort.interview ?? 0}
+                base={cohort.applied ?? 0}
+                minimum={minimumSample}
+              />
+              <CohortRow
+                label="Görüşme → teklif"
+                reached={cohort.offer ?? 0}
+                base={cohort.interview ?? 0}
+                minimum={minimumSample}
+              />
+              <CohortRow
+                label="Teklif → kabul"
+                reached={cohort.accepted ?? 0}
+                base={cohort.offer ?? 0}
+                minimum={minimumSample}
+              />
+              <CohortRow
+                label="Başvuru → ret"
+                reached={cohort.rejected ?? 0}
+                base={cohort.applied ?? 0}
+                minimum={minimumSample}
+              />
+            </div>
+          )}
+          {funnelData && !funnelData.sufficient && (
+            <p className="mt-2 text-micro text-muted">
+              Örneklem küçük ({funnelData.cohort_size} başvuru): yanıltıcı yüzde yerine ham sayı gösteriliyor.
+            </p>
+          )}
+        </Section>
 
       <MetricStrip className="grid-cols-2 lg:grid-cols-4">
         <Metric
@@ -519,14 +606,31 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
           rows={funnelData?.by_source ?? []}
           hint="Kayıt · yanıt · görüşme oranı"
           labelFor={(row) => sourceLabel(row.key)}
+          minimumSample={minimumSample}
         />
-        <BreakdownTable title="CV'ye göre" rows={funnelData?.by_cv ?? []} hint="Kayıt · yanıt · görüşme oranı" />
-        <BreakdownTable title="Role göre" rows={funnelData?.by_role ?? []} hint="Kayıt · yanıt · görüşme oranı" />
-        <BreakdownTable title="Ülkeye göre" rows={funnelData?.by_country ?? []} hint="Kayıt · yanıt · görüşme oranı" />
+        <BreakdownTable
+          title="CV'ye göre"
+          rows={funnelData?.by_cv ?? []}
+          hint="Kayıt · yanıt · görüşme oranı"
+          minimumSample={minimumSample}
+        />
+        <BreakdownTable
+          title="Role göre"
+          rows={funnelData?.by_role ?? []}
+          hint="Kayıt · yanıt · görüşme oranı"
+          minimumSample={minimumSample}
+        />
+        <BreakdownTable
+          title="Ülkeye göre"
+          rows={funnelData?.by_country ?? []}
+          hint="Kayıt · yanıt · görüşme oranı"
+          minimumSample={minimumSample}
+        />
         <BreakdownTable
           title="Çalışma biçimine göre"
           rows={funnelData?.by_work_mode ?? []}
           hint="Kayıt · yanıt · görüşme oranı"
+          minimumSample={minimumSample}
         />
       </div>
 

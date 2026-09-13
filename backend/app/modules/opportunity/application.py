@@ -222,15 +222,30 @@ async def apply(
             doc, doc_title = row
 
     app = await session.get(Application, item_id)
-    created = app is None
+    now = datetime.now(UTC)
     if app is None:
         app = Application(
             opportunity_id=item_id,
             posting_snapshot=_snapshot_posting(item),
             status="applied",
-            status_changed_at=datetime.now(UTC),
+            status_changed_at=now,
         )
         session.add(app)
+        await _record_status_change(
+            session, item, "applied", from_status=None, scope="application"
+        )
+    elif app.status != "applied":
+        # Hazirlik asamasi (`preparing`) "Basvur" ile KESIN olarak basvuruya
+        # gecer. Eskiden yalnizca CRM alanlari guncellenir, durum `preparing`
+        # kalir ve hicbir gecmis/olay yazilmazdi: kullanici basvurdugunu
+        # sandigi halde huni onu hic gormuyordu.
+        lifecycle.validate_application_transition(app.status, "applied")
+        from_status = app.status
+        app.status = "applied"
+        app.status_changed_at = now
+        await _record_status_change(
+            session, item, "applied", from_status=from_status, scope="application"
+        )
     if doc is not None:
         app.cv_document_id = data.cv_document_id
         app.cv_title = doc_title
@@ -239,20 +254,19 @@ async def apply(
         value = getattr(data, key)
         if value is not None:
             setattr(app, key, value)
-    app.updated_at = datetime.now(UTC)
+    app.updated_at = now
 
-    if created:
-        await _record_status_change(
-            session, item, "applied", from_status=None, scope="application"
-        )
     if item.applied_at is None:
-        item.applied_at = datetime.now(UTC)
+        item.applied_at = now
     # Kesif dongusunde ilan artik "kesfedildi" degil, takip ediliyor.
     if lifecycle.is_job_kind(item.kind) and item.status in {"discovered", "dismissed"}:
         await _record_status_change(
             session, item, "shortlisted", from_status=item.status, scope="discovery"
         )
         item.status = "shortlisted"
+    # Basvuru ilanin kendi kaydini da tazeler: arama sonucu ve "son guncelleme"
+    # basvuruyu gostermeli.
+    await touch_entity(session, item.id)
     await session.commit()
     row = (
         await session.execute(
@@ -583,6 +597,36 @@ def _pct(numerator: int, denominator: int) -> float | None:
 _RESPONSE_STATUSES = {"interview", "offer", "accepted", "rejected"}
 _INTERVIEW_STATUSES = {"interview", "offer", "accepted"}
 
+#: Basvuru hattinda "bu asamaya ulasti" sayilan durumlar. Huni STOK DEGIL
+#: KOHORT okur: reddedilmis bir basvuru da gorusmeye ulasmis olabilir.
+_REACHED_STAGES: tuple[tuple[str, frozenset[str]], ...] = (
+    (
+        "applied",
+        frozenset({"applied", "interview", "offer", "accepted", "rejected", "closed", "withdrawn"}),
+    ),
+    ("interview", frozenset({"interview", "offer", "accepted"})),
+    ("offer", frozenset({"offer", "accepted"})),
+    ("accepted", frozenset({"accepted"})),
+    ("rejected", frozenset({"rejected"})),
+)
+
+
+def _reached_stages(statuses: set[str], current: str) -> set[str]:
+    """Bir basvurunun gecmiste ULAS'tigi asamalar.
+
+    Guncel durum tek basina yetmez: `rejected` bir kayit daha once `interview`
+    gormus olabilir; huni oranlari bu yuzden gecmis + guncel durumun
+    birlesiminden turetilir (olay kaydi olmadan olusan eski kayitlar icin de
+    guncel durum yedek olarak kullanilir).
+    """
+    seen = set(statuses)
+    seen.add(current)
+    reached: set[str] = set()
+    for stage, members in _REACHED_STAGES:
+        if seen & members:
+            reached.add(stage)
+    return reached
+
 
 def _breakdown(rows: list[dict[str, Any]], key: str, label_key: str | None = None) -> list[
     FunnelBreakdownRow
@@ -602,12 +646,12 @@ def _breakdown(rows: list[dict[str, Any]], key: str, label_key: str | None = Non
             },
         )
         bucket["total"] += 1
-        status = row.get("status")
+        reached = row.get("reached") or set()
         if row.get("responded"):
             bucket["responded"] += 1
-        if status in _INTERVIEW_STATUSES:
+        if "interview" in reached:
             bucket["interviewed"] += 1
-        if status in {"offer", "accepted"}:
+        if "offer" in reached:
             bucket["offers"] += 1
     out = [
         FunnelBreakdownRow(
@@ -660,6 +704,7 @@ async def funnel(session: AsyncSession) -> FunnelOut:
     enriched: list[dict[str, Any]] = []
     first_response_deltas: list[float] = []
     interview_deltas: list[float] = []
+    cohort: dict[str, int] = {stage: 0 for stage, _members in _REACHED_STAGES}
     for app, opp, title in rows:
         entries = sorted(history.get(app.opportunity_id, []), key=lambda e: e.at)
         applied_at = next(
@@ -686,10 +731,14 @@ async def funnel(session: AsyncSession) -> FunnelOut:
             first_response_deltas.append((response_at - applied_at).total_seconds() / 86400)
         if applied_at is not None and interview_at is not None:
             interview_deltas.append((interview_at - applied_at).total_seconds() / 86400)
+        reached = _reached_stages({e.to_status for e in entries}, app.status)
+        for stage in reached:
+            cohort[stage] += 1
         enriched.append(
             {
                 "status": app.status,
                 "responded": responded,
+                "reached": reached,
                 "source": opp.source,
                 "cv": app.cv_title or "CV kaydedilmemis",
                 "role": opp.category or "kategorisiz",
@@ -702,19 +751,24 @@ async def funnel(session: AsyncSession) -> FunnelOut:
         )
 
     def ratio(lower: str, upper: str) -> float | None:
-        base = counts.get(lower, 0)
-        return round(counts.get(upper, 0) / base * 100, 1) if base else None
+        """Kohort orani: `lower` asamasina ulasanlarin kaci `upper`a ulasti?
+
+        Stok sayimi degil: `interview` asamasina ulasip sonra `rejected` olan
+        kayit da paydaya ve paya girer.
+        """
+        base = cohort.get(lower, 0)
+        return round(cohort.get(upper, 0) / base * 100, 1) if base else None
 
     conversions = {
         "applied_to_interview": ratio("applied", "interview"),
         "interview_to_offer": ratio("interview", "offer"),
         "offer_to_accepted": ratio("offer", "accepted"),
         "applied_to_rejected": ratio("applied", "rejected"),
-        "applied_total": counts.get("applied", 0),
-        "response_rate": _pct(sum(1 for row in enriched if row["responded"]), len(enriched)),
-        "interview_rate": _pct(
-            sum(1 for row in enriched if row["status"] in _INTERVIEW_STATUSES), len(enriched)
+        "applied_total": cohort.get("applied", 0),
+        "response_rate": _pct(
+            sum(1 for row in enriched if row["responded"]), cohort.get("applied", 0)
         ),
+        "interview_rate": ratio("applied", "interview"),
     }
 
     reason_rows = (
@@ -746,11 +800,16 @@ async def funnel(session: AsyncSession) -> FunnelOut:
                 buckets[key] += 1
         return [FunnelVolumeRow(period=key, applied=value) for key, value in buckets.items()]
 
+    cohort_size = cohort.get("applied", 0)
     return FunnelOut(
         total=total,
         tracked=tracked,
         by_status=by_status,
         conversions=conversions,
+        cohort=cohort,
+        cohort_size=cohort_size,
+        min_cohort_size=lifecycle.MIN_FUNNEL_COHORT,
+        sufficient=cohort_size >= lifecycle.MIN_FUNNEL_COHORT,
         rejection_reasons=[
             {"reason": reason or "belirsiz", "count": count} for reason, count in reason_rows
         ],

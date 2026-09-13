@@ -84,3 +84,26 @@ def test_every_logged_event_verb_is_registered():
     assert not missing, "kayit defterinde olmayan event verb'leri: " + ", ".join(
         f"{verb} ({used[verb]})" for verb in missing
     )
+
+
+def test_frontend_routes_cover_entity_specs_and_search_flags():
+    """Rota ve etiket yalnizca EntityTypeSpec'ten gelir; arama kumesi de oradan."""
+    from app.core.search import searchable_types
+
+    searchable = set(searchable_types())
+    types = {spec.type for spec in all_entity_types()}
+    assert searchable <= types
+    # Rota/link hedefi olmayan destek tipleri global aramadan DISLANIR.
+    assert "media_unit" not in searchable
+    assert "note_folder" not in searchable
+    # Kullaniciya gorunen ana tipler aranabilir kalir.
+    assert {"opportunity", "career_story", "career_connection", "bookmark"} <= searchable
+
+
+def test_opportunity_entity_routes_point_at_the_right_workspace():
+    """Derin baglanti rotalari dogru sekmeyi acar: ?focus=, ?story=, ?connection=."""
+    from app.core.registry import type_spec
+
+    assert type_spec("opportunity").route == "/opportunities?focus={id}"
+    assert type_spec("career_story").route == "/opportunities?story={id}"
+    assert type_spec("career_connection").route == "/opportunities?connection={id}"

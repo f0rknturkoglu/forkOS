@@ -1088,12 +1088,42 @@ export interface FunnelVolumeRow {
   applied: number;
 }
 
+export interface ApplicationListPage {
+  items: Opportunity[];
+  /** Filtreye uyan GERÇEK toplam; `limit` değil. */
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface CoverLetter {
+  opportunity_id: string;
+  title: string;
+  organization: string | null;
+  cover_letter: string;
+}
+
+export interface InterviewPrepGroup {
+  opportunity: Opportunity;
+  interviews: Interview[];
+  salary: SalaryConsistency;
+}
+
 export interface ApplicationFunnel {
   /** Payda: yalnızca gerçek başvuru kayıtları. Keşfedilen ilanlar sayılmaz. */
   total: number;
   tracked: number;
   by_status: { status: string; count: number }[];
+  /** Kohort tabanlı dönüşüm oranları (stok sayımı değil). */
   conversions: Record<string, number | null>;
+  /** Hangi aşamaya kaç başvuru ULAŞTI. */
+  cohort: Record<string, number>;
+  /** `applied` aşamasına ulaşan başvuru sayısı = dönüşüm paydası. */
+  cohort_size: number;
+  /** Bu sayının altında yüzde yerine ham sayı gösterilir. */
+  min_cohort_size: number;
+  /** Kohort eşiğin altındaysa yüzdeler yanıltıcı olabilir. */
+  sufficient: boolean;
   rejection_reasons: { reason: string; count: number }[];
   avg_first_response_days: number | null;
   avg_applied_to_interview_days: number | null;

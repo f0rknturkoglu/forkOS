@@ -372,6 +372,38 @@
         "title": "ApplicationIn",
         "type": "object"
       },
+      "ApplicationListOut": {
+        "description": "Basvuru listesi ZARFI. Limitli liste \"toplam\" gibi sunulmaz.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpportunityOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "ApplicationListOut",
+        "type": "object"
+      },
       "ApplicationOut": {
         "properties": {
           "company_research": {
@@ -2820,6 +2852,42 @@
         "title": "CoursePatch",
         "type": "object"
       },
+      "CoverLetterOut": {
+        "description": "Kaydedilmis on yazi. Panel bunlari TEK istekle alir.",
+        "properties": {
+          "cover_letter": {
+            "title": "Cover Letter",
+            "type": "string"
+          },
+          "opportunity_id": {
+            "format": "uuid",
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opportunity_id",
+          "title",
+          "cover_letter"
+        ],
+        "title": "CoverLetterOut",
+        "type": "object"
+      },
       "CoverLetterReviewIn": {
         "properties": {
           "text": {
@@ -4011,6 +4079,18 @@
             "title": "By Work Mode",
             "type": "array"
           },
+          "cohort": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Cohort",
+            "type": "object"
+          },
+          "cohort_size": {
+            "default": 0,
+            "title": "Cohort Size",
+            "type": "integer"
+          },
           "conversions": {
             "additionalProperties": {
               "anyOf": [
@@ -4024,6 +4104,11 @@
             },
             "title": "Conversions",
             "type": "object"
+          },
+          "min_cohort_size": {
+            "default": 10,
+            "title": "Min Cohort Size",
+            "type": "integer"
           },
           "monthly_volume": {
             "items": {
@@ -4039,6 +4124,11 @@
             },
             "title": "Rejection Reasons",
             "type": "array"
+          },
+          "sufficient": {
+            "default": false,
+            "title": "Sufficient",
+            "type": "boolean"
           },
           "total": {
             "title": "Total",
@@ -4833,6 +4923,31 @@
           "stage"
         ],
         "title": "InterviewOut",
+        "type": "object"
+      },
+      "InterviewPrepOut": {
+        "description": "Mulakat hazirligi grubu: ilan + gorusmeler + maas tutarliligi.",
+        "properties": {
+          "interviews": {
+            "items": {
+              "$ref": "#/components/schemas/InterviewOut"
+            },
+            "title": "Interviews",
+            "type": "array"
+          },
+          "opportunity": {
+            "$ref": "#/components/schemas/OpportunityOut"
+          },
+          "salary": {
+            "$ref": "#/components/schemas/SalaryConsistencyOut"
+          }
+        },
+        "required": [
+          "opportunity",
+          "interviews",
+          "salary"
+        ],
+        "title": "InterviewPrepOut",
         "type": "object"
       },
       "IssueToTodoIn": {
@@ -14781,7 +14896,7 @@
     },
     "/api/applications": {
       "get": {
-        "description": "Başvurular çalışma alanı: YALNIZCA gerçek başvuru kayıtları.\n\nKeşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1).",
+        "description": "Başvurular çalışma alanı: YALNIZCA gerçek başvuru kayıtları.\n\nKeşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1). Yanıt bir\nzarftır: `items` sayfayı, `total` filtrenin GERÇEK toplamını taşır; aksi\nhalde 120'lik limit \"tüm başvurular\" gibi okunurdu.",
         "operationId": "applications_list_api_applications_get",
         "parameters": [
           {
@@ -14829,11 +14944,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/OpportunityOut"
-                  },
-                  "title": "Response Applications List Api Applications Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/ApplicationListOut"
                 }
               }
             },
@@ -16384,6 +16495,58 @@
           }
         },
         "summary": "Cover Letter Review",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/cover-letters": {
+      "get": {
+        "description": "Kaydedilmiş ön yazılar: TEK istek (panel başına kayıt-başına istek yok).",
+        "operationId": "career_cover_letters_api_career_cover_letters_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CoverLetterOut"
+                  },
+                  "title": "Response Career Cover Letters Api Career Cover Letters Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Career Cover Letters",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/interview-prep": {
+      "get": {
+        "description": "Mülakat hazırlığı grupları: görüşmeler + maaş tutarlılığı TEK turda.",
+        "operationId": "career_interview_prep_api_career_interview_prep_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InterviewPrepOut"
+                  },
+                  "title": "Response Career Interview Prep Api Career Interview Prep Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Career Interview Prep",
         "tags": [
           "opportunities"
         ]

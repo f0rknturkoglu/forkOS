@@ -4,7 +4,7 @@ import { ExternalLink, Search, ShieldCheck, Upload, Users } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { Button, Chip, Empty, FileInput, Input, Modal, Section, cx, useToast } from "@/core/ui";
-import type { CareerConnection, CareerConnectionsImportResult, Opportunity } from "@/core/types";
+import type { ApplicationListPage, CareerConnection, CareerConnectionsImportResult, Opportunity } from "@/core/types";
 import { normalizeCompany, previewConnectionsCsv, type ConnectionPreview } from "./careerUtils";
 
 export function CareerConnectionsPanel({ focusId }: { focusId?: string | null }) {
@@ -20,10 +20,11 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
         `/career/connections?limit=2000${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ""}`,
       ),
   });
-  const { data: applications = [] } = useQuery({
+  const { data: applicationsPage } = useQuery({
     queryKey: ["applications"],
-    queryFn: () => api.get<Opportunity[]>("/applications?limit=200"),
+    queryFn: () => api.get<ApplicationListPage>("/applications?limit=200"),
   });
+  const applications = applicationsPage?.items ?? [];
 
   /** Kurum normalizasyonu -> aynı kurumdaki ilanlar (warm-intro ipucu). */
   const jobsByCompany = useMemo(() => {

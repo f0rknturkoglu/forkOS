@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, CheckCircle2, Circle, Wallet } from "lucide-react";
 import { api } from "@/core/api";
 import { Checkbox, Chip, Empty, Section, Spinner, cx } from "@/core/ui";
-import type { CareerStory, Interview, Opportunity, SalaryConsistency } from "@/core/types";
+import type { CareerStory, Interview, InterviewPrepGroup, Opportunity, SalaryConsistency } from "@/core/types";
 import { applicationStatusLabel } from "./labels";
 
 interface PrepGroup {
@@ -34,17 +34,14 @@ export function InterviewPrepPanel() {
   const [checks, setChecks] = useState<ChecklistState>(readChecklist);
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ["career-interview-prep"],
+    // Kayıt başına iki istek yerine TEK toplu okuma (eskiden 2N istek vardı).
     queryFn: async (): Promise<PrepGroup[]> => {
-      const applications = await api.get<Opportunity[]>("/applications?limit=200");
-      return Promise.all(
-        applications.map(async (application) => {
-          const [interviews, salary] = await Promise.all([
-            api.get<Interview[]>(`/opportunities/${application.id}/interviews`),
-            api.get<SalaryConsistency>(`/opportunities/${application.id}/salary-consistency`),
-          ]);
-          return { application, interviews, salary };
-        }),
-      );
+      const groups = await api.get<InterviewPrepGroup[]>("/career/interview-prep");
+      return groups.map((group) => ({
+        application: group.opportunity,
+        interviews: group.interviews,
+        salary: group.salary,
+      }));
     },
   });
   const { data: stories = [] } = useQuery({

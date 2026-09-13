@@ -3,12 +3,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { FileText, Sparkles } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Chip, Empty, Field, Metric, MetricStrip, Section, Select, Textarea, useToast } from "@/core/ui";
-import type { Application, CareerStory, CoverLetterReview, Opportunity } from "@/core/types";
+import type { CareerStory, CoverLetter, CoverLetterReview } from "@/core/types";
 
-interface SavedLetter {
-  opportunity: Opportunity;
-  cover_letter: string;
-}
+/** Kaydedilmiş ön yazı: toplu uçtan gelen düz kayıt (ilan nesnesi taşımaz). */
+type SavedLetter = CoverLetter;
 
 export function CoverLetterPanel() {
   const toast = useToast();
@@ -17,15 +15,9 @@ export function CoverLetterPanel() {
   const [review, setReview] = useState<CoverLetterReview | null>(null);
   const { data: letters = [] } = useQuery({
     queryKey: ["career-cover-letters"],
+    // Kayıt başına istek YOK: kaydedilmiş ön yazılar tek uçtan gelir.
     queryFn: async (): Promise<SavedLetter[]> => {
-      const applications = await api.get<Opportunity[]>("/applications?limit=200");
-      const rows = await Promise.all(
-        applications.map(async (opportunity) => {
-          const detail = await api.get<Application>(`/opportunities/${opportunity.id}/application`);
-          return { opportunity, cover_letter: detail.cover_letter ?? "" };
-        }),
-      );
-      return rows.filter((row) => row.cover_letter.trim());
+      return api.get<CoverLetter[]>("/career/cover-letters");
     },
   });
   const { data: stories = [] } = useQuery({
@@ -56,7 +48,7 @@ export function CoverLetterPanel() {
             value={selectedLetterId}
             onChange={(value) => {
               setSelectedLetterId(value);
-              const found = letters.find((row) => row.opportunity.id === value);
+              const found = letters.find((row) => row.opportunity_id === value);
               if (found) {
                 setText(found.cover_letter);
                 setReview(null);
@@ -66,10 +58,10 @@ export function CoverLetterPanel() {
             className="w-full"
           >
             <option value="">Bir başvurunun ön yazısını seç…</option>
-            {letters.map((row) => (
-              <option key={row.opportunity.id} value={row.opportunity.id}>
-                {row.opportunity.title}
-                {row.opportunity.organization ? ` · ${row.opportunity.organization}` : ""}
+            {letters.map((letter) => (
+              <option key={letter.opportunity_id} value={letter.opportunity_id}>
+                {letter.title}
+                {letter.organization ? ` · ${letter.organization}` : ""}
               </option>
             ))}
           </Select>

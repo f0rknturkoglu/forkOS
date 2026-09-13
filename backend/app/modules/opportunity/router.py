@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
@@ -28,14 +28,17 @@ from app.modules.opportunity.intelligence import (
 )
 from app.modules.opportunity.models import Application, Opportunity, OpportunityRequirement
 from app.modules.opportunity.schemas import (
+    ApplicationListOut,
     ApplicationTimelineOut,
     CareerConnectionOut,
     CareerConnectionsImportOut,
     CareerStoryIn,
     CareerStoryOut,
     CareerStoryPatch,
+    CoverLetterOut,
     CoverLetterReviewIn,
     CoverLetterReviewOut,
+    InterviewPrepOut,
     OpportunityBrowseOut,
     OpportunityConnectionsOut,
     OpportunityEvaluationOut,
@@ -90,6 +93,18 @@ def _require_announcement(item: Opportunity) -> None:
 @router.get("/career/stories", response_model=list[CareerStoryOut])
 async def career_stories(session: AsyncSession = Depends(get_session)):
     return await career_service.list_stories(session)
+
+
+@router.get("/career/cover-letters", response_model=list[CoverLetterOut])
+async def career_cover_letters(session: AsyncSession = Depends(get_session)):
+    """Kaydedilmiş ön yazılar: TEK istek (panel başına kayıt-başına istek yok)."""
+    return await career_service.cover_letters(session)
+
+
+@router.get("/career/interview-prep", response_model=list[InterviewPrepOut])
+async def career_interview_prep(session: AsyncSession = Depends(get_session)):
+    """Mülakat hazırlığı grupları: görüşmeler + maaş tutarlılığı TEK turda."""
+    return await career_service.interview_prep(session)
 
 
 @router.post("/career/stories", response_model=CareerStoryOut, status_code=201)
@@ -437,7 +452,15 @@ async def bind_requirement_document(
         if document is None or document.type != "document":
             raise HTTPException(400, "document bulunamadı")
     requirement.document_entity_id = body.document_entity_id
-    requirement.status = "satisfied" if body.document_entity_id else "missing"
+    # Belge baglamak gereksinimi "hazir" yapar; gonderilmis/feragat edilmis bir
+    # gereksinimin kullanici karari EZILMEZ. Eski kod semada olmayan bir
+    # "satisfied" degeri yaziyordu ve yanit dogrulamasi 500 veriyordu.
+    if body.document_entity_id is None:
+        if requirement.status == lifecycle.REQUIREMENT_READY:
+            requirement.status = lifecycle.REQUIREMENT_MISSING
+    elif requirement.status in {lifecycle.REQUIREMENT_MISSING, lifecycle.REQUIREMENT_READY}:
+        requirement.status = lifecycle.REQUIREMENT_READY
+    lifecycle.validate_requirement_status(requirement.status)
     await log_event(
         session,
         verb="opportunity.requirement_document_bound",
@@ -536,7 +559,7 @@ async def applications_funnel(session: AsyncSession = Depends(get_session)):
     return await service.funnel(session)
 
 
-@router.get("/applications", response_model=list[OpportunityOut])
+@router.get("/applications", response_model=ApplicationListOut)
 async def applications_list(
     status: str | None = None,
     limit: int = Query(120, ge=1, le=500),
@@ -545,32 +568,47 @@ async def applications_list(
 ):
     """Başvurular çalışma alanı: YALNIZCA gerçek başvuru kayıtları.
 
-    Keşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1).
+    Keşfedilmiş ilanlar buraya hiçbir koşulda girmez (Faz 4.1). Yanıt bir
+    zarftır: `items` sayfayı, `total` filtrenin GERÇEK toplamını taşır; aksi
+    halde 120'lik limit "tüm başvurular" gibi okunurdu.
     """
     if status is not None and status not in lifecycle.APPLICATION_FLOW:
         raise HTTPException(422, "Geçersiz başvuru durumu")
+    conditions = [Opportunity.trashed_at.is_(None)]
+    if status:
+        conditions.append(Application.status == status)
     rows = (
         await session.execute(
             select(Opportunity, Entity.title, Application)
             .join(Entity, Entity.id == Opportunity.id)
             .join(Application, Application.opportunity_id == Opportunity.id)
-            .where(
-                Opportunity.trashed_at.is_(None),
-                *( [Application.status == status] if status else [] ),
-            )
+            .where(*conditions)
             .order_by(
                 Application.status_changed_at.desc().nulls_last(),
-                Opportunity.found_at.desc(),
+                Application.updated_at.desc(),
+                Opportunity.id.asc(),
             )
             .offset(offset)
             .limit(limit)
         )
     ).all()
-    outs = [
-        service._out((opportunity, title), include_raw=False, application=application)
-        for opportunity, title, application in rows
-    ]
-    return outs
+    total = (
+        await session.execute(
+            select(func.count())
+            .select_from(Application)
+            .join(Opportunity, Opportunity.id == Application.opportunity_id)
+            .where(*conditions)
+        )
+    ).scalar_one()
+    return ApplicationListOut(
+        items=[
+            service._out((opportunity, title), include_raw=False, application=application)
+            for opportunity, title, application in rows
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("/opportunities/{item_id}/application", response_model=service.ApplicationOut)

@@ -86,6 +86,10 @@ const harness = vi.hoisted(() => {
     tracked: 3,
     by_status: byStatus,
     conversions: { applied_to_interview: null },
+    cohort: { applied: 3, interview: 0, offer: 0, accepted: 0, rejected: 1 },
+    cohort_size: 3,
+    min_cohort_size: 10,
+    sufficient: false,
     rejection_reasons: [{ reason: "uyum yetersiz", count: 0 }],
     avg_first_response_days: null,
     avg_applied_to_interview_days: 7,
@@ -131,7 +135,9 @@ const harness = vi.hoisted(() => {
   const documents = [{ id: "doc-1", title: "Backend CV 2026" }];
 
   const get = vi.fn(async (path: string) => {
-    if (path.startsWith("/applications?")) return applications;
+    if (path.startsWith("/applications?")) {
+      return { items: applications, total: 42, offset: 0, limit: 500 };
+    }
     if (path === "/applications/funnel") return funnel;
     if (path === "/applications/rejection-reasons") return ["maas uyumsuz", "uyum yetersiz"];
     if (path === "/opportunities/lifecycle") return lifecycle;
@@ -255,5 +261,25 @@ describe("ApplicationsWorkspace", () => {
     await waitFor(() =>
       expect(harness.post).toHaveBeenCalledWith("/applications/app-1/transition", { to: "interview" }),
     );
+  });
+});
+
+describe("ApplicationsWorkspace örneklem dürüstlüğü", () => {
+  it("limitli listeyi toplam gibi göstermez", async () => {
+    renderWorkspace();
+
+    await screen.findAllByText("Backend Engineer");
+    // Envelope'taki gerçek toplam (42), sayfadaki satır sayısı (3) değil.
+    expect(screen.getAllByText(/42 kayıt/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/3 tanesi gösteriliyor/)).toBeTruthy();
+  });
+
+  it("küçük kohortta yüzde yerine ham sayı ve 'küçük örneklem' notu gösterir", async () => {
+    renderWorkspace();
+
+    await screen.findAllByText("Backend Engineer");
+    // 3 başvurudan 1'i: "%33" yerine "1/3".
+    expect(screen.getAllByText("1/3").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Örneklem küçük \(3 başvuru\)/)).toBeTruthy();
   });
 });

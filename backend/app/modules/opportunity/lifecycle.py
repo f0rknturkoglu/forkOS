@@ -89,6 +89,25 @@ APPLICATION_TERMINAL: frozenset[str] = frozenset({"accepted", "rejected", "close
 #: Basvuru hattina girmis sayilan durumlar (funnel paydalari bunu kullanir).
 APPLICATION_TRACKED: frozenset[str] = frozenset(APPLICATION_FLOW)
 
+#: Gereksinim (belge) durumlari. Tek hakikat kaynagi: Pydantic Literal'leri ve
+#: DB check constraint'i buradan turer; `satisfied` gibi kumede olmayan bir
+#: deger yazilamaz.
+REQUIREMENT_STATUSES: tuple[str, ...] = ("missing", "ready", "submitted", "waived")
+REQUIREMENT_MISSING = "missing"
+REQUIREMENT_READY = "ready"
+
+#: Kohort tabanli donusum oranlari icin en kucuk payda. Altinda yuzde yerine
+#: ham sayi gosterilir; iki basvurudan "%100 gorusme" yanilticidir.
+MIN_FUNNEL_COHORT = 10
+
+
+def validate_requirement_status(status: str) -> None:
+    """Kumede olmayan gereksinim durumunda ``ValueError`` yukseltir."""
+    if status not in REQUIREMENT_STATUSES:
+        raise ValueError(
+            f"'{status}' gecerli bir gereksinim durumu degil ({'/'.join(REQUIREMENT_STATUSES)})"
+        )
+
 #: Kaynak sahipli kesif durumlari: kullanici bu kayitla henuz bir sey yapmadi,
 #: dolayisiyla ilan kaynakta kaybolunca durum guncellenebilir.
 #: `shortlisted`, `watching`, `action_required`, `archived` gibi durumlar

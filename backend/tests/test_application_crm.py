@@ -484,3 +484,231 @@ async def test_linkedin_connections_import_and_local_company_join(client: AsyncC
         assert any(event["verb"] == "career_connections.imported" for event in events)
     finally:
         await _delete_entities(item_id, *connection_ids)
+
+
+async def test_apply_on_a_preparing_application_becomes_applied(client: AsyncClient):
+    """Hazırlık aşamasındaki başvuruda "Başvur" kesin olarak `applied` yapar."""
+    item_id = await _seed_opportunity()
+    try:
+        prepared = await client.put(
+            f"/api/opportunities/{item_id}/application", json={"cover_letter": "taslak"}
+        )
+        assert prepared.status_code == 200, prepared.text
+        assert prepared.json()["status"] == "preparing"
+
+        applied = await client.post(f"/api/opportunities/{item_id}/apply", json={})
+        assert applied.status_code == 200, applied.text
+        body = applied.json()
+        assert body["application_status"] == "applied"
+
+        detail = (await client.get(f"/api/opportunities/{item_id}/application")).json()
+        assert detail["status"] == "applied"
+        assert detail["status_changed_at"] is not None
+        # Taslak alanlari korunur.
+        assert detail["cover_letter"] == "taslak"
+
+        history = (await client.get(f"/api/opportunities/{item_id}/history")).json()
+        assert any(
+            row["scope"] == "application" and row["from_status"] == "preparing" and row["to_status"] == "applied"
+            for row in history
+        )
+        events = (await client.get("/api/activity", params={"limit": 200})).json()
+        assert any(
+            event["verb"] == "opportunity.status_changed"
+            and str(event["payload"].get("to")) == "applied"
+            for event in events
+        )
+    finally:
+        await _delete_entities(item_id)
+
+
+async def test_apply_is_idempotent_for_an_already_applied_application(client: AsyncClient):
+    item_id = await _seed_opportunity()
+    try:
+        assert (await client.post(f"/api/opportunities/{item_id}/apply", json={})).status_code == 200
+        second = await client.post(f"/api/opportunities/{item_id}/apply", json={})
+        assert second.status_code == 200, second.text
+        assert second.json()["application_status"] == "applied"
+    finally:
+        await _delete_entities(item_id)
+
+
+async def test_requirement_document_binding_uses_a_contract_status(client: AsyncClient):
+    """Belge bağlamak `ready` yazar; şemada olmayan `satisfied` 500 üretmez."""
+    item_id = await _seed_opportunity()
+    document_id = uuid.uuid4()
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "insert into entity (id, type, title, search_text) values "
+                    "(:id, 'document', 'CV', '')"
+                ),
+                {"id": document_id},
+            )
+        created = await client.post(
+            f"/api/opportunities/{item_id}/requirements",
+            json={"name": "CV", "required": True},
+        )
+        assert created.status_code == 201, created.text
+        requirement_id = created.json()["id"]
+        assert created.json()["status"] == "missing"
+
+        bound = await client.patch(
+            f"/api/requirements/{requirement_id}/document",
+            json={"document_entity_id": str(document_id)},
+        )
+        assert bound.status_code == 200, bound.text
+        assert bound.json()["status"] == "ready"
+        assert bound.json()["document_entity_id"] == str(document_id)
+
+        # Kullanicinin "gonderdim" karari belge baglamayla ezilmez.
+        await client.patch(
+            f"/api/requirements/{requirement_id}/document",
+            json={"document_entity_id": str(document_id)},
+        )
+        unbound = await client.patch(
+            f"/api/requirements/{requirement_id}/document", json={"document_entity_id": None}
+        )
+        assert unbound.status_code == 200, unbound.text
+        assert unbound.json()["status"] == "missing"
+    finally:
+        await _delete_entities(item_id, document_id)
+
+
+async def test_requirement_status_rejects_unknown_values(client: AsyncClient):
+    from typing import get_args
+
+    from app.modules.opportunity import lifecycle
+    from app.modules.opportunity.schemas import RequirementIn
+
+    assert set(get_args(RequirementIn.model_fields["status"].annotation)) == set(
+        lifecycle.REQUIREMENT_STATUSES
+    )
+
+    item_id = await _seed_opportunity()
+    try:
+        rejected = await client.post(
+            f"/api/opportunities/{item_id}/requirements",
+            json={"name": "CV", "status": "satisfied"},
+        )
+        assert rejected.status_code == 422
+        remaining = (await client.get(f"/api/opportunities/{item_id}/requirements")).json()
+        assert remaining == []
+    finally:
+        await _delete_entities(item_id)
+
+
+async def test_funnel_reports_cohorts_not_stock(client: AsyncClient):
+    """Görüşmeye ulaşıp sonra reddedilen başvuru dönüşüm payına girer."""
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.modules.opportunity import service
+    from app.modules.opportunity.models import Application, Opportunity
+    from app.modules.opportunity.worker import NativeJob
+    from app.sources.base import RawItem
+
+    source = f"funnel-{uuid.uuid4().hex[:8]}"
+    job_rows = [
+        NativeJob(
+            RawItem(
+                external_id=f"funnel-{index}",
+                title=f"Funnel Role {index}",
+                url=f"https://example.invalid/funnel/{index}",
+                summary="python",
+                extra={"organization": "Acme", "kind": "job"},
+            )
+        )
+        for index in range(4)
+    ]
+    async with SessionLocal() as session:
+        await service.ingest_jobs(session, job_rows, source)
+        await session.commit()
+        ids = list(
+            (
+                await session.execute(
+                    select(Opportunity.id).where(Opportunity.source == source)
+                )
+            ).scalars()
+        )
+
+    try:
+        # 1: applied -> interview -> rejected | 2: applied -> rejected
+        # 3: applied | 4: applied -> interview
+        steps = [
+            (ids[0], ["interview", "rejected"]),
+            (ids[1], ["rejected"]),
+            (ids[2], []),
+            (ids[3], ["interview"]),
+        ]
+        for item_id, transitions in steps:
+            assert (await client.post(f"/api/opportunities/{item_id}/apply", json={})).status_code == 200
+            for target in transitions:
+                response = await client.post(
+                    f"/api/applications/{item_id}/transition", json={"to": target}
+                )
+                assert response.status_code == 200, response.text
+
+        funnel = (await client.get("/api/applications/funnel")).json()
+        cohort = funnel["cohort"]
+        # 3 kayit interview'e ULASTI (2. kayit yalnizca reddedildi).
+        assert cohort["applied"] >= 4
+        assert cohort["interview"] == 2
+        assert cohort["rejected"] == 2
+        assert funnel["conversions"]["applied_to_rejected"] is not None
+        # Stok sayimi olsaydi guncel `interview` durumunda 1 kayit gorunurdu.
+        assert funnel["cohort"]["interview"] > sum(
+            1 for row in funnel["by_status"] if row["status"] == "interview"
+        )
+        assert funnel["sufficient"] is False
+        assert funnel["cohort_size"] >= 4
+        assert funnel["min_cohort_size"] == 10
+    finally:
+        await _delete_entities(*ids)
+
+
+async def test_applications_list_reports_the_real_total(client: AsyncClient):
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.modules.opportunity import service
+    from app.modules.opportunity.models import Opportunity
+    from app.modules.opportunity.worker import NativeJob
+    from app.sources.base import RawItem
+
+    source = f"applist-{uuid.uuid4().hex[:8]}"
+    rows = [
+        NativeJob(
+            RawItem(
+                external_id=f"applist-{index}",
+                title=f"Listed Role {index}",
+                url=f"https://example.invalid/applist/{index}",
+                summary="python",
+                extra={"organization": "Acme", "kind": "job"},
+            )
+        )
+        for index in range(3)
+    ]
+    async with SessionLocal() as session:
+        await service.ingest_jobs(session, rows, source)
+        await session.commit()
+        ids = list(
+            (
+                await session.execute(select(Opportunity.id).where(Opportunity.source == source))
+            ).scalars()
+        )
+    try:
+        for item_id in ids:
+            assert (await client.post(f"/api/opportunities/{item_id}/apply", json={})).status_code == 200
+
+        page = (await client.get("/api/applications", params={"limit": 1})).json()
+        assert page["limit"] == 1
+        assert len(page["items"]) == 1
+        # Limit "toplam" gibi sunulmaz: gercek toplam ayri alanda.
+        assert page["total"] >= 3
+
+        offset_page = (await client.get("/api/applications", params={"limit": 1, "offset": 1})).json()
+        assert offset_page["items"][0]["id"] != page["items"][0]["id"]
+    finally:
+        await _delete_entities(*ids)
