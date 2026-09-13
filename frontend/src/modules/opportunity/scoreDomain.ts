@@ -17,11 +17,13 @@
 
 export const SCORE_FLOOR = -1;
 export const SCORE_CAP = 100;
-export const SCORE_ELIMINATED = -1;
+const SCORE_ELIMINATED = -1;
+/** "Güçlü" bandın eşiği; slider ekseni ve preset'ler buradan okur. */
 export const SCORE_STRONG = 70;
+/** "Orta" bandın eşiği; slider ekseni ve preset'ler buradan okur. */
 export const SCORE_FAIR = 40;
 /** Skorlar iki ondalıkla saklanır; preset sınırları da bu adımla kapanır. */
-export const SCORE_STEP = 0.01;
+const SCORE_STEP = 0.01;
 
 export type ScoreBand = "unknown" | "eliminated" | "low" | "fair" | "strong";
 
@@ -47,11 +49,16 @@ export const SCORE_RANGES = [
   { label: "Elendi", min: SCORE_ELIMINATED, max: SCORE_ELIMINATED },
 ] as const;
 
-/** Skor yok filtresi: `null` kayıtları ayrı seçebilmek için. */
+/**
+ * Kalite skoru var/yok filtresi: `null` kayıtları ayrı seçebilmek için.
+ *
+ * Etiketler `Profil / beceri uyumu` bölümündeki "Hesaplanmadı" ile
+ * karışmasın diye "kalite skoru"nu açıkça söyler.
+ */
 export const SCORE_STATE_PRESETS = [
   { label: "Tümü", state: undefined },
-  { label: "Hesaplanmış", state: "computed" as const },
-  { label: "Hesaplanmadı", state: "uncomputed" as const },
+  { label: "Kalite skoru var", state: "computed" as const },
+  { label: "Kalite skoru yok", state: "uncomputed" as const },
 ] as const;
 
 /**

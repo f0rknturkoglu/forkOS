@@ -79,18 +79,12 @@ describe("entity deep links open the right workspace", () => {
   });
 
   it("ilan bağlantısı kaydı focus olarak taşır", () => {
-    const parsed = parseOpportunityUrl(
-      new URLSearchParams(queryOf(entityRoute("opportunity", "opp-9"))),
-      BASE,
-    );
+    const parsed = parseOpportunityUrl(new URLSearchParams(queryOf(entityRoute("opportunity", "opp-9"))), BASE);
     expect(parsed.focus).toBe("opp-9");
   });
 
   it("hikâye bağlantısı kaydı story olarak taşır ve tekrar yazıldığında korunur", () => {
-    const parsed = parseOpportunityUrl(
-      new URLSearchParams(queryOf(entityRoute("career_story", "story-7"))),
-      BASE,
-    );
+    const parsed = parseOpportunityUrl(new URLSearchParams(queryOf(entityRoute("career_story", "story-7"))), BASE);
     expect(parsed.story).toBe("story-7");
 
     const rewritten = serializeOpportunityUrl({

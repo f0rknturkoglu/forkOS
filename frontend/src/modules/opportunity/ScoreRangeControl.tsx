@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { Button, DualRange, FilterChip, Popover, cx } from "@/core/ui";
 import { SCORE_PRESETS, scoreRangeLabel } from "./filterState";
+import { SCORE_CAP, SCORE_FAIR, SCORE_STRONG } from "./scoreDomain";
 
 interface Props {
   min: number | undefined;
@@ -144,9 +145,9 @@ export function ScoreRangeControl({ min, max, onChange, disabled }: Props) {
             <div className="mt-1 flex justify-between text-micro text-muted" aria-hidden>
               <span>Elendi</span>
               <span>0</span>
-              <span>40</span>
-              <span>70</span>
-              <span>100</span>
+              <span>{SCORE_FAIR}</span>
+              <span>{SCORE_STRONG}</span>
+              <span>{SCORE_CAP}</span>
             </div>
           </div>
 

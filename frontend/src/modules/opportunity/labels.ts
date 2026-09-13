@@ -178,15 +178,6 @@ export const SCORE_TONE: Record<ScoreBand, "neutral" | "warn" | "ok" | "danger">
   strong: "ok",
 };
 
-/** Bandın kullanıcı dilindeki adı; `unknown` "hesaplanmadı" demektir. */
-export const SCORE_BAND_LABELS: Record<ScoreBand, string> = {
-  unknown: "Skor hesaplanmadı",
-  eliminated: "Elendi",
-  low: "Düşük uyum",
-  fair: "Orta uyum",
-  strong: "Güçlü uyum",
-};
-
 /** Kanonik remote kovalari — backend browse facet'i (_remote_bucket) ile ayni. */
 export type RemoteKind = "remote" | "hybrid" | "onsite" | "unknown";
 

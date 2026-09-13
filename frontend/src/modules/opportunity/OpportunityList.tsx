@@ -126,9 +126,7 @@ export function OpportunityCard({
           className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}
           title="Kalite skoru: kaynak ve kural tabanlı ilan kalitesi (−1 = elendi)"
           aria-label={
-            item.score === null
-              ? "Kalite skoru hesaplanmadı"
-              : `Kalite skoru ${displayScore(item.score)} / 100`
+            item.score === null ? "Kalite skoru hesaplanmadı" : `Kalite skoru ${displayScore(item.score)} / 100`
           }
         >
           <div

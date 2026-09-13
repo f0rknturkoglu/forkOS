@@ -28,8 +28,8 @@ def test_opt_in_linkedin_is_manual_only():
 
 async def test_portal_keeps_partial_scrape_as_partial(monkeypatch: pytest.MonkeyPatch):
     """Bazi sayfalar alindiysa sonuc `partial` olur; hata listesi kaybolmaz."""
-    from app.sources.forkjob_port import PortalSource, job_to_raw
     from app.sources.forkjob_core.scrapers.base import ScrapeBatch
+    from app.sources.forkjob_port import PortalSource
 
     class _Scraper:
         async def collect(self):
@@ -52,8 +52,8 @@ async def test_portal_keeps_partial_scrape_as_partial(monkeypatch: pytest.Monkey
 
 async def test_portal_total_failure_raises_so_the_run_is_error(monkeypatch: pytest.MonkeyPatch):
     """Hicbir sayfa alinamadiysa kosum hatadir; bos liste donmez."""
-    from app.sources.forkjob_port import PortalSource
     from app.sources.forkjob_core.scrapers.base import ScrapeBatch
+    from app.sources.forkjob_port import PortalSource
 
     class _Scraper:
         async def collect(self):

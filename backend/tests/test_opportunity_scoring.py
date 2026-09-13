@@ -200,7 +200,8 @@ async def test_same_url_variants_and_cluster_collapse_in_one_batch(client: Async
 
 
 async def test_evaluation_is_stale_when_the_listing_changes(client: AsyncClient):
-    from httpx import ASGITransport, AsyncClient as Http
+    from httpx import ASGITransport
+    from httpx import AsyncClient as Http
 
     from app.db import SessionLocal
     from app.modules.opportunity import service

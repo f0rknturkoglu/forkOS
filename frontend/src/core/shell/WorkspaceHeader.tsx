@@ -12,13 +12,13 @@ import { Button, Chip, IconButton, Kbd, Popover, cx, useTheme, useToast } from "
 import { useOnline } from "@/lib/hooks";
 
 /** Yenileme kapsamlari. Etiketler kullanici dilinde; degerler API sozlesmesi. */
-export const REFRESH_SCOPES = [
+const REFRESH_SCOPES = [
   { id: "critical", label: "Kritik kaynaklar", hint: "YLSY, ÖSYM, YÖK ve hızlı panolar" },
   { id: "standard", label: "Standart yenileme", hint: "Opt-in kaynaklar hariç tümü + medya" },
   { id: "full", label: "Tam yenileme", hint: "Katalogun tamamı; yavaş kaynaklar dahil" },
 ] as const;
 
-export type RefreshScope = (typeof REFRESH_SCOPES)[number]["id"];
+type RefreshScope = (typeof REFRESH_SCOPES)[number]["id"];
 
 const SCOPE_STORAGE_KEY = "forkos:refresh-scope";
 
@@ -72,9 +72,7 @@ export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenS
       startedHere.current = value.status === "running";
       void refreshStatus.refetch();
       toast.push(
-        value.started
-          ? `${scopeLabel(next)} başlatıldı.`
-          : "Zaten çalışan bir yenileme var; ilerleme üstteki şeritte.",
+        value.started ? `${scopeLabel(next)} başlatıldı.` : "Zaten çalışan bir yenileme var; ilerleme üstteki şeritte.",
       );
     },
     // Hata sonrasi buton MUTLAKA yeniden kullanilabilir olmali: isPending burada
@@ -160,9 +158,7 @@ export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenS
                 <p className="text-micro text-muted">
                   Çalışan yenileme:{" "}
                   <span className="text-secondary">
-                    {refreshStatus.data?.batch_id
-                      ? refreshStatus.data.batch_id.slice(0, 8)
-                      : "yok"}
+                    {refreshStatus.data?.batch_id ? refreshStatus.data.batch_id.slice(0, 8) : "yok"}
                   </span>
                   {isRefreshing && <Chip tone="accent">çalışıyor</Chip>}
                 </p>

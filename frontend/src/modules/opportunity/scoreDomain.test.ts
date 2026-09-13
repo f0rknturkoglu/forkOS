@@ -8,24 +8,17 @@ describe("score domain", () => {
     // Domain: elenmiş (-1) + 0..100 (iki ondalık adımlarla).
     const values = [SCORE_FLOOR, ...Array.from({ length: SCORE_CAP * 100 + 1 }, (_, i) => i / 100)];
     for (const value of values) {
-      const hits = ranges.filter(
-        (preset) => value >= (preset.min ?? 0) && value <= (preset.max ?? SCORE_CAP),
-      );
+      const hits = ranges.filter((preset) => value >= (preset.min ?? 0) && value <= (preset.max ?? SCORE_CAP));
       expect(hits, `değer ${value} tam olarak bir aralığa girmeli`).toHaveLength(1);
     }
   });
 
   it("profil uyumu presetleri de boşluksuz ve çakışmasız", () => {
-    const ranges = PROFILE_MATCH_PRESETS.filter(
-      (preset) => preset.min !== undefined || preset.state !== undefined,
-    );
+    const ranges = PROFILE_MATCH_PRESETS.filter((preset) => preset.min !== undefined || preset.state !== undefined);
     for (let step = 0; step <= 100; step += 1) {
       const value = step / 100;
       const hits = ranges.filter(
-        (preset) =>
-          preset.state === undefined &&
-          value >= (preset.min ?? 0) &&
-          value <= (preset.max ?? 1),
+        (preset) => preset.state === undefined && value >= (preset.min ?? 0) && value <= (preset.max ?? 1),
       );
       expect(hits, `oran ${value} tam olarak bir preset'e girmeli`).toHaveLength(1);
     }

@@ -39,8 +39,8 @@ async def test_critical_scope_queues_only_critical_sources():
     assert value["scope"] == "critical"
     assert value["results"]["opportunity_sources"] > 0
 
-    from app.modules.opportunity.worker import critical_source_ids
     from app.core import source_sync
+    from app.modules.opportunity.worker import critical_source_ids
 
     async with SessionLocal() as session:
         status = await source_sync.current_status(session)

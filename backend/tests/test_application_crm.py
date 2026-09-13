@@ -605,7 +605,7 @@ async def test_funnel_reports_cohorts_not_stock(client: AsyncClient):
 
     from app.db import SessionLocal
     from app.modules.opportunity import service
-    from app.modules.opportunity.models import Application, Opportunity
+    from app.modules.opportunity.models import Opportunity
     from app.modules.opportunity.worker import NativeJob
     from app.sources.base import RawItem
 

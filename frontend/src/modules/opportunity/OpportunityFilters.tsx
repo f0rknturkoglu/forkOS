@@ -14,6 +14,7 @@ import { sourceLabel } from "@/core/labels";
 import { ARCHETYPE_LABELS, RECOMMENDATION_LABELS, REMOTE_LABELS, STATUS_LABELS, jobCategoryLabel } from "./labels";
 import type { OpportunityBrowseFilters } from "./opportunityBrowse";
 import { PROFILE_MATCH_PRESETS, activeFilterChips, clearAllFilters } from "./filterState";
+import { SCORE_STATE_PRESETS } from "./scoreDomain";
 import { ScoreRangeControl } from "./ScoreRangeControl";
 
 interface FilterBarProps {
@@ -162,7 +163,11 @@ export function OpportunityFilterBar({
           >
             {loading ? "Yükleniyor…" : `${shown} / ${total} kayıt`}
           </span>
-          <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5" role="group" aria-label="Görünüm">
+          <span
+            className="flex items-center gap-1 rounded-control border border-subtle p-0.5"
+            role="group"
+            aria-label="Görünüm"
+          >
             {viewOptions.map((option) => (
               <IconButton
                 key={option.id}
@@ -408,28 +413,51 @@ function FilterPanelPopover({
           </div>
         </Section>
 
+        {jobs && (
+          <Section title="Skor">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {SCORE_STATE_PRESETS.map((preset) => (
+                <FilterChip
+                  key={preset.label}
+                  label={preset.label}
+                  active={(filters.score_state ?? undefined) === preset.state}
+                  onClick={() => update({ score_state: preset.state })}
+                />
+              ))}
+              <Button size="sm" variant="ghost" onClick={() => update({ score_state: undefined })}>
+                Temizle
+              </Button>
+            </div>
+            <p className="mt-1.5 text-micro text-muted">
+              “Hesaplanmadı”, kalite skoru henüz üretilmemiş ilanları getirir; 0 puan ile karışmaz.
+            </p>
+          </Section>
+        )}
+
         {(jobs || announcements) && (
           <Section title="Kaynak durumu">
             <div className="flex flex-wrap gap-1.5">
-            {([
-              { id: "active", label: "Yayında", hint: "Kaynakta hâlâ görünen kayıtlar" },
-              { id: "stale", label: "Kaynakta bulunamıyor", hint: "Kaynakta kaybolmuş kayıtlar" },
-              { id: "all", label: "Tümü", hint: "İkisi birlikte" },
-            ] as const).map((option) => (
-              <FilterChip
-                key={option.id}
-                label={option.label}
-                count={
-                  option.id === "stale"
-                    ? Object.entries(facets.source_statuses ?? {})
-                        .filter(([status]) => status !== "active")
-                        .reduce((sum, [, count]) => sum + count, 0)
-                    : facets.source_statuses?.[option.id]
-                }
-                active={(filters.source_status ?? "active") === option.id}
-                onClick={() => update({ source_status: option.id })}
-              />
-            ))}
+              {(
+                [
+                  { id: "active", label: "Yayında", hint: "Kaynakta hâlâ görünen kayıtlar" },
+                  { id: "stale", label: "Kaynakta bulunamıyor", hint: "Kaynakta kaybolmuş kayıtlar" },
+                  { id: "all", label: "Tümü", hint: "İkisi birlikte" },
+                ] as const
+              ).map((option) => (
+                <FilterChip
+                  key={option.id}
+                  label={option.label}
+                  count={
+                    option.id === "stale"
+                      ? Object.entries(facets.source_statuses ?? {})
+                          .filter(([status]) => status !== "active")
+                          .reduce((sum, [, count]) => sum + count, 0)
+                      : facets.source_statuses?.[option.id]
+                  }
+                  active={(filters.source_status ?? "active") === option.id}
+                  onClick={() => update({ source_status: option.id })}
+                />
+              ))}
             </div>
             <p className="mt-1.5 text-micro text-muted">
               “Kaynakta bulunamıyor” kayıtları varsayılan akışta gösterilmez; başvurduğun kayıtlar burada da

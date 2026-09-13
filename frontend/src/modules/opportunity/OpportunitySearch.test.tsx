@@ -36,12 +36,8 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/core/api", () => ({
   api: { get: harness.get, patch: vi.fn(), post: vi.fn(), del: vi.fn() },
   qs: (params: Record<string, unknown>) => {
-    const entries = Object.entries(params).filter(
-      ([, value]) => value !== undefined && value !== null && value !== "",
-    );
-    return entries.length
-      ? `?${new URLSearchParams(entries.map(([key, value]) => [key, String(value)]))}`
-      : "";
+    const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "");
+    return entries.length ? `?${new URLSearchParams(entries.map(([key, value]) => [key, String(value)]))}` : "";
   },
 }));
 vi.mock("@/app/router", () => ({
@@ -148,6 +144,35 @@ describe("opportunity search input", () => {
     });
 
     expect(screen.getAllByRole("button", { name: /bilinmiyor/i })).toHaveLength(1);
+  });
+
+  it("kalite skoru 'yok' filtresi gerçekten API'ye gider", async () => {
+    render(<OpportunityPage />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Filtreler/ }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Kalite skoru yok" }));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+    });
+
+    expect(await browseUrl()).toContain("score_state=uncomputed");
+    expect(screen.getByRole("button", { name: /Skor: hesaplanmadı/ })).toBeTruthy();
+  });
+
+  it("skorsuz filtresi profil uyumu 'Hesaplanmadı' ile karışmaz", async () => {
+    render(<OpportunityPage />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Filtreler/ }));
+    });
+
+    // İki farklı eksen iki farklı ad taşır: aynı ada sahip iki chip olmamalı.
+    expect(screen.getAllByRole("button", { name: "Kalite skoru yok" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Hesaplanmadı" })).toHaveLength(1);
   });
 
   it("çöp ve duyuru sekmelerinde yalnızca geçerli filtreler gösterilir", async () => {
