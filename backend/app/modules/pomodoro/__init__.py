@@ -7,7 +7,7 @@ def _spec():
                       entity_types=[EntityTypeSpec(
             'pomodoro_session', 'Pomodoro seansı', 'Pomodoro seansları', '/pomodoro', 'Timer',
         linkable=False)],
-                      event_verbs=["pomodoro.completed", "pomodoro.interrupted"])
+                      event_verbs=["pomodoro.completed", "pomodoro.interrupted", "pomodoro.deleted"])
 
 
 MODULE = _spec()

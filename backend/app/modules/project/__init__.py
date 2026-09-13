@@ -14,6 +14,7 @@ MODULE = ModuleSpec(id="project",
     event_verbs=[
         "project.created",
         "project.updated",
+        "project.deleted",
         "project.milestone_added",
         "project.milestone_updated",
         "project.milestone_deleted",

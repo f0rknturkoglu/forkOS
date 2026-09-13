@@ -6,5 +6,5 @@ MODULE = ModuleSpec(
     title="Documents",
     router=router,
     entity_types=[EntityTypeSpec('document', 'Belge', 'Belgeler', '/documents?focus={id}', 'FileText')],
-    event_verbs=["document.synced"],
+    event_verbs=["document.created", "document.deleted", "document.synced"],
 )

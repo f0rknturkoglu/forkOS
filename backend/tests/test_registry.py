@@ -7,8 +7,9 @@ bilgisi YALNIZCA EntityTypeSpec'te tutulur (frontend'de sabit yazilmaz).
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
-from app.core.registry import all_entity_types
+from app.core.registry import all_entity_types, all_event_verbs
 from app.modules import MODULES
 
 # Frontend registerModule route'lari (src/modules/*/index.ts). Yeni modul
@@ -63,3 +64,23 @@ def test_learning_resource_route_opens_the_exact_resource():
     """Kaynak deep-link'i konu rotasina DUSMEZ: ayri `?resource=` tasir."""
     resource = next(spec for spec in all_entity_types() if spec.type == "learning_resource")
     assert resource.route == "/learning?resource={id}"
+
+
+def test_every_logged_event_verb_is_registered():
+    """Kodda cagrilan her `log_event(verb=...)` kayit defterinde bulunmali.
+
+    Eksik verb, aktivite akisinda etiketsiz/anlamsiz satir demektir; sessizce
+    eklenen yeni bir olay tipi fark edilmeden kalmasin diye bu test kilitler.
+    """
+    app_root = Path(__file__).resolve().parents[1] / "app"
+    registered = set(all_event_verbs())
+    used: dict[str, str] = {}
+    for path in sorted(app_root.rglob("*.py")):
+        relative = str(path.relative_to(app_root.parent))
+        for verb in re.findall(r'verb="([a-z_.]+)"', path.read_text(encoding="utf-8")):
+            used.setdefault(verb, relative)
+
+    missing = sorted(verb for verb in used if verb not in registered)
+    assert not missing, "kayit defterinde olmayan event verb'leri: " + ", ".join(
+        f"{verb} ({used[verb]})" for verb in missing
+    )

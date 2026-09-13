@@ -10,7 +10,7 @@ def _spec():
         )], event_verbs=[
                           "todo.created", "todo.completed", "todo.dropped",
                           "todo.rescheduled", "plan.scheduled",
-                          "plan.rescheduled", "plan.unscheduled"],
+                          "plan.rescheduled", "plan.unscheduled", "plan.carried_over"],
         deadline_provider=todo_deadlines)
 
 
