@@ -1,48 +1,55 @@
-# Alembic migration zinciri
+# Alembic migration rehberi
 
-Dosya adları gerçek sırayı yanıltabilir (bazı revision'lar sonradan
-eklendi ve dosya adlarındaki sayılar zincir konumunu göstermiyor).
-**Gerçek sıra `down_revision` alanından gelir.**
+forkOS migration zincirinin gerçeği dosya adları değil, her revision içindeki `revision` ve `down_revision` alanlarıdır.
 
-## Gerçek zincir (head → geri)
+## Güncel durum
 
-```
-0001_core → 0002_capture → 0003_rss → 0004_todo → 0005_plan_slot
-→ 0006_pomodoro → 0007_habit_review → 0008_opportunity → 0009_notification
-→ 0010_deadline → 0011_study → 0012_course_book → 0013_document
-→ 0014_calendar → 0015_project → 0016_finance → 0017_settings
-→ 0018_opportunity_trash_sync → 0019_rss_reader → 0020_feed_favicon
-→ 0021_media_item → 0022_pomodoro_pause → 0023_todo_recur
-→ 0024_todo_milestone → 0025_document_folder_source → 0026_media_domain
-→ 0022_finance_sub → 0023_application_crm → 0024_remove_habit
-→ 0025_drop_deadline_v → 0027_book_to_media_item → 0028_note
-→ 0029_project_journal → 0030_opportunity_category_dates → 0031_osym_publication_dates
-→ 0032_refine_categories → 0033_finance_income → 0034_learning_resource
-→ 0035_note_attachments → 0036_milestone_entity   ← head
+- Tek head: `0053_bookmark_pocket_engine`
+- Taban: `0001_core`
+- Zincir doğrulaması: `backend/tests/test_migrations.py::test_revisions_form_a_single_chain`
+
+Güncel zinciri her zaman komutla oku:
+
+```bash
+cd backend
+alembic heads
+alembic history --indicate-current
 ```
 
-## Dosya adı / zincir konumu eşleşmesi
+Container içinden:
 
-| Dosya adı | Gerçek zincir konumu |
-|---|---|
-| `0022_finance_sub.py` | `0026_media_domain`'den SONRA (down_revision = 0026) |
-| `0023_application_crm.py` | `0022_finance_sub`'dan sonra |
-| `0024_remove_habit.py` | `0023_application_crm`'dan sonra |
-| `0025_drop_deadline_v.py` | `0024_remove_habit`'ten sonra |
-| `0032_refine_opportunity_categories.py` | zincirde `0031_osym_publication_dates`'dan sonra; `revision` string'i `0032_refine_categories` (dosya adı revizyon adıyla uyuşmaz) |
+```bash
+docker compose exec api alembic heads
+docker compose exec api alembic current
+docker compose exec api alembic history --indicate-current
+```
 
-## Yeni migration eklerken
+## Yeni migration
 
-- `down_revision`'ı **her zaman** `alembic heads` çıktısındaki gerçek head'e
-  ver; dosya adı numarasına güvenme.
-- Dosya adını zincirdeki anlamlı adla ver (`NNNN_aciklama.py`); NNNN
-  benzersiz olmasa da sorun değildir — yalnızca `revision` string'i kimliktir.
-- `tests/test_migrations.py::test_revisions_form_a_single_chain` zinciri
-  doğrular; tek head koşulu vardır.
+1. `alembic heads` ile gerçek head'i doğrula.
+2. Revision'ı oluştur ve `down_revision` değerini bu head'e bağla.
+3. Autogenerate kullandıysan çıktının tamamını elle incele.
+4. Her SQL komutunu ayrı `op.execute()` çağrısına koy.
+5. Hem `upgrade()` hem mümkünse güvenli `downgrade()` yolunu yaz.
+6. Entity-backed bir ana tabloysa PK'nin `entity.id` alanına FK olduğunu doğrula.
+7. Son tarih için SQL view yazma; ilgili modüle `deadline_provider` ekle.
+8. İzole test veritabanında migration ve model karşılaştırma testlerini çalıştır.
 
-## Karar (Faz 6, Y1)
+```bash
+make test CO="docker compose"
+```
 
-Dosyalar yeniden adlandırılmadı (seçenek b): 0022/0023 dosyalarını
-0027/0028 yapmak, bizim 0024/0025 revision'larımızla birlikte 6+ dosya
-adı değişikliği gerektirirdi ve `alembic_version` tablosu zaten revision
-string'ini tutuyor. Üretim verisi etkilenmez; bu tablo gerçek sırayı belgeler.
+## Bilinen adlandırma geçmişi
+
+Eski zincirde dosya sırası ile revision sırası tam örtüşmez. Özellikle:
+
+- `0022_finance_sub.py`, revision `0026_media_domain` sonrasındadır.
+- `0023_application_crm.py`, `0022_finance_sub` revision'ından sonradır.
+- `0024_remove_habit.py` ve `0025_drop_deadline_v.py` aynı tarihsel zinciri sürdürür.
+- `0032_refine_opportunity_categories.py` dosyasının revision kimliği `0032_refine_categories` değeridir.
+
+Bu dosyaları yalnızca isimleri düzenlemek için yeniden adlandırma. PostgreSQL `alembic_version` tablosu revision kimliğini saklar; zinciri test ve `alembic history` ile doğrula.
+
+## Güvenlik notu
+
+Kişisel `lifeos` veritabanını migration denemesi için sıfırlama. `make test`, adı `_test` ile biten geçici PostgreSQL veritabanı kullanır ve test projesini iş bitince `down -v` ile temizler.

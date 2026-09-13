@@ -1,6 +1,5 @@
 """Remove habit module (K1): habits live on as recurring todos.
 
-Karar dokumani: docs/faz0-kararlar.md K1.
 habit.habit_log tablosunda veri varsa aktif aliskanliklar once `todo` + `recur`
 olarak tasinir; tablolar sonra dusurulur.
 """

@@ -11,6 +11,7 @@ ps:        ; $(CO) ps
 build:     ; $(CO) build
 sh:        ; $(CO) exec api bash
 psql:      ; $(CO) exec db psql -U lifeos -d lifeos
+migrate:   ; $(CO) exec api alembic upgrade head
 cli:       ; cd backend && .venv/bin/python -m app.cli $(ARGS)
 TEST_PROJECT ?= forkos-test
 test:

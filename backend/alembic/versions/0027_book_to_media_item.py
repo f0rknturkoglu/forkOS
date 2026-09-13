@@ -1,6 +1,6 @@
 """Merge learning.book into media_item (Faz 11).
 
-Karar dokumani: docs/faz11-kitap-esleme.md. media_item kazanir; book satirlari
+media_item kanonik kayittir; book satirlari
 entity.id KORUNARAK media_item'a tasinir (link/event/tag/bookmark baglari
 kirilmaz), entity.type guncellenir, book tablosu duser. Tasinan kayitlara
 meta.legacy_book isareti konur -- downgrade hangi kayitlarin geri donecegini

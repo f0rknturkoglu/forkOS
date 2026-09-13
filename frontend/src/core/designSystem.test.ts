@@ -5,7 +5,7 @@
  * DISINDADIR:
  * ui.tsx primitivelerin kendisidir, orada ham etiket/token tanimlanir.
  *
- * Yasaklanan desenler (docs/faz0-kararlar.md Faz 2 kararlari):
+ * Yasaklanan desenler (AGENTS.md kural 15):
  *   - keyfi tipografi (olcek disi boyut siniflari) -> tailwind fontSize adimlari
  *   - #RRGGBB          -> JSX'te sabit hex; renk tokenlardan gelir (--chart-*, --kind-*)
  *   - <input/select/textarea> -> ham kontroller; Input/Select/Textarea/Checkbox/Range/NumberInput

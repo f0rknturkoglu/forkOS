@@ -1,436 +1,245 @@
-# forkOS Mimarisi — yeni modül ekleme rehberi
+# forkOS yaşayan mimarisi
 
-Bu doküman, yeni bir modül ekleyecek kişinin okuyacağı TEK dokümandır.
-Her bölümde gerçek dosya referansları vardır; davranış buradan öğrenilir,
-koddan çıkarılmaz.
+Bu belge forkOS'un güncel teknik sözleşmesini anlatır. Tamamlanmış fazların değişiklik günlüğü değildir; yeni bir modül veya entegrasyon geliştirirken başvurulacak yaşayan kaynaktır. Bağlayıcı agent kuralları `AGENTS.md` dosyasındadır.
 
-## 1. entity / link / event üçlüsü
+## 1. Çalışma modeli
 
-- **`entity`** (`backend/app/core/models.py::Entity`): sistemdeki her kaydın
-  kimliği. `id`, `type`, `title`, `search_text`, `archived_at`. Modül
-  tablolarının PK'sı `entity.id`'ye FK'dır (kural 1).
-- **`link`**: iki entity arasında yönlü ilişki (`from_id → to_id`, `relation`).
-  İlişki sözlüğü TEK yerde: `backend/app/core/links.py::RELATIONS`
-  (ileri/geri etiket çifti). Yeni ilişki = oraya bir satır.
-- **`event`**: append-only aksiyon logu. Anlamlı her aksiyondan sonra
-  `log_event(session, verb=..., entity_id=..., entity_type=..., payload=...)`
-  çağrılır (`backend/app/core/events.py`). ASLA UPDATE/DELETE edilmez.
+forkOS tek makinede ve tek kullanıcı için çalışır:
 
-Helper'lar: `backend/app/core/entity.py` (`create_entity`, `touch_entity`,
-`archive_entity`, `delete_entity`), `backend/app/core/links.py`
-(`link`, `unlink`, `related`).
-
-## 2. Kayıt defterleri
-
-| Kayıt defteri             | Yer                                        | Görevi                                                                                    |
-| ------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `MODULES`                 | `backend/app/modules/__init__.py`          | Modül listesi; main.py'ye dokunmadan router'lar otomatik bağlanır                         |
-| `EntityTypeSpec`          | aynı dosya                                 | Tip → etiket/rota/ikon (kural 13). Frontend `GET /api/registry/entity-types`'tan beslenir |
-| `event_verbs`             | `ModuleSpec.event_verbs`                   | Modülün ürettiği verb'ler                                                                 |
-| `deadline_provider`       | `ModuleSpec.deadline_provider`             | Son tarih sağlayıcı (kural 16); `GET /api/deadlines` toplar                               |
-| Frontend `registerModule` | `frontend/src/modules/<ad>/index.ts`       | Router, Today widget'ları, komut paleti, sidebar                                          |
-| İnvalidation haritası     | `frontend/src/core/invalidation.ts::AFTER` | Mutation sonrası hangi query key'lerinin tazeleneceği (kural 14)                          |
-
-**Yeni modül = backend'e bir klasör + `MODULES`'a satır; frontend'e bir klasör +
-`src/modules/index.ts`'e import.** Router, arama, Bugün, komut paleti otomatik dolar.
-
-## 3. Bugün widget sözleşmesi
-
-`registerModule({ todayWidgets: [{ component, slot, order }] })`:
-
-- `slot`: `"left" | "center" | "right"` (sütun).
-- `order`: zorunlu, küçük önce.
-- Widget veri yokken `Empty` bileşenini `variant="inline"` ile gösterir
-  (kural: boş durum düz metin değil).
-- Agenda `kind`'ları: `calendar | todo | rss | media | opportunity | interview |
-payment | study` (`backend/app/modules/today/schemas.py::AgendaKind`).
-
-## 4. Tasarım tokenları
-
-- Renkler `frontend/src/index.css`'teki CSS değişkenlerinden gelir; JSX'e
-  sabit hex yazılmaz (kural 15). Semantik: `accent/ok/warn/danger`; kimlik:
-  `kind-*` / `src-*` / `feed-*`; grafik: `chart-1..8`.
-- Bileşenler: `frontend/src/core/ui.tsx` — `Chip` (tone semantik, identity
-  kimlik rengi; ikisi aynı anda olmaz), `Button/IconButton/Input/Select/
-Textarea/Checkbox/Range/NumberInput/FileInput/Field`.
-- Tipografi: `tailwind.config.js` ölçeği (`micro…display-2xl`); keyfi
-  `text-[Npx]` yasak.
-- Koruyan test: `frontend/src/core/designSystem.test.ts`.
-
-## 5. Tazeleme (kural 14)
-
-Mutation `onSuccess`'inde `invalidateAfter("<olay>")` çağrılır
-(`frontend/src/core/invalidation.ts::AFTER`). Olaylar modül yazmasını temsil
-eder; hangi key'lerin tazeleneceğine harita karar verir. Ham
-`invalidate("a","b")` yasak — koruyan test `frontend/src/core/invalidation.test.ts`.
-
-## 6. Uç disiplini (kural 17)
-
-Backend'de kayıtlı her HTTP ucu frontend'den çağrılmalı ya da silinmeli.
-Kontrol: `node frontend/scripts/check-endpoint-coverage.mjs` (eşik 3;
-auth yönlendirmeleri + registry sözleşmeleri muaftır).
-
-## 7. Migration
-
-- Elle yazılır, gözden geçirilir (`--autogenerate` çıktısı kontrol edilmeden
-  commit edilmez). Her SQL komutu ayrı `op.execute()` (kural 10;
-  `tests/test_migrations.py` doğrular).
-- `down_revision` her zaman `alembic heads`'teki gerçek head'e verilir;
-  dosya adı numarasına güvenilmez (gerçek zincir: `backend/alembic/README.md`).
-- View/trigger yazılmaz; son tarihler `deadline_provider` ile toplanır (kural 16).
-
-## 8. Faz notları (değişiklik kaydı)
-
-### Faz 12: study + learning tek modül
-
-- `study` modülü `learning`'e birleştirildi (`backend/app/modules/learning/`).
-  Tablolar AYNEN durur (`study_area`, `study_topic`, `course`); birleşen
-  şey modül ve sayfa. `MODULES`'ta tek `learning` kaydı var.
-- Uç yolları korunur: `/study/*` (alanlar/konular) ve `/courses` aynı
-  router altında, yollar değişmedi. Frontend'de `/learning` ve `/study`
-  aynı sayfaya gider.
-- Konu ↔ kaynak bağı link üzerinden kurulur:
-  `link(from=study_topic, to=course|media_item, relation="learns_from")`.
-  İlişki sözlüğüne `RELATIONS["learns_from"]` eklendi; frontend'de
-  `RelatedPanel` `relation` prop'u ile yalnız o ilişkiyi gösterir ve
-  yeni bağları o ilişkiyle kurar.
-- Eski modül klasörleri tamamen silindi (`backend/app/modules/study/`,
-  `frontend/src/modules/study/`); sidebar "Takip" grubunda tek giriş var.
-- Not: `learning.write` invalidation'ı `related` anahtarını da tazeler
-  (bağ kurma konu detayına anında yansır).
-
-### Faz 13: "bugüne al" — plan, son tarih değil
-
-- Plan (`plan_slot`) ile son tarih (`due_at`) ayrı kavramlardır:
-  plan = "bugün yapmayı planlıyorum", due_at = "teslim". Göreve plan
-  vermek ASLA `due_at` yazmaz — yarın gecikmiş görünmemesi için.
-- Görev eklerken `POST /todos` gövdesine `plan_day` (ISO tarihi) verilirse
-  `todo_service.create()` aynı transaction içinde o gün için plan slotu da
-  yazar (desen: `backend/app/modules/review/service.py` — `create()` +
-  `schedule()` tek commit). İki ayrı istek yoktur; ikincisi başarısız olursa
-  görev yarı yazılmış kalırdı. Event'ler ikisi de yazılır: `todo.created` +
-  `plan.scheduled` (kural 3), yeni verb uydurulmaz.
-- `plan_day` geçmiş bir gün olabilir — `schedule()` ile aynı semantik
-  (kısıt yok); planner geçmişe de yazabilir. "Bugün"ü FRONTEND üretir ve
-  tek kaynağı vardır: `frontend/src/lib/date.ts::localDateKey`
-  (Europe/Istanbul) — agenda'nın sorduğu günle aynı helper. Tarayıcının
-  yerel saatine göre gün üreten ikinci bir helper yoktur (Faz 13'te
-  `TodayAgendaWidget`'taki `localDay` kaldırıldı; koruyan test
-  `frontend/src/lib/dateUsage.test.ts`).
-- Mutation sonrası tazeleme, tek istek iki yazma içerdiği için
-  `invalidateAfter("todo.write", "plan.write")` ile yapılır (kural 14).
-- `TodoComposer` "bugüne al" onay kutusu gönderir: varsayılan KAPALI, son
-  seçim `localStorage["todo.planToday"]`'da hatırlanır. Formda plan ile son
-  tarih ayrı etiketlenir ("bugüne al" vs "Son tarih").
-
-### Faz 15: secret güvenli yedekleme
-
-- Secret ayar sınıflandırması TEK kaynakta: `backend/app/modules/system/
-secrets.py::SECRET_SETTING_KEYS`. İsimde "key" geçmesine güvenilmez;
-  açık listedir. Yeni secret ayar eklenirken key bu listeye yazılmalıdır
-  (koruyan test `backend/tests/test_backup_secrets.py` kod taraması yapar).
-- Yedek/export aynı politikayı kullanır (`export.public_rows`): secret
-  setting satırları payload'a HİÇ yazılmaz — boş veya maskeli değer bile
-  değil. Tema, widget düzeni, Pomodoro ve kaynak aralıkları yedekte kalır.
-  `oauth_token` tablosu ayrıca dışlanmaya devam eder.
-- Eski yedeklerdeki secret satırları restore/import tarafından atlanır
-  (`restore` `secret_skipped` sayacı bildirir).
-- **Eski yedekler otomatik güvenli hâle gelmez**: diskteki dosya içeriği
-  değişmez. Geçmişte alınmış yedeklerdeki API anahtarlarının döndürülmesi
-  (rotation) önerilir.
-
-### Faz 16: merge import ile gerçek disaster restore ayrımı
-
-- `/backup/restore` **birleştirerek içe aktarır**: `ON CONFLICT DO NOTHING`,
-  mevcut kayıtlara dokunulmaz, eksikler eklenir; idempotent. UI'da "Geri
-  yükle" değil "Birleştirerek içe aktar" olarak adlandırılır.
-- `/backup/inspect` preflight'tır: hiçbir şey yazmadan versiyon, tablo/satır
-  sayıları, bilinmeyen tablolar, eksik bölümler, secret setting satırları ve
-  manifest bütünlüğünü raporlar. Frontend bu raporu gösterip onaylatır.
-- Backup formatı v2: `manifest` (app, exported_at, row_counts) eklendi —
-  payload'ın kendi kendini doğrulaması. v1 yedekler okunmaya devam eder;
-  v3+ bilinmeyen sürümler reddedilir.
-- **Gerçek felaket kurtarması app dışıdır**: `make disaster-restore
-FILE=... CONFIRM=DISASTER-RESTORE`. Sıra: API/worker durur → mevcut DB'nin
-  pg_dump güvenlik yedeği → temiz schema → migration → yedek yükleme →
-  entity/link/event + self-FK bütünlük doğrulaması. Hata durumunda güvenlik
-  yedeğinin yolu raporlanır. Normal FastAPI endpoint'inden tablo
-  truncate/event DELETE yapılmaz; bu CLI, dokümante edilmiş ayrı bir
-  disaster recovery sınırıdır. UI'da tek tık destructive buton yoktur.
-
-### Faz 17: ortak task creation intent'i
-
-- Backend'de görev oluşturmanın TEK sınırı `todo.service.create()`'dir.
-  Context adapter'ları delege eder ve kendi ilişkisini aynı transaction'da
-  yazar: opportunity (`application_step` link'i), learning
-  (`/study/topics/{id}/todos` → `prepares_for` link'i, tek istek), project
-  GitHub import (tag + proje bağı `search_text` kwarg'ı ile). Koruyan test
-  `backend/tests/test_todo_creation_boundary.py`: todo modülü dışında
-  `Todo(...)` kurulumu / `create_entity(type='todo')` yasaktır.
-- Frontend'de ortak katman `frontend/src/core/tasks.ts::createTask`:
-  intent (title, description, priority, due_at, plan_day, recur, tags,
-  parent/project/milestone) → tek POST /todos. "Bugüne al" tercihi burada
-  yaşar (`localStorage["todo.planToday"]`): `plan_day` üretir, ASLA `due_at`
-  üretmez. Koruyan test `frontend/src/core/taskCreation.test.ts` bileşen
-  dosyalarında dağınık `post("/todos"` kullanımını yasaklar.
-- Bütün manuel girişler (TodoComposer, alt görev, ProjectTodos, DropCapture,
-  `todo.quick`) aynı tercihi ve `invalidateTaskWrite()`'ı kullanır
-  (`todo.write` + `plan.write`). Command Palette artık zorla /todos'a
-  yönlendirmez; başarı toast'ı verir ("bugüne planlandı" rozetli).
-- Otomatik üretilen rutin occurrence'ları (`_spawn_next_occurrence`) bu
-  katmandan geçmez ve kullanıcı istemedikçe plana yazılmaz.
-
-### Faz 18: sistem genelinde görünür entity ilişkileri
-
-- `RelatedPanel` (`frontend/src/core/RelatedPanel.tsx`) her linklenebilir
-  entity'nin detay/focus yüzeyinde ilişkileri gösterir: Todo (`?focus`),
-  Project (detay kolonu), Opportunity, Learning konu, Media detay,
-  Bookmark (`?focus`), Document (`?focus`), Finance harcama/ödeme (`?focus`).
-  Liste satırlarına büyük panel basılmaz; yalnız seçili/focused entity için.
-- İlişki etiketleri ve yönü yalnızca backend `RELATIONS` sözlüğünden gelir;
-  frontend'de relation/type→route sabiti yoktur (`entityRoute`/`typeLabel`).
-- Link ekleme/kaldırma `invalidateAfter("link.write")` kullanır; kendine
-  bağlama ve duplicate (`link_uniq`) backend'de engellenir. Koruyan testler:
-  `frontend/src/core/relatedSurfaces.test.ts` (tip→yüzey matrisi),
-  `backend/tests/test_links_api.py` (self/duplicate/direction/labels).
-
-### Faz 19: Today widget sozlesmesi ve kisilestirme
-
-- Her Today widget'i benzersiz kalici `id` + gorunen `title` tasir
-  (moduller arasi; kullanici tercihlerinin anahtari oldugu icin yeniden
-  adlandirilmaz). `TodayWidget` tipi: id, title, component, varsayilan
-  slot/order, defaultVisible.
-- Kullanici sirasi (`today.widget_order`, widget id'leri) sabit order'dan
-  once gelir; sirasiz widget'lar varsayilan slot/order ile yerlesir.
-  Widget bazli gizleme (`today.widget_hidden`) ayridir; `modules.disabled`
-  modulu kapatir (rotalar + butun widget'lari).
-- Eski modul-ID sirasi widget id'lerine goc eder (bilinmeyen id'ler
-  guvenle yok sayilir). Ayarlar ekranindaki virgullu modul alani kaldirildi;
-  yerine gorsel yonetici: gizle/goster, yukari/asagi (klavye erisilebilir),
-  varsayilana don. React key = widget id.
-- Koruyan testler: `frontend/src/core/todayWidgets.test.ts` (benzersiz id,
-  kullanici sirasi, gizleme, legacy goc, bilinmeyen id).
-
-### Faz 20: Today sadelestirme, performans ve dogrulama
-
-- Bilgi hiyerarsisi odakli varsayilanla saglanir: ikincil widget'lar
-  `defaultVisible: false` tasir (akis, emek haritasi, geciken/takvim --
-  agenda zaten kapsar --, belgeler, yer imleri, projeler, finans, medya,
-  hizli baglantilar, kaynak sagligi). Kullanici ayarlardan acabilir.
-- Hazir preset'ler: "Odakli" ve "Genel bakis" -- secmek kullanici ayarini
-  ACIKCA yazar (siralama + gizleme), sihirli davranis yok. Tablet
-  duzeninde plan sutunu akistan once gelir (feed gorevin onune gecmez).
-- Ilerk etkilesimde mevcut etkin durum acik tercihe cevrilir; odakli
-  varsayilan bozulmaz. React Query istekleri dedupe eder; Today yuklemesi
-  ~17 benzersiz kucuk uca bolunur -- aggregator endpoint gerekmedi.
-  Tek widget'in hatasi panoyu bozmaz (her widget kendi query'sini yonetir).
-
-### Faz 21: yerel hizli notlar
-
-- Backend `note` modulu: PK entity.id'ye FK (kural 1); baslik Entity.title'da
-  (body'den turetilir: ilk satir, 60 karakter, bos ise "Not"); `search_text`
-  = body (global search bulur). Pin/arsiv/silme Entity yasam dongusunden;
-  her mutation event uretir (note.created/updated/pinned/archived/deleted).
-- Relation: `notes_about` ("Hakkında not" / "Notları") -- not herhangi bir
-  entity'ye baglanir; RelatedPanel iki tarafta da gosterir. Not gorunumu
-  Documents icindeki focused nota gider (EntityTypeSpec rotasi) -- ayri
-  sidebar modulu YOK. Documents sayfasi "Yerel Notlar" + "Drive Belgeleri"
-  ayrimini gosterir.
-- Migration `0047_media_session_action` (head). Not: `test_media_domain_migration` artik
-  ortak test DB'sini her zaman head'e birakiyor (son iki test book
-  revizyonunda kaliyordu ve yeni head tablolarini dusuruyordu).
-- Faz 28: disaster restore transaction-safe. `restore.restore(commit=False)`
-  yukleme islemini commit etmez; `disaster_restore` temizle+yukle+dogrula
-  akisini tek transaction'da yapar, yalnizca tum dogrulama gecerse COMMIT,
-  hata aninda ROLLBACK (orijinal veri yerinde kalir). Safety dump DB
-  konteynerinde pg_dump ile alinir (API imajinda pg_dump yok; `make backup`
-  deseni), `pg_restore --list` ile dogrulanir ve CLI'ye `--safety-dump`
-  olarak verilir. Dump uretilemez veya dogrulanamazsa restore baslamaz ve
-  kismi dosya silinir. CLI migration'lari head'e ceker (`alembic upgrade head`), kendi
-  engine'ini kullanir (app-disidir). Akis: durdur -> dump -> migrate ->
-  transactional restore+verify -> commit; hata -> rollback + dump yolu.
-
-### Faz 22: evrensel yakalama kutusu
-
-- `core/capture.ts` TEK intent katmani: `capture({kind, text, ...})` --
-  task (Faz 17 createTask, "bugune al" tercihi uygulanir), note (Faz 21
-  /notes + `relate_to` ise notes_about bagi), link (mevcut /capture).
-  Invalidation ture ozeldir (task: todo+plan; note: note+link; link:
-  bookmark).
-- `CaptureDialog`: gorev / not / baglanti sekmeleri vardir; secilen tur
-  gonderimden once gorunur. URL girilirse baglanti onerilir ama kullanici
-  turu degistirebilir. Baglanti kaydi icin gecerli HTTP(S) adresi zorunludur.
-- Form Enter ile gonderilir, Esc ile kayitsiz kapanir ve pending durumda
-  ikinci gonderim engellenir. Gorevde tekrar/etiket, baglantida baslik ve
-  koleksiyon, notta registry/search tabanli iliskilendirme sunulur.
-- Not + `notes_about` bagi backend'de tek transaction'dir
-  (`NoteIn.relate_to`); iliski basarisizsa not da olusmaz.
-- Son kullanilan yakalama turu localStorage'da hatirlanir.
-- Girenler: Command Palette "Hizli yakala" (settings modulu), DropCapture
-  metin birakmasi (kutuya prefilled acilir). Extension outbox degismez.
-
-### Faz 23: yerel Turkce tarih/gorev ayristirma
-
-- `lib/taskParser.ts::parseTaskText` saf ve yan etkisizdir (network/LLM
-  yok): temiz baslik + onerilen plan_day / due_at / saat / oncelik /
-  etiketler + tuketilen parcaciklar + belirsizlik uyarilari doner.
-- Semantik: "bugun" PLAN anlamina gelir; "bugun teslim" / "son tarih X"
-  DUE anlamina -- ikisi birbirine CEVRILMEZ. Gun anahtarlari Faz 14
-  helper'larindan (Europe/Istanbul); "yarin" gecen `now`'dan hesaplanir.
-- Destek: bugun/yarin, gun adlari (Turkce karakterli), gelecek hafta
-  (onumuzdeki pazartesi + uyari), "ayin N", saat (14:00), oncelik
-  (yuksek/dusuk/acil), #etiket.
-- CaptureDialog task sekmesi metni ayristirir: oneriler "Metinden
-  cozuldu" seridinde gosterilir, alanlar kullanici dokunmadikca
-  on-doldurulur (kullanici override'i parserdan once gelir); onay olmadan
-  kayit olusmaz. 12 parser testi (sinirlar dahil).
-
-### Faz 24: rutin gorev semantigi (dogrulama + UX)
-
-- Mevcut backend davranisi dogrulandi ve DEGISTIRILMEDI (testlerle
-  sabitlendi, `tests/test_todo_recur.py`): cuma->pazartesi (weekdays),
-  ay sonu kirpma (31 -> 28/30), gecikmis rutinin gelecege atlamasi,
-  duplicate completion guvenligi (recur_origin_id dedupe), context
-  kopyalama (proje/milestone/parent/tag/oncelik/aciklama) ve PlanSlot'un
-  KOPYALANMAMASI (yeni occurrence kullanici istemedikce plana dusmez).
-- TodoRow: rutin cipi "her gun" + sonraki tarihi gosterir; "Rutini
-  durdur" aksiyonu PATCH recur:'' yapar -- gorev SILINMEZ, yalnizca
-  gelecekte yeni occurrence uretimi kapanir (gecmis Activity'de kalir).
-
-### Faz 25: gunluk ritim orkestrasyonu
-
-- `Today` modulunde `today.rhythm` widget'i (sol, order 5): sabah
-  (gelen kutusu + ilk 3 planli is + ilk odak), gun icinde (siradaki
-  planli + aktif pomodoro + geciken), aksam (gunluk degerlendirme
-  durumu + acik planli gorevleri yarina tasi). Faz appTimeParts'ten
-  (Europe/Istanbul).
-- Orkestrasyon yalnizca Today'de; todo/review/pomodoro is mantigi
-  yeniden yazilmaz -- hepsi mevcut endpoint/event'lerden turetilir,
-  yeni tablo YOK. Yarina tasima `POST /plan/carry-over` ile tek transaction
-  icinde yalniz acik/doing todo slotlarini ileri bir gune tasir.
-  Kullanici widget gizleme ile kapatabilir (Faz 19); gamification yok.
-- ReviewWidget'daki tam degerlendirme kartini tekrarlamaz (ritim yalniz
-  durum satiri + yonlendirme verir).
-
-### Faz 26: PWA bildirimleri + servis sagligi
-
-- `core/desktopNotifications.ts`: mevcut `notification` tablosu + panel
-  kullanilir (ikinci tablo YOK). Yeni/okunmamis ve importance >= 2
-  bildirimler Web Notifications API ile OS bildirimi olur; teslim
-  localStorage'da tutulur (server truth degil) -- ayni id bir kez gonderilir.
-  Izin ilk acilista istenmez; ayarlardaki aciklamali aksiyonla istenir,
-  reddedilen izin tekrar sorulmaz. Tiklayinca EntityTypeSpec rotasina
-  gidilir. Tarayici tamamen kapaliyken yerel uygulama bildirim gosteremez
-  (dokumante edildi; SW push yok, Electron/Tauri eklenmez).
-- `DesktopNotificationBridge` panel ile AYNI query key'ini izler (dedupe).
-- `ServiceHealthWidget`: worker heartbeat (stale ise uyari) + yedek
-  bayatligi (48s+) -- mevcut endpoint'lerden, yeni uc yok.
-- Uygulama offline'da salt okunur; yazma kapali (OfflineWriteError).
-
-### Faz 29-30: yakalama formu ve tarih dogrulugu
-
-- Capture formunda kullanicinin dokundugu plan, son tarih, oncelik ve etiket
-  alanlari parser onerilerinden ayrilir. Metindeki acik tarih global
-  "bugune al" tercihinden once gelir; direktif silinirse parserin eski
-  degeri temizlenir, kullanici degeri korunur.
-- `datetime-local` degerleri tarayici saat dilimine gore degil uygulamanin
-  `Europe/Istanbul` sozlesmesine gore gosterilir ve UTC'ye cevrilir.
-- Parser temiz basligi gonderir; gecerli HTTP(S) URL olmadan baglanti
-  yakalanamaz.
-
-### Faz 31-32: ortak gorev intent'i ve registry deep-link'leri
-
-- Tum gorev girisleri `createTask` veya `planDayForToday` sozlesmesinden
-  gecer. Opportunity ve Learning baglamlari da `plan_day` kabul eder;
-  plan tarihi son tarihe donusturulmez.
-- Linklenebilir entity tiplerinin etiket ve rotalari `EntityTypeSpec`ten
-  gelir. Project ve study_topic `?focus` deep-link'leri secili kaydi acar;
-  Learning, konu kimligini `GET /study/topics/{id}` ile dogrudan cozer ve
-  alt konu baska bir alanda olsa bile dogru alani acar.
-
-### Faz 33: Today orkestrasyonu
-
-- `today.rhythm`, acik/doing plan slotlarini agenda ve todo verisiyle
-  birlestirir. Ilk odak aksiyonu todo context/topic bilgisini Pomodoro'ya
-  tasir; takvim cakismalari mevcut `today/agenda` timed verisinden turetilir.
-- Gunluk degerlendirme durumu burada gorunur. Pazar/Pazartesi gunleri o
-  haftanin degerlendirmesi yoksa kompakt haftalik hatirlatma gosterilir.
-- Carry-over hedefi kaynak gunden sonra olmak zorundadir; ayni/gecmis gun
-  reddedilir. Tamamlanmis/dropped gorevler tasinmaz ve hedef duplicate
-  olusturmaz.
-
-### Faz 34: yasam dongusu ve bildirim teslimati
-
-- Rutin durdurma bildirimi yalniz API basarisindan sonra gosterilir; notta
-  body ve pinned degisiklikleri ayri anlamli event'ler uretir, bos PATCH
-  event uretmez.
-- Masaustu bildirim izni verildiginde `lifeos.desktopNotifEnabled` teslimat
-  tercihi de acilir. Kullanici teslimati izinden bagimsiz kapatabilir.
-  Bildirim id'si yalniz Notification constructor basariliysa delivered
-  listesine yazilir; hata sonraki turda yeniden denenir.
-
-### Faz 35: medya modulu uctan uca (kutuphane → katalog → detay → istatistik)
-
-Kararlar ve degismezler:
-
-- **Tek uretilmis sozlesme**: medya uclari `provider`/`favorite`/`tag`/
-  `collection_id`/`monitored` filtrelerini ve `sort=relevance`'i destekler;
-  yerel arama `match_clause` + `immutable_unaccent` + `pg_trgm` kullanir
-  (liste aramasi ile global arama ayni semantigi paylasir, kural 12).
-- **Katalog aramasi** sinirli eszamanlilik + 8 sn butce + 60 sn TTL cache ile
-  calisir; kismi saglayici hatasi diger sonuclari engellemez ve uyari metni
-  ham ayar anahtari (`media.tmdb_key`) yerine insan dili tasir.
-- **`media_consumption.action='session'`**: pomodoro seansi medyaya
-  aktarildiginda YALNIZ sure yazilir (amount 0, ilerleme degismez). Bu yuzden
-  etkinlik haritasi/istatistik sayaclari (pozitif amount kurali) ile cift
-  sayim olmaz. Idempotency anahtari = pomodoro seans id'si (`client_uuid`
-  UNIQUE). Migration `0047_media_session_action`.
-- **Alinti = yer imi**: ayri highlight tablosu yok; `bookmark.selection` metni,
-  `bookmark.note` baglami (sayfa/zaman kodu) tasir ve kayda `highlights`
-  iliskisiyle baglanir (`core/links.RELATIONS`).
-- **Artwork**: uzak kapaklar tarayicidan dogrudan cekilmez; `/api/media/artwork/proxy`
-  (host allowlist) yerel onbellege indirir, `stats`/`prune` toplam 512 MiB butce
-  ve 7 gun kuraliyla calisir. Yerel asset yolu `/api/media/assets/<sha>`.
-- **Son tarihler**: `deadline_provider` date/datetime karisimini yerel saat
-  diliminde normalize eder (`local_end_of_day`); unit yayini varsa item satiri
-  tekrarlanmaz. Not: `ScalarResult` TEK gezinmelidir — ayni sonucu iki kez
-  gezmek id/due haritalarini bosaltip modulun tum satirlarini sessizce
-  dusuruyordu (todo/calendar/opportunity duzeltildi).
-- **Istatistik**: `/api/media/dashboard?range=&recent_limit=` tek toplayicidir
-  (ozet + devam + yaklasan + son tuketimler); ayni veriyi ikinci kez sunan
-  `/media/consumptions/recent` kaldirildi (kural 17). Olcu (sayfa/bolum/dakika)
-  toplamlari `by_measure` altinda AYRI tutulur, tek toplama birlesmez.
-- **Arayuz**: tum medya filtreleri URL'de; modal `Modal` primitifi odak tuzagi +
-  odak iadesi saglar; tazeleme yalniz `invalidateAfter` ile (kural 14).
-
-#### macOS otomatik baslatma (launchd) -- KAYIT: dokuman, calistirilmaz
-
-Sistem durumunu DEGISTIRMEK icin bu betigi calistirmak gerekir; repo
-calistirma yapmaz. Mutlak proje yolu: `REPO=/Users/<kullanici>/forkOS`.
-
-`~/Library/LaunchAgents/com.forkos.stack.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.forkos.stack</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/usr/bin/make</string>
-    <string>-C</string>
-    <string>/Users/<kullanici>/forkOS</string>
-    <string>up</string>
-  </array>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><false/>
-  <key>StandardOutPath</key><string>/tmp/forkos-launchd.log</string>
-  <key>StandardErrorPath</key><string>/tmp/forkos-launchd.err</string>
-</dict>
-</plist>
+```text
+Chrome extension ─┐
+React/Vite PWA ───┼──> FastAPI ───> PostgreSQL 16
+                  │        │
+                  │        └──> kalıcı kaynak kuyruğu ──> SourceAdapter'lar
+                  │
+                  └──> isteğe bağlı APScheduler worker aynı kuyruğu tüketir
 ```
 
-Kaldirma: `launchctl unload ~/Library/LaunchAgents/com.forkos.stack.plist` ve
-dosyayi sil. Docker/Podman'in de oturum acilisinda calismasi gerekir.
+| Servis | Görev | Varsayılan adres |
+| --- | --- | --- |
+| `web` | React/Vite arayüz ve PWA | `127.0.0.1:5173` |
+| `api` | FastAPI, iş kuralları ve manuel yenileme | `127.0.0.1:8787` |
+| `db` | PostgreSQL 16 | `127.0.0.1:5433` |
+| `worker` | Zamanlanmış kaynak ve bakım işleri | profil kapalı |
+
+Manuel genel yenileme worker'a bağımlı değildir. API bir batch oluşturur ve aynı kalıcı kaynak kuyruğunu arka planda tüketir. Worker açılırsa yarım kalan/due işleri aynı sözleşmeyle devralır.
+
+## 2. Entity, link ve event omurgası
+
+### Entity
+
+`backend/app/core/models.py::Entity`, bütün aranabilir ve linklenebilir kayıtların kimliğidir:
+
+- `id`: sistem genelinde UUID
+- `type`: registry'deki entity tipi
+- `title`: ortak görünen başlık
+- `search_text`: FTS/trigram arama içeriği
+- `archived_at`: ortak yaşam döngüsü
+
+Bir modülün ana kaydı `EntityBacked` olur ve PK'si aynı zamanda `entity.id` alanına FK'dır. Yazmalar `backend/app/core/entity.py` içindeki `create_entity`, `touch_entity`, `archive_entity` ve `delete_entity` helper'larından geçer.
+
+### Link
+
+`link`, iki entity arasında yönlü ilişki kurar: `from_id → to_id`. İlişki sözlüğünün tek kaynağı `backend/app/core/links.py::RELATIONS` değeridir. Frontend ilişkileri `RelatedPanel` ve `BacklinksPanel` üzerinden gösterir.
+
+Yeni bir ilişki eklerken:
+
+1. İleri/geri Türkçe etiket çiftini `RELATIONS` içine ekle.
+2. Bağı aynı transaction içinde yaz.
+3. Anlamlı event üret.
+4. Frontend'de `invalidateAfter("link.write")` kullan.
+
+### Event
+
+`event` append-only aksiyon günlüğüdür. Domain tabloları güncel durumu, event ise nasıl o duruma gelindiğini taşır. Event satırları güncellenmez veya silinmez.
+
+```python
+await log_event(
+    session,
+    verb="note.updated",
+    entity_id=note.id,
+    entity_type="note",
+    payload={"fields": ["body"]},
+)
+```
+
+Activity, ritim/ısı haritası, review özetleri ve bazı proje zaman akışları bu günlükten türetilir.
+
+## 3. Registry'ler
+
+### Backend
+
+`backend/app/modules/__init__.py` iki merkezi sözleşmeyi taşır:
+
+- `MODULES`: router, event verb'leri ve deadline provider'lar
+- `EntityTypeSpec`: entity tipi → etiket, çoğul etiket, ikon ve frontend rotası
+
+`main.py`, arama, deadline toplama ve registry uçları bu listeden beslenir. Yeni modül için özel `main.py` bağlantısı yazılmaz.
+
+### Frontend
+
+`frontend/src/modules/index.ts`, her frontend modülünü bir kez import eder. Modülün `index.ts` dosyası `registerModule(...)` ile şunları kaydeder:
+
+- route'lar
+- sidebar hiyerarşisi
+- komut paleti eylemleri
+- Today widget'ları
+
+Entity linkleri ve global arama hedefleri backend registry'sinden gelen veriyi `frontend/src/core/entityRegistry.ts` içindeki `entityRoute()` ve `typeLabel()` üzerinden çözer.
+
+## 4. Modül anatomisi
+
+### Backend
+
+```text
+backend/app/modules/<name>/
+├── __init__.py     MODULE = ModuleSpec(...)
+├── models.py       EntityBacked domain modelleri
+├── schemas.py      Pydantic sözleşmeleri
+├── service.py      Transaction ve iş kuralları
+└── router.py       İnce HTTP katmanı
+```
+
+Router transaction/iş mantığını tekrar etmez. Entity helper'ları, link ve event yazımları service katmanında aynı transaction sınırında yürür.
+
+### Frontend
+
+```text
+frontend/src/modules/<name>/
+├── index.ts        registerModule(...)
+├── <Name>Page.tsx  çalışma alanı kompozisyonu
+├── bileşenler
+└── *.test.ts(x)
+```
+
+Sayfa, uygulama kabuğunu veya ikinci bir navigasyonu yeniden üretmez. Ortak yüzeyler `frontend/src/core/shell`, form ve durum bileşenleri `frontend/src/core/ui.tsx` üzerinden gelir.
+
+## 5. Modüller arası sözleşmeler
+
+### Mutation invalidation
+
+`frontend/src/core/invalidation.ts::AFTER`, bir domain yazımının hangi query key'lerini tazeleyeceğinin tek kaynağıdır:
+
+```ts
+invalidateAfter("todo.write", "plan.write");
+```
+
+Yeni mutation için önce anlamlı event adını/invalidasyon girdisini ekle; bileşenlere dağılmış ham query-key listeleri yazma.
+
+### Görev oluşturma
+
+Backend'de görev oluşturmanın tek sınırı todo service'tir. Opportunity, learning ve project gibi bağlamlar bu service'e delege eder, sonra kendi linkini aynı transaction içinde kurar.
+
+Frontend'de `frontend/src/core/tasks.ts`, bütün manuel görev girişlerinin ortak intent katmanıdır. `plan_day` “o gün yap” anlamına gelir; `due_at` teslim tarihidir ve birbirine dönüştürülmez.
+
+### Evrensel yakalama
+
+`frontend/src/core/capture.ts`, görev/not/bağlantı yakalama intent'lerini tek noktada toplar. Extension yazımları `client_uuid` ile idempotenttir. Inbox ve Bookmark aynı domain tablosunu kullanır; `collection` kayıt durumunu belirler.
+
+### Son tarihler
+
+Son tarih üreten modüller `ModuleSpec.deadline_provider` sağlar. `backend/app/core/deadlines.py` sağlayıcıları toplar. SQL union view veya modüller arası elle join zinciri kullanılmaz.
+
+### Today
+
+Today bir veri sahibi değil, orkestrasyon yüzeyidir. Modüller `todayWidgets` ile benzersiz ve kalıcı widget ID'leri kaydeder. Kullanıcının sıra/görünürlük tercihleri bu ID'lere bağlıdır.
+
+Agenda; görev, plan, takvim, fırsat, öğrenme ve medya kayıtlarını tek günlük read-model içinde birleştirir. Bir widget hatası diğer widget'ları engellememelidir.
+
+### Pomodoro
+
+Pomodoro sunucu otoritelidir; sayfadan bağımsız global yüzey yalnızca aktif session'ı yansıtır. Context bir entity'ye bağlanabilir. Tamamlanan session domain'e özgü tüketim/çalışma event'lerine köprü olabilir.
+
+### Notlar ve bilgi grafı
+
+Notlar entity-backed'tir. Markdown body, klasör, ekler, varsayılan görünüm ve Excalidraw canvas state aynı domain içinde yaşar. Wiki linkleri ve açık entity linkleri bilgi grafına katılır. Büyük attachment içeriği liste uçlarında yüklenmez; detay/attachment uçlarından alınır.
+
+## 6. Kaynak ve scraper mimarisi
+
+Her yeni ağ kaynağı `backend/app/sources/base.py` içindeki `SourceAdapter` sözleşmesini uygular. Öncelik sırası:
+
+1. Resmî API veya JSON-LD/schema.org
+2. Kararlı HTML seçiciler
+3. Kontrollü fallback ayrıştırma
+
+Her çalıştırma `source_run` üretir. Sonuç sınıfları en az `ok`, `empty` ve `error` ayrımını korur; hata türü teşhis edilebilir olmalıdır. Üç beklenmedik boş sonuç veya tekrarlayan hata kaynak sağlığına ve bildirimlere yansır.
+
+`backend/app/core/source_sync.py` kalıcı batch/kuyruk sahipliğini yönetir. Uzun senkron:
+
+- API request ömrüne güvenmez,
+- yeniden başlatmadan sonra devam edebilir,
+- aynı kaynağın eşzamanlı sahiplenilmesini engeller,
+- ilerlemeyi tamamlanan/toplam kaynak olarak raporlar,
+- LinkedIn gibi opt-in kaynakları açık seçim olmadan çalıştırmaz.
+
+Başarılı HTTP yanıtlarını sınırsız biçimde diske yığma. Cache'in okuma yolu, boyut/yaş sınırı ve pruning davranışı tanımlı olmalıdır.
+
+## 7. Arama
+
+PostgreSQL'te Türkçe stemmer varsayılmaz. Arama:
+
+- `simple` text search config,
+- `immutable_unaccent()`,
+- `pg_trgm`,
+- entity `title + search_text`
+
+bileşimiyle çalışır. Yeni aranabilir domain kaydı entity başlığı ve arama metnini create/update sırasında güncel tutar.
+
+## 8. Tasarım sistemi
+
+Tasarım tokenları `frontend/src/index.css` ve `frontend/tailwind.config.js` dosyalarındadır. Ortak primitive'ler `frontend/src/core/ui.tsx` içindedir.
+
+- Semantik renkler: `accent`, `ok`, `warn`, `danger`
+- Kimlik renkleri: `kind-*`, `src-*`, `feed-*`
+- Grafik renkleri: `chart-1..8`
+- Z-index: adlandırılmış katman tokenları
+- Formlar: `Input`, `Select`, `Checkbox`, `Range`, `NumberInput`, `FileInput`, `Chip`
+
+Loading için skeleton, veri yokluğu için açıklayıcı empty state, hata için erişilebilir geri bildirim kullan. Modal/popover focus yönetimi, Escape ve focus restore sözleşmesini korur.
+
+## 9. Veri, gizlilik ve yedek
+
+- PostgreSQL kalıcı verisi `forkos_pgdata` named volume'ündedir.
+- Belge, attachment, medya cache'i, OAuth token'ları ve kişisel config Git'e girmez.
+- Secret setting anahtarlarının tek kaynağı `backend/app/modules/system/secrets.py::SECRET_SETTING_KEYS` listesidir.
+- Export ve taşınabilir yedek secret satırlarını içermez.
+- Normal restore merge/idempotent'tir; mevcut veriyi silmez.
+- Gerçek disaster restore uygulama dışı CLI sınırıdır, önce doğrulanmış safety dump alır ve transaction tamamlanmadan commit etmez.
+
+Local-only, “hiç ağ isteği yok” anlamına gelmez. RSS, ilan, katalog ve açıkça bağlanan Google/GitHub entegrasyonları dış kaynaklardan veri çeker; kişisel veritabanını buluta yüklemez. Yeni paket veya ağ davranışında `.agents/skills/local-privacy-audit/SKILL.md` uygulanır.
+
+## 10. Migration ve API sözleşmesi
+
+Migration'lar elle yazılır; her SQL komutu ayrı `op.execute()` çağrısıdır. Yeni revision önce `alembic heads` çıktısındaki gerçek head'e bağlanır. Ayrıntı: `backend/alembic/README.md`.
+
+FastAPI/Pydantic sözleşmesi değişirse:
+
+```bash
+cd backend
+python scripts/export_openapi.py
+cd ../frontend
+npm run api:generate
+npm run api:check
+```
+
+Generated TypeScript dosyası elle düzenlenmez.
+
+## 11. Doğrulama
+
+```bash
+# İzole backend + migration testleri
+make test CO="docker compose"
+
+# Backend lint + frontend test/build + extension
+make verify CO="docker compose"
+```
+
+Özellikle şu guardrail'ler mimari drift'i durdurur:
+
+- entity-backed tablo ve tek migration head
+- append-only event davranışı
+- entity registry route/label sahipliği
+- merkezi mutation invalidation
+- design token ve UI primitive kullanımı
+- frontend tarafından tüketilmeyen endpoint sınırı
+- test DB'nin kişisel DB'den izolasyonu
