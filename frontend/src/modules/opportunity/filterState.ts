@@ -34,6 +34,7 @@ interface FilterDescriptor {
 
 const ALL: readonly OpportunitySection[] = ["jobs", "announcements", "trash"];
 const JOBS: readonly OpportunitySection[] = ["jobs"];
+const RESULTS: readonly OpportunitySection[] = ["jobs", "announcements"];
 
 export const SCORE_PRESETS = [
   { label: "Tümü", min: undefined, max: undefined },
@@ -78,6 +79,16 @@ const FILTER_DESCRIPTORS: readonly FilterDescriptor[] = [
     sections: ALL,
     saved: true,
     label: (f) => (f.status ? `Durum: ${statusLabel(f.status)}` : undefined),
+  },
+  {
+    key: "source_status",
+    sections: RESULTS,
+    saved: true,
+    label: (f) => {
+      if (f.source_status === "stale") return "Kaynakta bulunamıyor";
+      if (f.source_status === "all") return "Tüm kaynak durumları";
+      return undefined;
+    },
   },
   {
     key: "category",

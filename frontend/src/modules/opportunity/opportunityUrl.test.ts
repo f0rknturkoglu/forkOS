@@ -80,3 +80,87 @@ describe("opportunity url contract", () => {
     expect(parsed.tab).toBe("jobs");
   });
 });
+
+describe("opportunity url round-trip", () => {
+  const cases = [
+    {
+      name: "kariyer hikâyesi entity rotası doğrudan Kariyer sekmesini açar",
+      url: "story=story-1",
+      tab: "career" as const,
+      story: "story-1",
+    },
+    {
+      name: "kariyer bağlantısı entity rotası doğrudan Kariyer sekmesini açar",
+      url: "connection=conn-1",
+      tab: "career" as const,
+      connection: "conn-1",
+    },
+    {
+      name: "ilan derin bağlantısı İşler sekmesini korur",
+      url: "focus=opp-1",
+      tab: "jobs" as const,
+      focus: "opp-1",
+    },
+  ];
+
+  for (const item of cases) {
+    it(item.name, () => {
+      const parsed = parseOpportunityUrl(new URLSearchParams(item.url), base);
+      expect(parsed.tab).toBe(item.tab);
+      if ("story" in item) expect(parsed.story).toBe(item.story);
+      if ("connection" in item) expect(parsed.connection).toBe(item.connection);
+      if ("focus" in item) expect(parsed.focus).toBe(item.focus);
+    });
+  }
+
+  it("serialize → parse → serialize aynı adresi üretir", () => {
+    const state = {
+      tab: "jobs" as const,
+      focus: "opp-42",
+      story: null,
+      connection: null,
+      filters: {
+        ...base,
+        search: "react",
+        source_status: "stale" as const,
+        skill_match_state: "computed" as const,
+        skill_tier: "high",
+        min_score: 70,
+        max_score: 79.99,
+        remote: "hybrid",
+      },
+      view: "grid" as const,
+    };
+
+    const first = serializeOpportunityUrl(state);
+    const parsed = parseOpportunityUrl(new URLSearchParams(first), base);
+    const second = serializeOpportunityUrl({
+      tab: parsed.tab,
+      focus: parsed.focus,
+      story: parsed.story,
+      connection: parsed.connection,
+      filters: parsed.filters,
+      view: parsed.view,
+    });
+
+    expect(second).toBe(first);
+    expect(parsed.view).toBe("grid");
+    expect(parsed.filters.source_status).toBe("stale");
+    expect(parsed.filters.skill_tier).toBe("high");
+    expect(parsed.filters.min_score).toBe(70);
+  });
+
+  it("görünüm parametresi adres çubuğunda korunur", () => {
+    const query = serializeOpportunityUrl({
+      tab: "jobs",
+      focus: null,
+      story: null,
+      connection: null,
+      filters: base,
+      view: "kanban",
+    });
+
+    expect(new URLSearchParams(query).get("view")).toBe("kanban");
+    expect(parseOpportunityUrl(new URLSearchParams(query), base).view).toBe("kanban");
+  });
+});

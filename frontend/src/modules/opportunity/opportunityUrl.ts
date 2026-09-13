@@ -44,8 +44,8 @@ const FILTER_KEYS = [
   "category",
   "skill",
   "announcement_source",
+  "source_status",
   "sort",
-  "view",
 ] as const;
 
 const NUMERIC_KEYS = ["period_days", "year", "min_score", "max_score", "min_skill_match", "max_skill_match"] as const;
@@ -66,6 +66,7 @@ export function serializeOpportunityUrl(state: OpportunityUrlState): string {
   if (state.focus) query.set("focus", state.focus);
   if (state.story) query.set("story", state.story);
   if (state.connection) query.set("connection", state.connection);
+  if (state.view) query.set("view", state.view);
   for (const key of FILTER_KEYS) {
     const value = state.filters[key as keyof OpportunityBrowseFilters];
     if (value === undefined || value === "" || value === null) continue;
@@ -77,12 +78,22 @@ export function serializeOpportunityUrl(state: OpportunityUrlState): string {
     query.set(key, String(value));
   }
   if (state.filters.skill_match_state) query.set("skill_match_state", state.filters.skill_match_state);
+  if (state.filters.skill_tier) query.set("skill_tier", state.filters.skill_tier);
   return query.toString();
 }
 
 export function parseOpportunityUrl(params: URLSearchParams, base: OpportunityBrowseFilters): OpportunityUrlState {
   const rawTab = params.get("tab");
-  const tab = (OPPORTUNITY_TABS as readonly string[]).includes(rawTab ?? "") ? (rawTab as OpportunityTab) : "jobs";
+  const story = params.get("story");
+  const connection = params.get("connection");
+  const explicitTab = (OPPORTUNITY_TABS as readonly string[]).includes(rawTab ?? "")
+    ? (rawTab as OpportunityTab)
+    : null;
+  // Kariyer kayitlarinin entity rotasi (`?story=` / `?connection=`) sekme
+  // tasimaz; hedef sekme buradan turetilir, aksi halde graf ve entity
+  // deep-link'leri "Isler" sekmesini acardi.
+  const derivedTab: OpportunityTab = story || connection ? "career" : "jobs";
+  const tab = explicitTab ?? derivedTab;
   const filters: OpportunityBrowseFilters = { ...base, offset: 0 };
   const rawSection = params.get("section");
   if (rawSection === "jobs" || rawSection === "announcements" || rawSection === "trash") {
@@ -105,12 +116,14 @@ export function parseOpportunityUrl(params: URLSearchParams, base: OpportunityBr
   if (skillState === "computed" || skillState === "uncomputed") {
     filters.skill_match_state = skillState;
   }
+  const skillTier = params.get("skill_tier");
+  if (skillTier) filters.skill_tier = skillTier;
   const view = params.get("view");
   return {
     tab,
     focus: params.get("focus"),
-    story: params.get("story"),
-    connection: params.get("connection"),
+    story,
+    connection,
     filters,
     view: view === "rows" || view === "grid" || view === "kanban" ? view : null,
   };

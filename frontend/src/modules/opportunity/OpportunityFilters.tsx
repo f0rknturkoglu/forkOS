@@ -26,6 +26,8 @@ interface FilterBarProps {
   view: "rows" | "grid" | "kanban";
   onView: (view: "rows" | "grid" | "kanban") => void;
   onChange: (next: OpportunityBrowseFilters) => void;
+  /** Arama kutusunun taslağı: her tuşta anında görünür, API'ye debounce'lu gider. */
+  searchValue: string;
   onSearchChange: (value: string) => void;
   /** Bildirim bölgesi: sonuç değişimini ekran okuyucuya duyurur. */
   liveMessage: string;
@@ -69,6 +71,7 @@ export function OpportunityFilterBar({
   view,
   onView,
   onChange,
+  searchValue,
   onSearchChange,
   liveMessage,
 }: FilterBarProps) {
@@ -76,6 +79,18 @@ export function OpportunityFilterBar({
   const panelAnchor = useRef<HTMLSpanElement>(null);
   const chips = useMemo(() => activeFilterChips(filters), [filters]);
   const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
+  const sourceStatus = filters.source_status ?? "active";
+  const clearFilters = () => {
+    onChange(clearAllFilters(filters));
+    // Taslak da temizlenmeli: yoksa debounce onu 250 ms sonra geri yazar ve
+    // "temizlendi" denen arama geri gelir.
+    onSearchChange("");
+  };
+  const viewOptions = [
+    { id: "rows", title: "Yatay satırlar", Icon: List },
+    { id: "grid", title: "Karesel kartlar", Icon: LayoutGrid },
+    { id: "kanban", title: "Kanban panosu", Icon: Kanban },
+  ] as const;
 
   return (
     <div className="space-y-2">
@@ -83,7 +98,7 @@ export function OpportunityFilterBar({
         <div className="relative min-w-0 flex-[2_1_16rem]">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon" />
           <Input
-            value={filters.search ?? ""}
+            value={searchValue}
             onChange={onSearchChange}
             placeholder="Başlık, kurum, konum ya da kaynakta ara…"
             ariaLabel="Fırsatlarda ara"
@@ -135,6 +150,7 @@ export function OpportunityFilterBar({
             filters={filters}
             facets={facets}
             onChange={onChange}
+            onClear={clearFilters}
           />
         </span>
 
@@ -146,28 +162,18 @@ export function OpportunityFilterBar({
           >
             {loading ? "Yükleniyor…" : `${shown} / ${total} kayıt`}
           </span>
-          <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5">
-            <IconButton
-              title="Yatay satırlar"
-              onClick={() => onView("rows")}
-              className={view === "rows" ? "bg-surface-sunken text-primary" : "border-transparent"}
-            >
-              <List size={14} />
-            </IconButton>
-            <IconButton
-              title="Karesel kartlar"
-              onClick={() => onView("grid")}
-              className={view === "grid" ? "bg-surface-sunken text-primary" : "border-transparent"}
-            >
-              <LayoutGrid size={14} />
-            </IconButton>
-            <IconButton
-              title="Kanban panosu"
-              onClick={() => onView("kanban")}
-              className={view === "kanban" ? "bg-surface-sunken text-primary" : "border-transparent"}
-            >
-              <Kanban size={14} />
-            </IconButton>
+          <span className="flex items-center gap-1 rounded-control border border-subtle p-0.5" role="group" aria-label="Görünüm">
+            {viewOptions.map((option) => (
+              <IconButton
+                key={option.id}
+                title={option.title}
+                ariaPressed={view === option.id}
+                onClick={() => onView(option.id)}
+                className={view === option.id ? "bg-surface-sunken text-primary" : "border-transparent"}
+              >
+                <option.Icon size={14} />
+              </IconButton>
+            ))}
           </span>
         </span>
       </div>
@@ -189,7 +195,7 @@ export function OpportunityFilterBar({
               </span>
             </Chip>
           ))}
-          <Button size="sm" variant="ghost" onClick={() => onChange(clearAllFilters(filters))}>
+          <Button size="sm" variant="ghost" onClick={clearFilters}>
             <RotateCcw size={12} /> Tümünü temizle
           </Button>
         </div>
@@ -209,6 +215,7 @@ function FilterPanelPopover({
   filters,
   facets,
   onChange,
+  onClear,
 }: {
   open: boolean;
   onClose: () => void;
@@ -216,9 +223,13 @@ function FilterPanelPopover({
   filters: OpportunityBrowseFilters;
   facets: Record<string, Record<string, number>>;
   onChange: (next: OpportunityBrowseFilters) => void;
+  onClear: () => void;
 }) {
   const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
+  // Bölüme göre geçerli filtreler: backend'e GİTMEYEN bir filtre panelde de
+  // gösterilmez, aksi halde kullanıcı sonucu değiştirmeyen kontrollerle uğraşır.
   const jobs = filters.section === "jobs";
+  const announcements = filters.section === "announcements";
 
   return (
     <Popover
@@ -232,7 +243,7 @@ function FilterPanelPopover({
       <div className="space-y-4">
         <header className="flex items-center justify-between">
           <h3 className="text-heading text-primary">Filtreler</h3>
-          <Button size="sm" variant="ghost" onClick={() => onChange(clearAllFilters(filters))}>
+          <Button size="sm" variant="ghost" onClick={onClear}>
             <RotateCcw size={12} /> Temizle
           </Button>
         </header>
@@ -278,25 +289,33 @@ function FilterPanelPopover({
           </Section>
         )}
 
-        <Section title={jobs ? "Kategori" : "Duyuru türü"}>
-          <div className="flex flex-wrap gap-1.5">
-            {jobs
-              ? facetChips(
-                  facets,
-                  "categories",
-                  Object.fromEntries(Object.keys(facets.categories ?? {}).map((key) => [key, jobCategoryLabel(key)])),
-                  filters.category,
-                  (value) => update({ category: value }),
-                )
-              : facetChips(
-                  facets,
-                  "announcement_sources",
-                  { ylsy: "YLSY", osym: "ÖSYM", other: "Diğer" },
-                  filters.announcement_source,
-                  (value) => update({ announcement_source: value as "" | "ylsy" | "osym" | "other" }),
-                )}
-          </div>
-        </Section>
+        {jobs && (
+          <Section title="Kategori">
+            <div className="flex flex-wrap gap-1.5">
+              {facetChips(
+                facets,
+                "categories",
+                Object.fromEntries(Object.keys(facets.categories ?? {}).map((key) => [key, jobCategoryLabel(key)])),
+                filters.category,
+                (value) => update({ category: value }),
+              )}
+            </div>
+          </Section>
+        )}
+
+        {announcements && (
+          <Section title="Duyuru türü">
+            <div className="flex flex-wrap gap-1.5">
+              {facetChips(
+                facets,
+                "announcement_sources",
+                { ylsy: "YLSY", osym: "ÖSYM", other: "Diğer" },
+                filters.announcement_source,
+                (value) => update({ announcement_source: value as "" | "ylsy" | "osym" | "other" }),
+              )}
+            </div>
+          </Section>
+        )}
 
         <Section title="Konum & çalışma biçimi">
           <div className="space-y-2">
@@ -310,15 +329,11 @@ function FilterPanelPopover({
               )}
             </div>
             <div className="flex flex-wrap gap-1.5">
+              {/* "Bilinmiyor" kovası facet'ten gelir (REMOTE_LABELS.unknown);
+                  elle ikinci bir chip eklemek aynı filtreyi iki kez gösteriyordu. */}
               {facetChips(facets, "remote", REMOTE_LABELS as Record<string, string>, filters.remote, (value) =>
                 update({ remote: value }),
               )}
-              <FilterChip
-                label="Bilinmiyor"
-                count={facets.remote?.unknown}
-                active={filters.remote === "unknown"}
-                onClick={() => update({ remote: filters.remote === "unknown" ? "" : "unknown" })}
-              />
             </div>
           </div>
         </Section>
@@ -393,7 +408,37 @@ function FilterPanelPopover({
           </div>
         </Section>
 
-        {!jobs && (
+        {(jobs || announcements) && (
+          <Section title="Kaynak durumu">
+            <div className="flex flex-wrap gap-1.5">
+            {([
+              { id: "active", label: "Yayında", hint: "Kaynakta hâlâ görünen kayıtlar" },
+              { id: "stale", label: "Kaynakta bulunamıyor", hint: "Kaynakta kaybolmuş kayıtlar" },
+              { id: "all", label: "Tümü", hint: "İkisi birlikte" },
+            ] as const).map((option) => (
+              <FilterChip
+                key={option.id}
+                label={option.label}
+                count={
+                  option.id === "stale"
+                    ? Object.entries(facets.source_statuses ?? {})
+                        .filter(([status]) => status !== "active")
+                        .reduce((sum, [, count]) => sum + count, 0)
+                    : facets.source_statuses?.[option.id]
+                }
+                active={(filters.source_status ?? "active") === option.id}
+                onClick={() => update({ source_status: option.id })}
+              />
+            ))}
+            </div>
+            <p className="mt-1.5 text-micro text-muted">
+              “Kaynakta bulunamıyor” kayıtları varsayılan akışta gösterilmez; başvurduğun kayıtlar burada da
+              erişilebilir kalır.
+            </p>
+          </Section>
+        )}
+
+        {announcements && (
           <Section title="Tarih">
             <div className="flex flex-wrap items-center gap-1.5">
               {[30, 90, 365].map((days) => (

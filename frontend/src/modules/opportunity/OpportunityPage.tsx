@@ -66,6 +66,10 @@ export function OpportunityPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<"rows" | "grid" | "kanban">(initialView);
   const [searchDraft, setSearchDraft] = useState("");
+  // Kariyer deep-link'leri (`?story=` / `?connection=`) URL'de korunur; aksi
+  // halde sayfa kendi URL'sini yazarken onları siler ve kayıt kapanırdı.
+  const [story, setStory] = useState<string | null>(null);
+  const [connection, setConnection] = useState<string | null>(null);
 
   // ── URL <-> durum köprüsü ──────────────────────────────────────────
   // Filtreler ve sekme adres çubuğuna yazılır; tarayıcı geri/ileri çalışır ve
@@ -82,12 +86,14 @@ export function OpportunityPage() {
     setSearchDraft(parsed.filters.search ?? "");
     setTab(parsed.tab);
     setSelected(parsed.focus);
+    setStory(parsed.story);
+    setConnection(parsed.connection);
     if (parsed.view) setView(parsed.view);
   }, [params]);
 
   const urlState = useMemo(
-    () => serializeOpportunityUrl({ tab, focus: selected, story: null, connection: null, filters, view }),
-    [tab, selected, filters, view],
+    () => serializeOpportunityUrl({ tab, focus: selected, story, connection, filters, view }),
+    [tab, selected, story, connection, filters, view],
   );
 
   useEffect(() => {
@@ -159,6 +165,10 @@ export function OpportunityPage() {
     setTab(next);
     setFilters((current) => ({ ...current, section: sectionForTab(next, current.section), offset: 0 }));
     setSelected(null);
+    if (next !== "career") {
+      setStory(null);
+      setConnection(null);
+    }
   }, []);
 
   const openRecord = useCallback((id: string) => setSelected(id), []);
@@ -278,6 +288,7 @@ export function OpportunityPage() {
                 view={view}
                 onView={changeView}
                 onChange={setFilters}
+                searchValue={searchDraft}
                 onSearchChange={setSearchDraft}
                 liveMessage={isFetching ? "Sonuçlar güncelleniyor" : `${total} kayıttan ${shown} tanesi gösteriliyor`}
               />
@@ -381,7 +392,7 @@ export function OpportunityPage() {
           ) : tab === "applications" ? (
             <ApplicationsWorkspace online={online} onOpen={openRecord} />
           ) : tab === "career" ? (
-            <CareerWorkspace focusStoryId={params.get("story")} focusConnectionId={params.get("connection")} />
+            <CareerWorkspace focusStoryId={story} focusConnectionId={connection} />
           ) : (
             <SourcesWorkspace />
           )}

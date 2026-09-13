@@ -26,6 +26,12 @@ export interface OpportunityBrowseFilters {
   /** null (hesaplanmadı) durumunu ayrı seçebilmek için. */
   skill_match_state?: "computed" | "uncomputed" | "";
   skill_tier?: string;
+  /**
+   * Kaynak durumu görünümü. `active` (varsayılan): kaynakta hâlâ görünen
+   * ilanlar. `stale`: kaynakta kaybolmuş ("Kaynakta bulunamıyor") kayıtlar.
+   * `all`: ikisi birlikte.
+   */
+  source_status?: "active" | "stale" | "all";
   sort: OpportunitySort;
   offset: number;
   limit: number;
@@ -62,6 +68,9 @@ export function browseQuery(filters: OpportunityBrowseFilters): string {
     min_skill_match: jobs ? filters.min_skill_match : undefined,
     max_skill_match: jobs ? filters.max_skill_match : undefined,
     skill_match_state: jobs ? filters.skill_match_state : undefined,
+    // Kaynak durumu görünümü çöp dışındaki her bölümde geçerlidir: "Kaynakta
+    // bulunamıyor" listesi iş ilanları kadar duyurular için de anlamlıdır.
+    source_status: filters.section === "trash" ? undefined : (filters.source_status ?? "active"),
     sort: filters.sort,
     offset: filters.offset,
     limit: filters.limit,

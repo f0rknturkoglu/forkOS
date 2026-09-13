@@ -32,6 +32,7 @@ function renderBar(overrides: Partial<OpportunityBrowseFilters> = {}, extra: Rec
       view="rows"
       onView={onView}
       onChange={onChange}
+      searchValue={String((extra.searchValue as string) ?? filters.search ?? "")}
       onSearchChange={() => undefined}
       liveMessage=""
       {...extra}
