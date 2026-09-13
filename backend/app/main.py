@@ -1,15 +1,81 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func, select
 
 from app.config import settings
+from app.core.models import SourceRun
 from app.core.router import router as core_router
+from app.db import SessionLocal
 from app.modules import MODULES
+
+log = logging.getLogger("api")
+
+#: Kritik catch-up'ı tekrar tetiklememek icin alt sinir: kaynak zaten bu
+#: kadar kisa sure once kosmussa dokunulmaz (API --reload ile yeniden
+#: baslarken ayni kaynaklari tekrar tekrar cekmemek icin).
+CRITICAL_CATCH_UP_MIN_AGE = timedelta(hours=2)
+
+
+async def _startup_critical_catch_up() -> None:
+    """Kritik kaynaklari (YLSY/OSYM/YOK, hizli ATS) tazele -- bounded ve sessiz.
+
+    Worker acikken bu is worker'in; kapaliyken uygulama acilisi telafi eder ki
+    kritik kaynaklar gunlerce bayat kalmasin. Yalnizca suresi gecmis kritik
+    kaynaklar kuyruga girer ve cekim arka planda yapilir; acilis bekletilmez.
+    """
+    if settings.worker_enabled:
+        return
+    from app.core import source_sync
+    from app.modules.opportunity.worker import critical_source_ids
+
+    ids = critical_source_ids()
+    if not ids:
+        return
+    async with SessionLocal() as session:
+        latest = dict(
+            (
+                await session.execute(
+                    select(SourceRun.source, func.max(SourceRun.started_at))
+                    .where(SourceRun.source.in_(ids))
+                    .group_by(SourceRun.source)
+                )
+            ).all()
+        )
+        cutoff = datetime.now(UTC) - CRITICAL_CATCH_UP_MIN_AGE
+        stale = [
+            source_id
+            for source_id in ids
+            if latest.get(source_id) is None or latest[source_id] <= cutoff
+        ]
+        if not stale:
+            return
+        batch, queued = await source_sync.create_or_extend_batch(session, stale)
+        await session.commit()
+    log.info("kritik catch-up: %d kaynak kuyruga alindi (batch %s)", len(queued), batch.id)
+    # Cekimi API sureci yurutur; worker sonradan acilsa da ayni kuyrugu paylasir.
+    # Gorev referansi tutulur: aksi halde CPython onu toplayabilir.
+    from app.worker.jobs import drain_source_sync_batches
+
+    task = asyncio.create_task(drain_source_sync_batches())
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+
+
+#: Acilista baslatilan arka plan gorevlerinin referanslari.
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        await _startup_critical_catch_up()
+    except Exception:  # noqa: BLE001 - acilis, kaynak tazeleme yuzunden dusmemeli
+        log.exception("kritik catch-up baslatilamadi")
     yield
 
 

@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Menu, Moon, RefreshCw, Search, Sun } from "lucide-react";
+import { ChevronDown, Menu, Moon, RefreshCw, Search, Sun } from "lucide-react";
 import { api } from "@/core/api";
 import { openCommandPalette } from "@/core/CommandPalette";
 import { invalidateAfter } from "@/core/invalidation";
@@ -8,14 +8,56 @@ import { NotificationPanel } from "@/core/NotificationPanel";
 import { moduleForPath, titleForPath } from "@/core/registry";
 import { StatusLed } from "@/core/StatusLed";
 import type { ManualRefreshStatus } from "@/core/types";
-import { IconButton, Kbd, cx, useTheme, useToast } from "@/core/ui";
+import { Button, Chip, IconButton, Kbd, Popover, cx, useTheme, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
+
+/** Yenileme kapsamlari. Etiketler kullanici dilinde; degerler API sozlesmesi. */
+export const REFRESH_SCOPES = [
+  { id: "critical", label: "Kritik kaynaklar", hint: "YLSY, ÖSYM, YÖK ve hızlı panolar" },
+  { id: "standard", label: "Standart yenileme", hint: "Opt-in kaynaklar hariç tümü + medya" },
+  { id: "full", label: "Tam yenileme", hint: "Katalogun tamamı; yavaş kaynaklar dahil" },
+] as const;
+
+export type RefreshScope = (typeof REFRESH_SCOPES)[number]["id"];
+
+const SCOPE_STORAGE_KEY = "forkos:refresh-scope";
+
+function scopeLabel(scope: RefreshScope): string {
+  return REFRESH_SCOPES.find((option) => option.id === scope)?.label ?? "Standart yenileme";
+}
+
+/** Kapsam menusundeki durum ozeti: son sonuc, son basari ya da hata. */
+function refreshSummary(status: ManualRefreshStatus | undefined): string {
+  if (!status || status.status === "idle") return "Henüz manuel yenileme çalıştırılmadı.";
+  if (status.status === "running") {
+    const total = status.results?.opportunity_sources ?? 0;
+    const estimate = status.results?.opportunity_estimated_seconds ?? 0;
+    return `${scopeLabel(status.scope as RefreshScope)} sürüyor · ${total} kaynak · ~${Math.round(estimate / 60)} dk`;
+  }
+  if (status.status === "interrupted") {
+    return "Önceki yenileme yarıda kesildi; yeniden başlatılabilir.";
+  }
+  const done = status.finished_at ? new Date(status.finished_at).toLocaleString("tr-TR") : "bilinmiyor";
+  if (status.status === "completed_with_errors") {
+    return `Son yenileme ${done} tarihinde bitti · ${status.errors?.length ?? 0} bölüm hata verdi`;
+  }
+  return `Son yenileme ${done} tarihinde tamamlandı`;
+}
+
+function storedScope(): RefreshScope {
+  if (typeof window === "undefined") return "standard";
+  const saved = window.localStorage.getItem(SCOPE_STORAGE_KEY);
+  return REFRESH_SCOPES.some((scope) => scope.id === saved) ? (saved as RefreshScope) : "standard";
+}
 
 export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenSidebar: () => void }) {
   const [theme, setTheme] = useTheme();
   const online = useOnline();
   const toast = useToast();
   const startedHere = useRef(false);
+  const [scope, setScope] = useState<RefreshScope>(storedScope);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const scopeAnchor = useRef<HTMLSpanElement>(null);
   const module = moduleForPath(path);
   const title = titleForPath(path) ?? "forkOS";
   const Icon = module?.icon;
@@ -25,15 +67,30 @@ export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenS
     refetchInterval: (query) => (query.state.data?.status === "running" ? 2_000 : false),
   });
   const refresh = useMutation({
-    mutationFn: () => api.post<ManualRefreshStatus>("/system/refresh"),
-    onSuccess: (value) => {
+    mutationFn: (next: RefreshScope) => api.post<ManualRefreshStatus>("/system/refresh", { scope: next }),
+    onSuccess: (value, next) => {
       startedHere.current = value.status === "running";
       void refreshStatus.refetch();
-      toast.push("Genel yenileme arka planda başladı.");
+      toast.push(
+        value.started
+          ? `${scopeLabel(next)} başlatıldı.`
+          : "Zaten çalışan bir yenileme var; ilerleme üstteki şeritte.",
+      );
     },
+    // Hata sonrasi buton MUTLAKA yeniden kullanilabilir olmali: isPending burada
+    // false'a doner ve durum sorgusu da yeni bir calisma baslatmaz.
     onError: (error) => toast.push(`Yenileme başlatılamadı: ${error.message}`, { tone: "danger" }),
   });
+
+  const start = (next: RefreshScope) => {
+    setScope(next);
+    if (typeof window !== "undefined") window.localStorage.setItem(SCOPE_STORAGE_KEY, next);
+    setScopeOpen(false);
+    refresh.mutate(next);
+  };
+
   const isRefreshing = refresh.isPending || refreshStatus.data?.status === "running";
+  const summary = useMemo(() => refreshSummary(refreshStatus.data), [refreshStatus.data]);
 
   useEffect(() => {
     const value = refreshStatus.data;
@@ -75,12 +132,70 @@ export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenS
       <div className="flex shrink-0 items-center gap-1">
         <StatusLed />
         <IconButton
-          title={isRefreshing ? "Kaynaklar yenileniyor" : "Tüm kaynakları yenile"}
+          title={isRefreshing ? "Kaynaklar yenileniyor" : `Kaynakları yenile (${scopeLabel(scope)})`}
           disabled={!online || isRefreshing}
-          onClick={() => refresh.mutate()}
+          onClick={() => start(scope)}
         >
           <RefreshCw size={15} className={cx(isRefreshing && "animate-spin")} />
         </IconButton>
+        <span className="relative inline-flex" ref={scopeAnchor}>
+          <IconButton
+            title="Yenileme kapsamı ve durumu"
+            ariaExpanded={scopeOpen}
+            onClick={() => setScopeOpen((open) => !open)}
+          >
+            <ChevronDown size={13} />
+          </IconButton>
+          <Popover
+            open={scopeOpen}
+            onClose={() => setScopeOpen(false)}
+            anchorRef={scopeAnchor}
+            role="dialog"
+            ariaLabel="Yenileme kapsamı"
+            className="right-0 top-[calc(100%+0.375rem)] w-[min(22rem,calc(100vw-1.5rem))] p-3"
+          >
+            <div className="space-y-3">
+              <header className="space-y-1">
+                <h3 className="text-heading text-primary">Yenileme kapsamı</h3>
+                <p className="text-micro text-muted">
+                  Çalışan yenileme:{" "}
+                  <span className="text-secondary">
+                    {refreshStatus.data?.batch_id
+                      ? refreshStatus.data.batch_id.slice(0, 8)
+                      : "yok"}
+                  </span>
+                  {isRefreshing && <Chip tone="accent">çalışıyor</Chip>}
+                </p>
+              </header>
+              <ul className="space-y-1">
+                {REFRESH_SCOPES.map((option) => (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      disabled={!online || isRefreshing}
+                      onClick={() => start(option.id)}
+                      className={cx(
+                        "w-full rounded-control px-2 py-1.5 text-left transition",
+                        "text-body text-primary hover:bg-surface-hover disabled:opacity-50 disabled:hover:bg-transparent",
+                        scope === option.id && "bg-surface-sunken",
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        {option.label}
+                        {scope === option.id && <span className="text-micro text-accent">seçili</span>}
+                      </span>
+                      <span className="block text-micro text-muted">{option.hint}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="space-y-1 border-t border-subtle pt-2 text-micro text-muted">
+                <p>{summary}</p>
+                {!online && <p className="text-warn">Çevrimdışısın: yenileme başlatılamaz.</p>}
+              </div>
+            </div>
+          </Popover>
+        </span>
         <button
           type="button"
           onClick={openCommandPalette}

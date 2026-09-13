@@ -24,6 +24,8 @@ from app.modules.opportunity.schemas import (
 from app.sources import forkjob_port
 from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
 from app.sources.base import (
+    SourceClass,
+    env_flag,
     is_general_refresh_source,
     is_opt_in,
     order_by_class,
@@ -49,8 +51,9 @@ class SourceRefreshIn(BaseModel):
 
     source_ids: list[str] | None = None
     kind: Literal["job", "announcement"] | None = None
-    #: general = opt-in/yavas kaynaklar haric; full = 79 kaynagin tamami.
-    mode: Literal["general", "full"] = "general"
+    #: critical = yalnizca resmi/hizli kaynaklar; general = opt-in/yavas
+    #: kaynaklar haric (varsayilan); full = katalogun tamami.
+    mode: Literal["critical", "general", "full"] = "general"
 
 
 class SourceRefreshResult(SourceRefreshOut):
@@ -266,11 +269,11 @@ async def refresh_sources(
     """Secmeli ya da toplu cekim.
 
     source_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);
-    aksi halde `mode`: `general` (varsayilan) critical -> normal sirasiyla
-    kosar ve opt-in/yavas kaynaklari (eures, linkedin) HARIC tutar; `full`
-    katalogun tamamini (79 kaynak) bilerek kosar. API yalnizca kalici batch
-    olusturur; cekimi API arka plan gorevi tuketir; worker acikken ayni kalici
-    kuyrugu paylasir.
+    aksi halde `mode`: `critical` yalnizca resmi/hizli kaynaklari, `general`
+    (varsayilan) opt-in/yavas kaynaklar haric tumunu, `full` ise katalogun
+    tamamini kosar. Her durumda critical -> normal -> slow_optin sirasi
+    korunur. API yalnizca kalici batch olusturur; cekimi API arka plan gorevi
+    tuketir; worker acikken ayni kalici kuyrugu paylasir.
     """
     from app.worker.jobs import drain_source_sync_batches, reclaim_stale_source_runs
 
@@ -281,7 +284,8 @@ async def refresh_sources(
         unknown = [item for item in body.source_ids if item not in catalog]
         if unknown:
             raise HTTPException(404, f"kaynak bulunamadı: {', '.join(unknown[:5])}")
-        selected = [catalog[item] for item in dict.fromkeys(body.source_ids)]
+        # Secili kaynaklarda da sinif sirasi korunur: kritik kaynaklar once.
+        selected = order_by_class([catalog[item] for item in dict.fromkeys(body.source_ids)])
     else:
         pool = list(catalog.values())
         if body.kind:
@@ -290,7 +294,9 @@ async def refresh_sources(
                 for source in pool
                 if ("announcement" if source.id in announcement_ids else "job") == body.kind
             ]
-        if body.mode == "general":
+        if body.mode == "critical":
+            pool = [source for source in pool if source_class(source) is SourceClass.CRITICAL]
+        elif body.mode == "general":
             pool = [source for source in pool if is_general_refresh_source(source)]
         selected = order_by_class(pool)
 
@@ -480,7 +486,35 @@ async def jobhunter_linkedin_profiles_save(body: list = Body(...)):
 
 @router.get("/sources/jobhunter/env")
 async def jobhunter_env():
+    """LinkedIn direct/proxy ayarlarinin gercek durumu.
+
+    `allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca
+    acarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`
+    alani eski istemciler icin ayni degerle korunur.
+    """
+    allow_direct = env_flag(
+        next(
+            (
+                os.environ[name]
+                for name in ("FORKJOB_LINKEDIN_ALLOW_DIRECT", "LINKEDIN_ALLOW_DIRECT")
+                if name in os.environ
+            ),
+            None,
+        ),
+        default=False,
+    )
+    proxies_file = next(
+        (
+            os.environ[name]
+            for name in ("FORKJOB_LINKEDIN_PROXIES_FILE", "LINKEDIN_PROXIES_FILE")
+            if os.environ.get(name)
+        ),
+        "",
+    )
     return {
-        "linkein_allow_direct": os.environ.get("LINKEDIN_ALLOW_DIRECT", ""),
-        "proxies_file": os.environ.get("FORKJOB_LINKEDIN_PROXIES_FILE", ""),
+        "linkedin_allow_direct": allow_direct,
+        "proxies_file": proxies_file,
+        #: Kullanimdan kalkti; yazim hatasiyla uretilen alan geriye uyumluluk
+        #: icin ayni degeri tasir. Yeni kod `linkedin_allow_direct` okumali.
+        "linkein_allow_direct": allow_direct,
     }

@@ -318,6 +318,9 @@ async def test_manual_refresh_status_defaults_to_idle(client: AsyncClient):
     assert response.status_code == 200
     assert response.json() == {
         "status": "idle",
+        "scope": "standard",
+        "batch_id": None,
+        "started": False,
         "started_at": None,
         "finished_at": None,
         "results": {},

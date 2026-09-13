@@ -296,6 +296,8 @@ export function IconButton({
   title,
   disabled,
   tone = "neutral",
+  ariaPressed,
+  ariaExpanded,
   className,
 }: {
   children: ReactNode;
@@ -303,6 +305,10 @@ export function IconButton({
   title: string;
   disabled?: boolean;
   tone?: "neutral" | "danger";
+  /** Aç/kapa düğmeleri için seçili durum (ekran okuyucu sınıfla yetinemez). */
+  ariaPressed?: boolean;
+  /** Bir panel/popover açan düğmeler için. */
+  ariaExpanded?: boolean;
   className?: string;
 }) {
   return (
@@ -310,6 +316,8 @@ export function IconButton({
       type="button"
       title={title}
       aria-label={title}
+      aria-pressed={ariaPressed}
+      aria-expanded={ariaExpanded}
       disabled={disabled}
       onClick={onClick}
       className={cx(

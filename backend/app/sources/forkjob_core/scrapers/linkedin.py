@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
+from app.sources.base import env_flag
+
 from ..linkedin_profiles import LinkedInProfiles
 from ..models import Job, Layer, WorkMode, canonical_url, date_source_for
 from ..normalize import html_to_text, parse_datetime, parse_location
@@ -38,6 +40,37 @@ class LinkedInConfig:
     allow_direct: bool = False
 
 
+#: Direct (proxy'siz) LinkedIn erisimi icin ortam degiskenleri. Kanonik ad
+#: `FORKJOB_` onekini tasir; eski `LINKEDIN_` adlari mevcut `.env` dosyalari
+#: bozulmasin diye okunmaya devam eder. Varsayilan KAPALI: bu bir guvenlik
+#: anahtaridir, yanlislikla acilmamali.
+_ALLOW_DIRECT_ENV = ("FORKJOB_LINKEDIN_ALLOW_DIRECT", "LINKEDIN_ALLOW_DIRECT")
+_PROXY_FILE_ENV = ("FORKJOB_LINKEDIN_PROXIES_FILE", "LINKEDIN_PROXIES_FILE")
+
+
+def resolve_linkedin_config(
+    *,
+    proxy_file_env: str = "FORKJOB_LINKEDIN_PROXIES_FILE",
+    allow_direct: bool | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> LinkedInConfig:
+    """Ortam degiskenlerinden LinkedIn baglanti ayarini coz.
+
+    Acikca verilen `allow_direct` kazanir (testler ve cagiran kod icin);
+    verilmezse `FORKJOB_LINKEDIN_ALLOW_DIRECT` okunur ve yoksa KAPALI kalir.
+    """
+    env = os.environ if environ is None else environ
+    resolved_proxy_env = proxy_file_env
+    for name in _PROXY_FILE_ENV:
+        if env.get(name):
+            resolved_proxy_env = name
+            break
+    if allow_direct is None:
+        raw = next((env[name] for name in _ALLOW_DIRECT_ENV if name in env), None)
+        allow_direct = env_flag(raw, default=False)
+    return LinkedInConfig(proxy_file_env=resolved_proxy_env, allow_direct=bool(allow_direct))
+
+
 class LinkedInScraper(ScraperBase):
     """Run configurable LinkedIn searches as one isolated Layer B source."""
 
@@ -51,7 +84,7 @@ class LinkedInScraper(ScraperBase):
         *,
         searches: Sequence[Mapping[str, Any]] | None = None,
         proxy_file_env: str = "FORKJOB_LINKEDIN_PROXIES_FILE",
-        allow_direct: bool = False,
+        allow_direct: bool | None = None,
         ca_cert_env: str = "FORKJOB_LINKEDIN_CA_CERT",
         user_agent_env: str = "FORKJOB_LINKEDIN_USER_AGENT",
         runner: Callable[..., Any] | None = None,
@@ -60,9 +93,10 @@ class LinkedInScraper(ScraperBase):
         self.searches = [dict(search) for search in (searches or [])]
         # Merge user-defined profiles from data/linkedin-profiles.yaml.
         self.searches = _merge_user_profiles(self.searches)
-        self.linkedin_config = LinkedInConfig(
-            proxy_file_env=proxy_file_env,
-            allow_direct=allow_direct,
+        # `allow_direct` acikca verilmediyse ortamdan cozulur ve yoksa KAPALI
+        # kalir: proxy'siz LinkedIn erisimi yanlislikla acilmamali.
+        self.linkedin_config = resolve_linkedin_config(
+            proxy_file_env=proxy_file_env, allow_direct=allow_direct
         )
         self.ca_cert_env = ca_cert_env
         self.user_agent_env = user_agent_env

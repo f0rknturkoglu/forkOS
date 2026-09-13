@@ -101,6 +101,35 @@ async def poll_opportunities(*, limit: int = 4) -> int:
     return total
 
 
+#: Acilista kuyruga alinacak kritik kaynak sayisi (sinirli tutulur).
+CRITICAL_CATCH_UP_LIMIT = 12
+
+
+async def critical_catch_up(*, limit: int = CRITICAL_CATCH_UP_LIMIT) -> int:
+    """Acilista kritik kaynaklari kalici yenileme kuyrugunun basina koy.
+
+    Local-only mimaride makine kapaliyken gecen sure kritik YLSY/OSYM
+    kaynaklari icin telafi edilmelidir, ama acilis da bloklanmamali: yalniz
+    `critical` sinif kuyruga girer, sayisi sinirlidir ve cekimi mevcut
+    worker/API drain'i yapar (ilerleme UI'da gorunur, lease/devre kesici
+    guvenlikleri aynen gecerli).
+    """
+    from app.modules.opportunity.worker import critical_source_ids
+
+    ids = critical_source_ids()[:limit]
+    if not ids:
+        return 0
+    async with SessionLocal() as session:
+        batch, newly_queued = await source_sync.create_or_extend_batch(session, ids)
+        await session.commit()
+    log.info(
+        "critical_catch_up: %d kritik kaynak kuyruga alindi (batch %s)",
+        len(newly_queued),
+        batch.id,
+    )
+    return len(newly_queued)
+
+
 DRAIN_HEARTBEAT_KEY = "source_sync.drain"
 #: Bir drain bu kadar saniye kalp atmazsa olu sayilir; API okuma tarafi
 #: kuyrugu devralmak icin yeni bir drain baslatir.

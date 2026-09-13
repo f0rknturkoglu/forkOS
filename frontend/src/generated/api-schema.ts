@@ -3489,7 +3489,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Jobhunter Env */
+        /**
+         * Jobhunter Env
+         * @description LinkedIn direct/proxy ayarlarinin gercek durumu.
+         *
+         *     `allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca
+         *     acarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`
+         *     alani eski istemciler icin ayni degerle korunur.
+         */
         get: operations["jobhunter_env_api_sources_jobhunter_env_get"];
         put?: never;
         post?: never;
@@ -3534,11 +3541,11 @@ export interface paths {
          * @description Secmeli ya da toplu cekim.
          *
          *     source_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);
-         *     aksi halde `mode`: `general` (varsayilan) critical -> normal sirasiyla
-         *     kosar ve opt-in/yavas kaynaklari (eures, linkedin) HARIC tutar; `full`
-         *     katalogun tamamini (79 kaynak) bilerek kosar. API yalnizca kalici batch
-         *     olusturur; cekimi API arka plan gorevi tuketir; worker acikken ayni kalici
-         *     kuyrugu paylasir.
+         *     aksi halde `mode`: `critical` yalnizca resmi/hizli kaynaklari, `general`
+         *     (varsayilan) opt-in/yavas kaynaklar haric tumunu, `full` ise katalogun
+         *     tamamini kosar. Her durumda critical -> normal -> slow_optin sirasi
+         *     korunur. API yalnizca kalici batch olusturur; cekimi API arka plan gorevi
+         *     tuketir; worker acikken ayni kalici kuyrugu paylasir.
          */
         post: operations["refresh_sources_api_sources_refresh_post"];
         delete?: never;
@@ -3982,7 +3989,13 @@ export interface paths {
         /** Manual Refresh Status */
         get: operations["manual_refresh_status_api_system_refresh_get"];
         put?: never;
-        /** Manual Refresh */
+        /**
+         * Manual Refresh
+         * @description Manuel yenileme baslat.
+         *
+         *     Kapsam kritik/standart/tam secilebilir. Zaten calisan bir yenileme varsa
+         *     ikincisi baslatilmaz; ayni istek yanitiyla mevcut durum doner.
+         */
         post: operations["manual_refresh_api_system_refresh_post"];
         delete?: never;
         options?: never;
@@ -5893,8 +5906,22 @@ export interface components {
              */
             to_id: string;
         };
+        /**
+         * ManualRefreshIn
+         * @description Yenileme kapsami. Govde verilmezse `standard`.
+         */
+        ManualRefreshIn: {
+            /**
+             * Scope
+             * @default standard
+             * @enum {string}
+             */
+            scope: "critical" | "standard" | "full";
+        };
         /** ManualRefreshOut */
         ManualRefreshOut: {
+            /** Batch Id */
+            batch_id?: string | null;
             /** Errors */
             errors?: string[];
             /** Finished At */
@@ -5903,6 +5930,16 @@ export interface components {
             results?: {
                 [key: string]: number;
             };
+            /**
+             * Scope
+             * @default standard
+             */
+            scope: string;
+            /**
+             * Started
+             * @default false
+             */
+            started: boolean;
             /** Started At */
             started_at?: string | null;
             /** Status */
@@ -8160,7 +8197,7 @@ export interface components {
              * @default general
              * @enum {string}
              */
-            mode: "general" | "full";
+            mode: "critical" | "general" | "full";
             /** Source Ids */
             source_ids?: string[] | null;
         };
@@ -17774,7 +17811,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ManualRefreshIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -17783,6 +17824,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ManualRefreshOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

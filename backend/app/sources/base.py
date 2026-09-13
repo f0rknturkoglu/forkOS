@@ -178,6 +178,32 @@ def is_general_refresh_source(source: object) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Boolean ortam degiskenleri
+# ---------------------------------------------------------------------------
+
+_TRUTHY_FLAGS = frozenset({"1", "true", "yes", "on"})
+_FALSY_FLAGS = frozenset({"0", "false", "no", "off", ""})
+
+
+def env_flag(value: str | None, *, default: bool = False) -> bool:
+    """Boolean ortam degiskenini guvenli oku.
+
+    `bool(os.environ.get(...))` tuzagi: `"0"`, `"false"` ve `"no"` Python'da
+    truthy'dir, yani `FORKJOB_LINKEDIN_ALLOW_DIRECT=0` yazmak direct scraping'i
+    ACIYORDU. Taninmayan deger sessizce acmaz; `default` doner (varsayilan
+    KAPALI, cunku bu bir guvenlik anahtari).
+    """
+    if value is None:
+        return default
+    text = value.strip().lower()
+    if text in _TRUTHY_FLAGS:
+        return True
+    if text in _FALSY_FLAGS:
+        return False
+    return default
+
+
+# ---------------------------------------------------------------------------
 # Retry-After
 # ---------------------------------------------------------------------------
 

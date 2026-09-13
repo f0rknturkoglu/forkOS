@@ -75,7 +75,8 @@ sources:
       Disabled in default bulk sync; explicit --source linkedin may run it.
     config:
       proxy_file_env: FORKJOB_LINKEDIN_PROXIES_FILE
-      allow_direct: true
+      # Direct (proxy'siz) erisim YALNIZCA FORKJOB_LINKEDIN_ALLOW_DIRECT ile
+      # acilir; burada sabit true yazmak env'i anlamsiz kiliyordu.
       ca_cert_env: FORKJOB_LINKEDIN_CA_CERT
       user_agent_env: FORKJOB_LINKEDIN_USER_AGENT
       searches:

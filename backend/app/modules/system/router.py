@@ -4,7 +4,7 @@ import json
 import uuid
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
@@ -29,8 +29,20 @@ class SettingIn(BaseModel):
     value: Any
 
 
+class ManualRefreshIn(BaseModel):
+    """Yenileme kapsami. Govde verilmezse `standard`."""
+
+    scope: Literal["critical", "standard", "full"] = "standard"
+
+
 class ManualRefreshOut(BaseModel):
     status: str
+    #: Calisan/son calisan yenilemenin kapsami (bkz. refresh.REFRESH_SCOPES).
+    scope: str = "standard"
+    #: Calisan yenilemenin kaynak kuyrugu kimligi (ilerleme takibi icin).
+    batch_id: str | None = None
+    #: Yalnizca POST yanitinda anlamli: bu istek yeni bir yenileme baslatti mi?
+    started: bool = False
     started_at: str | None = None
     finished_at: str | None = None
     results: dict[str, int] = Field(default_factory=dict)
@@ -45,12 +57,18 @@ async def manual_refresh_status(session: AsyncSession = Depends(get_session)):
 @router.post("/system/refresh", response_model=ManualRefreshOut)
 async def manual_refresh(
     background: BackgroundTasks,
+    body: ManualRefreshIn | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    value, started = await refresh.queue(session)
+    """Manuel yenileme baslat.
+
+    Kapsam kritik/standart/tam secilebilir. Zaten calisan bir yenileme varsa
+    ikincisi baslatilmaz; ayni istek yanitiyla mevcut durum doner.
+    """
+    value, started = await refresh.queue(session, scope=(body.scope if body else "standard"))
     if started:
         background.add_task(refresh.run)
-    return value
+    return {**value, "started": started}
 
 
 @router.get("/settings")

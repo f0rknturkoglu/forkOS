@@ -13,10 +13,19 @@ from app.modules.system.models import Setting
 STATUS_KEY = "system.manual_refresh"
 STALE_AFTER = timedelta(hours=1)
 
+#: Manuel yenileme kapsamlari.
+#: critical -- yalnizca resmi/hizli kaynaklar (YLSY, OSYM, YOK, ATS panolari).
+#: standard -- varsayilan: opt-in/yavas kaynaklar haric her sey + medya.
+#: full     -- katalogun tamami, opt-in dahil (kullanici acikca isterse).
+REFRESH_SCOPES = ("critical", "standard", "full")
+DEFAULT_SCOPE = "standard"
+
 
 def _default_status() -> dict[str, Any]:
     return {
         "status": "idle",
+        "scope": DEFAULT_SCOPE,
+        "batch_id": None,
         "started_at": None,
         "finished_at": None,
         "results": {},
@@ -24,49 +33,80 @@ def _default_status() -> dict[str, Any]:
     }
 
 
+def _is_running(started_at: Any, *, now: datetime | None = None) -> bool:
+    """Calisan bir yenileme var mi?
+
+    Kalp atisi bu kadar sure once basladiysa surec olmustur (API yeniden
+    yuklendi, container yeniden basladi); `running` durumunda takili kalip
+    butonu kilitlemesin diye bayat kabul edilir ve yeniden baslatilabilir.
+    """
+    if not isinstance(started_at, str):
+        return False
+    try:
+        moment = datetime.fromisoformat(started_at)
+    except ValueError:
+        return False
+    return moment >= (now or datetime.now(UTC)) - STALE_AFTER
+
+
 async def status(session: AsyncSession) -> dict[str, Any]:
     row = await session.get(Setting, STATUS_KEY)
     value = row.value if row and isinstance(row.value, dict) else _default_status()
-    return {**_default_status(), **value}
+    merged = {**_default_status(), **value}
+    if merged.get("status") == "running" and not _is_running(merged.get("started_at")):
+        # Bayat `running`: kilidi ac ama gecmisi silme (ne oldugu gorunur kalsin).
+        merged["status"] = "interrupted"
+    return merged
 
 
-async def queue(session: AsyncSession) -> tuple[dict[str, Any], bool]:
+async def queue(
+    session: AsyncSession, *, scope: str = DEFAULT_SCOPE
+) -> tuple[dict[str, Any], bool]:
     from app.modules.media import sync as media_sync
     from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
     from app.sources.base import (
+        SourceClass,
         is_general_refresh_source,
         order_by_class,
+        source_class,
         source_estimated_seconds,
     )
     from app.sources.forkjob_port import forkjob_sources
 
-    current = await status(session)
-    started_at = current.get("started_at")
-    if current["status"] == "running" and isinstance(started_at, str):
-        try:
-            if datetime.fromisoformat(started_at) >= datetime.now(UTC) - STALE_AFTER:
-                return current, False
-        except ValueError:
-            pass
+    if scope not in REFRESH_SCOPES:
+        scope = DEFAULT_SCOPE
 
-    # Genel yenileme: critical once, sonra normal. Opt-in/yavas kaynaklar
-    # (eures, linkedin) buraya GIRMEZ; yalnizca kullanici acikca secince kosar.
-    opportunity_sources = order_by_class(
-        [
-            source
-            for source in [*forkjob_sources(), *ANNOUNCEMENT_SOURCES]
-            if is_general_refresh_source(source)
+    current = await status(session)
+    if current["status"] == "running":
+        # Ayni yenilemenin cift baslatilmasi engellenir.
+        return current, False
+
+    everything = [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+    if scope == "critical":
+        selected = [
+            source for source in everything if source_class(source) is SourceClass.CRITICAL
         ]
-    )
+    elif scope == "full":
+        selected = list(everything)
+    else:
+        # Standart: critical once, sonra normal. Opt-in/yavas kaynaklar
+        # (eures, linkedin) buraya GIRMEZ; yalnizca kullanici acikca secince kosar.
+        selected = [source for source in everything if is_general_refresh_source(source)]
+    opportunity_sources = order_by_class(selected)
+
     opportunity_ids = [source.id for source in opportunity_sources]
     batch, newly_queued = await source_sync.create_or_extend_batch(
         session,
         opportunity_ids,
         scope="opportunity",
     )
-    await media_sync.queue_sync(session)
+    # Kritik kapsam yalnizca kaynak sagligini hedefler; medya kendi kapsamina ait.
+    if scope != "critical":
+        await media_sync.queue_sync(session)
     value = {
         "status": "running",
+        "scope": scope,
+        "batch_id": str(batch.id),
         "started_at": datetime.now(UTC).isoformat(),
         "finished_at": None,
         "results": {
@@ -87,7 +127,7 @@ async def queue(session: AsyncSession) -> tuple[dict[str, Any], bool]:
         session,
         verb="system.refresh.started",
         entity_type="system",
-        payload={"opportunity_sources": batch.total_sources},
+        payload={"opportunity_sources": batch.total_sources, "scope": scope},
     )
     await session.commit()
     return value, True

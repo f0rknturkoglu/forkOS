@@ -4874,8 +4874,36 @@
         "title": "LinkIn",
         "type": "object"
       },
+      "ManualRefreshIn": {
+        "description": "Yenileme kapsami. Govde verilmezse `standard`.",
+        "properties": {
+          "scope": {
+            "default": "standard",
+            "enum": [
+              "critical",
+              "standard",
+              "full"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "title": "ManualRefreshIn",
+        "type": "object"
+      },
       "ManualRefreshOut": {
         "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
           "errors": {
             "items": {
               "type": "string"
@@ -4900,6 +4928,16 @@
             },
             "title": "Results",
             "type": "object"
+          },
+          "scope": {
+            "default": "standard",
+            "title": "Scope",
+            "type": "string"
+          },
+          "started": {
+            "default": false,
+            "title": "Started",
+            "type": "boolean"
           },
           "started_at": {
             "anyOf": [
@@ -11699,6 +11737,7 @@
           "mode": {
             "default": "general",
             "enum": [
+              "critical",
               "general",
               "full"
             ],
@@ -25705,6 +25744,7 @@
     },
     "/api/sources/jobhunter/env": {
       "get": {
+        "description": "LinkedIn direct/proxy ayarlarinin gercek durumu.\n\n`allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca\nacarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`\nalani eski istemciler icin ayni degerle korunur.",
         "operationId": "jobhunter_env_api_sources_jobhunter_env_get",
         "responses": {
           "200": {
@@ -25783,7 +25823,7 @@
     },
     "/api/sources/refresh": {
       "post": {
-        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);\naksi halde `mode`: `general` (varsayilan) critical -> normal sirasiyla\nkosar ve opt-in/yavas kaynaklari (eures, linkedin) HARIC tutar; `full`\nkatalogun tamamini (79 kaynak) bilerek kosar. API yalnizca kalici batch\nolusturur; cekimi API arka plan gorevi tuketir; worker acikken ayni kalici\nkuyrugu paylasir.",
+        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);\naksi halde `mode`: `critical` yalnizca resmi/hizli kaynaklari, `general`\n(varsayilan) opt-in/yavas kaynaklar haric tumunu, `full` ise katalogun\ntamamini kosar. Her durumda critical -> normal -> slow_optin sirasi\nkorunur. API yalnizca kalici batch olusturur; cekimi API arka plan gorevi\ntuketir; worker acikken ayni kalici kuyrugu paylasir.",
         "operationId": "refresh_sources_api_sources_refresh_post",
         "requestBody": {
           "content": {
@@ -27229,7 +27269,25 @@
         ]
       },
       "post": {
+        "description": "Manuel yenileme baslat.\n\nKapsam kritik/standart/tam secilebilir. Zaten calisan bir yenileme varsa\nikincisi baslatilmaz; ayni istek yanitiyla mevcut durum doner.",
         "operationId": "manual_refresh_api_system_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ManualRefreshIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -27240,6 +27298,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Manual Refresh",

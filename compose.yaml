@@ -31,6 +31,10 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}
       WORKER_ENABLED: ${WORKER_ENABLED:-0}
+      # Manuel yenileme worker kapaliyken API arka planinda kosar; LinkedIn
+      # ayarlari orada da gerekir (bkz. .env.example).
+      FORKJOB_LINKEDIN_ALLOW_DIRECT: ${FORKJOB_LINKEDIN_ALLOW_DIRECT:-0}
+      FORKJOB_LINKEDIN_PROXIES_FILE: ${FORKJOB_LINKEDIN_PROXIES_FILE:-}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:8787:8787"   # DIŞARI AÇMA — auth yok
     volumes:
@@ -53,8 +57,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       RSS_DEFAULT_INTERVAL_MINUTES: ${RSS_DEFAULT_INTERVAL_MINUTES:-30}
       RSS_RETENTION_DAYS: ${RSS_RETENTION_DAYS:-90}
-      LINKEDIN_ALLOW_DIRECT: ${LINKEDIN_ALLOW_DIRECT:-1}
-      LINKEDIN_PROXIES_FILE: ${LINKEDIN_PROXIES_FILE:-}
+      # Direct (proxy'siz) LinkedIn erisimi VARSAYILAN KAPALI. Acmak icin
+      # .env'de FORKJOB_LINKEDIN_ALLOW_DIRECT=1 yaz.
+      FORKJOB_LINKEDIN_ALLOW_DIRECT: ${FORKJOB_LINKEDIN_ALLOW_DIRECT:-0}
+      FORKJOB_LINKEDIN_PROXIES_FILE: ${FORKJOB_LINKEDIN_PROXIES_FILE:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}

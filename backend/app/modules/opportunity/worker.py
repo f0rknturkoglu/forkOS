@@ -14,7 +14,14 @@ from app.db import SessionLocal
 from app.modules.opportunity import service
 from app.modules.opportunity import sync as sync_service
 from app.sources.announcements import SOURCES
-from app.sources.base import FetchOutcome, normalize_fetch, source_class, source_timeout_seconds
+from app.sources.base import (
+    CLASS_ORDER,
+    FetchOutcome,
+    is_general_refresh_source,
+    normalize_fetch,
+    source_class,
+    source_timeout_seconds,
+)
 from app.sources.forkjob_port import forkjob_sources
 
 log = logging.getLogger("worker.opportunity")
@@ -305,9 +312,48 @@ async def _run_health_check(source, *, status: str, error_kind: str | None = Non
         await session.commit()
 
 
+def critical_source_ids() -> list[str]:
+    """Katalogdaki kritik kaynaklarin id'leri: resmi duyurular once, sonra ATS.
+
+    Resmi/kamusal kaynaklar (OSYM, YLSY, YOK) birincil sinyaldir; hizli ATS
+    panolari onlarin onune gecmemeli. Kuyruk sirasi boyle kurulunca kritik
+    kaynaklar yavas panolarin arkasinda beklemez.
+    """
+    from app.sources.base import SourceClass, order_by_class
+
+    ordered = order_by_class([*forkjob_sources(), *SOURCES])
+    critical = [source for source in ordered if source_class(source) is SourceClass.CRITICAL]
+    official = [
+        source
+        for source in critical
+        if getattr(source, "official", False) and getattr(source, "canonical", False)
+    ]
+    official_ids = {source.id for source in official}
+    return [*[source.id for source in official], *[s.id for s in critical if s.id not in official_ids]]
+
+
+def general_refresh_sources() -> list:
+    """Periyodik turda kosacak kaynaklar: opt-in/yavas kaynaklar HARIC.
+
+    Karar tek merkezden gelir (`is_general_refresh_source`); scheduler tek tek
+    isim kontrol etmez, boylece `slow_optin` politikasi degistiginde burada
+    degisiklik gerekmez.
+    """
+    return [
+        source
+        for source in [*forkjob_sources(), *SOURCES]
+        if is_general_refresh_source(source)
+    ]
+
+
 async def poll_opportunities(*, limit: int = 4) -> int:
-    """Her adapter'ın kendi aralığına göre yalnızca süresi gelenleri çek."""
-    sources = [*forkjob_sources(), *SOURCES]
+    """Her adapter'ın kendi aralığına göre yalnızca süresi gelenleri çek.
+
+    Periyodik tur GENEL yenilemedir: `slow_optin` kaynaklar (EURES, LinkedIn,
+    Memurlar gibi yavas/opsiyonel olanlar) kullanicinin acik secimi olmadan
+    kosmaz.
+    """
+    sources = general_refresh_sources()
     async with SessionLocal() as session:
         latest = dict(
             (
@@ -323,6 +369,12 @@ async def poll_opportunities(*, limit: int = 4) -> int:
 
 
 def select_due_sources(sources, latest: dict[str, datetime], *, now: datetime | None = None):
+    """Suresi gelen kaynaklar: once kritik, sonra normal, en son slow_optin.
+
+    Sinif onceligi birincil anahtardir; kaynak ancak kendi sinifindaki
+    kaynaklarla yarisir. Boylece kritik YLSY/OSYM kaynaklari yavas panolarin
+    arkasinda saatlerce beklemez.
+    """
     current = now or datetime.now(UTC)
 
     def due_at(source):
@@ -333,7 +385,7 @@ def select_due_sources(sources, latest: dict[str, datetime], *, now: datetime | 
 
     return sorted(
         (source for source in sources if due_at(source) <= current),
-        key=due_at,
+        key=lambda source: (CLASS_ORDER[source_class(source).value], due_at(source), source.id),
     )
 
 

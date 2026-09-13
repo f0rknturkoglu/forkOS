@@ -23,6 +23,7 @@ from app.worker.jobs import (
     catch_up,
     catch_up_media,
     consume_source_sync_batches,
+    critical_catch_up,
     nightly_backup,
     poll_feeds,
     poll_media,
@@ -129,6 +130,8 @@ async def main() -> None:
     startup_tasks = [
         ("heartbeat", record_worker_heartbeat),
         ("backfill_opportunity_skill_matches", backfill_opportunity_skill_matches),
+        # Kritik kaynaklar once: aciliş tanıtımında YLSY/OSYM tazelenir.
+        ("critical_catch_up", critical_catch_up),
         ("catch_up_feeds", catch_up),
         ("catch_up_media", catch_up_media),
         ("deadlines", deadlines),
