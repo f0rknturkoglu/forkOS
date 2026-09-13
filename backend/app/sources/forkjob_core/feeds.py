@@ -1,8 +1,13 @@
 """Load and save user-defined RSS job feeds.
 
-Feeds live in data/feeds.yaml and are managed through the web UI at /feeds.
-They are read by the `customfeeds` Layer B scraper, so adding a feed in the
-browser is enough to have the next sync collect it — no code change.
+Feeds are managed through the web UI and read by the `customfeeds` Layer B
+scraper, so adding a feed in the browser is enough to have the next sync
+collect it — no code change.
+
+A feed list says what the user is looking for, so it is personal data: it lives
+in `feeds.yaml.user`, which `.gitignore` excludes. `feeds.yaml` is the tracked
+template — it ships empty and is only read once to adopt a file left behind by
+an older version.
 
 Mirrors linkedin_profiles.py: same atomic save, same tolerance for a missing or
 malformed file. A broken feeds file must never stop a sync.
@@ -19,14 +24,22 @@ from urllib.parse import urlsplit
 
 import yaml
 
-DEFAULT_FEEDS_PATH = Path(__file__).parent / "data" / "feeds.yaml"
+from .userdata import user_path
+
+#: Tracked template — shipped with the app, never written at runtime.
+TEMPLATE_FEEDS_PATH = Path(__file__).parent / "data" / "feeds.yaml"
+#: Runtime file — what the web UI reads and writes. Excluded by .gitignore.
+USER_FEEDS_PATH = user_path(TEMPLATE_FEEDS_PATH)
 
 _FEEDS_HEADER = """\
-# User-defined RSS job feeds.
+# User-defined RSS job feeds — LOCAL, GIT-IGNORED FILE.
 #
-# Managed through the web UI at /feeds — you do not need to edit this file by
-# hand. Every enabled feed here is fetched by the `customfeeds` source on the
-# next sync.
+# Managed through the web UI — you do not need to edit this file by hand.
+# Every enabled feed here is fetched by the `customfeeds` source on the next
+# sync.
+#
+# This list reflects what you are looking for, so it is never committed. The
+# tracked data/feeds.yaml is only an empty template.
 #
 # Feed fields:
 #   url       required — the feed URL (RSS or Atom)
@@ -114,12 +127,32 @@ class Feed:
         )
 
 
+def _read_feeds(path: Path) -> list[Feed]:
+    """Parse a feeds file; missing or malformed reads as "no feeds".
+
+    A broken file must never stop a sync, and a feed without a URL can never be
+    fetched, so it is dropped on the way in.
+    """
+    if not path.exists():
+        return []
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return []
+    entries = raw.get("feeds") or []
+    if not isinstance(entries, list):
+        return []
+    feeds = [Feed.from_dict(entry) for entry in entries if isinstance(entry, dict)]
+    return [feed for feed in feeds if feed.url]
+
+
 @dataclass(slots=True)
 class Feeds:
     """In-memory collection of user feeds with atomic file save."""
 
     feeds: list[Feed] = field(default_factory=list)
-    path: Path = DEFAULT_FEEDS_PATH
+    #: Resolved at instantiation so the module constant always wins.
+    path: Path = field(default_factory=lambda: USER_FEEDS_PATH)
 
     def __len__(self) -> int:
         return len(self.feeds)
@@ -136,22 +169,27 @@ class Feeds:
     # -- io ------------------------------------------------------------------
 
     @classmethod
-    def load(cls, path: Path | str = DEFAULT_FEEDS_PATH) -> Feeds:
-        path = Path(path)
-        if not path.exists():
-            return cls([], path)
+    def load(cls, path: Path | str | None = None) -> Feeds:
+        """Feeds from the runtime file, adopting a legacy tracked file once.
 
-        try:
-            raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError:
-            return cls([], path)
+        `path` is an explicit override for tests and tooling. Without it a user
+        upgrading from a version that wrote feeds into the tracked template
+        keeps them: the template is read once, moved into the runtime file, and
+        never written again.
+        """
+        if path is not None:
+            target = Path(path)
+            return cls(_read_feeds(target), target)
 
-        entries = raw.get("feeds") or []
-        if not isinstance(entries, list):
-            return cls([], path)
-
-        feeds = [Feed.from_dict(e) for e in entries if isinstance(e, dict)]
-        return cls([f for f in feeds if f.url], path)
+        collection = cls(_read_feeds(USER_FEEDS_PATH), USER_FEEDS_PATH)
+        if collection.feeds:
+            return collection
+        legacy = _read_feeds(TEMPLATE_FEEDS_PATH)
+        if not legacy:
+            return collection
+        collection.feeds = legacy
+        collection.save()
+        return collection
 
     def save(self) -> None:
         payload = {"version": 1, "feeds": [f.to_dict() for f in self.feeds]}

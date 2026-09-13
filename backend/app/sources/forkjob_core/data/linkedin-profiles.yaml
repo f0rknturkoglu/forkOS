@@ -1,8 +1,11 @@
-# User-defined LinkedIn search profiles.
+# TEMPLATE — user-defined LinkedIn search profiles live elsewhere.
 #
-# Managed through the web UI at /linkedin — you do not need to edit this file
-# by hand. Default profiles from data/portals.yaml are merged with these at
-# sync time; both sets run together.
+# This file is committed to git, so it MUST stay free of personal data. Your
+# own profiles live in `linkedin-profiles.yaml.user` next to this file, which
+# .gitignore excludes; manage them from the web UI, never by hand.
+#
+# Default profiles from data/portals.yaml are merged with yours at sync time;
+# both sets run together.
 #
 # Profile fields:
 #   term              required — search keyword (e.g. "backend engineer")
@@ -13,8 +16,4 @@
 #   fetch_description optional — fetch full description (slower, more requests)
 
 version: 1
-profiles:
-- term: junior yazılım mühendisi
-  location: ankara
-  results_wanted: 100
-  fetch_description: true
+profiles: []

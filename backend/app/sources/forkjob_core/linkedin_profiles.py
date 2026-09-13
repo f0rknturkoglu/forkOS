@@ -1,9 +1,14 @@
 """Load, merge, and save user-defined LinkedIn search profiles.
 
 Default profiles live in data/portals.yaml under linkedin.config.searches.
-User profiles live in data/linkedin-profiles.yaml and are managed through the
-web UI. Both sets are merged at sync time — defaults come first, then user
-profiles in the order they were saved.
+User profiles live in a local runtime file and are managed through the web UI.
+Both sets are merged at sync time — defaults come first, then user profiles in
+the order they were saved.
+
+Search profiles are personal data (what the user is looking for, and where), so
+they are written to `linkedin-profiles.yaml.user`, which `.gitignore` excludes.
+`linkedin-profiles.yaml` is the tracked template: it ships empty and is only
+read once to adopt a file left behind by an older version.
 """
 
 from __future__ import annotations
@@ -16,14 +21,22 @@ from typing import Any
 
 import yaml
 
-DEFAULT_PROFILES_PATH = Path(__file__).parent / "data" / "linkedin-profiles.yaml"
+from .userdata import user_path
+
+#: Tracked template — shipped with the app, never written at runtime.
+TEMPLATE_PROFILES_PATH = Path(__file__).parent / "data" / "linkedin-profiles.yaml"
+#: Runtime file — what the web UI reads and writes. Excluded by .gitignore.
+USER_PROFILES_PATH = user_path(TEMPLATE_PROFILES_PATH)
 
 _PROFILES_HEADER = """\
-# User-defined LinkedIn search profiles.
+# User-defined LinkedIn search profiles — LOCAL, GIT-IGNORED FILE.
 #
-# Managed through the web UI at /linkedin — you do not need to edit this file
-# by hand. Default profiles from data/portals.yaml are merged with these at
-# sync time; both sets run together.
+# Managed through the web UI — you do not need to edit this file by hand.
+# Default profiles from data/portals.yaml are merged with these at sync time;
+# both sets run together.
+#
+# This file holds personal search data and is never committed. The tracked
+# data/linkedin-profiles.yaml is only an empty template.
 #
 # Profile fields:
 #   term              required — search keyword (e.g. "backend engineer")
@@ -72,12 +85,32 @@ class LinkedInProfile:
         )
 
 
+def _read_profiles(path: Path) -> list[LinkedInProfile]:
+    """Parse a profiles file; missing or malformed reads as "no profiles".
+
+    A broken file must never stop a sync, and the caller cannot tell the
+    difference between "not there yet" and "unreadable" — both mean the
+    defaults from portals.yaml still apply.
+    """
+    if not path.exists():
+        return []
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return []
+    entries = raw.get("profiles") or []
+    if not isinstance(entries, list):
+        return []
+    return [LinkedInProfile.from_dict(entry) for entry in entries if isinstance(entry, dict)]
+
+
 @dataclass(slots=True)
 class LinkedInProfiles:
     """In-memory collection of user profiles with atomic file save."""
 
     profiles: list[LinkedInProfile] = field(default_factory=list)
-    path: Path = DEFAULT_PROFILES_PATH
+    #: Resolved at instantiation so the module constant always wins.
+    path: Path = field(default_factory=lambda: USER_PROFILES_PATH)
 
     def __len__(self) -> int:
         return len(self.profiles)
@@ -91,22 +124,27 @@ class LinkedInProfiles:
     # -- io ------------------------------------------------------------------
 
     @classmethod
-    def load(cls, path: Path | str = DEFAULT_PROFILES_PATH) -> LinkedInProfiles:
-        path = Path(path)
-        if not path.exists():
-            return cls([], path)
+    def load(cls, path: Path | str | None = None) -> LinkedInProfiles:
+        """Profiles from the runtime file, adopting a legacy tracked file once.
 
-        try:
-            raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError:
-            return cls([], path)
+        `path` is an explicit override for tests and tooling; without it the
+        runtime file wins. A user upgrading from a version that still wrote
+        profiles into the tracked template keeps them: the template is read
+        once, moved into the runtime file, and never written again.
+        """
+        if path is not None:
+            target = Path(path)
+            return cls(_read_profiles(target), target)
 
-        entries = raw.get("profiles") or []
-        if not isinstance(entries, list):
-            return cls([], path)
-
-        profiles = [LinkedInProfile.from_dict(e) for e in entries if isinstance(e, dict)]
-        return cls(profiles, path)
+        collection = cls(_read_profiles(USER_PROFILES_PATH), USER_PROFILES_PATH)
+        if collection.profiles:
+            return collection
+        legacy = _read_profiles(TEMPLATE_PROFILES_PATH)
+        if not legacy:
+            return collection
+        collection.profiles = legacy
+        collection.save()
+        return collection
 
     def save(self) -> None:
         payload = {
