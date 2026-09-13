@@ -64,13 +64,41 @@ def test_broken_markup_degrades_to_empty_without_raising(source):
 
 
 @pytest.mark.parametrize("source", INSTITUTION_SOURCES, ids=lambda source: source.id)
-async def test_fetch_returns_empty_instead_of_raising(source, monkeypatch):
+async def test_fetch_raises_on_network_error_so_the_run_is_not_empty(source, monkeypatch):
+    """Kurum sitesi erişilemezse koşum `error` olmalı, sessiz `empty` değil.
+
+    Eski davranış (`except -> []`) kurumun yayındaki duyurularını "kaynakta
+    yok" gibi gösteriyordu; devre kesici ve hata bildirimi de hiç devreye
+    girmiyordu.
+    """
+
     async def offline(*args, **kwargs):
         raise httpx.ConnectError("offline")
 
     monkeypatch.setattr("app.sources.institutions._request_with_retry", offline)
 
-    assert await source.fetch() == []
+    with pytest.raises(httpx.HTTPError):
+        await source.fetch()
+
+
+@pytest.mark.parametrize("source", INSTITUTION_SOURCES, ids=lambda source: source.id)
+async def test_fetch_returns_complete_outcome_for_a_good_listing(source, monkeypatch):
+    """Başarılı çekim `partial=False` bir sonuç döndürür (kapsam tam)."""
+    body = (FIXTURES / f"{source.id}.html").read_text()
+
+    class _Response:
+        text = body
+        url = source.url
+
+    async def ok(*args, **kwargs):
+        return _Response()
+
+    monkeypatch.setattr("app.sources.institutions._request_with_retry", ok)
+
+    outcome = await source.fetch()
+
+    assert outcome.partial is False
+    assert outcome.items
 
 
 def test_tuseb_embedded_next_data_is_parsed_as_fallback():

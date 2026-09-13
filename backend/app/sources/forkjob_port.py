@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.sources.base import RawItem
+from app.sources.base import FetchOutcome, RawItem
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.models import Job
 from app.sources.forkjob_core.registry import Registry
@@ -82,18 +82,26 @@ class PortalSource:
         """
         return self.portal.category
 
-    async def fetch(self) -> list[RawItem]:
+    async def fetch(self) -> FetchOutcome:
         scraper = get_scraper(self.portal)
         if scraper is None:
             raise RuntimeError(unavailable_reason(self.portal.key))
         result = await scraper.collect()
-        if isinstance(result, ScrapeBatch):
-            if result.succeeded == 0 and result.errors:
-                raise RuntimeError("; ".join(result.errors))
-            jobs = result.jobs
-        else:
-            jobs = result
-        return [job_to_raw(job) for job in jobs]
+        if not isinstance(result, ScrapeBatch):
+            return FetchOutcome(items=[job_to_raw(job) for job in result])
+        if result.succeeded == 0 and result.errors:
+            # Hicbir parca basarili degil: guvenilir sonuc yok, kosum hatadir.
+            raise RuntimeError("; ".join(result.errors))
+        # Yarim basari KORUNUR: bazi sayfalar/profiller alindiysa kayitlar
+        # ingest edilir ama kosum `partial` olur ve kapanma taramasi yapilmaz.
+        partial = bool(result.errors) or (
+            result.attempted > 0 and result.succeeded < result.attempted
+        )
+        return FetchOutcome(
+            items=[job_to_raw(job) for job in result.jobs],
+            partial=partial,
+            detail="; ".join(result.errors[:5]) if partial else "",
+        )
 
 
 def forkjob_sources(*, include_opt_in: bool = False) -> list[AtsBoardSource | PortalSource]:

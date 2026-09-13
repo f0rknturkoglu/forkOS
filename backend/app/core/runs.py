@@ -19,10 +19,17 @@ from app.core.events import log_event
 from app.core.models import Entity, SourceRun
 
 EMPTY_STREAK_ALERT = 3      # ust uste bu kadar bos kosum -> bildirim
-OK = "ok"
+ERROR_STREAK_ALERT = 3      # ust uste bu kadar hata kosumu -> bildirim
+OK = "ok"                   # complete: kaynagin hedeflenen kapsami tamamen tarandi
+PARTIAL = "partial"         # bazi gecerli kayitlar alindi, kapsam tam degil
 EMPTY = "empty"
 ERROR = "error"
 ABANDONED = "abandoned"
+
+#: Kapanma taramasi (sweep) YALNIZCA bu durumda guvenlidir: kaynak hedefledigi
+#: kapsami tamamen taradi. `partial`/`empty`/`error` kosusunda eksik gorunen
+#: kayitlar gercekte var olabilir; onlari kapatmak veri kaybidir.
+SWEEPABLE_STATUS = OK
 
 #: Hata siniflari. `source_run.error_kind` kolonu (bkz. rapor) ya da error
 #: metninin `[kind]` oneki ile tasinir; ikisi de ayni degerleri kullanir.
@@ -35,6 +42,7 @@ ERROR_KINDS = (
     "http_429",
     "http_5xx",
     "parser",
+    "partial",
     "circuit_open",
     "unknown",
 )
@@ -186,11 +194,14 @@ async def start_run(
 
 async def finish_run(
     session: AsyncSession, run: SourceRun, *,
-    status: str, items_found: int = 0, error: str | None = None,
+    status: str, items_found: int = 0, items_seen: int | None = None,
+    error: str | None = None,
     error_kind: str | None = None,
 ) -> None:
     run.status = status
     run.items_found = items_found
+    if items_seen is not None:
+        run.items_seen = items_seen
     message = sanitize_error(error)
     kind = error_kind or (classify_error(message) if message else None)
     # `error_kind` kolonu modelde varsa ayri tasinir; yoksa metnin onekine
@@ -241,17 +252,48 @@ async def last_statuses(session: AsyncSession, source: str, limit: int) -> list[
     )).scalars())
 
 
+async def previous_seen_count(
+    session: AsyncSession, source: str, *, exclude_run_id: int, status: str = OK
+) -> int | None:
+    """Ayni kaynagin onceki `status` kosumunda kac kayit gorulmustu?
+
+    Kapsam karsilastirmasinin tabani budur: yeni kosu tabanin yarisindan azi
+    gorduyse kaynak daralmis (sayfalama/feed bozulmus) demektir ve kapanma
+    taramasi yapilmaz.
+    """
+    return (
+        await session.execute(
+            select(SourceRun.items_seen)
+            .where(
+                SourceRun.source == source,
+                SourceRun.status == status,
+                SourceRun.id != exclude_run_id,
+            )
+            .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def _fresh_streak(session: AsyncSession, source: str, *, status: str, streak: int) -> bool:
+    """Son `streak` kosum tam olarak `status` mi, ve bu seri YENI mi?
+
+    Ayni serinin 4., 5. kosumlarinda tekrar bildirim spam'i yapmamak icin
+    bir onceki pencereye de bakilir: seri zaten tamamlanmissa alarm atilmaz.
+    """
+    statuses = await last_statuses(session, source, streak + 1)
+    if len(statuses) < streak or any(item != status for item in statuses[:streak]):
+        return False
+    return not (len(statuses) > streak and all(item == status for item in statuses[1 : streak + 1]))
+
+
 async def check_stalled(session: AsyncSession, source: str, *, label: str = "") -> bool:
     """Son N kosum bos mu? Oyleyse bildirim ve event uretir (Kural 6).
 
     Ust uste 3 empty -> bildirim. Sessiz olum kabul edilemez.
     Ayni bos serinin 4., 5. kosumlarinda tekrar bildirim spam'i yapmaz.
     """
-    statuses = await last_statuses(session, source, EMPTY_STREAK_ALERT + 1)
-    if len(statuses) < EMPTY_STREAK_ALERT or any(s != EMPTY for s in statuses[:EMPTY_STREAK_ALERT]):
-        return False
-    # Onceki turda da zaten 3'luk streak tamamlanmissa tekrar bildirim/event atma
-    if len(statuses) > EMPTY_STREAK_ALERT and all(s == EMPTY for s in statuses[1 : EMPTY_STREAK_ALERT + 1]):
+    if not await _fresh_streak(session, source, status=EMPTY, streak=EMPTY_STREAK_ALERT):
         return False
 
     display = label or source
@@ -276,6 +318,66 @@ async def check_stalled(session: AsyncSession, source: str, *, label: str = "") 
         importance=2,
     )
     return True
+
+
+async def check_failing(
+    session: AsyncSession, source: str, *, label: str = "", error_kind: str | None = None
+) -> bool:
+    """Ust uste hata veren kaynak icin bildirim uretir.
+
+    Bos kosumdan farki: kaynak aga hic cikamiyor ya da cevabi ayristirilamiyor.
+    Ayirt edilmezse "empty" alarmi yanlis teshis koydurur (kaynak olmus degil,
+    erisilemiyor olabilir). Hata sinifi bildirime tasinir.
+    """
+    if not await _fresh_streak(session, source, status=ERROR, streak=ERROR_STREAK_ALERT):
+        return False
+
+    display = label or source
+    detail = f" (son hata türü: {error_kind})" if error_kind else ""
+    message = f"{display}: üst üste {ERROR_STREAK_ALERT} koşum hata verdi{detail}"
+    await log_event(
+        session,
+        verb="source.failing",
+        payload={
+            "source": source,
+            "label": label,
+            "streak": ERROR_STREAK_ALERT,
+            "error_kind": error_kind,
+            "message": message,
+        },
+    )
+
+    from app.core.notifications import notify
+    from app.core.time import local_today
+
+    today_str = local_today().isoformat()
+    await notify(
+        session,
+        kind="source_failing",
+        title=f"Kaynak erişilemiyor: {display}",
+        body=(
+            f"{display} kaynağı üst üste {ERROR_STREAK_ALERT} kez hata verdi{detail}. "
+            "Site erişilemiyor veya ayrıştırıcı bozulmuş olabilir; kaynak devre kesiciyle geçici olarak atlanır."
+        ),
+        dedup_key=f"source_failing:{source}:{today_str}",
+        importance=2,
+    )
+    return True
+
+
+async def check_source_health(
+    session: AsyncSession, source: str, *, status: str, label: str = "", error_kind: str | None = None
+) -> bool:
+    """Kosum sonucuna uygun saglik alarmini uretir; `partial` sessizdir.
+
+    `partial` bir alarm degildir: kaynak calisiyor, yalnizca kapsami eksik.
+    Kapsam eksikligi zaten kosumun `status`'unde ve detayinda gorunur.
+    """
+    if status == EMPTY:
+        return await check_stalled(session, source, label=label)
+    if status == ERROR:
+        return await check_failing(session, source, label=label, error_kind=error_kind)
+    return False
 
 
 # ---------------------------------------------------------------------------

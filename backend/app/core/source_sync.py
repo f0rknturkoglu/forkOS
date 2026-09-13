@@ -29,6 +29,7 @@ def batch_out(batch: SourceSyncBatch) -> dict:
         "total_sources": total,
         "completed_sources": batch.completed_sources,
         "ok_sources": batch.ok_sources,
+        "partial_sources": batch.partial_sources,
         "empty_sources": batch.empty_sources,
         "error_sources": batch.error_sources,
         "items_found": batch.items_found,
@@ -362,7 +363,9 @@ async def _recompute_batch(session: AsyncSession, batch: SourceSyncBatch) -> Non
                 select(SourceRun)
                 .where(
                     SourceRun.batch_id == batch.id,
-                    SourceRun.status.in_(("ok", "empty", "error")),
+                    # `partial` de tamamlanmis bir kosumdur: sayilmazsa batch
+                    # sonsuza kadar `running` kalir.
+                    SourceRun.status.in_(("ok", "partial", "empty", "error")),
                 )
                 .order_by(SourceRun.started_at.desc(), SourceRun.id.desc())
             )
@@ -374,6 +377,7 @@ async def _recompute_batch(session: AsyncSession, batch: SourceSyncBatch) -> Non
             latest.setdefault(row.source, row)
     batch.completed_sources = len(latest)
     batch.ok_sources = sum(row.status == "ok" for row in latest.values())
+    batch.partial_sources = sum(row.status == "partial" for row in latest.values())
     batch.empty_sources = sum(row.status == "empty" for row in latest.values())
     batch.error_sources = sum(row.status == "error" for row in latest.values())
     batch.items_found = sum(row.items_found for row in latest.values())

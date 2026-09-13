@@ -152,10 +152,14 @@ class SourceRun(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="ok")
+    #: Kaynagin BU kosuda dondurdugu kayit sayisi (taranan kapsam).
+    #: Kapanma taramasinin kapsam karsilastirmasi bunu kullanir.
+    items_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: Yeni olusturulan firsat sayisi (`items_seen`den farkli olabilir).
     items_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error: Mapped[str | None] = mapped_column(Text)
     #: tls | dns | timeout | http_403 | http_404 | http_429 | http_5xx |
-    #: parser | circuit_open | unknown. Arayuz hata sinifini bununla gosterir.
+    #: parser | partial | circuit_open | unknown. Arayuz hata sinifini bununla gosterir.
     error_kind: Mapped[str | None] = mapped_column(String(24))
     batch_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("source_sync_batch.id", ondelete="SET NULL")
@@ -178,6 +182,8 @@ class SourceSyncBatch(Base):
     total_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     completed_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ok_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    #: Kaynak calisti ama kapsamin tamamini taramadi (bkz. source_run.partial).
+    partial_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     empty_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_sources: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     items_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

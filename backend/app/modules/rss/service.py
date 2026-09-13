@@ -590,7 +590,7 @@ async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
     run_status = {OK: run_svc.OK, EMPTY: run_svc.EMPTY,
                   NOT_MODIFIED: run_svc.OK, ERROR: run_svc.ERROR}[result.status]
     await run_svc.finish_run(session, run, status=run_status, items_found=added,
-                             error=result.error)
+                             items_seen=len(result.items), error=result.error)
     await session.commit()
 
     if run_status == run_svc.EMPTY:

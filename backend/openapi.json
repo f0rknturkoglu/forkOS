@@ -21519,6 +21519,21 @@
           },
           {
             "in": "query",
+            "name": "source_status",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "enum": [
+                "active",
+                "stale",
+                "all"
+              ],
+              "title": "Source Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "sort",
             "required": false,
             "schema": {

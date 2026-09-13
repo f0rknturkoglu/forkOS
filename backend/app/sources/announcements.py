@@ -16,7 +16,7 @@ import httpx
 from pypdf import PdfReader
 from selectolax.parser import HTMLParser
 
-from app.sources.base import RawItem
+from app.sources.base import FetchOutcome, RawItem
 
 
 def parse_turkish_heading_date(title: str):
@@ -1109,26 +1109,43 @@ class YlsySource(AnnouncementSource):
             guide.extra["deadline_at"] = deadline_at.isoformat()
         return children
 
-    async def fetch(self) -> list[RawItem]:
+    async def fetch(self) -> list[RawItem] | FetchOutcome:
+        """Ana duyuru listesi + yardimci RSS + kilavuz/kontenjan tablolari.
+
+        Ana AJAX listesi birincildir: alinamazsa kosum hatadir. Yardimci
+        kaynaklar (RSS, kilavuz PDF'leri) bozulursa ana sonuclar KORUNUR ve
+        kosum `partial` olur -- eksik kapsamla kapanma taramasi yapilamaz.
+        """
         headers = {
             "User-Agent": "forkOS/0.1 local announcement monitor",
             "X-Requested-With": "XMLHttpRequest",
             "Referer": self.url,
         }
+        partial = False
+        details: list[str] = []
         async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=headers) as client:
             await _request_with_retry(client, "GET", self.url)
             rows: list[dict] = []
             start = 0
             while start < self.max_records:
-                response = await _request_with_retry(
-                    client,
-                    "POST",
-                    _YLSY_AJAX_URL,
-                    data=self._form(start),
-                )
-                payload = response.json()
-                if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
-                    raise RuntimeError(f"YLSY duyuru API beklenmeyen cevap: {payload!r}")
+                try:
+                    response = await _request_with_retry(
+                        client,
+                        "POST",
+                        _YLSY_AJAX_URL,
+                        data=self._form(start),
+                    )
+                    payload = response.json()
+                    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                        raise RuntimeError(f"YLSY duyuru API beklenmeyen cevap: {payload!r}")
+                except Exception as exc:  # noqa: BLE001 - ilk sayfa disinda kismi sonuc korunur
+                    if not rows:
+                        raise
+                    partial = True
+                    details.append(
+                        f"duyuru sayfalamasi {start}. kayitta durdu ({type(exc).__name__})"
+                    )
+                    break
                 page = payload["data"]
                 rows.extend(page)
                 try:
@@ -1139,19 +1156,35 @@ class YlsySource(AnnouncementSource):
                     break
                 start += len(page)
 
-            rss_response = await _request_with_retry(
-                client,
-                "GET",
-                _YLSY_RSS_URL,
-                headers={"Accept": "application/rss+xml, application/xml, text/xml"},
-            )
             items = self.parse_rows(rows)
-            known_titles = {_norm(item.title) for item in items}
-            items.extend(
-                item for item in self.parse_rss(rss_response.content) if _norm(item.title) not in known_titles
-            )
-            items.extend(await self._guide_items(client, items))
-        return list({item.external_id: item for item in link_corrections(items)}.values())
+
+            try:
+                rss_response = await _request_with_retry(
+                    client,
+                    "GET",
+                    _YLSY_RSS_URL,
+                    headers={"Accept": "application/rss+xml, application/xml, text/xml"},
+                )
+                known_titles = {_norm(item.title) for item in items}
+                items.extend(
+                    item
+                    for item in self.parse_rss(rss_response.content)
+                    if _norm(item.title) not in known_titles
+                )
+            except Exception as exc:  # noqa: BLE001 - yardimci feed: ana sonuc korunur
+                partial = True
+                details.append(f"rss: {type(exc).__name__}")
+
+            try:
+                items.extend(await self._guide_items(client, items))
+            except Exception as exc:  # noqa: BLE001 - kilavuz/kontenjan: ana sonuc korunur
+                partial = True
+                details.append(f"kilavuz/kontenjan: {type(exc).__name__}")
+
+        deduped = list({item.external_id: item for item in link_corrections(items)}.values())
+        if not partial:
+            return deduped
+        return FetchOutcome(items=deduped, partial=True, detail="; ".join(details))
 
 
 class YokAnnouncementSource(AnnouncementSource):

@@ -13834,6 +13834,7 @@ export interface operations {
                 min_skill_match?: number | null;
                 max_skill_match?: number | null;
                 skill_match_state?: ("any" | "computed" | "uncomputed") | null;
+                source_status?: "active" | "stale" | "all";
                 sort?: string;
                 offset?: number;
                 limit?: number;

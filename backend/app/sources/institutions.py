@@ -48,7 +48,7 @@ from app.sources.announcements import (
     parse_announcement_dates,
     parse_turkish_heading_date,
 )
-from app.sources.base import RawItem
+from app.sources.base import FetchOutcome, RawItem
 
 #: YLSY başvuru/kontenjan bilgisinin kanonik merkezî kaynağı.
 CANONICAL_SOURCE_ID = "ylsy"
@@ -135,31 +135,37 @@ class InstitutionAnnouncementSource(AnnouncementSource):
         self.canonical = spec.canonical
         self._detail = re.compile(spec.detail_pattern) if spec.detail_pattern else None
 
-    # ── Ağ yolu: ikincil kaynak, asla hata fırlatmaz ────────────────────
-    async def fetch(self) -> list[RawItem]:
-        try:
-            async with httpx.AsyncClient(
-                timeout=25, follow_redirects=True, headers={"User-Agent": _USER_AGENT}
-            ) as client:
-                response = await _request_with_retry(
-                    client, "GET", self.url, headers={"Accept": "text/html"}
-                )
-        except Exception:  # noqa: BLE001 - ikincil kaynak: boş koşum + Kural 6 alarmı
-            return []
-        return self.parse_listing(response.text, base_url=str(response.url))
+    # ── Ağ yolu: ikincil kaynak, kapsam eksikliğini gizlemez ────────────
+    async def fetch(self) -> FetchOutcome:
+        """Liste sayfasını çeker; hata fırlatır ki koşum `error` olsun.
+
+        Eskiden burada `except Exception: return []` vardı: site çöktüğünde de
+        sayfa yapısı bozulduğunda da koşum "boş" görünüyordu. Bu, kurumun
+        yayında olan duyurularını "kaynakta yok" gibi gösterir ve sessiz ölüme
+        davetiye çıkarır. Artık ağ hatası yükselir; koşum `error` yazılır ve
+        devre kesici devreye girer.
+        """
+        async with httpx.AsyncClient(
+            timeout=25, follow_redirects=True, headers={"User-Agent": _USER_AGENT}
+        ) as client:
+            response = await _request_with_retry(
+                client, "GET", self.url, headers={"Accept": "text/html"}
+            )
+        return FetchOutcome(items=self.parse_listing(response.text, base_url=str(response.url)))
 
     # ── Ayrıştırma yolu ───────────────────────────────────────────────
     def parse_listing(
         self, body: str, *, base_url: str, now: datetime | None = None
     ) -> list[RawItem]:
-        """Bozuk/değişmiş markup'ta ``[]`` döner; asla yükseltmez."""
-        try:
-            items = list(self._link_items(body, base_url, now))
-            if self.spec.embedded_json:
-                items.extend(self._embedded_json_items(body, base_url, now))
-            return link_corrections(dedupe_announcement_items(items))
-        except Exception:  # noqa: BLE001 - beklenmeyen ağaç/şema: sessiz boş
-            return []
+        """Bağlantıları ve gömülü JSON yedeğini birleştirir.
+
+        Ayrıştırma hatası yükselir (koşum `error` olur): bozuk markup'ı "boş
+        liste" saymak kurumun duyurularını görünmez kılar.
+        """
+        items = list(self._link_items(body, base_url, now))
+        if self.spec.embedded_json:
+            items.extend(self._embedded_json_items(body, base_url, now))
+        return link_corrections(dedupe_announcement_items(items))
 
     def _link_items(self, body: str, base_url: str, now: datetime | None):
         for anchor in HTMLParser(body).css("a"):

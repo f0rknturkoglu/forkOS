@@ -17,7 +17,7 @@ from app.core.source_sync import reconcile_stale_runs
 from app.db import engine
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.service import ingest_jobs
-from app.sources.base import RawItem
+from app.sources.base import FetchOutcome, RawItem
 from app.sources.forkjob_core.models import WorkMode
 
 
@@ -256,12 +256,16 @@ class _FakeSource:
     result: list | None = None
     exc: Exception | None = None
     sleep: float = 0.0
+    #: Doluysa `result` yerine bu sonuc doner (partial/complete ayrimi icin).
+    outcome: FetchOutcome | None = None
 
-    async def fetch(self) -> list:
+    async def fetch(self) -> list | FetchOutcome:
         if self.sleep:
             await asyncio.sleep(self.sleep)
         if self.exc is not None:
             raise self.exc
+        if self.outcome is not None:
+            return self.outcome
         return list(self.result or [])
 
 
@@ -501,3 +505,240 @@ async def test_sweep_grace_transitions_and_reopen():
             )
         ).scalar_one()
         assert observation.source_status == "active"
+
+
+# ---------------------------------------------------------------------------
+# Faz 1: complete / partial / empty / error semantigi
+# ---------------------------------------------------------------------------
+
+
+async def test_partial_run_keeps_items_and_never_sweeps(monkeypatch: pytest.MonkeyPatch):
+    """Yardimci parca bozuldugunda ana sonuclar korunur ve kapanma taramasi YAPILMAZ."""
+    from app.db import SessionLocal
+    from app.modules.opportunity import service, worker
+
+    monkeypatch.setattr(worker, "MAX_SOURCE_RETRIES", 0)
+    calls: list[dict] = []
+
+    async def fake_sweep(session, **kwargs):
+        calls.append(kwargs)
+        return {"missing": 0, "likely_closed": 0, "closed": 0}
+
+    monkeypatch.setattr(service, "sweep_missing_opportunities", fake_sweep)
+
+    source = _FakeSource(
+        "ylsy",
+        outcome=FetchOutcome(
+            items=[_raw_item("partial")],
+            partial=True,
+            detail="rss: RuntimeError",
+        ),
+    )
+    added = await worker.poll_source(source)
+
+    assert added == 1
+    async with SessionLocal() as session:
+        run = (
+            await session.execute(select(SourceRun).where(SourceRun.source == "ylsy"))
+        ).scalars().one()
+    assert run.status == "partial"
+    assert run.items_seen == 1 and run.items_found == 1
+    assert run.error_kind == "partial"
+    assert calls == [], "partial kosum kapanma taramasi tetiklememeli"
+
+
+async def test_scope_shrink_is_partial_and_does_not_close_listings(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Sayfalamasi sessizce bozulan kaynak 'kalan ilanlar kapandi' diyemez."""
+    from app.db import SessionLocal
+    from app.modules.opportunity import service, worker
+
+    monkeypatch.setattr(worker, "MAX_SOURCE_RETRIES", 0)
+    calls: list[dict] = []
+
+    async def fake_sweep(session, **kwargs):
+        calls.append(kwargs)
+        return {"missing": 0, "likely_closed": 0, "closed": 0}
+
+    monkeypatch.setattr(service, "sweep_missing_opportunities", fake_sweep)
+
+    # Onceki TAM kosu 100 kayit gormustu.
+    async with SessionLocal() as session:
+        await run_svc.finish_run(
+            session,
+            await run_svc.start_run(session, "ylsy"),
+            status="ok",
+            items_found=100,
+            items_seen=100,
+        )
+        await session.commit()
+
+    source = _FakeSource("ylsy", result=[_raw_item(f"shrink-{index}") for index in range(12)])
+    await worker.poll_source(source)
+
+    async with SessionLocal() as session:
+        run = (
+            await session.execute(
+                select(SourceRun).where(SourceRun.source == "ylsy").order_by(SourceRun.id.desc())
+            )
+        ).scalars().first()
+    assert run.status == "partial"
+    assert "kapsam daralmasi" in (run.error or "")
+    assert calls == [], "daralan kapsamda kapanma taramasi yapilmamali"
+
+
+async def test_small_source_shrink_is_not_flagged(monkeypatch: pytest.MonkeyPatch):
+    """Kucuk kaynaklarda dalgalanma yanlis 'partial' uretmemeli."""
+    from app.db import SessionLocal
+    from app.modules.opportunity import service, worker
+
+    monkeypatch.setattr(worker, "MAX_SOURCE_RETRIES", 0)
+
+    async def fake_sweep(session, **kwargs):
+        return {"missing": 0, "likely_closed": 0, "closed": 0}
+
+    monkeypatch.setattr(service, "sweep_missing_opportunities", fake_sweep)
+
+    async with SessionLocal() as session:
+        await run_svc.finish_run(
+            session,
+            await run_svc.start_run(session, "ylsy"),
+            status="ok",
+            items_found=8,
+            items_seen=8,
+        )
+        await session.commit()
+
+    await worker.poll_source(_FakeSource("ylsy", result=[_raw_item("few")]))
+
+    async with SessionLocal() as session:
+        run = (
+            await session.execute(
+                select(SourceRun).where(SourceRun.source == "ylsy").order_by(SourceRun.id.desc())
+            )
+        ).scalars().first()
+    assert run.status == "ok"
+
+
+async def test_parser_and_network_failures_are_errors_not_empty(monkeypatch: pytest.MonkeyPatch):
+    """Parser/ag hatasi 'bos' sayilamaz: iki durum farkli bildirimler uretir."""
+    from app.db import SessionLocal
+    from app.modules.opportunity import worker
+
+    monkeypatch.setattr(worker, "MAX_SOURCE_RETRIES", 0)
+
+    broken_parser = _FakeSource("yok-msc", exc=RuntimeError("HTML selector parse failed"))
+    offline = _FakeSource("osym", exc=OSError("connection refused"))
+
+    await asyncio.gather(
+        worker.poll_source(broken_parser),
+        worker.poll_source(offline),
+    )
+
+    async with SessionLocal() as session:
+        rows = {row.source: row for row in (await session.execute(select(SourceRun))).scalars()}
+    assert rows["yok-msc"].status == "error"
+    assert run_svc.error_kind_of(rows["yok-msc"]) == "parser"
+    assert rows["osym"].status == "error"
+    assert rows["osym"].status != "empty"
+
+
+async def test_error_streak_produces_a_notification():
+    """Ust uste hata veren kaynak icin 'empty' degil 'failing' bildirimi uretilir."""
+    from app.core.models import Notification
+    from app.db import SessionLocal
+
+    source = f"test-failing-{uuid.uuid4().hex[:8]}"
+    async with SessionLocal() as session:
+        alerts: list[bool] = []
+        for _ in range(run_svc.ERROR_STREAK_ALERT + 1):
+            await run_svc.finish_run(
+                session,
+                await run_svc.start_run(session, source),
+                status=run_svc.ERROR,
+                error="TimeoutError: slow",
+                error_kind="timeout",
+            )
+            alerts.append(
+                await run_svc.check_source_health(
+                    session, source, status=run_svc.ERROR, error_kind="timeout"
+                )
+            )
+        await session.commit()
+        rows = list(
+            (
+                await session.execute(
+                    select(Notification).where(Notification.kind == "source_failing")
+                )
+            ).scalars()
+        )
+    # Alarm seri tamamlandiginda BIR KEZ uretilir, sonraki hatalarda tekrarlamaz.
+    assert alerts == [False, False, True, False]
+    assert len(rows) == 1
+    assert source in (rows[0].body or "")
+    assert "timeout" in (rows[0].body or "")
+
+
+async def test_error_streak_is_not_broken_by_partial_runs():
+    """`partial` bir saglikli kosumdur: hata serisini sifirlar, alarm uretmez."""
+    from app.db import SessionLocal
+
+    source = f"test-partial-{uuid.uuid4().hex[:8]}"
+    async with SessionLocal() as session:
+        for _ in range(run_svc.ERROR_STREAK_ALERT):
+            await run_svc.finish_run(
+                session, await run_svc.start_run(session, source), status=run_svc.ERROR
+            )
+        await run_svc.finish_run(
+            session, await run_svc.start_run(session, source), status=run_svc.PARTIAL
+        )
+        assert not await run_svc.check_source_health(
+            session, source, status=run_svc.PARTIAL
+        )
+
+
+async def test_ylsy_keeps_main_results_when_helper_feed_breaks(monkeypatch: pytest.MonkeyPatch):
+    """Ana YLSY listesi alindiysa yardimci RSS bozulunca sonuc kaybolmaz."""
+    from app.sources import announcements
+    from app.sources.announcements import YlsySource
+
+    source = YlsySource("ylsy", "https://yyegm.meb.gov.tr/www/duyurular/kategori/2", (), "scholarship")
+    ajax_payload = {
+        "data": [
+            {
+                "BASLIK": "2026 YLSY Kurum Tercih Islemleri Basladi",
+                "LINK": "/www/kurum-tercihi/icerik/1",
+                "ISLEMSAAT": "01/09/2026",
+                "SIRAID": 7,
+            }
+        ],
+        "recordsFiltered": 1,
+        "recordsTotal": 1,
+    }
+
+    class _Response:
+        def __init__(self, url: str, *, json_payload=None, content: bytes = b"", text: str = ""):
+            self.url = url
+            self._json = json_payload
+            self.content = content
+            self.text = text
+
+        def json(self):
+            return self._json
+
+    async def fake_request(client, method, url, **kwargs):
+        if url == announcements._YLSY_AJAX_URL:
+            return _Response(url, json_payload=ajax_payload)
+        if url == announcements._YLSY_RSS_URL:
+            raise RuntimeError("HTTP 503 for rss")
+        return _Response(url, text="<html></html>")
+
+    monkeypatch.setattr(announcements, "_request_with_retry", fake_request)
+
+    outcome = await source.fetch()
+
+    assert outcome.partial is True
+    assert "rss" in outcome.detail
+    titles = [item.title for item in outcome.items]
+    assert titles == ["2026 YLSY Kurum Tercih Islemleri Basladi"]

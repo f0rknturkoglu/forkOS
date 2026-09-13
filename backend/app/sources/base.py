@@ -23,6 +23,39 @@ class RawItem:
     extra: dict = field(default_factory=dict)
 
 
+@dataclass
+class FetchOutcome:
+    """Tek bir kaynak kosusunun sonucu.
+
+    `partial` kaynagin *calistigini* ama hedefledigi kapsamin tamamini
+    tarayamadigini soyler: sayfalama yarida kaldi, yardimci feed/PDF bozuldu,
+    bazi istekler zaman asimina dustu. Kayitlar gecerli oldugu icin ingest
+    edilirler; ama kapanma taramasi (sweep) YAPILMAZ -- eksik gorunen kayit
+    gercekte hala yayinda olabilir.
+
+    `detail` kullaniciya gosterilecek kisa bir aciklamadir (hata sinifi +
+    hangi parca bozuldu). Bos ise kosum `complete` sayilir.
+    """
+
+    items: list[RawItem] = field(default_factory=list)
+    partial: bool = False
+    detail: str = ""
+
+
+def normalize_fetch(raw: list[RawItem] | FetchOutcome | None) -> FetchOutcome:
+    """Adapter cevabini tek bir sozlesmeye indirger.
+
+    Eski adaptorler `list[RawItem]` dondurur ve bu tam bir kosum sayilir; yeni
+    adaptorler `FetchOutcome` dondurerek kapsam eksikligini bildirir. Worker
+    yalnizca bu fonksiyonun ciktisini gorur.
+    """
+    if raw is None:
+        return FetchOutcome()
+    if isinstance(raw, FetchOutcome):
+        return raw
+    return FetchOutcome(items=list(raw))
+
+
 # ---------------------------------------------------------------------------
 # Kaynak sinifi (refresh sirasi, timeout ve kapanma bekleme suresi)
 # ---------------------------------------------------------------------------
@@ -186,6 +219,11 @@ class SourceAdapter(Protocol):
     #: Opsiyonel: sert kosum tavani (saniye).
     timeout_seconds: float
 
-    async def fetch(self) -> list[RawItem]:
-        """Kaynagi cek. Hata firlatabilir -- worker source_run'a yazar."""
+    async def fetch(self) -> list[RawItem] | FetchOutcome:
+        """Kaynagi cek.
+
+        Hata firlatabilir -- worker `source_run`'a `error` yazar.
+        Kapsam eksikliginde firlatma yerine `FetchOutcome(partial=True, detail=...)`
+        dondur: kaynak calisiyor ama tam taramamistir, kosum `partial` olur.
+        """
         ...
