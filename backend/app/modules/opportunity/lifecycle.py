@@ -108,6 +108,13 @@ def validate_requirement_status(status: str) -> None:
             f"'{status}' gecerli bir gereksinim durumu degil ({'/'.join(REQUIREMENT_STATUSES)})"
         )
 
+#: Kullanicinin HALA ILGILENDIGI kesif durumlari: deadline/hatirlatma ve
+#: Today akisi yalnizca bunlari gorur. `dismissed`, `archived`, `closed`,
+#: `expired`, `completed` terminal/arsiv sayilir ve hatirlatma uretmez.
+ACTIVE_DISCOVERY_STATUSES: frozenset[str] = frozenset(
+    {"discovered", "shortlisted", "new", "reviewed", "watching", "action_required"}
+)
+
 #: Kaynak sahipli kesif durumlari: kullanici bu kayitla henuz bir sey yapmadi,
 #: dolayisiyla ilan kaynakta kaybolunca durum guncellenebilir.
 #: `shortlisted`, `watching`, `action_required`, `archived` gibi durumlar

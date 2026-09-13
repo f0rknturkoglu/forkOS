@@ -1476,6 +1476,17 @@ async def prune_stale_opportunities(session: AsyncSession, *, days: int = 90) ->
     return result
 
 
+#: Son tarih merdiveni (gun): ARTAN sirada taranir, en yakin esik kazanir.
+DEADLINE_LADDER_DAYS: tuple[int, ...] = (1, 3, 7, 14, 30)
+#: Takip hatirlatmasi merdiveni; 30 gunluk basamak takip icin cok genistir.
+FOLLOWUP_LADDER_DAYS: tuple[int, ...] = (1, 3, 7, 14)
+
+
+def deadline_rung(days: int, ladder: tuple[int, ...] = DEADLINE_LADDER_DAYS) -> int | None:
+    """Kac gun kala hangi basamak? Kalan sureye EN YAKIN esik secilir."""
+    return next((step for step in ladder if days <= step), None)
+
+
 async def deadline_ladder(session: AsyncSession) -> int:
     from app.core.deadlines import collect_deadlines
 
@@ -1487,10 +1498,13 @@ async def deadline_ladder(session: AsyncSession) -> int:
         if due < now:
             continue
         days = (due - now).days
-        rung = next((n for n in (30, 14, 7, 3, 1) if days <= n), None)
+        # ARTAN sirada: `days <= n` ilk uyan basamagi secer, yani EN YAKIN
+        # esigi. Azalan sirada her kayit 30 gunluk basamaga duser ve 14/7/3/1
+        # hicbir zaman uretilmezdi.
+        rung = deadline_rung(days)
         if rung is None:
             continue
-        await notify(
+        if await notify(
             session,
             kind="deadline",
             title=f"{row['title']} — {days} gün kaldı",
@@ -1498,8 +1512,8 @@ async def deadline_ladder(session: AsyncSession) -> int:
             entity_id=row["entity_id"],
             importance=3 if days <= 3 else 2,
             dedup_key=f"deadline:{row['entity_id']}:{rung}",
-        )
-        created += 1
+        ):
+            created += 1
     # Follow-up tarihleri de ayni merdivene girer (takip hatirlatmasi).
     follow_rows = (
         await session.execute(
@@ -1517,10 +1531,10 @@ async def deadline_ladder(session: AsyncSession) -> int:
     ).all()
     for opportunity, entity_title in follow_rows:
         days = (opportunity.follow_up_at - now).days
-        rung = next((n for n in (14, 7, 3, 1) if days <= n), None)
+        rung = deadline_rung(days, FOLLOWUP_LADDER_DAYS)
         if rung is None:
             continue
-        await notify(
+        if await notify(
             session,
             kind="followup",
             title=f"{entity_title} — {days} gün sonra takip",
@@ -1528,8 +1542,8 @@ async def deadline_ladder(session: AsyncSession) -> int:
             entity_id=opportunity.id,
             importance=3 if days <= 3 else 2,
             dedup_key=f"followup:{opportunity.id}:{rung}",
-        )
-        created += 1
+        ):
+            created += 1
     await session.commit()
     return created
 

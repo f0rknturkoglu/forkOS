@@ -128,6 +128,7 @@ const agenda: TodayAgenda = {
     ],
     rss: [{ ...rssRow, id: "suggested-rss-1", title: "Üçüncü öneri", source: "suggestion" }],
     media: [],
+    career: [],
   },
 };
 

@@ -296,6 +296,8 @@ export function TodayAgendaWidget() {
         ...agenda.suggestions.media,
         ...(todosQuery.isError ? agenda.suggestions.todos : []),
         ...agenda.suggestions.rss,
+        // Kariyer aksiyonlari (gonderilecek basvuru, kisa liste, kritik duyuru).
+        ...agenda.suggestions.career,
       ].slice(0, 4)
     : [];
 
@@ -600,7 +602,7 @@ function AgendaLine({
   nested?: boolean;
 }) {
   const time = clockLabel(row.starts_at);
-  const meta = row.kind === "media" ? row.progress_label : (row.project_title ?? row.feed_title);
+  const meta = row.progress_label ?? row.project_title ?? row.feed_title;
   const interactive = Boolean(
     (row.action === "complete_todo" || row.kind === "todo" || row.action === "mark_rss_read") &&
     !row.context_only &&

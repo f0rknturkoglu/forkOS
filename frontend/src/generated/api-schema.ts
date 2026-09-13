@@ -4337,6 +4337,8 @@ export interface components {
         };
         /** AgendaSuggestions */
         AgendaSuggestions: {
+            /** Career */
+            career?: components["schemas"]["AgendaRow"][];
             /** Flashcards */
             flashcards?: components["schemas"]["AgendaRow"][];
             /** Media */
@@ -4425,12 +4427,53 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
         };
-        /** ApplicationReviewStats */
+        /**
+         * ApplicationReviewStats
+         * @description Kariyer metrikleri. ORAN YOK: kucuk orneklemde yuzde yanilticidir.
+         */
         ApplicationReviewStats: {
+            /**
+             * Applied
+             * @default 0
+             */
+            applied: number;
+            /**
+             * Career Prep
+             * @default 0
+             */
+            career_prep: number;
             /** Discovered */
             discovered: number;
-            /** Updated */
-            updated: number;
+            /**
+             * Interview
+             * @default 0
+             */
+            interview: number;
+            /**
+             * Offer
+             * @default 0
+             */
+            offer: number;
+            /**
+             * Prepared
+             * @default 0
+             */
+            prepared: number;
+            /**
+             * Rejected
+             * @default 0
+             */
+            rejected: number;
+            /**
+             * Shortlisted
+             * @default 0
+             */
+            shortlisted: number;
+            /**
+             * Upcoming Deadlines
+             * @default 0
+             */
+            upcoming_deadlines: number;
         };
         /** ApplicationTimelineOut */
         ApplicationTimelineOut: {

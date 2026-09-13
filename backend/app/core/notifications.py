@@ -18,7 +18,13 @@ async def notify(
     dedup_key: str,
     entity_id: uuid.UUID | None = None,
     importance: int = 1,
-) -> None:
+) -> bool:
+    """Bildirimi yaz; `dedup_key` zaten varsa hicbir sey yapmaz.
+
+    Doner: yeni satir olustu mu? Cagiranlar (or. son tarih merdiveni) "kac
+    bildirim uretildi" sayisini bununla raporlar; aksi halde tekrarlanan
+    kosumlar da "urettim" der ve sayac yalan soyler.
+    """
     statement = (
         insert(Notification)
         .values(
@@ -31,5 +37,6 @@ async def notify(
             created_at=datetime.now(UTC),
         )
         .on_conflict_do_nothing(index_elements=[Notification.dedup_key])
+        .returning(Notification.id)
     )
-    await session.execute(statement)
+    return (await session.execute(statement)).scalar_one_or_none() is not None

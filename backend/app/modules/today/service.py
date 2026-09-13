@@ -14,7 +14,8 @@ from app.modules.calendar.models import ExternalEvent
 from app.modules.finance.models import RecurringPayment
 from app.modules.flashcard.models import FlashcardCard, FlashcardDeck
 from app.modules.media.models import MediaItem
-from app.modules.opportunity.models import Interview, Opportunity
+from app.modules.opportunity import lifecycle as opportunity_lifecycle
+from app.modules.opportunity.models import Application, Interview, Opportunity
 from app.modules.project.models import Project
 from app.modules.rss.models import Feed, FeedItem
 from app.modules.system.models import Setting
@@ -215,6 +216,102 @@ def _media_row(
     )
 
 
+async def _career_suggestions(session: AsyncSession) -> list[AgendaRow]:
+    """Bugunun kariyer aksiyonlari: gonderilecek basvuru, kisa liste, kritik duyuru.
+
+    Kartlar ILGILI kayda gider (`entity_type="opportunity"`): Today'den genel
+    Firsatlar sayfasina degil, o ilanin/duyurunun detayina.
+    """
+    rows: list[AgendaRow] = []
+
+    # 1) Hazirlanan basvuru: "Basvur" aksiyonu bekliyor.
+    preparing = (
+        await session.execute(
+            select(Opportunity, Entity.title)
+            .join(Entity, Entity.id == Opportunity.id)
+            .join(Application, Application.opportunity_id == Opportunity.id)
+            .where(
+                Application.status == "preparing",
+                Opportunity.trashed_at.is_(None),
+                Entity.archived_at.is_(None),
+            )
+            .order_by(Application.updated_at.desc())
+            .limit(3)
+        )
+    ).all()
+    for opportunity, title in preparing:
+        rows.append(
+            AgendaRow(
+                kind="opportunity",
+                source="suggestion",
+                id=opportunity.id,
+                entity_type="opportunity",
+                title=f"Başvuruyu gönder: {title}",
+                read_only=True,
+                progress_label="Hazırlık tamam",
+            )
+        )
+
+    # 2) Kisa liste: basvurusu olmayan, kullanicinin isaretledigi ilanlar.
+    shortlisted = (
+        await session.execute(
+            select(Opportunity, Entity.title)
+            .join(Entity, Entity.id == Opportunity.id)
+            .outerjoin(Application, Application.opportunity_id == Opportunity.id)
+            .where(
+                Opportunity.status == "shortlisted",
+                Application.opportunity_id.is_(None),
+                Opportunity.trashed_at.is_(None),
+                Entity.archived_at.is_(None),
+            )
+            .order_by(Opportunity.found_at.desc())
+            .limit(3)
+        )
+    ).all()
+    for opportunity, title in shortlisted:
+        rows.append(
+            AgendaRow(
+                kind="opportunity",
+                source="suggestion",
+                id=opportunity.id,
+                entity_type="opportunity",
+                title=title,
+                read_only=True,
+                progress_label="Kısa listede",
+            )
+        )
+
+    # 3) Aksiyon gerektiren resmi duyurular (kritik YLSY/OSYM akisi).
+    announcements = (
+        await session.execute(
+            select(Opportunity, Entity.title)
+            .join(Entity, Entity.id == Opportunity.id)
+            .where(
+                Opportunity.kind != "job",
+                Opportunity.status == "action_required",
+                Opportunity.official.is_(True),
+                Opportunity.trashed_at.is_(None),
+                Entity.archived_at.is_(None),
+            )
+            .order_by(Opportunity.deadline_at.asc().nulls_last())
+            .limit(3)
+        )
+    ).all()
+    for opportunity, title in announcements:
+        rows.append(
+            AgendaRow(
+                kind="opportunity",
+                source="suggestion",
+                id=opportunity.id,
+                entity_type="opportunity",
+                title=title,
+                read_only=True,
+                progress_label="Aksiyon gerekli",
+            )
+        )
+    return rows
+
+
 async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     start, end = _bounds(day)
     external_rows = (await session.execute(
@@ -390,16 +487,18 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
 
     # Firsat son tarihleri (bugun + yarin) ve bugun vadesi gelen odemeler.
     deadline_end = end + timedelta(days=1)
+    # Durum kumesi lifecycle'dan gelir: eski birlesik isimler
+    # (considering/preparing/applied/interview/offer) artik uretilmiyor, bu
+    # yuzden shortlist'lenmis ilanlar Today'de HIC gorunmuyordu.
     opps = (await session.execute(
         select(Opportunity, Entity.title)
         .join(Entity, Entity.id == Opportunity.id)
         .where(
             Entity.archived_at.is_(None),
+            Opportunity.trashed_at.is_(None),
             Opportunity.deadline_at.is_not(None),
             Opportunity.deadline_at < deadline_end,
-            Opportunity.status.in_(
-                ("discovered", "considering", "preparing", "applied", "interview", "offer")
-            ),
+            Opportunity.status.in_(sorted(opportunity_lifecycle.ACTIVE_DISCOVERY_STATUSES)),
         )
         .order_by(Opportunity.deadline_at)
     )).all()
@@ -408,6 +507,9 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             kind="opportunity",
             source="due",
             id=opp.id,
+            # Entity rotasi kayit defterinden cozulur: kart ilgili ILANA gider,
+            # genel Firsatlar sayfasina degil.
+            entity_type="opportunity",
             title=title,
             read_only=True,
             starts_at=opp.deadline_at,
@@ -421,6 +523,8 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
         .join(Opportunity, Opportunity.id == Interview.opportunity_id)
         .join(Entity, Entity.id == Opportunity.id)
         .where(
+            Entity.archived_at.is_(None),
+            Opportunity.trashed_at.is_(None),
             Interview.scheduled_at.is_not(None),
             Interview.scheduled_at >= start,
             Interview.scheduled_at < end,
@@ -432,6 +536,8 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             kind="interview",
             source="due",
             id=interview.id,
+            # Gorusme kaydi ilanin entity'sine baglidir; kart ilana gider.
+            entity_type="opportunity",
             title=f"Görüşme: {title}",
             read_only=True,
             starts_at=interview.scheduled_at,
@@ -468,6 +574,7 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     rss_suggestions: list[AgendaRow] = []
     flashcard_suggestions: list[AgendaRow] = []
     study_suggestions: list[AgendaRow] = []
+    career_suggestions: list[AgendaRow] = []
     # Bu liste bir tavsiye degil, devam eden mevcut medya durumudur. Additive
     # sozlesme icin suggestions altinda kalir ama otomatik tavsiye ayarindan etkilenmez.
     continue_media = (await session.execute(
@@ -581,6 +688,8 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             for row in study_candidates[:3]
         ]
 
+        career_suggestions = await _career_suggestions(session)
+
     timed.sort(key=lambda row: row.starts_at or datetime.max.replace(tzinfo=UTC))
 
     return TodayAgendaOut(
@@ -595,5 +704,6 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             "media": media_suggestions,
             "flashcards": flashcard_suggestions,
             "study": study_suggestions,
+            "career": career_suggestions,
         },
     )

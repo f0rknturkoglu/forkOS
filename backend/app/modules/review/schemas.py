@@ -36,8 +36,25 @@ class CaptureReviewStats(BaseModel):
 
 
 class ApplicationReviewStats(BaseModel):
+    """Kariyer metrikleri. ORAN YOK: kucuk orneklemde yuzde yanilticidir."""
+
+    #: Donemde kesfedilen ve kaynakta hala gorunen guncel ilan.
     discovered: int
-    updated: int
+    #: Donemde kisa listeye alinan ilanlar.
+    shortlisted: int = 0
+    #: Hazirliga alinan basvurular.
+    prepared: int = 0
+    #: Gonderilen basvurular.
+    applied: int = 0
+    #: Ulasilan gorusmeler.
+    interview: int = 0
+    #: Teklif (kabul dahil).
+    offer: int = 0
+    rejected: int = 0
+    #: Onumuzdeki 7 gun icindeki son tarihler.
+    upcoming_deadlines: int = 0
+    #: Tamamlanan kariyer hazirligi (hikaye olusturma/guncelleme).
+    career_prep: int = 0
 
 
 class StudyReviewStats(BaseModel):

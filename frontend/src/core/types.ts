@@ -307,7 +307,14 @@ export type TodayAgenda = Omit<ApiSchemas["TodayAgendaOut"], "timed" | "checklis
   timed: AgendaRow[];
   checklist: AgendaRow[];
   completed: AgendaRow[];
-  suggestions: { todos: AgendaRow[]; rss: AgendaRow[]; media: AgendaRow[]; flashcards: AgendaRow[] };
+  suggestions: {
+    todos: AgendaRow[];
+    rss: AgendaRow[];
+    media: AgendaRow[];
+    flashcards: AgendaRow[];
+    /** Kariyer aksiyonları: gönderilecek başvuru, kısa liste, kritik duyuru. */
+    career: AgendaRow[];
+  };
 };
 
 export interface StudyArea {

@@ -51,6 +51,8 @@ class AgendaSuggestions(BaseModel):
     flashcards: list[AgendaRow] = Field(default_factory=list)
     #: Tekrar zamani gelen konular: "bugun su konuyu tazele" tavsiyesi.
     study: list[AgendaRow] = Field(default_factory=list)
+    #: Kariyer aksiyonlari: gonderilecek basvuru, kisa liste, kritik duyuru.
+    career: list[AgendaRow] = Field(default_factory=list)
 
 
 class TodayAgendaOut(BaseModel):

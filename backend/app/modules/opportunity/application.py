@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import touch_entity
@@ -863,8 +863,9 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     from app.core.deadlines import rows_with_titles
     from app.modules.opportunity.models import Interview, Opportunity
 
-    # Kesif dongusunde hala ilgilenilen ilanlar + duyurular.
-    ACTIVE = ("discovered", "shortlisted", "new", "reviewed", "watching", "action_required")
+    # Kesif dongusunde hala ilgilenilen ilanlar + duyurular; gecmis son
+    # tarihler hatirlatma uretmez (kural: terminal/arsiv/gecten deadline yok).
+    now = datetime.now(UTC)
     # ScalarResult tek gezinmelidir; aksi halde id/due haritalari bos kalir
     # ve satirlar /api/deadlines'tan sessizce duser (bkz. todo/service.py).
     opps = list(
@@ -872,7 +873,8 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
             await session.execute(
                 select(Opportunity).where(
                     Opportunity.deadline_at.is_not(None),
-                    Opportunity.status.in_(ACTIVE),
+                    Opportunity.deadline_at >= now,
+                    Opportunity.status.in_(sorted(lifecycle.ACTIVE_DISCOVERY_STATUSES)),
                     Opportunity.trashed_at.is_(None),
                 )
             )
@@ -901,10 +903,15 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
             select(Interview, Entity.title)
             .join(Opportunity, Opportunity.id == Interview.opportunity_id)
             .join(Entity, Entity.id == Interview.opportunity_id)
+            .outerjoin(Application, Application.opportunity_id == Interview.opportunity_id)
             .where(
                 Interview.scheduled_at.is_not(None),
+                Interview.scheduled_at >= datetime.now(UTC),
                 Opportunity.trashed_at.is_(None),
                 Entity.archived_at.is_(None),
+                # Kapanmis basvurunun gecmis gorusmesi takvimde gorunmez.
+                or_(Application.opportunity_id.is_(None),
+                    Application.status.not_in(list(lifecycle.APPLICATION_TERMINAL))),
             )
             .order_by(Interview.scheduled_at)
         )

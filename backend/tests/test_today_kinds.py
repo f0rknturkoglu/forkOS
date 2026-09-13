@@ -139,3 +139,86 @@ async def test_agenda_returns_eight_kinds(client: AsyncClient):
     # icin slot gerekir -- bu testte seed edilmedi, ama kind sayaci 8 sozlesmeyi
     # dogrular; AgendaKind Literal'i backend'de 8 uye).
     assert kinds >= {"calendar", "todo", "opportunity", "interview", "payment", "study"}
+
+
+# ---------------------------------------------------------------------------
+# Faz 5: kariyer aksiyonlari Today'e duser ve ILGILI kayda baglanir
+# ---------------------------------------------------------------------------
+
+
+async def test_today_surfaces_shortlist_and_links_to_the_record(client: AsyncClient):
+    """Kısa listedeki ilan Today'de görünür ve kart DOĞRU kayda gider."""
+    title = f"Kisa liste {uuid.uuid4().hex[:6]}"
+    created = await client.post(
+        "/api/opportunities", json={"title": title, "kind": "job", "status": "shortlisted"}
+    )
+    assert created.status_code == 201, created.text
+    item_id = created.json()["id"]
+
+    agenda = (await client.get("/api/today/agenda")).json()
+    rows = agenda["suggestions"]["career"]
+    matching = [row for row in rows if row["id"] == item_id]
+    assert matching, "kisa listedeki ilan Today onerilerinde yok"
+    row = matching[0]
+    # Entity rotasi kayit defterinden cozulur: genel sayfa degil, ILAN.
+    assert row["entity_type"] == "opportunity"
+    assert row["title"] == title
+    assert row["read_only"] is True
+
+
+async def test_today_surfaces_critical_announcement_action(client: AsyncClient):
+    """Aksiyon gerektiren resmi duyuru Today'de ayri bir kart olur."""
+    title = f"YLSY aksiyon {uuid.uuid4().hex[:6]}"
+    created = await client.post(
+        "/api/opportunities",
+        json={"title": title, "kind": "announcement", "status": "action_required"},
+    )
+    assert created.status_code == 201, created.text
+    item_id = created.json()["id"]
+    # `official` yalnizca adapter'lardan gelir; kullanici uctan yazamaz.
+    from sqlalchemy import text
+
+    from app.db import engine
+
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("update opportunity set official = true where id = :id"), {"id": item_id}
+        )
+
+    agenda = (await client.get("/api/today/agenda")).json()
+    matching = [row for row in agenda["suggestions"]["career"] if row["id"] == item_id]
+    assert matching, "aksiyon gerektiren resmi duyuru Today'de yok"
+    assert matching[0]["progress_label"] == "Aksiyon gerekli"
+
+
+async def test_today_surfaces_a_preparing_application_as_send_action(client: AsyncClient):
+    title = f"Hazir basvuru {uuid.uuid4().hex[:6]}"
+    created = await client.post("/api/opportunities", json={"title": title, "kind": "job"})
+    assert created.status_code == 201, created.text
+    item_id = created.json()["id"]
+    # Hazirlik asamasi: CRM alanlari kaydedilir, durum `preparing` olur.
+    assert (
+        await client.put(
+            f"/api/opportunities/{item_id}/application", json={"cover_letter": "taslak"}
+        )
+    ).status_code == 200
+
+    agenda = (await client.get("/api/today/agenda")).json()
+    matching = [row for row in agenda["suggestions"]["career"] if row["id"] == item_id]
+    assert matching, "hazirlanan basvuru Today'de yok"
+    assert matching[0]["title"].startswith("Başvuruyu gönder")
+    assert matching[0]["entity_type"] == "opportunity"
+
+
+async def test_today_ignores_archived_listings(client: AsyncClient):
+    title = f"Arsiv {uuid.uuid4().hex[:6]}"
+    created = await client.post(
+        "/api/opportunities", json={"title": title, "kind": "job", "status": "shortlisted"}
+    )
+    item_id = created.json()["id"]
+    assert (
+        await client.post(f"/api/opportunities/{item_id}/transition", json={"to": "archived"})
+    ).status_code == 200
+
+    agenda = (await client.get("/api/today/agenda")).json()
+    assert all(row["id"] != item_id for row in agenda["suggestions"]["career"])

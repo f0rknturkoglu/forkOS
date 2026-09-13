@@ -252,6 +252,13 @@
       },
       "AgendaSuggestions": {
         "properties": {
+          "career": {
+            "items": {
+              "$ref": "#/components/schemas/AgendaRow"
+            },
+            "title": "Career",
+            "type": "array"
+          },
           "flashcards": {
             "items": {
               "$ref": "#/components/schemas/AgendaRow"
@@ -545,19 +552,55 @@
         "type": "object"
       },
       "ApplicationReviewStats": {
+        "description": "Kariyer metrikleri. ORAN YOK: kucuk orneklemde yuzde yanilticidir.",
         "properties": {
+          "applied": {
+            "default": 0,
+            "title": "Applied",
+            "type": "integer"
+          },
+          "career_prep": {
+            "default": 0,
+            "title": "Career Prep",
+            "type": "integer"
+          },
           "discovered": {
             "title": "Discovered",
             "type": "integer"
           },
-          "updated": {
-            "title": "Updated",
+          "interview": {
+            "default": 0,
+            "title": "Interview",
+            "type": "integer"
+          },
+          "offer": {
+            "default": 0,
+            "title": "Offer",
+            "type": "integer"
+          },
+          "prepared": {
+            "default": 0,
+            "title": "Prepared",
+            "type": "integer"
+          },
+          "rejected": {
+            "default": 0,
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "shortlisted": {
+            "default": 0,
+            "title": "Shortlisted",
+            "type": "integer"
+          },
+          "upcoming_deadlines": {
+            "default": 0,
+            "title": "Upcoming Deadlines",
             "type": "integer"
           }
         },
         "required": [
-          "discovered",
-          "updated"
+          "discovered"
         ],
         "title": "ApplicationReviewStats",
         "type": "object"

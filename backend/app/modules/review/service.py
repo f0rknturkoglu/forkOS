@@ -149,6 +149,57 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
                 )
             ).all()
         }
+    # --- Kariyer metrikleri (Faz 5) -----------------------------------
+    # Kaynak: application_history (durum gecisleri) + opportunity.
+    # Oran YOK: kucuk orneklemde yuzde yanilticidir; haftalik degerlendirme
+    # yalnizca guvenilir HAM sayilari tasir.
+    from app.modules.opportunity import lifecycle as opportunity_lifecycle
+    from app.modules.opportunity.models import ApplicationHistory, Opportunity
+
+    history_rows = (
+        await session.execute(
+            select(ApplicationHistory.to_status, func.count())
+            .where(
+                ApplicationHistory.at >= start_dt,
+                ApplicationHistory.at < end_dt,
+            )
+            .group_by(ApplicationHistory.to_status)
+        )
+    ).all()
+    transitions = {status: int(count) for status, count in history_rows}
+    discovered_now = int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(Opportunity)
+                .where(
+                    Opportunity.found_at >= start_dt,
+                    Opportunity.found_at < end_dt,
+                    Opportunity.trashed_at.is_(None),
+                    Opportunity.source_status == "active",
+                )
+            )
+        ).scalar_one()
+    )
+    upcoming_deadlines = int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(Opportunity)
+                .where(
+                    Opportunity.deadline_at.is_not(None),
+                    Opportunity.deadline_at >= datetime.now(UTC),
+                    Opportunity.deadline_at < datetime.now(UTC) + timedelta(days=7),
+                    Opportunity.trashed_at.is_(None),
+                    Opportunity.status.in_(sorted(opportunity_lifecycle.ACTIVE_DISCOVERY_STATUSES)),
+                )
+            )
+        ).scalar_one()
+    )
+    career_prep = await _event_count(session, "career_story.created", start_dt, end_dt) + (
+        await _event_count(session, "career_story.updated", start_dt, end_dt)
+    )
+
     repo_expr = Event.payload["repo"].astext
     github_rows = (
         await session.execute(
@@ -221,8 +272,16 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             "notes": await _event_count(session, "note.created", start_dt, end_dt),
         },
         "applications": {
-            "discovered": await _event_count(session, "opportunity.items_added", start_dt, end_dt),
-            "updated": await _event_count(session, "opportunity.updated", start_dt, end_dt),
+            # Kesfedilen GUNCEL ilan: kaynakta hala gorunen yeni kayitlar.
+            "discovered": discovered_now,
+            "shortlisted": transitions.get("shortlisted", 0),
+            "prepared": transitions.get("preparing", 0),
+            "applied": transitions.get("applied", 0),
+            "interview": transitions.get("interview", 0),
+            "offer": transitions.get("offer", 0) + transitions.get("accepted", 0),
+            "rejected": transitions.get("rejected", 0),
+            "upcoming_deadlines": upcoming_deadlines,
+            "career_prep": career_prep,
         },
         "study": {"minutes_by_area": {area: int(minutes or 0) for area, minutes in study_rows}},
         "flashcards": {

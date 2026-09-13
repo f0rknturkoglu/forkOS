@@ -222,7 +222,12 @@ function OverviewStep({
     ["Kaydedilen kaynak", stats.capture.bookmarks],
     ["Okunan RSS", stats.capture.rss_read],
     ["GitHub commit", stats.github.commits],
-    ["Güncellenen fırsat", stats.applications.updated],
+    ["Keşfedilen güncel ilan", stats.applications.discovered],
+    ["Kısa liste", stats.applications.shortlisted],
+    ["Gönderilen başvuru", stats.applications.applied],
+    ["Görüşme", stats.applications.interview],
+    ["Teklif", stats.applications.offer],
+    ["Yaklaşan son tarih", stats.applications.upcoming_deadlines],
     ["En uzun odak", `${stats.focus.longest_session} dk`],
     ["Yarıda kesilen", stats.focus.interrupted],
   ] as const;
