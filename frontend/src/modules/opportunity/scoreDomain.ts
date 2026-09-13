@@ -53,3 +53,16 @@ export const SCORE_STATE_PRESETS = [
   { label: "Hesaplanmış", state: "computed" as const },
   { label: "Hesaplanmadı", state: "uncomputed" as const },
 ] as const;
+
+/**
+ * Kalite skorunun GÖRÜNEN değeri.
+ *
+ * Yukarı yuvarlama (79.6 → "80") ile "70–79" aralığı çelişirdi: filtre
+ * kapsayıcı olduğu için 79.6 o aralığa girer ama ekranda 80 görünürdü.
+ * Aşağı yuvarlama, görünen sayıyı aralıklarla birebir uyumlu tutar.
+ */
+export function displayScore(score: number | null | undefined): string {
+  if (score === null || score === undefined) return "—";
+  if (score < 0) return "Elendi";
+  return String(Math.floor(score));
+}

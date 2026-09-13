@@ -13,6 +13,7 @@ import {
   scoreBand,
   statusLabel,
 } from "./labels";
+import { displayScore } from "./scoreDomain";
 
 interface OpportunityKanbanProps {
   items: Opportunity[];
@@ -76,7 +77,7 @@ const KanbanCard = memo(function KanbanCard({ item, disabled, onOpen, onStatus, 
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="truncate text-meta font-medium text-secondary">{item.organization || "Bilinmeyen kurum"}</span>
         {item.score !== null && item.score !== undefined && (
-          <Chip tone={tone}>{band === "eliminated" ? "Elendi" : `${item.score.toFixed(0)}p`}</Chip>
+          <Chip tone={tone}>{band === "eliminated" ? "Elendi" : `${displayScore(item.score)}p`}</Chip>
         )}
       </div>
 

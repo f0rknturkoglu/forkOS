@@ -17,6 +17,18 @@ forkOS; yakalama, planlama, odaklanma, öğrenme, medya takibi, iş fırsatları
 | **Fırsatları izle** | İş ilanı keşfi, CV uyumu, başvuru CRM'i, mülakat hafızası, YLSY/ÖSYM ve kamu duyuruları |
 | **Koru** | Append-only aktivite geçmişi, kaynak sağlığı, dışa aktarma, sıkıştırılmış yedek ve felaket kurtarma akışı |
 
+### Fırsatlardaki üç skor
+
+Fırsatlar ekranında aynı ilan için üç ayrı ölçü vardır ve karıştırılmazlar:
+
+| Skor | Aralık | Ne söyler | Nerede görünür |
+| --- | --- | --- | --- |
+| **Kalite skoru** | `-1..100` (`-1` = elendi) | Kaynak/kural tabanlı ilan kalitesi: beceri eşleşmesi, kıdem, konum, tazelik | Satırdaki TEK ana sayı |
+| **Profil uyumu** | `%0..%100`, boş = hesaplanmadı | Becerilerinin ilan metniyle örtüşme oranı | Satırdaki ikincil "Uyum" chip'i ve ilan detayı |
+| **Tavsiye skoru** | `0..100` | CV ile iki aşamalı değerlendirmenin önerisi (başvur / düşün / geç) | İkincil "Tavsiye" chip'i ve "Uyum" sekmesi |
+
+"Skor hesaplanmadı" ile "0 puan" aynı şey değildir: hesaplanmamış kayıtlar ayrı filtrelenebilir. İlan metni veya profil değiştiğinde kayıtlı değerlendirme **bayat** işaretlenir ve yeniden hesaplanana kadar güncel gibi sunulmaz.
+
 Sistemdeki aranabilir kayıtlar ortak `entity` omurgasını kullanır. Not, görev, proje, fırsat, belge ve medya kayıtları `link` ilişkileriyle birbirine bağlanır; anlamlı değişiklikler append-only `event` günlüğüne yazılır.
 
 ## Mimari
@@ -83,7 +95,13 @@ make migrate CO="docker compose"
 make backup CO="docker compose"
 ```
 
-Worker normal kullanımda kapalı kalabilir. Header'daki genel yenileme düğmesi RSS, fırsat/duyuru, medya, takvim, GitHub ve son tarih kaynaklarını tek turda günceller.
+Worker normal kullanımda kapalı kalabilir. Header'daki yenileme düğmesi RSS, fırsat/duyuru, medya, takvim, GitHub ve son tarih kaynaklarını tek turda günceller; yanındaki menüden kapsam seçilir:
+
+- **Kritik kaynaklar** — yalnız resmî/hızlı kaynaklar (ÖSYM, YLSY, YÖK, ATS panoları)
+- **Standart yenileme** (varsayılan) — opt-in kaynaklar hariç tümü + medya
+- **Tam yenileme** — katalogun tamamı; EURES ve LinkedIn gibi yavaş/opt-in kaynaklar dahil
+
+Worker kapalıyken de aynı kalıcı kaynak kuyruğu API arka planında işlenir; menüde çalışan yenilemenin kuyruk kimliği, ilerlemesi ve son sonucu görünür.
 
 ```bash
 # Sürekli otomasyonla aç

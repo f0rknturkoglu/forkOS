@@ -162,7 +162,41 @@ Her yeni ağ kaynağı `backend/app/sources/base.py` içindeki `SourceAdapter` s
 2. Kararlı HTML seçiciler
 3. Kontrollü fallback ayrıştırma
 
-Her çalıştırma `source_run` üretir. Sonuç sınıfları en az `ok`, `empty` ve `error` ayrımını korur; hata türü teşhis edilebilir olmalıdır. Üç beklenmedik boş sonuç veya tekrarlayan hata kaynak sağlığına ve bildirimlere yansır.
+### Kaynak koşusu sonuçları
+
+Her çalıştırma `source_run` üretir ve sonucu dört durumdan BİRİDİR:
+
+| Durum | `source_run.status` | Anlamı |
+|---|---|---|
+| **complete** | `ok` | Kaynağın hedeflenen kapsamı tamamen tarandı. Yalnız bu sonuç kapanma taramasını (sweep) tetikler. |
+| **partial** | `partial` | Bazı geçerli kayıtlar alındı ama sayfalama, yardımcı feed/PDF, timeout veya parser sorunu kapsamı daralttı. Kayıtlar işlenir, sweep YAPILMAZ. |
+| **empty** | `empty` | Koşu teknik olarak tamamlandı, hiç kayıt yok. |
+| **error** | `error` | Koşu güvenilir sonuç üretemedi (ağ, TLS, timeout, parser, config, ingest). |
+
+Kurallar:
+
+- Ağ/TLS/timeout/parser/config/ingest hataları **boş listeye çevrilmez**; koşum `error` olur.
+- `partial` bir alarm değildir: kaynak çalışıyor, kapsamı eksik. Detayı `source_run.error` taşır.
+- Kapsam koruması: yeni koşu, önceki **tam** koşunun gördüğü kayıt sayısının yarısından azını görürse koşum `partial` işaretlenir ve sweep yapılmaz (`items_seen` kolonu).
+- `item_found` = yeni oluşturulan kayıt, `items_seen` = kaynağın gördüğü kayıt.
+- Üst üste 3 `empty` → "kaynak duraksadı", üst üste 3 `error` → "kaynak erişilemiyor" bildirimi. Aynı seride tekrar bildirim üretilmez.
+- Ardışık 5 hata devre kesiciyi açar; kaynak cooldown boyunca ağa hiç çıkmadan atlanır.
+
+### Kaynak sınıfları ve manuel yenileme
+
+| Sınıf | Kimler | Davranış |
+|---|---|---|
+| `critical` | Resmî kaynaklar (ÖSYM, YLSY, YÖK) ve hızlı ATS panoları | Kuyruğun BAŞINDA; uygulama/worker açılışında bounded catch-up |
+| `normal` | Diğer iş panoları | Genel yenilemede kritiklerden sonra |
+| `slow_optin` | EURES, LinkedIn, Memurlar | Periyodik turda **ASLA** koşmaz; yalnızca kullanıcı açıkça seçince |
+
+Manuel yenileme kapsamları (`POST /api/system/refresh` gövdesi `{"scope": ...}`):
+
+- `critical` — yalnız resmî/hızlı kaynaklar (medya hariç)
+- `standard` (varsayılan) — opt-in kaynaklar hariç tümü + medya
+- `full` — katalogun tamamı, opt-in dahil
+
+Aynı yenileme çift başlatılmaz; süreci ölmüş bir `running` kaydı bayat sayılır ve kilit açılır.
 
 `backend/app/core/source_sync.py` kalıcı batch/kuyruk sahipliğini yönetir. Uzun senkron:
 
@@ -171,6 +205,10 @@ Her çalıştırma `source_run` üretir. Sonuç sınıfları en az `ok`, `empty`
 - aynı kaynağın eşzamanlı sahiplenilmesini engeller,
 - ilerlemeyi tamamlanan/toplam kaynak olarak raporlar,
 - LinkedIn gibi opt-in kaynakları açık seçim olmadan çalıştırmaz.
+
+**LinkedIn gizlilik/opt-in davranışı.** LinkedIn `slow_optin` sınıfındadır ve genel yenilemeye girmez. Proxy'siz (direct) erişim VARSAYILAN KAPALIDIR ve yalnızca `FORKJOB_LINKEDIN_ALLOW_DIRECT` açık bir değerle (`1/true/yes/on`) ayarlanırsa etkinleşir; `0/false/no` ve tanınmayan değerler kapalı sayılır (`env_flag`). Proxy listesi `FORKJOB_LINKEDIN_PROXIES_FILE` dosyasından okunur ve proxy kimlik bilgileri hiçbir zaman loglanmaz, arayüzde gösterilmez. Eski `LINKEDIN_*` ortam adları geriye uyumluluk için kabul edilir.
+
+**Kullanıcı verisi.** LinkedIn arama profilleri ve kullanıcı RSS listesi `data/*.yaml` ŞABLONLARINA değil, git tarafından yok sayılan `<ad>.yaml.user` dosyalarına yazılır; şablonlar yalnızca örnektir ve kişisel veri taşımaz.
 
 Başarılı HTTP yanıtlarını sınırsız biçimde diske yığma. Cache'in okuma yolu, boyut/yaş sınırı ve pruning davranışı tanımlı olmalıdır.
 

@@ -32,8 +32,11 @@ async def _startup_critical_catch_up() -> None:
         return
     from app.core import source_sync
     from app.modules.opportunity.worker import critical_source_ids
+    from app.worker.jobs import CRITICAL_CATCH_UP_LIMIT
 
-    ids = critical_source_ids()
+    # SINIRLIDIR: acilis tum kritik katalogu degil, en fazla
+    # CRITICAL_CATCH_UP_LIMIT kaynagi kuyruga alir (resmi duyurular once).
+    ids = critical_source_ids()[:CRITICAL_CATCH_UP_LIMIT]
     if not ids:
         return
     async with SessionLocal() as session:

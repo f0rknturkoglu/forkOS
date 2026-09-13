@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROFILE_MATCH_PRESETS, SCORE_PRESETS } from "./filterState";
-import { SCORE_CAP, SCORE_FLOOR, scoreBand } from "./scoreDomain";
+import { SCORE_CAP, SCORE_FLOOR, displayScore, scoreBand } from "./scoreDomain";
 
 describe("score domain", () => {
   it("preset aralıkları evreni boşluksuz ve çakışmasız kaplar", () => {
@@ -41,5 +41,35 @@ describe("score domain", () => {
     expect(scoreBand(69.99)).toBe("fair");
     expect(scoreBand(70)).toBe("strong");
     expect(scoreBand(100)).toBe("strong");
+  });
+});
+
+describe("displayScore", () => {
+  it("görünen değeri aralıklarla uyumlu tutar", () => {
+    for (const [value, shown] of [
+      [79.6, "79"],
+      [79.99, "79"],
+      [80, "80"],
+      [0, "0"],
+      [100, "100"],
+    ] as const) {
+      expect(displayScore(value)).toBe(shown);
+      // Görünen sayı, filtrenin kapsadığı aralığın İÇİNDE kalmalı.
+      const bands = [
+        { min: 0, max: 39.99 },
+        { min: 40, max: 69.99 },
+        { min: 70, max: 79.99 },
+        { min: 80, max: 100 },
+      ];
+      const shownValue = Number(shown);
+      expect(bands.some((b) => value >= b.min && value <= b.max)).toBe(true);
+      expect(bands.some((b) => shownValue >= b.min && shownValue <= b.max)).toBe(true);
+    }
+  });
+
+  it("elenmiş ve hesaplanmamış skoru ayırır", () => {
+    expect(displayScore(-1)).toBe("Elendi");
+    expect(displayScore(null)).toBe("—");
+    expect(displayScore(undefined)).toBe("—");
   });
 });

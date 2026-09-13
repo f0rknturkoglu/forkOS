@@ -18,6 +18,7 @@ import {
   statusLabel,
 } from "./labels";
 import { sourceLabel } from "@/core/labels";
+import { displayScore } from "./scoreDomain";
 import type { RemoteKind } from "./labels";
 
 /**
@@ -127,7 +128,7 @@ export function OpportunityCard({
           aria-label={
             item.score === null
               ? "Kalite skoru hesaplanmadı"
-              : `Kalite skoru ${Math.round(item.score)} / 100`
+              : `Kalite skoru ${displayScore(item.score)} / 100`
           }
         >
           <div
@@ -143,7 +144,7 @@ export function OpportunityCard({
                     : "text-muted",
             )}
           >
-            {item.score === null ? "—" : Math.round(item.score)}
+            {displayScore(item.score)}
           </div>
           <span className="text-micro uppercase tracking-wide text-muted">skor</span>
         </div>

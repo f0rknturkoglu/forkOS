@@ -131,3 +131,15 @@ async def test_jobhunter_env_reports_the_corrected_field_name(monkeypatch):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
         payload = (await http.get("/api/sources/jobhunter/env")).json()
     assert payload["linkedin_allow_direct"] is False
+
+
+def test_startup_catch_up_is_bounded():
+    """Açılış catch-up'ı kritik katalogun tamamını değil, sınırlı bir kümeyi alır."""
+    from app.modules.opportunity.worker import critical_source_ids
+    from app.worker.jobs import CRITICAL_CATCH_UP_LIMIT
+
+    ids = critical_source_ids()
+    assert len(ids) > CRITICAL_CATCH_UP_LIMIT, "sinir anlamli olmali"
+    assert len(ids[:CRITICAL_CATCH_UP_LIMIT]) == CRITICAL_CATCH_UP_LIMIT
+    # Resmi/canonical kaynaklar ilk sıradadır: sınır onları dışarıda bırakmaz.
+    assert {"osym", "ylsy"} <= set(ids[:CRITICAL_CATCH_UP_LIMIT])
