@@ -224,6 +224,7 @@ export function OpportunityCard({
             onClick={() => onKind?.(item.kind)}
             className={chip(false)}
             title="Türüne göre filtrele"
+            aria-label={`${item.title} — türüne göre filtrele (${kindLabel(item.kind)})`}
           >
             {kindLabel(item.kind)}
           </button>
@@ -232,6 +233,7 @@ export function OpportunityCard({
             onClick={() => onSource?.(item.source)}
             className={chip(sourceActive)}
             title="Kaynağına göre filtrele"
+            aria-label={`${item.title} — kaynağına göre filtrele (${sourceLabel(item.source)})`}
           >
             {sourceLabel(item.source)}
           </button>
@@ -240,6 +242,7 @@ export function OpportunityCard({
               type="button"
               onClick={() => onRemote?.(rk)}
               title="Uzaktan/ofis durumuna göre filtrele"
+              aria-label={`${item.title} — çalışma biçimine göre filtrele`}
               className={cx(chip(remoteActive), rk === "remote" && !remoteActive && "border-accent-border text-accent")}
             >
               {REMOTE_LABELS[rk]}
@@ -272,7 +275,7 @@ export function OpportunityCard({
           <Select
             value={item.status}
             disabled={disabled}
-            ariaLabel="Durum"
+            ariaLabel={`${item.title} — durum`}
             onChange={onStatus}
             className="min-w-0 flex-1"
           >
@@ -291,7 +294,7 @@ export function OpportunityCard({
             target="_blank"
             rel="noreferrer"
             title="İlanı yeni sekmede aç"
-            aria-label="İlanı yeni sekmede aç"
+            aria-label={`${item.title} — ilanı yeni sekmede aç`}
             className={cx(
               "flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition",
               "hover:bg-surface-hover hover:text-primary",
