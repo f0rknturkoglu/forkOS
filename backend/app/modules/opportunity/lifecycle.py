@@ -68,7 +68,7 @@ _ANNOUNCEMENT_TRANSITIONS: dict[str, set[str]] = {
     "action_required": {"watching", "applied", "completed", "expired", "archived"},
     "applied": {"watching", "completed", "expired", "archived"},
     "completed": {"archived"},
-    "expired": {"watching", "archived"},
+    "expired": {"new", "watching", "archived"},
     "archived": {"new", "reviewed", "watching"},
 }
 
@@ -88,6 +88,26 @@ APPLICATION_TERMINAL: frozenset[str] = frozenset({"accepted", "rejected", "close
 
 #: Basvuru hattina girmis sayilan durumlar (funnel paydalari bunu kullanir).
 APPLICATION_TRACKED: frozenset[str] = frozenset(APPLICATION_FLOW)
+
+#: Kaynak sahipli kesif durumlari: kullanici bu kayitla henuz bir sey yapmadi,
+#: dolayisiyla ilan kaynakta kaybolunca durum guncellenebilir.
+#: `shortlisted`, `watching`, `action_required`, `archived` gibi durumlar
+#: KULLANICIYA aittir ve kaynak kapanmasi bunlari EZMEZ.
+SOURCE_OWNED_DISCOVERY: frozenset[str] = frozenset({"discovered", "new"})
+
+#: Kaynak durumu -> kesif durumu. Kaynak ilani biraktiginda kullaniciya
+#: dokunmadan isaretlenen durum: is ilani `closed`, duyuru `expired`.
+_SOURCE_CLOSED: dict[bool, str] = {True: "closed", False: "expired"}
+
+
+def source_closed_status(kind: str | None) -> str:
+    """Kaynakta kaybolan kaydin kesif durumu."""
+    return _SOURCE_CLOSED[is_job_kind(kind)]
+
+
+def source_reopen_status(kind: str | None) -> str:
+    """Kaynakta tekrar gorunen kaydin kesif durumu (dongunun ilk adimi)."""
+    return discovery_flow(kind)[0]
 
 #: Eski (0050 oncesi) birlesik durumlardan kesif durumuna esleme.
 _LEGACY_DISCOVERY_MAP: dict[str, str] = {

@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -834,7 +834,8 @@ async def _touch_observation(
         )
 
 
-def _refresh_opportunity(
+async def _refresh_opportunity(
+    session: AsyncSession,
     opportunity: Opportunity,
     *,
     job: Any,
@@ -847,6 +848,17 @@ def _refresh_opportunity(
     now: datetime,
 ) -> None:
     """Kaynak verisiyle tazelenen alanlar. Kullanici alanlarina dokunulmaz."""
+    from app.modules.opportunity import lifecycle
+
+    # Kaynakta tekrar gorunen kayit yeniden acilir -- ama YALNIZCA kaynak
+    # tarafindan kapatilmis kayitlar (`closed_at` sweep tarafindan yazilir).
+    # Kullanicinin kendi kapattigi/arsivledigi kayda dokunulmaz.
+    if opportunity.closed_at is not None and opportunity.status == lifecycle.source_closed_status(
+        opportunity.kind
+    ):
+        reopened = lifecycle.source_reopen_status(opportunity.kind)
+        await _record_discovery_change(session, opportunity, reopened)
+        opportunity.status = reopened
     opportunity.raw = raw
     opportunity.category = category
     opportunity.published_at = published_at
@@ -977,7 +989,8 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         if cluster_matches:
             canonical = canonical_cluster(cluster_matches)
             _merge_cluster_sources(canonical, cluster_matches, source_label)
-            _refresh_opportunity(
+            await _refresh_opportunity(
+                session,
                 canonical,
                 job=job,
                 raw=raw if canonical.source == source_label else canonical.raw,
@@ -1000,7 +1013,8 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                 if source_label not in sources:
                     sources.append(source_label)
                 existing.raw = {**(existing.raw or {}), "sources": sources}
-            _refresh_opportunity(
+            await _refresh_opportunity(
+                session,
                 existing,
                 job=job,
                 raw=raw,
@@ -1105,6 +1119,42 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
 #: Kaynak sinifina gore kapanma bekleme suresi (gun).
 _CLOSE_GRACE_DAYS = {"critical": 1, "normal": 3, "slow": 14}
 
+#: Kaynak durumu onceligi: en IYI durum kazanir. Ayni ilan bir kaynakta
+#: kaybolup digerinde duruyorsa ilan hala yayindadir; kapanma ancak TUM
+#: kaynaklar ilani biraktiginda gerceklesir.
+SOURCE_STATUS_PRIORITY: tuple[str, ...] = ("active", "missing", "likely_closed", "closed")
+
+
+def aggregate_source_status(statuses: Iterable[str | None]) -> str:
+    """Gozlem birlesiminden global kaynak durumunu turet.
+
+    "Son calisan kaynak kazanir" DEGIL: en iyimser gozlem kazanir. Boylece
+    ikinci bir kaynagin gecikmeli/kismi taramasi, aktif bir ilani kapatamaz.
+    Hic gozlem yoksa kayit aktif sayilir (elle eklenen kayitlar boyledir).
+    """
+    known = [status for status in statuses if status in SOURCE_STATUS_PRIORITY]
+    if not known:
+        return SOURCE_STATUS_PRIORITY[0]
+    return min(known, key=SOURCE_STATUS_PRIORITY.index)
+
+
+def _next_source_status(
+    row: OpportunitySourceObservation, *, moment: datetime, grace_days: int
+) -> str | None:
+    """Tek bir gozlem bir sonraki kademeye geciyor mu? (Yoksa ``None``.)
+
+    Kademe: active -> missing -> likely_closed -> closed. Her kosuda en fazla
+    bir adim ilerlenir; boylece gecici bir aksaklik kaydi hemen kapatmaz.
+    """
+    if row.source_status == "active":
+        return "missing"
+    since = row.source_removed_at or row.last_seen_at
+    if row.source_status == "missing":
+        return "likely_closed" if (moment - since).days >= grace_days else None
+    if row.source_status == "likely_closed":
+        return "closed" if (moment - since).days >= grace_days * 2 else None
+    return None
+
 
 async def sweep_missing_opportunities(
     session: AsyncSession,
@@ -1116,8 +1166,15 @@ async def sweep_missing_opportunities(
 ) -> dict[str, int]:
     """Kaynakta gorunmeyen ilanlari kademeli kapatir (kayit basina sorgu yok).
 
-    Hemen kapatmaz: once ``missing``, grace sonrasi ``likely_closed``, bir tur
-    daha sonra ``closed``. Kaynakta tekrar gorunurse ``ingest_jobs`` yeniden acar.
+    Once YALNIZCA bu kaynagin gozlemi ilerletilir; ardindan her etkilenen
+    kaydin global durumu TUM gozlemlerin birlesiminden yeniden turetilir.
+    Iki kaynakli bir ilan bir kaynakta kaybolup digerinde duruyorsa global
+    durum `active` kalir: kayit ne `missing` gorunur ne kapanir.
+
+    Kapanma karari kullanici durumunu EZMEZ: yalnizca kaynak sahipli kesif
+    durumu (`discovered`/`new`) kapatilir; shortlist'lenmis ya da takip edilen
+    kayit kendi durumunu korur ve kayip `source_status`/`closed_at` ile temsil
+    edilir.
     """
     moment = now or datetime.now(UTC)
     seen = set(seen_opportunity_ids)
@@ -1131,48 +1188,74 @@ async def sweep_missing_opportunities(
             )
         ).scalars()
     )
-    missing = likely_closed = closed = 0
+    changed: set[uuid.UUID] = set()
     for row in rows:
         if row.opportunity_id in seen:
             continue
-        if row.source_status == "active":
-            row.source_status = "missing"
+        next_status = _next_source_status(row, moment=moment, grace_days=grace_days)
+        if next_status is None:
+            continue
+        if next_status == "missing":
             row.source_removed_at = moment
-            missing += 1
-        elif row.source_status == "missing":
-            since = row.source_removed_at or row.last_seen_at
-            if (moment - since).days >= grace_days:
-                row.source_status = "likely_closed"
-                likely_closed += 1
-        elif row.source_status == "likely_closed":
-            since = row.source_removed_at or row.last_seen_at
-            if (moment - since).days >= grace_days * 2:
-                row.source_status = "closed"
-                closed += 1
+        row.source_status = next_status
+        changed.add(row.opportunity_id)
+
+    if not changed:
+        return {"missing": 0, "likely_closed": 0, "closed": 0}
+    return await _sync_global_source_status(session, changed, moment=moment)
+
+
+async def _sync_global_source_status(
+    session: AsyncSession, opportunity_ids: set[uuid.UUID], *, moment: datetime
+) -> dict[str, int]:
+    """Etkilenen kayitlarin global kaynak durumunu gozlem birlesiminden turetir."""
+    from app.modules.opportunity import lifecycle
+
+    counts = {"missing": 0, "likely_closed": 0, "closed": 0}
+    statuses: dict[uuid.UUID, list[str]] = {}
+    for opportunity_id, status in (
+        await session.execute(
+            select(
+                OpportunitySourceObservation.opportunity_id,
+                OpportunitySourceObservation.source_status,
+            ).where(OpportunitySourceObservation.opportunity_id.in_(opportunity_ids))
+        )
+    ).all():
+        statuses.setdefault(opportunity_id, []).append(status)
+
+    opportunities = {
+        item.id: item
+        for item in (
+            await session.execute(select(Opportunity).where(Opportunity.id.in_(opportunity_ids)))
+        ).scalars()
+    }
+    for opportunity_id, item in opportunities.items():
+        global_status = aggregate_source_status(statuses.get(opportunity_id, []))
+        if global_status == item.source_status:
+            continue
+        item.source_status = global_status
+        if global_status == "active":
+            item.missing_since = None
+            item.closed_at = None
         else:
-            continue
-        opportunity = await session.get(Opportunity, row.opportunity_id)
-        if opportunity is None:
-            continue
-        opportunity.source_status = row.source_status
-        if row.source_status == "missing":
-            opportunity.missing_since = opportunity.missing_since or moment
-        elif row.source_status == "closed":
-            opportunity.closed_at = moment
-            if opportunity.status in {"discovered", "shortlisted"}:
-                await _record_discovery_change(session, opportunity, "closed")
-                opportunity.status = "closed"
-        if row.source_status != "active":
-            await log_event(
-                session,
-                verb="opportunity.source_status_changed",
-                entity_id=opportunity.id,
-                entity_type="opportunity",
-                payload={"source": source_label, "status": row.source_status},
-            )
-    if missing or likely_closed or closed:
-        await session.commit()
-    return {"missing": missing, "likely_closed": likely_closed, "closed": closed}
+            item.missing_since = item.missing_since or moment
+            if global_status == "closed":
+                item.closed_at = item.closed_at or moment
+                if item.status in lifecycle.SOURCE_OWNED_DISCOVERY:
+                    closed_status = lifecycle.source_closed_status(item.kind)
+                    await _record_discovery_change(session, item, closed_status)
+                    item.status = closed_status
+        await log_event(
+            session,
+            verb="opportunity.source_status_changed",
+            entity_id=item.id,
+            entity_type="opportunity",
+            payload={"source": None, "status": global_status},
+        )
+        if global_status in counts:
+            counts[global_status] += 1
+    await session.commit()
+    return counts
 
 
 async def _link_announcement_hierarchy(

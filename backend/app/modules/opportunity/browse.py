@@ -35,6 +35,9 @@ class BrowseFilters:
     max_skill_match: float | None = None
     #: any | computed | uncomputed -- null semantigini kaybetmemek icin.
     skill_match_state: str | None = None
+    #: active | stale | all. Kaynakta kaybolmus ilanlar varsayilan akista
+    #: guncel ilan gibi gorunmez; "stale" ayri gorunumden erisilir.
+    source_status: str = "active"
     sort: str = "score"
     offset: int = 0
     limit: int = 40
@@ -63,6 +66,13 @@ def _conditions(filters: BrowseFilters):
         conditions.append(Opportunity.category == filters.category)
     if filters.status:
         conditions.append(Opportunity.status == filters.status)
+    # Kaynak durumu: varsayilan akista yalnizca kaynakta gorulen ilanlar.
+    # Cop kutusu kendi filtresini tasir; orada bu ayrim uygulanmaz.
+    if filters.section != "trash" and filters.source_status != "all":
+        if filters.source_status == "stale":
+            conditions.append(Opportunity.source_status != "active")
+        else:
+            conditions.append(Opportunity.source_status == "active")
     if filters.source:
         conditions.append(Opportunity.source == filters.source)
     if filters.region:
@@ -162,6 +172,7 @@ def _facet_expressions(filters: BrowseFilters) -> dict[str, object]:
         "sources": Opportunity.source,
         "statuses": Opportunity.status,
         "regions": Opportunity.region,
+        "source_statuses": Opportunity.source_status,
         "remote": _remote_bucket(),
         "archetypes": Opportunity.evaluation["archetype"].astext,
         "recommendations": Opportunity.evaluation["recommendation"].astext,

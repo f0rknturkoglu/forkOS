@@ -202,6 +202,7 @@ async def opportunity_browse(
     min_skill_match: float | None = Query(None, ge=0, le=1),
     max_skill_match: float | None = Query(None, ge=0, le=1),
     skill_match_state: Literal["any", "computed", "uncomputed"] | None = None,
+    source_status: Literal["active", "stale", "all"] = "active",
     sort: str = "score",
     offset: int = 0,
     limit: int = 40,
@@ -244,6 +245,7 @@ async def opportunity_browse(
                 if section == "jobs" and skill_match_state not in (None, "any")
                 else None
             ),
+            source_status=source_status,
             sort=sort,
             offset=max(offset, 0),
             limit=min(max(limit, 1), 120),
