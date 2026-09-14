@@ -109,7 +109,7 @@ describe("MediaPosterGrid", () => {
     expect(screen.getAllByText("Film")).toHaveLength(1);
     expect(screen.getByText("İzleniyor")).toBeTruthy();
     expect(screen.getByText("Okundu")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Dune için +1 bölüm" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Dune için +1 bölüm" })).toBeNull();
     expect(screen.getByRole("link", { name: "Dune detayını aç" }).getAttribute("href")).toBe("#/media/media-dune");
     const progress = screen.getByRole("progressbar", { name: "Dune ilerlemesi" });
     expect(progress.getAttribute("aria-valuemin")).toBe("0");
@@ -166,9 +166,10 @@ describe("MediaPosterGrid", () => {
       renderGrid([dune], { online: false, onQuick });
       fireEvent(window, new Event("offline"));
 
-      expect((screen.getByRole("button", { name: "Dune için +1 bölüm" }) as HTMLButtonElement).disabled).toBe(true);
-      expect((screen.getByRole("button", { name: "Koleksiyona ekle" }) as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.queryByRole("button", { name: "Dune için +1 bölüm" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Koleksiyona ekle" })).toBeNull();
       await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+      expect((screen.getByRole("menuitem", { name: "Dune için +1 bölüm" }) as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByRole("menuitem", { name: "Çöpe taşı" }) as HTMLButtonElement).disabled).toBe(true);
       expect((screen.getByRole("menuitem", { name: "Koleksiyona ekle" }) as HTMLButtonElement).disabled).toBe(true);
     } finally {
@@ -177,23 +178,33 @@ describe("MediaPosterGrid", () => {
     }
   });
 
-  it("runs the enabled quick action while online", () => {
+  it("runs the enabled quick action from the actions menu while online", async () => {
+    const user = userEvent.setup();
     const onQuick = vi.fn();
     renderGrid([dune], { onQuick });
 
-    fireEvent.click(screen.getByRole("button", { name: "Dune için +1 bölüm" }));
+    await user.click(screen.getByRole("button", { name: "Dune işlemleri" }));
+    await user.click(screen.getByRole("menuitem", { name: "Dune için +1 bölüm" }));
 
     expect(onQuick).toHaveBeenCalledWith(dune);
   });
 
-  it("allows quick progress only for active statuses and never for dropped items", () => {
+  it("allows quick progress only for active statuses and never for dropped items", async () => {
+    const user = userEvent.setup();
     const planned = { ...dune, id: "media-planned", title: "Arrival", status: "planned" };
     const paused = { ...dune, id: "media-paused", title: "Blade Runner", status: "paused" };
     renderGrid([planned, paused, dropped]);
 
-    expect(screen.getByRole("button", { name: "Arrival için +1 bölüm" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Blade Runner için +1 bölüm" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Dune: Messiah için +1 bölüm" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Arrival işlemleri" }));
+    expect(screen.getByRole("menuitem", { name: "Arrival için +1 bölüm" })).toBeTruthy();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Blade Runner işlemleri" }));
+    expect(screen.getByRole("menuitem", { name: "Blade Runner için +1 bölüm" })).toBeTruthy();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Dune: Messiah işlemleri" }));
+    expect(screen.queryByRole("menuitem", { name: "Dune: Messiah için +1 bölüm" })).toBeNull();
   });
 
   it("opens the card collection picker from the actions menu", async () => {

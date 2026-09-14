@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Plus, X } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { Checkbox, Chip, FilterChip, IconButton, Input, Metric, MetricStrip, Select, Section, cx } from "@/core/ui";
 import type { MediaItem, MediaStats } from "@/core/types";
 import { CollectionPicker } from "./CollectionPicker";
@@ -8,6 +8,8 @@ import { measureLabel } from "./MediaSessionTransfer";
 import {
   KIND_LABELS,
   KINDS,
+  KindIcon,
+  ProviderLogo,
   STATUSES,
   STATUS_LABELS,
   kindBg,
@@ -15,6 +17,7 @@ import {
   mediaProvider,
   progressPct,
   providerChip,
+  providerIdentity,
   providerLabel,
   statusLabel,
 } from "./shared";
@@ -328,7 +331,7 @@ function MediaPoster({
   onQuick: (item: PosterItem) => void;
   onTrash: (item: PosterItem) => void;
 }) {
-  const pickerRef = useRef<HTMLSpanElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const href = `#/media/${encodeURIComponent(item.id)}`;
   const provider = mediaProvider(item);
   const percent = progressPct(item);
@@ -352,8 +355,18 @@ function MediaPoster({
           <MediaActionsMenu
             item={item}
             onTrash={() => onTrash(item)}
-            onAddToCollection={() => pickerRef.current?.querySelector("button")?.click()}
+            onAddToCollection={() => setPickerOpen(true)}
+            onQuick={canQuick ? () => onQuick(item) : undefined}
+            quickLabel={canQuick ? quickLabel : undefined}
             disabled={!online}
+          />
+          <CollectionPicker
+            itemId={item.id}
+            currentIds={[]}
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            hideTrigger
+            align="right"
           />
         </div>
       </div>
@@ -366,16 +379,29 @@ function MediaPoster({
           {item.title}
         </a>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
-          <Chip identity={"kind-" + item.kind} variant="outline" size="xs">
-            {KIND_LABELS[item.kind] ?? item.kind}
+          <Chip
+            identity={"kind-" + item.kind}
+            variant="outline"
+            size="xs"
+            icon={<KindIcon kind={item.kind} size={11} />}
+            title={KIND_LABELS[item.kind] ?? item.kind}
+            aria-label={KIND_LABELS[item.kind] ?? item.kind}
+          >
+            <span className="sr-only">{KIND_LABELS[item.kind] ?? item.kind}</span>
           </Chip>
           <Chip tone={STATUS_TONES[item.status] ?? "neutral"} variant="soft" size="xs">
             {statusLabel(item.kind, item.status)}
           </Chip>
           {provider && (
-            <span className={cx("rounded border px-1.5 py-0.5", providerChip(provider))}>
+            <Chip
+              identity={providerIdentity(provider)}
+              variant="outline"
+              size="xs"
+              icon={<ProviderLogo provider={provider} size={11} />}
+              title={providerLabel(provider) ?? provider}
+            >
               {providerLabel(provider)}
-            </span>
+            </Chip>
           )}
           {year && <span className="numeral text-muted">{year}</span>}
           {item.monitored && (
@@ -402,16 +428,6 @@ function MediaPoster({
             </span>
           </div>
         )}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {canQuick && (
-            <IconButton title={quickLabel} disabled={!online} onClick={() => onQuick(item)}>
-              <Plus size={14} aria-hidden="true" />
-            </IconButton>
-          )}
-          <span ref={pickerRef} className="inline-flex">
-            <CollectionPicker itemId={item.id} currentIds={[]} label="Koleksiyona ekle" />
-          </span>
-        </div>
       </div>
     </li>
   );

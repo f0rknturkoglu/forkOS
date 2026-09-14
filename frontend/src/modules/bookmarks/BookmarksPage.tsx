@@ -121,7 +121,7 @@ function BookmarkRow({
         selected ? "bg-accent-surface/50" : "",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap sm:flex-nowrap items-start justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0 flex-1">
           <div className="pt-0.5 shrink-0">
             <Checkbox checked={selected} onChange={onToggleSelect} />

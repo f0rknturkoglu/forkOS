@@ -369,20 +369,20 @@ export function TodayAgendaWidget() {
         )}
 
         {phase === "evening" && (
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-subtle">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-subtle">
             {reviewDone ? (
               <span className="flex items-center gap-1 text-meta text-ok">
                 <CheckCircle2 size={13} /> Günü değerlendirdin
               </span>
             ) : (
-              <div className="flex items-center justify-between w-full gap-2">
+              <>
                 <span className="flex items-center gap-1 text-meta text-muted">
-                  <Moon size={13} /> Gün sonu değerlendirmesi bekliyor
+                  <Moon size={13} className="shrink-0" /> Gün sonu değerlendirmesi bekliyor
                 </span>
                 <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/daily")}>
                   <ArrowRight size={13} /> Değerlendirmeye git
                 </Button>
-              </div>
+              </>
             )}
           </div>
         )}

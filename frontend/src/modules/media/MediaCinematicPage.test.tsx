@@ -207,7 +207,8 @@ describe("cinematic MediaPage", () => {
   it("posts append-only quick progress with a fresh UUID and invalidates the media families", async () => {
     const user = userEvent.setup();
     const { invalidate } = renderPage();
-    await user.click(await screen.findByRole("button", { name: "Arrival için +1 kayıt" }));
+    await user.click(await screen.findByRole("button", { name: "Arrival işlemleri" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Arrival için +1 kayıt" }));
 
     await waitFor(() =>
       expect(calls).toContainEqual({

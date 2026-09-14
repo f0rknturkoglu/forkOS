@@ -133,48 +133,52 @@ export function BookmarkCard({ bookmark, selected, onToggleSelect, onOpenReader 
         </div>
 
         {/* Alt Bilgiler ve Hizli Aksiyonlar */}
-        <div className="flex items-center justify-between gap-2 border-t border-subtle pt-2 text-meta">
-          <div className="flex items-center gap-1 min-w-0">
+        <div className="space-y-2 border-t border-subtle pt-2 text-meta">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Chip>{COLLECTION_LABELS[bookmark.collection] || bookmark.collection}</Chip>
             {isRead && <Chip tone="ok">Okundu</Chip>}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            <IconButton
-              title={isFavorite ? "Favorilerden cikar" : "Favoriye ekle"}
-              disabled={!online}
-              onClick={() => toggleFavorite.mutate()}
-            >
-              <Star size={14} className={isFavorite ? "fill-accent text-accent" : "text-muted"} />
-            </IconButton>
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1">
+              <IconButton
+                title={isFavorite ? "Favorilerden cikar" : "Favoriye ekle"}
+                disabled={!online}
+                onClick={() => toggleFavorite.mutate()}
+              >
+                <Star size={14} className={isFavorite ? "fill-accent text-accent" : "text-muted"} />
+              </IconButton>
 
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={!online}
-              title={isRead ? "Okunmadi isaretle" : "Okundu isaretle"}
-              onClick={() => toggleReadStatus.mutate()}
-            >
-              {isRead ? "Geri al" : "Okundu"}
-            </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!online}
+                title={isRead ? "Okunmadi isaretle" : "Okundu isaretle"}
+                onClick={() => toggleReadStatus.mutate()}
+              >
+                {isRead ? "Geri al" : "Okundu"}
+              </Button>
+            </div>
 
-            <a
-              href={bookmark.url}
-              target="_blank"
-              rel="noreferrer"
-              title="Orijinal sayfayi yeni sekmede ac"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted hover:bg-surface-hover hover:text-primary transition"
-            >
-              <ExternalLink size={14} />
-            </a>
+            <div className="flex items-center gap-1">
+              <a
+                href={bookmark.url}
+                target="_blank"
+                rel="noreferrer"
+                title="Orijinal sayfayi yeni sekmede ac"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-control text-muted hover:bg-surface-hover hover:text-primary transition"
+              >
+                <ExternalLink size={14} />
+              </a>
 
-            <IconButton title="Odak Okuma Modunda Ac" onClick={onOpenReader}>
-              <BookOpen size={14} />
-            </IconButton>
+              <IconButton title="Odak Okuma Modunda Ac" onClick={onOpenReader}>
+                <BookOpen size={14} />
+              </IconButton>
 
-            <IconButton title="Sil" tone="danger" disabled={!online} onClick={() => remove.mutate()}>
-              <Trash2 size={14} />
-            </IconButton>
+              <IconButton title="Sil" tone="danger" disabled={!online} onClick={() => remove.mutate()}>
+                <Trash2 size={14} />
+              </IconButton>
+            </div>
           </div>
         </div>
       </div>

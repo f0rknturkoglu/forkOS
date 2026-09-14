@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Library, MoreHorizontal, Trash2 } from "lucide-react";
+import { Library, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import type { MediaItem } from "@/core/types";
 import { cx } from "@/core/ui";
 import { externalLinks } from "./shared";
@@ -38,12 +38,16 @@ export function MediaActionsMenu({
   item,
   onTrash,
   onAddToCollection,
+  onQuick,
+  quickLabel,
   disabled,
 }: {
   item: MediaActionsMenuItem;
   onTrash: (item: MediaActionsMenuItem) => void;
   /** Menü kapanır, kartın koleksiyon seçicisi açılır. */
   onAddToCollection: (item: MediaActionsMenuItem) => void;
+  onQuick?: (item: MediaActionsMenuItem) => void;
+  quickLabel?: string;
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -178,6 +182,23 @@ export function MediaActionsMenu({
             </a>
           ))}
           <div className="my-1 border-t border-subtle" />
+          {onQuick && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={disabled}
+              onClick={() => {
+                closeAndRestoreFocus();
+                onQuick(item);
+              }}
+              className={cx(
+                "flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-body text-secondary transition hover:bg-surface-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-50",
+              )}
+            >
+              <Plus size={14} aria-hidden="true" />
+              {quickLabel ?? "+1 İlerle"}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"

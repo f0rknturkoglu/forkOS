@@ -24,6 +24,9 @@ export function CollectionPicker({
   align = "left",
   label = "Koleksiyona ekle",
   onChanged,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
 }: {
   itemId: string;
   currentIds: string[];
@@ -31,9 +34,18 @@ export function CollectionPicker({
   align?: "left" | "right";
   label?: string;
   onChanged?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }) {
   const online = useOnline();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof value === "function" ? value(open) : value;
+    if (controlledOpen === undefined) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [term, setTerm] = useState("");
   const [newTitle, setNewTitle] = useState("");
 
@@ -89,18 +101,20 @@ export function CollectionPicker({
 
   return (
     <span className="relative inline-flex">
-      <Button
-        size={size}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={label}
-        title={label}
-        disabled={!online}
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        <Library size={13} aria-hidden="true" />
-        {label}
-      </Button>
+      {!hideTrigger && (
+        <Button
+          size={size}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={label}
+          title={label}
+          disabled={!online}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <Library size={13} aria-hidden="true" />
+          {label}
+        </Button>
+      )}
       <Popover
         open={open}
         onClose={() => setOpen(false)}

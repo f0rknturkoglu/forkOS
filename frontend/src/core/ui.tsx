@@ -849,10 +849,13 @@ export function identityClasses(id: string): string {
 }
 
 type ChipBase = {
-  children: ReactNode;
+  children?: ReactNode;
   variant?: ChipVariant;
   icon?: ReactNode;
   size?: "xs" | "sm";
+  title?: string;
+  "aria-label"?: string;
+  className?: string;
 };
 type ChipProps = ChipBase & ({ tone?: ChipTone; identity?: never } | { identity: string; tone?: never });
 
@@ -862,16 +865,29 @@ type ChipProps = ChipBase & ({ tone?: ChipTone; identity?: never } | { identity:
  * - `identity`=> kimlik rengi ("kind-movie" | "src-tmdb" | "feed-hn").
  * Ikisi ayni anda verilemez (tip duzeyinde engellenir).
  */
-export function Chip({ children, variant = "soft", tone, identity, icon, size = "sm" }: ChipProps) {
+export function Chip({
+  children,
+  variant = "soft",
+  tone,
+  identity,
+  icon,
+  size = "sm",
+  title,
+  "aria-label": ariaLabel,
+  className,
+}: ChipProps) {
   const style = identity
     ? (IDENTITY_STYLES[identity] ?? "border-subtle bg-surface text-secondary")
     : CHIP_STYLES[variant][tone ?? "neutral"];
   return (
     <span
+      title={title}
+      aria-label={ariaLabel}
       className={cx(
         "inline-flex shrink-0 items-center gap-1 rounded border font-medium leading-4",
         size === "xs" ? "px-1.5 py-px text-micro" : "px-2 py-0.5 text-micro",
         style,
+        className,
       )}
     >
       {icon && <span className="shrink-0">{icon}</span>}
