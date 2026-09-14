@@ -1,7 +1,7 @@
 import type { FormEvent, RefObject } from "react";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Eye, EyeOff, X } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, X } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { allModules } from "@/core/registry";
@@ -245,6 +245,25 @@ export function WeatherSection({
   );
 }
 
+/**
+ * Kimlik bilgisi kilavuzu: kullaniciyi dogrudan yetkilendirme/token sayfasina
+ * goturur. Baglanti yalnizca TIKLANINCA acilir; hicbir istek kendiliginden
+ * gitmez (local-only kurali).
+ */
+function CredentialLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="mt-0.5 inline-flex items-center gap-1 text-micro text-accent hover:underline"
+    >
+      {label}
+      <ExternalLink size={11} aria-hidden />
+    </a>
+  );
+}
+
 export function IntegrationsSection({
   online,
   google,
@@ -276,6 +295,7 @@ export function IntegrationsSection({
         <div className="min-w-0">
           <p className="text-body text-primary">Google Drive</p>
           <p className="text-meta text-muted">Belge arama ve senkron için Drive erişimi.</p>
+          <CredentialLink href="https://console.cloud.google.com/apis/credentials" label="Drive API kimlik bilgileri" />
         </div>
         {google?.connected ? (
           <div className="flex shrink-0 items-center gap-2">
@@ -285,14 +305,17 @@ export function IntegrationsSection({
             </Button>
           </div>
         ) : (
-          <Button
-            disabled={!online}
-            onClick={() => {
-              window.location.href = "/api/auth/google/start";
-            }}
-          >
-            bağla
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Chip tone="danger">bağlı değil</Chip>
+            <Button
+              disabled={!online}
+              onClick={() => {
+                window.location.href = "/api/auth/google/start";
+              }}
+            >
+              bağla
+            </Button>
+          </div>
         )}
       </div>
       <div className="mt-3">
@@ -300,6 +323,7 @@ export function IntegrationsSection({
           <div className="min-w-0">
             <p className="text-body text-primary">GitHub</p>
             <p className="text-meta text-muted">Proje paneli, issue ve commit akışı için token.</p>
+            <CredentialLink href="https://github.com/settings/tokens" label="Personal access token oluştur" />
           </div>
           {github?.connected ? (
             <div className="flex shrink-0 items-center gap-2">
@@ -309,7 +333,7 @@ export function IntegrationsSection({
               </Button>
             </div>
           ) : (
-            <Chip>bağlı değil</Chip>
+            <Chip tone="danger">bağlı değil</Chip>
           )}
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">

@@ -367,6 +367,38 @@ describe("SettingsPage entegrasyonlari", () => {
     );
   });
 
+  it("bagli olmayan entegrasyonu kirmizi rozetle ve kilavuz linkiyle gosterir", async () => {
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    // Iki servis de bagli degil: yesil "bagli" rozeti YOK, kirmizi rozet var.
+    expect(await screen.findAllByText("bağlı değil")).toHaveLength(2);
+    const danger = screen.getAllByText("bağlı değil").every((node) => node.className.includes("text-danger"));
+    expect(danger).toBe(true);
+
+    // Kimlik bilgisi kilavuzu: dogru adres, yeni sekme, noopener.
+    const google = screen.getByRole("link", { name: /Drive API kimlik bilgileri/ });
+    expect(google.getAttribute("href")).toBe("https://console.cloud.google.com/apis/credentials");
+    expect(google.getAttribute("target")).toBe("_blank");
+    expect(google.getAttribute("rel")).toContain("noreferrer");
+
+    const github = screen.getByRole("link", { name: /Personal access token oluştur/ });
+    expect(github.getAttribute("href")).toBe("https://github.com/settings/tokens");
+    expect(github.getAttribute("rel")).toContain("noreferrer");
+  });
+
+  it("bagliyken kirmizi rozet kalkar", async () => {
+    googleStatus = { connected: true };
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    await waitFor(() => expect(screen.getByText("bağlı")).toBeTruthy());
+    // Google bagli; yalnizca GitHub'in kirmizi rozeti kalir.
+    expect(screen.getAllByText("bağlı değil")).toHaveLength(1);
+  });
+
   it("Google baglantisini keser", async () => {
     googleStatus = { connected: true };
     location.hash = "#/settings?tab=integrations";
