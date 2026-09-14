@@ -362,6 +362,7 @@ function AreaManager({
       title="Alan yönetimi"
       hint="Yeniden adlandır, renklendir ve arşivle. Silme yerine arşivleme birincil yoldur."
       ariaLabel="Alan yönetimi"
+      className="sm:max-w-2xl"
     >
       <div className="space-y-2">
         {areas.length === 0 && <Empty>Henüz alan yok. Aşağıdan ilk alanı ekle.</Empty>}
@@ -439,7 +440,7 @@ function AreaRow({
           else setDraft(area.title);
         }}
         ariaLabel={`${area.title} adı`}
-        className="min-w-0 flex-1"
+        className="min-w-48 flex-1"
       />
       <Select
         value={area.color ?? ""}

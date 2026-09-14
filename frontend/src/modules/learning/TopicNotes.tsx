@@ -7,33 +7,59 @@
  *   - "Notu tamamen sil" not entity'sini sistemden siler (geri alinamaz).
  * Yanlis aksiyonla global bir notun silinmesi bu ayrimla imkansizdir.
  *
- * Editor tektir: merkezi `NoteEditor` (Faz 2 kurali -- ikinci editör yok).
+ * YAZMA TEK YERDEDIR: burada ikinci bir editor acilmaz. "Not al" baslangic
+ * metnini alir, notu konuya baglar ve Notlar modulunde acar
+ * (`/notes?focus=<id>`) -- medya detayindaki NoteComposer ile ayni desen.
+ * Boylece slash komutlari, klasor, ek havuzu ve tuval ayni editorden gelir;
+ * "Notu duzenle" de ayni tam deneyime gider.
  */
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link2Off, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, qs } from "@/core/api";
+import { navigate } from "@/app/router";
 import { confirmDialog } from "@/core/dialog";
 import { invalidateAfter } from "@/core/invalidation";
 import { Markdown } from "@/core/Markdown";
-import { NoteEditor } from "@/core/NoteEditor";
-import { Button, Chip, Empty, IconButton, SectionHeader, SkeletonRows, relativeTime, useToast } from "@/core/ui";
+import {
+  Button,
+  Chip,
+  Empty,
+  Field,
+  IconButton,
+  Input,
+  Modal,
+  SectionHeader,
+  SkeletonRows,
+  Textarea,
+  relativeTime,
+  useToast,
+} from "@/core/ui";
 import type { Note } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
 
+/** Notu tam editorde acar: tek yazma yuzeyi Notlar moduludur. */
+function openInNotes(noteId: string): void {
+  void navigate(`/notes?focus=${encodeURIComponent(noteId)}`);
+}
+
 export function TopicNotes({
   topicId,
+  topicTitle,
   noteCount,
   composeSignal = 0,
 }: {
   topicId: string;
+  /** Kompozisyon penceresinin basligi -- konu adi baglami kurar. */
+  topicTitle?: string;
   /** Konu detayindan gelen `note_count` -- liste ile ayni sayiyi gosterir. */
   noteCount?: number;
-  /** Dis aksiyon ("Not al") editoru acar; her artis yeni bir istek. */
+  /** Dis aksiyon ("Not al") besteciyi acar; her artis yeni bir istek. */
   composeSignal?: number;
 }) {
   const [composing, setComposing] = useState(false);
-  const [editing, setEditing] = useState<Note | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftLine, setDraftLine] = useState("");
   /* Etiket filtresi: #etiket ya da govdedeki etikete tiklamak listeyi suzer. */
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const online = useOnline();
@@ -66,6 +92,22 @@ export function TopicNotes({
     },
   });
 
+  /** Not konuya baglanir, sonra tam editorde acilir. */
+  const create = useMutation({
+    mutationFn: (body: string) => api.post<Note>("/notes", { body, relate_to: topicId }),
+    onSuccess: (note) => {
+      invalidateAfter("note.write");
+      setComposing(false);
+      setDraftTitle("");
+      setDraftLine("");
+      toast.push("Not oluşturuldu ve konuya bağlandı.", { tone: "ok" });
+      openInNotes(note.id);
+    },
+    onError: (error: Error) => toast.push(`Not oluşturulamadı: ${error.message}`, { tone: "danger" }),
+  });
+
+  const body = [draftTitle.trim(), draftLine.trim()].filter(Boolean).join("\n\n");
+
   const confirmDetach = async (note: Note) => {
     const ok = await confirmDialog({
       title: `"${note.title}" bu konudan ayrılsın mı?`,
@@ -84,13 +126,6 @@ export function TopicNotes({
     });
     if (ok) remove.mutate(note.id);
   };
-
-  if (editing) {
-    return <NoteEditor note={editing} onDone={() => setEditing(null)} onCancel={() => setEditing(null)} />;
-  }
-  if (composing) {
-    return <NoteEditor relateTo={topicId} onDone={() => setComposing(false)} onCancel={() => setComposing(false)} />;
-  }
 
   const visible = tagFilter ? notes.filter((note) => (note.tags ?? []).includes(tagFilter)) : notes;
 
@@ -130,14 +165,15 @@ export function TopicNotes({
               <header className="mb-2 flex items-center gap-2 border-b border-subtle pb-2">
                 <h3 className="min-w-0 flex-1 truncate text-heading text-primary">{note.title}</h3>
                 <span className="shrink-0 text-meta text-muted">{relativeTime(note.updated_at)}</span>
-                <IconButton title="Notu düzenle" disabled={!online} onClick={() => setEditing(note)}>
+                {/* Tam editor: slash komutlari, klasor, ek havuzu ve tuval orada. */}
+                <IconButton title="Notu düzenle (Notlar sayfasında)" onClick={() => openInNotes(note.id)}>
                   <Pencil size={13} />
                 </IconButton>
                 {/* Bag kaldirma: not yasar. */}
                 <IconButton
                   title="Konudan ayır (not silinmez)"
                   disabled={!online || detach.isPending}
-                  onClick={() => confirmDetach(note)}
+                  onClick={() => void confirmDetach(note)}
                 >
                   <Link2Off size={13} />
                 </IconButton>
@@ -146,7 +182,7 @@ export function TopicNotes({
                   title="Notu tamamen sil"
                   tone="danger"
                   disabled={!online || remove.isPending}
-                  onClick={() => confirmRemove(note)}
+                  onClick={() => void confirmRemove(note)}
                 >
                   <Trash2 size={13} />
                 </IconButton>
@@ -178,6 +214,56 @@ export function TopicNotes({
           ))}
         </div>
       )}
+
+      <Modal
+        open={composing}
+        onClose={() => setComposing(false)}
+        title="Yeni not"
+        hint={
+          topicTitle
+            ? `${topicTitle} · başlangıç metni; gövdeyi Notlar editöründe yazarsın`
+            : "Başlangıç metni; gövdeyi Notlar editöründe yazarsın"
+        }
+        footer={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button size="sm" onClick={() => setComposing(false)} disabled={create.isPending}>
+              Vazgeç
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!online || create.isPending || body.length === 0}
+              onClick={() => create.mutate(body)}
+            >
+              Notu oluştur ve aç
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <Field label="Not başlığı">
+            <Input
+              value={draftTitle}
+              onChange={setDraftTitle}
+              autoFocus
+              disabled={create.isPending}
+              ariaLabel="Not başlığı"
+              placeholder={topicTitle ? `${topicTitle} notları` : "Not başlığı"}
+              className="w-full"
+            />
+          </Field>
+          <Field label="İlk satır" hint="Başlık ve ilk satır boşsa not oluşturulamaz.">
+            <Textarea
+              rows={4}
+              value={draftLine}
+              onChange={setDraftLine}
+              disabled={create.isPending}
+              ariaLabel="İlk satır"
+              placeholder="Aklında kalan ilk şey… [[bağlantı]] ve #etiket gövdede serbest."
+            />
+          </Field>
+        </div>
+      </Modal>
     </div>
   );
 }

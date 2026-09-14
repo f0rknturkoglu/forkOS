@@ -2,6 +2,9 @@
 /**
  * TopicNotes — "Konudan ayır" (bag kaldirir) ile "Notu tamamen sil" (entity
  * siler) AYRI aksiyonlar; yanlis aksiyonla global not silinmemeli.
+ *
+ * Yazma yuzeyi tektir: burada ikinci bir editor acilmaz, "Not al" notu konuya
+ * baglar ve Notlar modulunde acar; "Notu duzenle" de ayni yere gider.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -13,12 +16,13 @@ import { TopicNotes } from "./TopicNotes";
 const harness = vi.hoisted(() => ({
   apiDel: vi.fn(),
   apiGet: vi.fn(),
+  apiPost: vi.fn(),
   invalidate: vi.fn(),
 }));
 
 vi.mock("@/core/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/core/api")>();
-  return { ...actual, api: { del: harness.apiDel, get: harness.apiGet } };
+  return { ...actual, api: { del: harness.apiDel, get: harness.apiGet, post: harness.apiPost } };
 });
 vi.mock("@/core/invalidation", () => ({ invalidateAfter: (...events: string[]) => harness.invalidate(...events) }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true, useDebounced: <T,>(value: T) => value }));
@@ -66,8 +70,10 @@ describe("TopicNotes", () => {
   beforeEach(() => {
     harness.apiGet.mockReset();
     harness.apiDel.mockReset();
+    harness.apiPost.mockReset();
     harness.invalidate.mockReset();
     harness.apiGet.mockResolvedValue(notes);
+    location.hash = "";
   });
 
   afterEach(cleanup);
@@ -121,7 +127,48 @@ describe("TopicNotes", () => {
     expect(screen.getByText("Alıştırma notu")).toBeTruthy();
   });
 
-  it("dis aksiyon sinyali editoru acar", async () => {
+  it("'Not al' notu konuya baglar ve tam editoru acar", async () => {
+    harness.apiPost.mockResolvedValue({ ...notes[0], id: "n9" });
+    renderNotes();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Not al/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Yeni not" });
+    fireEvent.change(within(dialog).getByLabelText("Not başlığı"), { target: { value: "Türev notları" } });
+    fireEvent.change(within(dialog).getByLabelText("İlk satır"), { target: { value: "Zincir kuralı" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Notu oluştur ve aç" }));
+
+    await waitFor(() =>
+      expect(harness.apiPost).toHaveBeenCalledWith("/notes", {
+        body: "Türev notları\n\nZincir kuralı",
+        relate_to: "t1",
+      }),
+    );
+    await waitFor(() => expect(location.hash).toContain("/notes?focus=n9"));
+    expect(harness.invalidate).toHaveBeenCalledWith("note.write");
+  });
+
+  it("bos besteciyle not olusturulmaz", async () => {
+    renderNotes();
+    fireEvent.click(await screen.findByRole("button", { name: /Not al/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Yeni not" });
+
+    const submit = within(dialog).getByRole("button", { name: "Notu oluştur ve aç" }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    fireEvent.click(submit);
+    expect(harness.apiPost).not.toHaveBeenCalled();
+    expect(location.hash).not.toContain("/notes");
+  });
+
+  it("'Notu duzenle' satir ici editor yerine Notlar sayfasini acar", async () => {
+    renderNotes();
+    fireEvent.click((await screen.findAllByRole("button", { name: "Notu düzenle (Notlar sayfasında)" }))[0]);
+
+    await waitFor(() => expect(location.hash).toContain("/notes?focus=n1"));
+    // Satir ici ikinci editor YOK.
+    expect(screen.queryByRole("button", { name: /Kaydet/ })).toBeNull();
+  });
+
+  it("dis aksiyon sinyali besteciyi acar", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = (signal: number) => (
       <QueryClientProvider client={client}>
@@ -133,7 +180,7 @@ describe("TopicNotes", () => {
     expect(screen.queryByText("Yeni not")).toBeNull();
 
     rerender(view(1));
-    expect(await screen.findByText("Yeni not")).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Yeni not" })).toBeTruthy();
   });
 
   it("vazgecince hicbir silme cagrisi gitmez", async () => {

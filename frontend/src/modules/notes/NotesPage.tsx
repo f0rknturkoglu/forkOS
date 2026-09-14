@@ -59,7 +59,7 @@ import { NoteBreadcrumbs } from "./NoteBreadcrumbs";
 import { NOTE_NAVIGATION_EVENT, type NoteNavigationRequest } from "./noteNavigation";
 import { noteListPath, type NoteScope } from "./noteNavigation";
 import { SLASH_COMMANDS, SlashCommandMenu, slashContext, type SlashCommand } from "./SlashCommandMenu";
-import { completeWikilink, openWikilinkQuery } from "@/core/NoteEditor";
+import { completeWikilink, openWikilinkQuery } from "@/core/wikilinks";
 
 const refreshNotes = () => invalidateAfter("note.write", "link.write");
 

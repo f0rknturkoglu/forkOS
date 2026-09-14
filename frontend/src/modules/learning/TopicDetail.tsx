@@ -621,7 +621,12 @@ export function TopicDetail({
         {tab === "kaynaklar" && <ResourceList topicId={topicId} addSignal={addResourceSignal} />}
 
         {tab === "notlar" && (
-          <TopicNotes topicId={topicId} noteCount={detail.note_count} composeSignal={composeNoteSignal} />
+          <TopicNotes
+            topicId={topicId}
+            topicTitle={topic.title}
+            noteCount={detail.note_count}
+            composeSignal={composeNoteSignal}
+          />
         )}
 
         {tab === "baglantilar" && (

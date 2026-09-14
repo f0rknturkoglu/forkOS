@@ -192,6 +192,9 @@ export const AFTER = {
     "backlinks",
     "graph",
     "related",
+    // Konu detayi `note_count` tasir: not eklenince/cikarilinca basliktaki
+    // sayac da tazelenmeli, yoksa liste 1 not gosterirken baslik "0 not" der.
+    "study-topic",
   ],
 } as const;
 
