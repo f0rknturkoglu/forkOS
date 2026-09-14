@@ -14,7 +14,6 @@ from app.modules.bookmark.schemas import (
     BookmarkFullTextOut,
     BookmarkHighlightIn,
     BookmarkHighlightOut,
-    GlobalHighlightOut,
     BookmarkOut,
     BookmarkProgressUpdate,
     BookmarkStats,
@@ -23,6 +22,7 @@ from app.modules.bookmark.schemas import (
     CaptureResult,
     ConvertToTaskIn,
     CreateNoteFromBookmarkIn,
+    GlobalHighlightOut,
 )
 
 router = APIRouter(tags=["bookmark"])

@@ -24,10 +24,18 @@ export function GraphPage() {
   const depth = DEPTHS.includes(requested) ? requested : 2;
 
   const go = (next: number) =>
-    navigate(`/graph?${new URLSearchParams({ ...(focus ? { focus } : {}), ...(fromNotes ? { from: "notes" } : {}), depth: String(next) })}`);
+    navigate(
+      `/graph?${new URLSearchParams({ ...(focus ? { focus } : {}), ...(fromNotes ? { from: "notes" } : {}), depth: String(next) })}`,
+    );
 
   // Secili konu geri donuste korunur: LF1 `?focus=` ile ayni konuyu acar.
-  const backHref = fromNotes ? (focus ? `#/notes?focus=${encodeURIComponent(focus)}` : "#/notes") : focus ? `#/learning?focus=${encodeURIComponent(focus)}` : "#/learning";
+  const backHref = fromNotes
+    ? focus
+      ? `#/notes?focus=${encodeURIComponent(focus)}`
+      : "#/notes"
+    : focus
+      ? `#/learning?focus=${encodeURIComponent(focus)}`
+      : "#/learning";
 
   return (
     <div className="relative h-workspace-body overflow-hidden bg-canvas">

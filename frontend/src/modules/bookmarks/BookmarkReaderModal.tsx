@@ -477,7 +477,12 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
               <span>{highlights.length > 0 ? `Vurgular (${highlights.length})` : "Vurgular"}</span>
             </Button>
 
-            <Button size="sm" variant="secondary" disabled={createLiteratureNote.isPending} onClick={() => createLiteratureNote.mutate()}>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={createLiteratureNote.isPending}
+              onClick={() => createLiteratureNote.mutate()}
+            >
               <FilePenLine size={13} /> Literatür notu
             </Button>
 

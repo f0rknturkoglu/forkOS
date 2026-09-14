@@ -30,7 +30,6 @@ import {
 
 export { NOTE_NAVIGATION_EVENT, type NoteNavigationRequest } from "./noteNavigation";
 
-
 function noteDate(value: string): string {
   return formatTrDateTime(value, { day: "numeric", month: "short" });
 }
@@ -107,7 +106,11 @@ function FolderBranch({
           event.dataTransfer.setData(NOTE_FOLDER_DRAG_MIME, folder.id);
         }}
         onDragOver={(event) => {
-          if (event.dataTransfer.types.includes(NOTE_DRAG_MIME) || event.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) event.preventDefault();
+          if (
+            event.dataTransfer.types.includes(NOTE_DRAG_MIME) ||
+            event.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)
+          )
+            event.preventDefault();
         }}
         onDrop={(event) => {
           const noteId = event.dataTransfer.getData(NOTE_DRAG_MIME);
@@ -377,7 +380,11 @@ export function NoteSidebarTree({ collapsed, onNavigate }: { collapsed: boolean;
           <section
             aria-label="Kök Notlar"
             onDragOver={(event) => {
-              if (event.dataTransfer.types.includes(NOTE_DRAG_MIME) || event.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) event.preventDefault();
+              if (
+                event.dataTransfer.types.includes(NOTE_DRAG_MIME) ||
+                event.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)
+              )
+                event.preventDefault();
             }}
             onDrop={(event) => {
               const noteId = event.dataTransfer.getData(NOTE_DRAG_MIME);

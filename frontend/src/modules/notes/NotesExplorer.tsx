@@ -33,7 +33,6 @@ import {
   requestNoteNavigation,
 } from "./noteNavigation";
 
-
 function noteDate(value: string): string {
   return formatTrDateTime(value, { day: "numeric", month: "short" });
 }
@@ -222,7 +221,10 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
 
       {/* Akıllı Bölümler: Okuma Vurguları */}
       <div className="border-b border-subtle p-1.5 space-y-0.5">
-        <a href="#/notes?journal=today" className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary">
+        <a
+          href="#/notes?journal=today"
+          className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+        >
           <FileText size={13} className="shrink-0 text-icon" /> Bugünün Günlüğü
         </a>
         <button
@@ -244,10 +246,16 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
           </div>
           <span className="text-micro tabular-nums text-muted">{highlightsCount}</span>
         </button>
-        <a href="#/notes?scope=archive" className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary">
+        <a
+          href="#/notes?scope=archive"
+          className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+        >
           <Archive size={13} className="shrink-0 text-icon" /> Arşiv
         </a>
-        <a href="#/notes?scope=trash" className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary">
+        <a
+          href="#/notes?scope=trash"
+          className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+        >
           <Trash2 size={13} className="shrink-0 text-icon" /> Çöp Kutusu
         </a>
       </div>
@@ -343,7 +351,11 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
             <section
               aria-label="Kök Notlar"
               onDragOver={(e) => {
-                if (e.dataTransfer.types.includes(NOTE_DRAG_MIME) || e.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) e.preventDefault();
+                if (
+                  e.dataTransfer.types.includes(NOTE_DRAG_MIME) ||
+                  e.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)
+                )
+                  e.preventDefault();
               }}
               onDrop={(e) => {
                 const noteId = e.dataTransfer.getData(NOTE_DRAG_MIME);
@@ -450,7 +462,8 @@ function FolderItem({
           event.dataTransfer.setData(NOTE_FOLDER_DRAG_MIME, folder.id);
         }}
         onDragOver={(e) => {
-          if (e.dataTransfer.types.includes(NOTE_DRAG_MIME) || e.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) e.preventDefault();
+          if (e.dataTransfer.types.includes(NOTE_DRAG_MIME) || e.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME))
+            e.preventDefault();
         }}
         onDrop={(e) => {
           const noteId = e.dataTransfer.getData(NOTE_DRAG_MIME);

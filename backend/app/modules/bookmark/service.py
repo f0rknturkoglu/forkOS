@@ -30,12 +30,12 @@ from app.modules.bookmark.schemas import (
     BookmarkFullTextOut,
     BookmarkHighlightIn,
     BookmarkHighlightOut,
-    GlobalHighlightOut,
     BookmarkOut,
     BookmarkUpdate,
     CaptureIn,
     ConvertToTaskIn,
     CreateNoteFromBookmarkIn,
+    GlobalHighlightOut,
 )
 
 _TRACKING_PREFIXES = ("utm_", "fbclid", "gclid", "mc_cid", "mc_eid", "ref")

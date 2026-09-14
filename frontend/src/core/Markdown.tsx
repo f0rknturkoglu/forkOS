@@ -340,9 +340,14 @@ function renderBlock(block: Block, props: MarkdownProps, key: string): ReactNode
       );
     case "callout":
       return (
-        <aside key={key} className="rounded-card border border-accent-border bg-surface-sunken px-3 py-2 text-body text-primary">
+        <aside
+          key={key}
+          className="rounded-card border border-accent-border bg-surface-sunken px-3 py-2 text-body text-primary"
+        >
           <p className="label-caps text-accent">{block.kind}</p>
-          {block.content.map((row, index) => <p key={index}>{renderInline(row, props, `${key}-${index}`)}</p>)}
+          {block.content.map((row, index) => (
+            <p key={index}>{renderInline(row, props, `${key}-${index}`)}</p>
+          ))}
         </aside>
       );
     case "list": {

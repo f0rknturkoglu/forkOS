@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_session
 from app.core.time import local_today
+from app.db import get_session
 from app.modules.todo import service
 from app.modules.todo.schemas import (
     PlanSlotIn,

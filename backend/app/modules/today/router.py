@@ -3,8 +3,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_session
 from app.core.time import local_today
+from app.db import get_session
 from app.modules.today import service
 from app.modules.today.schemas import TodayAgendaOut
 

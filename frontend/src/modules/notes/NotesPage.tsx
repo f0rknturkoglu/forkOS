@@ -169,9 +169,8 @@ export function NotesPage() {
   const focusId = route.params.get("focus") ?? "";
   const isNewRoute = route.params.get("new") === "1";
   const routeFolderId = route.params.get("folder");
-  const routeScope: NoteScope = route.params.get("scope") === "archive"
-    ? "archive"
-    : route.params.get("scope") === "trash" ? "trash" : "active";
+  const routeScope: NoteScope =
+    route.params.get("scope") === "archive" ? "archive" : route.params.get("scope") === "trash" ? "trash" : "active";
   const journalDay = route.params.get("journal") === "today" ? todayKey() : route.params.get("journal");
   const online = useOnline();
   const [theme] = useTheme();
@@ -240,12 +239,17 @@ export function NotesPage() {
   useEffect(() => {
     if (!journalDay || !online) return;
     let active = true;
-    void api.post<Note>(`/notes/daily/${journalDay}`).then((note) => {
-      if (active) navigate(`/notes?focus=${note.id}`);
-    }).catch(() => {
-      if (active) toast.push("Günlük not açılamadı.", { tone: "danger" });
-    });
-    return () => { active = false; };
+    void api
+      .post<Note>(`/notes/daily/${journalDay}`)
+      .then((note) => {
+        if (active) navigate(`/notes?focus=${note.id}`);
+      })
+      .catch(() => {
+        if (active) toast.push("Günlük not açılamadı.", { tone: "danger" });
+      });
+    return () => {
+      active = false;
+    };
   }, [journalDay, online, toast]);
 
   useEffect(() => {
@@ -306,7 +310,19 @@ export function NotesPage() {
   }, [creating, notes, routeFolderId, selected, selectedId]);
 
   const save = useMutation({
-    mutationFn: ({ quiet = false, body, revision, noteId, folderId }: { quiet?: boolean; body: string; revision: number; noteId: string | null; folderId: string | null }) =>
+    mutationFn: ({
+      quiet = false,
+      body,
+      revision,
+      noteId,
+      folderId,
+    }: {
+      quiet?: boolean;
+      body: string;
+      revision: number;
+      noteId: string | null;
+      folderId: string | null;
+    }) =>
       noteId ? api.patch<Note>(`/notes/${noteId}`, { body }) : api.post<Note>("/notes", { body, folder_id: folderId }),
     onSuccess: (note, { quiet, body, revision, noteId }) => {
       setCreating(false);
@@ -569,7 +585,9 @@ export function NotesPage() {
   useEffect(() => {
     if (!dirty) return;
     const guardSmartLocation = (event: MouseEvent) => {
-      const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>('a[href^="#/notes?scope="], a[href="#/notes?journal=today"]');
+      const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>(
+        'a[href^="#/notes?scope="], a[href="#/notes?journal=today"]',
+      );
       if (!anchor) return;
       event.preventDefault();
       event.stopPropagation();
@@ -733,7 +751,11 @@ export function NotesPage() {
                     ? "Bu klasörde henüz not yok. İlk düşünceyi burada yakala."
                     : "Kasa gezgininden bir not aç veya yeni bir düşünce yakala."}
                   <span className="mt-3 block">
-                    <Button variant="primary" disabled={routeScope !== "active"} onClick={() => beginNote(undefined, routeFolderId)}>
+                    <Button
+                      variant="primary"
+                      disabled={routeScope !== "active"}
+                      onClick={() => beginNote(undefined, routeFolderId)}
+                    >
                       <Plus size={14} /> Yeni not
                     </Button>
                   </span>
@@ -757,7 +779,14 @@ export function NotesPage() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-heading text-primary">{creating ? "Yeni not" : selected?.title}</p>
-                    {!creating && <NoteBreadcrumbs note={selected} folders={folders} scope={routeScope} onNavigate={(href) => void navigateWithDraftGuard(href)} />}
+                    {!creating && (
+                      <NoteBreadcrumbs
+                        note={selected}
+                        folders={folders}
+                        scope={routeScope}
+                        onNavigate={(href) => void navigateWithDraftGuard(href)}
+                      />
+                    )}
                     <div className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
                       <span>
                         {dirty
@@ -779,34 +808,72 @@ export function NotesPage() {
                   </div>
                   {!creating && selected && (
                     <>
-                      {routeScope === "active" && <>
-                      <IconButton
-                        title={selected.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
-                        disabled={!online}
-                        onClick={() => patch.mutate({ id: selected.id, pinned: !selected.pinned })}
-                      >
-                        {selected.pinned ? <PinOff size={14} /> : <Pin size={14} />}
-                      </IconButton>
-                      <IconButton title="Arşivle" disabled={!online} onClick={() => void confirmDiscardDraft().then((ok) => ok && archive.mutate(selected.id))}>
-                        <Archive size={14} />
-                      </IconButton>
-                      <IconButton title="Çöp kutusuna taşı" disabled={!online} onClick={() => void confirmDiscardDraft().then((ok) => ok && trash.mutate(selected.id))}>
-                        <Trash2 size={14} />
-                      </IconButton>
-                      </>}
-                      {routeScope === "archive" && <>
-                        <IconButton title="Arşivden geri yükle" disabled={!online} onClick={() => unarchive.mutate(selected.id)}>
-                          <Archive size={14} />
-                        </IconButton>
-                        <IconButton title="Çöp kutusuna taşı" disabled={!online} onClick={() => void confirmDiscardDraft().then((ok) => ok && trash.mutate(selected.id))}>
-                          <Trash2 size={14} />
-                        </IconButton>
-                      </>}
+                      {routeScope === "active" && (
+                        <>
+                          <IconButton
+                            title={selected.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
+                            disabled={!online}
+                            onClick={() => patch.mutate({ id: selected.id, pinned: !selected.pinned })}
+                          >
+                            {selected.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                          </IconButton>
+                          <IconButton
+                            title="Arşivle"
+                            disabled={!online}
+                            onClick={() => void confirmDiscardDraft().then((ok) => ok && archive.mutate(selected.id))}
+                          >
+                            <Archive size={14} />
+                          </IconButton>
+                          <IconButton
+                            title="Çöp kutusuna taşı"
+                            disabled={!online}
+                            onClick={() => void confirmDiscardDraft().then((ok) => ok && trash.mutate(selected.id))}
+                          >
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </>
+                      )}
+                      {routeScope === "archive" && (
+                        <>
+                          <IconButton
+                            title="Arşivden geri yükle"
+                            disabled={!online}
+                            onClick={() => unarchive.mutate(selected.id)}
+                          >
+                            <Archive size={14} />
+                          </IconButton>
+                          <IconButton
+                            title="Çöp kutusuna taşı"
+                            disabled={!online}
+                            onClick={() => void confirmDiscardDraft().then((ok) => ok && trash.mutate(selected.id))}
+                          >
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </>
+                      )}
                       {routeScope === "trash" && (
-                        <><IconButton title="Geri yükle" disabled={!online} onClick={() => restore.mutate(selected.id)}><Archive size={14} /></IconButton>
-                        <IconButton title="Kalıcı sil" disabled={!online} onClick={async () => {
-                          if (await confirmDialog({ title: "Not kalıcı olarak silinsin mi?", body: "Bu işlem geri alınamaz.", confirmLabel: "Kalıcı Sil", tone: "danger" })) permanentlyDelete.mutate(selected.id);
-                        }}><Trash2 size={14} /></IconButton></>
+                        <>
+                          <IconButton title="Geri yükle" disabled={!online} onClick={() => restore.mutate(selected.id)}>
+                            <Archive size={14} />
+                          </IconButton>
+                          <IconButton
+                            title="Kalıcı sil"
+                            disabled={!online}
+                            onClick={async () => {
+                              if (
+                                await confirmDialog({
+                                  title: "Not kalıcı olarak silinsin mi?",
+                                  body: "Bu işlem geri alınamaz.",
+                                  confirmLabel: "Kalıcı Sil",
+                                  tone: "danger",
+                                })
+                              )
+                                permanentlyDelete.mutate(selected.id);
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </IconButton>
+                        </>
                       )}
                     </>
                   )}
@@ -858,7 +925,11 @@ export function NotesPage() {
                     </Button>
                   </div>
                   {!creating && selected && (
-                    <Button size="sm" variant="ghost" onClick={() => void navigateWithDraftGuard(`/graph?focus=${selected.id}&from=notes`)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void navigateWithDraftGuard(`/graph?focus=${selected.id}&from=notes`)}
+                    >
                       <Network size={14} /> Graf
                     </Button>
                   )}

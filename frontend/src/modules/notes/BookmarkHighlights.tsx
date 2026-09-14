@@ -7,7 +7,7 @@ import { Button, Empty, IconButton } from "@/core/ui";
 type HighlightSource = GlobalHighlight | Bookmark;
 
 export function highlightMarkdown(highlight: HighlightSource): string {
-  const text = "text" in highlight ? highlight.text : highlight.selection ?? "";
+  const text = "text" in highlight ? highlight.text : (highlight.selection ?? "");
   const title = "bookmark_title" in highlight ? highlight.bookmark_title : highlight.title;
   const url = "bookmark_url" in highlight ? highlight.bookmark_url : highlight.url;
   const quote = text.trim().replace(/\n/g, "\n> ");
@@ -49,11 +49,13 @@ export function BookmarkHighlights({
               <article key={highlight.id} className="rounded-card border border-subtle bg-surface-sunken p-3">
                 <div className="mb-2 flex items-start gap-2">
                   <Quote size={13} className="mt-0.5 shrink-0 text-icon" />
-                  <p className="line-clamp-5 min-w-0 flex-1 text-meta leading-relaxed text-primary">
-                    {highlight.text}
-                  </p>
+                  <p className="line-clamp-5 min-w-0 flex-1 text-meta leading-relaxed text-primary">{highlight.text}</p>
                 </div>
-                {highlight.note && <p className="mb-2 rounded-control bg-surface px-2 py-1.5 text-meta text-secondary">{highlight.note}</p>}
+                {highlight.note && (
+                  <p className="mb-2 rounded-control bg-surface px-2 py-1.5 text-meta text-secondary">
+                    {highlight.note}
+                  </p>
+                )}
                 <div className="flex items-center gap-2 border-t border-subtle pt-2">
                   <span className="min-w-0 flex-1 truncate text-micro text-muted">{highlight.bookmark_title}</span>
                   <a
