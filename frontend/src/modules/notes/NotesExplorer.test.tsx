@@ -216,4 +216,14 @@ describe("NotesExplorer (Obsidian Vault Gezgini)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tümünü genişlet" }));
     expect(await screen.findByText("Not başlığı")).toBeTruthy();
   });
+
+  it("Tümünü daralt odaklı notu olan klasörü de kapatır", async () => {
+    mockTree({ folders: [folder("f1", "Kasa")], notes: [note("n1", "Not başlığı", "f1")] });
+    renderExplorer({ focusId: "n1" });
+
+    expect(await screen.findByText("Not başlığı")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tümünü daralt" }));
+    expect(screen.queryByText("Not başlığı")).toBeNull();
+  });
 });

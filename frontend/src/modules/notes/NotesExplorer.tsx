@@ -458,14 +458,13 @@ function FolderItem({
 }) {
   const childFolders = allFolders.filter((item) => item.parent_id === folder.id);
   const folderNotes = notes.filter((note) => note.folder_id === folder.id);
-  const hasFocusedChild = folderNotes.some((note) => note.id === focusId);
   const childFormOpen = childFormParentId === folder.id;
 
   // Yerel tercih yalnız kullanıcı bu satırı elle açıp kapattığında geçerlidir;
   // "Tümünü daralt/genişlet" komutu geldiğinde sıfırlanır ki komut mount edilmiş
   // satırlarda da etkili olsun.
   const [override, setOverride] = useState<boolean | null>(null);
-  const open = override ?? (hasFocusedChild || !allCollapsed);
+  const open = override ?? !allCollapsed;
   useEffect(() => setOverride(null), [allCollapsed]);
 
   return (
