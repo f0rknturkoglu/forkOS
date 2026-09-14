@@ -32,7 +32,6 @@ async def test_create_derives_title_from_body(client: AsyncClient) -> None:
     assert note["pinned"] is False
     assert note["canvas_state"] == {}
     assert note["default_view"] == "page"
-    assert note["page_width"] == "compact"
     assert note["folder_id"] is None
     await client.delete(f"/api/notes/{note['id']}")
 
@@ -48,12 +47,11 @@ async def test_note_canvas_state_and_view_preferences(client: AsyncClient) -> No
     }
     patched = await client.patch(
         f"/api/notes/{note['id']}",
-        json={"canvas_state": scene, "default_view": "canvas", "page_width": "full"},
+        json={"canvas_state": scene, "default_view": "canvas"},
     )
     assert patched.status_code == 200, patched.text
     assert patched.json()["canvas_state"] == scene
     assert patched.json()["default_view"] == "canvas"
-    assert patched.json()["page_width"] == "full"
 
     listed = (await client.get("/api/notes")).json()
     summary = next(item for item in listed if item["id"] == note["id"])
@@ -66,10 +64,8 @@ async def test_note_canvas_state_and_view_preferences(client: AsyncClient) -> No
 async def test_note_rejects_invalid_canvas_preferences(client: AsyncClient) -> None:
     note = (await client.post("/api/notes", json={"body": "Tuval doğrulama"})).json()
     invalid_view = await client.patch(f"/api/notes/{note['id']}", json={"default_view": "board"})
-    invalid_width = await client.patch(f"/api/notes/{note['id']}", json={"page_width": "giant"})
     invalid_scene = await client.patch(f"/api/notes/{note['id']}", json={"canvas_state": {"elements": {}}})
     assert invalid_view.status_code == 422
-    assert invalid_width.status_code == 422
     assert invalid_scene.status_code == 422
     await client.delete(f"/api/notes/{note['id']}")
 

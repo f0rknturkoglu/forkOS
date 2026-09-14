@@ -110,6 +110,16 @@ describe("NotesPage draft korumasi", () => {
     expect(textarea.value).toBe("# Birinci\n\ngövde 1");
   });
 
+  it("genişlik seçici yok ve editör tam genişlik", async () => {
+    renderPage();
+    const textarea = await screen.findByLabelText("Not içeriği");
+
+    // Not genişliği tercihi tamamen kaldırıldı: ne kontrol ne de sınır var.
+    expect(screen.queryByLabelText("Sayfa genişliği")).toBeNull();
+    const wrap = textarea.parentElement as HTMLElement;
+    expect(getComputedStyle(wrap).maxWidth).toBe("none");
+  });
+
   it("yazma ve render görünümünü aynı panelde değiştirir", async () => {
     renderPage();
     expect(await screen.findByLabelText("Not içeriği")).toBeTruthy();

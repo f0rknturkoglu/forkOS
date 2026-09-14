@@ -8186,16 +8186,6 @@
             ],
             "title": "Folder Id"
           },
-          "page_width": {
-            "default": "compact",
-            "enum": [
-              "compact",
-              "wide",
-              "full"
-            ],
-            "title": "Page Width",
-            "type": "string"
-          },
           "pinned": {
             "default": false,
             "title": "Pinned",
@@ -8299,16 +8289,6 @@
               }
             ],
             "title": "Journal Day"
-          },
-          "page_width": {
-            "default": "compact",
-            "enum": [
-              "compact",
-              "wide",
-              "full"
-            ],
-            "title": "Page Width",
-            "type": "string"
           },
           "pinned": {
             "title": "Pinned",
@@ -8445,22 +8425,6 @@
               }
             ],
             "title": "Folder Id"
-          },
-          "page_width": {
-            "anyOf": [
-              {
-                "enum": [
-                  "compact",
-                  "wide",
-                  "full"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Page Width"
           },
           "pinned": {
             "anyOf": [

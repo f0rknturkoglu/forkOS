@@ -7224,12 +7224,6 @@ export interface components {
             /** Folder Id */
             folder_id?: string | null;
             /**
-             * Page Width
-             * @default compact
-             * @enum {string}
-             */
-            page_width: "compact" | "wide" | "full";
-            /**
              * Pinned
              * @default false
              */
@@ -7271,12 +7265,6 @@ export interface components {
             id: string;
             /** Journal Day */
             journal_day?: string | null;
-            /**
-             * Page Width
-             * @default compact
-             * @enum {string}
-             */
-            page_width: "compact" | "wide" | "full";
             /** Pinned */
             pinned: boolean;
             /** Project Id */
@@ -7311,8 +7299,6 @@ export interface components {
             default_view?: ("page" | "canvas") | null;
             /** Folder Id */
             folder_id?: string | null;
-            /** Page Width */
-            page_width?: ("compact" | "wide" | "full") | null;
             /** Pinned */
             pinned?: boolean | null;
             /** Tags */

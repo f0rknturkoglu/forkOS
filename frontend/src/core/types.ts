@@ -236,7 +236,6 @@ export interface Note {
   /** Excalidraw sahnesi; not listesinde bos, detay cagrisinda tam gelir. */
   canvas_state?: NoteCanvasState;
   default_view?: "page" | "canvas";
-  page_width?: "compact" | "wide" | "full";
 }
 
 export interface NoteFolder {

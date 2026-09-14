@@ -116,7 +116,6 @@ function insertInlineAt(source: string, position: number, text: string): { value
 }
 
 type EditorMode = "write" | "preview" | "canvas";
-type PageWidth = NonNullable<Note["page_width"]>;
 type UploadRequest = { files: File[]; at: number; source: string };
 
 function AttachmentIcon({ attachment }: { attachment: NoteAttachment }) {
@@ -369,8 +368,7 @@ export function NotesPage() {
   });
 
   const notePreference = useMutation({
-    mutationFn: (values: { default_view?: "page" | "canvas"; page_width?: PageWidth }) =>
-      api.patch<Note>(`/notes/${selectedId}`, values),
+    mutationFn: (values: { default_view?: "page" | "canvas" }) => api.patch<Note>(`/notes/${selectedId}`, values),
     onSuccess: refreshNotes,
   });
 
@@ -1039,39 +1037,11 @@ export function NotesPage() {
                     <span className="min-w-2 flex-1" />
                     <Chip>{selected?.attachments?.length ?? 0} ek</Chip>
                     <Kbd>⌘S</Kbd>
-                    <div
-                      className="ml-1 inline-flex rounded-control border border-subtle bg-surface-sunken p-0.5"
-                      aria-label="Sayfa genişliği"
-                    >
-                      {(["compact", "wide", "full"] as const).map((width) => (
-                        <Button
-                          key={width}
-                          size="sm"
-                          variant="ghost"
-                          className={cx(
-                            "h-7 border-0 px-2",
-                            (selected?.page_width ?? "compact") === width && "bg-surface",
-                          )}
-                          onClick={() => notePreference.mutate({ page_width: width })}
-                        >
-                          {width === "compact" ? "Dar" : width === "wide" ? "Geniş" : "Tam"}
-                        </Button>
-                      ))}
-                    </div>
                   </div>
                 ) : null}
 
                 {mode === "write" ? (
-                  <div
-                    className={cx(
-                      "relative mx-auto px-5 py-5",
-                      (selected?.page_width ?? "compact") === "compact"
-                        ? "max-w-4xl"
-                        : (selected?.page_width ?? "compact") === "wide"
-                          ? "max-w-6xl"
-                          : "max-w-none",
-                    )}
-                  >
+                  <div className="relative flex flex-1 flex-col px-6 py-6">
                     {slash && <SlashCommandMenu query={slash.query} onChoose={chooseSlashCommand} />}
                     <Textarea
                       ref={editor}
@@ -1157,16 +1127,7 @@ export function NotesPage() {
                     )}
                   </div>
                 ) : mode === "preview" ? (
-                  <article
-                    className={cx(
-                      "mx-auto min-h-screen px-5 py-5",
-                      (selected?.page_width ?? "compact") === "compact"
-                        ? "max-w-4xl"
-                        : (selected?.page_width ?? "compact") === "wide"
-                          ? "max-w-6xl"
-                          : "max-w-none",
-                    )}
-                  >
+                  <article className="min-h-[70dvh] px-6 py-6">
                     <Markdown
                       source={draft}
                       links={selected?.resolved_links ?? []}

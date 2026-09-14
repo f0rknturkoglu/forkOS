@@ -131,7 +131,6 @@ def _out(
         ],
         canvas_state=(canvas_state if canvas_state is not None else (note.canvas_state or {})),
         default_view=note.default_view,
-        page_width=note.page_width,
     )
 
 
@@ -474,7 +473,6 @@ async def create(
         source_bookmark_id=source_bookmark_id,
         canvas_state=data.canvas_state,
         default_view=data.default_view,
-        page_width=data.page_width,
     )
     session.add(note)
     if data.relate_to is not None:
@@ -591,7 +589,6 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
     pinned_changed = "pinned" in values and values["pinned"] != note.pinned
     canvas_changed = "canvas_state" in values and values["canvas_state"] is not None and values["canvas_state"] != note.canvas_state
     view_changed = "default_view" in values and values["default_view"] is not None and values["default_view"] != note.default_view
-    width_changed = "page_width" in values and values["page_width"] is not None and values["page_width"] != note.page_width
     folder_changed = "folder_id" in values and values["folder_id"] != note.folder_id
     if body_changed:
         note.body = values["body"]
@@ -605,8 +602,6 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
         note.canvas_state = values["canvas_state"]
     if view_changed:
         note.default_view = values["default_view"]
-    if width_changed:
-        note.page_width = values["page_width"]
     if folder_changed:
         if not await _folder_exists(session, values["folder_id"]):
             raise ValueError("not klasörü bulunamadı")
@@ -622,7 +617,7 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
                 "to_folder_id": str(note.folder_id) if note.folder_id else None,
             },
         )
-    content_changed = body_changed or canvas_changed or view_changed or width_changed or folder_changed or "tags" in values
+    content_changed = body_changed or canvas_changed or view_changed or folder_changed or "tags" in values
     if content_changed and not body_changed:
         await touch_entity(session, note_id)
     if content_changed:
@@ -633,7 +628,6 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
                 ("body", body_changed),
                 ("canvas_state", canvas_changed),
                 ("default_view", view_changed),
-                ("page_width", width_changed),
                 ("folder_id", folder_changed),
                 ("tags", "tags" in values),
             )

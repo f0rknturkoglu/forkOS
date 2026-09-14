@@ -8,7 +8,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 NoteView = Literal["page", "canvas"]
-PageWidth = Literal["compact", "wide", "full"]
 MAX_CANVAS_BYTES = 5 * 1024 * 1024
 MAX_CANVAS_ELEMENTS = 5_000
 
@@ -80,7 +79,6 @@ class NoteIn(BaseModel):
     tags: list[str] = Field(default_factory=list)
     canvas_state: dict[str, Any] = Field(default_factory=dict)
     default_view: NoteView = "page"
-    page_width: PageWidth = "compact"
     folder_id: uuid.UUID | None = None
 
     _validate_canvas = field_validator("canvas_state")(validate_canvas_state)
@@ -92,7 +90,6 @@ class NoteUpdate(BaseModel):
     tags: list[str] | None = None
     canvas_state: dict[str, Any] | None = None
     default_view: NoteView | None = None
-    page_width: PageWidth | None = None
     folder_id: uuid.UUID | None = None
 
     _validate_canvas = field_validator("canvas_state")(validate_canvas_state)
@@ -123,6 +120,5 @@ class NoteOut(BaseModel):
     attachments: list[NoteAttachmentOut] = Field(default_factory=list)
     canvas_state: dict[str, Any] = Field(default_factory=dict)
     default_view: NoteView = "page"
-    page_width: PageWidth = "compact"
 
     _validate_canvas = field_validator("canvas_state")(validate_canvas_state)

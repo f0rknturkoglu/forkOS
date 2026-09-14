@@ -50,10 +50,6 @@ class Note(EntityBacked, Base):
             "default_view in ('page', 'canvas')",
             name="note_default_view_ck",
         ),
-        CheckConstraint(
-            "page_width in ('compact', 'wide', 'full')",
-            name="note_page_width_ck",
-        ),
         UniqueConstraint(
             "project_id", "journal_day", name="note_project_journal_day_uniq"
         ),
@@ -91,7 +87,4 @@ class Note(EntityBacked, Base):
     )
     default_view: Mapped[str] = mapped_column(
         Text, nullable=False, default="page", server_default="page"
-    )
-    page_width: Mapped[str] = mapped_column(
-        Text, nullable=False, default="compact", server_default="compact"
     )
