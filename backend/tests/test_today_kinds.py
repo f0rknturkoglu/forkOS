@@ -4,7 +4,7 @@ modul agenda'ya kind ekleyerek girer, kırıcı degisiklik yok)."""
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -115,8 +115,12 @@ async def _seed_study_slot(client: AsyncClient) -> None:
 
 async def _seed_pomodoro_slot(client: AsyncClient) -> None:
     _, mid = _local_midday()
+    # Gece yarısından öğlene kadar yerel gün ortası henüz gelecektedir.
+    # Manuel seans API'si gelecekte kayıt kabul etmediği için fixture'ı
+    # hem gün içi hem de zamansal olarak geçmiş güvenli bir ana sabitle.
+    started_at = min(mid - timedelta(minutes=30), datetime.now(UTC) - timedelta(minutes=1))
     session = await client.post("/api/pomodoro", json={
-        "started_at": (mid - timedelta(minutes=30)).isoformat(),
+        "started_at": started_at.isoformat(),
         "minutes": 25,
         "topic": "Planlanan odak",
     })
