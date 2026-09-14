@@ -147,11 +147,11 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
   const projectNotes = filteredNotes.filter((note) => Boolean(note.project_id));
   const rootFolders = folders.filter((folder) => !folder.parent_id);
 
-  /** Alt klasör formunu hedef klasör için aç/kapat; aynı klasöre tekrar tıklamak kapatır. */
-  const toggleChildForm = (folderId: string) => {
+  /** Alt klasör formunu hedef klasör için açar; `null` kapatır. */
+  const setChildForm = (folderId: string | null) => {
     setFolderDraft("");
     setEditingFolder(null);
-    setInlineParentId((current) => (current === folderId ? undefined : folderId));
+    setInlineParentId(folderId ?? undefined);
   };
 
   return (
@@ -339,8 +339,9 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
                 onSelectNote={onSelectNote}
                 onNewNote={onNewNote}
                 childFormParentId={inlineParentId ?? null}
-                onToggleChildForm={toggleChildForm}
+                onSetChildForm={setChildForm}
                 onSubmitChild={(name, parentId) => createFolder.mutate({ name, parentId })}
+                childFormPending={createFolder.isPending}
                 onRename={(target) => {
                   setEditingFolder(target);
                   setFolderDraft(target.name);
@@ -433,8 +434,9 @@ function FolderItem({
   onSelectNote,
   onNewNote,
   childFormParentId,
-  onToggleChildForm,
+  onSetChildForm,
   onSubmitChild,
+  childFormPending,
   onRename,
   onDelete,
   onMoveNote,
@@ -449,8 +451,9 @@ function FolderItem({
   onNewNote?: (folderId: string | null) => void;
   /** Alt formu açık olan klasörün kimliği; form yalnız hedef klasörün ağacında çizilir. */
   childFormParentId: string | null;
-  onToggleChildForm: (folderId: string) => void;
+  onSetChildForm: (folderId: string | null) => void;
   onSubmitChild: (name: string, parentId: string) => void;
+  childFormPending: boolean;
   onRename: (folder: NoteFolder) => void;
   onDelete: (folder: NoteFolder) => void;
   onMoveNote: (noteId: string, folderId: string | null) => void;
@@ -466,6 +469,11 @@ function FolderItem({
   const [override, setOverride] = useState<boolean | null>(null);
   const open = override ?? !allCollapsed;
   useEffect(() => setOverride(null), [allCollapsed]);
+  // Klasör kapanınca form görünmez olur; ebeveynin "açık form" durumu bayat
+  // kalmasın diye burada kapatılır (yeniden açıldığında form geri gelmez).
+  useEffect(() => {
+    if (!open && childFormOpen) onSetChildForm(null);
+  }, [open, childFormOpen, onSetChildForm]);
 
   return (
     <div className="space-y-0.5">
@@ -518,7 +526,14 @@ function FolderItem({
           >
             <Plus size={12} />
           </IconButton>
-          <IconButton title={`${folder.name} içine alt klasör ekle`} onClick={() => onToggleChildForm(folder.id)}>
+          <IconButton
+            title={`${folder.name} içine alt klasör ekle`}
+            onClick={() => {
+              // Kapalı klasörde form görünmez olurdu: önce satırı aç, sonra formu iste.
+              setOverride(true);
+              onSetChildForm(childFormOpen ? null : folder.id);
+            }}
+          >
             <FolderPlus size={12} />
           </IconButton>
           <IconButton title={`${folder.name} adını değiştir`} onClick={() => onRename(folder)}>
@@ -536,7 +551,8 @@ function FolderItem({
             <ChildFolderForm
               parentId={folder.id}
               onSubmit={onSubmitChild}
-              onClose={() => onToggleChildForm(folder.id)}
+              onClose={() => onSetChildForm(null)}
+              pending={childFormPending}
             />
           )}
           {childFolders.map((child) => (
@@ -550,8 +566,9 @@ function FolderItem({
               onSelectNote={onSelectNote}
               onNewNote={onNewNote}
               childFormParentId={childFormParentId}
-              onToggleChildForm={onToggleChildForm}
+              onSetChildForm={onSetChildForm}
               onSubmitChild={onSubmitChild}
+              childFormPending={childFormPending}
               onRename={onRename}
               onDelete={onDelete}
               onMoveNote={onMoveNote}
@@ -573,10 +590,12 @@ function ChildFolderForm({
   parentId,
   onSubmit,
   onClose,
+  pending,
 }: {
   parentId: string;
   onSubmit: (name: string, parentId: string) => void;
   onClose: () => void;
+  pending: boolean;
 }) {
   const [name, setName] = useState("");
 
@@ -587,8 +606,10 @@ function ChildFolderForm({
       className="flex items-center gap-1 px-1 py-1"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!name.trim()) return;
+        if (!name.trim() || pending) return;
         onSubmit(name.trim(), parentId);
+        // Gönderim sürerken aynı adla ikinci bir klasör açılmasın.
+        setName("");
       }}
     >
       <Input
@@ -600,7 +621,7 @@ function ChildFolderForm({
         className="h-7 min-w-0 flex-1 text-meta"
         onKeyDown={(event) => event.key === "Escape" && onClose()}
       />
-      <Button size="sm" type="submit" disabled={!name.trim()}>
+      <Button size="sm" type="submit" disabled={!name.trim() || pending}>
         Ekle
       </Button>
     </form>

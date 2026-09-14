@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotesExplorer } from "./NotesExplorer";
 
@@ -225,5 +225,69 @@ describe("NotesExplorer (Obsidian Vault Gezgini)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tümünü daralt" }));
     expect(screen.queryByText("Not başlığı")).toBeNull();
+  });
+
+  it("kapalı klasörde alt klasör ekle düğmesi klasörü açıp formu gösterir", async () => {
+    mockTree({ folders: [folder("f1", "Kasa")] });
+    renderExplorer();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Tümünü daralt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kasa içine alt klasör ekle" }));
+
+    const form = await screen.findByRole("form", { name: "Yeni alt klasör" });
+    expect(form.closest('[data-folder-id="f1"]')).not.toBeNull();
+
+    fireEvent.change(within(form).getByLabelText("Yeni alt klasör adı"), { target: { value: "Alt" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Ekle" }));
+
+    await waitFor(() =>
+      expect(harness.apiPost).toHaveBeenCalledWith("/note-folders", { name: "Alt", parent_id: "f1" }),
+    );
+  });
+
+  it("form açıkken klasör kapatılırsa bayat form geri gelmez", async () => {
+    mockTree({ folders: [folder("f1", "Kasa")] });
+    renderExplorer();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Kasa içine alt klasör ekle" }));
+    expect(await screen.findByRole("form", { name: "Yeni alt klasör" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tümünü daralt" }));
+    expect(screen.queryByRole("form", { name: "Yeni alt klasör" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tümünü genişlet" }));
+    expect(screen.queryByRole("form", { name: "Yeni alt klasör" })).toBeNull();
+  });
+
+  it("alt klasör formu gönderim sürerken ikinci kez gönderilmez", async () => {
+    mockTree({ folders: [folder("f1", "Kasa")] });
+    // Yanıtın ne zaman döneceği testin elinde olsun diye ertelenmiş promise:
+    // `Promise.withResolvers` projenin ES2022 lib hedefinde yok (tsc TS2550),
+    // bu yüzden executor biçimi burada zorunlu.
+    let resolvePost: (value: unknown) => void = () => {};
+    harness.apiPost.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePost = resolve;
+        }),
+    );
+    renderExplorer();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Kasa içine alt klasör ekle" }));
+    const form = await screen.findByRole("form", { name: "Yeni alt klasör" });
+    fireEvent.change(within(form).getByLabelText("Yeni alt klasör adı"), { target: { value: "Alt" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Ekle" }));
+    await waitFor(() => expect(harness.apiPost).toHaveBeenCalledTimes(1));
+
+    // Gönderim sürerken aynı ad yeniden yazılıp tekrar gönderilmeye çalışılıyor.
+    fireEvent.change(within(form).getByLabelText("Yeni alt klasör adı"), { target: { value: "Alt" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Ekle" }));
+    await act(async () => {});
+
+    expect(harness.apiPost).toHaveBeenCalledTimes(1);
+    expect(harness.apiPost).toHaveBeenCalledWith("/note-folders", { name: "Alt", parent_id: "f1" });
+
+    await act(async () => resolvePost({}));
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Yeni alt klasör" })).toBeNull());
   });
 });
