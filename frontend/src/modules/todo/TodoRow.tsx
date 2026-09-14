@@ -128,8 +128,11 @@ export function TodoRow({
       data-focused={focused || undefined}
       className={cx(
         "group scroll-mt-24",
-        nested && "pl-6",
-        focused && "rounded-card bg-accent-surface ring-1 ring-inset ring-accent",
+        // Odak karti (bg + ring) satirin KENDI kutusudur; yatay dolgu olmadan
+        // soldaki tamamlama dairesi ile sagdaki aksiyonlar yuvarlak koseden
+        // tasip cerceveyi deliyordu. Ic ice satirlar zaten 24px girintili.
+        nested ? "pl-6 pr-3" : "px-3",
+        focused && "rounded-control bg-accent-surface ring-1 ring-inset ring-accent",
       )}
     >
       <div className={cx("flex items-start gap-2.5", compact ? "py-1.5" : "py-2.5")}>
