@@ -42,7 +42,6 @@ import {
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { SavedViewPicker } from "@/core/SavedViewPicker";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, BookmarkStats, Collection, TagCount } from "@/core/types";
 import { BookmarkCard } from "./BookmarkCard";
@@ -317,18 +316,6 @@ export function BookmarksPage() {
     document.body.removeChild(a);
   };
 
-  function applyView(raw: unknown) {
-    const d = (raw ?? {}) as Record<string, unknown>;
-    const next: Filter = { collection: "" };
-    if (typeof d.collection === "string") next.collection = d.collection as Collection;
-    if (typeof d.read_status === "string") next.read_status = d.read_status;
-    if (d.favorite === true) next.favorite = true;
-    if (typeof d.source === "string") next.source = d.source;
-    if (typeof d.tag === "string") next.tag = d.tag;
-    setFilter(next);
-    setSearch("");
-  }
-
   return (
     <PageFrame className="py-3">
       <Workspace
@@ -389,8 +376,6 @@ export function BookmarksPage() {
                   ))
               )}
             </WorkspaceRailGroup>
-
-            <SavedViewPicker module="bookmark" filters={filter} onApply={applyView} />
           </WorkspaceRailContent>
         }
         inspector={

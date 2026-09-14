@@ -148,7 +148,7 @@ describe("bookmarks flow", () => {
     expect(harness.invalidate).toHaveBeenCalledWith("bookmark.write");
   });
 
-  it("renders the saved-view picker and drives save/apply/delete through it", async () => {
+  it("rail'de kayitli gorunum secici yok — bu yuzeyde karsiligi olmayan kontrol sunulmaz", async () => {
     harness.queryData = {
       bookmarks,
       views: [
@@ -164,48 +164,9 @@ describe("bookmarks flow", () => {
       ],
     };
     const markup = renderToStaticMarkup(<BookmarksPage />);
-    expect(markup).toContain("Görünümler");
-
-    // Picker'ın görünüm sorgusu modül anahtarıyla koşar.
-    const views = harness.queries.find((query) => query.queryKey[0] === "views" && query.queryKey[1] === "bookmark");
-    expect(views).toBeDefined();
-    await views?.queryFn();
-    expect(harness.apiGet).toHaveBeenCalledWith("/views?module=bookmark");
-
-    // Kaydetme: picker adı body'ye taşır, temiz filtreyi gönderir.
-    const saveView = harness.mutations.find((mutation) => {
-      harness.apiPost.mockClear();
-      try {
-        mutation.mutationFn?.({ name: "Okunmamış" });
-      } catch {
-        return false;
-      }
-      return harness.apiPost.mock.calls.some(([url]) => url === "/views");
-    });
-    expect(saveView).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith("/views", {
-      name: "Okunmamış",
-      module: "bookmark",
-      filter: {},
-    });
-    saveView?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("views.write");
-
-    // Silme: picker id ile DELETE atar.
-    harness.invalidate.mockClear();
-    const removeView = harness.mutations.find((mutation) => {
-      harness.apiDel.mockClear();
-      try {
-        mutation.mutationFn?.("v1");
-      } catch {
-        return false;
-      }
-      return harness.apiDel.mock.calls.some(([url]) => url === "/views/v1");
-    });
-    expect(removeView).toBeDefined();
-    expect(harness.apiDel).toHaveBeenCalledWith("/views/v1");
-    removeView?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith("views.write");
+    expect(markup).not.toContain("Görünümler");
+    // Gorunum sorgusu da kosmaz: kaldirilan kontrol arka planda veri cekmez.
+    expect(harness.queries.some((query) => query.queryKey[0] === "views")).toBe(false);
   });
 
   it("renders grid and list toggle buttons, and import/export action buttons", () => {
