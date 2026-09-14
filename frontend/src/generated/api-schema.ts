@@ -2717,6 +2717,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pomodoro/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Analytics */
+        get: operations["analytics_api_pomodoro_analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pomodoro/contexts": {
         parameters: {
             query?: never;
@@ -7749,6 +7766,65 @@ export interface components {
             position?: number | null;
             /** Start Min */
             start_min?: number | null;
+        };
+        /** PomodoroAnalytics */
+        PomodoroAnalytics: {
+            /** Completed */
+            completed: number;
+            /** Contexts */
+            contexts: components["schemas"]["PomodoroContextStat"][];
+            /** Daily */
+            daily: components["schemas"]["PomodoroDailyPoint"][];
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Interrupted */
+            interrupted: number;
+            /** Minutes */
+            minutes: number;
+            /**
+             * Range
+             * @enum {string}
+             */
+            range: "week" | "month" | "all";
+            /** Sessions */
+            sessions: number;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+        };
+        /** PomodoroContextStat */
+        PomodoroContextStat: {
+            /** Context Entity Id */
+            context_entity_id: string | null;
+            /** Context Type */
+            context_type: string | null;
+            /** Minutes */
+            minutes: number;
+            /** Sessions */
+            sessions: number;
+            /** Share */
+            share: number;
+            /** Title */
+            title: string;
+        };
+        /** PomodoroDailyPoint */
+        PomodoroDailyPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Interrupted */
+            interrupted: number;
+            /** Minutes */
+            minutes: number;
+            /** Sessions */
+            sessions: number;
         };
         /**
          * PomodoroManual
@@ -15558,6 +15634,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PomodoroOut"] | null;
+                };
+            };
+        };
+    };
+    analytics_api_pomodoro_analytics_get: {
+        parameters: {
+            query?: {
+                range?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PomodoroAnalytics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

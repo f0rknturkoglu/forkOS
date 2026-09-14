@@ -4,7 +4,7 @@ export function reviewMetricRows(stats: ReviewPreview["stats"]): [string, string
   return [
     ["Tamamlanan", stats.todos.completed],
     ["Odak", `${stats.focus.minutes} dk`],
-    ["Pomodoro", stats.focus.sessions],
+    ["Odak", stats.focus.sessions],
     ["Aktif gün", stats.focus.active_days],
     // Kart tekrari da donemin emegidir; degerlendirmede gorunur.
     ["Kart tekrarı", stats.flashcards.reviewed],

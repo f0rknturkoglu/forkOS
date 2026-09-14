@@ -13,6 +13,9 @@ from app.core.time import local_day_bounds, local_today
 from app.modules.learning.models import StudyTopic
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.pomodoro.schemas import (
+    PomodoroAnalytics,
+    PomodoroContextStat,
+    PomodoroDailyPoint,
     PomodoroManual,
     PomodoroOut,
     PomodoroStart,
@@ -179,6 +182,104 @@ async def stats(session: AsyncSession, value: str = "week") -> PomodoroStats:
     return PomodoroStats(minutes=int(row[0]), sessions=int(row[1]), interrupted=int(row[2]))
 
 
+async def analytics(session: AsyncSession, value: str = "week") -> PomodoroAnalytics:
+    """Odak sayfasinin gunluk seri ve baglam dagilimini tek sorgudan uretir."""
+    today = local_today()
+    if value == "week":
+        requested_start = today - timedelta(days=today.weekday())
+    elif value == "month":
+        requested_start = today.replace(day=1)
+    else:
+        requested_start = None
+
+    statement = (
+        select(
+            PomodoroSession.started_at,
+            PomodoroSession.actual_min,
+            PomodoroSession.interrupted,
+            PomodoroSession.context_entity_id,
+            PomodoroSession.topic,
+            Entity.title,
+            Entity.type,
+        )
+        .outerjoin(Entity, Entity.id == PomodoroSession.context_entity_id)
+        .where(
+            PomodoroSession.ended_at.is_not(None),
+            PomodoroSession.kind == "focus",
+        )
+        .order_by(PomodoroSession.started_at.asc())
+    )
+    if requested_start is not None:
+        statement = statement.where(
+            PomodoroSession.started_at >= local_day_bounds(requested_start)[0]
+        )
+
+    rows = (await session.execute(statement)).all()
+    start = requested_start or (local_today(rows[0].started_at) if rows else today)
+
+    daily_values: dict = {}
+    context_values: dict = {}
+    total_minutes = 0
+    interrupted = 0
+    for row in rows:
+        day = local_today(row.started_at)
+        minutes = int(row.actual_min or 0)
+        total_minutes += minutes
+        interrupted += int(row.interrupted)
+
+        day_value = daily_values.setdefault(day, {"minutes": 0, "sessions": 0, "interrupted": 0})
+        day_value["minutes"] += minutes
+        day_value["sessions"] += 1
+        day_value["interrupted"] += int(row.interrupted)
+
+        title = row.title or row.topic or "Bağımsız"
+        key = str(row.context_entity_id) if row.context_entity_id else f"topic:{title.casefold()}"
+        context_value = context_values.setdefault(
+            key,
+            {
+                "context_entity_id": row.context_entity_id,
+                "title": title,
+                "context_type": row.type,
+                "minutes": 0,
+                "sessions": 0,
+            },
+        )
+        context_value["minutes"] += minutes
+        context_value["sessions"] += 1
+
+    display_end = start + timedelta(days=6) if value == "week" else today
+    daily: list[PomodoroDailyPoint] = []
+    cursor = start
+    while cursor <= display_end:
+        value_for_day = daily_values.get(cursor, {"minutes": 0, "sessions": 0, "interrupted": 0})
+        daily.append(PomodoroDailyPoint(date=cursor, **value_for_day))
+        cursor += timedelta(days=1)
+
+    contexts = [
+        PomodoroContextStat(
+            **context_value,
+            share=round((context_value["minutes"] / total_minutes) * 100, 1)
+            if total_minutes
+            else 0,
+        )
+        for context_value in sorted(
+            context_values.values(), key=lambda item: (-item["minutes"], item["title"])
+        )
+    ]
+    sessions = len(rows)
+    return PomodoroAnalytics(
+        range=value,
+        start_date=start,
+        end_date=display_end,
+        minutes=total_minutes,
+        sessions=sessions,
+        completed=sessions - interrupted,
+        interrupted=interrupted,
+        daily=daily,
+        contexts=contexts,
+    )
+
+
 def _paused_total(pomo: PomodoroSession, at: datetime) -> int:
     """Birikmis duraklama + (duraklatilmissa) su ana kadarki duraklama."""
     open_pause = int((at - pomo.paused_at).total_seconds()) if pomo.paused_at else 0
@@ -249,9 +350,7 @@ async def add_manual(session: AsyncSession, data: PomodoroManual) -> PomodoroOut
             "minutes": data.minutes,
             "topic": data.topic,
             "manual": True,
-            "context_entity_id": (
-                str(pomo.context_entity_id) if pomo.context_entity_id else None
-            ),
+            "context_entity_id": (str(pomo.context_entity_id) if pomo.context_entity_id else None),
             "context_type": context.type if context else None,
         },
     )
@@ -265,7 +364,7 @@ async def delete(session: AsyncSession, pomo_id: uuid.UUID) -> bool:
     entity = await session.get(Entity, pomo_id)
     if entity is None:
         return False
-    await session.delete(entity)   # pomodoro_session PK'si entity'ye FK: cascade
+    await session.delete(entity)  # pomodoro_session PK'si entity'ye FK: cascade
     await log_event(
         session,
         verb="pomodoro.deleted",
@@ -303,9 +402,7 @@ async def recent(session: AsyncSession, *, limit: int = 20) -> list[PomodoroOut]
 FOCUS_CONTEXT_TYPES = ["todo", "study_topic", "learning_resource", "project", "media_item"]
 
 
-async def contexts(
-    session: AsyncSession, query: str | None = None, limit: int = 40
-) -> list[dict]:
+async def contexts(session: AsyncSession, query: str | None = None, limit: int = 40) -> list[dict]:
     """Baglam secicisinin adaylari: en son dokunulanlar once.
 
     Kapanmis gorevler listeye girmez -- bitmis bir ise odaklanilmaz. Diger
@@ -318,7 +415,14 @@ async def contexts(
     from app.modules.todo.models import Todo
 
     stmt = (
-        select(Entity.id, Entity.type, Entity.title, MediaItem.kind, MediaItem.cover_path, MediaItem.cover_url)
+        select(
+            Entity.id,
+            Entity.type,
+            Entity.title,
+            MediaItem.kind,
+            MediaItem.cover_path,
+            MediaItem.cover_url,
+        )
         .outerjoin(Todo, Todo.id == Entity.id)
         .outerjoin(MediaItem, MediaItem.id == Entity.id)
         .where(Entity.type.in_(FOCUS_CONTEXT_TYPES), Entity.archived_at.is_(None))

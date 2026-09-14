@@ -327,7 +327,7 @@ export function IntegrationsSection({
           </div>
           {github?.connected ? (
             <div className="flex shrink-0 items-center gap-2">
-              <Chip tone="ok">{github.login ?? "bağlı"}</Chip>
+              <Chip tone="ok">bağlı</Chip>
               <Button variant="danger" disabled={!online || busy} onClick={onDisconnectGithub}>
                 kes
               </Button>
@@ -474,8 +474,14 @@ export function MediaProvidersSection({
         <div className="space-y-2">
           {media.map((link, index) => (
             <div key={`${link.name}-${index}`} className="flex justify-between text-meta">
-              <a href={link.url} target="_blank" rel="noreferrer" className="text-accent">
-                {link.name} ↗
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-accent"
+              >
+                {link.name}
+                <ExternalLink size={11} aria-hidden />
               </a>
               <Button variant="danger" disabled={!online} onClick={() => onRemoveLink(index)}>
                 Sil

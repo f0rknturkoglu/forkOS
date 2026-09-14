@@ -37,7 +37,7 @@ describe("review metrics", () => {
     expect(reviewMetricRows(stats)).toEqual([
       ["Tamamlanan", 4],
       ["Odak", "50 dk"],
-      ["Pomodoro", 2],
+      ["Odak", 2],
       ["Aktif gün", 2],
       // Kart tekrari da donemin emegi: haftalik ozette gorunur.
       ["Kart tekrarı", 120],

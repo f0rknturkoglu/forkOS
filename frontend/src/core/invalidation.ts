@@ -122,6 +122,7 @@ export const AFTER = {
   "pomodoro.write": [
     "pomodoro-active",
     "pomodoro-stats",
+    "pomodoro-analytics",
     "pomodoro-sessions",
     "activity",
     "review-preview",

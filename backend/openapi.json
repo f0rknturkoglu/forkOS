@@ -9991,6 +9991,154 @@
         "title": "PlanSlotUpdate",
         "type": "object"
       },
+      "PomodoroAnalytics": {
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "contexts": {
+            "items": {
+              "$ref": "#/components/schemas/PomodoroContextStat"
+            },
+            "title": "Contexts",
+            "type": "array"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/PomodoroDailyPoint"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "interrupted": {
+            "title": "Interrupted",
+            "type": "integer"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "range": {
+            "enum": [
+              "week",
+              "month",
+              "all"
+            ],
+            "title": "Range",
+            "type": "string"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "range",
+          "start_date",
+          "end_date",
+          "minutes",
+          "sessions",
+          "completed",
+          "interrupted",
+          "daily",
+          "contexts"
+        ],
+        "title": "PomodoroAnalytics",
+        "type": "object"
+      },
+      "PomodoroContextStat": {
+        "properties": {
+          "context_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Entity Id"
+          },
+          "context_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Type"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "share": {
+            "title": "Share",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "context_entity_id",
+          "title",
+          "context_type",
+          "minutes",
+          "sessions",
+          "share"
+        ],
+        "title": "PomodoroContextStat",
+        "type": "object"
+      },
+      "PomodoroDailyPoint": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "interrupted": {
+            "title": "Interrupted",
+            "type": "integer"
+          },
+          "minutes": {
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "minutes",
+          "sessions",
+          "interrupted"
+        ],
+        "title": "PomodoroDailyPoint",
+        "type": "object"
+      },
       "PomodoroManual": {
         "description": "Gecmise elle islenen seans -- sayac calistirilmadan yapilan is.",
         "properties": {
@@ -23843,6 +23991,50 @@
           }
         },
         "summary": "Active",
+        "tags": [
+          "pomodoro"
+        ]
+      }
+    },
+    "/api/pomodoro/analytics": {
+      "get": {
+        "operationId": "analytics_api_pomodoro_analytics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "schema": {
+              "default": "week",
+              "pattern": "^(week|month|all)$",
+              "title": "Range",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PomodoroAnalytics"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analytics",
         "tags": [
           "pomodoro"
         ]

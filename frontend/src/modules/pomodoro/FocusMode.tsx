@@ -7,6 +7,7 @@ import { Button, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import type { PomodoroSession } from "@/core/types";
 import { clock, remaining } from "./time";
+import { focusPreferences } from "./preferences";
 
 /**
  * Odak modu: sayac disinda hicbir sey yok.
@@ -20,6 +21,15 @@ import { clock, remaining } from "./time";
 export function FocusMode({ onClose }: { onClose: () => void }) {
   const [now, setNow] = useState(Date.now());
   const online = useOnline();
+
+  useEffect(() => {
+    if (!focusPreferences().amoled) return;
+    const alreadyApplied = document.documentElement.dataset.focusAmoled === "true";
+    document.documentElement.dataset.focusAmoled = "true";
+    return () => {
+      if (!alreadyApplied) delete document.documentElement.dataset.focusAmoled;
+    };
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);

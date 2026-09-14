@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -51,6 +52,34 @@ class PomodoroStats(BaseModel):
     minutes: int
     sessions: int
     interrupted: int
+
+
+class PomodoroDailyPoint(BaseModel):
+    date: date
+    minutes: int
+    sessions: int
+    interrupted: int
+
+
+class PomodoroContextStat(BaseModel):
+    context_entity_id: uuid.UUID | None
+    title: str
+    context_type: str | None
+    minutes: int
+    sessions: int
+    share: float
+
+
+class PomodoroAnalytics(BaseModel):
+    range: Literal["week", "month", "all"]
+    start_date: date
+    end_date: date
+    minutes: int
+    sessions: int
+    completed: int
+    interrupted: int
+    daily: list[PomodoroDailyPoint]
+    contexts: list[PomodoroContextStat]
 
 
 class ContextOut(BaseModel):

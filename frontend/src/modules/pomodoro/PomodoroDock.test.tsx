@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/core/ui";
-import { PomodoroDock } from "./PomodoroDock";
+import { QuickActionDock } from "./PomodoroDock";
 import { openPomodoro } from "./dock";
 
 vi.mock("@/lib/hooks", () => ({
@@ -33,7 +33,7 @@ function renderDock() {
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <PomodoroDock />
+        <QuickActionDock />
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -55,14 +55,17 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe("global Pomodoro dock", () => {
-  it("her sayfada kucuk durur ve istekle baglamli paneli acar", async () => {
+describe("global hızlı işlem dock'u", () => {
+  it("boşta genel menüyü, istekle bağlamlı odak panelini açar", async () => {
     renderDock();
-    expect(screen.getByRole("button", { name: "Pomodoro seçeneklerini aç" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hızlı işlem menüsünü aç" }));
+    expect(screen.getByRole("dialog", { name: "Hızlı işlemler" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Yeni kayıt" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Görev ekle" })).toBeTruthy();
 
     openPomodoro({ context: "topic-42", topic: "Git Temelleri" });
 
-    expect(await screen.findByRole("dialog", { name: "Pomodoro seçenekleri" })).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Odak başlat" })).toBeTruthy();
     expect(screen.getByDisplayValue("Git Temelleri")).toBeTruthy();
     expect(await screen.findByText("study_topic")).toBeTruthy();
   });

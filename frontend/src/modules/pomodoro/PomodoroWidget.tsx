@@ -74,7 +74,7 @@ export function PomodoroWidget() {
   return (
     <>
       <Section
-        title="Pomodoro"
+        title="Odak"
         action={
           <span className="flex items-center gap-3">
             <button

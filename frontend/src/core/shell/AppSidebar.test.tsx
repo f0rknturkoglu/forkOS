@@ -64,7 +64,8 @@ describe("AppSidebar", () => {
     expect(graphLink.getAttribute("href")).toBe("#/graph");
     expect(graphLink.querySelector("svg")).not.toBeNull();
 
-    expect(screen.queryByRole("link", { name: "Pomodoro" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Odak" }).getAttribute("href")).toBe("#/pomodoro");
+    expect(screen.queryByRole("button", { name: "Yeni kayıt" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Gün" })).toBeNull();
   });
 

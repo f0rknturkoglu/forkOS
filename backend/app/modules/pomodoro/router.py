@@ -9,6 +9,7 @@ from app.db import get_session
 from app.modules.pomodoro import service
 from app.modules.pomodoro.schemas import (
     ContextOut,
+    PomodoroAnalytics,
     PomodoroManual,
     PomodoroOut,
     PomodoroStart,
@@ -30,8 +31,9 @@ async def start(body: PomodoroStart, session: AsyncSession = Depends(get_session
 
 
 @router.post("/pomodoro/{pomo_id}/stop", response_model=PomodoroOut)
-async def stop(pomo_id: uuid.UUID, body: PomodoroStop,
-               session: AsyncSession = Depends(get_session)):
+async def stop(
+    pomo_id: uuid.UUID, body: PomodoroStop, session: AsyncSession = Depends(get_session)
+):
     result = await service.stop(session, pomo_id, body.interrupted)
     if result is None:
         raise HTTPException(404, "pomodoro bulunamadi")
@@ -53,9 +55,19 @@ async def active(session: AsyncSession = Depends(get_session)):
 
 
 @router.get("/pomodoro/stats", response_model=PomodoroStats)
-async def stats(range: str = Query("week", pattern="^(day|week|month)$"),
-                session: AsyncSession = Depends(get_session)):
+async def stats(
+    range: str = Query("week", pattern="^(day|week|month)$"),
+    session: AsyncSession = Depends(get_session),
+):
     return await service.stats(session, range)
+
+
+@router.get("/pomodoro/analytics", response_model=PomodoroAnalytics)
+async def analytics(
+    range: str = Query("week", pattern="^(week|month|all)$"),
+    session: AsyncSession = Depends(get_session),
+):
+    return await service.analytics(session, range)
 
 
 @router.post("/pomodoro/{pomo_id}/pause", response_model=PomodoroOut)
@@ -90,6 +102,7 @@ async def delete(pomo_id: uuid.UUID, session: AsyncSession = Depends(get_session
 
 
 @router.get("/pomodoro/sessions", response_model=list[PomodoroOut])
-async def sessions(limit: int = Query(20, ge=1, le=200),
-                   session: AsyncSession = Depends(get_session)):
+async def sessions(
+    limit: int = Query(20, ge=1, le=200), session: AsyncSession = Depends(get_session)
+):
     return await service.recent(session, limit=limit)

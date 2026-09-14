@@ -61,7 +61,7 @@ beforeEach(() => {
 describe("RhythmWidget", () => {
   it("sayac kartlarini ve seri rozetini gosterir", async () => {
     renderWidget();
-    await waitFor(() => expect(screen.getByText("bugün · Pomodoro")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("bugün · Odak")).toBeTruthy());
     expect(screen.getByText("2")).toBeTruthy(); // bugün pomodoro
     expect(screen.getByText("bugün · Başvuru")).toBeTruthy();
     expect(screen.getByText("5 gün seri")).toBeTruthy();

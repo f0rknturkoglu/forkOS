@@ -46,6 +46,20 @@ from app.sources.rss_source import (
 
 MAX_ERRORS_BEFORE_DISABLE = 5
 SAVED_FROM = "saved_from"
+STARTER_FEEDS_SETTING_KEY = "rss.starter_feeds.v1"
+STARTER_FEEDS_VERSION = 1
+STARTER_FEEDS: tuple[FeedIn, ...] = (
+    FeedIn(
+        url="https://fmhy.net/feed.rss",
+        title="FMHY",
+        category="Rehberler / Araçlar",
+    ),
+    FeedIn(
+        url="https://github.com/champagnewiki/champagne-wiki/commits.atom",
+        title="Champagne Piracy",
+        category="Arşiv / Güvenlik",
+    ),
+)
 
 
 # ── Feed CRUD ──────────────────────────────────────────────────────────────
@@ -85,6 +99,50 @@ async def add_feed(
                     entity_type="feed", payload={"url": data.url, "category": data.category})
     await session.commit()
     return feed, True
+
+
+async def ensure_starter_feeds(session: AsyncSession) -> tuple[int, int]:
+    """Kanonik başlangıç beslemelerini bir kez ve idempotent biçimde kur.
+
+    İşaret ilk başarılı kurulumdan sonra kalır. Böylece kullanıcı daha sonra
+    bir başlangıç beslemesini silerse uygulama her açılışta onu geri eklemez.
+    Başlıklar sabit verildiği için kurulum sırasında dış ağa probe atılmaz;
+    normal RSS yenilemesi beslemeleri daha sonra çeker.
+    """
+    marker = await session.get(Setting, STARTER_FEEDS_SETTING_KEY)
+    if (
+        marker is not None
+        and isinstance(marker.value, dict)
+        and marker.value.get("version") == STARTER_FEEDS_VERSION
+    ):
+        return 0, 0
+
+    added = 0
+    skipped = 0
+    for starter in STARTER_FEEDS:
+        feed, created = await add_feed(session, starter, probe=False)
+        if created:
+            added += 1
+        else:
+            skipped += 1
+            if feed.category != starter.category:
+                feed.category = starter.category
+                await touch_entity(
+                    session,
+                    feed.id,
+                    search_text=f"{starter.url} {starter.category or ''}",
+                )
+
+    marker_value = {
+        "version": STARTER_FEEDS_VERSION,
+        "urls": [starter.url for starter in STARTER_FEEDS],
+    }
+    if marker is None:
+        session.add(Setting(key=STARTER_FEEDS_SETTING_KEY, value=marker_value))
+    else:
+        marker.value = marker_value
+    await session.commit()
+    return added, skipped
 
 
 async def update_feed(

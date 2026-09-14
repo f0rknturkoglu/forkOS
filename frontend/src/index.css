@@ -203,6 +203,44 @@
     color-scheme: dark;
   }
 
+  /* Odak modülünün isteğe bağlı AMOLED yüzeyi. Bileşenler yine yalnızca
+     semantik token okur; sayfadan çıkınca data niteliği temizlenir. */
+  html[data-focus-amoled="true"] {
+    --canvas: #000000;
+    --sidebar: #050607;
+    --surface: #080a0b;
+    --surface-sunken: #0d1012;
+    --surface-hover: #13171a;
+    --surface-raised: #0d1012;
+    --surface-selected: #151a1d;
+
+    --border: #1b2024;
+    --border-strong: #303840;
+
+    --text: #f5f7f6;
+    --text-secondary: #b8c0bd;
+    --text-muted: #7f8a86;
+    --icon: #71807a;
+
+    --accent: #42d392;
+    --accent-surface: #0d261c;
+    --accent-border: #1e5a42;
+
+    --success: #57d69a;
+    --success-surface: #0c2419;
+    --success-border: #1e513b;
+
+    --warning: #e0b060;
+    --warning-surface: #241b0d;
+    --warning-border: #49371b;
+
+    --danger: #ff766d;
+    --danger-surface: #291210;
+    --danger-border: #54231f;
+
+    color-scheme: dark;
+  }
+
   html {
     /* Tarayici varsayilan koyu temayi dayatmasin; tema data-theme'den gelir. */
     background: var(--canvas);
@@ -210,8 +248,9 @@
 
   body {
     @apply bg-canvas text-primary antialiased;
-    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-family: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
     font-size: 13.5px;
+    font-weight: 450;
     line-height: 1.5;
   }
 
@@ -286,7 +325,7 @@
   /* Tabular rakam — saat, sayac, skor. Hizalanmasi icin tabular; font sans
      (serif tamamen kaldirildi, kullanici karari). */
   .numeral {
-    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-family: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }

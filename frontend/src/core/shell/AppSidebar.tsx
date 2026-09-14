@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, LayoutGrid, PanelLeftClose, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, LayoutGrid, PanelLeftClose, Search } from "lucide-react";
 import { findRouteMatch } from "@/app/router";
-import { openCapture } from "@/core/CaptureDialog";
 import { openCommandPalette } from "@/core/CommandPalette";
 import { moduleTarget, navigationGroups } from "@/core/navigation";
 import { requestNavigation } from "@/core/navigationGuard";
@@ -193,20 +192,6 @@ export function AppSidebar({
               Ara veya komut
             </span>
             <span className={cx("text-meta text-muted", collapsed && "md:hidden")}>⌘K</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => openCapture()}
-            title={collapsed ? "Yeni kayıt" : undefined}
-            className={cx(
-              "flex h-9 w-full items-center rounded-control bg-surface text-primary shadow-card transition hover:bg-surface-hover",
-              collapsed ? "md:justify-center" : "gap-2.5 px-2.5",
-            )}
-          >
-            <Plus size={16} className="shrink-0" />
-            <span className={cx("min-w-0 flex-1 truncate text-left text-body font-medium", collapsed && "md:hidden")}>
-              Yeni kayıt
-            </span>
           </button>
         </div>
 

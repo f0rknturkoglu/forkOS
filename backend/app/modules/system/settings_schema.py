@@ -44,6 +44,7 @@ DEFAULTS: dict[str, Any] = {
 #: Kullanici tercihi DEGIL, sistemin kendi calisma durumu. "Ayarlari sifirla"
 #: bunlara dokunmaz; silinirlerse worker sagligi ve elle senkron gecmisi kaybolur.
 RUNTIME_SETTING_KEYS: frozenset[str] = frozenset({
+    "rss.starter_feeds.v1",
     "worker.heartbeat",
     "system.manual_refresh",
 })

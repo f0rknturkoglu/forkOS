@@ -102,7 +102,8 @@ describe("pomodoro project timeline refresh", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("refreshes the project timeline after page stops and contextual manual entries", () => {
-    render(PomodoroPage, [Date.now(), false, 50, "", "", true, "2026-01-01T09:00", 50, "Manuel", "todo-1"]);
+    const preferences = { focusMinutes: 50, breakMinutes: 10, amoled: true };
+    render(PomodoroPage, ["focus", "week", preferences, Date.now(), false, 50, "", ""]);
 
     const stop = findPostMutation("/pomodoro/pomo-1/stop", false);
     expect(stop).toBeDefined();
@@ -110,6 +111,22 @@ describe("pomodoro project timeline refresh", () => {
     expect(harness.invalidate).toHaveBeenCalledWith(refreshEvent);
 
     harness.invalidate.mockClear();
+    harness.mutations.length = 0;
+    render(PomodoroPage, [
+      "stats",
+      "week",
+      preferences,
+      Date.now(),
+      false,
+      50,
+      "",
+      "",
+      true,
+      "2026-01-01T09:00",
+      50,
+      "Manuel",
+      "todo-1",
+    ]);
     const manual = findPostMutation("/pomodoro");
     expect(manual).toBeDefined();
     expect(harness.apiPost).toHaveBeenCalledWith("/pomodoro", expect.objectContaining({ context_entity_id: "todo-1" }));

@@ -64,7 +64,7 @@ export default {
       },
       borderColor: { DEFAULT: "var(--border)" },
       fontFamily: {
-        sans: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ['"Manrope Variable"', "ui-sans-serif", "system-ui", "sans-serif"],
         // Serif kasitli olarak kaldirildi (kullanici karari): font-serif sinifi
         // artik sans ile ayni yigini uretir -- yanlislikla kalan kullanim Georgia
         serif: ['"Newsreader Variable"', "Georgia", "serif"],

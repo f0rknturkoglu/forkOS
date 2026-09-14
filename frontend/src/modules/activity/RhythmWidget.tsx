@@ -16,7 +16,7 @@ import type { MonthlyPoint, StatisticsSummary } from "@/core/types";
 
 /** Sayac adi -> gorunen etiket. Bilinmeyen sayaclar atlanir. */
 const COUNTER_LABELS: Record<string, string> = {
-  pomodoros: "Pomodoro",
+  pomodoros: "Odak",
   todos: "Görev",
   routines: "Rutin",
   bookmarks: "Kayıt",

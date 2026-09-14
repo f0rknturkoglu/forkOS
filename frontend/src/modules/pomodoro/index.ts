@@ -2,29 +2,29 @@ import { lazy } from "react";
 import { Timer } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { PomodoroWidget } from "./PomodoroWidget";
-import { PomodoroDock } from "./PomodoroDock";
+import { QuickActionDock } from "./PomodoroDock";
 import { openPomodoro } from "./dock";
 
 const PomodoroPage = lazy(() => import("./PomodoroPage").then((module) => ({ default: module.PomodoroPage })));
 
 registerModule({
   id: "pomodoro",
-  title: "Pomodoro",
-  description: "50 dk odak / 10 dk mola bloklarıyla çalışma seanslarını izle.",
+  title: "Odak",
+  description: "Odak seanslarını başlat, zamanını incele ve çalışma bahçeni büyüt.",
   icon: Timer,
   group: "do",
-  hidden: true,
+  hidden: false,
   routes: [{ path: "/pomodoro", element: PomodoroPage }],
   todayWidgets: [
     {
       id: "pomodoro.widget",
-      title: "Pomodoro",
+      title: "Odak",
       component: PomodoroWidget,
       slot: "left",
       order: 30,
       defaultVisible: false,
     },
   ],
-  globalSurfaces: [PomodoroDock],
-  commands: [{ id: "pomodoro.open", label: "Pomodoro başlat", run: () => openPomodoro() }],
+  globalSurfaces: [QuickActionDock],
+  commands: [{ id: "pomodoro.open", label: "Odak başlat", run: () => openPomodoro() }],
 });

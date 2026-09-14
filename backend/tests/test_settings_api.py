@@ -143,6 +143,7 @@ async def test_unknown_setting_keys_stay_free_form(client: AsyncClient):
 async def test_reset_clears_user_settings_and_keeps_runtime_state(client: AsyncClient):
     async with SessionLocal() as session:
         session.add(Setting(key="rss.retention_days", value=7))
+        session.add(Setting(key="rss.starter_feeds.v1", value={"version": 1}))
         session.add(Setting(key="worker.heartbeat", value={"at": "2026-09-11T00:00:00+00:00"}))
         await session.commit()
 
@@ -154,6 +155,7 @@ async def test_reset_clears_user_settings_and_keeps_runtime_state(client: AsyncC
     async with SessionLocal() as session:
         heartbeat = await session.get(Setting, "worker.heartbeat")
         assert heartbeat is not None, "worker kalp atisi sistem durumudur, silinmemeli"
+        assert await session.get(Setting, "rss.starter_feeds.v1") is not None
         assert await session.get(Setting, "rss.retention_days") is None
 
 

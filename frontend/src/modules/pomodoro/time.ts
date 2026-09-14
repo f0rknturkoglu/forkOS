@@ -1,8 +1,7 @@
 import type { PomodoroSession } from "@/core/types";
+export { BREAK_MIN, FOCUS_MIN } from "./preferences";
 
 /** Varsayılan blok: 50 dk odak / 10 dk mola. */
-export const FOCUS_MIN = 50;
-export const BREAK_MIN = 10;
 
 /** Duraklatılmış seansta zaman, duraklatma anında sabit kalır. */
 export function remaining(session: PomodoroSession | null | undefined, now: number) {

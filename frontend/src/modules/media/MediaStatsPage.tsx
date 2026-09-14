@@ -275,7 +275,7 @@ export function MediaStatsPage() {
                 <MediaMetrics stats={stats} />
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Stat label="Toplam süre" value={durationLabel(stats.total_duration_min)} />
-                  <Stat label="Pomodoro ile geçen medya süresi" value={durationLabel(stats.pomodoro_minutes)} />
+                  <Stat label="Odak ile geçen medya süresi" value={durationLabel(stats.pomodoro_minutes)} />
                   <Stat
                     label="Ortalama puan"
                     value={stats.average_score == null ? "—" : `${stats.average_score.toFixed(1)} / 10`}

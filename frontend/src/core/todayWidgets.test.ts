@@ -49,8 +49,8 @@ beforeEach(() => {
 });
 
 describe("Bugun widget sozlesmesi", () => {
-  it("Pomodoro'yu her rotada tek global yuzey olarak kaydeder", () => {
-    expect(allGlobalSurfaces().some((Surface) => Surface.name === "PomodoroDock")).toBe(true);
+  it("hızlı işlem dock'unu her rotada tek global yüzey olarak kaydeder", () => {
+    expect(allGlobalSurfaces().some((Surface) => Surface.name === "QuickActionDock")).toBe(true);
   });
 
   it("en az 14 kayitli widget, benzersiz kalici id'ler ve odakli varsayilan", () => {

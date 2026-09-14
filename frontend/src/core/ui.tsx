@@ -228,7 +228,7 @@ export function SectionHeader({ label, hint, action }: { label: string; hint?: R
    h-touch (44px) kullan -- ikisi de tailwind.config.js'de tanimli.
    ══════════════════════════════════════════════════════════════════════ */
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "warn" | "ok";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "warn" | "ok" | "success";
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
   primary: "border-primary bg-primary text-canvas hover:opacity-90",
@@ -238,6 +238,7 @@ const BUTTON_STYLES: Record<ButtonVariant, string> = {
   // Durum tonlari: SRS dereceleri gibi "iyiden kotuye" siralanan secimler.
   warn: "border-warn-border bg-warn-surface text-warn hover:brightness-95",
   ok: "border-ok-border bg-ok-surface text-ok hover:brightness-95",
+  success: "border-ok bg-ok text-canvas hover:brightness-95",
 };
 
 export function Button({

@@ -698,6 +698,34 @@ export interface PomodoroStats {
   interrupted: number;
 }
 
+export interface PomodoroDailyPoint {
+  date: string;
+  minutes: number;
+  sessions: number;
+  interrupted: number;
+}
+
+interface PomodoroContextStat {
+  context_entity_id: string | null;
+  title: string;
+  context_type: string | null;
+  minutes: number;
+  sessions: number;
+  share: number;
+}
+
+export interface PomodoroAnalytics {
+  range: "week" | "month" | "all";
+  start_date: string;
+  end_date: string;
+  minutes: number;
+  sessions: number;
+  completed: number;
+  interrupted: number;
+  daily: PomodoroDailyPoint[];
+  contexts: PomodoroContextStat[];
+}
+
 export type ReviewPreview = ApiSchemas["ReviewPreview"];
 
 export interface TagCount {
