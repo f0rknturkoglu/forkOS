@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotesPage, attachmentMarkdown, insertMarkdownAt, removeAttachmentMarkdown } from "./NotesPage";
-import { NOTE_NAVIGATION_EVENT } from "./NoteSidebarTree";
+import { NOTE_NAVIGATION_EVENT } from "./noteNavigation";
 
 vi.mock("@/core/api", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn(), upload: vi.fn() },

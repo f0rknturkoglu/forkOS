@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotesExplorer } from "./NotesExplorer";
 
@@ -74,6 +74,36 @@ const mockBookmarks = [
   { id: "b2", title: "Alıntısız", url: "https://example.com", selection: "" },
 ];
 
+type FolderFixture = (typeof mockFolders)[number];
+type NoteFixture = (typeof mockNotes)[number];
+
+function folder(id: string, name: string, parentId: string | null = null): FolderFixture {
+  return { id, name, parent_id: parentId, position: 0, note_count: 0, created_at: "", updated_at: "" };
+}
+
+function note(id: string, title: string, folderId: string | null): NoteFixture {
+  return {
+    id,
+    title,
+    body: `# ${title}`,
+    pinned: false,
+    folder_id: folderId,
+    created_at: "2026-09-01T00:00:00Z",
+    updated_at: "2026-09-01T00:00:00Z",
+  };
+}
+
+/** apiGet'i verilen ağaçla besler; verilmeyen kaynaklar varsayılan fixture'lardan gelir. */
+function mockTree(tree: { folders?: FolderFixture[]; notes?: NoteFixture[] } = {}) {
+  harness.apiGet.mockImplementation(async (path: string) => {
+    if (path === "/notes") return tree.notes ?? mockNotes;
+    if (path === "/note-folders") return tree.folders ?? mockFolders;
+    if (path === "/projects") return [{ id: "proj-1", title: "forkOS" }];
+    if (path.startsWith("/bookmarks")) return mockBookmarks;
+    return [];
+  });
+}
+
 function renderExplorer(props: { focusId?: string; onSelectNote?: (id: string) => void } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -91,13 +121,7 @@ describe("NotesExplorer (Obsidian Vault Gezgini)", () => {
     harness.apiDel.mockReset();
     harness.invalidate.mockReset();
 
-    harness.apiGet.mockImplementation(async (path: string) => {
-      if (path === "/notes") return mockNotes;
-      if (path === "/note-folders") return mockFolders;
-      if (path === "/projects") return [{ id: "proj-1", title: "forkOS" }];
-      if (path.startsWith("/bookmarks")) return mockBookmarks;
-      return [];
-    });
+    mockTree();
   });
 
   afterEach(cleanup);
@@ -159,5 +183,37 @@ describe("NotesExplorer (Obsidian Vault Gezgini)", () => {
     fireEvent.click(screen.getByText("Kök Düşünce"));
 
     expect(onSelect).toHaveBeenCalledWith("n1");
+  });
+
+  it("alt klasör formu hedef klasörün içinde açılır", async () => {
+    mockTree({ folders: [folder("f1", "Kasa")] });
+    renderExplorer();
+
+    const addChildBtn = await screen.findByRole("button", { name: "Kasa içine alt klasör ekle" });
+    fireEvent.click(addChildBtn);
+
+    const form = await screen.findByRole("form", { name: "Yeni alt klasör" });
+    // Form, hedef klasörün alt ağacının İÇİNDE olmalı (kök form değil).
+    expect(form.closest('[data-folder-id="f1"]')).not.toBeNull();
+
+    fireEvent.change(within(form).getByLabelText("Yeni alt klasör adı"), { target: { value: "Alt" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Ekle" }));
+
+    await waitFor(() =>
+      expect(harness.apiPost).toHaveBeenCalledWith("/note-folders", { name: "Alt", parent_id: "f1" }),
+    );
+  });
+
+  it("Tümünü daralt mount edilmiş klasörleri de kapatır", async () => {
+    mockTree({ folders: [folder("f1", "Kasa")], notes: [note("n1", "Not başlığı", "f1")] });
+    renderExplorer();
+
+    expect(await screen.findByText("Not başlığı")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tümünü daralt" }));
+    expect(screen.queryByText("Not başlığı")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tümünü genişlet" }));
+    expect(await screen.findByText("Not başlığı")).toBeTruthy();
   });
 });

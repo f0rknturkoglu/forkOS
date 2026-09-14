@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -74,10 +74,10 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
   const projectTitles = useMemo(() => new Map(projects.map((project) => [project.id, project.title])), [projects]);
 
   const createFolder = useMutation({
-    mutationFn: () =>
+    mutationFn: ({ name, parentId }: { name: string; parentId: string | null }) =>
       api.post<NoteFolder>("/note-folders", {
-        name: folderDraft.trim(),
-        parent_id: inlineParentId ?? null,
+        name,
+        parent_id: parentId,
       }),
     onSuccess: () => {
       setFolderDraft("");
@@ -146,6 +146,13 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
   const unfiled = personal.filter((note) => !note.folder_id);
   const projectNotes = filteredNotes.filter((note) => Boolean(note.project_id));
   const rootFolders = folders.filter((folder) => !folder.parent_id);
+
+  /** Alt klasör formunu hedef klasör için aç/kapat; aynı klasöre tekrar tıklamak kapatır. */
+  const toggleChildForm = (folderId: string) => {
+    setFolderDraft("");
+    setEditingFolder(null);
+    setInlineParentId((current) => (current === folderId ? undefined : folderId));
+  };
 
   return (
     <div className="flex h-full flex-col bg-surface select-none">
@@ -266,7 +273,7 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
           className="flex items-center gap-1 border-b border-subtle p-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (folderDraft.trim()) createFolder.mutate();
+            if (folderDraft.trim()) createFolder.mutate({ name: folderDraft.trim(), parentId: null });
           }}
         >
           <Input
@@ -331,11 +338,9 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
                 allCollapsed={allCollapsed}
                 onSelectNote={onSelectNote}
                 onNewNote={onNewNote}
-                onCreateChild={(parentId) => {
-                  setInlineParentId(parentId);
-                  setFolderDraft("");
-                  setEditingFolder(null);
-                }}
+                childFormParentId={inlineParentId ?? null}
+                onToggleChildForm={toggleChildForm}
+                onSubmitChild={(name, parentId) => createFolder.mutate({ name, parentId })}
                 onRename={(target) => {
                   setEditingFolder(target);
                   setFolderDraft(target.name);
@@ -427,7 +432,9 @@ function FolderItem({
   allCollapsed,
   onSelectNote,
   onNewNote,
-  onCreateChild,
+  childFormParentId,
+  onToggleChildForm,
+  onSubmitChild,
   onRename,
   onDelete,
   onMoveNote,
@@ -440,7 +447,10 @@ function FolderItem({
   allCollapsed: boolean;
   onSelectNote?: (noteId: string) => void;
   onNewNote?: (folderId: string | null) => void;
-  onCreateChild: (parentId: string) => void;
+  /** Alt formu açık olan klasörün kimliği; form yalnız hedef klasörün ağacında çizilir. */
+  childFormParentId: string | null;
+  onToggleChildForm: (folderId: string) => void;
+  onSubmitChild: (name: string, parentId: string) => void;
   onRename: (folder: NoteFolder) => void;
   onDelete: (folder: NoteFolder) => void;
   onMoveNote: (noteId: string, folderId: string | null) => void;
@@ -449,8 +459,14 @@ function FolderItem({
   const childFolders = allFolders.filter((item) => item.parent_id === folder.id);
   const folderNotes = notes.filter((note) => note.folder_id === folder.id);
   const hasFocusedChild = folderNotes.some((note) => note.id === focusId);
+  const childFormOpen = childFormParentId === folder.id;
 
-  const [open, setOpen] = useState(hasFocusedChild || !allCollapsed);
+  // Yerel tercih yalnız kullanıcı bu satırı elle açıp kapattığında geçerlidir;
+  // "Tümünü daralt/genişlet" komutu geldiğinde sıfırlanır ki komut mount edilmiş
+  // satırlarda da etkili olsun.
+  const [override, setOverride] = useState<boolean | null>(null);
+  const open = override ?? (hasFocusedChild || !allCollapsed);
+  useEffect(() => setOverride(null), [allCollapsed]);
 
   return (
     <div className="space-y-0.5">
@@ -475,7 +491,7 @@ function FolderItem({
         <button
           type="button"
           aria-label={`${folder.name} klasörünü ${open ? "daralt" : "genişlet"}`}
-          onClick={() => setOpen((c) => !c)}
+          onClick={() => setOverride(!open)}
           className="flex h-7 min-w-0 flex-1 items-center gap-1.5 px-1.5 text-left text-meta text-secondary"
         >
           {open ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}
@@ -503,7 +519,7 @@ function FolderItem({
           >
             <Plus size={12} />
           </IconButton>
-          <IconButton title={`${folder.name} içine alt klasör ekle`} onClick={() => onCreateChild(folder.id)}>
+          <IconButton title={`${folder.name} içine alt klasör ekle`} onClick={() => onToggleChildForm(folder.id)}>
             <FolderPlus size={12} />
           </IconButton>
           <IconButton title={`${folder.name} adını değiştir`} onClick={() => onRename(folder)}>
@@ -516,7 +532,14 @@ function FolderItem({
       </div>
 
       {open && (
-        <div className="ml-3 border-l border-subtle pl-1.5 space-y-0.5">
+        <div className="ml-3 border-l border-subtle pl-1.5 space-y-0.5" data-folder-id={folder.id}>
+          {childFormOpen && (
+            <ChildFolderForm
+              parentId={folder.id}
+              onSubmit={onSubmitChild}
+              onClose={() => onToggleChildForm(folder.id)}
+            />
+          )}
           {childFolders.map((child) => (
             <FolderItem
               key={child.id}
@@ -527,7 +550,9 @@ function FolderItem({
               allCollapsed={allCollapsed}
               onSelectNote={onSelectNote}
               onNewNote={onNewNote}
-              onCreateChild={onCreateChild}
+              childFormParentId={childFormParentId}
+              onToggleChildForm={onToggleChildForm}
+              onSubmitChild={onSubmitChild}
               onRename={onRename}
               onDelete={onDelete}
               onMoveNote={onMoveNote}
@@ -541,6 +566,45 @@ function FolderItem({
         </div>
       )}
     </div>
+  );
+}
+
+/** Alt klasör formu hedef klasörün ağacının içinde çizilir; kök form `inlineParentId === null` ile ayrı kalır. */
+function ChildFolderForm({
+  parentId,
+  onSubmit,
+  onClose,
+}: {
+  parentId: string;
+  onSubmit: (name: string, parentId: string) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+
+  return (
+    <form
+      role="form"
+      aria-label="Yeni alt klasör"
+      className="flex items-center gap-1 px-1 py-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!name.trim()) return;
+        onSubmit(name.trim(), parentId);
+      }}
+    >
+      <Input
+        value={name}
+        onChange={setName}
+        autoFocus
+        placeholder="Alt klasör adı..."
+        ariaLabel="Yeni alt klasör adı"
+        className="h-7 min-w-0 flex-1 text-meta"
+        onKeyDown={(event) => event.key === "Escape" && onClose()}
+      />
+      <Button size="sm" type="submit" disabled={!name.trim()}>
+        Ekle
+      </Button>
+    </form>
   );
 }
 
