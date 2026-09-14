@@ -84,15 +84,15 @@ export function DashboardLayout({
     <PageFrame>
       {hero}
       <div className="dashboard-grid">
-        <main className="dashboard-main space-y-5">
-          {labelled && center.length > 0 && <ColumnLabel>{COLUMN_LABELS.center}</ColumnLabel>}
-          {center}
-        </main>
-        <aside className="dashboard-left space-y-5">
+        <section className="dashboard-left space-y-5" aria-label={COLUMN_LABELS.left}>
           {labelled && left.length > 0 && <ColumnLabel>{COLUMN_LABELS.left}</ColumnLabel>}
           {left}
-        </aside>
-        <aside className="dashboard-right space-y-5">
+        </section>
+        <section className="dashboard-main space-y-5" aria-label={COLUMN_LABELS.center}>
+          {labelled && center.length > 0 && <ColumnLabel>{COLUMN_LABELS.center}</ColumnLabel>}
+          {center}
+        </section>
+        <aside className="dashboard-right space-y-5" aria-label={COLUMN_LABELS.right}>
           {labelled && right.length > 0 && <ColumnLabel>{COLUMN_LABELS.right}</ColumnLabel>}
           {right}
         </aside>

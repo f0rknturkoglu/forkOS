@@ -77,6 +77,8 @@ class BookmarkHighlight(Base):
     note: Mapped[str | None] = mapped_column(Text)
     color: Mapped[str] = mapped_column(String(16), nullable=False, default="yellow")
     anchor_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    position_start: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    position_end: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

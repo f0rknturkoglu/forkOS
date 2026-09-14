@@ -107,6 +107,9 @@ class NoteOut(BaseModel):
     project_id: uuid.UUID | None = None
     folder_id: uuid.UUID | None = None
     journal_day: date | None = None
+    archived_at: datetime | None = None
+    trashed_at: datetime | None = None
+    source_bookmark_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
     #: Govde + elle eklenenlerin birlesimi.

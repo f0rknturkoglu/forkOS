@@ -108,6 +108,7 @@ export function FeedStreamWidget() {
     staleTime: 3 * 3600_000,
   });
   const repos = githubQuery.data ?? [];
+  const sourceQueries = { rss: rssQuery, reddit: redditQuery, hn: hnQuery, gh: githubQuery };
 
   const failures = [
     { origin: "rss" as const, label: "RSS", failed: rssQuery.isError, retry: () => rssQuery.refetch() },
@@ -193,6 +194,8 @@ export function FeedStreamWidget() {
     .filter((item) => filter === "all" || item.origin === filter)
     .sort((a, b) => b.at - a.at)
     .slice(0, STREAM_LIMIT);
+  const selectedIsLoading =
+    filter === "all" ? Object.values(sourceQueries).some((query) => query.isLoading) : sourceQueries[filter].isLoading;
 
   return (
     <Section
@@ -203,6 +206,7 @@ export function FeedStreamWidget() {
             <button
               key={option.id}
               type="button"
+              aria-pressed={filter === option.id}
               onClick={() => setFilter(option.id)}
               className={cx(
                 "border-b transition",
@@ -241,7 +245,9 @@ export function FeedStreamWidget() {
           ))}
         </div>
       )}
-      {items.length === 0 ? (
+      {items.length === 0 && selectedIsLoading ? (
+        <p className="px-2 py-4 text-center text-meta text-muted">Akış yükleniyor…</p>
+      ) : items.length === 0 ? (
         <p className="px-2 py-4 text-center text-meta text-muted">Yeni bir şey yok.</p>
       ) : (
         <RowList>

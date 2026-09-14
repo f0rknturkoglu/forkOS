@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
+from app.core.time import local_today
 from app.modules.todo import service
 from app.modules.todo.schemas import (
     PlanSlotIn,
@@ -84,7 +85,7 @@ async def carry_over(body: CarryOverIn, session: AsyncSession = Depends(get_sess
 
 
 @router.get("/plan", response_model=list[PlanSlotOut])
-async def get_plan(week: date = Query(default_factory=date.today),
+async def get_plan(week: date = Query(default_factory=local_today),
                    session: AsyncSession = Depends(get_session)):
     return await service.list_plan(session, week)
 

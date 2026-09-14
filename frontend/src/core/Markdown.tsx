@@ -10,7 +10,7 @@ import { Download, File, FileAudio, FilePenLine, FileText, FileVideo, Pause, Pla
 import { entityRoute } from "./entityRegistry";
 import { parseMarkdown, safeHref, type Block, type Inline } from "./markdownParser";
 import type { NoteAttachment } from "./types";
-import { IconButton, Range, cx } from "./ui";
+import { Button, IconButton, Range, cx } from "./ui";
 
 interface MarkdownProps {
   source: string;
@@ -24,6 +24,8 @@ interface MarkdownProps {
   /** Nota ait yerel ekler; Markdown baglantilari medya olarak render edilir. */
   attachments?: NoteAttachment[];
   onRemoveAttachment?: (attachment: NoteAttachment) => void;
+  /** Gorev listesindeki satiri yerel not govdesinde isaretler. */
+  onTaskToggle?: (line: number, checked: boolean) => void;
   className?: string;
 }
 
@@ -336,6 +338,13 @@ function renderBlock(block: Block, props: MarkdownProps, key: string): ReactNode
           ))}
         </blockquote>
       );
+    case "callout":
+      return (
+        <aside key={key} className="rounded-card border border-accent-border bg-surface-sunken px-3 py-2 text-body text-primary">
+          <p className="label-caps text-accent">{block.kind}</p>
+          {block.content.map((row, index) => <p key={index}>{renderInline(row, props, `${key}-${index}`)}</p>)}
+        </aside>
+      );
     case "list": {
       const Tag = block.ordered ? "ol" : "ul";
       return (
@@ -354,16 +363,27 @@ function renderBlock(block: Block, props: MarkdownProps, key: string): ReactNode
         <ul key={key} className="space-y-1 text-body text-primary">
           {block.items.map((item, index) => (
             <li key={index} className="flex items-start gap-2">
-              {/* Onizleme salt okunur: kutu govdedeki "- [x]" metnini yansitir. */}
-              <span
-                aria-hidden
-                className={cx(
-                  "mt-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-control border text-micro",
-                  item.checked ? "border-ok bg-ok text-canvas" : "border-strong",
-                )}
-              >
-                {item.checked ? "✓" : ""}
-              </span>
+              {props.onTaskToggle ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={cx("mt-0.5 h-5 min-w-5 border-0 p-0", item.checked && "text-ok")}
+                  aria-label={item.checked ? "Görevi yeniden aç" : "Görevi tamamla"}
+                  onClick={() => props.onTaskToggle?.(item.line, !item.checked)}
+                >
+                  {item.checked ? "✓" : "□"}
+                </Button>
+              ) : (
+                <span
+                  aria-hidden
+                  className={cx(
+                    "mt-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-control border text-micro",
+                    item.checked ? "border-ok bg-ok text-canvas" : "border-strong",
+                  )}
+                >
+                  {item.checked ? "✓" : ""}
+                </span>
+              )}
               <span className={cx("min-w-0", item.checked && "text-muted line-through")}>
                 {renderInline(item.content, props, `${key}-${index}`)}
               </span>

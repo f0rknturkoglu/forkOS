@@ -1,12 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Highlighter, Quote } from "lucide-react";
 import { api } from "@/core/api";
-import type { Bookmark } from "@/core/types";
+import type { Bookmark, GlobalHighlight } from "@/core/types";
 import { Button, Empty, IconButton } from "@/core/ui";
 
-export function highlightMarkdown(bookmark: Bookmark): string {
-  const quote = (bookmark.selection ?? "").trim().replace(/\n/g, "\n> ");
-  return `> ==${quote}==\n>\n> — [${bookmark.title}](${bookmark.url})`;
+type HighlightSource = GlobalHighlight | Bookmark;
+
+export function highlightMarkdown(highlight: HighlightSource): string {
+  const text = "text" in highlight ? highlight.text : highlight.selection ?? "";
+  const title = "bookmark_title" in highlight ? highlight.bookmark_title : highlight.title;
+  const url = "bookmark_url" in highlight ? highlight.bookmark_url : highlight.url;
+  const quote = text.trim().replace(/\n/g, "\n> ");
+  return `> ==${quote}==\n>\n> — [${title}](${url})`;
 }
 
 export function BookmarkHighlights({
@@ -16,11 +21,10 @@ export function BookmarkHighlights({
   onInsert: (markdown: string) => void;
   onClose: () => void;
 }) {
-  const { data: bookmarks = [], isLoading } = useQuery({
-    queryKey: ["bookmarks", "highlights"],
-    queryFn: () => api.get<Bookmark[]>("/bookmarks?limit=200"),
+  const { data: highlights = [], isLoading } = useQuery({
+    queryKey: ["highlights"],
+    queryFn: () => api.get<GlobalHighlight[]>("/highlights"),
   });
-  const highlights = bookmarks.filter((bookmark) => Boolean(bookmark.selection?.trim()));
 
   return (
     <aside
@@ -41,18 +45,19 @@ export function BookmarkHighlights({
           <Empty title="Henüz vurgu yok">Bir sayfadan metin seçip yer imlerine kaydettiğinde burada görünür.</Empty>
         ) : (
           <div className="space-y-2">
-            {highlights.map((bookmark) => (
-              <article key={bookmark.id} className="rounded-card border border-subtle bg-surface-sunken p-3">
+            {highlights.map((highlight) => (
+              <article key={highlight.id} className="rounded-card border border-subtle bg-surface-sunken p-3">
                 <div className="mb-2 flex items-start gap-2">
                   <Quote size={13} className="mt-0.5 shrink-0 text-icon" />
                   <p className="line-clamp-5 min-w-0 flex-1 text-meta leading-relaxed text-primary">
-                    {bookmark.selection}
+                    {highlight.text}
                   </p>
                 </div>
+                {highlight.note && <p className="mb-2 rounded-control bg-surface px-2 py-1.5 text-meta text-secondary">{highlight.note}</p>}
                 <div className="flex items-center gap-2 border-t border-subtle pt-2">
-                  <span className="min-w-0 flex-1 truncate text-micro text-muted">{bookmark.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-micro text-muted">{highlight.bookmark_title}</span>
                   <a
-                    href={bookmark.url}
+                    href={highlight.bookmark_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     title="Kaynağı aç"
@@ -60,7 +65,7 @@ export function BookmarkHighlights({
                   >
                     <ExternalLink size={13} />
                   </a>
-                  <IconButton title="Vurguyu nota ekle" onClick={() => onInsert(highlightMarkdown(bookmark))}>
+                  <IconButton title="Vurguyu nota ekle" onClick={() => onInsert(highlightMarkdown(highlight))}>
                     <Highlighter size={13} />
                   </IconButton>
                 </div>

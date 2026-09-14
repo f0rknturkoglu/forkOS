@@ -1,10 +1,11 @@
-import { useState, useMemo, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
   CalendarClock,
+  CalendarX,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -39,8 +40,9 @@ import {
   cx,
   useToast,
 } from "@/core/ui";
-import { appTimeParts, appWeekStartKey, isSameAppDay, keyToUtc, localDateKey, todayKey, tomorrowKey } from "@/lib/date";
+import { appTimeParts, formatAppDate, localDateKey, todayKey, tomorrowKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
+import { deriveTodayState } from "./todayState";
 
 const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
   daily: "her gün",
@@ -58,7 +60,18 @@ function startMinute(value: string): number | null {
 
 function clockLabel(value: string | null | undefined): string | null {
   if (!value) return null;
-  return new Date(value).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  const { hour, minute } = appTimeParts(new Date(value));
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function timeLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  const clock = clockLabel(value);
+  const rowDay = localDateKey(date);
+  if (rowDay === todayKey()) return clock;
+  if (rowDay === tomorrowKey()) return `Yarın ${clock}`;
+  return `${formatAppDate(date, { day: "numeric", month: "short" })} ${clock}`;
 }
 
 function pickerRow(item: Todo, kind: "todo"): AgendaRow {
@@ -120,8 +133,6 @@ export function TodayAgendaWidget() {
   const day = todayKey();
   const tomorrow = tomorrowKey();
   const now = new Date();
-  const { hour } = appTimeParts(now);
-  const phase = hour >= 18 || hour < 4 ? "evening" : hour < 12 ? "morning" : "afternoon";
 
   const online = useOnline();
   const toast = useToast();
@@ -249,41 +260,15 @@ export function TodayAgendaWidget() {
     onError: failed,
   });
 
-  const todaySlots = useMemo(
-    () => slots.filter((slot) => slot.day === day).sort((a, b) => (a.start_min ?? 999) - (b.start_min ?? 999)),
-    [slots, day],
-  );
-  const openTodoIds = useMemo(
-    () => new Set(todos.filter((todo) => todo.status === "open" || todo.status === "doing").map((todo) => todo.id)),
-    [todos],
-  );
-  const plannedTodos = todaySlots.filter((slot) => slot.entity_type === "todo" && openTodoIds.has(slot.entity_id));
-  const overdue = todos.filter((todo) => todo.due_at && localDateKey(new Date(todo.due_at)) < day).length;
-  const reviewDone = reviewEvents.some((event) => isSameAppDay(new Date(event.occurred_at), new Date()));
-  const weekStart = appWeekStartKey(now);
-  const weekDay = keyToUtc(day).getUTCDay();
-  const weeklyReviewDue =
-    (weekDay === 0 || weekDay === 1) && !weeklyReviews.some((review) => review.period_start === weekStart);
-
-  const conflictCount = useMemo(() => {
-    const calendarRows = (agenda?.timed ?? []).filter(
-      (row) => row.kind === "calendar" && row.starts_at && localDateKey(new Date(row.starts_at)) === day,
-    );
-    return plannedTodos.reduce((count, slot) => {
-      if (slot.start_min == null) return count;
-      const slotEnd = slot.start_min + (slot.duration_min ?? 30);
-      return (
-        count +
-        calendarRows.filter((row) => {
-          const startsAt = new Date(row.starts_at!);
-          const parts = appTimeParts(startsAt);
-          const eventStart = parts.hour * 60 + parts.minute;
-          const eventEnd = eventStart + (row.duration_min ?? 30);
-          return slot.start_min! < eventEnd && eventStart < slotEnd;
-        }).length
-      );
-    }, 0);
-  }, [agenda, plannedTodos, day]);
+  const { phase, phaseLabel, plannedTodos, overdue, reviewDone, weeklyReviewDue, conflictCount } = deriveTodayState({
+    day,
+    now,
+    slots,
+    todos,
+    agenda,
+    reviewEvents,
+    weeklyReviews,
+  });
 
   const openTodos = agenda ? unplannedTodoRows(todos, agenda) : [];
   const routineRows = agenda ? [...agenda.timed, ...agenda.checklist].filter(hasRoutine) : [];
@@ -292,12 +277,18 @@ export function TodayAgendaWidget() {
 
   const suggestions = agenda
     ? [
-        ...agenda.suggestions.flashcards,
-        ...agenda.suggestions.media,
-        ...(todosQuery.isError ? agenda.suggestions.todos : []),
-        ...agenda.suggestions.rss,
-        // Kariyer aksiyonlari (gonderilecek basvuru, kisa liste, kritik duyuru).
-        ...agenda.suggestions.career,
+        ...(agenda.auto_suggestions
+          ? [
+              ...agenda.suggestions.flashcards,
+              // Mevcut kategori onceligi korunur; study yeni bir eklemedir.
+              ...agenda.suggestions.media,
+              ...(todosQuery.isError ? agenda.suggestions.todos : []),
+              ...agenda.suggestions.rss,
+              ...agenda.suggestions.study,
+              // Kariyer aksiyonlari (gonderilecek basvuru, kisa liste, kritik duyuru).
+              ...agenda.suggestions.career,
+            ]
+          : agenda.suggestions.media),
       ].slice(0, 4)
     : [];
 
@@ -312,7 +303,6 @@ export function TodayAgendaWidget() {
 
   const phaseIcon = phase === "morning" ? Sunrise : phase === "evening" ? Sunset : Sun;
   const PhaseIcon = phaseIcon;
-  const phaseLabel = phase === "morning" ? "Sabah" : phase === "afternoon" ? "Gün içinde" : "Akşam";
 
   const handleQuickAdd = (e: FormEvent) => {
     e.preventDefault();
@@ -468,9 +458,12 @@ export function TodayAgendaWidget() {
             deleteTodo={(id) => deleteTodo.mutate(id)}
           />
 
-          {suggestions.length > 0 && agenda.auto_suggestions && (
+          {suggestions.length > 0 && (
             <div>
-              <SectionHeader label="Öneriler" hint="planına yazılmadı" />
+              <SectionHeader
+                label={agenda.auto_suggestions ? "Öneriler" : "Devam edenler"}
+                hint={agenda.auto_suggestions ? "planına yazılmadı" : undefined}
+              />
               <RowList>
                 {suggestions.map((row) => (
                   <AgendaLine
@@ -601,7 +594,7 @@ function AgendaLine({
   suggestionAction?: ReactNode;
   nested?: boolean;
 }) {
-  const time = clockLabel(row.starts_at);
+  const time = timeLabel(row.starts_at);
   const meta = row.progress_label ?? row.project_title ?? row.feed_title;
   const interactive = Boolean(
     (row.action === "complete_todo" || row.kind === "todo" || row.action === "mark_rss_read") &&
@@ -642,7 +635,7 @@ function AgendaLine({
                 row.kind === "todo"
                   ? `#/todos?focus=${encodeURIComponent(row.id)}`
                   : row.entity_type
-                    ? `#${entityRoute(row.entity_type, row.id).replace(/^#/, "")}`
+                    ? `#${entityRoute(row.entity_type, row.entity_id ?? row.id).replace(/^#/, "")}`
                     : null;
               const classes = [
                 "min-w-0 truncate text-body text-primary",
@@ -689,13 +682,13 @@ function AgendaLine({
             <Check size={14} />
           </IconButton>
         )}
-        {row.kind === "todo" && (
-          <IconButton title="Görevi sil" disabled={!online} onClick={() => deleteTodo(row.id)}>
-            <Trash2 size={14} />
+        {row.slot_id && (
+          <IconButton title="Bugünden çıkar" disabled={!online} onClick={() => remove(row)}>
+            <CalendarX size={14} />
           </IconButton>
         )}
-        {row.slot_id && row.kind !== "todo" && (
-          <IconButton title="Bugünden çıkar" disabled={!online} onClick={() => remove(row)}>
+        {row.kind === "todo" && (
+          <IconButton title="Görevi sil" disabled={!online} onClick={() => deleteTodo(row.id)}>
             <Trash2 size={14} />
           </IconButton>
         )}

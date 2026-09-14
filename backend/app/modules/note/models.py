@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
@@ -72,6 +72,13 @@ class Note(EntityBacked, Base):
         PgUUID(as_uuid=True), ForeignKey("note_folder.id", ondelete="SET NULL"), nullable=True
     )
     journal_day: Mapped[date | None] = mapped_column(Date, nullable=True)
+    trashed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    trashed_from_archive: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    source_bookmark_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("bookmark.id", ondelete="SET NULL"), nullable=True
+    )
     #: Notun yerel fotograf/ses/Excalidraw ekleri. Icerik base64 olarak ayni satirda
     #: tutulur; boylece mevcut JSON yedek/geri-yukleme akisi ekleri de tasir.
     attachments: Mapped[list[dict]] = mapped_column(

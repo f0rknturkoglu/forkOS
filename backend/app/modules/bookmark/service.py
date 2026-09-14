@@ -21,7 +21,7 @@ from app.core import search as search_svc
 from app.core import tags as tag_svc
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
-from app.core.models import Entity
+from app.core.models import Entity, Link
 from app.core.readability import fetch_and_extract
 from app.core.time import local_day_bounds, local_today
 from app.modules.bookmark.models import COLLECTIONS, Bookmark, BookmarkHighlight
@@ -30,6 +30,7 @@ from app.modules.bookmark.schemas import (
     BookmarkFullTextOut,
     BookmarkHighlightIn,
     BookmarkHighlightOut,
+    GlobalHighlightOut,
     BookmarkOut,
     BookmarkUpdate,
     CaptureIn,
@@ -522,6 +523,8 @@ async def add_highlight(
         note=data.note.strip() if data.note else None,
         color=data.color or "yellow",
         anchor_index=data.anchor_index or 0,
+        position_start=data.position_start,
+        position_end=data.position_end,
     )
     session.add(highlight)
     await touch_entity(session, bookmark_id)
@@ -567,6 +570,23 @@ async def list_highlights(
     )
     rows = (await session.execute(stmt)).scalars().all()
     return [BookmarkHighlightOut.model_validate(h) for h in rows]
+
+
+async def list_global_highlights(session: AsyncSession) -> list[GlobalHighlightOut]:
+    rows = (await session.execute(
+        select(BookmarkHighlight, Entity.title, Bookmark.url)
+        .join(Bookmark, Bookmark.id == BookmarkHighlight.bookmark_id)
+        .join(Entity, Entity.id == Bookmark.id)
+        .order_by(BookmarkHighlight.created_at.desc())
+    )).all()
+    return [
+        GlobalHighlightOut(
+            **BookmarkHighlightOut.model_validate(highlight).model_dump(),
+            bookmark_title=title,
+            bookmark_url=url,
+        )
+        for highlight, title, url in rows
+    ]
 
 
 async def convert_highlight_to_flashcard(
@@ -723,13 +743,53 @@ async def create_note_from_bookmark(
     if entity is None:
         raise ValueError("Entity bulunamadi")
 
+    from app.modules.note.models import Note
+
+    existing_id = (await session.execute(
+        select(Note.id).where(Note.source_bookmark_id == bookmark_id)
+    )).scalar_one_or_none()
+    if existing_id is not None:
+        return existing_id
+
+    legacy_candidates = list((await session.execute(
+        select(Note)
+        .join(Link, Link.from_id == Note.id)
+        .join(Entity, Entity.id == Note.id)
+        .where(
+            Link.to_id == bookmark_id,
+            Link.relation == "notes_about",
+            Note.source_bookmark_id.is_(None),
+            Note.project_id.is_(None),
+            Note.journal_day.is_(None),
+            Note.trashed_at.is_(None),
+            Entity.archived_at.is_(None),
+        )
+    )).scalars().all())
+    if len(legacy_candidates) == 1:
+        legacy = legacy_candidates[0]
+        legacy.source_bookmark_id = bookmark_id
+        await touch_entity(session, legacy.id)
+        await log_event(
+            session,
+            verb="note.source_linked",
+            entity_id=legacy.id,
+            entity_type="note",
+            payload={"source_bookmark_id": str(bookmark_id)},
+        )
+        await session.commit()
+        return legacy.id
+
     from app.modules.note import service as note_svc
     from app.modules.note.schemas import NoteIn
 
     body_parts = [f"# {entity.title}", f"\nKaynak: {bookmark.url}"]
     if bookmark.note:
         body_parts.append(f"\n> Not: {bookmark.note}")
-    if bookmark.selection:
+    highlights = await list_highlights(session, bookmark_id)
+    if highlights:
+        body_parts.append("\n## Vurgular")
+        body_parts.extend(f"> {highlight.text}" for highlight in highlights)
+    elif bookmark.selection:
         body_parts.append(f"\n> Alinti:\n> {bookmark.selection}")
     if data.additional_text:
         body_parts.append(f"\n{data.additional_text}")
@@ -739,7 +799,7 @@ async def create_note_from_bookmark(
         pinned=data.pinned,
         relate_to=bookmark.id,
     )
-    note_out = await note_svc.create(session, note_in)
+    note_out = await note_svc.create(session, note_in, source_bookmark_id=bookmark_id)
     return note_out.id
 
 

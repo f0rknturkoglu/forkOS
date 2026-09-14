@@ -6,6 +6,9 @@ import { FeedStreamWidget } from "./FeedStreamWidget";
 
 const harness = vi.hoisted(() => ({
   hnRefetch: vi.fn(),
+  rssLoading: false,
+  rssEmpty: false,
+  hnLoading: false,
 }));
 
 vi.mock("@/core/api", () => ({
@@ -20,17 +23,21 @@ vi.mock("@tanstack/react-query", () => ({
     switch (queryKey[0]) {
       case "items":
         return {
-          data: [
-            {
-              id: "rss-1",
-              feed_id: "feed-1",
-              feed_title: "Yerel RSS",
-              title: "RSS çalışıyor",
-              published_at: "2026-08-29T08:00:00Z",
-              fetched_at: "2026-08-29T08:00:00Z",
-              read_at: null,
-            },
-          ],
+          data:
+            harness.rssLoading || harness.rssEmpty
+              ? []
+              : [
+                  {
+                    id: "rss-1",
+                    feed_id: "feed-1",
+                    feed_title: "Yerel RSS",
+                    title: "RSS çalışıyor",
+                    published_at: "2026-08-29T08:00:00Z",
+                    fetched_at: "2026-08-29T08:00:00Z",
+                    read_at: null,
+                  },
+                ],
+          isLoading: harness.rssLoading,
           isError: false,
           refetch: vi.fn(),
         };
@@ -39,7 +46,7 @@ vi.mock("@tanstack/react-query", () => ({
       case "reddit-news":
         return { data: [], isError: false, refetch: vi.fn() };
       case "hacker-news":
-        return { data: [], isError: true, refetch: harness.hnRefetch };
+        return { data: [], isLoading: harness.hnLoading, isError: !harness.hnLoading, refetch: harness.hnRefetch };
       case "github-trending":
         return {
           data: [
@@ -65,6 +72,9 @@ describe("FeedStreamWidget source isolation", () => {
   afterEach(() => {
     cleanup();
     harness.hnRefetch.mockReset();
+    harness.rssLoading = false;
+    harness.rssEmpty = false;
+    harness.hnLoading = false;
   });
 
   it("bir kaynak hata verirken digerlerini gosterir ve yalniz o kaynagi yeniden dener", () => {
@@ -76,5 +86,26 @@ describe("FeedStreamWidget source isolation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Hacker News'i yeniden dene" }));
     expect(harness.hnRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("filtre secimini aria-pressed ile aktarir ve yalniz secili kaynak yuklenirken yukleniyor der", () => {
+    harness.rssLoading = true;
+    render(<FeedStreamWidget />);
+
+    const rss = screen.getByRole("button", { name: "RSS" });
+    expect(rss.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(rss);
+    expect(rss.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Akış yükleniyor…")).toBeTruthy();
+  });
+
+  it("unrelated source is loading does not mask a resolved empty selected feed", () => {
+    harness.rssEmpty = true;
+    harness.hnLoading = true;
+    render(<FeedStreamWidget />);
+
+    fireEvent.click(screen.getByRole("button", { name: "RSS" }));
+    expect(screen.getByText("Yeni bir şey yok.")).toBeTruthy();
+    expect(screen.queryByText("Akış yükleniyor…")).toBeNull();
   });
 });

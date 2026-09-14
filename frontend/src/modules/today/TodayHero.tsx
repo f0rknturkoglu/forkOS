@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { LocateFixed } from "lucide-react";
-import { cx } from "@/core/ui";
+import { Button, cx } from "@/core/ui";
+import { appTimeParts, formatAppDate } from "@/lib/date";
 import { useWeather, weatherIcon, weatherLabel } from "./weather";
 
 function greeting(hour: number): string {
@@ -31,15 +32,16 @@ export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const time = now.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  const { hour, minute } = appTimeParts(now);
+  const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   const seconds = String(now.getSeconds()).padStart(2, "0");
-  const date = now.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+  const date = formatAppDate(now, { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <header className="mb-5 rounded-card border border-subtle bg-surface px-4 py-3.5 shadow-card">
       <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
         <div className="min-w-0 shrink-0">
-          <p className="label-caps">{greeting(now.getHours())}</p>
+          <p className="label-caps">{greeting(hour)}</p>
           <div className="mt-1.5 flex items-baseline gap-3">
             {/* Saniye saatle ayni boyda ve bitisik; ayrimi renk yapiyor. */}
             <time
@@ -78,7 +80,7 @@ export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
 
 /** Saatin yanindaki hava blogu: su anki durum + uc gunluk ince serit. */
 function WeatherPanel() {
-  const { coords, data, asking, denied, place, requestLocation } = useWeather();
+  const { coords, data, isError, refetch, asking, denied, place, requestLocation } = useWeather();
 
   if (!coords) {
     return (
@@ -99,6 +101,16 @@ function WeatherPanel() {
 
   const current = data?.current;
   const daily = data?.daily;
+  if (isError) {
+    return (
+      <div className="flex items-center gap-2 text-meta text-muted sm:border-l sm:border-subtle sm:pl-8">
+        <span>Hava durumu alınamadı.</span>
+        <Button size="sm" variant="ghost" onClick={() => void refetch()}>
+          Yeniden dene
+        </Button>
+      </div>
+    );
+  }
   if (!current) {
     return <div className="text-meta text-muted sm:border-l sm:border-subtle sm:pl-8">Hava yükleniyor…</div>;
   }
@@ -123,7 +135,7 @@ function WeatherPanel() {
             return (
               <li key={day} className="text-center">
                 <p className={cx("text-micro uppercase tracking-[0.08em]", today ? "text-accent" : "text-muted")}>
-                  {today ? "bugün" : new Date(day).toLocaleDateString("tr-TR", { weekday: "short" })}
+                  {today ? "bugün" : formatAppDate(day, { weekday: "short" })}
                 </p>
                 <DayIcon size={15} strokeWidth={1.5} className="mx-auto my-1 text-icon" />
                 <p className="numeral text-micro text-secondary">

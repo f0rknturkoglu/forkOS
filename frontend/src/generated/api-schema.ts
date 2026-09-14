@@ -1364,6 +1364,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/highlights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Global Highlights */
+        get: operations["list_global_highlights_api_highlights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incomes": {
         parameters: {
             query?: never;
@@ -1925,6 +1942,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notes/daily/{journal_day}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ensure Daily Note */
+        post: operations["ensure_daily_note_api_notes_daily__journal_day__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notes/{note_id}": {
         parameters: {
             query?: never;
@@ -1991,6 +2025,57 @@ export interface paths {
         post?: never;
         /** Remove Attachment */
         delete: operations["remove_attachment_api_notes__note_id__attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{note_id}/permanent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Permanently Delete Note */
+        delete: operations["permanently_delete_note_api_notes__note_id__permanent_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{note_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Note */
+        post: operations["restore_note_api_notes__note_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{note_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unarchive Note */
+        post: operations["unarchive_note_api_notes__note_id__unarchive_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4288,6 +4373,8 @@ export interface components {
             cover_url?: string | null;
             /** Duration Min */
             duration_min?: number | null;
+            /** Entity Id */
+            entity_id?: string | null;
             /** Entity Type */
             entity_type?: string | null;
             /** Feed Title */
@@ -4301,7 +4388,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "calendar" | "todo" | "rss" | "media" | "opportunity" | "interview" | "payment" | "study" | "flashcard";
+            kind: "calendar" | "todo" | "rss" | "media" | "opportunity" | "interview" | "payment" | "study" | "flashcard" | "pomodoro";
             /** Media Kind */
             media_kind?: string | null;
             /** Media Status */
@@ -4660,6 +4747,16 @@ export interface components {
             color: string;
             /** Note */
             note?: string | null;
+            /**
+             * Position End
+             * @default 0
+             */
+            position_end: number;
+            /**
+             * Position Start
+             * @default 0
+             */
+            position_start: number;
             /** Text */
             text: string;
         };
@@ -4692,6 +4789,16 @@ export interface components {
             id: string;
             /** Note */
             note?: string | null;
+            /**
+             * Position End
+             * @default 0
+             */
+            position_end: number;
+            /**
+             * Position Start
+             * @default 0
+             */
+            position_start: number;
             /** Text */
             text: string;
         };
@@ -5766,6 +5873,52 @@ export interface components {
             repos: {
                 [key: string]: number;
             };
+        };
+        /** GlobalHighlightOut */
+        GlobalHighlightOut: {
+            /**
+             * Anchor Index
+             * @default 0
+             */
+            anchor_index: number;
+            /**
+             * Bookmark Id
+             * Format: uuid
+             */
+            bookmark_id: string;
+            /** Bookmark Title */
+            bookmark_title: string;
+            /** Bookmark Url */
+            bookmark_url: string;
+            /**
+             * Color
+             * @default yellow
+             */
+            color: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Position End
+             * @default 0
+             */
+            position_end: number;
+            /**
+             * Position Start
+             * @default 0
+             */
+            position_start: number;
+            /** Text */
+            text: string;
         };
         /** GlobalMetadataSearchOut */
         GlobalMetadataSearchOut: {
@@ -7088,6 +7241,8 @@ export interface components {
         };
         /** NoteOut */
         NoteOut: {
+            /** Archived At */
+            archived_at?: string | null;
             /** Attachments */
             attachments?: components["schemas"]["NoteAttachmentOut"][];
             /** Body */
@@ -7128,10 +7283,14 @@ export interface components {
             project_id?: string | null;
             /** Resolved Links */
             resolved_links?: components["schemas"]["ResolvedLink"][];
+            /** Source Bookmark Id */
+            source_bookmark_id?: string | null;
             /** Tags */
             tags?: string[];
             /** Title */
             title: string;
+            /** Trashed At */
+            trashed_at?: string | null;
             /** Unresolved Links */
             unresolved_links?: string[];
             /**
@@ -12101,6 +12260,26 @@ export interface operations {
             };
         };
     };
+    list_global_highlights_api_highlights_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalHighlightOut"][];
+                };
+            };
+        };
+    };
     incomes_api_incomes_get: {
         parameters: {
             query?: never;
@@ -13585,6 +13764,7 @@ export interface operations {
             query?: {
                 include_archived?: boolean;
                 about?: string | null;
+                scope?: string;
             };
             header?: never;
             path?: never;
@@ -13627,6 +13807,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ensure_daily_note_api_notes_daily__journal_day__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                journal_day: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13845,6 +14056,93 @@ export interface operations {
             path: {
                 note_id: string;
                 attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    permanently_delete_note_api_notes__note_id__permanent_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_note_api_notes__note_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unarchive_note_api_notes__note_id__unarchive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
             };
             cookie?: never;
         };

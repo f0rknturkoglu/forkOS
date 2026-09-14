@@ -19,6 +19,7 @@ const dayDecisionFiles = [
   "src/modules/todo/WeeklyPlannerPage.tsx",
   "src/modules/todo/priority.ts",
   "src/modules/today/TodayAgendaWidget.tsx",
+  "src/modules/today/TodayHero.tsx",
 ];
 
 describe("day decision call sites", () => {
@@ -28,5 +29,10 @@ describe("day decision call sites", () => {
     expect(source).toContain('from "@/lib/date"');
     expect(source).not.toContain("toISOString().slice(0, 10)");
     expect(source).not.toContain("toISOString().slice(0,10)");
+    if (path.endsWith("TodayHero.tsx")) {
+      expect(source).not.toContain(".getHours(");
+      expect(source).not.toContain(".toLocaleDateString(");
+      expect(source).not.toContain(".toLocaleString(");
+    }
   });
 });

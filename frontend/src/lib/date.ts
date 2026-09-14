@@ -11,7 +11,7 @@
  * `Date`'lerle yapılır: `keyToUtc` bir anahtarı UTC gece yarısı olarak
  * temsil eder, böylece yaz saati / tarayıcı diliminden bağımsız kalır.
  */
-const APP_TIME_ZONE = "Europe/Istanbul";
+export const APP_TIME_ZONE = "Europe/Istanbul";
 
 export function localDateKey(value: Date, timeZone = APP_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -152,4 +152,10 @@ export function formatTrDate(value: string | Date, options?: Intl.DateTimeFormat
 export function formatTrDateTime(value: string | Date, options?: Intl.DateTimeFormatOptions): string {
   const date = value instanceof Date ? value : new Date(value);
   return date.toLocaleString("tr-TR", options);
+}
+
+/** ISO ani uygulamanin ortak saat diliminde gorunum icin bicimlendirir. */
+export function formatAppDate(value: string | Date, options: Intl.DateTimeFormatOptions): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat("tr-TR", { ...options, timeZone: APP_TIME_ZONE }).format(date);
 }

@@ -16,7 +16,13 @@ from sqlalchemy.orm import defer
 
 from app.core import refs as ref_svc
 from app.core import tags as tag_svc
-from app.core.entity import archive_entity, create_entity, delete_entity, touch_entity
+from app.core.entity import (
+    archive_entity,
+    create_entity,
+    delete_entity,
+    restore_entity,
+    touch_entity,
+)
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
@@ -95,6 +101,7 @@ def _out(
     title: str,
     created_at,
     updated_at,
+    archived_at=None,
     tags: list[str] | None = None,
     unresolved: list[str] | None = None,
     links: list[dict] | None = None,
@@ -110,6 +117,9 @@ def _out(
         project_id=note.project_id,
         folder_id=note.folder_id,
         journal_day=note.journal_day,
+        archived_at=archived_at,
+        trashed_at=note.trashed_at,
+        source_bookmark_id=note.source_bookmark_id,
         created_at=created_at,
         updated_at=updated_at,
         tags=tags or [],
@@ -446,9 +456,10 @@ async def create(
     *,
     project_id: uuid.UUID | None = None,
     journal_day: date | None = None,
+    source_bookmark_id: uuid.UUID | None = None,
 ) -> NoteOut:
-    if (project_id is None) != (journal_day is None):
-        raise ValueError("proje gunlugu icin project_id ve journal_day birlikte gerekli")
+    if project_id is not None and journal_day is None:
+        raise ValueError("proje gunlugu icin journal_day gerekli")
     if not await _folder_exists(session, data.folder_id):
         raise ValueError("not klasörü bulunamadı")
     entity = await create_entity(session, type=Note.ENTITY_TYPE,
@@ -460,6 +471,7 @@ async def create(
         project_id=project_id,
         folder_id=data.folder_id,
         journal_day=journal_day,
+        source_bookmark_id=source_bookmark_id,
         canvas_state=data.canvas_state,
         default_view=data.default_view,
         page_width=data.page_width,
@@ -479,9 +491,10 @@ async def create(
                              "relate_to": str(data.relate_to) if data.relate_to else None,
                              "project_id": str(project_id) if project_id else None,
                              "folder_id": str(data.folder_id) if data.folder_id else None,
-                             "journal_day": journal_day.isoformat() if journal_day else None})
+                             "journal_day": journal_day.isoformat() if journal_day else None,
+                             "source_bookmark_id": str(source_bookmark_id) if source_bookmark_id else None})
     await session.commit()
-    return _out(note, entity.title, entity.created_at, entity.updated_at,
+    return _out(note, entity.title, entity.created_at, entity.updated_at, entity.archived_at,
                 synced["tags"], synced["unresolved"], synced["links"])
 
 
@@ -490,6 +503,7 @@ async def list_notes(
     *,
     include_archived: bool = False,
     about: uuid.UUID | None = None,
+    scope: str = "active",
 ) -> list[NoteOut]:
     """`about` verilirse yalnizca o kayda `notes_about` ile bagli notlar.
 
@@ -499,7 +513,7 @@ async def list_notes(
     # Buyuk JSONB alanlarini listelemede YUKLEME. Ek metadata'si ayri SQL ile
     # gelir; tuval ise secili notun detay cagrisi ile yuklenir.
     stmt = (
-        select(Note, Entity.title, Entity.created_at, Entity.updated_at)
+        select(Note, Entity.title, Entity.created_at, Entity.updated_at, Entity.archived_at)
         .join(Entity, Entity.id == Note.id)
         .options(defer(Note.attachments), defer(Note.canvas_state))
         .order_by(Note.pinned.desc(), Entity.updated_at.desc())
@@ -508,22 +522,28 @@ async def list_notes(
         stmt = stmt.join(Link, Link.from_id == Note.id).where(
             Link.to_id == about, Link.relation == "notes_about"
         )
-    if not include_archived:
-        stmt = stmt.where(Entity.archived_at.is_(None))
+    if scope == "trash":
+        stmt = stmt.where(Note.trashed_at.is_not(None))
+    elif scope == "archive":
+        stmt = stmt.where(Note.trashed_at.is_(None), Entity.archived_at.is_not(None))
+    elif include_archived:
+        stmt = stmt.where(Note.trashed_at.is_(None))
+    else:
+        stmt = stmt.where(Note.trashed_at.is_(None), Entity.archived_at.is_(None))
     rows = (await session.execute(stmt)).all()
-    note_ids = [note.id for note, _, _, _ in rows]
+    note_ids = [note.id for note, _, _, _, _ in rows]
     tags = await tag_svc.tags_for(session, note_ids)
-    per_note = {note.id: ref_svc.parse_wikilinks(note.body) for note, _, _, _ in rows}
+    per_note = {note.id: ref_svc.parse_wikilinks(note.body) for note, _, _, _, _ in rows}
     resolved = await ref_svc.resolve_titles(
         session, list({t for targets in per_note.values() for t in targets})
     )
     attachments_by_note = await _attachments_metadata(session, note_ids)
     out: list[NoteOut] = []
-    for note, title, created, updated in rows:
+    for note, title, created, updated, archived_at in rows:
         targets = per_note[note.id]
         out.append(
             _out(
-                note, title, created, updated, tags.get(note.id, []),
+                note, title, created, updated, archived_at, tags.get(note.id, []),
                 [t for t in targets if t not in resolved],
                 [
                     {"target": t, "id": resolved[t][0], "type": resolved[t][1]}
@@ -539,7 +559,7 @@ async def list_notes(
 
 async def get(session: AsyncSession, note_id: uuid.UUID) -> NoteOut | None:
     row = (await session.execute(
-        select(Note, Entity.title, Entity.created_at, Entity.updated_at)
+        select(Note, Entity.title, Entity.created_at, Entity.updated_at, Entity.archived_at)
         .join(Entity, Entity.id == Note.id)
         .where(Note.id == note_id)
     )).first()
@@ -550,7 +570,7 @@ async def get(session: AsyncSession, note_id: uuid.UUID) -> NoteOut | None:
     targets = ref_svc.parse_wikilinks(note.body)
     resolved = await ref_svc.resolve_titles(session, targets)
     return _out(
-        note, row[1], row[2], row[3], tags,
+        note, row[1], row[2], row[3], row[4], tags,
         [t for t in targets if t not in resolved],
         [
             {"target": t, "id": resolved[t][0], "type": resolved[t][1]}
@@ -647,14 +667,17 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
     if synced is None:
         tags = (await tag_svc.tags_for(session, [note_id])).get(note_id, [])
         return _out(note, title, entity.created_at if entity else None,
-                    entity.updated_at if entity else None, tags)
+                    entity.updated_at if entity else None,
+                    entity.archived_at if entity else None, tags)
     return _out(note, title, entity.created_at if entity else None,
                 entity.updated_at if entity else None,
+                entity.archived_at if entity else None,
                 synced["tags"], synced["unresolved"], synced["links"])
 
 
 async def archive(session: AsyncSession, note_id: uuid.UUID) -> bool:
-    if await session.get(Note, note_id) is None:
+    note = await session.get(Note, note_id)
+    if note is None or note.trashed_at is not None:
         return False
     await archive_entity(session, note_id)
     await log_event(session, verb="note.archived", entity_id=note_id,
@@ -664,13 +687,69 @@ async def archive(session: AsyncSession, note_id: uuid.UUID) -> bool:
 
 
 async def delete(session: AsyncSession, note_id: uuid.UUID) -> bool:
+    """Notu geri alinabilir cop kutusuna tasir."""
+    note = await session.get(Note, note_id)
     entity = await session.get(Entity, note_id)
-    if entity is None or entity.type != Note.ENTITY_TYPE:
+    if note is None or entity is None or entity.type != Note.ENTITY_TYPE:
+        return False
+    if note.trashed_at is not None:
+        return True
+    note.trashed_from_archive = entity.archived_at is not None
+    note.trashed_at = func.now()
+    await archive_entity(session, note_id)
+    await log_event(session, verb="note.trashed", entity_id=note_id,
+                    entity_type="note", payload={"title": entity.title})
+    await session.commit()
+    return True
+
+
+async def restore_from_trash(session: AsyncSession, note_id: uuid.UUID) -> bool:
+    note = await session.get(Note, note_id)
+    if note is None or note.trashed_at is None:
+        return False
+    return_to_archive = note.trashed_from_archive
+    note.trashed_at = None
+    note.trashed_from_archive = False
+    if return_to_archive:
+        await touch_entity(session, note_id)
+    else:
+        await restore_entity(session, note_id)
+    await log_event(session, verb="note.restored", entity_id=note_id,
+                    entity_type="note", payload={
+                        "from": "trash",
+                        "to": "archive" if return_to_archive else "active",
+                    })
+    await session.commit()
+    return True
+
+
+async def restore_archive(session: AsyncSession, note_id: uuid.UUID) -> bool:
+    note = await session.get(Note, note_id)
+    entity = await session.get(Entity, note_id)
+    if note is None or entity is None or note.trashed_at is not None or entity.archived_at is None:
+        return False
+    await restore_entity(session, note_id)
+    await log_event(session, verb="note.archive_restored", entity_id=note_id,
+                    entity_type="note", payload={})
+    await session.commit()
+    return True
+
+
+async def permanently_delete(
+    session: AsyncSession, note_id: uuid.UUID, *, allow_active: bool = False
+) -> bool:
+    entity = await session.get(Entity, note_id)
+    note = await session.get(Note, note_id)
+    if (
+        entity is None
+        or entity.type != Note.ENTITY_TYPE
+        or note is None
+        or (note.trashed_at is None and not allow_active)
+    ):
         return False
     title = entity.title
-    note = await session.get(Note, note_id)
-    project_id = note.project_id if note else None
-    journal_day = note.journal_day if note else None
+    project_id = note.project_id
+    journal_day = note.journal_day
     if not await delete_entity(session, note_id):
         return False
     await log_event(session, verb="note.deleted", entity_type="note",
@@ -681,3 +760,35 @@ async def delete(session: AsyncSession, note_id: uuid.UUID) -> bool:
                     })
     await session.commit()
     return True
+
+
+async def ensure_daily_note(session: AsyncSession, journal_day: date) -> NoteOut:
+    row = (await session.execute(
+        select(Note, Entity.title, Entity.created_at, Entity.updated_at, Entity.archived_at)
+        .join(Entity, Entity.id == Note.id)
+        .where(Note.project_id.is_(None), Note.journal_day == journal_day)
+    )).first()
+    if row is not None:
+        note, title, created_at, updated_at, archived_at = row
+        if note.trashed_at is not None:
+            note.trashed_at = None
+            await restore_entity(session, note.id)
+            await log_event(session, verb="note.restored", entity_id=note.id,
+                            entity_type="note", payload={"from": "daily_ensure"})
+            await session.commit()
+            entity = await session.get(Entity, note.id)
+            archived_at = entity.archived_at if entity else None
+        elif archived_at is not None:
+            await restore_entity(session, note.id)
+            await log_event(session, verb="note.archive_restored", entity_id=note.id,
+                            entity_type="note", payload={"from": "daily_ensure"})
+            await session.commit()
+            entity = await session.get(Entity, note.id)
+            archived_at = entity.archived_at if entity else None
+        tags = (await tag_svc.tags_for(session, [note.id])).get(note.id, [])
+        return _out(note, title, created_at, updated_at, archived_at, tags)
+    return await create(
+        session,
+        NoteIn(body=f"# {journal_day.isoformat()}\n\n## Bugünün odağı\n\n## Görevler\n\n## Notlar\n"),
+        journal_day=journal_day,
+    )

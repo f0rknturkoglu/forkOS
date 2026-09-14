@@ -18,15 +18,16 @@ const DEPTHS = [1, 2, 3];
 export function GraphPage() {
   const route = useHashRoute();
   const focus = route.params.get("focus") ?? undefined;
+  const fromNotes = route.params.get("from") === "notes";
   const requested = Number(route.params.get("depth") ?? 2);
   // Bozuk/elle yazilmis derinlik grafigi NaN ile cizmesin.
   const depth = DEPTHS.includes(requested) ? requested : 2;
 
   const go = (next: number) =>
-    navigate(`/graph?${new URLSearchParams({ ...(focus ? { focus } : {}), depth: String(next) })}`);
+    navigate(`/graph?${new URLSearchParams({ ...(focus ? { focus } : {}), ...(fromNotes ? { from: "notes" } : {}), depth: String(next) })}`);
 
   // Secili konu geri donuste korunur: LF1 `?focus=` ile ayni konuyu acar.
-  const backHref = focus ? `#/learning?focus=${encodeURIComponent(focus)}` : "#/learning";
+  const backHref = fromNotes ? (focus ? `#/notes?focus=${encodeURIComponent(focus)}` : "#/notes") : focus ? `#/learning?focus=${encodeURIComponent(focus)}` : "#/learning";
 
   return (
     <div className="relative h-workspace-body overflow-hidden bg-canvas">
@@ -37,10 +38,10 @@ export function GraphPage() {
             <p className="truncate text-meta text-muted">Notlar, görevler, kaynaklar ve aralarındaki bağlar</p>
           </div>
           <a href={backHref} className="inline-flex items-center gap-1.5 text-meta text-accent">
-            <ArrowLeft size={13} /> Öğrenmeye dön
+            <ArrowLeft size={13} /> {fromNotes ? "Notlara dön" : "Öğrenmeye dön"}
           </a>
           {focus && (
-            <Button size="sm" onClick={() => navigate("/graph")}>
+            <Button size="sm" onClick={() => navigate(fromNotes ? "/graph?from=notes" : "/graph")}>
               Tüm graf
             </Button>
           )}

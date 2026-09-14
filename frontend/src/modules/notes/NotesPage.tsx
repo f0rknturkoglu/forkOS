@@ -12,6 +12,7 @@ import {
   Highlighter,
   Link2,
   Mic,
+  Network,
   PanelLeftOpen,
   Paperclip,
   Pencil,
@@ -31,7 +32,8 @@ import { BEFORE_NAVIGATION_EVENT, type NavigationRequest } from "@/core/navigati
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { NoteFlashcardPanel } from "@/modules/flashcard/NoteFlashcardPanel";
 import { confirmDialog } from "@/core/dialog";
-import type { Note, NoteAttachment, NoteFolder, Project } from "@/core/types";
+import type { Entity, Note, NoteAttachment, NoteFolder, Project } from "@/core/types";
+import { qs } from "@/core/api";
 import {
   Button,
   Chip,
@@ -48,13 +50,16 @@ import {
   useToast,
   useTheme,
 } from "@/core/ui";
-import { useOnline } from "@/lib/hooks";
-import { formatTrDateTime } from "@/lib/date";
+import { useDebounced, useOnline } from "@/lib/hooks";
+import { formatTrDateTime, todayKey } from "@/lib/date";
 import { CanvasErrorBoundary } from "./CanvasErrorBoundary";
 import { BookmarkHighlights } from "./BookmarkHighlights";
 import { NotesExplorer } from "./NotesExplorer";
-import { NOTE_NAVIGATION_EVENT, type NoteNavigationRequest } from "./NoteSidebarTree";
+import { NoteBreadcrumbs } from "./NoteBreadcrumbs";
+import { NOTE_NAVIGATION_EVENT, type NoteNavigationRequest } from "./noteNavigation";
+import { noteListPath, type NoteScope } from "./noteNavigation";
 import { SLASH_COMMANDS, SlashCommandMenu, slashContext, type SlashCommand } from "./SlashCommandMenu";
+import { completeWikilink, openWikilinkQuery } from "@/core/NoteEditor";
 
 const refreshNotes = () => invalidateAfter("note.write", "link.write");
 
@@ -162,6 +167,12 @@ function AttachmentPool({
 export function NotesPage() {
   const route = useHashRoute();
   const focusId = route.params.get("focus") ?? "";
+  const isNewRoute = route.params.get("new") === "1";
+  const routeFolderId = route.params.get("folder");
+  const routeScope: NoteScope = route.params.get("scope") === "archive"
+    ? "archive"
+    : route.params.get("scope") === "trash" ? "trash" : "active";
+  const journalDay = route.params.get("journal") === "today" ? todayKey() : route.params.get("journal");
   const online = useOnline();
   const [theme] = useTheme();
   const toast = useToast();
@@ -182,16 +193,19 @@ export function NotesPage() {
   });
   const [mode, setMode] = useState<EditorMode>("write");
   const [selectedId, setSelectedId] = useState(focusId);
-  const [creating, setCreating] = useState(route.params.get("new") === "1");
+  const [creating, setCreating] = useState(isNewRoute);
+  const isReadOnly = !online || routeScope !== "active";
   const [draft, setDraft] = useState(() => (route.params.get("new") === "1" ? starterBody() : ""));
   const [draftFolderId, setDraftFolderId] = useState<string | null>(route.params.get("folder"));
   // Draft'in ait oldugu not. Arka plan refetch'i secili notun YENI nesnesini
   // getirdiginde draft uzerine yazilmaz; yalnizca not id'si degistiginde yuklenir.
   const draftNoteId = useRef<string | null>(null);
+  const draftRevision = useRef(0);
+  const failedAutoRevision = useRef<number | null>(null);
 
   const { data: notes = [] } = useQuery({
-    queryKey: ["notes"],
-    queryFn: () => api.get<Note[]>("/notes"),
+    queryKey: ["notes", routeScope],
+    queryFn: () => api.get<Note[]>(noteListPath(routeScope)),
   });
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
@@ -202,6 +216,7 @@ export function NotesPage() {
     queryFn: () => api.get<NoteFolder[]>("/note-folders"),
   });
   const selected = notes.find((note) => note.id === selectedId) ?? null;
+  const selectedFolder = folders.find((folder) => folder.id === routeFolderId) ?? null;
   const { data: selectedDetail, isLoading: detailLoading } = useQuery({
     queryKey: ["note", selectedId],
     queryFn: () => api.get<Note>(`/notes/${selectedId}`),
@@ -214,6 +229,28 @@ export function NotesPage() {
     [draft, selected?.attachments],
   );
   const slash = useMemo(() => slashContext(draft, caretPosition), [draft, caretPosition]);
+  const wikilinkQuery = openWikilinkQuery(draft, caretPosition);
+  const debouncedWikilink = useDebounced(wikilinkQuery ?? "", 150);
+  const { data: wikilinkCandidates = [] } = useQuery({
+    queryKey: ["search", "wikilink", debouncedWikilink],
+    enabled: wikilinkQuery !== null && debouncedWikilink.trim().length > 0,
+    queryFn: () => api.get<Entity[]>(`/search${qs({ q: debouncedWikilink, limit: 6 })}`),
+  });
+
+  useEffect(() => {
+    if (!journalDay || !online) return;
+    let active = true;
+    void api.post<Note>(`/notes/daily/${journalDay}`).then((note) => {
+      if (active) navigate(`/notes?focus=${note.id}`);
+    }).catch(() => {
+      if (active) toast.push("Günlük not açılamadı.", { tone: "danger" });
+    });
+    return () => { active = false; };
+  }, [journalDay, online, toast]);
+
+  useEffect(() => {
+    if (routeScope !== "active" && !creating) setMode("preview");
+  }, [creating, routeScope]);
 
   useEffect(() => {
     if (focusId) {
@@ -223,6 +260,27 @@ export function NotesPage() {
       setDraftFolderId(notes.find((note) => note.id === focusId)?.folder_id ?? null);
     }
   }, [focusId, notes]);
+
+  useEffect(() => {
+    // Bir breadcrumb/klasor URL'si not odagi tasimaz. Eski secim yerine o
+    // klasorun ilk notunu (veya bos-klasor durumunu) kullanmak icin secimi
+    // route degisiminde sifirla.
+    if (routeFolderId && !focusId && !isNewRoute) {
+      setSelectedId("");
+      setCreating(false);
+      draftNoteId.current = null;
+    }
+  }, [focusId, isNewRoute, routeFolderId]);
+
+  useEffect(() => {
+    // Arşiv/Çöp/Kasa arasında URL odaksız değiştiğinde, önceki görünümün
+    // seçili kimliği yeni scope'ta geçersiz kalabilir. Yeni listenin ilk
+    // uygun notu aşağıdaki yükleme etkisi tarafından seçilir.
+    if (!focusId && !isNewRoute) {
+      setSelectedId("");
+      draftNoteId.current = null;
+    }
+  }, [focusId, isNewRoute, routeScope]);
 
   useEffect(() => {
     if (creating) return;
@@ -235,33 +293,59 @@ export function NotesPage() {
       setDraftFolderId(selected.folder_id ?? null);
       return;
     }
-    if (!selectedId && notes[0]) {
-      setSelectedId(notes[0].id);
-      setDraft(notes[0].body);
-      caret.current = notes[0].body.length;
-      draftNoteId.current = notes[0].id;
-      setMode(notes[0].default_view === "canvas" ? "canvas" : "write");
-      setDraftFolderId(notes[0].folder_id ?? null);
+    if (!selectedId) {
+      const initial = routeFolderId ? notes.find((note) => note.folder_id === routeFolderId) : notes[0];
+      if (!initial) return;
+      setSelectedId(initial.id);
+      setDraft(initial.body);
+      caret.current = initial.body.length;
+      draftNoteId.current = initial.id;
+      setMode(initial.default_view === "canvas" ? "canvas" : "write");
+      setDraftFolderId(initial.folder_id ?? null);
     }
-  }, [creating, notes, selected, selectedId]);
+  }, [creating, notes, routeFolderId, selected, selectedId]);
 
   const save = useMutation({
-    mutationFn: () =>
-      creating
-        ? api.post<Note>("/notes", { body: draft.trim(), folder_id: draftFolderId })
-        : api.patch<Note>(`/notes/${selectedId}`, { body: draft.trim() }),
-    onSuccess: (note) => {
+    mutationFn: ({ quiet = false, body, revision, noteId, folderId }: { quiet?: boolean; body: string; revision: number; noteId: string | null; folderId: string | null }) =>
+      noteId ? api.patch<Note>(`/notes/${noteId}`, { body }) : api.post<Note>("/notes", { body, folder_id: folderId }),
+    onSuccess: (note, { quiet, body, revision, noteId }) => {
       setCreating(false);
       setSelectedId(note.id);
-      setDraft(note.body);
+      // Otomatik kayit yaniti donene kadar yeni karakter girilmis olabilir.
+      // Eski yanit bu yeni taslagi ezmemeli.
+      if (draftRevision.current === revision) setDraft(note.body);
       setDraftFolderId(note.folder_id ?? null);
       draftNoteId.current = note.id;
       refreshNotes();
-      navigate(`/notes?focus=${note.id}`);
-      toast.push("Not kaydedildi.", { tone: "ok" });
+      // Ilk otomatik create dahil her basarili yazma canonical odaga tasinir.
+      // Aksi halde ?new=1 route effect'leri secimi tekrar sifirlayabilir.
+      if (!noteId || !quiet) navigate(`/notes?focus=${note.id}`);
+      if (!quiet) toast.push("Not kaydedildi.", { tone: "ok" });
     },
-    onError: () => toast.push("Not kaydedilemedi.", { tone: "danger" }),
+    onError: (_error, request) => {
+      if (request.quiet) failedAutoRevision.current = request.revision;
+      toast.push("Not kaydedilemedi.", { tone: "danger" });
+    },
   });
+
+  const requestSave = (quiet: boolean) => {
+    if (save.isPending || isReadOnly || !draft.trim()) return;
+    save.mutate({
+      quiet,
+      body: draft.trim(),
+      revision: draftRevision.current,
+      noteId: creating ? null : selectedId || null,
+      folderId: draftFolderId,
+    });
+  };
+
+  useEffect(() => {
+    const changed = creating ? Boolean(draft.trim()) : Boolean(selected && draft !== selected.body);
+    const revision = draftRevision.current;
+    if (!online || isReadOnly || !changed || save.isPending || failedAutoRevision.current === revision) return;
+    const timer = window.setTimeout(() => requestSave(true), 800);
+    return () => window.clearTimeout(timer);
+  }, [creating, draft, draftFolderId, isReadOnly, save, selected, selectedId]);
 
   const patch = useMutation({
     mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) => api.patch<Note>(`/notes/${id}`, { pinned }),
@@ -298,8 +382,45 @@ export function NotesPage() {
       setDraft("");
       draftNoteId.current = null;
       refreshNotes();
-      navigate("/notes");
+      navigate(noteListPath(routeScope));
       toast.push("Not arşivlendi.", { tone: "ok" });
+    },
+  });
+  const trash = useMutation({
+    mutationFn: (id: string) => api.del(`/notes/${id}`),
+    onSuccess: () => {
+      setSelectedId("");
+      refreshNotes();
+      navigate("/notes?scope=trash");
+      toast.push("Not çöp kutusuna taşındı.", { tone: "ok" });
+    },
+  });
+  const restore = useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`/notes/${id}/restore`);
+      return api.get<Note>(`/notes/${id}`);
+    },
+    onSuccess: (note) => {
+      refreshNotes();
+      navigate(note.archived_at ? `/notes?scope=archive&focus=${note.id}` : `/notes?focus=${note.id}`);
+      toast.push("Not geri yüklendi.", { tone: "ok" });
+    },
+  });
+  const unarchive = useMutation({
+    mutationFn: (id: string) => api.post(`/notes/${id}/unarchive`),
+    onSuccess: () => {
+      refreshNotes();
+      navigate("/notes");
+      toast.push("Not arşivden geri yüklendi.", { tone: "ok" });
+    },
+  });
+  const permanentlyDelete = useMutation({
+    mutationFn: (id: string) => api.del(`/notes/${id}/permanent`),
+    onSuccess: () => {
+      setSelectedId("");
+      refreshNotes();
+      navigate("/notes?scope=trash");
+      toast.push("Not kalıcı olarak silindi.", { tone: "ok" });
     },
   });
 
@@ -357,10 +478,16 @@ export function NotesPage() {
     upload.mutate({ files, at: caret.current, source: draft });
   };
 
+  const updateDraft = (value: string) => {
+    draftRevision.current += 1;
+    failedAutoRevision.current = null;
+    setDraft(value);
+  };
+
   const insertInline = (text: string, caretOffset = 0) => {
     const insertion = insertInlineAt(draft, caret.current, text);
     const nextCaret = insertion.caret + caretOffset;
-    setDraft(insertion.value);
+    updateDraft(insertion.value);
     caret.current = nextCaret;
     requestAnimationFrame(() => {
       editor.current?.focus();
@@ -368,10 +495,29 @@ export function NotesPage() {
     });
   };
 
+  const insertWikilink = (title: string) => {
+    const insertion = completeWikilink(draft, caret.current, title);
+    updateDraft(insertion.value);
+    caret.current = insertion.caret;
+    setCaretPosition(insertion.caret);
+    requestAnimationFrame(() => {
+      editor.current?.focus();
+      editor.current?.setSelectionRange(insertion.caret, insertion.caret);
+    });
+  };
+
+  const toggleTask = (line: number, checked: boolean) => {
+    const lines = draft.split("\n");
+    const current = lines[line];
+    if (!current || !/^[-*+]\s+\[[ xX]\]\s+/.test(current)) return;
+    lines[line] = current.replace(/^([-*+]\s+)\[[ xX]\]/, `$1[${checked ? "x" : " "}]`);
+    updateDraft(lines.join("\n"));
+  };
+
   const insertExistingAttachment = (attachment: NoteAttachment) => {
     setMode("write");
     const insertion = insertMarkdownAt(draft, caret.current, attachmentMarkdown(attachment));
-    setDraft(insertion.value);
+    updateDraft(insertion.value);
     caret.current = insertion.caret;
     requestAnimationFrame(() => {
       editor.current?.focus();
@@ -390,6 +536,18 @@ export function NotesPage() {
   };
 
   const dirty = creating ? Boolean(draft.trim()) : Boolean(selected && draft !== selected.body);
+  const confirmDiscardDraft = async () => {
+    if (!dirty) return true;
+    return confirmDialog({
+      title: "Kaydedilmemiş değişiklikler var",
+      body: "Bu sayfadan ayrılırsanız mevcut değişiklikler kaybolacak. Yine de devam edilsin mi?",
+      confirmLabel: "Değişiklikleri At ve Ayrıl",
+      tone: "danger",
+    });
+  };
+  const navigateWithDraftGuard = async (href: string) => {
+    if (await confirmDiscardDraft()) navigate(href);
+  };
   useEffect(() => {
     if (!dirty) return;
     const handleExternalNavigation = (rawEvent: Event) => {
@@ -408,9 +566,23 @@ export function NotesPage() {
     return () => window.removeEventListener(BEFORE_NAVIGATION_EVENT, handleExternalNavigation);
   }, [dirty]);
 
+  useEffect(() => {
+    if (!dirty) return;
+    const guardSmartLocation = (event: MouseEvent) => {
+      const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>('a[href^="#/notes?scope="], a[href="#/notes?journal=today"]');
+      if (!anchor) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void navigateWithDraftGuard(anchor.getAttribute("href")?.slice(1) ?? "/notes");
+    };
+    window.addEventListener("click", guardSmartLocation, true);
+    return () => window.removeEventListener("click", guardSmartLocation, true);
+  }, [dirty]);
+
   const changeMode = (next: EditorMode) => {
+    if (isReadOnly && next !== "preview") return;
     setMode(next);
-    if (!creating && selectedId && online) {
+    if (!creating && selectedId && !isReadOnly) {
       notePreference.mutate({ default_view: next === "canvas" ? "canvas" : "page" });
     }
   };
@@ -468,6 +640,7 @@ export function NotesPage() {
         navigate("/notes?highlights=1");
         return;
       }
+      if (request.kind !== "open") return;
       const note = notes.find((item) => item.id === request.id);
       if (note) void openNote(note);
     };
@@ -478,13 +651,13 @@ export function NotesPage() {
   const chooseSlashCommand = (command: SlashCommand) => {
     if (!slash) return;
     const cleared = `${draft.slice(0, slash.start)}${draft.slice(caretPosition)}`;
-    setDraft(cleared);
+    updateDraft(cleared);
     caret.current = slash.start;
     setCaretPosition(slash.start);
     if (command.markdown !== undefined) {
       const insertion = insertInlineAt(cleared, slash.start, command.markdown);
       const nextCaret = Math.max(slash.start, insertion.caret + (command.caretOffset ?? 0));
-      setDraft(insertion.value);
+      updateDraft(insertion.value);
       caret.current = nextCaret;
       setCaretPosition(nextCaret);
       requestAnimationFrame(() => {
@@ -510,7 +683,7 @@ export function NotesPage() {
   return (
     <PageFrame className="py-3">
       <div className="flex items-stretch gap-3 min-h-workspace-body">
-        {explorerOpen && (
+        {explorerOpen && routeScope === "active" && (
           <aside
             aria-label="Kasa Gezgini"
             className="w-72 shrink-0 overflow-hidden rounded-control border border-subtle bg-surface flex flex-col"
@@ -555,10 +728,12 @@ export function NotesPage() {
                     <PanelLeftOpen size={14} /> Kasa Gezginini Aç
                   </Button>
                 )}
-                <Empty variant="page" title="Bir not seç">
-                  Kasa gezgininden bir not aç veya yeni bir düşünce yakala.
+                <Empty variant="page" title={selectedFolder ? `“${selectedFolder.name}” boş` : "Bir not seç"}>
+                  {selectedFolder
+                    ? "Bu klasörde henüz not yok. İlk düşünceyi burada yakala."
+                    : "Kasa gezgininden bir not aç veya yeni bir düşünce yakala."}
                   <span className="mt-3 block">
-                    <Button variant="primary" onClick={() => beginNote()}>
+                    <Button variant="primary" disabled={routeScope !== "active"} onClick={() => beginNote(undefined, routeFolderId)}>
                       <Plus size={14} /> Yeni not
                     </Button>
                   </span>
@@ -582,6 +757,7 @@ export function NotesPage() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-heading text-primary">{creating ? "Yeni not" : selected?.title}</p>
+                    {!creating && <NoteBreadcrumbs note={selected} folders={folders} scope={routeScope} onNavigate={(href) => void navigateWithDraftGuard(href)} />}
                     <div className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
                       <span>
                         {dirty
@@ -603,6 +779,7 @@ export function NotesPage() {
                   </div>
                   {!creating && selected && (
                     <>
+                      {routeScope === "active" && <>
                       <IconButton
                         title={selected.pinned ? "Sabitlemeyi kaldır" : "Sabitle"}
                         disabled={!online}
@@ -610,15 +787,33 @@ export function NotesPage() {
                       >
                         {selected.pinned ? <PinOff size={14} /> : <Pin size={14} />}
                       </IconButton>
-                      <IconButton title="Arşivle" disabled={!online} onClick={() => archive.mutate(selected.id)}>
+                      <IconButton title="Arşivle" disabled={!online} onClick={() => void confirmDiscardDraft().then((ok) => ok && archive.mutate(selected.id))}>
                         <Archive size={14} />
                       </IconButton>
+                      <IconButton title="Çöp kutusuna taşı" disabled={!online} onClick={() => void confirmDiscardDraft().then((ok) => ok && trash.mutate(selected.id))}>
+                        <Trash2 size={14} />
+                      </IconButton>
+                      </>}
+                      {routeScope === "archive" && <>
+                        <IconButton title="Arşivden geri yükle" disabled={!online} onClick={() => unarchive.mutate(selected.id)}>
+                          <Archive size={14} />
+                        </IconButton>
+                        <IconButton title="Çöp kutusuna taşı" disabled={!online} onClick={() => void confirmDiscardDraft().then((ok) => ok && trash.mutate(selected.id))}>
+                          <Trash2 size={14} />
+                        </IconButton>
+                      </>}
+                      {routeScope === "trash" && (
+                        <><IconButton title="Geri yükle" disabled={!online} onClick={() => restore.mutate(selected.id)}><Archive size={14} /></IconButton>
+                        <IconButton title="Kalıcı sil" disabled={!online} onClick={async () => {
+                          if (await confirmDialog({ title: "Not kalıcı olarak silinsin mi?", body: "Bu işlem geri alınamaz.", confirmLabel: "Kalıcı Sil", tone: "danger" })) permanentlyDelete.mutate(selected.id);
+                        }}><Trash2 size={14} /></IconButton></>
+                      )}
                     </>
                   )}
                   <Select
                     value={draftFolderId ?? ""}
                     ariaLabel="Not klasörü"
-                    disabled={!online || moveNote.isPending || Boolean(selected?.project_id)}
+                    disabled={isReadOnly || moveNote.isPending || Boolean(selected?.project_id)}
                     className="max-w-44"
                     onChange={(value) => {
                       const folderId = value || null;
@@ -638,6 +833,7 @@ export function NotesPage() {
                       size="sm"
                       variant="ghost"
                       className={cx("border-0 px-2.5", mode === "write" && "bg-surface shadow-raised")}
+                      disabled={isReadOnly}
                       onClick={() => changeMode("write")}
                     >
                       <Pencil size={14} /> Yaz
@@ -653,7 +849,7 @@ export function NotesPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={creating}
+                      disabled={creating || isReadOnly}
                       title={creating ? "Tuvali açmak için önce notu kaydet" : "Tuval"}
                       className={cx("border-0 px-2.5", mode === "canvas" && "bg-surface shadow-raised")}
                       onClick={() => changeMode("canvas")}
@@ -661,11 +857,21 @@ export function NotesPage() {
                       <Brush size={14} /> Tuval
                     </Button>
                   </div>
+                  {!creating && selected && (
+                    <Button size="sm" variant="ghost" onClick={() => void navigateWithDraftGuard(`/graph?focus=${selected.id}&from=notes`)}>
+                      <Network size={14} /> Graf
+                    </Button>
+                  )}
+                  {routeScope === "active" && (
+                    <Button size="sm" variant="ghost" onClick={() => void navigateWithDraftGuard("/graph?from=notes")}>
+                      <Network size={14} /> Tüm graf
+                    </Button>
+                  )}
                   {mode !== "canvas" ? (
                     <Button
                       variant="primary"
-                      disabled={!online || !draft.trim() || !dirty || save.isPending}
-                      onClick={() => save.mutate()}
+                      disabled={isReadOnly || !draft.trim() || !dirty || save.isPending}
+                      onClick={() => requestSave(false)}
                     >
                       <Save size={14} /> {save.isPending ? "Kaydediliyor" : "Kaydet"}
                     </Button>
@@ -674,7 +880,7 @@ export function NotesPage() {
                   )}
                 </header>
 
-                {mode !== "canvas" ? (
+                {mode !== "canvas" && !isReadOnly ? (
                   <div className="flex flex-wrap items-center gap-1.5 border-b border-subtle px-4 py-2.5">
                     <FileInput
                       ref={imageInput}
@@ -799,7 +1005,8 @@ export function NotesPage() {
                     <Textarea
                       ref={editor}
                       value={draft}
-                      onChange={setDraft}
+                      onChange={updateDraft}
+                      disabled={isReadOnly}
                       onCaret={(position) => {
                         caret.current = position;
                         setCaretPosition(position);
@@ -825,15 +1032,29 @@ export function NotesPage() {
                       onKeyDown={(event) => {
                         if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase("tr") === "s") {
                           event.preventDefault();
-                          if (online && dirty && draft.trim()) save.mutate();
+                          if (dirty && draft.trim()) requestSave(false);
+                          return;
+                        }
+                        if (event.key === "Escape" && wikilinkQuery !== null) {
+                          event.preventDefault();
+                          const start = draft.slice(0, caretPosition).lastIndexOf("[[");
+                          const next = `${draft.slice(0, start)}${draft.slice(caretPosition)}`;
+                          updateDraft(next);
+                          caret.current = start;
+                          setCaretPosition(start);
                           return;
                         }
                         if (event.key === "Escape" && slash) {
                           event.preventDefault();
                           const next = `${draft.slice(0, slash.start)}${draft.slice(caretPosition)}`;
-                          setDraft(next);
+                          updateDraft(next);
                           caret.current = slash.start;
                           setCaretPosition(slash.start);
+                          return;
+                        }
+                        if (event.key === "Enter" && wikilinkQuery !== null && wikilinkCandidates[0]) {
+                          event.preventDefault();
+                          insertWikilink(wikilinkCandidates[0].title);
                           return;
                         }
                         if (event.key === "Enter" && slash) {
@@ -847,6 +1068,22 @@ export function NotesPage() {
                         }
                       }}
                     />
+                    {wikilinkQuery !== null && wikilinkCandidates.length > 0 && (
+                      <div className="absolute inset-x-5 bottom-7 z-popover overflow-hidden rounded-overlay border border-subtle bg-surface shadow-overlay">
+                        {wikilinkCandidates.map((candidate) => (
+                          <Button
+                            key={candidate.id}
+                            size="sm"
+                            variant="ghost"
+                            className="flex w-full justify-start gap-2 rounded-none px-3 py-2 text-left"
+                            onClick={() => insertWikilink(candidate.title)}
+                          >
+                            <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
+                            <Chip size="xs">{candidate.type}</Chip>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : mode === "preview" ? (
                   <article
@@ -864,8 +1101,9 @@ export function NotesPage() {
                       links={selected?.resolved_links ?? []}
                       unresolved={selected?.unresolved_links ?? []}
                       attachments={selected?.attachments ?? []}
-                      onRemoveAttachment={confirmRemoveAttachment}
                       onMissingClick={(target) => beginNote(target)}
+                      onRemoveAttachment={isReadOnly ? undefined : confirmRemoveAttachment}
+                      onTaskToggle={!isReadOnly ? toggleTask : undefined}
                       className="article-content"
                     />
                   </article>
@@ -887,7 +1125,7 @@ export function NotesPage() {
                         noteId={canvasNote.id}
                         noteTitle={canvasNote.title}
                         attachments={canvasNote.attachments ?? []}
-                        readOnly={!online}
+                        readOnly={isReadOnly}
                         theme={resolvedTheme(theme)}
                         onSave={(state) => saveCanvas.mutate(state)}
                       />
@@ -895,7 +1133,7 @@ export function NotesPage() {
                   </CanvasErrorBoundary>
                 )}
 
-                {mode !== "canvas" ? (
+                {mode !== "canvas" && !isReadOnly ? (
                   <AttachmentPool
                     attachments={unplacedAttachments}
                     disabled={!online || removeAttachment.isPending}
@@ -932,7 +1170,7 @@ export function NotesPage() {
             closeHighlights();
             setMode("write");
             const insertion = insertMarkdownAt(draft, caret.current, markdown);
-            setDraft(insertion.value);
+            updateDraft(insertion.value);
             caret.current = insertion.caret;
             setCaretPosition(insertion.caret);
           }}

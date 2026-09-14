@@ -395,7 +395,9 @@ async def upsert_journal_note(
     normalized = body.strip()
     if not normalized:
         if existing is not None:
-            await note_service.delete(session, existing.id)
+            await note_service.permanently_delete(
+                session, existing.id, allow_active=True
+            )
         return {"day": day, "note": None}
 
     if existing is None:
@@ -406,6 +408,12 @@ async def upsert_journal_note(
             journal_day=day,
         )
     else:
+        if existing.trashed_at is not None:
+            await note_service.restore_from_trash(session, existing.id)
+        else:
+            existing_entity = await session.get(Entity, existing.id)
+            if existing_entity is not None and existing_entity.archived_at is not None:
+                await note_service.restore_archive(session, existing.id)
         note = await note_service.update(
             session, existing.id, NoteUpdate(body=body)
         )
@@ -425,7 +433,11 @@ async def journal(
         await session.execute(
             select(Note, Entity.title, Entity.created_at, Entity.updated_at)
             .join(Entity, Entity.id == Note.id)
-            .where(Note.project_id == project_id, Note.journal_day.is_not(None))
+            .where(
+                Note.project_id == project_id,
+                Note.journal_day.is_not(None),
+                Note.trashed_at.is_(None),
+            )
         )
     ).all()
     notes_by_day = {

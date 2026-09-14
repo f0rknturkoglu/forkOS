@@ -40,7 +40,7 @@ async def _seed_opportunity_deadline(client: AsyncClient) -> None:
     assert resp.status_code == 201, resp.text
 
 
-async def _seed_interview(client: AsyncClient) -> None:
+async def _seed_interview(client: AsyncClient) -> tuple[str, str]:
     resp = await client.post("/api/opportunities", json={
         "title": f"Interview {uuid.uuid4().hex[:6]}",
         "kind": "job",
@@ -51,6 +51,7 @@ async def _seed_interview(client: AsyncClient) -> None:
         "scheduled_at": (mid + timedelta(hours=1)).isoformat(),
     })
     assert created.status_code == 201, created.text
+    return item["id"], created.json()["id"]
 
 
 async def _seed_payment(client: AsyncClient) -> None:
@@ -112,6 +113,23 @@ async def _seed_study_slot(client: AsyncClient) -> None:
     assert slot.status_code == 201, slot.text
 
 
+async def _seed_pomodoro_slot(client: AsyncClient) -> None:
+    _, mid = _local_midday()
+    session = await client.post("/api/pomodoro", json={
+        "started_at": (mid - timedelta(minutes=30)).isoformat(),
+        "minutes": 25,
+        "topic": "Planlanan odak",
+    })
+    assert session.status_code == 201, session.text
+    slot = await client.post("/api/plan", json={
+        "entity_id": session.json()["id"],
+        "day": _local_midday()[0].isoformat(),
+        "start_min": 600,
+        "duration_min": 25,
+    })
+    assert slot.status_code == 201, slot.text
+
+
 async def test_agenda_returns_eight_kinds(client: AsyncClient):
     await _seed_opportunity_deadline(client)
     await _seed_interview(client)
@@ -119,6 +137,7 @@ async def test_agenda_returns_eight_kinds(client: AsyncClient):
     await _seed_calendar_event(client)
     await _seed_todo(client)
     await _seed_study_slot(client)
+    await _seed_pomodoro_slot(client)
 
     response = await client.get("/api/today/agenda", params={"day": _local_midday()[0].isoformat()})
     assert response.status_code == 200, response.text
@@ -138,7 +157,51 @@ async def test_agenda_returns_eight_kinds(client: AsyncClient):
     # En az: calendar, todo, opportunity, interview, payment, study (rss/media
     # icin slot gerekir -- bu testte seed edilmedi, ama kind sayaci 8 sozlesmeyi
     # dogrular; AgendaKind Literal'i backend'de 8 uye).
-    assert kinds >= {"calendar", "todo", "opportunity", "interview", "payment", "study"}
+    assert kinds >= {"calendar", "todo", "opportunity", "interview", "payment", "study", "pomodoro"}
+    payment = next(row for row in data["checklist"] if row["kind"] == "payment")
+    assert payment["starts_at"] is None
+
+
+async def test_today_only_shows_opportunity_deadlines_for_today_and_tomorrow(client: AsyncClient):
+    """Gecmis ilanlar ve iki gunden uzak vadeler Today'i sisirmez."""
+    from app.core.time import local_day_bounds
+
+    day, _ = _local_midday()
+    today_start, _ = local_day_bounds(day)
+    tomorrow_start, _ = local_day_bounds(day + timedelta(days=1))
+    after_tomorrow_start, _ = local_day_bounds(day + timedelta(days=2))
+
+    async def create(title: str, deadline: datetime) -> str:
+        response = await client.post("/api/opportunities", json={
+            "title": title,
+            "kind": "job",
+            "deadline_at": deadline.isoformat(),
+        })
+        assert response.status_code == 201, response.text
+        return response.json()["id"]
+
+    expired_id = await create("Gecmis vade", today_start - timedelta(minutes=1))
+    today_id = await create("Bugunun vadesi", today_start + timedelta(hours=9))
+    tomorrow_id = await create("Yarinin vadesi", tomorrow_start + timedelta(hours=9))
+    later_id = await create("Daha sonraki vade", after_tomorrow_start + timedelta(hours=9))
+
+    agenda = (await client.get("/api/today/agenda", params={"day": day.isoformat()})).json()
+    opportunity_ids = {
+        row["id"] for row in agenda["timed"] + agenda["checklist"] if row["kind"] == "opportunity"
+    }
+    assert {today_id, tomorrow_id} <= opportunity_ids
+    assert expired_id not in opportunity_ids
+    assert later_id not in opportunity_ids
+
+
+async def test_today_interview_keeps_row_identity_and_links_to_opportunity(client: AsyncClient):
+    opportunity_id, interview_id = await _seed_interview(client)
+
+    agenda = (await client.get("/api/today/agenda", params={"day": _local_midday()[0].isoformat()})).json()
+    row = next(item for item in agenda["timed"] if item["id"] == interview_id)
+    assert row["kind"] == "interview"
+    assert row["entity_type"] == "opportunity"
+    assert row["entity_id"] == opportunity_id
 
 
 # ---------------------------------------------------------------------------

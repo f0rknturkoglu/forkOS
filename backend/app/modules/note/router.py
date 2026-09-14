@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
@@ -63,9 +64,10 @@ async def delete_note_folder(
 @router.get("/notes", response_model=list[NoteOut])
 async def list_notes(include_archived: bool = Query(False),
                      about: uuid.UUID | None = Query(None),
+                     scope: str = Query("active", pattern="^(active|archive|trash)$"),
                      session: AsyncSession = Depends(get_session)):
     return await service.list_notes(
-        session, include_archived=include_archived, about=about
+        session, include_archived=include_archived, about=about, scope=scope
     )
 
 
@@ -75,6 +77,13 @@ async def create_note(body: NoteIn, session: AsyncSession = Depends(get_session)
         return await service.create(session, body)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/notes/daily/{journal_day}", response_model=NoteOut)
+async def ensure_daily_note(
+    journal_day: date, session: AsyncSession = Depends(get_session)
+):
+    return await service.ensure_daily_note(session, journal_day)
 
 
 @router.get("/notes/{note_id}", response_model=NoteOut)
@@ -104,10 +113,31 @@ async def archive_note(note_id: uuid.UUID, session: AsyncSession = Depends(get_s
     return None
 
 
+@router.post("/notes/{note_id}/restore", status_code=204)
+async def restore_note(note_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.restore_from_trash(session, note_id):
+        raise HTTPException(404, "cop kutusunda not bulunamadi")
+    return Response(status_code=204)
+
+
+@router.post("/notes/{note_id}/unarchive", status_code=204)
+async def unarchive_note(note_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.restore_archive(session, note_id):
+        raise HTTPException(404, "arsivde not bulunamadi")
+    return Response(status_code=204)
+
+
 @router.delete("/notes/{note_id}", status_code=204)
 async def delete_note(note_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
     if not await service.delete(session, note_id):
         raise HTTPException(404, "not bulunamadi")
+
+
+@router.delete("/notes/{note_id}/permanent", status_code=204)
+async def permanently_delete_note(note_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    if not await service.permanently_delete(session, note_id):
+        raise HTTPException(404, "cop kutusunda not bulunamadi")
+    return Response(status_code=204)
 
 
 @router.post(

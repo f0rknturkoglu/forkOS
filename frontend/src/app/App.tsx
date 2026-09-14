@@ -11,6 +11,7 @@ import { allGlobalSurfaces, allRoutes, hydrateSettings } from "@/core/registry";
 import { hydrateEntityRegistry } from "@/core/entityRegistry";
 import type { EntityTypeSpec } from "@/core/entityRegistry";
 import { api } from "@/core/api";
+import { sourceLabel } from "@/core/labels";
 import { Kbd, ToastProvider, applyTheme, cx, readTheme } from "@/core/ui";
 import { AppSidebar, WorkspaceHeader } from "@/core/shell";
 import type { AppSettings, SourceHealth } from "@/core/types";
@@ -87,7 +88,7 @@ function SourceAlert() {
   if (broken.length === 0 || dismissed) return null;
   const names = broken
     .slice(0, 3)
-    .map((s) => s.source)
+    .map((s) => sourceLabel(s.source))
     .join(", ");
   return (
     <Banner tone="warn" icon={<AlertTriangle size={15} />} onDismiss={() => setDismissed(true)}>

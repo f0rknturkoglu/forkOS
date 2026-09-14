@@ -7,6 +7,7 @@ import {
   Clock,
   Columns,
   ExternalLink,
+  FilePenLine,
   Highlighter,
   Layers,
   RefreshCw,
@@ -15,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { api, qs } from "@/core/api";
+import { navigate } from "@/app/router";
 import { invalidateAfter } from "@/core/invalidation";
 import type { Bookmark, BookmarkFullText, BookmarkHighlight, Collection } from "@/core/types";
 import { Button, Chip, Empty, IconButton, Input, Select, cx, hostOf, useToast } from "@/core/ui";
@@ -268,6 +270,17 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
     },
   });
 
+  const createLiteratureNote = useMutation({
+    mutationFn: () => api.post<{ note_id: string }>(`/bookmarks/${bookmark?.id}/create-note`),
+    onSuccess: ({ note_id }) => {
+      invalidateAfter("note.write", "link.write");
+      toast.push("Literatür notu kasaya eklendi.", { tone: "ok" });
+      onClose();
+      navigate(`/notes?focus=${note_id}`);
+    },
+    onError: () => toast.push("Literatür notu oluşturulamadı.", { tone: "danger" }),
+  });
+
   // Zenginlestir (Readability ile tekrar tara)
   const enrichBookmark = useMutation({
     mutationFn: () => api.post<Bookmark>(`/bookmarks/${bookmark?.id}/enrich`),
@@ -462,6 +475,10 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
             >
               <Highlighter size={13} />
               <span>{highlights.length > 0 ? `Vurgular (${highlights.length})` : "Vurgular"}</span>
+            </Button>
+
+            <Button size="sm" variant="secondary" disabled={createLiteratureNote.isPending} onClick={() => createLiteratureNote.mutate()}>
+              <FilePenLine size={13} /> Literatür notu
             </Button>
 
             {/* Okundu / Okunmadi */}

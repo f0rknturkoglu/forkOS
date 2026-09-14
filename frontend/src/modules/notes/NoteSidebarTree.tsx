@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -8,6 +8,7 @@ import {
   FolderKanban,
   FolderPlus,
   Highlighter,
+  Archive,
   Pencil,
   Plus,
   Trash2,
@@ -19,18 +20,16 @@ import { invalidateAfter } from "@/core/invalidation";
 import type { Note, NoteFolder, Project } from "@/core/types";
 import { Button, IconButton, Input, cx, useToast } from "@/core/ui";
 import { formatTrDateTime } from "@/lib/date";
+import {
+  NOTE_DRAG_MIME,
+  NOTE_FOLDER_DRAG_MIME,
+  NOTE_NAVIGATION_EVENT,
+  type NoteNavigationRequest,
+  requestNoteNavigation,
+} from "./noteNavigation";
 
-export const NOTE_NAVIGATION_EVENT = "forkos:note-navigation";
-export type NoteNavigationRequest =
-  { kind: "new"; folderId?: string | null } | { kind: "open"; id: string } | { kind: "highlights" };
+export { NOTE_NAVIGATION_EVENT, type NoteNavigationRequest } from "./noteNavigation";
 
-function requestNoteNavigation(event: MouseEvent<HTMLAnchorElement>, request: NoteNavigationRequest) {
-  const navigation = new CustomEvent<NoteNavigationRequest>(NOTE_NAVIGATION_EVENT, {
-    cancelable: true,
-    detail: request,
-  });
-  if (!window.dispatchEvent(navigation)) event.preventDefault();
-}
 
 function noteDate(value: string): string {
   return formatTrDateTime(value, { day: "numeric", month: "short" });
@@ -44,7 +43,7 @@ function NoteLink({ note, focusId, onNavigate }: { note: Note; focusId: string; 
       draggable
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("application/x-forkos-note", note.id);
+        event.dataTransfer.setData(NOTE_DRAG_MIME, note.id);
       }}
       aria-current={active ? "page" : undefined}
       onClick={(event) => {
@@ -76,6 +75,7 @@ function FolderBranch({
   onRename,
   onDelete,
   onMoveNote,
+  onMoveFolder,
 }: {
   folder: NoteFolder;
   folders: NoteFolder[];
@@ -87,6 +87,7 @@ function FolderBranch({
   onRename: (folder: NoteFolder) => void;
   onDelete: (folder: NoteFolder) => void;
   onMoveNote: (noteId: string, folderId: string | null) => void;
+  onMoveFolder: (folderId: string, parentId: string | null) => void;
 }) {
   const nested = folders.filter((item) => item.parent_id === folder.id);
   const folderNotes = notes.filter((note) => note.folder_id === folder.id);
@@ -100,12 +101,19 @@ function FolderBranch({
           "group flex min-w-0 items-center rounded-control pr-1 transition",
           activeFolderId === folder.id ? "bg-surface-selected" : "hover:bg-surface-hover",
         )}
+        draggable
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData(NOTE_FOLDER_DRAG_MIME, folder.id);
+        }}
         onDragOver={(event) => {
-          if (event.dataTransfer.types.includes("application/x-forkos-note")) event.preventDefault();
+          if (event.dataTransfer.types.includes(NOTE_DRAG_MIME) || event.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) event.preventDefault();
         }}
         onDrop={(event) => {
-          const noteId = event.dataTransfer.getData("application/x-forkos-note");
+          const noteId = event.dataTransfer.getData(NOTE_DRAG_MIME);
           if (noteId) onMoveNote(noteId, folder.id);
+          const folderId = event.dataTransfer.getData(NOTE_FOLDER_DRAG_MIME);
+          if (folderId) onMoveFolder(folderId, folder.id);
         }}
       >
         <button
@@ -146,6 +154,7 @@ function FolderBranch({
               onRename={onRename}
               onDelete={onDelete}
               onMoveNote={onMoveNote}
+              onMoveFolder={onMoveFolder}
             />
           ))}
           {folderNotes.map((note) => (
@@ -214,6 +223,12 @@ export function NoteSidebarTree({ collapsed, onNavigate }: { collapsed: boolean;
       api.patch(`/notes/${noteId}`, { folder_id: folderId }),
     onSuccess: () => invalidateAfter("note.write"),
   });
+  const moveFolder = useMutation({
+    mutationFn: ({ folderId, parentId }: { folderId: string; parentId: string | null }) =>
+      api.patch(`/note-folders/${folderId}`, { parent_id: parentId }),
+    onSuccess: () => invalidateAfter("note.write"),
+    onError: () => toast.push("Klasör taşınamadı.", { tone: "danger" }),
+  });
 
   if (collapsed) return null;
 
@@ -270,6 +285,24 @@ export function NoteSidebarTree({ collapsed, onNavigate }: { collapsed: boolean;
         )}
       >
         <Highlighter size={13} className="text-icon" /> Vurgular
+      </a>
+      <a
+        href="#/notes?journal=today"
+        className="mt-0.5 flex h-8 items-center gap-2 rounded-control px-2 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+      >
+        <FileText size={13} className="text-icon" /> Bugünün günlüğü
+      </a>
+      <a
+        href="#/notes?scope=archive"
+        className="mt-0.5 flex h-8 items-center gap-2 rounded-control px-2 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+      >
+        <Archive size={13} className="text-icon" /> Arşiv
+      </a>
+      <a
+        href="#/notes?scope=trash"
+        className="mt-0.5 flex h-8 items-center gap-2 rounded-control px-2 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+      >
+        <Trash2 size={13} className="text-icon" /> Çöp kutusu
       </a>
 
       {folderParent !== undefined && (
@@ -337,17 +370,20 @@ export function NoteSidebarTree({ collapsed, onNavigate }: { collapsed: boolean;
               }}
               onDelete={(item) => void removeFolder(item)}
               onMoveNote={(noteId, folderId) => moveNote.mutate({ noteId, folderId })}
+              onMoveFolder={(folderId, parentId) => moveFolder.mutate({ folderId, parentId })}
             />
           ))}
 
           <section
             aria-label="Kök Notlar"
             onDragOver={(event) => {
-              if (event.dataTransfer.types.includes("application/x-forkos-note")) event.preventDefault();
+              if (event.dataTransfer.types.includes(NOTE_DRAG_MIME) || event.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) event.preventDefault();
             }}
             onDrop={(event) => {
-              const noteId = event.dataTransfer.getData("application/x-forkos-note");
+              const noteId = event.dataTransfer.getData(NOTE_DRAG_MIME);
               if (noteId) moveNote.mutate({ noteId, folderId: null });
+              const folderId = event.dataTransfer.getData(NOTE_FOLDER_DRAG_MIME);
+              if (folderId) moveFolder.mutate({ folderId, parentId: null });
             }}
           >
             <div className="mb-1 mt-2 flex items-center gap-2 px-2">

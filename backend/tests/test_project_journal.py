@@ -94,9 +94,16 @@ async def test_project_journal_rejects_future_and_empty_body_removes_note(
     assert removed.json() == {"day": day, "note": None}
     assert (await client.get(f"/api/notes/{note_id}")).status_code == 404
 
+    recreated = await client.put(
+        f"/api/projects/{project['id']}/journal/{day}",
+        json={"body": "Yeniden olusturulan not"},
+    )
+    assert recreated.status_code == 200, recreated.text
+    assert recreated.json()["note"]["id"] != note_id
+
     journal = (await client.get(f"/api/projects/{project['id']}/journal")).json()
     today_group = next(group for group in journal if group["day"] == day)
-    assert today_group["note"] is None
+    assert today_group["note"]["id"] == recreated.json()["note"]["id"]
     assert not any(
         event["verb"].startswith("note.")
         for group in journal
@@ -108,6 +115,23 @@ async def test_project_journal_rejects_future_and_empty_body_removes_note(
         and event["payload"].get("project_id") == project["id"]
         for event in activity
     )
+
+
+async def test_project_journal_reuses_trashed_note_for_same_day(client: AsyncClient) -> None:
+    project = (await client.post("/api/projects", json={"title": "Geri yuklenen gunluk"})).json()
+    day = local_today().isoformat()
+    created = await client.put(
+        f"/api/projects/{project['id']}/journal/{day}", json={"body": "Ilk not"}
+    )
+    note_id = created.json()["note"]["id"]
+    assert (await client.delete(f"/api/notes/{note_id}")).status_code == 204
+
+    rewritten = await client.put(
+        f"/api/projects/{project['id']}/journal/{day}", json={"body": "Guncel not"}
+    )
+    assert rewritten.status_code == 200, rewritten.text
+    assert rewritten.json()["note"]["id"] == note_id
+    assert rewritten.json()["note"]["body"] == "Guncel not"
 
 
 async def test_project_journal_returns_404_for_unknown_project(client: AsyncClient) -> None:

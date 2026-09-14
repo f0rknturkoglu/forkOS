@@ -14,6 +14,7 @@ from app.modules.bookmark.schemas import (
     BookmarkFullTextOut,
     BookmarkHighlightIn,
     BookmarkHighlightOut,
+    GlobalHighlightOut,
     BookmarkOut,
     BookmarkProgressUpdate,
     BookmarkStats,
@@ -66,6 +67,11 @@ async def list_bookmarks(
         session, collection=collection, read_status=read_status, favorite=favorite,
         source=source, q=q, tag=tag, limit=limit, offset=offset,
     )
+
+
+@router.get("/highlights", response_model=list[GlobalHighlightOut])
+async def list_global_highlights(session: AsyncSession = Depends(get_session)):
+    return await service.list_global_highlights(session)
 
 
 @router.get("/bookmarks/stats", response_model=BookmarkStats)

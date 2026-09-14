@@ -213,7 +213,37 @@ async def test_pin_archive_delete_events_and_listing(client: AsyncClient) -> Non
 
     deleted = await client.delete(f"/api/notes/{note['id']}")
     assert deleted.status_code == 204
+    trash = (await client.get("/api/notes", params={"scope": "trash"})).json()
+    assert note["id"] in {item["id"] for item in trash}
+    restored = await client.post(f"/api/notes/{note['id']}/restore")
+    assert restored.status_code == 204
+    assert note["id"] in {
+        item["id"] for item in (await client.get("/api/notes", params={"scope": "archive"})).json()
+    }
+    assert (await client.post(f"/api/notes/{note['id']}/unarchive")).status_code == 204
+    assert note["id"] in {item["id"] for item in (await client.get("/api/notes")).json()}
+    await client.delete(f"/api/notes/{note['id']}")
+    permanent = await client.delete(f"/api/notes/{note['id']}/permanent")
+    assert permanent.status_code == 204
     assert (await client.get(f"/api/notes/{note['id']}")).status_code == 404
+
+
+async def test_personal_daily_note_is_idempotent_and_restores_from_trash(client: AsyncClient) -> None:
+    first = await client.post("/api/notes/daily/2026-09-14")
+    second = await client.post("/api/notes/daily/2026-09-14")
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    assert first.json()["journal_day"] == "2026-09-14"
+
+    note_id = first.json()["id"]
+    assert (await client.delete(f"/api/notes/{note_id}")).status_code == 204
+    restored = await client.post("/api/notes/daily/2026-09-14")
+    assert restored.status_code == 200
+    assert restored.json()["id"] == note_id
+    assert restored.json()["trashed_at"] is None
+    await client.delete(f"/api/notes/{note_id}")
+    await client.delete(f"/api/notes/{note_id}/permanent")
 
 
 async def test_notes_about_relation_visible_on_both_sides(client: AsyncClient) -> None:

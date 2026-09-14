@@ -9,6 +9,7 @@ import {
   appWeekKeys,
   appWeekStartKey,
   daysBetween,
+  formatAppDate,
   isSameAppDay,
   keyToUtc,
   localDateKey,
@@ -78,6 +79,17 @@ describe("ortak tarih/saat sozlesmesi (Faz 14)", () => {
     expect(appTimeParts(new Date("2026-01-14T21:30:00Z"))).toEqual({ hour: 0, minute: 30 });
     // 12:00 UTC = Istanbul 15:00.
     expect(appTimeParts(new Date("2026-01-14T12:00:00Z"))).toEqual({ hour: 15, minute: 0 });
+  });
+
+  it("formatAppDate tarayici saat dilimi yerine Istanbul saatini kullanir", () => {
+    expect(
+      formatAppDate("2026-01-14T21:30:00Z", {
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    ).toContain("15 Ocak");
   });
 
   it("datetime-local degerini tarayici saat diliminden bagimsiz app saatine cevirir", () => {

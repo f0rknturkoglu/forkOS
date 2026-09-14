@@ -86,10 +86,12 @@ export default function NoteCanvas({
   const pending = useRef<NoteCanvasState | null>(null);
   const lastSaved = useRef(JSON.stringify(initialState));
   const onSaveRef = useRef(onSave);
+  const readOnlyRef = useRef(readOnly);
   const canvasApi = useRef<ExcalidrawImperativeAPI | null>(null);
   const [placing, setPlacing] = useState(false);
   const [canvasMessage, setCanvasMessage] = useState("");
   onSaveRef.current = onSave;
+  readOnlyRef.current = readOnly;
 
   const linkedFileIds = useMemo(
     () => new Set(attachments.filter((item) => item.mime.startsWith("image/")).map((item) => item.id)),
@@ -108,7 +110,7 @@ export default function NoteCanvas({
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
-      if (pending.current) onSaveRef.current(pending.current);
+      if (!readOnlyRef.current && pending.current) onSaveRef.current(pending.current);
     },
     [],
   );
@@ -235,6 +237,7 @@ export default function NoteCanvas({
             },
           }}
           onChange={(elements, appState, files) => {
+            if (readOnly) return;
             const next = sceneState(elements, appState, files, linkedFileIds);
             const serialized = JSON.stringify(next);
             if (serialized === lastSaved.current) return;

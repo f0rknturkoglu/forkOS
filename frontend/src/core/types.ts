@@ -127,6 +127,14 @@ export interface BookmarkHighlight {
   created_at: string;
 }
 
+/** Kasa genelindeki vurgu akışı; kaynak yer imi bilgisiyle gelir. */
+export interface GlobalHighlight extends BookmarkHighlight {
+  bookmark_title: string;
+  bookmark_url: string;
+  position_start: number;
+  position_end: number;
+}
+
 export interface BookmarkFullText {
   id: string;
   title: string;
@@ -213,6 +221,9 @@ export interface Note {
   folder_id?: string | null;
   /** Proje gunlugu notunun temsil ettigi yerel gun. */
   journal_day?: string | null;
+  archived_at?: string | null;
+  trashed_at?: string | null;
+  source_bookmark_id?: string | null;
   created_at: string;
   updated_at: string;
   /** Govdedeki #etiketler + elle eklenenler (tek havuz). */
@@ -312,6 +323,7 @@ export type TodayAgenda = Omit<ApiSchemas["TodayAgendaOut"], "timed" | "checklis
     rss: AgendaRow[];
     media: AgendaRow[];
     flashcards: AgendaRow[];
+    study: AgendaRow[];
     /** Kariyer aksiyonları: gönderilecek başvuru, kısa liste, kritik duyuru. */
     career: AgendaRow[];
   };

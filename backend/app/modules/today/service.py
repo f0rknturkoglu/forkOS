@@ -485,8 +485,9 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             )
             (timed if row.starts_at is not None else checklist).append(row)
 
-    # Firsat son tarihleri (bugun + yarin) ve bugun vadesi gelen odemeler.
-    deadline_end = end + timedelta(days=1)
+    # Firsat son tarihleri (bugun + yarin). Alt sinir gecmis aktif ilanlarin
+    # ajandayi doldurmasini engeller; ust sinir yerel gun sinirindan turetilir.
+    _, deadline_end = _bounds(day + timedelta(days=1))
     # Durum kumesi lifecycle'dan gelir: eski birlesik isimler
     # (considering/preparing/applied/interview/offer) artik uretilmiyor, bu
     # yuzden shortlist'lenmis ilanlar Today'de HIC gorunmuyordu.
@@ -497,6 +498,7 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             Entity.archived_at.is_(None),
             Opportunity.trashed_at.is_(None),
             Opportunity.deadline_at.is_not(None),
+            Opportunity.deadline_at >= start,
             Opportunity.deadline_at < deadline_end,
             Opportunity.status.in_(sorted(opportunity_lifecycle.ACTIVE_DISCOVERY_STATUSES)),
         )
@@ -535,16 +537,18 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
         timed.append(AgendaRow(
             kind="interview",
             source="due",
+            # Satirin kimligi gorusmeyi ayristirir; kart ilgili ilana gider.
             id=interview.id,
-            # Gorusme kaydi ilanin entity'sine baglidir; kart ilana gider.
             entity_type="opportunity",
+            entity_id=interview.opportunity_id,
             title=f"Görüşme: {title}",
             read_only=True,
             starts_at=interview.scheduled_at,
             duration_min=interview.duration_min,
         ))
 
-    # Bugun vadesi gelen tekrarlayan odemeler.
+    # Bugun vadesi gelen tekrarlayan odemeler. next_due_at date alanidir;
+    # timezone-aware datetime ile karsilastirmak yerine dogrudan gun eslesir.
     payments = (await session.execute(
         select(RecurringPayment, Entity.title)
         .join(Entity, Entity.id == RecurringPayment.id)
@@ -552,8 +556,7 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             Entity.archived_at.is_(None),
             RecurringPayment.active.is_(True),
             RecurringPayment.next_due_at.is_not(None),
-            RecurringPayment.next_due_at >= start,
-            RecurringPayment.next_due_at < end,
+            RecurringPayment.next_due_at == day,
         )
         .order_by(RecurringPayment.next_due_at)
     )).all()
@@ -562,9 +565,12 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             kind="payment",
             source="due",
             id=payment.id,
+            entity_type="recurring_payment",
             title=title,
             read_only=True,
-            starts_at=payment.next_due_at,
+            # Date-only odeme icin sahte bir saat gostermeyiz.
+            starts_at=None,
+            progress_label="Bugün vadesi geliyor",
             url=None,
         ))
 

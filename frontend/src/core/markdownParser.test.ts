@@ -27,6 +27,18 @@ describe("markdown blokları", () => {
     expect(blocks[0].t === "quote" && blocks[0].content.length).toBe(2);
   });
 
+  it("Obsidian uyumlu callout satırlarını alıntıdan ayırır", () => {
+    const callout = parseMarkdown("> [!tip] Kısa yol\n> İkinci satır")[0];
+    expect(callout).toMatchObject({ t: "callout", kind: "tip" });
+    expect(callout.t === "callout" && callout.content).toHaveLength(2);
+  });
+
+  it("görevleri kaynak satırlarıyla birlikte verir", () => {
+    const tasks = parseMarkdown("giriş\n- [ ] yapılacak\n- [x] bitti")[1];
+    expect(tasks).toMatchObject({ t: "tasks" });
+    expect(tasks.t === "tasks" && tasks.items.map((item) => item.line)).toEqual([1, 2]);
+  });
+
   it("GFM tablosunu hizalamalarıyla ayrıştırır", () => {
     const table = parseMarkdown("| Konu | Durum |\n| :--- | ---: |\n| API | Bitti |")[0];
     expect(table).toMatchObject({ t: "table", align: ["left", "right"] });

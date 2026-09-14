@@ -71,7 +71,13 @@ interface Coords {
 
 function readCoord(key: string): number | null {
   const raw = readStored(key);
-  return raw ? Number(JSON.parse(raw)) : null;
+  if (!raw) return null;
+  try {
+    const value = Number(JSON.parse(raw));
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -88,9 +94,9 @@ export function useWeather() {
   });
   const [asking, setAsking] = useState(false);
   const [denied, setDenied] = useState(false);
-  const [place, setPlace] = useState<string | null>(null);
+  const [place, setPlace] = useState<string | null>(() => readStored("weather.place"));
 
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ["weather", coords?.lat, coords?.lon],
     queryFn: () => api.get<Forecast>(`/weather/forecast?lat=${coords!.lat}&lon=${coords!.lon}`),
     enabled: coords !== null,
@@ -99,6 +105,10 @@ export function useWeather() {
   });
 
   function requestLocation() {
+    if (!navigator.geolocation) {
+      setDenied(true);
+      return;
+    }
     setAsking(true);
     setDenied(false);
     navigator.geolocation.getCurrentPosition(
@@ -112,6 +122,7 @@ export function useWeather() {
           await api.put("/settings/weather.lat", { value: lat });
           await api.put("/settings/weather.lon", { value: lon });
           setPlace(name);
+          writeStored("weather.place", name);
         } catch {
           // Konum yazilamadi: hava durumu yine de gosterilir, kalici olmaz.
         }
@@ -128,5 +139,5 @@ export function useWeather() {
     );
   }
 
-  return { coords, data, isFetching, asking, denied, place, requestLocation };
+  return { coords, data, isFetching, isError, refetch, asking, denied, place, requestLocation };
 }

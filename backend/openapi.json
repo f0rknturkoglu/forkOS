@@ -58,6 +58,18 @@
             ],
             "title": "Duration Min"
           },
+          "entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
           "entity_type": {
             "anyOf": [
               {
@@ -95,7 +107,8 @@
               "interview",
               "payment",
               "study",
-              "flashcard"
+              "flashcard",
+              "pomodoro"
             ],
             "title": "Kind",
             "type": "string"
@@ -1126,6 +1139,16 @@
             ],
             "title": "Note"
           },
+          "position_end": {
+            "default": 0,
+            "title": "Position End",
+            "type": "integer"
+          },
+          "position_start": {
+            "default": 0,
+            "title": "Position Start",
+            "type": "integer"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -1174,6 +1197,16 @@
               }
             ],
             "title": "Note"
+          },
+          "position_end": {
+            "default": 0,
+            "title": "Position End",
+            "type": "integer"
+          },
+          "position_start": {
+            "default": 0,
+            "title": "Position Start",
+            "type": "integer"
           },
           "text": {
             "title": "Text",
@@ -4319,6 +4352,78 @@
           "repos"
         ],
         "title": "GithubReviewStats",
+        "type": "object"
+      },
+      "GlobalHighlightOut": {
+        "properties": {
+          "anchor_index": {
+            "default": 0,
+            "title": "Anchor Index",
+            "type": "integer"
+          },
+          "bookmark_id": {
+            "format": "uuid",
+            "title": "Bookmark Id",
+            "type": "string"
+          },
+          "bookmark_title": {
+            "title": "Bookmark Title",
+            "type": "string"
+          },
+          "bookmark_url": {
+            "title": "Bookmark Url",
+            "type": "string"
+          },
+          "color": {
+            "default": "yellow",
+            "title": "Color",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "position_end": {
+            "default": 0,
+            "title": "Position End",
+            "type": "integer"
+          },
+          "position_start": {
+            "default": 0,
+            "title": "Position Start",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "bookmark_id",
+          "text",
+          "created_at",
+          "bookmark_title",
+          "bookmark_url"
+        ],
+        "title": "GlobalHighlightOut",
         "type": "object"
       },
       "GlobalMetadataSearchOut": {
@@ -8124,6 +8229,18 @@
       },
       "NoteOut": {
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
           "attachments": {
             "items": {
               "$ref": "#/components/schemas/NoteAttachmentOut"
@@ -8216,6 +8333,18 @@
             "title": "Resolved Links",
             "type": "array"
           },
+          "source_bookmark_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Bookmark Id"
+          },
           "tags": {
             "items": {
               "type": "string"
@@ -8226,6 +8355,18 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "trashed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trashed At"
           },
           "unresolved_links": {
             "items": {
@@ -18443,6 +18584,31 @@
         ]
       }
     },
+    "/api/highlights": {
+      "get": {
+        "operationId": "list_global_highlights_api_highlights_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GlobalHighlightOut"
+                  },
+                  "title": "Response List Global Highlights Api Highlights Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Global Highlights",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
     "/api/incomes": {
       "get": {
         "operationId": "incomes_api_incomes_get",
@@ -20823,6 +20989,17 @@
               ],
               "title": "About"
             }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "active",
+              "pattern": "^(active|archive|trash)$",
+              "title": "Scope",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -20891,6 +21068,49 @@
           }
         },
         "summary": "Create Note",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/daily/{journal_day}": {
+      "post": {
+        "operationId": "ensure_daily_note_api_notes_daily__journal_day__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "journal_day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Journal Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ensure Daily Note",
         "tags": [
           "note"
         ]
@@ -21218,6 +21438,114 @@
           }
         },
         "summary": "Get Attachment",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/permanent": {
+      "delete": {
+        "operationId": "permanently_delete_note_api_notes__note_id__permanent_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Permanently Delete Note",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/restore": {
+      "post": {
+        "operationId": "restore_note_api_notes__note_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Note",
+        "tags": [
+          "note"
+        ]
+      }
+    },
+    "/api/notes/{note_id}/unarchive": {
+      "post": {
+        "operationId": "unarchive_note_api_notes__note_id__unarchive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unarchive Note",
         "tags": [
           "note"
         ]

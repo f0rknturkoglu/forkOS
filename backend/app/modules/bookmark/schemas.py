@@ -82,6 +82,8 @@ class BookmarkHighlightIn(BaseModel):
     note: str | None = None
     color: str = "yellow"
     anchor_index: int = 0
+    position_start: int = 0
+    position_end: int = 0
 
 
 class BookmarkHighlightOut(BaseModel):
@@ -93,7 +95,14 @@ class BookmarkHighlightOut(BaseModel):
     note: str | None = None
     color: str = "yellow"
     anchor_index: int = 0
+    position_start: int = 0
+    position_end: int = 0
     created_at: datetime
+
+
+class GlobalHighlightOut(BookmarkHighlightOut):
+    bookmark_title: str
+    bookmark_url: str
 
 
 class BookmarkProgressUpdate(BaseModel):

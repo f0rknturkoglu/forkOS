@@ -13,7 +13,9 @@ MODULE = ModuleSpec(
         ),
     ],
     event_verbs=["note.created", "note.updated", "note.pinned",
-                 "note.archived", "note.deleted", "note.attachment_added",
+                 "note.archived", "note.trashed", "note.restored", "note.archive_restored",
+                 "note.source_linked",
+                 "note.deleted", "note.attachment_added",
                  "note.attachment_deleted", "note.moved", "note.folder_created",
                  "note.folder_updated", "note.folder_deleted"],
 )

@@ -26,8 +26,9 @@ export type Block =
   | { t: "heading"; level: number; content: Inline[] }
   | { t: "paragraph"; content: Inline[] }
   | { t: "quote"; content: Inline[][] }
+  | { t: "callout"; kind: string; content: Inline[][] }
   | { t: "list"; ordered: boolean; items: Inline[][] }
-  | { t: "tasks"; items: { checked: boolean; content: Inline[] }[] }
+  | { t: "tasks"; items: { checked: boolean; content: Inline[]; line: number }[] }
   | { t: "table"; header: Inline[][]; rows: Inline[][][]; align: ("left" | "center" | "right" | null)[] }
   | { t: "code"; lang: string | null; v: string }
   | { t: "hr" };
@@ -114,6 +115,7 @@ const TASK = /^[-*+]\s+\[([ xX])\]\s+(.*)$/;
 const BULLET = /^[-*+]\s+(.*)$/;
 const ORDERED = /^\d{1,3}[.)]\s+(.*)$/;
 const QUOTE = /^>\s?(.*)$/;
+const CALLOUT = /^>\s*\[!([A-Za-z]+)\]\s*(.*)$/;
 const HR = /^\s*([-*_])(\s*\1){2,}\s*$/;
 const FENCE = /^```\s*(\S+)?\s*$/;
 const TABLE_DIVIDER_CELL = /^:?-{3,}:?$/;
@@ -211,11 +213,11 @@ export function parseMarkdown(source: string): Block[] {
     // Gorev listesi duz listeden ONCE denenir ("- [ ] x" ikisine de uyar).
     if (TASK.test(line)) {
       flush();
-      const items: { checked: boolean; content: Inline[] }[] = [];
+      const items: { checked: boolean; content: Inline[]; line: number }[] = [];
       while (i < lines.length) {
         const match = lines[i].match(TASK);
         if (!match) break;
-        items.push({ checked: match[1].toLowerCase() === "x", content: parseInline(match[2]) });
+        items.push({ checked: match[1].toLowerCase() === "x", content: parseInline(match[2]), line: i });
         i += 1;
       }
       i -= 1;
@@ -241,6 +243,21 @@ export function parseMarkdown(source: string): Block[] {
       continue;
     }
 
+    const callout = line.match(CALLOUT);
+    if (callout) {
+      flush();
+      const rows: Inline[][] = [parseInline(callout[2])];
+      i += 1;
+      while (i < lines.length) {
+        const match = lines[i].match(QUOTE);
+        if (!match) break;
+        rows.push(parseInline(match[1]));
+        i += 1;
+      }
+      i -= 1;
+      blocks.push({ t: "callout", kind: callout[1].toLowerCase(), content: rows });
+      continue;
+    }
     const quote = line.match(QUOTE);
     if (quote) {
       flush();
@@ -275,7 +292,7 @@ export function wikilinkTargets(source: string): string[] {
     if (block.t === "heading" || block.t === "paragraph") walk(block.content);
     else if (block.t === "list") block.items.forEach(walk);
     else if (block.t === "tasks") block.items.forEach((item) => walk(item.content));
-    else if (block.t === "quote") block.content.forEach(walk);
+    else if (block.t === "quote" || block.t === "callout") block.content.forEach(walk);
     else if (block.t === "table") {
       block.header.forEach(walk);
       block.rows.forEach((row) => row.forEach(walk));

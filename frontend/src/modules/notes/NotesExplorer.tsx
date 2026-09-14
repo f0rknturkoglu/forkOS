@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -11,6 +11,7 @@ import {
   FolderOpen,
   FolderPlus,
   Highlighter,
+  Archive,
   PanelLeftClose,
   Pencil,
   Plus,
@@ -21,21 +22,17 @@ import {
 import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import { invalidateAfter } from "@/core/invalidation";
-import type { Bookmark, Note, NoteFolder, Project } from "@/core/types";
+import type { GlobalHighlight, Note, NoteFolder, Project } from "@/core/types";
 import { Button, Chip, IconButton, Input, cx, useToast } from "@/core/ui";
 import { formatTrDateTime } from "@/lib/date";
+import {
+  NOTE_DRAG_MIME,
+  NOTE_FOLDER_DRAG_MIME,
+  NOTE_NAVIGATION_EVENT,
+  type NoteNavigationRequest,
+  requestNoteNavigation,
+} from "./noteNavigation";
 
-export const NOTE_NAVIGATION_EVENT = "forkos:note-navigation";
-export type NoteNavigationRequest =
-  { kind: "new"; folderId?: string | null } | { kind: "open"; id: string } | { kind: "highlights" };
-
-function requestNoteNavigation(event: MouseEvent<HTMLAnchorElement>, request: NoteNavigationRequest) {
-  const navigation = new CustomEvent<NoteNavigationRequest>(NOTE_NAVIGATION_EVENT, {
-    cancelable: true,
-    detail: request,
-  });
-  if (!window.dispatchEvent(navigation)) event.preventDefault();
-}
 
 function noteDate(value: string): string {
   return formatTrDateTime(value, { day: "numeric", month: "short" });
@@ -69,12 +66,11 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
     queryKey: ["projects"],
     queryFn: () => api.get<Project[]>("/projects"),
   });
-  const { data: bookmarks = [] } = useQuery({
-    queryKey: ["bookmarks", "highlights-count"],
-    queryFn: () => api.get<Bookmark[]>("/bookmarks?limit=200"),
+  const { data: highlights = [] } = useQuery({
+    queryKey: ["highlights"],
+    queryFn: () => api.get<GlobalHighlight[]>("/highlights"),
   });
-
-  const highlightsCount = useMemo(() => bookmarks.filter((b) => Boolean(b.selection?.trim())).length, [bookmarks]);
+  const highlightsCount = highlights.length;
 
   const projectTitles = useMemo(() => new Map(projects.map((project) => [project.id, project.title])), [projects]);
 
@@ -120,6 +116,15 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
       toast.push("Not taşındı.", { tone: "ok" });
     },
     onError: () => toast.push("Not taşınamadı.", { tone: "danger" }),
+  });
+  const moveFolder = useMutation({
+    mutationFn: ({ folderId, parentId }: { folderId: string; parentId: string | null }) =>
+      api.patch(`/note-folders/${folderId}`, { parent_id: parentId }),
+    onSuccess: () => {
+      invalidateAfter("note.write");
+      toast.push("Klasör taşındı.", { tone: "ok" });
+    },
+    onError: () => toast.push("Klasör taşınamadı.", { tone: "danger" }),
   });
 
   const handleRemoveFolder = async (folder: NoteFolder) => {
@@ -217,6 +222,9 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
 
       {/* Akıllı Bölümler: Okuma Vurguları */}
       <div className="border-b border-subtle p-1.5 space-y-0.5">
+        <a href="#/notes?journal=today" className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary">
+          <FileText size={13} className="shrink-0 text-icon" /> Bugünün Günlüğü
+        </a>
         <button
           type="button"
           onClick={() => {
@@ -236,6 +244,12 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
           </div>
           <span className="text-micro tabular-nums text-muted">{highlightsCount}</span>
         </button>
+        <a href="#/notes?scope=archive" className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary">
+          <Archive size={13} className="shrink-0 text-icon" /> Arşiv
+        </a>
+        <a href="#/notes?scope=trash" className="flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary">
+          <Trash2 size={13} className="shrink-0 text-icon" /> Çöp Kutusu
+        </a>
       </div>
 
       {/* Inline Kök Klasör Oluşturma */}
@@ -321,6 +335,7 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
                 }}
                 onDelete={handleRemoveFolder}
                 onMoveNote={(noteId, folderId) => moveNote.mutate({ noteId, folderId })}
+                onMoveFolder={(folderId, parentId) => moveFolder.mutate({ folderId, parentId })}
               />
             ))}
 
@@ -328,11 +343,13 @@ export function NotesExplorer({ focusId, onSelectNote, onNewNote, onOpenHighligh
             <section
               aria-label="Kök Notlar"
               onDragOver={(e) => {
-                if (e.dataTransfer.types.includes("application/x-forkos-note")) e.preventDefault();
+                if (e.dataTransfer.types.includes(NOTE_DRAG_MIME) || e.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) e.preventDefault();
               }}
               onDrop={(e) => {
-                const noteId = e.dataTransfer.getData("application/x-forkos-note");
+                const noteId = e.dataTransfer.getData(NOTE_DRAG_MIME);
                 if (noteId) moveNote.mutate({ noteId, folderId: null });
+                const folderId = e.dataTransfer.getData(NOTE_FOLDER_DRAG_MIME);
+                if (folderId) moveFolder.mutate({ folderId, parentId: null });
               }}
               className="pt-1"
             >
@@ -402,6 +419,7 @@ function FolderItem({
   onRename,
   onDelete,
   onMoveNote,
+  onMoveFolder,
 }: {
   folder: NoteFolder;
   allFolders: NoteFolder[];
@@ -414,6 +432,7 @@ function FolderItem({
   onRename: (folder: NoteFolder) => void;
   onDelete: (folder: NoteFolder) => void;
   onMoveNote: (noteId: string, folderId: string | null) => void;
+  onMoveFolder: (folderId: string, parentId: string | null) => void;
 }) {
   const childFolders = allFolders.filter((item) => item.parent_id === folder.id);
   const folderNotes = notes.filter((note) => note.folder_id === folder.id);
@@ -425,12 +444,19 @@ function FolderItem({
     <div className="space-y-0.5">
       <div
         className={cx("group flex min-w-0 items-center rounded-control pr-1 transition hover:bg-surface-hover")}
+        draggable
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData(NOTE_FOLDER_DRAG_MIME, folder.id);
+        }}
         onDragOver={(e) => {
-          if (e.dataTransfer.types.includes("application/x-forkos-note")) e.preventDefault();
+          if (e.dataTransfer.types.includes(NOTE_DRAG_MIME) || e.dataTransfer.types.includes(NOTE_FOLDER_DRAG_MIME)) e.preventDefault();
         }}
         onDrop={(e) => {
-          const noteId = e.dataTransfer.getData("application/x-forkos-note");
+          const noteId = e.dataTransfer.getData(NOTE_DRAG_MIME);
           if (noteId) onMoveNote(noteId, folder.id);
+          const folderId = e.dataTransfer.getData(NOTE_FOLDER_DRAG_MIME);
+          if (folderId) onMoveFolder(folderId, folder.id);
         }}
       >
         <button
@@ -492,6 +518,7 @@ function FolderItem({
               onRename={onRename}
               onDelete={onDelete}
               onMoveNote={onMoveNote}
+              onMoveFolder={onMoveFolder}
             />
           ))}
 
@@ -519,7 +546,7 @@ function NoteItem({
       draggable
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("application/x-forkos-note", note.id);
+        e.dataTransfer.setData(NOTE_DRAG_MIME, note.id);
       }}
       aria-current={active ? "page" : undefined}
       onClick={(e) => {

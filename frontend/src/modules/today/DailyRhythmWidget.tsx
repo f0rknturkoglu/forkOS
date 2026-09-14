@@ -1,13 +1,13 @@
-import { useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, CheckCircle2, Moon, Sun, Sunrise, Sunset } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
-import { appTimeParts, appWeekStartKey, isSameAppDay, keyToUtc, localDateKey, todayKey, tomorrowKey } from "@/lib/date";
+import { todayKey, tomorrowKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { Button, Section, cx, useToast } from "@/core/ui";
 import type { ActivityEvent, PlanSlot, TodayAgenda, Todo } from "@/core/types";
 import { navigate } from "@/app/router";
+import { deriveTodayState } from "./todayState";
 
 /**
  * Gunluk ritim orkestratoru (Faz 25).
@@ -25,8 +25,6 @@ export function DailyRhythmWidget() {
   const today = todayKey();
   const tomorrow = tomorrowKey();
   const now = new Date();
-  const { hour } = appTimeParts(now);
-  const phase = hour >= 18 || hour < 4 ? "evening" : hour < 12 ? "morning" : "afternoon";
 
   const { data: slots = [] } = useQuery({
     queryKey: ["plan", today],
@@ -45,44 +43,21 @@ export function DailyRhythmWidget() {
     queryFn: () => api.get<{ period_start: string }[]>("/reviews?kind=weekly&limit=5"),
   });
   const { data: todos = [] } = useQuery({
-    queryKey: ["todos", "rhythm"],
-    queryFn: () => api.get<Todo[]>("/todos?limit=200"),
+    // Ajanda ile ayni sorgu anahtari: widget acikken ikinci bir tam todo
+    // istegi atilmaz.
+    queryKey: ["todos", "today-open"],
+    queryFn: () => api.get<Todo[]>("/todos?limit=300"),
   });
 
-  const todaySlots = useMemo(
-    () => slots.filter((slot) => slot.day === today).sort((a, b) => (a.start_min ?? 999) - (b.start_min ?? 999)),
-    [slots, today],
-  );
-  const openTodoIds = useMemo(
-    () => new Set(todos.filter((todo) => todo.status === "open" || todo.status === "doing").map((todo) => todo.id)),
-    [todos],
-  );
-  const plannedTodos = todaySlots.filter((slot) => slot.entity_type === "todo" && openTodoIds.has(slot.entity_id));
-  const overdue = todos.filter((todo) => todo.due_at && localDateKey(new Date(todo.due_at)) < today).length;
-  const reviewDone = events.some((event) => isSameAppDay(new Date(event.occurred_at), new Date()));
-  const weekStart = appWeekStartKey(now);
-  const weekDay = keyToUtc(today).getUTCDay();
-  const weeklyReviewDue =
-    (weekDay === 0 || weekDay === 1) && !weeklyReviews.some((review) => review.period_start === weekStart);
-  const conflictCount = useMemo(() => {
-    const calendarRows = (agenda?.timed ?? []).filter(
-      (row) => row.kind === "calendar" && row.starts_at && localDateKey(new Date(row.starts_at)) === today,
-    );
-    return plannedTodos.reduce((count, slot) => {
-      if (slot.start_min == null) return count;
-      const slotEnd = slot.start_min + (slot.duration_min ?? 30);
-      return (
-        count +
-        calendarRows.filter((row) => {
-          const startsAt = new Date(row.starts_at!);
-          const parts = appTimeParts(startsAt);
-          const eventStart = parts.hour * 60 + parts.minute;
-          const eventEnd = eventStart + (row.duration_min ?? 30);
-          return slot.start_min! < eventEnd && eventStart < slotEnd;
-        }).length
-      );
-    }, 0);
-  }, [agenda, plannedTodos, today]);
+  const { phase, phaseLabel, plannedTodos, overdue, reviewDone, weeklyReviewDue, conflictCount } = deriveTodayState({
+    day: today,
+    now,
+    slots,
+    todos,
+    agenda,
+    reviewEvents: events,
+    weeklyReviews,
+  });
   const carryOver = useMutation({
     // Tek istek, tek transaction (Faz 33): kismi tasima yok.
     mutationFn: () => api.post<{ moved: number }>("/plan/carry-over", { day: today, target: tomorrow }),
@@ -95,7 +70,6 @@ export function DailyRhythmWidget() {
 
   const phaseIcon = phase === "morning" ? Sunrise : phase === "evening" ? Sunset : Sun;
   const PhaseIcon = phaseIcon;
-  const phaseLabel = phase === "morning" ? "Sabah" : phase === "afternoon" ? "Gün içinde" : "Akşam";
 
   return (
     <Section title="Gün özeti" hint={phaseLabel}>

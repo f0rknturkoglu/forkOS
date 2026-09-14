@@ -78,6 +78,8 @@ async def test_bookmark_highlights_crud():
         hl_data = hl_res.json()
         assert hl_data["text"] == "Bu cumle cok onemli bir prensiptir."
         assert hl_data["color"] == "yellow"
+        assert hl_data["position_start"] == 0
+        assert hl_data["position_end"] == 0
         hl_id = hl_data["id"]
 
         # 3. Vurgulari listele
@@ -95,6 +97,98 @@ async def test_bookmark_highlights_crud():
         list_res2 = await client.get(f"/api/bookmarks/{b_id}/highlights")
         assert list_res2.status_code == 200
         assert len(list_res2.json()) == 0
+
+
+@pytest.mark.asyncio
+async def test_global_highlights_and_literature_note_are_idempotent():
+    if not await _database_ready():
+        pytest.skip("Postgres calismiyor")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        captured = await client.post("/api/capture", json={
+            "url": "https://example.com/literature-note",
+            "title": "Literature Note",
+            "collection": "learning",
+            "source": "manual",
+            "client_uuid": str(uuid.uuid4()),
+        })
+        bookmark_id = captured.json()["id"]
+        highlighted = await client.post(f"/api/bookmarks/{bookmark_id}/highlights", json={
+            "text": "Tek kaynakli bilgi daha guvenilirdir.",
+            "position_start": 10,
+            "position_end": 48,
+        })
+        assert highlighted.status_code == 201
+
+        global_rows = (await client.get("/api/highlights")).json()
+        row = next(item for item in global_rows if item["id"] == highlighted.json()["id"])
+        assert row["bookmark_title"] == "Literature Note"
+        assert row["bookmark_url"] == "https://example.com/literature-note"
+        assert row["position_start"] == 10
+        assert row["position_end"] == 48
+
+        first = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
+        second = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
+        assert first.status_code == 200
+        assert first.json()["note_id"] == second.json()["note_id"]
+        note = (await client.get(f"/api/notes/{first.json()['note_id']}")).json()
+        assert note["source_bookmark_id"] == bookmark_id
+        assert "Tek kaynakli bilgi" in note["body"]
+
+
+@pytest.mark.asyncio
+async def test_literature_note_adopts_one_unambiguous_legacy_note():
+    if not await _database_ready():
+        pytest.skip("Postgres calismiyor")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        captured = await client.post("/api/capture", json={
+            "url": "https://example.com/legacy-literature",
+            "title": "Legacy Literature",
+            "collection": "learning",
+            "source": "manual",
+            "client_uuid": str(uuid.uuid4()),
+        })
+        bookmark_id = captured.json()["id"]
+        legacy = await client.post("/api/notes", json={
+            "body": "Eski literatur notu",
+            "relate_to": bookmark_id,
+        })
+        assert legacy.status_code == 201
+        created = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
+        assert created.status_code == 200
+        assert created.json()["note_id"] == legacy.json()["id"]
+        note = (await client.get(f"/api/notes/{legacy.json()['id']}")).json()
+        assert note["source_bookmark_id"] == bookmark_id
+
+
+@pytest.mark.asyncio
+async def test_literature_note_does_not_adopt_ambiguous_legacy_notes():
+    if not await _database_ready():
+        pytest.skip("Postgres calismiyor")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        captured = await client.post("/api/capture", json={
+            "url": "https://example.com/ambiguous-literature",
+            "title": "Ambiguous Literature",
+            "collection": "learning",
+            "source": "manual",
+            "client_uuid": str(uuid.uuid4()),
+        })
+        bookmark_id = captured.json()["id"]
+        legacy_ids = []
+        for body in ("Eski not bir", "Eski not iki"):
+            legacy = await client.post("/api/notes", json={"body": body, "relate_to": bookmark_id})
+            assert legacy.status_code == 201
+            legacy_ids.append(legacy.json()["id"])
+        created = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
+        assert created.status_code == 200
+        assert created.json()["note_id"] not in legacy_ids
+        for note_id in legacy_ids:
+            assert (await client.get(f"/api/notes/{note_id}")).json()["source_bookmark_id"] is None
 
 
 @pytest.mark.asyncio
@@ -199,4 +293,3 @@ async def test_bookmark_import_and_export():
         assert exp_res.status_code == 200
         assert "NETSCAPE-Bookmark-file-1" in exp_res.text
         assert "https://example.com/netscape-item" in exp_res.text
-
