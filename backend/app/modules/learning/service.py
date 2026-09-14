@@ -1029,14 +1029,27 @@ async def _open_todo(session: AsyncSession, topic_id: UUID) -> dict | None:
 
 
 async def _note_count(session: AsyncSession, topic_id: UUID) -> int:
+    """Konuya bagli GORUNUR not sayisi.
+
+    Panelin listesi (`GET /notes?about=`) cop kutusundaki ve arsivli notlari
+    disarida birakir; sayac da ayni kumeyi saymali. Aksi halde cop kutusuna
+    tasinan bir nottan sonra baslik "1 not" derken liste bos gorunur.
+    """
+    from app.modules.note.models import Note
+
     return int(
         (
             await session.execute(
-                text(
-                    "select count(*) from link"
-                    " where to_id = :id and relation = 'notes_about'"
-                ),
-                {"id": topic_id},
+                select(func.count())
+                .select_from(Link)
+                .join(Note, Note.id == Link.from_id)
+                .join(Entity, Entity.id == Note.id)
+                .where(
+                    Link.to_id == topic_id,
+                    Link.relation == "notes_about",
+                    Note.trashed_at.is_(None),
+                    Entity.archived_at.is_(None),
+                )
             )
         ).scalar_one()
     )
