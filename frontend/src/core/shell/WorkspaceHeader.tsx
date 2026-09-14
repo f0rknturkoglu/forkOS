@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, Menu, Moon, RefreshCw, Search, Sun } from "lucide-react";
+import { ChevronDown, Menu, Moon, PanelLeftOpen, RefreshCw, Search, Sun } from "lucide-react";
 import { api } from "@/core/api";
 import { openCommandPalette } from "@/core/CommandPalette";
 import { invalidateAfter } from "@/core/invalidation";
@@ -50,7 +50,18 @@ function storedScope(): RefreshScope {
   return REFRESH_SCOPES.some((scope) => scope.id === saved) ? (saved as RefreshScope) : "standard";
 }
 
-export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenSidebar: () => void }) {
+export function WorkspaceHeader({
+  path,
+  onOpenSidebar,
+  sidebarCollapsed = false,
+  onToggleCollapsed,
+}: {
+  path: string;
+  onOpenSidebar: () => void;
+  /** Daraltilmis kenar cubugu: genisletme dugmesi burada, ray basligini kilitler. */
+  sidebarCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
+}) {
   const [theme, setTheme] = useTheme();
   const online = useOnline();
   const toast = useToast();
@@ -118,6 +129,19 @@ export function WorkspaceHeader({ path, onOpenSidebar }: { path: string; onOpenS
       >
         <Menu size={17} />
       </button>
+
+      {sidebarCollapsed && (
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title="Kenar çubuğunu genişlet"
+          aria-label="Kenar çubuğunu genişlet"
+          aria-controls="app-sidebar"
+          className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary md:flex"
+        >
+          <PanelLeftOpen size={17} />
+        </button>
+      )}
 
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {Icon && <Icon size={15} className="shrink-0 text-icon" />}

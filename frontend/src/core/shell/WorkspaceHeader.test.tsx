@@ -111,3 +111,45 @@ describe("WorkspaceHeader yenileme kapsamı", () => {
     expect(await screen.findByText("abcdef12")).not.toBeNull();
   });
 });
+
+describe("WorkspaceHeader kenar cubugu dugmesi", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    apiMock.get.mockReset().mockImplementation((path: string) => {
+      if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      return Promise.resolve(null);
+    });
+  });
+  afterEach(cleanup);
+
+  it("daraltilmis kenar cubugunu basligin solundan geri acar", () => {
+    const onToggleCollapsed = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <WorkspaceHeader
+          path="/notes"
+          onOpenSidebar={() => {}}
+          sidebarCollapsed
+          onToggleCollapsed={onToggleCollapsed}
+        />
+      </QueryClientProvider>,
+    );
+
+    const expand = screen.getByRole("button", { name: "Kenar çubuğunu genişlet" });
+    expect(expand.getAttribute("aria-controls")).toBe("app-sidebar");
+    fireEvent.click(expand);
+    expect(onToggleCollapsed).toHaveBeenCalledOnce();
+  });
+
+  it("genis kenar cubugunda genisletme dugmesi cizilmez", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <WorkspaceHeader path="/notes" onOpenSidebar={() => {}} />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Kenar çubuğunu genişlet" })).toBeNull();
+  });
+});

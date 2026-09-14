@@ -84,6 +84,25 @@ describe("AppSidebar", () => {
     expect(localStorage.getItem("forkos.sidebar.groups")).not.toContain("capture");
   });
 
+  it("daraltilmis ray basliginda genisletme dugmesi yok — logo tek basina sigar", () => {
+    renderSidebar("/notes", { collapsed: true });
+
+    // 56px raya logo (28px) + dugme (32px) sigmaz; dugme baska yuzeye tasindi.
+    expect(screen.queryByRole("button", { name: "Kenar çubuğunu genişlet" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Kenar çubuğunu daralt" })).toBeNull();
+    const brand = screen.getByRole("link", { name: "forkOS Bugün" });
+    expect(brand.closest("aside")?.id).toBe("app-sidebar");
+  });
+
+  it("genisken daraltma dugmesi ray kimligini bildirir", () => {
+    const { onToggleCollapsed } = renderSidebar("/notes");
+    const collapse = screen.getByRole("button", { name: "Kenar çubuğunu daralt" });
+    expect(collapse.getAttribute("aria-controls")).toBe("app-sidebar");
+    expect(collapse.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(collapse);
+    expect(onToggleCollapsed).toHaveBeenCalledOnce();
+  });
+
   it("mobil scrim üzerinden kapanır", () => {
     const { onCloseMobile } = renderSidebar("/notes", { mobileOpen: true });
     fireEvent.click(screen.getByRole("button", { name: "Kenar çubuğunu kapat" }));

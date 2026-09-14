@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, LayoutGrid, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, LayoutGrid, PanelLeftClose, Plus, Search } from "lucide-react";
 import { findRouteMatch } from "@/app/router";
 import { openCapture } from "@/core/CaptureDialog";
 import { openCommandPalette } from "@/core/CommandPalette";
@@ -135,6 +135,7 @@ export function AppSidebar({
         />
       )}
       <aside
+        id="app-sidebar"
         aria-label="Ana navigasyon"
         className={cx(
           "fixed inset-y-0 left-0 z-drawer flex w-sidebar -translate-x-full flex-col border-r border-subtle bg-sidebar transition-[width,transform] duration-300 ease-in-out md:sticky md:top-0 md:h-dvh md:translate-x-0",
@@ -159,15 +160,22 @@ export function AppSidebar({
             </span>
             <span className={cx("truncate text-heading text-primary", collapsed && "md:hidden")}>forkOS</span>
           </a>
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            title={collapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}
-            aria-label={collapsed ? "Kenar çubuğunu genişlet" : "Kenar çubuğunu daralt"}
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary md:flex"
-          >
-            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </button>
+          {/* Rayda 56px'e logo (28px) ve buton (32px) BIRLIKTE sigmaz; bu
+              yuzden daraltilmis halde buton hic render edilmez, genisletme
+              WorkspaceHeader'in soluna tasinir. */}
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              title="Kenar çubuğunu daralt"
+              aria-label="Kenar çubuğunu daralt"
+              aria-controls="app-sidebar"
+              aria-expanded
+              className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary md:flex"
+            >
+              <PanelLeftClose size={16} />
+            </button>
+          )}
         </div>
 
         <div className={cx("shrink-0 space-y-1 border-y border-subtle py-2", collapsed ? "md:px-2" : "px-2.5")}>
