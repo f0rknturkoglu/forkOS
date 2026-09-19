@@ -46,7 +46,7 @@ flowchart LR
 - **Frontend:** React 18, TypeScript, Vite, TanStack Query, Tailwind CSS
 - **Backend:** FastAPI, SQLAlchemy async, Alembic, Pydantic
 - **Veri:** PostgreSQL 16; FTS + unaccent + trigram arama
-- **Çalıştırma:** Docker Compose veya Podman Compose
+- **Çalıştırma:** Docker Compose veya Podman Compose; günlük (stable) runtime ve geliştirme runtime'ı ayrıdır
 - **Otomasyon:** Varsayılan olarak kapalı APScheduler worker; manuel genel yenileme worker olmadan çalışır
 
 Ayrıntılı sözleşmeler için [mimari rehberine](docs/mimari.md) bak.
@@ -80,7 +80,7 @@ Ardından:
 ## Günlük kullanım
 
 ```bash
-# Servisleri aç / kapat
+# Günlük (stable) runtime — Vite, HMR ve `uvicorn --reload` YOKTUR.
 make up CO="docker compose"
 make down CO="docker compose"
 
@@ -94,6 +94,45 @@ make migrate CO="docker compose"
 # Yerel PostgreSQL dump'ı
 make backup CO="docker compose"
 ```
+
+### Runtime modları
+
+forkOS'un iki çalışma biçimi vardır; ikisi de aynı portları kullanır
+(web `127.0.0.1:5173`, API `127.0.0.1:8787`, PostgreSQL `127.0.0.1:5433`).
+
+| Komut | Ne çalışır | Ne zaman |
+| --- | --- | --- |
+| `make up` | **Günlük (stable) runtime.** PostgreSQL + üretim modunda FastAPI + önceden derlenmiş frontend'i servis eden nginx. `compose.yaml` | Normal kullanım |
+| `make up-dev` | **Geliştirme runtime'ı.** Yukarıdakine ek olarak Vite dev server, HMR, dosya izleyici (polling) ve `uvicorn --reload`; `backend/` ve `frontend/` bind mount edilir. `compose.yaml` + `compose.dev.yaml` | Kod yazarken |
+| `make up-auto` | Günlük runtime + APScheduler worker (`--profile auto`) | Günlük kullanım, otomasyon açık |
+| `make up-auto-dev` | Geliştirme runtime'ı + worker | Kod yazarken, otomasyon açık |
+
+Günlük runtime'da hiçbir dosya izleyici çalışmaz: SSD'ye sürekli yazan Vite
+polling'i, HMR ve `--reload` yalnızca `compose.dev.yaml` içindedir. Backend
+veya frontend kaynağını değiştirdikten sonra günlük runtime'ı yenilemek için
+`make build CO="docker compose"` çalıştır ve servisleri yeniden başlat.
+
+Compose dosyalarını doğrulamak için:
+
+```bash
+make config CO="docker compose"        # günlük runtime
+make config-dev CO="docker compose"    # geliştirme runtime'ı
+```
+
+### Container logları
+
+Tüm servislerde log rotasyonu açıktır (`max-size: 10m`, `max-file: 3`).
+Varsayılan sürücü `json-file`'dır çünkü hem Docker hem Podman'da geçerlidir
+(Podman'da `k8s-file`'a eşlenir). Docker'da daha verimli olan `local`
+sürücüsünü tercih edersen:
+
+```bash
+LOG_DRIVER=local make up CO="docker compose"
+```
+
+Not: `podman compose` bazı sürümlerde `logging` bloğunu podman'a aktarmaz.
+O durumda rotasyonu `~/.config/containers/containers.conf` içindeki
+`log_size_max` ile sistem genelinde ayarla.
 
 Worker normal kullanımda kapalı kalabilir. Header'daki yenileme düğmesi RSS, fırsat/duyuru, medya, takvim, GitHub ve son tarih kaynaklarını tek turda günceller; yanındaki menüden kapsam seçilir:
 
@@ -179,7 +218,8 @@ frontend/      React/Vite uygulaması, modül registry'si ve ortak UI sistemi
 extension/     Chrome MV3 yakalama eklentisi
 docs/          Yaşayan mimari ve ürün görselleri
 .agents/       Projeye özel agent becerileri ve guardrail'ler
-compose.yaml   Yerel çalışma ortamı
+compose.yaml   Günlük (stable) çalışma ortamı
+compose.dev.yaml  Geliştirme overlay'i (Vite + HMR + --reload)
 ```
 
 Geliştirme kuralları için [AGENTS.md](AGENTS.md), migration zinciri için [backend/alembic/README.md](backend/alembic/README.md) dosyasını oku.

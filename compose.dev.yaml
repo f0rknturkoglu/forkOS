@@ -1,0 +1,35 @@
+# forkOS — GELISTIRME runtime overlay.
+#
+# Gunluk/stable runtime'in (compose.yaml) uzerine developer ergonomisini ekler:
+# source mount, HMR, dosya izleyici (polling) ve `uvicorn --reload`.
+#
+#   make up-dev         (Vite + HMR + --reload, worker kapali)
+#   make up-auto-dev    (ayni + worker)
+#
+# Bu dosya TEK BASINA kullanilmaz; her zaman compose.yaml ile birlikte verilir:
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d
+#
+# Port eslesmeleri degismez: nginx de Vite da container icinde 5173 dinler.
+services:
+  api:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload
+    volumes:
+      - ./backend:/app:z         # :z  → SELinux'lu sistemlerde (Fedora) gerekli
+
+  worker:
+    volumes:
+      - ./backend:/app:z
+
+  web:
+    build:
+      context: ./frontend
+      target: dev
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    environment:
+      API_TARGET: http://api:8787      # vite proxy hedefi
+      # Container'da inotify guvenilir degil -> HMR icin polling (bkz. vite.config.ts).
+      # SADECE bu overlay'de acilir; gunluk runtime'da dosya izleyici yoktur.
+      WATCH_POLLING: ${WATCH_POLLING:-1}
+    volumes:
+      - ./frontend:/app:z
+      - /app/node_modules

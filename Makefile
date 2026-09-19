@@ -1,14 +1,22 @@
 # Podman ve Docker ikisiyle de çalışır
 CO ?= podman compose
+# Gelistirme runtime'i: gunluk runtime + Vite/HMR/--reload/source mount.
+DEV = $(CO) -f compose.yaml -f compose.dev.yaml
 
+# Gunluk (stable) runtime — Vite, HMR ve uvicorn --reload YOK.
 up:        ; $(CO) up -d
+# Gelistirme runtime'i — Vite + HMR + polling + uvicorn --reload.
+up-dev:    ; $(DEV) up -d
 up-auto:   ; WORKER_ENABLED=1 $(CO) --profile auto up -d
+up-auto-dev: ; WORKER_ENABLED=1 $(DEV) --profile auto up -d
 worker-up: ; WORKER_ENABLED=1 $(CO) --profile auto up -d worker
 worker-down: ; $(CO) stop worker
 down:      ; $(CO) down
 logs:      ; $(CO) logs -f api web
 ps:        ; $(CO) ps
 build:     ; $(CO) build
+config:    ; $(CO) config --quiet && echo "compose.yaml: OK"
+config-dev: ; $(DEV) config --quiet && echo "compose.yaml + compose.dev.yaml: OK"
 sh:        ; $(CO) exec api bash
 psql:      ; $(CO) exec db psql -U lifeos -d lifeos
 migrate:   ; $(CO) exec api alembic upgrade head

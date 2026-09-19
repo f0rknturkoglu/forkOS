@@ -1,3 +1,12 @@
+# forkOS — GUNLUK (stable) runtime.
+#
+# Bu dosya gunluk kullanim icindir: Vite dev server, HMR, dosya izleyici ve
+# `uvicorn --reload` YOKTUR. Frontend onceden derlenmis statik dosya olarak
+# nginx ile servis edilir, API uretim modunda kosar.
+#
+# Gelistirme (Vite + HMR + --reload + source mount):
+#   make up-dev          ->  compose.yaml + compose.dev.yaml
+#
 # Podman:  podman compose up -d      (Podman 4.7+)
 # Docker:  docker compose up -d
 name: forkos
@@ -23,9 +32,13 @@ services:
 
   api:
     build: ./backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload
+    # `--reload` YOK: gunluk runtime'da kaynak izleyici ve yeniden baslatma yok.
+    # Bu imaj kaynagi kopyalar; backend degisikliginden sonra `make build`.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8787
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
       EXTENSION_ID: ${EXTENSION_ID:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -37,8 +50,6 @@ services:
       FORKJOB_LINKEDIN_PROXIES_FILE: ${FORKJOB_LINKEDIN_PROXIES_FILE:-}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:8787:8787"   # DIŞARI AÇMA — auth yok
-    volumes:
-      - ./backend:/app:z         # :z  → SELinux'lu sistemlerde (Fedora) gerekli
     depends_on:
       db:
         condition: service_healthy
@@ -55,6 +66,8 @@ services:
     command: python -m app.worker.main
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
       RSS_DEFAULT_INTERVAL_MINUTES: ${RSS_DEFAULT_INTERVAL_MINUTES:-30}
       RSS_RETENTION_DAYS: ${RSS_RETENTION_DAYS:-90}
       # Direct (proxy'siz) LinkedIn erisimi VARSAYILAN KAPALI. Acmak icin
@@ -65,8 +78,6 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}
       WORKER_ENABLED: "1"
-    volumes:
-      - ./backend:/app:z
     depends_on:
       db:
         condition: service_healthy
@@ -79,22 +90,16 @@ services:
     restart: unless-stopped
 
   web:
-    build: ./frontend
-    command: npm run dev -- --host 0.0.0.0 --port 5173
-    environment:
-      API_TARGET: http://api:8787      # vite proxy hedefi
-      # Container'da inotify guvenilir degil -> HMR icin polling (bkz. vite.config.ts)
-      WATCH_POLLING: ${WATCH_POLLING:-1}
+    build:
+      context: ./frontend
+      target: prod
     ports:
       - "${BIND_ADDR:-127.0.0.1}:5173:5173"
-    volumes:
-      - ./frontend:/app:z
-      - /app/node_modules
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173/ || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

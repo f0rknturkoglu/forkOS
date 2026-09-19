@@ -1,0 +1,11 @@
+# Host'a ait bagimliliklar ve cikti imaja KOPYALANMAZ: container kendi
+# `npm ci`'sini calistirir, dist ise imaj icinde uretilir. Aksi halde macOS
+# arm64 ikili dosyalari linux imajina sizar ve dev mount'u bozar.
+node_modules
+dist
+dev-dist
+public/excalidraw-assets
+.vite
+*.tsbuildinfo
+*.log
+.DS_Store
