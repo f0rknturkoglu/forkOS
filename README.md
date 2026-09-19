@@ -208,6 +208,21 @@ npm run api:generate
 - `/backup/restore`: mevcut veriyi silmeden, çakışmasız birleştirerek içe aktarır.
 - `make disaster-restore`: açık onay isteyen, safety dump alan gerçek felaket kurtarma akışıdır.
 
+Yedek kapsamı **kullanıcı anlamlı** veridir: entity omurgası, bağlantılar, olay
+geçmişi ve tüm modül tabloları (not, görev, proje, öğrenme, medya, finans,
+fırsat, yer imi, değerlendirme, belge, etiket, ayarlar…).
+
+Kapsam dışı bırakılanlar:
+
+- `oauth_token` — erişim/yenileme token'ları hiçbir zaman dışa çıkmaz.
+- `source_run`, `source_sync_batch` — kaynak sağlığı ve kuyruk ilerlemesi;
+  kullanıcı verisi değil, bir sonraki çekim turu yeniden üretir. Geri
+  yüklendiklerinde eski sağlık geçmişi yeni veriyle karışıp devre kesici
+  kararlarını yanıltırlardı.
+
+Eski yedekler geriye dönük uyumludur: payload'da bulunan ama artık kapsam
+dışı olan tablolar restore sırasında sessizce atlanır.
+
 Veri klasörleri, kişisel ayarlar, OAuth token'ları ve üretilmiş cache dosyaları Git'e alınmaz.
 
 ## Saklama ve bakım

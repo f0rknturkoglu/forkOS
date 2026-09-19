@@ -14,11 +14,28 @@ def test_backup_policy_covers_every_table_except_explicit_secrets() -> None:
     covered = set(export.backup_table_names())
     excluded = export.BACKUP_EXCLUDED_TABLES
 
-    assert excluded == {"oauth_token"}
+    # Denylist dar kalmali: kullanici anlamli veri tam kapsanir.
+    assert excluded == {"oauth_token", "source_run", "source_sync_batch"}
     assert covered == set(Base.metadata.tables) - excluded
+    assert {
+        "note",
+        "todo",
+        "project",
+        "course",
+        "media_item",
+        "expense",
+        "opportunity",
+        "bookmark",
+        "review",
+        "document",
+        "tag",
+        "link",
+        "event",
+        "setting",
+    } <= covered
 
 
-async def test_backup_round_trip_restores_operational_and_user_tables() -> None:
+async def test_backup_round_trip_restores_user_tables_and_skips_operational() -> None:
     view_id = uuid.uuid4()
     batch_id = uuid.uuid4()
     parent_id = uuid.uuid4()
@@ -79,8 +96,10 @@ async def test_backup_round_trip_restores_operational_and_user_tables() -> None:
 
         assert payload["modules"]["saved_view"][0]["id"] == str(view_id)
         assert payload["modules"]["notification"][0]["dedup_key"] == "backup-test"
-        assert payload["modules"]["source_sync_batch"][0]["id"] == str(batch_id)
-        assert payload["modules"]["source_run"][0]["batch_id"] == str(batch_id)
+        # Operasyonel kayitlar kullanici yedegine GIRMEZ: satirlar var olsa bile
+        # payload'da ve restore ozetinde gorunmezler.
+        assert "source_sync_batch" not in payload["modules"]
+        assert "source_run" not in payload["modules"]
 
         names = ", ".join(f'"{table.name}"' for table in reversed(Base.metadata.sorted_tables))
         await session.execute(text(f"TRUNCATE TABLE {names} RESTART IDENTITY CASCADE"))
@@ -90,8 +109,8 @@ async def test_backup_round_trip_restores_operational_and_user_tables() -> None:
 
         assert summary["saved_view"]["inserted"] == 1
         assert summary["notification"]["inserted"] == 1
-        assert summary["source_sync_batch"]["inserted"] == 1
-        assert summary["source_run"]["inserted"] == 1
+        assert "source_sync_batch" not in summary
+        assert "source_run" not in summary
         assert (
             await session.execute(
                 text("select count(*) from saved_view where id=:id"), {"id": view_id}
@@ -99,11 +118,8 @@ async def test_backup_round_trip_restores_operational_and_user_tables() -> None:
         ).scalar_one() == 1
         assert (
             await session.execute(
-                text("select count(*) from source_run where batch_id=:id"), {"id": batch_id}
+                text("select parent_id from todo where id=:id"), {"id": child_id}
             )
-        ).scalar_one() == 1
-        assert (
-            await session.execute(text("select parent_id from todo where id=:id"), {"id": child_id})
         ).scalar_one() == parent_id
 
 

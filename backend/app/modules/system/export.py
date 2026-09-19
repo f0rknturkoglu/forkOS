@@ -18,11 +18,23 @@ from app.db import Base
 from app.modules.system.secrets import is_secret_setting
 
 ROOT_TABLES = ("entity", "link", "event")
-BACKUP_EXCLUDED_TABLES = {"oauth_token"}  # erişim/yenileme tokenları yedeğe girmez
+#: Yedege GIRMEYEN tablolar.
+#:
+#: - `oauth_token`: erisim/yenileme tokenlari hicbir zaman disari cikmaz.
+#: - `source_run`, `source_sync_batch`: kaynak sagligi ve kuyruk ilerlemesi.
+#:   Kullanici verisi degil; bir sonraki cekim turu bunlari yeniden uretir.
+#:   Yedegi sisirirler ve geri yuklendiklerinde ESKI saglik gecmisiyle yeni
+#:   veriyi karistirip devre kesici/ilerleme kararlarini yaniltirlar.
+BACKUP_EXCLUDED_TABLES = {"oauth_token", "source_run", "source_sync_batch"}
 
 
 def backup_table_names() -> list[str]:
-    """Metadata'daki her tabloyu açık bir secret denylist'i dışında kapsa."""
+    """Metadata'daki her tabloyu açık bir denylist dışında kapsa.
+
+    Denylist bilinçli olarak DARDIR: kullanıcı anlamlı veri (not, görev,
+    proje, öğrenme, medya, finans, fırsat, yer imi, değerlendirme, belge,
+    etiket, bağlantı, event) tam kapsanır.
+    """
     available = set(Base.metadata.tables) - BACKUP_EXCLUDED_TABLES
     ordered = [table.name for table in Base.metadata.sorted_tables if table.name in available]
     return [*ROOT_TABLES, *(name for name in ordered if name not in ROOT_TABLES)]
