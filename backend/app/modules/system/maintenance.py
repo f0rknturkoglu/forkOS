@@ -103,12 +103,32 @@ async def _prune_artwork(session: AsyncSession, moment: datetime) -> dict[str, i
     return {"files": result.removed, "freed_bytes": result.freed_bytes}
 
 
+async def _migrate_note_attachments(session: AsyncSession, moment: datetime) -> dict[str, int]:
+    """Eski base64 ekleri tasi ve yetim blob'lari temizle.
+
+    Donusum bakim icinde kosar cunku kullanici aksiyonu gerektirmemeli: worker
+    kapaliyken de API acilisinda bir tur ilerler ve biriken notlar zamanla
+    tasinir. Zaten donusmus notlar sorguya girmez (JSONB bos).
+
+    Yetim temizligi: kalici silme satirlari FK ile goturur ama diskteki
+    dosyayi goturmez (bkz. note/storage.py).
+    """
+    from app.modules.note import service as note_service
+    from app.modules.note import storage as attachment_storage
+
+    return {
+        "notes": await note_service.convert_legacy_attachments(session),
+        "orphan_blobs": await attachment_storage.prune_orphan_blobs(session),
+    }
+
+
 #: Adim adi -> calistirici. Once DB satirlari, sonra dosya sistemi.
 #: Her adim ayni imzayi tasir: (session, moment) -> {etiket: sayi}.
 STEPS: tuple[tuple[str, Callable[[AsyncSession, datetime], Awaitable[dict[str, int]]]], ...] = (
     ("retention", _prune_retention),
     ("rss", _prune_rss),
     ("artwork", _prune_artwork),
+    ("attachments", _migrate_note_attachments),
 )
 
 

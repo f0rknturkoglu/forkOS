@@ -29,3 +29,30 @@ async def clean_database(request: pytest.FixtureRequest):
             await connection.execute(text(_truncate_statement()))
     yield
     await engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def isolated_data_dirs(tmp_path_factory, monkeypatch: pytest.MonkeyPatch):
+    """Testler KULLANICININ gercek veri dizinlerine YAZMAMALI.
+
+    `assert_safe_test_database` veritabani icin ne yapiyorsa, dosya sistemi
+    icin de bu: yerel belgeler, not ekleri, gorsel onbellegi ve yedekler
+    gecici dizine yonlendirilir. Bir test kendi `monkeypatch`'i ile bunu
+    ezebilir (o zaman kendi izolasyonundan sorumludur).
+    """
+    from app.modules.document import service as document_service
+    from app.modules.media import artwork
+    from app.modules.note import storage as attachment_storage
+    from app.modules.system import backup
+    from app.sources import forkjob_port
+
+    root = tmp_path_factory.mktemp("appdata")
+    monkeypatch.setattr(attachment_storage, "ATTACHMENTS_DIR", root / "attachments")
+    monkeypatch.setattr(document_service, "DOCUMENTS_DIR", root / "documents")
+    monkeypatch.setattr(backup, "BACKUP_DIR", root / "backups")
+    monkeypatch.setattr(artwork, "default_asset_dir", lambda: root / "media")
+    # Uyum profili: PUT /sources/jobhunter/config bu dosyaya yazar; izole
+    # edilmezse bir test kullanicinin kalibre ettigi profili EZER.
+    monkeypatch.setattr(forkjob_port, "CONFIG_PATH", root / "config.yaml")
+    monkeypatch.setattr(forkjob_port, "LEGACY_CONFIG_PATH", root / "legacy-config.yaml")
+    return root

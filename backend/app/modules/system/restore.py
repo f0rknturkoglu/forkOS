@@ -255,10 +255,13 @@ async def restore(
             {"seq": sequence},
         )
 
-    # 4. Asama: fiziksel yerel doküman dosyalarını diske aç (CV/PDF)
+    # 4. Asama: fiziksel dosyalari diske ac (yerel dokumanlar + not ekleri)
     files_restored = restore_files(payload)
     if files_restored:
         summary["_files"] = {"restored": files_restored}
+    attachments_restored = restore_attachments(payload)
+    if attachments_restored:
+        summary["_attachments"] = {"restored": attachments_restored}
 
     restored_total = sum(
         entry["inserted"] for entry in summary.values() if "inserted" in entry
@@ -299,6 +302,38 @@ def restore_files(payload: dict) -> int:
             restored += 1
         except Exception:
             pass
+    return restored
+
+
+def restore_attachments(payload: dict) -> int:
+    """Yedekteki not eki blob'larini `data/attachments/<sha256>` altina yaz.
+
+    Ad, ICERIGIN ozetinden dogrulanir: yedekteki anahtar ile icerigin sha256'si
+    tutmuyorsa dosya YAZILMAZ (bozuk/kurcalanmis yedek sessizce kabul edilmez).
+    `store_blob` content-addressed oldugu icin tekrar calistirmak zararsizdir.
+    """
+    entries = payload.get("attachments") or {}
+    if not isinstance(entries, dict) or not entries:
+        return 0
+    import base64
+
+    from app.modules.note import storage as attachment_storage
+
+    restored = 0
+    for digest, data_b64 in entries.items():
+        if not isinstance(data_b64, str) or not attachment_storage.is_digest(str(digest)):
+            continue
+        try:
+            content = base64.b64decode(data_b64, validate=True)
+        except Exception:  # noqa: BLE001 - bozuk kayit digerlerini durdurmamali
+            continue
+        if attachment_storage.digest_of(content) != digest:
+            continue
+        try:
+            attachment_storage.store_blob(content)
+            restored += 1
+        except OSError:
+            continue
     return restored
 
 

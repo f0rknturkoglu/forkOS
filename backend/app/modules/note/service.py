@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import logging
 import re
 import uuid
 from datetime import date
@@ -26,7 +27,8 @@ from app.core.entity import (
 from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
-from app.modules.note.models import Note, NoteFolder
+from app.modules.note import storage as attachment_storage
+from app.modules.note.models import Note, NoteAttachment, NoteFolder
 from app.modules.note.schemas import (
     NoteFolderIn,
     NoteFolderOut,
@@ -35,6 +37,8 @@ from app.modules.note.schemas import (
     NoteOut,
     NoteUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 #: Body'den turetilen baslik siniri -- liste satirlarinda tasmaz.
 MAX_TITLE = 60
@@ -134,6 +138,11 @@ def _out(
     )
 
 
+async def _note_attachments(session: AsyncSession, note_id: uuid.UUID) -> list[dict]:
+    """Tek notun ek metadata'si (bkz. _attachments_metadata)."""
+    return (await _attachments_metadata(session, [note_id])).get(note_id, [])
+
+
 def _attachment_out(note_id: uuid.UUID, item: dict) -> dict:
     return {
         "id": item["id"],
@@ -149,9 +158,12 @@ async def _attachments_metadata(
 ) -> dict[uuid.UUID, list[dict]]:
     """Notlarin ek METADATA'sini (veri olmadan) tek sorguda toplar.
 
-    JSONB icindeki base64 `data` alani listeleme icin gereksiz; dosya icerigi
-    yalnizca /attachments/{id} indirme ucunda decode edilir. Bos liste donerse
-    bos sozluk (ek sorgu atilmaz).
+    Iki kaynak BIRLESTIRILIR:
+      - `note_attachment` satirlari (yeni: icerik `data/attachments/<sha256>`)
+      - `note.attachments` JSONB dizisi (donusmemis eski kayitlar)
+
+    Boylece donusum yarida kalsa, hatta hic calismasa da arayuz ayni listeyi
+    gorur. Base64 icerik hicbir zaman okunmaz.
     """
     if not note_ids:
         return {}
@@ -159,14 +171,21 @@ async def _attachments_metadata(
         await session.execute(
             sa_text(
                 """
-                select n.id,
+                select n.id as note_id,
                   coalesce((
                     select jsonb_agg(jsonb_build_object(
-                      'id', a->>'id', 'name', a->>'name',
-                      'mime', a->>'mime', 'size', (a->>'size')::int
+                      'id', a.id::text, 'name', a.name,
+                      'mime', a.mime, 'size', a.size
+                    ) order by a.created_at, a.id)
+                    from note_attachment a where a.note_id = n.id
+                  ), '[]'::jsonb) as stored,
+                  coalesce((
+                    select jsonb_agg(jsonb_build_object(
+                      'id', l->>'id', 'name', l->>'name',
+                      'mime', l->>'mime', 'size', (l->>'size')::int
                     ))
-                    from jsonb_array_elements(n.attachments) a
-                  ), '[]'::jsonb) as meta
+                    from jsonb_array_elements(n.attachments) l
+                  ), '[]'::jsonb) as legacy
                 from note n
                 where n.id = any(:ids)
                 """
@@ -174,11 +193,16 @@ async def _attachments_metadata(
             {"ids": note_ids},
         )
     ).all()
-    return {row.id: list(row.meta) for row in rows}
+    # Donusmemis (eski) kayitlar once gelir: onlar daha eskidir.
+    return {row.note_id: [*row.legacy, *row.stored] for row in rows}
 
 
 def prepare_attachment(filename: str | None, mime: str | None, content: bytes) -> dict:
-    """Yuklenen eki dogrula ve yedeklenebilir JSON nesnesine cevir."""
+    """Yuklenen eki dogrula ve METADATA'ya cevir.
+
+    Icerik burada tutulmaz: binary `note/storage.py` ile dosya sistemine
+    yazilir, burada yalnizca dogrulanmis aciklama uretilir.
+    """
     safe_name = Path(filename or "ek").name.strip()[:180] or "ek"
     content_type = (mime or "").split(";", 1)[0].lower().strip()
     is_drawing = Path(safe_name).suffix.lower() == ".excalidraw"
@@ -204,7 +228,6 @@ def prepare_attachment(filename: str | None, mime: str | None, content: bytes) -
         "name": safe_name,
         "mime": content_type,
         "size": len(content),
-        "data": base64.b64encode(content).decode("ascii"),
     }
 
 
@@ -390,11 +413,26 @@ async def add_attachment(
     mime: str | None,
     content: bytes,
 ) -> dict | None:
+    """Eki dosya sistemine yaz ve metadata satirini olustur.
+
+    Binary veritabanina girmez; `data/attachments/<sha256>` altinda durur.
+    Ayni icerik daha once eklendiyse diskte tek kopya kalir (dedup).
+    """
     note = await session.get(Note, note_id)
     if note is None:
         return None
     item = prepare_attachment(filename, mime, content)
-    note.attachments = [*(note.attachments or []), item]
+    digest = attachment_storage.store_blob(content)
+    session.add(
+        NoteAttachment(
+            id=uuid.UUID(item["id"]),
+            note_id=note_id,
+            name=item["name"],
+            mime=item["mime"],
+            size=item["size"],
+            sha256=digest,
+        )
+    )
     await touch_entity(session, note_id)
     await log_event(
         session,
@@ -410,11 +448,19 @@ async def add_attachment(
 async def attachment_content(
     session: AsyncSession, note_id: uuid.UUID, attachment_id: uuid.UUID
 ) -> tuple[bytes, str, str] | None:
+    """(icerik, mime, dosya adi) dondur; yoksa None."""
     note = await session.get(Note, note_id)
     if note is None:
         return None
+    row = await session.get(NoteAttachment, attachment_id)
+    if row is not None and row.note_id == note_id:
+        content = attachment_storage.read_blob(row.sha256)
+        if content is None:
+            return None
+        return content, row.mime, row.name
+    # Donusmemis eski kayit (bkz. convert_legacy_attachments).
     item = next(
-        (row for row in (note.attachments or []) if row.get("id") == str(attachment_id)),
+        (entry for entry in (note.attachments or []) if entry.get("id") == str(attachment_id)),
         None,
     )
     if item is None:
@@ -432,8 +478,33 @@ async def delete_attachment(
     note = await session.get(Note, note_id)
     if note is None:
         return False
+    row = await session.get(NoteAttachment, attachment_id)
+    if row is not None and row.note_id == note_id:
+        digest = row.sha256
+        await session.delete(row)
+        await session.flush()
+        # Ayni icerik baska bir ekte de kullaniyorsa dosya KALIR (dedup).
+        remaining = (
+            await session.execute(
+                select(func.count())
+                .select_from(NoteAttachment)
+                .where(NoteAttachment.sha256 == digest)
+            )
+        ).scalar_one()
+        if remaining == 0:
+            attachment_storage.delete_blob(digest)
+        await touch_entity(session, note_id)
+        await log_event(
+            session,
+            verb="note.attachment_deleted",
+            entity_id=note_id,
+            entity_type="note",
+            payload={"attachment_id": str(attachment_id)},
+        )
+        await session.commit()
+        return True
     before = note.attachments or []
-    after = [row for row in before if row.get("id") != str(attachment_id)]
+    after = [entry for entry in before if entry.get("id") != str(attachment_id)]
     if len(after) == len(before):
         return False
     note.attachments = after
@@ -447,6 +518,56 @@ async def delete_attachment(
     )
     await session.commit()
     return True
+
+
+async def convert_legacy_attachments(session: AsyncSession, *, limit: int = 25) -> int:
+    """Eski base64 ekleri dosya sistemine tasi. Not bazli, idempotent.
+
+    Sirayla ve yalnizca basarili olursa:
+      1. blob diske yazilir (content-addressed: tekrar denemek zararsiz),
+      2. metadata satiri eklenir (ESKI ID KORUNUR -> indirme URL'i degismez),
+      3. ancak bu notun TUM ekleri icin 1-2 tamamlandiysa eski JSONB temizlenir.
+
+    Herhangi bir adimda hata olursa notun JSONB'si DOKUNULMADAN kalir ve
+    transaction geri alinir; veri kaybi olmaz. `limit` bir turda islenecek not
+    sayisidir (bakim icinde sinirli tutulur).
+    """
+    rows = (
+        await session.execute(
+            select(Note.id, Note.attachments)
+            .where(func.jsonb_array_length(Note.attachments) > 0)
+            .order_by(Note.id)
+            .limit(limit)
+        )
+    ).all()
+    migrated = 0
+    for note_id, items in rows:
+        try:
+            for item in items or []:
+                content = base64.b64decode(item["data"], validate=True)
+                digest = attachment_storage.store_blob(content)
+                attachment_id = uuid.UUID(item["id"])
+                if await session.get(NoteAttachment, attachment_id) is None:
+                    session.add(
+                        NoteAttachment(
+                            id=attachment_id,
+                            note_id=note_id,
+                            name=str(item["name"])[:180] or "ek",
+                            mime=str(item["mime"]),
+                            size=len(content),
+                            sha256=digest,
+                        )
+                    )
+            await session.flush()
+            await session.execute(
+                sql_update(Note).where(Note.id == note_id).values(attachments=[])
+            )
+            await session.commit()
+            migrated += 1
+        except Exception:  # noqa: BLE001 - bir not digerlerini durdurmamali
+            await session.rollback()
+            logger.exception("not eki donusumu basarisiz: %s", note_id)
+    return migrated
 
 
 async def create(
@@ -567,6 +688,9 @@ async def get(session: AsyncSession, note_id: uuid.UUID) -> NoteOut | None:
     tags = (await tag_svc.tags_for(session, [note_id])).get(note_id, [])
     targets = ref_svc.parse_wikilinks(note.body)
     resolved = await ref_svc.resolve_titles(session, targets)
+    # Ekler `note_attachment` satirlarindan gelir; eski JSONB yalnizca
+    # donusmemis kayitlar icin okunur (bkz. _attachments_metadata).
+    attachments = await _note_attachments(session, note_id)
     return _out(
         note, row[1], row[2], row[3], row[4], tags,
         [t for t in targets if t not in resolved],
@@ -575,6 +699,7 @@ async def get(session: AsyncSession, note_id: uuid.UUID) -> NoteOut | None:
             for t in targets
             if t in resolved
         ],
+        attachments=attachments,
     )
 
 
@@ -662,11 +787,13 @@ async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) ->
         tags = (await tag_svc.tags_for(session, [note_id])).get(note_id, [])
         return _out(note, title, entity.created_at if entity else None,
                     entity.updated_at if entity else None,
-                    entity.archived_at if entity else None, tags)
+                    entity.archived_at if entity else None, tags,
+                    attachments=await _note_attachments(session, note_id))
     return _out(note, title, entity.created_at if entity else None,
                 entity.updated_at if entity else None,
                 entity.archived_at if entity else None,
-                synced["tags"], synced["unresolved"], synced["links"])
+                synced["tags"], synced["unresolved"], synced["links"],
+                attachments=await _note_attachments(session, note_id))
 
 
 async def archive(session: AsyncSession, note_id: uuid.UUID) -> bool:
@@ -780,7 +907,8 @@ async def ensure_daily_note(session: AsyncSession, journal_day: date) -> NoteOut
             entity = await session.get(Entity, note.id)
             archived_at = entity.archived_at if entity else None
         tags = (await tag_svc.tags_for(session, [note.id])).get(note.id, [])
-        return _out(note, title, created_at, updated_at, archived_at, tags)
+        return _out(note, title, created_at, updated_at, archived_at, tags,
+                    attachments=await _note_attachments(session, note.id))
     return await create(
         session,
         NoteIn(body=f"# {journal_day.isoformat()}\n\n## Bugünün odağı\n\n## Görevler\n\n## Notlar\n"),

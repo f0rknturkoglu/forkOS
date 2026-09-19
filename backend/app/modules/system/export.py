@@ -111,6 +111,22 @@ async def full_json(session: AsyncSession) -> dict:
                     except OSError:
                         pass
 
+    # Not ekleri: binary `data/attachments/<sha256>` altinda. Yalnizca
+    # SATIRLARIN gosterdigi blob'lar yedege girer (yetim dosyalar girmez);
+    # anahtar sha256 oldugu icin restore hedef adi dogrulanabilir.
+    attachments: dict[str, str] = {}
+    if "note_attachment" in modules:
+        from app.modules.note import storage as attachment_storage
+
+        for row in modules["note_attachment"]:
+            digest = str(row.get("sha256") or "")
+            if digest in attachments or not attachment_storage.is_digest(digest):
+                continue
+            content = attachment_storage.read_blob(digest)
+            if content is None:
+                continue
+            attachments[digest] = base64.b64encode(content).decode("ascii")
+
     return {
         "version": 2,
         "exported_at": exported_at,
@@ -129,6 +145,7 @@ async def full_json(session: AsyncSession) -> dict:
         "events": events,
         "modules": modules,
         "files": files,
+        "attachments": attachments,
     }
 
 

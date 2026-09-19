@@ -45,6 +45,8 @@ def _counts(payload: dict) -> dict:
     return {
         "entities": len(payload.get("entities", [])),
         "events": len(payload.get("events", [])),
+        "files": len(payload.get("files") or {}),
+        "attachments": len(payload.get("attachments") or {}),
         "modules": {name: len(rows) for name, rows in modules.items()},
     }
 

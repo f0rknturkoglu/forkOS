@@ -3,7 +3,19 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -77,6 +89,9 @@ class Note(EntityBacked, Base):
     )
     #: Notun yerel fotograf/ses/Excalidraw ekleri. Icerik base64 olarak ayni satirda
     #: tutulur; boylece mevcut JSON yedek/geri-yukleme akisi ekleri de tasir.
+    #:
+    #: ESKI temsil: icerik artik `NoteAttachment` satirinda ve dosya sisteminde
+    #: yasar. Bu kolon donusum tamamlanana kadar okunur (bkz. service.py).
     attachments: Mapped[list[dict]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
@@ -87,4 +102,37 @@ class Note(EntityBacked, Base):
     )
     default_view: Mapped[str] = mapped_column(
         Text, nullable=False, default="page", server_default="page"
+    )
+
+
+class NoteAttachment(Base):
+    """Not ekinin METADATA'si (1:N destek tablosu).
+
+    Kural 1 istisnasi: ek bagimsiz aranabilir/linklenebilir bir nesne degil,
+    tek bir notu olcen destek satiridir (`bookmark_highlight`, `plan_slot` ile
+    ayni sinif). `id` bilincli olarak eski JSONB kaydinin id'sini KORUR; boylece
+    indirme URL'leri (`/notes/{note}/attachments/{id}`) donusumden sonra da
+    ayni kalir.
+
+    Binary ICERIK burada degil: `data/attachments/<sha256>` altinda durur.
+    Dosya adi yalnizca `sha256`'dan turetilir -- istemciden gelen `name`
+    hicbir zaman yol olarak kullanilmaz.
+    """
+
+    __tablename__ = "note_attachment"
+    __table_args__ = (Index("ix_note_attachment_note_id", "note_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()
+    )
+    note_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("note.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    mime: Mapped[str] = mapped_column(String(128), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Icerigin sha256'si; dosya adi da budur (content-addressed, dedup'li).
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

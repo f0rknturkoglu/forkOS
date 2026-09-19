@@ -17,19 +17,31 @@ from app.modules.document import service as document_service
 from app.modules.media import artwork
 from app.sources import forkjob_port
 
+#: GERCEK (uretim) sabitleri modul import'unda yakalanir: conftest'in autouse
+#: izolasyon fixture'i bu modul niteliklerini gecici dizine cevirir, ama
+#: buradaki degerler uretim duzenini dogrular.
+REAL_DOCUMENTS_DIR = document_service.DOCUMENTS_DIR
+REAL_ASSETS_DIR = artwork.default_asset_dir()
+REAL_CONFIG_PATH = forkjob_port.CONFIG_PATH
+
 
 def test_written_paths_live_under_the_data_dir() -> None:
     """Belgeler, gorsel onbellegi ve uyum profili `data/` altinda olmali."""
-    documents = document_service.DOCUMENTS_DIR
-    assets = artwork.default_asset_dir()
-    config = forkjob_port.CONFIG_PATH
+    assert REAL_DOCUMENTS_DIR.parent.name == "data"
+    assert REAL_DOCUMENTS_DIR.name == "documents"
+    # Container'da /app/data/media, repo kopyasinda backend/data/media.
+    assert REAL_ASSETS_DIR.name == "media"
+    assert REAL_CONFIG_PATH.parent.name == "data"
+    assert REAL_CONFIG_PATH.name == "config.yaml"
 
-    # Container'da /app/data, repo kopyasinda backend/data.
-    assert documents.parent.name == "data"
-    assert documents.name == "documents"
-    assert assets.parent.name == "data" or assets.name == "media"
-    assert config.parent.name == "data"
-    assert config.name == "config.yaml"
+
+def test_test_runs_are_redirected_away_from_real_data_dirs(isolated_data_dirs: Path) -> None:
+    """Testler kullanicinin gercek veri dizinlerine YAZMAMALI."""
+    assert isolated_data_dirs / "documents" == document_service.DOCUMENTS_DIR
+    assert artwork.default_asset_dir() == isolated_data_dirs / "media"
+    assert isolated_data_dirs / "config.yaml" == forkjob_port.CONFIG_PATH
+    assert REAL_DOCUMENTS_DIR != document_service.DOCUMENTS_DIR
+    assert REAL_CONFIG_PATH != forkjob_port.CONFIG_PATH
 
 
 def test_jobhunter_config_inherits_legacy_file(tmp_path: Path, monkeypatch) -> None:

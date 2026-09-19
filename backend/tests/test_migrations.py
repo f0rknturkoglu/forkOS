@@ -118,6 +118,10 @@ def test_module_tables_reference_entity():
         "opportunity_source_observation",
         # Bookmark okuma vurgusu (1:N) -- tek bir bookmark entity'sine bagli destek satiri.
         "bookmark_highlight",
+        # Not eki metadata'si (1:N) -- tek bir notu olcen destek satiri.
+        # Binary icerik `data/attachments/<sha256>` altinda; burada yalnizca
+        # ad/mime/boyut/ozet var. Bagimsiz aranabilir/linklenebilir nesne degil.
+        "note_attachment",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

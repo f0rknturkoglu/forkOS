@@ -296,6 +296,28 @@ ağ çağrısı yapmaz.
 - Kapsam: operasyonel saklama, RSS öğeleri ve medya görsel önbelleği. Ayrıntı:
   `backend/app/modules/system/maintenance.py`.
 
+## Not ekleri
+
+Not eklerinin **binary içeriği veritabanında tutulmaz**: `data/attachments/`
+altında, içeriğin `sha256` özetiyle adlandırılmış tek bir dosyada durur.
+Veritabanındaki `note_attachment` satırı yalnızca metadata taşır (id, not,
+ad, mime, boyut, sha256, tarih).
+
+- **Dedup:** aynı içerik ikinci kez eklenirse diskte tek kopya kalır; satırlar
+  ayrı kalır (iki ayrı ek, aynı blob).
+- **Silme:** blob ancak son referans silinince diskten gider. Notu çöp
+  kutusuna taşımak ekleri **silmez** (not geri alınabilir); kalıcı silmede
+  satırlar FK ile gider, dosya yetim temizliğiyle toplanır.
+- **Ad güvenliği:** dosya adı hiçbir zaman istemciden gelmez, yalnızca
+  özetten türetilir; `data/attachments` dışına yol üretilemez.
+- **Dönüşüm:** eski `note.attachments` (base64 JSONB) kayıtları uygulama
+  tarafında, not bazlı ve idempotent olarak taşınır — ek ID'si korunur (indirme
+  URL'i değişmez), blob yazılıp satır oluşmadan eski temsil **temizlenmez**.
+  Dönüşüm hafif bakımın bir adımıdır; worker kapalıyken API açılışında ilerler.
+- **Yedek:** ek blob'ları yedeğe girer (kullanılanlar; yetimler girmez) ve
+  restore'da geri yazılır. Geri yüklemede içeriğin özeti anahtarla uyuşmazsa
+  dosya **yazılmaz**.
+
 ## Offline ve PWA cache'i
 
 Offline mod **salt okunurdur**: mutation'lar hiçbir koşulda cache'lenmez.
