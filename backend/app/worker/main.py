@@ -12,6 +12,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
+from app.core.heartbeat import HEARTBEAT_INTERVAL_MINUTES
 from app.db import SessionLocal
 from app.modules.opportunity.service import (
     backfill_skill_match_ratios,
@@ -93,7 +94,7 @@ async def main() -> None:
     scheduler.add_job(
         record_worker_heartbeat,
         "interval",
-        minutes=1,
+        minutes=HEARTBEAT_INTERVAL_MINUTES,
         id="worker_heartbeat",
         max_instances=1,
         coalesce=True,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
@@ -356,6 +357,111 @@ async def test_system_status_marks_intentionally_disabled_worker(client: AsyncCl
 
     assert response.status_code == 200
     assert response.json()["worker"]["status"] == "disabled"
+
+
+async def test_worker_heartbeat_tolerates_the_write_interval(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Bayatlik esigi kalp atisi ARALIGINDAN buyuk olmali.
+
+    Aralik 5 dakika (app.core.heartbeat). Esik eskiden 3 dakikaydi; o
+    kombinasyonda saglikli bir worker her iki yazim arasinda arayuzde
+    "durdu" gorunurdu.
+    """
+    system_router = import_module("app.modules.system.router")
+    monkeypatch.setattr(system_router.app_settings, "worker_enabled", True)
+
+    async def status_for(age: timedelta) -> str:
+        value = json.dumps({"at": (datetime.now(UTC) - age).isoformat()})
+        async with SessionLocal() as session:
+            await session.execute(
+                text(
+                    "insert into setting (key, value) values ('worker.heartbeat', cast(:v as jsonb)) "
+                    "on conflict (key) do update set value = cast(:v as jsonb)"
+                ),
+                {"v": value},
+            )
+            await session.commit()
+        response = await client.get("/api/system/stats")
+        assert response.status_code == 200
+        return response.json()["worker"]["status"]
+
+    assert await status_for(timedelta(minutes=10)) == "healthy"
+    assert await status_for(timedelta(minutes=20)) == "stale"
+
+
+async def test_idle_source_queue_consume_writes_nothing():
+    """Bos kuyrukta drain hicbir sey yazmamali -- ne kalp atisi ne satir.
+
+    Kalp atisi yalnizca aktif bir batch'in sahipligini korumak icin okunur
+    (bkz. `drain_is_alive`). Eskiden bos kuyrukta da dakikada bir
+    UPDATE+COMMIT yaziliyordu.
+    """
+    from app.worker.jobs import DRAIN_HEARTBEAT_KEY, consume_source_sync_batches
+
+    assert await consume_source_sync_batches() == 0
+
+    async with SessionLocal() as session:
+        drain = (
+            await session.execute(
+                text("select count(*) from setting where key = :key"),
+                {"key": DRAIN_HEARTBEAT_KEY},
+            )
+        ).scalar_one()
+        runs = (await session.execute(text("select count(*) from source_run"))).scalar_one()
+        batches = (
+            await session.execute(text("select count(*) from source_sync_batch"))
+        ).scalar_one()
+
+    assert (drain, runs, batches) == (0, 0, 0)
+
+
+async def test_active_source_queue_consume_stamps_drain_heartbeat():
+    """Batch AKTIFKEN kalp atisi yazilir: devralma karari buna bakar.
+
+    Bir kaynak bitmis, digeri hala calisiyor: alinacak is yok ama sahiplik
+    korunmali -- aksi halde her okuma yeni bir drain baslatirdi.
+    """
+    from app.worker.jobs import DRAIN_HEARTBEAT_KEY, consume_source_sync_batches
+
+    batch_id = str(uuid.uuid4())
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                """insert into source_sync_batch
+                (id, status, source_ids, total_sources, started_at)
+                values (cast(:id as uuid), 'running', cast(:sources as jsonb), 2, now())"""
+            ),
+            {"id": batch_id, "sources": '["alpha", "beta"]'},
+        )
+        for source, status in (("alpha", "ok"), ("beta", "running")):
+            await connection.execute(
+                text(
+                    """insert into source_run (source, status, batch_id, started_at)
+                    values (:source, :status, cast(:id as uuid), now())"""
+                ),
+                {"source": source, "status": status, "id": batch_id},
+            )
+
+    assert await consume_source_sync_batches() == 0
+
+    async with SessionLocal() as session:
+        owner = (
+            await session.execute(
+                text("select value->>'batch_id' from setting where key = :key"),
+                {"key": DRAIN_HEARTBEAT_KEY},
+            )
+        ).scalar_one_or_none()
+        batch_status = (
+            await session.execute(
+                text("select status from source_sync_batch where id = cast(:id as uuid)"),
+                {"id": batch_id},
+            )
+        ).scalar_one()
+
+    assert owner == batch_id, "aktif batch varken drain kalp atisi yazilmali"
+    assert batch_status == "running"
 
 
 async def test_manual_refresh_status_defaults_to_idle(client: AsyncClient):

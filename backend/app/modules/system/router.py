@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from contextlib import suppress
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any, Literal
 
 import httpx
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
 from app.core.events import log_event
+from app.core.heartbeat import WORKER_HEARTBEAT_KEY, heartbeat_is_fresh
 from app.core.models import SavedView
 from app.core.schemas import SavedViewCreate, SavedViewOut, SavedViewPatch
 from app.db import get_session
@@ -203,7 +204,7 @@ async def system_stats(session: AsyncSession = Depends(get_session)):
     with suppress(OSError), open("/proc/uptime") as handle:
         uptime_s = float(handle.read().split()[0])
 
-    heartbeat = await session.get(Setting, "worker.heartbeat")
+    heartbeat = await session.get(Setting, WORKER_HEARTBEAT_KEY)
     heartbeat_at = None
     if heartbeat and isinstance(heartbeat.value, dict):
         heartbeat_at = heartbeat.value.get("at")
@@ -211,8 +212,7 @@ async def system_stats(session: AsyncSession = Depends(get_session)):
     if app_settings.worker_enabled and isinstance(heartbeat_at, str):
         try:
             observed = datetime.fromisoformat(heartbeat_at)
-            fresh = observed >= datetime.now(UTC) - timedelta(minutes=3)
-            worker_status = "healthy" if fresh else "stale"
+            worker_status = "healthy" if heartbeat_is_fresh(observed) else "stale"
         except ValueError:
             worker_status = "unknown"
 

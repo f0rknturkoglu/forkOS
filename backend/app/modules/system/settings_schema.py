@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from app.core.heartbeat import WORKER_HEARTBEAT_KEY
 from app.modules.system.news import DEFAULT_SUBREDDITS
 
 DEFAULTS: dict[str, Any] = {
@@ -45,7 +46,7 @@ DEFAULTS: dict[str, Any] = {
 #: bunlara dokunmaz; silinirlerse worker sagligi ve elle senkron gecmisi kaybolur.
 RUNTIME_SETTING_KEYS: frozenset[str] = frozenset({
     "rss.starter_feeds.v1",
-    "worker.heartbeat",
+    WORKER_HEARTBEAT_KEY,
     "system.manual_refresh",
 })
 

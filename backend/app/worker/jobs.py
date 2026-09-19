@@ -15,6 +15,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from app.core import source_sync
+from app.core.heartbeat import WORKER_HEARTBEAT_KEY
 from app.db import SessionLocal
 from app.modules.calendar.service import sync_google
 from app.modules.media.sync import poll_media_source, poll_media_sources
@@ -37,10 +38,10 @@ CONCURRENCY = 4
 
 async def record_worker_heartbeat() -> None:
     async with SessionLocal() as session:
-        heartbeat = await session.get(Setting, "worker.heartbeat")
+        heartbeat = await session.get(Setting, WORKER_HEARTBEAT_KEY)
         value = {"at": datetime.now(UTC).isoformat()}
         if heartbeat is None:
-            session.add(Setting(key="worker.heartbeat", value=value))
+            session.add(Setting(key=WORKER_HEARTBEAT_KEY, value=value))
         else:
             heartbeat.value = value
         await session.commit()
@@ -238,8 +239,14 @@ async def _consume_source_sync_batch(*, limit: int = CONCURRENCY) -> tuple[int, 
         # yeniden sahiplenilebilir hale gelir.
         await reclaim_stale_source_runs(session)
         batch, pending = await source_sync.claim_pending_sources(session, limit=limit)
-        await touch_drain_heartbeat(session, batch_id=batch.id if batch else None)
-        await session.commit()
+        if batch is not None:
+            # Kalp atisi YALNIZ aktif bir batch varken yazilir: tek islevi
+            # "bu kuyrugun sahibi hala yasiyor" sorusunu yanitlamak
+            # (bkz. drain_is_alive) ve o soru yalniz aktif batch varken
+            # sorulur. Kuyruk bosken her dakika kosulsuz UPDATE+COMMIT
+            # yaziliyordu -- idle worker artik hic yazmiyor.
+            await touch_drain_heartbeat(session, batch_id=batch.id)
+            await session.commit()
 
     if batch is None or not pending:
         return 0, 0
