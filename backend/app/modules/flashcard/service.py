@@ -10,9 +10,11 @@ Zamanlama (grade: 0=Again, 1=Hard, 2=Good, 3=Easy):
 from __future__ import annotations
 
 import csv
+import html
 import io
 import json
 import os
+import re
 import sqlite3
 import tempfile
 import uuid
@@ -394,17 +396,117 @@ async def review_card(session: AsyncSession, card_id, grade: int) -> dict | None
 # ---------------------------------------------------------------------------
 
 
-def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]:
-    """Anki paketinden kartlari cikarir; media dosyalari atlanir (metin yeterli).
+def _clean_html(text: str) -> str:
+    """Anki HTML bicimlendirmesini temizler, Markdown'a donusturur."""
+    if not text:
+        return ""
+    # script ve style etiketlerini icerikleriyle temizle
+    text = re.sub(r"<(script|style)[^>]*>.*?</\1>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    # <br> ve blok etiketlerini satir sonuna cevir
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</?(div|p|h[1-6]|li|tr)[^>]*>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<hr[^>]*>", "\n---\n", text, flags=re.IGNORECASE)
+    # Kalin ve italik etiketlerini Markdown'a cevir
+    text = re.sub(r"<(b|strong)>(.*?)</\1>", r"**\2**", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<(i|em)>(.*?)</\1>", r"*\2*", text, flags=re.DOTALL | re.IGNORECASE)
+    # Kalan tum HTML etiketlerini kaldir
+    text = re.sub(r"<[^>]+>", "", text)
+    # HTML entity'lerini coz (&nbsp;, &amp; vs.)
+    text = html.unescape(text)
+    text = text.replace("\xa0", " ")
+    # Fazla bosluk ve bos satirlari normallestir
+    lines = [line.strip() for line in text.splitlines()]
+    result: list[str] = []
+    prev_empty = False
+    for line in lines:
+        if not line:
+            if not prev_empty:
+                result.append("")
+                prev_empty = True
+        else:
+            result.append(line)
+            prev_empty = False
+    return "\n".join(result).strip()
 
-    'Basic' tip varsayilir: her notun flds JSON'unun ilk iki alani front/back.
+
+def _render_anki_template(
+    tmpl_str: str, field_dict: dict[str, str], is_back: bool = False, cloze_ord: int = 0
+) -> str:
+    """Anki soru (qfmt) ve cevap (afmt) sablonlarini doldurur."""
+    if not tmpl_str:
+        return ""
+    s = tmpl_str
+    if is_back:
+        # Anki arka yuzunde {{FrontSide}} ve ayirici <hr id=answer> bulunur;
+        # forkOS 3B cevrilen kart kullandigi icin arka yuzde on yuzu tekrarlamiyoruz.
+        s = re.sub(r"\{\{FrontSide\}\}", "", s, flags=re.IGNORECASE)
+        s = re.sub(r"<hr\s+id=[\'\"]?answer[\'\"]?\s*/?>", "", s, flags=re.IGNORECASE)
+
+    # Kosullu alanlar: {{#Alan}}...{{/Alan}}
+    def repl_pos(m: re.Match) -> str:
+        f = m.group(1).strip()
+        body = m.group(2)
+        return body if field_dict.get(f, "").strip() else ""
+
+    s = re.sub(r"\{\{#([^}]+)\}\}(.*?)\{\{/\1\}\}", repl_pos, s, flags=re.DOTALL)
+
+    # Ters kosullu alanlar: {{^Alan}}...{{/Alan}}
+    def repl_neg(m: re.Match) -> str:
+        f = m.group(1).strip()
+        body = m.group(2)
+        return "" if field_dict.get(f, "").strip() else body
+
+    s = re.sub(r"\{\{\^([^}]+)\}\}(.*?)\{\{/\1\}\}", repl_neg, s, flags=re.DOTALL)
+
+    # Cloze etiketleri: {{cloze:Alan}}
+    def repl_cloze(m: re.Match) -> str:
+        f = m.group(1).strip()
+        val = field_dict.get(f, "")
+        target_c = cloze_ord + 1
+
+        def cloze_sub(cm: re.Match) -> str:
+            c_num = int(cm.group(1))
+            c_text = cm.group(2)
+            c_hint = cm.group(3)
+            if not is_back:
+                if c_num == target_c:
+                    return f"[{c_hint}]" if c_hint else "[...]"
+                return c_text
+            return f"**{c_text}**" if c_num == target_c else c_text
+
+        return re.sub(r"\{\{c(\d+)::(.*?)(?:::([^}]*))?\}\}", cloze_sub, val)
+
+    s = re.sub(r"\{\{cloze:([^}]+)\}\}", repl_cloze, s, flags=re.IGNORECASE)
+
+    # Standart ve filtreli alanlar: {{Alan}} veya {{filtre:Alan}}
+    def repl_field(m: re.Match) -> str:
+        inner = m.group(1).strip()
+        if ":" in inner:
+            inner = inner.split(":", 1)[1].strip()
+        return field_dict.get(inner, "")
+
+    s = re.sub(r"\{\{([^}]+)\}\}", repl_field, s)
+    return _clean_html(s)
+
+
+def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]:
+    """Anki paketinden (.apkg) kartlari cikarir; media dosyalari atlanir.
+
+    Standart Anki 2.0/2.1 (col tablosundaki JSON decks ve models) ile
+    testlerdeki duz decks/notes tablolarini destekler.
     Donen: (koleksiyon destek adi, [(front, back)], atlanan satir sayisi).
     """
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
-            if "collection.anki2" not in archive.namelist():
+            names = archive.namelist()
+            db_name = None
+            for candidate in ("collection.anki2", "collection.anki21"):
+                if candidate in names:
+                    db_name = candidate
+                    break
+            if not db_name:
                 raise ValueError("collection.anki2 bulunamadi (gecerli bir .apkg degil)")
-            raw = archive.read("collection.anki2")
+            raw = archive.read(db_name)
     except zipfile.BadZipFile as exc:
         raise ValueError("Gecersiz .apkg dosyasi") from exc
 
@@ -414,9 +516,68 @@ def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]
             handle.write(raw)
         connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         try:
-            deck_names = dict(connection.execute("select id, name from decks").fetchall())
-            notes = dict(connection.execute("select id, flds from notes").fetchall())
-            rows = connection.execute("select nid, did from cards").fetchall()
+            deck_names: dict[int, str] = {}
+            models: dict[str, dict] = {}
+
+            # 1. Anki 2.0 / 2.1 standart col tablosu kontrolu
+            has_col = (
+                connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='col'"
+                ).fetchone()
+                is not None
+            )
+            if has_col:
+                col_row = connection.execute("SELECT decks, models FROM col").fetchone()
+                if col_row:
+                    if col_row[0]:
+                        try:
+                            decks_data = json.loads(col_row[0])
+                            for k, v in decks_data.items():
+                                try:
+                                    deck_names[int(k)] = v.get("name", "")
+                                except (ValueError, TypeError):
+                                    pass
+                        except Exception:
+                            pass
+                    if col_row[1]:
+                        try:
+                            models = json.loads(col_row[1])
+                        except Exception:
+                            pass
+
+            # 2. Sentetik test / eski schema fallback (decks tablosu)
+            if not deck_names:
+                has_decks = (
+                    connection.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='decks'"
+                    ).fetchone()
+                    is not None
+                )
+                if has_decks:
+                    deck_names = dict(connection.execute("SELECT id, name FROM decks").fetchall())
+
+            # 3. notes tablosu: mid var mi yok mu?
+            notes_cols = [c[1] for c in connection.execute("PRAGMA table_info(notes)").fetchall()]
+            if "mid" in notes_cols:
+                notes_rows = connection.execute("SELECT id, mid, flds FROM notes").fetchall()
+                notes = {r[0]: {"mid": str(r[1]), "flds": r[2]} for r in notes_rows}
+            else:
+                notes_rows = connection.execute("SELECT id, flds FROM notes").fetchall()
+                notes = {r[0]: {"mid": None, "flds": r[1]} for r in notes_rows}
+
+            # 4. cards tablosu: ord var mi yok mu?
+            cards_cols = [c[1] for c in connection.execute("PRAGMA table_info(cards)").fetchall()]
+            if "ord" in cards_cols:
+                card_rows = connection.execute(
+                    "SELECT id, nid, did, ord FROM cards ORDER BY id"
+                ).fetchall()
+            else:
+                card_rows = [
+                    (r[0], r[1], r[2], 0)
+                    for r in connection.execute("SELECT id, nid, did FROM cards ORDER BY id").fetchall()
+                ]
+        except sqlite3.Error as exc:
+            raise ValueError(f"Gecersiz ya da okunamayan Anki veritabani: {exc}") from exc
         finally:
             connection.close()
     finally:
@@ -424,28 +585,95 @@ def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]
 
     deck_name: str | None = None
     cards: list[tuple[str, str]] = []
-    seen: set[int] = set()
+    seen_cards: set[tuple[str, str]] = set()
     skipped = 0
-    for nid, did in rows:
-        if nid in seen:
+
+    for cid, nid, did, cord in card_rows:
+        ndata = notes.get(nid)
+        if not ndata:
+            skipped += 1
             continue
-        seen.add(nid)
+
         if deck_name is None and did in deck_names:
-            deck_name = deck_names[did]
-        try:
-            fields = json.loads(notes.get(nid) or "")
-        except (ValueError, TypeError):
-            skipped += 1
-            continue
-        if not isinstance(fields, list) or len(fields) < 2:
-            skipped += 1
-            continue
-        front = str(fields[0]).strip()
-        back = str(fields[1]).strip()
+            name_candidate = deck_names[did].strip()
+            if name_candidate and (name_candidate.casefold() != "default" or len(deck_names) == 1):
+                deck_name = name_candidate
+
+        raw_flds = ndata.get("flds") or ""
+        field_values: list[str] = []
+
+        # JSON array kontrolu (sentetik test formati)
+        if raw_flds.startswith("[") and raw_flds.endswith("]"):
+            try:
+                parsed = json.loads(raw_flds)
+                if isinstance(parsed, list):
+                    field_values = [str(x) for x in parsed]
+            except Exception:
+                pass
+
+        if not field_values:
+            field_values = raw_flds.split("\x1f")
+
+        mid = ndata.get("mid")
+        minfo = models.get(mid) if mid else None
+        front = ""
+        back = ""
+
+        if minfo:
+            fnames = [f.get("name", "") for f in minfo.get("flds", [])]
+            fdict = dict(zip(fnames, field_values))
+            tmpls = minfo.get("tmpls", [])
+            tmpl = tmpls[cord] if cord < len(tmpls) else (tmpls[0] if tmpls else None)
+            if tmpl:
+                front = _render_anki_template(
+                    tmpl.get("qfmt", ""), fdict, is_back=False, cloze_ord=cord
+                )
+                back = _render_anki_template(
+                    tmpl.get("afmt", ""), fdict, is_back=True, cloze_ord=cord
+                )
+
+        if not front or not back:
+            if minfo:
+                fnames = [f.get("name", "") for f in minfo.get("flds", [])]
+                fdict = dict(zip(fnames, field_values))
+            else:
+                fdict = {}
+
+            def pick_field(candidates: tuple[str, ...], default_idx: int) -> str:
+                for k, v in fdict.items():
+                    if k.casefold() in candidates and v.strip():
+                        return v
+                if len(field_values) > default_idx:
+                    return field_values[default_idx]
+                return ""
+
+            if not front:
+                front = _clean_html(
+                    pick_field(("front", "question", "soru", "word", "term", "text"), 0)
+                )
+            if not back:
+                back = _clean_html(
+                    pick_field(("back", "answer", "cevap", "meaning", "definition", "translation"), 1)
+                )
+
         if not front or not back:
             skipped += 1
             continue
-        cards.append((front, back))
+
+        pair = (front, back)
+        if pair in seen_cards:
+            continue
+        seen_cards.add(pair)
+        cards.append(pair)
+
+    if not deck_name and deck_names:
+        for dname in deck_names.values():
+            if dname.strip() and dname.strip().casefold() != "default":
+                deck_name = dname.strip()
+                break
+        if not deck_name:
+            deck_name = next(iter(deck_names.values()), None)
+
     return deck_name, cards, skipped
 
 

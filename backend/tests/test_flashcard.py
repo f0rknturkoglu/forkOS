@@ -90,6 +90,57 @@ def build_apkg(cards: list[tuple[str, str]], deck_name: str = "Almanca") -> byte
     return buffer.getvalue()
 
 
+def build_real_anki_apkg(
+    cards: list[tuple[str, str]],
+    deck_name: str = "Oxford 5000",
+    *,
+    qfmt: str = "<b>{{Front}}</b>",
+    afmt: str = "{{FrontSide}}<hr id=answer><i>{{Back}}</i>",
+) -> bytes:
+    """Gercek Anki 2.0/2.1 semasina sahip paket (col tablosu, JSON decks/models, \x1f ayracli flds)."""
+    with tempfile.TemporaryDirectory() as directory:
+        db_path = os.path.join(directory, "collection.anki2")
+        con = sqlite3.connect(db_path)
+        con.executescript(
+            "create table col (id integer primary key, crt integer, mod integer, scm integer, ver integer, dty integer, usn integer, ls integer, conf text, models text, decks text, dconf text, tags text);"
+            "create table notes (id integer primary key, guid text, mid integer, mod integer, usn integer, tags text, flds text, sfld text, csum integer, flags integer, data text);"
+            "create table cards (id integer primary key, nid integer, did integer, ord integer, mod integer, usn integer, type integer, queue integer, due integer, ivl integer, factor integer, reps integer, lapses integer, left integer, odue integer, odid integer, flags integer, data text);"
+        )
+        decks = {
+            "1": {"id": 1, "name": "Default"},
+            "1636867553462": {"id": 1636867553462, "name": deck_name},
+        }
+        models = {
+            "100": {
+                "id": 100,
+                "name": "TestModel",
+                "flds": [{"name": "Front", "ord": 0}, {"name": "Back", "ord": 1}],
+                "tmpls": [{"name": "Card 1", "ord": 0, "qfmt": qfmt, "afmt": afmt}],
+            }
+        }
+        con.execute(
+            "insert into col (id, decks, models) values (1, ?, ?)",
+            (json.dumps(decks), json.dumps(models)),
+        )
+        for index, (front, back) in enumerate(cards):
+            con.execute(
+                "insert into notes (id, mid, flds) values (?, 100, ?)",
+                (100 + index, f"{front}\x1f{back}"),
+            )
+            con.execute(
+                "insert into cards (id, nid, did, ord) values (?, ?, 1636867553462, 0)",
+                (1000 + index, 100 + index),
+            )
+        con.commit()
+        con.close()
+        with open(db_path, "rb") as handle:
+            raw = handle.read()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("collection.anki2", raw)
+    return buffer.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Deck / kart CRUD
 # ---------------------------------------------------------------------------
@@ -347,6 +398,57 @@ async def test_import_apkg(client: AsyncClient) -> None:
     )
     assert overridden.json()["deck_title"] == "Dil"
     assert overridden.json()["deck_id"] != data["deck_id"]
+
+
+async def test_import_real_anki_apkg(client: AsyncClient) -> None:
+    """Gercek Anki paketleri (col.decks JSON, notes \x1f ayraci, HTML sablonlar) basariyla aktarilir."""
+    payload = build_real_anki_apkg(
+        [("abandon", "terk etmek"), ("ability", "yetenek")],
+        deck_name="Oxford 5000",
+    )
+    response = await client.post(
+        "/api/flashcard/import",
+        files={"file": ("Oxford.apkg", payload, "application/octet-stream")},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["added"] == 2
+    assert data["skipped"] == 0
+    assert data["deck_title"] == "Oxford 5000"
+
+    cards = (await client.get(f"/api/flashcard/decks/{data['deck_id']}/cards")).json()
+    # HTML etiketleri Markdown'a cevrilmis olmali
+    assert {card["front"] for card in cards} == {"**abandon**", "**ability**"}
+    assert {card["back"] for card in cards} == {"*terk etmek*", "*yetenek*"}
+
+
+async def test_import_apkg_template_rendering_and_html_cleaning(client: AsyncClient) -> None:
+    """HTML etiketleri temizlenir, kosullu sablonlar ve cloze dogru render edilir."""
+    payload = build_real_anki_apkg(
+        [
+            (
+                "<div><b>Hello</b> <script>alert(1)</script>world</div>",
+                "<p>Merhaba <i>dunya</i></p><br><hr id=answer>Ekstra",
+            )
+        ],
+        deck_name="HTML Deste",
+        qfmt="<div style='color: red;'>{{Front}}</div>",
+        afmt="{{FrontSide}}<hr id=answer><div style='font-size: 16px;'>{{Back}}</div>",
+    )
+    response = await client.post(
+        "/api/flashcard/import",
+        files={"file": ("html.apkg", payload, "application/octet-stream")},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["added"] == 1
+    cards = (await client.get(f"/api/flashcard/decks/{data['deck_id']}/cards")).json()
+    card = cards[0]
+    assert "<script>" not in card["front"]
+    assert "<div" not in card["front"]
+    assert "**Hello** world" in card["front"]
+    assert "Merhaba *dunya*" in card["back"]
+    assert "{{FrontSide}}" not in card["back"]
 
 
 async def test_import_invalid_apkg_400(client: AsyncClient) -> None:
