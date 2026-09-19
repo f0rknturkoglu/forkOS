@@ -749,6 +749,8 @@ export interface BackupStatus {
   last_drive_upload: { file: string; at: string } | null;
   last_drive_error: { message: string; at: string } | null;
   next_backup_scheduled: string;
+  /* Anlamli veri degismediyse zamanlanmis yedek atlanir; arayuz bunu aciklar. */
+  changes_since_backup: boolean;
   retention_days: number;
   backup_dir: string;
   includes: string[];

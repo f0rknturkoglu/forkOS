@@ -35,6 +35,7 @@ describe("ServiceHealthWidget (Faz 26)", () => {
       drive_folder_id: null,
       last_drive_upload: null,
       last_drive_error: null,
+      changes_since_backup: true,
     };
   });
 
@@ -51,14 +52,30 @@ describe("ServiceHealthWidget (Faz 26)", () => {
     expect(markup).toContain("durdu — arka plan işleri çalışmıyor");
   });
 
-  it("48 saatten eski yedek uyarir", () => {
+  it("48 saatten eski yedek + bekleyen degisiklik uyarir", () => {
     harness.backup = {
       last_backup: { at: new Date(Date.now() - 72 * 3_600_000).toISOString() },
       drive_folder_id: null,
       last_drive_upload: null,
       last_drive_error: null,
+      changes_since_backup: true,
     };
     const markup = renderToStaticMarkup(<ServiceHealthWidget />);
     expect(markup).toContain("eski");
+  });
+
+  it("eski ama degisiklik yoksa yedek UYARMAZ", () => {
+    // Zamanlanmis yedek anlamli degisiklik yoksa bilerek atlanir; eski tarih
+    // tek basina sorun degildir.
+    harness.backup = {
+      last_backup: { at: new Date(Date.now() - 72 * 3_600_000).toISOString() },
+      drive_folder_id: null,
+      last_drive_upload: null,
+      last_drive_error: null,
+      changes_since_backup: false,
+    };
+    const markup = renderToStaticMarkup(<ServiceHealthWidget />);
+    expect(markup).toContain("değişiklik yok");
+    expect(markup).not.toContain("eski —");
   });
 });

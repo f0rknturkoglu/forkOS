@@ -223,6 +223,23 @@ Kapsam dışı bırakılanlar:
 Eski yedekler geriye dönük uyumludur: payload'da bulunan ama artık kapsam
 dışı olan tablolar restore sırasında sessizce atlanır.
 
+### Zamanlanmış yedek ne zaman atlanır
+
+Gece yedeği **anlamlı veri değişmediyse atlanır**: aynı veriyi her gece yeniden
+yazmanın anlamı yok. Değişiklik sinyali `event` geçmişinden türetilir
+(`backend/app/modules/system/dirty.py`) — uygulamada anlamlı her mutasyon zaten
+olay yazar. Şunlar "değişiklik" **sayılmaz**:
+
+- worker kalp atışı ve diğer makine durumu,
+- kaynak koşuları / kaynak kuyruğu ilerlemesi,
+- kaynak sağlığı bildirimleri,
+- cache bakımı (RSS budama, görsel önbelleği temizliği).
+
+Ayar değişiklikleri, not/görev/proje/medya/finans/fırsat düzenlemeleri ve
+bunun gibi tüm kullanıcı aksiyonları bir sonraki turda yedeği **tetikler**.
+
+Elle **"Backup now"** bu kapıyı kullanmaz; her zaman yedek üretir.
+
 Veri klasörleri, kişisel ayarlar, OAuth token'ları ve üretilmiş cache dosyaları Git'e alınmaz.
 
 ## Saklama ve bakım

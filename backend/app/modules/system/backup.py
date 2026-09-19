@@ -13,6 +13,7 @@ from app.core.events import log_event
 from app.core.notifications import notify
 from app.core.time import local_today
 from app.integrations.google_auth import access_token
+from app.modules.system import dirty
 from app.modules.system.export import backup_table_names, full_json
 from app.modules.system.models import Setting
 
@@ -53,6 +54,10 @@ async def create_backup(session: AsyncSession) -> Path:
     # Yedek gunu backend ortak zaman servisinden (Faz 14) -- sabit tz yok.
     local_day = local_today().isoformat()
     target = BACKUP_DIR / f"lifeos-{local_day}.json.gz"
+    # Revizyon ANLIK goruntuden ONCE okunur: yedek alinirken olusan bir
+    # degisiklik yedekte vardir ama revizyonda yoktur -> bir sonraki kontrol
+    # "degisti" der ve fazladan yedek alinir (guvenli yon).
+    revision = await dirty.revision(session)
     payload = await full_json(session)
     with gzip.open(target, "wt", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False)
@@ -89,6 +94,9 @@ async def create_backup(session: AsyncSession) -> Path:
             await log_event(session, verb=VERB_DRIVE_OK,
                             payload={"file": target.name, "folder_id": str(folder.value)})
 
+    # "Anlamli veri" imleci yedekle birlikte ilerler; zamanlanmis yedek bir
+    # sonraki turda buna bakip ATLAYABILIR (bkz. backup_if_stale).
+    await dirty.record_revision(session, revision)
     await session.commit()
     return target
 
@@ -119,13 +127,19 @@ async def upload_drive(session: AsyncSession, path: Path, folder_id: str) -> str
 
 
 async def backup_status(session: AsyncSession) -> dict:
-    """Durum sayfasi/widjet icin tek kaynak -- son yedek, Drive yukleme gecmisi."""
+    """Durum sayfasi/widjet icin tek kaynak -- son yedek, Drive yukleme gecmisi.
+
+    `changes_since_backup` arayuze NEDEN yeni yedek gorunmedigini anlatir:
+    zamanlanmis yedek, anlamli degisiklik yoksa bilincli olarak atlanir.
+    """
     verbs = [VERB_CREATED, VERB_DRIVE_OK, VERB_DRIVE_FAIL]
     events = await event_svc.recent_events(session, limit=12, verbs=verbs)
     last_created = next((e for e in events if e.verb == VERB_CREATED), None)
     last_ok = next((e for e in events if e.verb == VERB_DRIVE_OK), None)
     last_fail = next((e for e in events if e.verb == VERB_DRIVE_FAIL), None)
     folder = await session.get(Setting, FOLDER_SETTING)
+    stored = await dirty.stored_revision(session)
+    changes = True if stored is None else await dirty.has_changes_since_last_backup(session)
 
     return {
         "drive_folder_id": folder.value if folder and folder.value else None,
@@ -144,6 +158,7 @@ async def backup_status(session: AsyncSession) -> dict:
             "at": last_fail.occurred_at,
         } if last_fail else None,
         "next_backup_scheduled": SCHEDULED_AT,
+        "changes_since_backup": changes,
         "retention_days": RETENTION_DAYS,
         "backup_dir": str(BACKUP_DIR),
         "includes": backup_table_names(),
@@ -151,9 +166,19 @@ async def backup_status(session: AsyncSession) -> dict:
 
 
 async def backup_if_stale(session: AsyncSession) -> Path | None:
+    """Zamanlanmis yedek: tazeyse ya da anlamli degisiklik yoksa ATLA.
+
+    Iki kapi vardir:
+      1. Son yedek 24 saatten yeni (mevcut davranis).
+      2. Son yedekten bu yana anlamli veri DEGISMEDI. Kullanici forkOS'u bir
+         sure kullanmadiysa her gece ayni veriyi yeniden yazmanin anlami yok.
+    Elle "Backup now" bu fonksiyonu KULLANMAZ; her zaman yedek uretir.
+    """
     newest = max(BACKUP_DIR.glob("lifeos-*.json.gz"), key=lambda p: p.stat().st_mtime, default=None)
     if newest and datetime.fromtimestamp(newest.stat().st_mtime, UTC) > datetime.now(
         UTC
     ) - timedelta(hours=24):
+        return None
+    if not await dirty.has_changes_since_last_backup(session):
         return None
     return await create_backup(session)

@@ -91,6 +91,10 @@ async def put_setting(key: str, body: SettingIn, session: AsyncSession = Depends
         session.add(item)
     else:
         item.value = body.value
+    # Kural 3: anlamli aksiyon -> event. Ayrica yedegin "degisti mi?" sinyali
+    # event gecmisinden turedigi icin bu kayit olmadan ayar degisiklikleri
+    # yedegi tetiklemezdi.
+    await log_event(session, verb="settings.updated", payload={"key": key})
     await session.commit()
     return {"key": key, "value": body.value}
 

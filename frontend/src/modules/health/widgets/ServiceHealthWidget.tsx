@@ -24,7 +24,11 @@ export function ServiceHealthWidget() {
 
   const workerHealthy = stats?.worker.status === "healthy";
   const lastBackupAt = backup?.last_backup?.at ? new Date(backup.last_backup.at).getTime() : null;
-  const backupStale = lastBackupAt !== null && Date.now() - lastBackupAt > STALE_BACKUP_HOURS * 3_600_000;
+  // Anlamli veri degismediyse zamanlanmis yedek BILEREK atlanir: eski tarih
+  // tek basina sorun degildir, yalnizca bekleyen degisiklik varsa uyarir.
+  const changesPending = backup?.changes_since_backup ?? false;
+  const backupStale =
+    lastBackupAt !== null && changesPending && Date.now() - lastBackupAt > STALE_BACKUP_HOURS * 3_600_000;
 
   if (!stats && !backup) return <Empty>Servis durumu yükleniyor…</Empty>;
 
@@ -56,7 +60,7 @@ export function ServiceHealthWidget() {
           {backupStale ? (
             <Chip tone="warn">eski — {STALE_BACKUP_HOURS} saatten uzun süredir yok</Chip>
           ) : lastBackupAt !== null ? (
-            <Chip tone="ok">güncel</Chip>
+            <Chip tone="ok">{changesPending ? "güncel" : "güncel · değişiklik yok"}</Chip>
           ) : (
             <Chip tone="warn">henüz yok</Chip>
           )}

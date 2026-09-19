@@ -14,6 +14,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.core.heartbeat import WORKER_HEARTBEAT_KEY
+from app.modules.system.dirty import REVISION_KEY as BACKUP_REVISION_KEY
 from app.modules.system.maintenance import MAINTENANCE_KEY as MAINTENANCE_SETTING_KEY
 from app.modules.system.news import DEFAULT_SUBREDDITS
 
@@ -50,6 +51,7 @@ RUNTIME_SETTING_KEYS: frozenset[str] = frozenset({
     WORKER_HEARTBEAT_KEY,
     "system.manual_refresh",
     MAINTENANCE_SETTING_KEY,
+    BACKUP_REVISION_KEY,
 })
 
 

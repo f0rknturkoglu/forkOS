@@ -144,7 +144,17 @@ export function BackupHealthWidget() {
       <p className={cx("border-t border-subtle pt-3 text-meta text-muted")}>
         Gece <strong className="font-medium text-secondary">{data?.next_backup_scheduled ?? "03:00"}</strong>'te
         otomatik yedek · <strong className="font-medium text-secondary">{data?.retention_days ?? 14}</strong> gün
-        saklanır · makine taşıma (macOS → Windows) için tek dosyanı Drive'dan alıp yeni makinede restore edersin.
+        saklanır ·{" "}
+        {data?.changes_since_backup === false ? (
+          <>
+            son yedekten beri değişiklik yok, bu tur <strong className="font-medium text-secondary">atlanacak</strong>
+          </>
+        ) : (
+          <>
+            anlamlı bir değişiklik yoksa o tur <strong className="font-medium text-secondary">atlanır</strong>
+          </>
+        )}{" "}
+        · makine taşıma (macOS → Windows) için tek dosyanı Drive'dan alıp yeni makinede restore edersin.
       </p>
     </Section>
   );
