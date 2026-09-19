@@ -210,6 +210,31 @@ npm run api:generate
 
 Veri klasörleri, kişisel ayarlar, OAuth token'ları ve üretilmiş cache dosyaları Git'e alınmaz.
 
+## Saklama ve bakım
+
+forkOS yalnızca **yeniden üretilebilir operasyonel** kayıtları budar. Kişisel
+verin (not, görev, proje, fırsat, medya, finans, belge, etiket, bağlantı,
+anlamlı `event` kayıtları) hiçbir saklama kuralına tabi değildir.
+
+| Veri | Saklama |
+| --- | --- |
+| `source_run` — sorunsuz koşular (`ok`/`empty`) | 30 gün |
+| `source_run` — sorunlu koşular (`partial`/`error`/`abandoned`) | 90 gün |
+| `source_run` — kaynak başına **son 20 koşu** | her durumda kalır |
+| `source_sync_batch` — terminal batch'ler | 60 gün |
+| `source_sync_batch` — aktif batch'ler | **asla silinmez** |
+| `notification` — okunmuş/kapatılmış | 90 gün |
+| `notification` — okunmuş/kapatılmış ve `importance >= 3` | 180 gün |
+| `notification` — okunmamış ve kapatılmamış | **asla silinmez** |
+| `event` | **asla budanmaz** (kişisel aktivite hafızası) |
+
+Kaynak sağlığı kararları (devre kesici, sessiz ölüm alarmı, kapsam küçülmesi
+tespiti) bu geçmişten türetildiği için "son 20 koşu" kuralı eşiklerden
+bağımsızdır. Ayrıntılı politika: `backend/app/core/retention.py`.
+
+Budama, hafif bakım mekanizmasıyla günde en fazla bir kez çalışır ve hiçbir
+ağ çağrısı yapmaz. Worker kapalıyken de çalışır.
+
 ## Dizin yapısı
 
 ```text
