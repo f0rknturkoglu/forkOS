@@ -1,4 +1,5 @@
 import "@/modules"; // registry yi doldurur -- ILK import olmali
+import { useSourceHealth } from "@/core/runtimeQueries";
 import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, WifiOff, X } from "lucide-react";
@@ -79,11 +80,9 @@ function Banner({
 /** Kural 6: sessiz olum kabul edilemez -- kirik kaynak her ekranda gorunur. */
 function SourceAlert() {
   const [dismissed, setDismissed] = useState(false);
-  const { data = [] } = useQuery({
-    queryKey: ["sources", "health"],
-    queryFn: () => api.get<SourceHealth[]>("/sources/health"),
-    refetchInterval: 5 * 60_000,
-  });
+  // Kaynak sagligi kabukta TEK anahtarla tutulur (bkz. core/runtimeQueries):
+  // ayri anahtar ayni ucu ikinci kez yoklardi.
+  const { data = [] } = useSourceHealth();
   const broken = data.filter((s) => s.status === "error");
   if (broken.length === 0 || dismissed) return null;
   const names = broken

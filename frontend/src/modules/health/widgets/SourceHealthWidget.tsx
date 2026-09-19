@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useSourceHealth } from "@/core/runtimeQueries";
 import { AlertTriangle } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast } from "@/core/ui";
@@ -8,11 +9,8 @@ import { sourceLabel } from "@/core/labels";
 
 /** Tum scraper/feed kaynaklarinin son kosum durumu (RSS dahil -- source_run). */
 export function SourceHealthWidget() {
-  const { data = [] } = useQuery({
-    queryKey: ["sources", "health", "all"],
-    queryFn: () => api.get<SourceHealth[]>("/sources/health?limit=2000"),
-    refetchInterval: 60_000,
-  });
+  // Kabuktaki paylasilan saglik sorgusu (bkz. core/runtimeQueries).
+  const { data = [] } = useSourceHealth();
 
   const tally = { ok: 0, empty: 0, error: 0 };
   for (const run of data) {

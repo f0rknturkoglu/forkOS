@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { SOURCE_SYNC_ACTIVE_MS, SOURCE_SYNC_IDLE_MS } from "@/core/SyncProgress";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Check, Loader2, RefreshCw, Search } from "lucide-react";
@@ -76,7 +77,7 @@ export function SourceHealthPage() {
   const { data: sync } = useQuery({
     queryKey: sourceSyncQueryKey(scope),
     queryFn: () => api.get<SourceSyncStatus>(sourceSyncApiPath(scope)),
-    refetchInterval: (query) => (query.state.data?.running.length ? 2_000 : 15_000),
+    refetchInterval: (query) => (query.state.data?.running.length ? SOURCE_SYNC_ACTIVE_MS : SOURCE_SYNC_IDLE_MS),
   });
   const { data: history = [] } = useQuery({
     queryKey: sourceSyncHistoryQueryKey(scope),

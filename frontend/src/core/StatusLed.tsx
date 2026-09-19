@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useSourceHealth, useSystemStats } from "@/core/runtimeQueries";
 import { AlertTriangle, CheckCircle2, Clock4, Cpu, HardDrive, MemoryStick, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
@@ -100,16 +101,8 @@ export function StatusLed() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const { data, isError } = useQuery({
-    queryKey: ["system-stats"],
-    queryFn: () => api.get<SystemStats>("/system/stats"),
-    refetchInterval: 60_000,
-  });
-  const { data: sources = [] } = useQuery({
-    queryKey: ["sources", "health", "all"],
-    queryFn: () => api.get<SourceHealth[]>("/sources/health?limit=2000"),
-    refetchInterval: 5 * 60_000,
-  });
+  const { data, isError } = useSystemStats();
+  const { data: sources = [] } = useSourceHealth();
   const { data: rss } = useQuery({
     queryKey: ["rss-stats"],
     queryFn: () => api.get<RssStats>("/rss/stats"),

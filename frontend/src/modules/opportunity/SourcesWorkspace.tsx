@@ -11,6 +11,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { SOURCE_SYNC_ACTIVE_MS, SOURCE_SYNC_IDLE_MS } from "@/core/SyncProgress";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
@@ -107,7 +108,7 @@ export function SourcesWorkspace() {
   const sync = useQuery({
     queryKey: ["source-sync"],
     queryFn: () => api.get<SourceSyncStatus>("/sources/sync"),
-    refetchInterval: (query) => (query.state.data?.active ? 2_000 : 15_000),
+    refetchInterval: (query) => (query.state.data?.active ? SOURCE_SYNC_ACTIVE_MS : SOURCE_SYNC_IDLE_MS),
   });
   const coverage = useQuery({
     queryKey: ["source-coverage"],

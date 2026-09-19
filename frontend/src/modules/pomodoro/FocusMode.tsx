@@ -26,14 +26,17 @@ export function FocusMode({ onClose }: { onClose: () => void }) {
     if (!focusPreferences().amoled) return;
     const alreadyApplied = document.documentElement.dataset.focusAmoled === "true";
     document.documentElement.dataset.focusAmoled = "true";
+    useEffect(() => {
+      // Tik yalniz calisan oturumda; odak modu bos ekranda da cizilebilir.
+      setNow(Date.now());
+      if (!active || active.paused_at) return;
+      const timer = window.setInterval(() => setNow(Date.now()), 1000);
+      return () => window.clearInterval(timer);
+    }, [active?.id, active?.paused_at]);
+
     return () => {
       if (!alreadyApplied) delete document.documentElement.dataset.focusAmoled;
     };
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
   }, []);
 
   const { data: active = null } = useQuery({

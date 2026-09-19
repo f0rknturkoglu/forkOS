@@ -29,11 +29,16 @@ export function sourceSyncHistoryQueryKey(scope: SourceSyncScope): readonly stri
   return scope === "media" ? ["source-sync-history", "media"] : ["source-sync-history"];
 }
 
+/** Cekim surerken yoklama araligi (ilerleme gorunur kalsin). */
+export const SOURCE_SYNC_ACTIVE_MS = 2_000;
+/** Bosta yoklama araligi. Ayni anahtari kullanan herkes BUNU kullanir. */
+export const SOURCE_SYNC_IDLE_MS = 15_000;
+
 export function useSourceSync(scope: SourceSyncScope = "opportunity") {
   return useQuery({
     queryKey: sourceSyncQueryKey(scope),
     queryFn: () => api.get<SourceSyncStatus>(sourceSyncApiPath(scope)),
-    refetchInterval: (query) => (query.state.data?.active ? 2_000 : 15_000),
+    refetchInterval: (query) => (query.state.data?.active ? SOURCE_SYNC_ACTIVE_MS : SOURCE_SYNC_IDLE_MS),
   });
 }
 

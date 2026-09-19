@@ -21,16 +21,20 @@ export function PomodoroWidget() {
   const online = useOnline();
   const toast = useToast();
 
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const { data: active } = useQuery({
     queryKey: ["pomodoro-active"],
     queryFn: () => api.get<PomodoroSession | null>("/pomodoro/active"),
     refetchInterval: 30_000,
   });
+  useEffect(() => {
+    // Saniyelik tik YALNIZ calisan bir oturumda: bosta pomodoro paneli
+    // gereksiz yere her saniye yeniden render ediliyordu.
+    setNow(Date.now());
+    if (!active || active.paused_at) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [active?.id, active?.paused_at]);
+
   const { data: stats } = useQuery({
     queryKey: ["pomodoro-stats", "today"],
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day"),

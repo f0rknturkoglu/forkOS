@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TodayHero } from "./TodayHero";
 
@@ -49,5 +49,25 @@ describe("TodayHero", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
     expect(harness.weather.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("saati saniyede degil dakika sinirinda gunceller", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-14T21:30:05Z"));
+    const { container } = render(<TodayHero />);
+
+    const clock = () => container.querySelector("time")?.textContent ?? "";
+    const first = clock();
+    expect(first).toMatch(/^\d{2}:\d{2}$/);
+    expect(first).not.toMatch(/:\d{2}:\d{2}/);
+
+    // Saniyelik bir interval her saniye yeniden render ederdi; saniye
+    // gosterilmedigi icin dakika dolmadan saat DEGISMEMELI.
+    act(() => vi.advanceTimersByTime(1000));
+    expect(clock()).toBe(first);
+
+    // Dakika sinirini gec: saat bir kez guncellenmeli.
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(clock()).not.toBe(first);
   });
 });

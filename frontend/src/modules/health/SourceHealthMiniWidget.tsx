@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useSourceHealth } from "@/core/runtimeQueries";
 import { AlertTriangle } from "lucide-react";
 import { api } from "@/core/api";
 import { Empty, Section } from "@/core/ui";
@@ -6,15 +7,8 @@ import type { SourceHealth } from "@/core/types";
 
 /** Kaynak sagligi ozeti: yalnizca bozuk kaynak varsa gorunur (StatusLed ust seritte). */
 export function SourceHealthMiniWidget() {
-  // Cekim surerken hizli, bosta seyrek yokla (SourceHealthPage deseni).
-  const { data = [] } = useQuery({
-    queryKey: ["sources", "health", "all"],
-    queryFn: () => api.get<SourceHealth[]>("/sources/health?limit=2000"),
-    refetchInterval: (query) => {
-      const runs = query.state.data as SourceHealth[] | undefined;
-      return runs?.some((run) => run.status === "running") ? 2_000 : 120_000;
-    },
-  });
+  // Kabuktaki paylasilan saglik sorgusu: cekim surerken hizlanir, bosta seyrek.
+  const { data = [] } = useSourceHealth();
   const broken = data.filter((run) => run.status === "error" || run.status === "empty");
   const names = broken
     .slice(0, 3)

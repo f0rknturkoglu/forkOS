@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useBackupStatus, useSystemStats } from "@/core/runtimeQueries";
 import { Activity, DatabaseBackup } from "lucide-react";
 import { api } from "@/core/api";
 import { Chip, Empty, Section, relativeTime } from "@/core/ui";
@@ -11,16 +12,8 @@ const STALE_BACKUP_HOURS = 48;
  * Her ikisi de mevcut endpoint'lerden turetilir; yeni uc yok.
  */
 export function ServiceHealthWidget() {
-  const { data: stats } = useQuery({
-    queryKey: ["system-stats"],
-    queryFn: () => api.get<SystemStats>("/system/stats"),
-    refetchInterval: 60_000,
-  });
-  const { data: backup } = useQuery({
-    queryKey: ["backup-status"],
-    queryFn: () => api.get<BackupStatus>("/backup/status"),
-    refetchInterval: 60_000,
-  });
+  const { data: stats } = useSystemStats();
+  const { data: backup } = useBackupStatus();
 
   const workerHealthy = stats?.worker.status === "healthy";
   const lastBackupAt = backup?.last_backup?.at ? new Date(backup.last_backup.at).getTime() : null;

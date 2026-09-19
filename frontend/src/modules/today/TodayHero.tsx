@@ -28,13 +28,24 @@ function greeting(hour: number): string {
 export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(timer);
+    // Saat DAKIKA gosterir; saniyelik guncelleme hava durumu panelini ve
+    // metrik karolarini her saniye yeniden render ediyordu. Dakika sinirinda
+    // bir kez guncellemek hem dogru hem bedava (SLEEP'e kadar bos).
+    let timer = 0;
+    const schedule = () => {
+      const current = new Date();
+      const delay = (60 - current.getSeconds()) * 1000 - current.getMilliseconds() + 50;
+      timer = window.setTimeout(() => {
+        setNow(new Date());
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => window.clearTimeout(timer);
   }, []);
 
   const { hour, minute } = appTimeParts(now);
   const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-  const seconds = String(now.getSeconds()).padStart(2, "0");
   const date = formatAppDate(now, { weekday: "long", day: "numeric", month: "long" });
 
   return (
@@ -43,13 +54,11 @@ export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
         <div className="min-w-0 shrink-0">
           <p className="label-caps">{greeting(hour)}</p>
           <div className="mt-1.5 flex items-baseline gap-3">
-            {/* Saniye saatle ayni boyda ve bitisik; ayrimi renk yapiyor. */}
             <time
               dateTime={now.toISOString()}
               className="numeral text-display-lg leading-none tracking-[-0.02em] text-primary"
             >
               {time}
-              <span className="text-muted">:{seconds}</span>
             </time>
             <span className="truncate text-body text-secondary">{date}</span>
           </div>

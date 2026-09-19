@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { SOURCE_SYNC_ACTIVE_MS, SOURCE_SYNC_IDLE_MS } from "@/core/SyncProgress";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Check, RefreshCw, Search } from "lucide-react";
@@ -41,7 +42,7 @@ export function SourcePicker() {
   const { data: sync } = useQuery({
     queryKey: ["source-sync"],
     queryFn: () => api.get<SourceSyncStatus>("/sources/sync"),
-    refetchInterval: (query) => (query.state.data?.running.length ? 2_000 : 30_000),
+    refetchInterval: (query) => (query.state.data?.running.length ? SOURCE_SYNC_ACTIVE_MS : SOURCE_SYNC_IDLE_MS),
   });
 
   const running = useMemo(() => new Set((sync?.running ?? []).map((item) => item.source)), [sync]);
