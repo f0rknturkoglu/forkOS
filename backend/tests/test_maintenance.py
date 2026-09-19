@@ -136,6 +136,28 @@ async def test_maintenance_prunes_operational_rows_and_keeps_events() -> None:
     assert audited == 1, "bakim kendi kosumunu event olarak kaydetmeli"
 
 
+async def test_artwork_maintenance_keeps_fresh_files(isolated_artwork_dir: Path) -> None:
+    """Yeni yazilmis gorsel, referanssiz olsa da silinmez.
+
+    Aksi halde bir sonraki senkron ayni kapagi yeniden indirirdi. 7 gunluk yas
+    politikasi bu churn'u onler; 512 MB butce tavani da korunur. Ikisi de
+    `ArtworkStore` sabitidir ve bakim bunlari degistirmez.
+    """
+    fresh = isolated_artwork_dir / "fresh.jpg"
+    fresh.write_bytes(b"fresh")
+    stale = isolated_artwork_dir / "stale.jpg"
+    stale.write_bytes(b"stale")
+    _age(stale, 10)
+
+    async with SessionLocal() as session:
+        summary = await maintenance.run_maintenance(session, force=True)
+
+    assert summary is not None
+    assert summary["results"]["artwork"] == {"files": 1, "freed_bytes": len(b"stale")}
+    assert fresh.exists(), "yeni indirilen gorsel yeniden indirilmemeli"
+    assert not stale.exists()
+
+
 async def test_maintenance_prunes_stale_artwork(
     client: AsyncClient, isolated_artwork_dir: Path
 ) -> None:
