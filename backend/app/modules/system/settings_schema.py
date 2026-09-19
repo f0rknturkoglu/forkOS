@@ -14,6 +14,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.core.heartbeat import WORKER_HEARTBEAT_KEY
+from app.modules.system.maintenance import MAINTENANCE_KEY as MAINTENANCE_SETTING_KEY
 from app.modules.system.news import DEFAULT_SUBREDDITS
 
 DEFAULTS: dict[str, Any] = {
@@ -48,6 +49,7 @@ RUNTIME_SETTING_KEYS: frozenset[str] = frozenset({
     "rss.starter_feeds.v1",
     WORKER_HEARTBEAT_KEY,
     "system.manual_refresh",
+    MAINTENANCE_SETTING_KEY,
 })
 
 

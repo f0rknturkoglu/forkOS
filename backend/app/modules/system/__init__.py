@@ -8,6 +8,7 @@ MODULE = ModuleSpec(
     event_verbs=[
         "system.refresh.started",
         "system.refresh.completed",
+        "system.maintenance",
         "backup.restored",
         "settings.reset",
     ],

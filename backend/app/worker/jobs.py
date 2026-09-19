@@ -88,14 +88,6 @@ async def catch_up() -> int:
     return await poll_feeds(ignore_interval=True)
 
 
-async def prune_old_items() -> int:
-    """Okunmamis + kaydedilmemis feed_item'lari retention suresi sonrasi sil."""
-    async with SessionLocal() as session:
-        removed = await rss.prune_items(session)
-    log.info("prune_old_items: %d item silindi", removed)
-    return removed
-
-
 async def poll_opportunities(*, limit: int = 4) -> int:
     total = await _poll_opportunities(limit=limit)
     log.info("poll_opportunities: %d yeni firsat", total)

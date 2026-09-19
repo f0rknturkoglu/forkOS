@@ -19,6 +19,7 @@ from app.modules.opportunity.service import (
     deadline_ladder,
     prune_stale_opportunities,
 )
+from app.modules.system.maintenance import run_maintenance
 from app.worker.digest import morning_digest
 from app.worker.jobs import (
     catch_up,
@@ -29,7 +30,6 @@ from app.worker.jobs import (
     poll_feeds,
     poll_media,
     poll_opportunities,
-    prune_old_items,
     record_worker_heartbeat,
     sync_calendar,
     sync_github,
@@ -59,7 +59,14 @@ async def main() -> None:
         coalesce=True,
     )
     scheduler.add_job(nightly_backup, "cron", hour=3, id="nightly_backup")
-    scheduler.add_job(prune_old_items, "cron", hour=4, id="prune")
+
+    async def maintenance_job() -> None:
+        # Gunde bir kez: operasyonel saklama + RSS + gorsel onbellegi.
+        # Gun kapisi ve idempotanslik `run_maintenance` icinde.
+        async with SessionLocal() as session:
+            await run_maintenance(session)
+
+    scheduler.add_job(maintenance_job, "cron", hour=4, id="maintenance")
 
     async def prune_opportunities_job() -> None:
         async with SessionLocal() as session:
@@ -130,6 +137,7 @@ async def main() -> None:
 
     startup_tasks = [
         ("heartbeat", record_worker_heartbeat),
+        ("maintenance", maintenance_job),
         ("backfill_opportunity_skill_matches", backfill_opportunity_skill_matches),
         # Kritik kaynaklar once: aciliş tanıtımında YLSY/OSYM tazelenir.
         ("critical_catch_up", critical_catch_up),

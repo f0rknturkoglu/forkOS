@@ -233,7 +233,16 @@ tespiti) bu geçmişten türetildiği için "son 20 koşu" kuralı eşiklerden
 bağımsızdır. Ayrıntılı politika: `backend/app/core/retention.py`.
 
 Budama, hafif bakım mekanizmasıyla günde en fazla bir kez çalışır ve hiçbir
-ağ çağrısı yapmaz. Worker kapalıyken de çalışır.
+ağ çağrısı yapmaz.
+
+- Bakım worker'dan **bağımsızdır**: worker açıkken gecelik zamanlanır, kapalıyken
+  API açılışında arka planda (açılışı bloklamadan) bir kez denenir.
+- Gün talebi tek bir atomik `INSERT ... ON CONFLICT ... WHERE day <> :day` ile
+  alınır; API ve worker aynı anda denese bile yalnızca biri koşar.
+- Adımlar birbirinden bağımsızdır: biri hata verirse diğerleri devam eder ve
+  hata kayda geçer (`maintenance.last_run`, `system.maintenance` event'i).
+- Kapsam: operasyonel saklama, RSS öğeleri ve medya görsel önbelleği. Ayrıntı:
+  `backend/app/modules/system/maintenance.py`.
 
 ## Offline ve PWA cache'i
 

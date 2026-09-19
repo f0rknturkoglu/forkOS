@@ -83,6 +83,23 @@ async def _startup_rss_starter_feeds() -> None:
         log.info("RSS başlangıç beslemeleri: %d eklendi, %d zaten vardı", added, skipped)
 
 
+async def _startup_maintenance() -> None:
+    """Gunluk hafif bakimi arka planda dene (acilisi BLOKLAMAZ).
+
+    Worker kapaliyken operasyonel budama hic kosmuyordu. Bu gorev gunde en
+    fazla bir kez, sinirli ve agsiz calisir; `run_maintenance` gun kapisini
+    atomik olarak aldigi icin worker da acikken cift kosmaz.
+    """
+    from app.modules.system.maintenance import run_maintenance
+
+    async with SessionLocal() as session:
+        summary = await run_maintenance(session)
+    if summary is None:
+        log.info("bakim: bugun zaten kosulmus")
+    else:
+        log.info("bakim tamamlandi: %s", summary.get("results"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -93,6 +110,10 @@ async def lifespan(app: FastAPI):
         await _startup_critical_catch_up()
     except Exception:  # noqa: BLE001 - acilis, kaynak tazeleme yuzunden dusmemeli
         log.exception("kritik catch-up baslatilamadi")
+    # Acilisi bekletmemek icin arka planda; tek seferlik ve gun kapili.
+    task = asyncio.create_task(_startup_maintenance())
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
     yield
 
 
