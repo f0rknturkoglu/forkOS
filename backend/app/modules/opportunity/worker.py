@@ -346,12 +346,12 @@ def general_refresh_sources() -> list:
     ]
 
 
-async def poll_opportunities(*, limit: int = 4) -> int:
+async def poll_opportunities(*, limit: int = 4, min_interval_minutes: int = 0) -> int:
     """Her adapter'ın kendi aralığına göre yalnızca süresi gelenleri çek.
 
     Periyodik tur GENEL yenilemedir: `slow_optin` kaynaklar (EURES, LinkedIn,
     Memurlar gibi yavas/opsiyonel olanlar) kullanicinin acik secimi olmadan
-    kosmaz.
+    kosmaz. `min_interval_minutes` ayardan gelen taban araliktir.
     """
     sources = general_refresh_sources()
     async with SessionLocal() as session:
@@ -364,16 +364,25 @@ async def poll_opportunities(*, limit: int = 4) -> int:
                 )
             ).all()
         )
-    due = select_due_sources(sources, latest)[:limit]
+    due = select_due_sources(sources, latest, min_interval_minutes=min_interval_minutes)[:limit]
     return sum(await asyncio.gather(*(poll_source(source) for source in due)))
 
 
-def select_due_sources(sources, latest: dict[str, datetime], *, now: datetime | None = None):
+def select_due_sources(
+    sources,
+    latest: dict[str, datetime],
+    *,
+    now: datetime | None = None,
+    min_interval_minutes: int = 0,
+):
     """Suresi gelen kaynaklar: once kritik, sonra normal, en son slow_optin.
 
     Sinif onceligi birincil anahtardir; kaynak ancak kendi sinifindaki
     kaynaklarla yarisir. Boylece kritik YLSY/OSYM kaynaklari yavas panolarin
     arkasinda saatlerce beklemez.
+
+    `min_interval_minutes` bir TABANDIR: otomasyon profili (veya ayar) daha
+    seyrek bir tur istiyorsa kaynagin kendi araligi kisaltmaz, uzatir.
     """
     current = now or datetime.now(UTC)
 
@@ -381,7 +390,8 @@ def select_due_sources(sources, latest: dict[str, datetime], *, now: datetime | 
         last_run = latest.get(source.id)
         if last_run is None:
             return datetime.min.replace(tzinfo=UTC)
-        return last_run + timedelta(minutes=source.interval_minutes)
+        interval = max(source.interval_minutes, min_interval_minutes)
+        return last_run + timedelta(minutes=interval)
 
     return sorted(
         (source for source in sources if due_at(source) <= current),

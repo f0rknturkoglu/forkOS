@@ -53,6 +53,12 @@ function Pane({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto max-w-3xl space-y-4">{children}</div>;
 }
 
+type AutomationState = {
+  profile: string;
+  profiles: string[];
+  domains: Record<string, { enabled: boolean; interval_minutes: number }>;
+};
+
 const RSS_INTERVALS = [
   { minutes: 30, label: "30 dakikada bir" },
   { minutes: 60, label: "Saatte bir" },
@@ -119,6 +125,25 @@ export function SettingsPage() {
     mediaLinksRef.current?.focus();
     setFocusedSection(requestedSection);
   }, [tab, requestedSection, settings, focusedSection]);
+
+  // Otomasyon durumu/profili: hook'lar ERKEN RETURN'DEN ONCE kurulur, aksi
+  // halde ilk render'da sayilari tutmaz ("more hooks than previous render").
+  const { data: automation } = useQuery({
+    queryKey: ["automation"],
+    queryFn: () => api.get<AutomationState>("/system/automation"),
+  });
+  const setProfile = useMutation({
+    mutationFn: (profile: string) => api.post<AutomationState>("/system/automation/profile", { profile }),
+    onSuccess: (state) => {
+      // Profil birden cok ayari birlikte yazar; `settings.write` haritasi
+      // hem settings hem automation sorgusunu tazeler (kural 14).
+      invalidateAfter("settings.write");
+      toast.push(state.profile === "manual" ? "Arka plan güncellemesi kapatıldı." : "Çalışma profili güncellendi.", {
+        tone: "ok",
+      });
+    },
+    onError: (error) => toast.push(`Profil uygulanamadı: ${error.message}`, { tone: "danger" }),
+  });
 
   const save = useMutation({
     mutationFn: ({ key, value }: { key: string; value: unknown }) => api.put(`/settings/${key}`, { value }),
@@ -288,7 +313,16 @@ export function SettingsPage() {
 
           {tab === "modules" && (
             <Pane>
-              <ModulesSection online={online} disabledModules={disabled} onToggle={toggleModule} />
+              <ModulesSection
+                online={online}
+                disabledModules={disabled}
+                onToggle={toggleModule}
+                automation={automation?.domains ?? {}}
+                onToggleAutomation={(domain, enabled) => write(`automation.${domain}.enabled`, enabled)}
+                profile={automation?.profile ?? "balanced"}
+                profiles={automation?.profiles ?? []}
+                onProfile={(profile) => setProfile.mutate(profile)}
+              />
             </Pane>
           )}
 

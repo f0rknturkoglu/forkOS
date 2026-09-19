@@ -817,6 +817,21 @@
         "title": "AttachBookmarkIn",
         "type": "object"
       },
+      "AutomationProfileIn": {
+        "properties": {
+          "profile": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Profile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "AutomationProfileIn",
+        "type": "object"
+      },
       "Body_import_cards_api_flashcard_import_post": {
         "properties": {
           "file": {
@@ -27988,6 +28003,66 @@
         "summary": "Create Topic Todo",
         "tags": [
           "learning"
+        ]
+      }
+    },
+    "/api/system/automation": {
+      "get": {
+        "description": "Arka plan otomasyonu durumu (arayuz icin tek okuma).\n\n`modules.disabled`'tan AYRI: gorunurluk ve ag trafigi farkli sorulardir.",
+        "operationId": "automation_state_api_system_automation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Automation State",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/automation/profile": {
+      "post": {
+        "description": "Profili uygula (manual/balanced/active): ilgili ayarlar birlikte yazilir.",
+        "operationId": "set_automation_profile_api_system_automation_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationProfileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Automation Profile",
+        "tags": [
+          "system"
         ]
       }
     },

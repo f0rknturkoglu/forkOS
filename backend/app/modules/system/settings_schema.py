@@ -15,6 +15,7 @@ from typing import Any
 
 from app.config import settings
 from app.core.heartbeat import WORKER_HEARTBEAT_KEY
+from app.modules.system import automation
 from app.modules.system.dirty import REVISION_KEY as BACKUP_REVISION_KEY
 from app.modules.system.maintenance import MAINTENANCE_KEY as MAINTENANCE_SETTING_KEY
 from app.modules.system.news import DEFAULT_SUBREDDITS
@@ -42,6 +43,10 @@ DEFAULTS: dict[str, Any] = {
         "willing_to_relocate": False,
     },
     "news.subreddits": list(DEFAULT_SUBREDDITS),
+    #: Arka plan otomasyonu ve profiller (bkz. app/modules/system/automation.py).
+    **{key: True for key in automation.ENABLED_KEYS.values()},
+    **automation.INTERVAL_DEFAULTS,
+    automation.PROFILE_KEY: automation.DEFAULT_PROFILE,
     #: Para birimi -> aylik harcama tavani ({"TRY": 30000}). Bos ise butce yok:
     #: arayuz toplam geliri hedef kabul eder.
     "finance.monthly_budget": {},
@@ -115,6 +120,26 @@ SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
     "opportunity.career_profile": ("konum, ülke listesi ve relokasyon alanları eksik", _is_career_profile),
     "finance.monthly_budget": ("para birimi -> pozitif tutar eşlemesi olmalı", _is_budget),
     "backup.drive_folder_id": ("klasör kimliği metin olmalı", lambda v: isinstance(v, str)),
+    "automation.profile": (
+        "geçerli bir profil seçin (manual/balanced/active)",
+        lambda v: v in automation.PROFILES,
+    ),
+    **{
+        key: ("true/false olmalı", lambda v: isinstance(v, bool))
+        for key in automation.ENABLED_KEYS.values()
+    },
+    "automation.opportunity.interval_minutes": (
+        "5 ile 1440 arasında tam sayı olmalı",
+        lambda v: _is_int(v) and 5 <= v <= 1440,
+    ),
+    "automation.calendar.interval_minutes": (
+        "5 ile 1440 arasında tam sayı olmalı",
+        lambda v: _is_int(v) and 5 <= v <= 1440,
+    ),
+    "automation.github.interval_hours": (
+        "1 ile 24 arasında tam sayı olmalı",
+        lambda v: _is_int(v) and 1 <= v <= 24,
+    ),
 }
 
 

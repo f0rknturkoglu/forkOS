@@ -187,11 +187,13 @@ describe("SettingsPage sekmeleri", () => {
     renderPage();
     await ready();
 
-    // Moduller sekmesi acik: modul adlari ve aciklamalari gorunur.
+    // Moduller sekmesi acik: gorunurluk ve arka plan guncellemesi AYRI
+    // anlatilir; ikisi ayni kavram degildir.
+    // "Modüller" hem rail sekmesi hem bolum basligi olabilir: hepsini kabul et.
+    expect((await screen.findAllByText("Modüller")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Arka plan güncellemesi")).toBeTruthy();
     expect(
-      await screen.findByText(
-        "Kapatılan modülün rotası, Bugün widget'ları ve komutları devre dışı kalır; verisi silinmez. Ayarlar her zaman açıktır.",
-      ),
+      await screen.findByText(/Kapatılan modülün rotası, Bugün widget'ları ve komutları devre dışı kalır/),
     ).toBeTruthy();
 
     openTab("Kariyer profili");

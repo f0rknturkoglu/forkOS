@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,11 +15,6 @@ from app.modules import MODULES
 
 log = logging.getLogger("api")
 
-#: Kritik catch-up'ı tekrar tetiklememek icin alt sinir: kaynak zaten bu
-#: kadar kisa sure once kosmussa dokunulmaz (API --reload ile yeniden
-#: baslarken ayni kaynaklari tekrar tekrar cekmemek icin).
-CRITICAL_CATCH_UP_MIN_AGE = timedelta(hours=2)
-
 
 async def _startup_critical_catch_up() -> None:
     """Kritik kaynaklari (YLSY/OSYM/YOK, hizli ATS) tazele -- bounded ve sessiz.
@@ -32,7 +27,8 @@ async def _startup_critical_catch_up() -> None:
         return
     from app.core import source_sync
     from app.modules.opportunity.worker import critical_source_ids
-    from app.worker.jobs import CRITICAL_CATCH_UP_LIMIT
+    from app.modules.system import automation
+    from app.worker.jobs import CRITICAL_CATCH_UP_LIMIT, CRITICAL_CATCH_UP_MIN_AGE
 
     # SINIRLIDIR: acilis tum kritik katalogu degil, en fazla
     # CRITICAL_CATCH_UP_LIMIT kaynagi kuyruga alir (resmi duyurular once).
@@ -40,6 +36,8 @@ async def _startup_critical_catch_up() -> None:
     if not ids:
         return
     async with SessionLocal() as session:
+        if not await automation.is_enabled(session, "opportunity"):
+            return
         latest = dict(
             (
                 await session.execute(

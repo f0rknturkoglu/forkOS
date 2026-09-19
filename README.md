@@ -154,6 +154,44 @@ servisine bağlanır; bağlanmasalardı container yeniden oluşturulunca kaybolu
 Eski konumdaki `backend/config.yaml` ilk kullanımda `backend/data/config.yaml`
 altına **kopyalanır** (silinmez).
 
+### Göster ve arka planda güncelleme ayrıdır
+
+Bir modülü gizlemek (Ayarlar → Modüller) yalnızca **arayüzü** kapatır: rota,
+Bugün widget'ları ve komutlar gizlenir; verisi silinmez. Arka planda dış
+kaynağa çıkıp çıkmamak **ayrı** bir karardır ve Ayarlar → Modüller ekranındaki
+"Arka plan güncellemesi" bölümünden yönetilir.
+
+- `automation.opportunity.enabled`, `automation.media.enabled`,
+  `automation.calendar.enabled`, `automation.github.enabled` — kapatıldığında
+  worker o kaynağa **hiç çıkmaz**.
+- RSS'in arka plan anahtarı kendi aralığıdır (`rss.interval_minutes = 0` →
+  yalnız manuel). Aynı davranışı iki ayara bağlamamak için ikinci bir anahtar
+  yoktur.
+- **Elle aksiyonlar otomasyondan bağımsızdır:** header'daki yenileme, "Tümünü
+  tazele" ve POST uçları otomasyon kapalıyken de çalışır.
+
+Hazır çalışma profilleri teknik scheduler değerleri yerine tek seçim sunar:
+
+| Profil | Ne yapar |
+| --- | --- |
+| **Elle** | Arka plan güncellemesi tamamen kapalı; yalnız manuel yenileme + yerel bakım |
+| **Dengeli** (önerilen) | RSS 60 dk, fırsatlar 30 dk, takvim 60 dk, GitHub 3 sa, medya kendi 24 saati |
+| **Aktif** | Daha sık turlar (RSS 30 dk, fırsatlar 15 dk, takvim 30 dk) |
+
+Profil değişikliği worker'ı yeniden başlatmayı gerektirmez: işler aralıklarını
+her turda ayardan okur.
+
+### Açılış telafisi
+
+forkOS çevrimdışı geçen süreyi telafi eder ama **worker'ı yeniden başlatmak tek
+başına ağ patlaması yaratmaz**: açılış görevleri tazelik kapılıdır.
+
+- RSS: yalnız süresi geçmiş feed'ler (aralık ayarına göre) çekilir.
+- Takvim / GitHub: son tur yeterince yeniyse atlanır.
+- Medya: kendi 24 saatlik aralığına uyar.
+- Kritik kaynaklar: son 2 saat içinde koşmuşsa kuyruğa tekrar alınmaz.
+- Yedek: taze ya da değişiklik yoksa atlanır.
+
 Worker normal kullanımda kapalı kalabilir. Header'daki yenileme düğmesi RSS, fırsat/duyuru, medya, takvim, GitHub ve son tarih kaynaklarını tek turda günceller; yanındaki menüden kapsam seçilir:
 
 - **Kritik kaynaklar** — yalnız resmî/hızlı kaynaklar (ÖSYM, YLSY, YÖK, ATS panoları)

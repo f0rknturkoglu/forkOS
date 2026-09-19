@@ -14,8 +14,11 @@ import socket
 import time
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import func, select
+
 from app.core import source_sync
 from app.core.heartbeat import WORKER_HEARTBEAT_KEY
+from app.core.models import Event, SourceRun
 from app.db import SessionLocal
 from app.modules.calendar.service import sync_google
 from app.modules.media.sync import poll_media_source, poll_media_sources
@@ -27,6 +30,7 @@ from app.modules.opportunity.worker import (
 )
 from app.modules.project.github import sync as sync_github_service
 from app.modules.rss import service as rss
+from app.modules.system import automation
 from app.modules.system.backup import backup_if_stale
 from app.modules.system.models import Setting
 
@@ -88,23 +92,41 @@ async def poll_feeds(*, ignore_interval: bool = False) -> int:
 
 
 async def catch_up() -> int:
-    """Acilista bekleyen TUM aktif feed'leri hemen cek.
+    """Acilis telafisi: YALNIZ suresi gecmis feed'leri cek.
 
-    Local-only mimarinin telafisi burasi: makine kapaliyken kacirilan turlar
-    "sabah make up" ile tek seferde kapanir.
+    Makine kapaliyken kacirilan turlar kapanir (last_fetched_at eski olan her
+    feed suresi gelmis sayilir) ama worker AZ ONCE calismisken yeniden
+    baslatmak ag patlamasi yaratmaz. `ignore_interval=True` ile "hepsini simdi
+    cek" davranisi BILEREK kaldirildi: elle tazeleme zaten
+    `rss.refresh_all(ignore_interval=True)` kullaniyor.
     """
-    log.info("catch-up turu basliyor")
-    return await poll_feeds(ignore_interval=True)
+    log.info("catch-up turu basliyor (yalniz suresi gecmis feed'ler)")
+    return await poll_feeds()
 
 
 async def poll_opportunities(*, limit: int = 4) -> int:
-    total = await _poll_opportunities(limit=limit)
+    """Suresi gelen kaynaklari cek -- otomasyon kapaliysa hic cikmaz.
+
+    Aralik AYARDAN gelir (`automation.opportunity.interval_minutes`); kaynak
+    sinifinin kendi araligi daha kisa olsa bile bu taban gecerli olur.
+    """
+    async with SessionLocal() as session:
+        if not await automation.is_enabled(session, "opportunity"):
+            log.info("poll_opportunities: otomasyon kapali -- atlandi")
+            return 0
+        floor = await automation.interval_minutes(session, "opportunity")
+    total = await _poll_opportunities(limit=limit, min_interval_minutes=floor)
     log.info("poll_opportunities: %d yeni firsat", total)
     return total
 
 
 #: Acilista kuyruga alinacak kritik kaynak sayisi (sinirli tutulur).
 CRITICAL_CATCH_UP_LIMIT = 12
+
+#: Kritik kaynaklar bu sureden kisa sure once kosmussa acilista TEKRAR
+#: kuyruga alinmaz. Worker yeniden baslatmak (veya --reload) tek basina ag
+#: patlamasi yaratmamali.
+CRITICAL_CATCH_UP_MIN_AGE = timedelta(hours=2)
 
 
 async def critical_catch_up(*, limit: int = CRITICAL_CATCH_UP_LIMIT) -> int:
@@ -118,11 +140,33 @@ async def critical_catch_up(*, limit: int = CRITICAL_CATCH_UP_LIMIT) -> int:
     """
     from app.modules.opportunity.worker import critical_source_ids
 
+    async with SessionLocal() as session:
+        if not await automation.is_enabled(session, "opportunity"):
+            log.info("critical_catch_up: otomasyon kapali -- atlandi")
+            return 0
     ids = critical_source_ids()[:limit]
     if not ids:
         return 0
     async with SessionLocal() as session:
-        batch, newly_queued = await source_sync.create_or_extend_batch(session, ids)
+        latest = dict(
+            (
+                await session.execute(
+                    select(SourceRun.source, func.max(SourceRun.started_at))
+                    .where(SourceRun.source.in_(ids))
+                    .group_by(SourceRun.source)
+                )
+            ).all()
+        )
+        cutoff = datetime.now(UTC) - CRITICAL_CATCH_UP_MIN_AGE
+        stale = [
+            source_id
+            for source_id in ids
+            if latest.get(source_id) is None or latest[source_id] <= cutoff
+        ]
+        if not stale:
+            log.info("critical_catch_up: kritik kaynaklar taze -- atlandi")
+            return 0
+        batch, newly_queued = await source_sync.create_or_extend_batch(session, stale)
         await session.commit()
     log.info(
         "critical_catch_up: %d kritik kaynak kuyruga alindi (batch %s)",
@@ -295,20 +339,37 @@ async def drain_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
             return total
 
 
-async def poll_media() -> int:
-    total = await poll_media_sources()
+async def poll_media(*, ignore_interval: bool = False) -> int:
+    """Medya senkronu; otomasyon kapaliysa hic cikmaz."""
+    async with SessionLocal() as session:
+        if not ignore_interval and not await automation.is_enabled(session, "media"):
+            log.info("poll_media: otomasyon kapali -- atlandi")
+            return 0
+    total = await poll_media_sources(ignore_interval=ignore_interval)
     log.info("poll_media: %d değişiklik", total)
     return total
 
 
 async def catch_up_media() -> int:
-    total = await poll_media_sources(ignore_interval=False)
-    log.info("catch_up_media: %d değişiklik", total)
-    return total
+    """Acilis telafisi de otomasyon ayarina uyar."""
+    return await poll_media(ignore_interval=False)
 
 
-async def sync_calendar() -> int:
+async def sync_calendar(*, ignore_interval: bool = False) -> int:
+    """Google Calendar aynasi; otomasyon kapaliysa ve taze ise atlanir."""
     async with SessionLocal() as session:
+        last_run = (
+            await session.execute(
+                select(func.max(Event.occurred_at)).where(Event.verb == "calendar.synced")
+            )
+        ).scalar_one_or_none()
+        if not ignore_interval:
+            if not await automation.is_enabled(session, "calendar"):
+                log.info("sync_calendar: otomasyon kapali -- atlandi")
+                return 0
+            if not await automation.is_due(session, "calendar", last_run):
+                log.info("sync_calendar: taze -- atlandi")
+                return 0
         try:
             changed = await sync_google(session)
         except RuntimeError:
@@ -318,8 +379,21 @@ async def sync_calendar() -> int:
     return changed
 
 
-async def sync_github() -> int:
+async def sync_github(*, ignore_interval: bool = False) -> int:
+    """GitHub etkinligi; otomasyon kapaliysa ve taze ise atlanir."""
     async with SessionLocal() as session:
+        last_run = (
+            await session.execute(
+                select(func.max(SourceRun.started_at)).where(SourceRun.source == "github")
+            )
+        ).scalar_one_or_none()
+        if not ignore_interval:
+            if not await automation.is_enabled(session, "github"):
+                log.info("sync_github: otomasyon kapali -- atlandi")
+                return 0
+            if not await automation.is_due(session, "github", last_run):
+                log.info("sync_github: taze -- atlandi")
+                return 0
         try:
             changed = await sync_github_service(session)
         except RuntimeError:

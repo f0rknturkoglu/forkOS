@@ -19,11 +19,15 @@ from app.core.heartbeat import WORKER_HEARTBEAT_KEY, heartbeat_is_fresh
 from app.core.models import SavedView
 from app.core.schemas import SavedViewCreate, SavedViewOut, SavedViewPatch
 from app.db import get_session
-from app.modules.system import backup, export, news, refresh, restore, stats
+from app.modules.system import automation, backup, export, news, refresh, restore, stats
 from app.modules.system.models import Setting
 from app.modules.system.settings_schema import DEFAULTS, RUNTIME_SETTING_KEYS, validate_setting
 
 router = APIRouter(tags=["system"])
+
+
+class AutomationProfileIn(BaseModel):
+    profile: str = Field(min_length=1, max_length=32)
 
 
 class SettingIn(BaseModel):
@@ -230,6 +234,33 @@ async def system_stats(session: AsyncSession = Depends(get_session)):
         "uptime_s": uptime_s,
         "worker": {"status": worker_status, "heartbeat_at": heartbeat_at},
     }
+
+
+@router.get("/system/automation")
+async def automation_state(session: AsyncSession = Depends(get_session)):
+    """Arka plan otomasyonu durumu (arayuz icin tek okuma).
+
+    `modules.disabled`'tan AYRI: gorunurluk ve ag trafigi farkli sorulardir.
+    """
+    return await automation.snapshot(session)
+
+
+@router.post("/system/automation/profile")
+async def set_automation_profile(
+    body: AutomationProfileIn, session: AsyncSession = Depends(get_session)
+):
+    """Profili uygula (manual/balanced/active): ilgili ayarlar birlikte yazilir."""
+    try:
+        applied = await automation.set_profile(session, body.profile)
+    except ValueError as exc:
+        raise HTTPException(422, "geçersiz profil") from exc
+    await log_event(
+        session,
+        verb="system.automation_profile",
+        payload={"profile": body.profile, "applied": applied},
+    )
+    await session.commit()
+    return await automation.snapshot(session)
 
 
 @router.get("/backup/status")

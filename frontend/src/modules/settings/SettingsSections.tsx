@@ -16,6 +16,7 @@ import {
   Input,
   NumberInput,
   Section,
+  Select,
   relativeTime,
   useTheme,
   useToast,
@@ -177,36 +178,101 @@ export function ChipListEditor({
   );
 }
 
+/* Otomasyon etiketleri: kullaniciya scheduler jargonu degil, ne oldugu yazilir. */
+const AUTOMATION_LABELS: Record<string, string> = {
+  opportunity: "İş fırsatları ve duyurular",
+  media: "Medya kataloğu",
+  calendar: "Takvim",
+  github: "GitHub etkinliği",
+};
+
+const PROFILE_LABELS: Record<string, string> = {
+  manual: "Elle — arka planda güncelleme yok",
+  balanced: "Dengeli — önerilen",
+  active: "Aktif — daha sık güncelleme",
+};
+
 export function ModulesSection({
   online,
   disabledModules,
   onToggle,
+  automation,
+  onToggleAutomation,
+  profile,
+  profiles,
+  onProfile,
 }: {
   online: boolean;
   disabledModules: string[];
   onToggle: (id: string) => void;
+  automation: Record<string, { enabled: boolean; interval_minutes: number }>;
+  onToggleAutomation: (domain: string, enabled: boolean) => void;
+  profile: string;
+  profiles: string[];
+  onProfile: (profile: string) => void;
 }) {
   const modules = allModules().filter((module) => module.id !== "settings");
   return (
-    <Section title="Modüller">
-      <p className="mb-3 text-meta text-muted">
-        Kapatılan modülün rotası, Bugün widget'ları ve komutları devre dışı kalır; verisi silinmez. Ayarlar her zaman
-        açıktır.
-      </p>
-      <ul className="divide-y divide-subtle rounded-card border border-subtle">
-        {modules.map((module) => (
-          <li key={module.id} className="px-3 py-2">
-            <Checkbox
-              checked={!disabledModules.includes(module.id)}
-              onChange={() => onToggle(module.id)}
-              disabled={!online}
-              label={module.title}
-            />
-            {module.description && <p className="mt-0.5 pl-6 text-meta text-muted">{module.description}</p>}
-          </li>
-        ))}
-      </ul>
-    </Section>
+    <>
+      <Section title="Arka plan güncellemesi">
+        <p className="mb-3 text-meta text-muted">
+          Modülü göstermek ile arka planda güncellemek ayrı şeylerdir: bir modülü gizlesen de verisi tazelenebilir, ya
+          da görünürken arka planda hiç dışarı çıkmamasını seçebilirsin. Kapalıyken elle yenileme her zaman çalışır.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-meta text-muted">Çalışma profili</span>
+          <Select
+            value={profile}
+            onChange={onProfile}
+            disabled={!online}
+            ariaLabel="Otomasyon profili"
+            className="w-56"
+          >
+            {profiles.map((id) => (
+              <option key={id} value={id}>
+                {PROFILE_LABELS[id] ?? id}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <ul className="mt-3 divide-y divide-subtle rounded-card border border-subtle">
+          {Object.entries(automation).map(([domain, state]) => (
+            <li key={domain} className="px-3 py-2">
+              <Checkbox
+                checked={state.enabled}
+                onChange={(checked) => onToggleAutomation(domain, checked)}
+                disabled={!online}
+                label={AUTOMATION_LABELS[domain] ?? domain}
+              />
+              <p className="mt-0.5 pl-6 text-meta text-muted">
+                {state.interval_minutes < 60
+                  ? `${state.interval_minutes} dakikada bir`
+                  : `${Math.round(state.interval_minutes / 60)} saatte bir`}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </Section>
+      <Section title="Modüller">
+        <p className="mb-3 text-meta text-muted">
+          Kapatılan modülün rotası, Bugün widget'ları ve komutları devre dışı kalır; verisi silinmez ve arka plan
+          güncellemesi bundan etkilenmez. Ayarlar her zaman açıktır.
+        </p>
+        <ul className="divide-y divide-subtle rounded-card border border-subtle">
+          {modules.map((module) => (
+            <li key={module.id} className="px-3 py-2">
+              <Checkbox
+                checked={!disabledModules.includes(module.id)}
+                onChange={() => onToggle(module.id)}
+                disabled={!online}
+                label={module.title}
+              />
+              {module.description && <p className="mt-0.5 pl-6 text-meta text-muted">{module.description}</p>}
+            </li>
+          ))}
+        </ul>
+      </Section>
+    </>
   );
 }
 

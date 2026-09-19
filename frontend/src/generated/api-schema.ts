@@ -4123,6 +4123,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Automation State
+         * @description Arka plan otomasyonu durumu (arayuz icin tek okuma).
+         *
+         *     `modules.disabled`'tan AYRI: gorunurluk ve ag trafigi farkli sorulardir.
+         */
+        get: operations["automation_state_api_system_automation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/automation/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Automation Profile
+         * @description Profili uygula (manual/balanced/active): ilgili ayarlar birlikte yazilir.
+         */
+        post: operations["set_automation_profile_api_system_automation_profile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/refresh": {
         parameters: {
             query?: never;
@@ -4642,6 +4684,11 @@ export interface components {
              * Format: uuid
              */
             topic_id: string;
+        };
+        /** AutomationProfileIn */
+        AutomationProfileIn: {
+            /** Profile */
+            profile: string;
         };
         /** Body_import_cards_api_flashcard_import_post */
         Body_import_cards_api_flashcard_import_post: {
@@ -18370,6 +18417,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TopicTodoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    automation_state_api_system_automation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    set_automation_profile_api_system_automation_profile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

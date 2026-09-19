@@ -9,6 +9,7 @@ MODULE = ModuleSpec(
         "system.refresh.started",
         "system.refresh.completed",
         "system.maintenance",
+        "system.automation_profile",
         "settings.updated",
         "backup.restored",
         "settings.reset",
