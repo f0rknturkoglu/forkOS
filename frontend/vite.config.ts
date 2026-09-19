@@ -20,14 +20,67 @@ export default defineConfig({
         // Excalidraw editoru ve yerel vendor parcasi 2 MiB'i asiyor. Notlar
         // offline salt-okunur modda da acilabilsin diye ikisini precache et.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        cleanupOutdatedCaches: true,
+        importScripts: ["/sw-cleanup.js"],
         runtimeCaching: [
           {
-            // OFFLINE = SADECE OKUMA. Mutation'lar cache'lenmez.
-            urlPattern: ({ url, request }) => url.pathname.startsWith("/api/") && request.method === "GET",
+            // OFFLINE = SADECE OKUMA.
+            //
+            // Beyaz liste YANIT SOZLESMESI uzerinden kurulur: ayni origin,
+            // GET, `application/json` ve bilinen boyutu 256 KB'in altinda.
+            // Bu uc kosul birlikte binary ve buyuk yanitlari (ekler, belge
+            // dosyalari, medya gorselleri, disa aktarmalar) kendiliginden
+            // disarida birakir; listenin bakimi gerekmez.
+            //
+            // Boyut tavani olmadan `maxEntries` yanilticidir: Workbox girdi
+            // SAYISINI sinirlar, bayt miktarini degil.
+            urlPattern: ({ url, request }) =>
+              url.origin === self.location.origin && url.pathname.startsWith("/api/") && request.method === "GET",
             handler: "StaleWhileRevalidate",
             options: {
-              cacheName: "lifeos-api",
-              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheName: "lifeos-api-v2",
+              cacheableResponse: { statuses: [200] },
+              // `options` semasinda `cacheWillUpdate` diye bir kisayol YOK
+              // (workbox-build onu reddeder); desteklenen yol `plugins`.
+              plugins: [
+                {
+                  // DIKKAT: bu fonksiyon uretilen service worker'a METIN
+                  // olarak gomulur; disaridaki degiskenleri goremez. Esikler
+                  // bu yuzden satir ici verilir.
+                  cacheWillUpdate: async ({ response }) => {
+                    const maxBytes = 256 * 1024;
+                    // Kucuk JSON olsa bile cache'e girmemesi gereken uclar:
+                    // disa aktarma ve yedek yanitlari buyuk/tek kullanimlik,
+                    // digerleri binary dosya.
+                    const excluded = [
+                      /^\/api\/export\//,
+                      /^\/api\/backup\//,
+                      /^\/api\/notes\/[^/]+\/attachments\//,
+                      /^\/api\/documents\/[^/]+\/file$/,
+                      /^\/api\/media\/assets\//,
+                    ];
+                    const contentType = response.headers.get("content-type") ?? "";
+                    if (!contentType.includes("application/json")) return null;
+                    const { pathname } = new URL(response.url);
+                    if (excluded.some((pattern) => pattern.test(pathname))) return null;
+                    // Boyut GOVDEDEN olculur. `Content-Length` gzip'li
+                    // yanitlarda hic gelmez ve "yok"u 0 saymak tavani
+                    // islevsiz birakir (nginx gzip'i buyuk JSON'u 400
+                    // bayta indirir; baslik okunamayinca 400 KB'lik yanit
+                    // sinirdan gecerdi).
+                    const { size } = await response.clone().blob();
+                    return size > maxBytes ? null : response;
+                  },
+                },
+              ],
+              expiration: {
+                maxEntries: 120,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
+                // Kota hatasinda tum cache'i bosalt: 256 KB tavani ve 120
+                // girdi sinirina ragmen beklenmedik bir buyume olursa
+                // browser'in keyfi tahliyesine birakma.
+                purgeOnQuotaError: true,
+              },
             },
           },
         ],

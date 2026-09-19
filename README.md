@@ -235,6 +235,31 @@ bağımsızdır. Ayrıntılı politika: `backend/app/core/retention.py`.
 Budama, hafif bakım mekanizmasıyla günde en fazla bir kez çalışır ve hiçbir
 ağ çağrısı yapmaz. Worker kapalıyken de çalışır.
 
+## Offline ve PWA cache'i
+
+Offline mod **salt okunurdur**: mutation'lar hiçbir koşulda cache'lenmez.
+
+Service worker yalnızca okunması anlamlı, küçük JSON yanıtlarını saklar. Beyaz
+liste yanıt sözleşmesi üzerinden kurulur (`frontend/vite.config.ts`):
+
+| Koşul | Değer |
+| --- | --- |
+| Origin | aynı origin |
+| Metot | yalnızca `GET` |
+| İçerik tipi | `application/json` |
+| Gövde boyutu | en fazla 256 KB |
+| Cache adı / girdi | `lifeos-api-v2`, en fazla 120 girdi, 7 gün |
+
+Binary ve büyük yanıtlar cache dışıdır: `/api/export/*`, `/api/backup/*`,
+`/api/notes/*/attachments/*`, `/api/documents/*/file`, `/api/media/assets/*`
+ve JSON olmayan her yanıt. Boyut ölçümü **gövdeden** yapılır: `Content-Length`
+gzip'li yanıtlarda hiç gelmez ve "yok"u sıfır saymak tavanı işlevsiz bırakır.
+
+`localStorage` gibi Cache Storage de göç ettirilir: eski `lifeos-api` cache'i
+yeni service worker activate olduğunda silinir
+(`frontend/public/sw-cleanup.js`). Aksi halde Workbox'un expirasyon eklentisi
+onu yönetemez ve binary'lerle dolu halde diskte kalırdı.
+
 ## Dizin yapısı
 
 ```text
