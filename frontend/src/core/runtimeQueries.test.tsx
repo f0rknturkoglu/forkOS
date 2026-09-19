@@ -100,4 +100,13 @@ describe("paylasilan runtime sorgulari", () => {
     await waitFor(() => expect(harness.urls.length).toBeGreaterThanOrEqual(3));
     expect(harness.urls.filter((url) => url.startsWith("/api/sources/health"))).toHaveLength(2);
   });
+
+  it("queryClient arka plan ve pencere odagi yoklamalarini varsayilan olarak askiya alir", () => {
+    const client = queryClient();
+    const defaults = client.getDefaultOptions().queries;
+    expect(defaults?.refetchOnWindowFocus).toBe(false);
+    expect(defaults?.refetchIntervalInBackground).toBe(false);
+    expect(defaults?.staleTime).toBe(30_000);
+  });
 });
+

@@ -34,7 +34,14 @@ export function queryClient(): QueryClient {
   if (!_queryClient) {
     _queryClient = new QueryClient({
       mutationCache: new MutationCache({ onError: mutationErrorHandler }),
-      defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+      defaultOptions: {
+        queries: {
+          staleTime: 30_000,
+          retry: 1,
+          refetchOnWindowFocus: false,
+          refetchIntervalInBackground: false,
+        },
+      },
     });
   }
   return _queryClient;
