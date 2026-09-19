@@ -28154,6 +28154,26 @@
         ]
       }
     },
+    "/api/system/storage": {
+      "get": {
+        "description": "Depolama dokumu + esik uyarilari (diagnostics; polling icin DEGIL).",
+        "operationId": "system_storage_api_system_storage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "System Storage",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/api/tags": {
       "get": {
         "operationId": "list_tags_api_tags_get",

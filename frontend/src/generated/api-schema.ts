@@ -4216,6 +4216,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * System Storage
+         * @description Depolama dokumu + esik uyarilari (diagnostics; polling icin DEGIL).
+         */
+        get: operations["system_storage_api_system_storage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tags": {
         parameters: {
             query?: never;
@@ -18537,6 +18557,26 @@ export interface operations {
         };
     };
     system_stats_api_system_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    system_storage_api_system_storage_get: {
         parameters: {
             query?: never;
             header?: never;
