@@ -281,3 +281,58 @@ make verify CO="docker compose"
 - design token ve UI primitive kullanımı
 - frontend tarafından tüketilmeyen endpoint sınırı
 - test DB'nin kişisel DB'den izolasyonu
+
+## 12. Hafif çalışma ve kaynak felsefesi
+
+forkOS tek kullanıcılı, yerel öncelikli (local-first) bir sistemdir. Sistem kaynakları (CPU, bellek, SSD yazma döngüsü ve disk alanı) kullanıcı çalışmadığı anlarda sakin kalacak şekilde tasarlanmıştır.
+
+### 12.1 Runtime modları
+
+- **Günlük (stable) runtime (`compose.yaml`):** Normal kullanım ortamı. Üretim derlemesi nginx ile sunulur, FastAPI reload'suz çalışır. Vite dosya izleme polling'i, HMR ve container içine bind-mount kaynak kod yoktur; SSD'ye sürekli gereksiz yazma yapılmaz.
+- **Geliştirme runtime'ı (`compose.dev.yaml` overlay):** Yalnızca kod geliştirirken kullanılır. Vite dev server, HMR, uvicorn `--reload` ve bind-mount kaynak kod içerir.
+
+### 12.2 Otomasyon profilleri ve modül ayrımı
+
+- **Görünürlük vs. Otomasyon:** Ayarlar → Modüller ekranında bir modülü gizlemek arayüz rotasını ve Bugün widget'larını kapatır; arka plan ağ trafiğini kesmez. Arka plan trafiği ayrı olarak `automation.<domain>.enabled` (veya `rss.interval_minutes = 0`) ile yönetilir.
+- **Çalışma profilleri:**
+  - `Manual`: Dış ağ otomasyonu kapalıdır; yalnızca yerel hafif bakım ve açık manuel yenilemeler çalışır.
+  - `Balanced` (varsayılan): RSS 60 dk, fırsat 30 dk, takvim 60 dk, GitHub 3 sa, medya 24 sa.
+  - `Active`: Daha sık turlar (RSS 30 dk, fırsat 15 dk, takvim 30 dk).
+- **Öncelik kuralı:** Modül otomasyonu kapalıysa profil ne olursa olsun çalışmaz; profiller yalnızca açık modüllerin sıklığını belirler.
+- **Opt-in kaynaklar:** LinkedIn ve EURES gibi `slow_optin` kaynaklar otomatik profillerle asla kendiliğinden açılmaz; yalnızca açık manuel seçimle koşar.
+- **Açılış telafisi:** Worker yeniden başlatıldığında ağ patlaması oluşmaz; tazelik kontrolü (RSS feed yaşı, son takvim/GitHub turu, son 2 saatlik kritik fırsat kontrolü) ile yakın zamanda güncellenmiş kaynaklar atlanır.
+
+### 12.3 Depolama sınırları ve saklama (retention)
+
+Disk büyümesi belirli sınırlarla (bounded) tutulur:
+
+| Alan | Konum | Bounded / Temizleme |
+| --- | --- | --- |
+| **PostgreSQL** | `forkos_pgdata` | Operasyonel satırlar günlük hafif bakımla budanır |
+| **Not ekleri** | `backend/data/attachments/` | İçerik adresli (sha256) binary; yetimler bakımla toplanır |
+| **Belgeler** | `backend/data/documents/` | Kullanıcı tarafından yönetilen yerel belgeler |
+| **Medya görselleri** | `backend/data/media/` | Yeniden üretilebilir; 512 MB bütçe tavanı ile budanır |
+| **Scraper önbelleği** | `backend/data/cache/` | Yeniden üretilebilir; HTTP önbellek sınırları ile tutulur |
+| **Yedekler** | `backend/backups/` | Sıkıştırılmış JSON ve pg_dump; kullanıcı yönetir |
+
+Operasyonel veri budama politikası:
+- `source_run`: `ok`/`empty` 30 gün, hatalı koşular 90 gün, kaynak başına **son 20 koşu daima korunur**.
+- `source_sync_batch`: Terminal batch'ler 60 gün; aktif kuyruk kayıtları asla silinmez.
+- `notification`: Okunmuş bildirimler 90 gün (önem derecesi ≥ 3 olanlar 180 gün); okunmamışlar asla silinmez.
+- **Kişisel veri dokunulmazlığı:** Not, görev, proje, medya, finans, fırsat ve `event` günlüğü asla otomatik budanmaz.
+
+### 12.4 Hafif bakım (maintenance)
+
+Worker açıkken her gece 04:00'te; worker kapalıyken API açılışında arka planda günde en fazla bir kez koşar (`maintenance.last_run` gün kapısı). Ağ çağrısı yapmaz; operasyonel satırları budar, süresi geçmiş RSS öğelerini temizler, medya önbelleğini bütçeye çeker ve eski ek temsillerini taşır.
+
+### 12.5 Kullanıcı odaklı yedekleme ve dirty check
+
+- **Kapsam:** Entity omurgası, bağlantılar, olay günlüğü, modül kayıtları ve kullanılan not ekleri.
+- **Kapsam dışı:** Rebuildable operasyonel durumlar (`source_run`, `source_sync_batch`) ve hassas `oauth_token` kayıtları.
+- **Gece yedeği dirty check:** Makine durumları (kalp atışı, bakım temizliği, kaynak sağlığı) değişiklik sayılmaz. Anlamlı kullanıcı mutasyonu yoksa gece yedeği gereksiz yere disk tüketmez. Manuel "Şimdi yedekle" her zaman tam yedek üretir.
+
+### 12.6 Tarayıcı ve UI kaynak optimizasyonu
+
+- TanStack Query: `refetchOnWindowFocus: false` ve `refetchIntervalInBackground: false` ile arka plan sekmelerinde ve pencere odak değişimlerinde istek fırtınası engellenir.
+- Paylaşılan runtime sorguları: Sistem istatistikleri, kaynak sağlığı ve yedek durumu tek anahtar üzerinden sorgulanır; bileşenler arası mükerrer polling yapılmaz.
+- Bugün paneli: Gizli widget'lar tamamen unmount edilir ve ağ isteği çıkarmaz; analog saat saniyelik render yerine dakika sınırına kilitlidir.
