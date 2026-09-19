@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
+import { sourceLabel } from "@/core/labels";
 import type { SourceSyncStatus } from "@/core/types";
 import { Button, Chip, cx } from "@/core/ui";
 
@@ -27,12 +29,35 @@ export function sourceSyncHistoryQueryKey(scope: SourceSyncScope): readonly stri
   return scope === "media" ? ["source-sync-history", "media"] : ["source-sync-history"];
 }
 
-function useSourceSync(scope: SourceSyncScope = "opportunity") {
+export function useSourceSync(scope: SourceSyncScope = "opportunity") {
   return useQuery({
     queryKey: sourceSyncQueryKey(scope),
     queryFn: () => api.get<SourceSyncStatus>(sourceSyncApiPath(scope)),
     refetchInterval: (query) => (query.state.data?.active ? 2_000 : 15_000),
   });
+}
+
+type SyncItemStatus = SourceSyncStatus["sources"][number]["status"];
+
+const STATUS_LABELS: Record<SyncItemStatus, string> = {
+  queued: "kuyrukta",
+  running: "çekiliyor",
+  ok: "tamamlandı",
+  partial: "kısmi",
+  empty: "yeni kayıt yok",
+  error: "hata",
+};
+
+export function sourceSyncStatusLabel(status: SyncItemStatus): string {
+  return STATUS_LABELS[status];
+}
+
+export function sourceSyncStatusTone(status: SyncItemStatus): "accent" | "danger" | "neutral" | "ok" | "warn" {
+  if (status === "running") return "accent";
+  if (status === "ok") return "ok";
+  if (status === "partial" || status === "empty") return "warn";
+  if (status === "error") return "danger";
+  return "neutral";
 }
 
 export function SyncProgress({
@@ -43,6 +68,7 @@ export function SyncProgress({
   scope?: SourceSyncScope;
 }) {
   const { data, error, isError, isFetching, refetch } = useSourceSync(scope);
+  const [expanded, setExpanded] = useState(false);
   if (isError) {
     return (
       <section
@@ -103,6 +129,7 @@ export function SyncProgress({
         compact ? "px-3 py-2.5" : "px-4 py-4",
       )}
       aria-label="Kaynak senkronizasyonu"
+      aria-live="polite"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="flex items-center gap-2 text-body font-medium text-primary">
@@ -114,21 +141,23 @@ export function SyncProgress({
           {batch.completed_sources} / {batch.total_sources} kaynak
         </span>
         {running > 0 && <Chip tone="accent">{running} aktif</Chip>}
-        <span className="ml-auto text-meta text-secondary">+{batch.items_found} yeni kayıt</span>
+        <Chip tone="ok" aria-label={`${batch.items_found} yeni kayıt`} className="ml-auto tabular-nums">
+          +{batch.items_found} yeni kayıt
+        </Chip>
         {batch.error_sources > 0 && (
-          <button
-            type="button"
-            onClick={() => navigate(sourceSyncRoute(scope))}
-            className="flex items-center gap-1.5 text-meta text-danger hover:underline"
-          >
+          <Button size="sm" variant="ghost" onClick={() => navigate(sourceSyncRoute(scope))} className="text-danger">
             <AlertTriangle size={13} /> {batch.error_sources} hata
-          </button>
+          </Button>
         )}
         {!compact && batch.error_sources === 0 && batch.completed_sources > 0 && (
           <span className="flex items-center gap-1 text-meta text-ok">
             <CheckCircle2 size={13} /> {batch.ok_sources} başarılı
           </span>
         )}
+        <Button size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)} ariaExpanded={expanded}>
+          {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          {expanded ? "Ayrıntıları gizle" : "Tüm kaynakları göster"}
+        </Button>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
         <span
@@ -136,6 +165,27 @@ export function SyncProgress({
           style={{ width: `${batch.progress_pct}%` }}
         />
       </div>
+      {expanded && (
+        <ul className="mt-3 grid max-h-64 grid-cols-1 gap-1 overflow-y-auto border-t border-accent-border pt-3 sm:grid-cols-2 xl:grid-cols-3">
+          {(data?.sources ?? []).map((item) => (
+            <li
+              key={item.source}
+              className="flex min-w-0 items-center gap-2 rounded-control bg-surface px-2 py-1.5 text-meta"
+              title={item.error ?? undefined}
+            >
+              <span className="min-w-0 flex-1 truncate text-secondary">{sourceLabel(item.source)}</span>
+              {item.items_found > 0 && (
+                <span className="tabular-nums text-ok" aria-label={`${item.items_found} yeni kayıt`}>
+                  +{item.items_found}
+                </span>
+              )}
+              <Chip tone={sourceSyncStatusTone(item.status)} size="xs">
+                {sourceSyncStatusLabel(item.status)}
+              </Chip>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

@@ -334,7 +334,7 @@ class SourceSyncBatchOut(BaseModel):
 
 class SourceSyncItemOut(BaseModel):
     source: str
-    status: Literal["queued", "running", "ok", "empty", "error"]
+    status: Literal["queued", "running", "ok", "partial", "empty", "error"]
     started_at: datetime | None
     finished_at: datetime | None
     items_found: int

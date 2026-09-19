@@ -69,6 +69,52 @@ async def test_sync_status_reports_persistent_batch_progress(client: AsyncClient
             )
 
 
+async def test_sync_status_accepts_partial_source_progress(client: AsyncClient):
+    """Kismi tarama terminal ve gorunur bir durumdur; response modeli 500 vermemeli."""
+    batch_id = str(uuid.uuid4())
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                """insert into source_sync_batch
+                (id, status, source_ids, total_sources, completed_sources,
+                 ok_sources, partial_sources, empty_sources, error_sources,
+                 items_found, started_at)
+                values (
+                  cast(:id as uuid), 'running', cast(:sources as jsonb),
+                  2, 1, 0, 1, 0, 0, 4, now()
+                )"""
+            ),
+            {"id": batch_id, "sources": '["partial-source", "queued-source"]'},
+        )
+        await connection.execute(
+            text(
+                """insert into source_run
+                (source, status, items_found, batch_id, started_at, finished_at)
+                values ('partial-source', 'partial', 4, cast(:id as uuid), now(), now())"""
+            ),
+            {"id": batch_id},
+        )
+    try:
+        response = await client.get("/api/sources/sync")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["active"]["partial_sources"] == 1
+        assert {row["source"]: row["status"] for row in payload["sources"]} == {
+            "partial-source": "partial",
+            "queued-source": "queued",
+        }
+    finally:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("delete from source_run where batch_id = cast(:id as uuid)"),
+                {"id": batch_id},
+            )
+            await connection.execute(
+                text("delete from source_sync_batch where id = cast(:id as uuid)"),
+                {"id": batch_id},
+            )
+
+
 async def test_extending_active_batch_only_adds_new_sources():
     from app.modules.opportunity.sync import create_or_extend_batch
 

@@ -12,20 +12,10 @@ import type { OpportunityBrowseFilters, OpportunitySection } from "./opportunity
 export const OPPORTUNITY_TABS = ["jobs", "applications", "announcements", "career", "sources"] as const;
 export type OpportunityTab = (typeof OPPORTUNITY_TABS)[number];
 
-const SECTION_TABS: Record<OpportunitySection, OpportunityTab> = {
-  jobs: "jobs",
-  announcements: "announcements",
-  trash: "jobs",
-};
-
 const TAB_SECTIONS: Partial<Record<OpportunityTab, OpportunitySection>> = {
   jobs: "jobs",
   announcements: "announcements",
 };
-
-export function tabForSection(section: OpportunitySection): OpportunityTab {
-  return SECTION_TABS[section];
-}
 
 export function sectionForTab(tab: OpportunityTab, current: OpportunitySection): OpportunitySection {
   const section = TAB_SECTIONS[tab];

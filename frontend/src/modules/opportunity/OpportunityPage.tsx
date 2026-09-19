@@ -9,7 +9,6 @@ import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
-import { SavedViewPicker } from "@/core/SavedViewPicker";
 import { SyncProgress } from "@/core/SyncProgress";
 import { useOnline } from "@/lib/hooks";
 import { OpportunityDetail } from "./OpportunityDetail";
@@ -21,13 +20,11 @@ import { ApplicationsWorkspace } from "./ApplicationsWorkspace";
 import { CareerWorkspace } from "./CareerWorkspace";
 import { SourcesWorkspace } from "./SourcesWorkspace";
 import { browseQuery, type OpportunityBrowseFilters, type OpportunityBrowseResponse } from "./opportunityBrowse";
-import { applySavedView, savableView } from "./filterState";
 import {
   OPPORTUNITY_TABS,
   parseOpportunityUrl,
   sectionForTab,
   serializeOpportunityUrl,
-  tabForSection,
   type OpportunityTab,
 } from "./opportunityUrl";
 import { remoteKind } from "./labels";
@@ -176,14 +173,6 @@ export function OpportunityPage() {
     setSelected(null);
   }, []);
 
-  const applyView = useCallback((raw: unknown) => {
-    setFilters((current) => {
-      const next = applySavedView(current, raw);
-      setTab(tabForSection(next.section));
-      return next;
-    });
-  }, []);
-
   const saveItem = (item: Opportunity) => {
     if (item.url) {
       void save({ url: item.url, title: item.title, collection: "reference", entity_id: item.id });
@@ -238,23 +227,18 @@ export function OpportunityPage() {
                     ? "CV, hikâye bankası ve bağlantı ağı"
                     : "Kaynak sağlığı, kapsam ve cache"
           }
-          action={tab === "sources" ? undefined : <SyncProgress compact />}
         >
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={tab} onChange={changeTab} items={tabs} ariaLabel="Fırsat çalışma alanları" />
             <span className="ml-auto flex flex-wrap items-center gap-2">
-              {(tab === "jobs" || tab === "announcements") && (
-                <>
-                  <SavedViewPicker
-                    module="opportunity"
-                    filters={{ ...savableView(filters), tab }}
-                    onApply={applyView}
-                  />
-                  <SourcePicker />
-                </>
-              )}
+              {(tab === "jobs" || tab === "announcements") && <SourcePicker />}
             </span>
           </div>
+          {tab !== "sources" && (
+            <div className="mt-3">
+              <SyncProgress compact />
+            </div>
+          )}
         </WorkspacePaneHeader>
 
         <WorkspaceScrollArea className="p-3">

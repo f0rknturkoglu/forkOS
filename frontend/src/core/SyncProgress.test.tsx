@@ -41,4 +41,78 @@ describe("SyncProgress", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(container.textContent).toBe("");
   });
+
+  it("shows the live new-record badge and every source state", async () => {
+    responses = [
+      json({
+        active: {
+          id: "batch-1",
+          scope: "opportunity",
+          status: "running",
+          source_ids: ["osym", "jobhunter:eures", "jobhunter:linkedin"],
+          total_sources: 3,
+          completed_sources: 1,
+          ok_sources: 0,
+          partial_sources: 1,
+          empty_sources: 0,
+          error_sources: 0,
+          items_found: 7,
+          progress_pct: 33,
+          created_at: "2026-09-20T10:00:00Z",
+          started_at: "2026-09-20T10:00:01Z",
+          finished_at: null,
+        },
+        last_completed: null,
+        running: [
+          {
+            source: "jobhunter:eures",
+            status: "running",
+            started_at: "2026-09-20T10:00:02Z",
+            finished_at: null,
+            items_found: 0,
+            error: null,
+          },
+        ],
+        sources: [
+          {
+            source: "osym",
+            status: "partial",
+            started_at: "2026-09-20T10:00:01Z",
+            finished_at: "2026-09-20T10:00:03Z",
+            items_found: 7,
+            error: "bazı sayfalar alınamadı",
+          },
+          {
+            source: "jobhunter:eures",
+            status: "running",
+            started_at: "2026-09-20T10:00:02Z",
+            finished_at: null,
+            items_found: 0,
+            error: null,
+          },
+          {
+            source: "jobhunter:linkedin",
+            status: "queued",
+            started_at: null,
+            finished_at: null,
+            items_found: 0,
+            error: null,
+          },
+        ],
+      }),
+    ];
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <SyncProgress compact />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByLabelText("7 yeni kayıt")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tüm kaynakları göster" }));
+
+    expect(screen.getByText("kısmi")).not.toBeNull();
+    expect(screen.getByText("çekiliyor")).not.toBeNull();
+    expect(screen.getByText("kuyrukta")).not.toBeNull();
+  });
 });

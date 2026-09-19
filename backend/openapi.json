@@ -12456,6 +12456,7 @@
               "queued",
               "running",
               "ok",
+              "partial",
               "empty",
               "error"
             ],

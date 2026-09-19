@@ -58,6 +58,8 @@ describe("WorkspaceHeader yenileme kapsamı", () => {
     // Durum çubuğu ve yenileme aynı API katmanını paylaşır; yol bazlı cevap ver.
     apiMock.get.mockReset().mockImplementation((path: string) => {
       if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      if (path.startsWith("/sources/sync"))
+        return Promise.resolve({ active: null, last_completed: null, running: [], sources: [] });
       if (path.startsWith("/sources/health")) return Promise.resolve([]);
       return Promise.resolve({});
     });
@@ -110,6 +112,33 @@ describe("WorkspaceHeader yenileme kapsamı", () => {
 
     expect(await screen.findByText("abcdef12")).not.toBeNull();
   });
+
+  it("aktif kaynak çekiminin yeni kayıt sayısını başlık rozeti olarak gösterir", async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      if (path.startsWith("/sources/sync")) {
+        return Promise.resolve({
+          active: {
+            id: "batch-1",
+            status: "running",
+            items_found: 5,
+            error_sources: 0,
+            progress_pct: 40,
+            completed_sources: 2,
+            total_sources: 5,
+          },
+          last_completed: null,
+          running: [],
+          sources: [],
+        });
+      }
+      return Promise.resolve([]);
+    });
+    renderHeader();
+
+    expect(await screen.findByLabelText("5 yeni kayıt")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Kaynaklar çekiliyor: 5 yeni kayıt" })).not.toBeNull();
+  });
 });
 
 describe("WorkspaceHeader kenar cubugu dugmesi", () => {
@@ -117,6 +146,8 @@ describe("WorkspaceHeader kenar cubugu dugmesi", () => {
     localStorage.clear();
     apiMock.get.mockReset().mockImplementation((path: string) => {
       if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      if (path.startsWith("/sources/sync"))
+        return Promise.resolve({ active: null, last_completed: null, running: [], sources: [] });
       return Promise.resolve(null);
     });
   });

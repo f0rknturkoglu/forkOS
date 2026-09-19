@@ -16,6 +16,7 @@ import { AlertTriangle, CheckCircle2, RefreshCw, Search } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { sourceLabel } from "@/core/labels";
+import { sourceSyncStatusLabel, sourceSyncStatusTone, SyncProgress } from "@/core/SyncProgress";
 import {
   Button,
   Chip,
@@ -52,12 +53,6 @@ interface CatalogEntry {
   /** Kaynağın kendi verdiği kaba süre tahmini (saniye). */
   estimated_seconds?: number | null;
 }
-
-/** `partial_sources` backend batch'inde var; üretilen istemci şeması bir sonraki
- *  `npm run api:gen`e kadar geride kaldığı için opsiyonel okunur. */
-type SyncStatus = Omit<SourceSyncStatus, "active"> & {
-  active: (NonNullable<SourceSyncStatus["active"]> & { partial_sources?: number }) | null;
-};
 
 const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: "Duyuru" };
 
@@ -111,8 +106,8 @@ export function SourcesWorkspace() {
   });
   const sync = useQuery({
     queryKey: ["source-sync"],
-    queryFn: () => api.get<SyncStatus>("/sources/sync"),
-    refetchInterval: (query) => (query.state.data?.running.length ? 2_000 : 30_000),
+    queryFn: () => api.get<SourceSyncStatus>("/sources/sync"),
+    refetchInterval: (query) => (query.state.data?.active ? 2_000 : 15_000),
   });
   const coverage = useQuery({
     queryKey: ["source-coverage"],
@@ -169,6 +164,10 @@ export function SourcesWorkspace() {
   }, [runs.data]);
 
   const running = useMemo(() => new Set((sync.data?.running ?? []).map((item) => item.source)), [sync.data]);
+  const currentBySource = useMemo(
+    () => new Map((sync.data?.sources ?? []).map((item) => [item.source, item])),
+    [sync.data],
+  );
 
   /**
    * Sorunlu kaynaklar — "sessiz ölüm" göstergesi. Karar backend özetinden
@@ -214,11 +213,7 @@ export function SourcesWorkspace() {
   }
 
   if (catalog.isPending) {
-    return (
-      <div className="flex items-center gap-2 p-6 text-meta text-muted">
-        <Spinner /> Kaynak kataloğu yükleniyor…
-      </div>
-    );
+    return <Spinner label="Kaynak kataloğu yükleniyor…" />;
   }
 
   if (catalog.isError) {
@@ -283,14 +278,9 @@ export function SourcesWorkspace() {
             Çevrimdışı: yenileme başlatılamaz. Kayıtlı veriler okunmaya devam eder.
           </p>
         )}
-        {sync.data?.active && (
-          <p className="mt-2 text-meta text-muted" aria-live="polite">
-            Aktif parti: {sync.data.active.completed_sources}/{sync.data.active.total_sources} kaynak ·{" "}
-            {sync.data.active.items_found} yeni kayıt
-            {sync.data.active.partial_sources ? ` · ${sync.data.active.partial_sources} kaynak kısmi tarandı` : ""} ·
-            durum {sync.data.active.status}
-          </p>
-        )}
+        <div className="mt-3">
+          <SyncProgress />
+        </div>
       </Section>
 
       <Section title="Kaynak kataloğu">
@@ -340,7 +330,10 @@ export function SourcesWorkspace() {
               <tbody>
                 {visible.map((entry) => {
                   const run = latestBySource.get(entry.id);
-                  const busy = running.has(entry.id);
+                  const current = currentBySource.get(entry.id);
+                  const busy = current?.status === "running" || current?.status === "queued";
+                  const shownStatus = current?.status ?? run?.status;
+                  const shownItems = current?.items_found ?? run?.items_found ?? 0;
                   const sourceClass = entry.class ?? "normal";
                   return (
                     <tr key={entry.id} className="border-b border-subtle last:border-b-0">
@@ -361,19 +354,29 @@ export function SourcesWorkspace() {
                         {entry.estimated_seconds ? formatSeconds(entry.estimated_seconds) : "—"}
                       </td>
                       <td className="px-2 py-2 tabular-nums text-secondary">
-                        {busy ? "çekiliyor…" : run?.started_at ? relativeTime(run.started_at) : "hiç çalışmadı"}
+                        {current?.status === "running"
+                          ? "çekiliyor…"
+                          : current?.status === "queued"
+                            ? "kuyrukta"
+                            : current?.finished_at
+                              ? relativeTime(current.finished_at)
+                              : run?.started_at
+                                ? relativeTime(run.started_at)
+                                : "hiç çalışmadı"}
                       </td>
                       <td className="px-2 py-2">
-                        {busy ? (
-                          <Chip tone="accent">çekiliyor</Chip>
+                        {current ? (
+                          <Chip tone={sourceSyncStatusTone(current.status)}>
+                            {sourceSyncStatusLabel(current.status)}
+                          </Chip>
                         ) : run ? (
                           <Chip tone={STATUS_TONES[run.status] ?? "neutral"}>{run.status}</Chip>
                         ) : (
                           <span className="text-muted">—</span>
                         )}
                       </td>
-                      <td className="px-2 py-2 tabular-nums text-secondary">
-                        {run?.items_found ? `+${run.items_found}` : "0"}
+                      <td className={cx("px-2 py-2 tabular-nums", shownItems > 0 ? "text-ok" : "text-secondary")}>
+                        {shownItems > 0 ? `+${shownItems}` : "0"}
                       </td>
                       <td className="px-2 py-2 text-right">
                         <IconButton
@@ -398,9 +401,7 @@ export function SourcesWorkspace() {
         hint="Eşikler backend özetinden gelir: devre kesici açık, son koşu hata ya da üst üste üç boş koşu."
       >
         {coverage.isPending ? (
-          <p className="flex items-center gap-2 text-meta text-muted">
-            <Spinner /> Kaynak sağlığı yükleniyor…
-          </p>
+          <Spinner label="Kaynak sağlığı yükleniyor…" />
         ) : coverage.isError ? (
           <Empty
             title="Kaynak sağlığı yüklenemedi"
@@ -455,9 +456,7 @@ export function SourcesWorkspace() {
 
       <Section title="Son koşular">
         {runs.isPending ? (
-          <p className="flex items-center gap-2 text-meta text-muted">
-            <Spinner /> Koşular yükleniyor…
-          </p>
+          <Spinner label="Koşular yükleniyor…" />
         ) : runs.isError ? (
           <Empty
             title="Koşu geçmişi yüklenemedi"
@@ -510,9 +509,7 @@ export function SourcesWorkspace() {
         hint="Hangi kurumu takip ediyoruz, hangisi eksik? Resmî kaynak merkezî kayıttır; kurum siteleri erken sinyal verir."
       >
         {coverage.isPending ? (
-          <p className="flex items-center gap-2 text-meta text-muted">
-            <Spinner /> Kapsam matrisi yükleniyor…
-          </p>
+          <Spinner label="Kapsam matrisi yükleniyor…" />
         ) : coverage.isError ? (
           <Empty
             title="Kapsam matrisi yüklenemedi"

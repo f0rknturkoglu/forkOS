@@ -2,7 +2,7 @@
  * Fırsat filtrelerinin TEK kayıt defteri.
  *
  * Önceden aynı filtre kümesi beş ayrı yerde elle sayılıyordu (aktif sayısı,
- * chip listesi, "tümünü temizle", kayıtlı görünüm whitelist'i, bölüm geçişi);
+ * chip listesi, "tümünü temizle" ve bölüm geçişi;
  * bir filtre eklemek beş dosyaya dokunmayı gerektiriyordu ve biri unutulunca
  * "Aktif Filtreler" kutusu boş görünüyordu (YLSY chip'i bu yüzden yoktu).
  * Artık tanım burada; UI bu tanımdan üretilir.
@@ -236,60 +236,6 @@ export function activeFilterChips(filters: OpportunityBrowseFilters): ActiveFilt
     });
   }
   return chips;
-}
-
-/** Görünümde tutulan ama chip'i olmayan alanlar (sıralama, limit). */
-const VIEW_KEYS: FilterKey[] = ["sort"];
-
-/** Kayıtlı görünüme yazılan anahtarlar. */
-export function savableView(filters: OpportunityBrowseFilters): Record<string, unknown> {
-  const out: Record<string, unknown> = { section: filters.section };
-  const keys = new Set<FilterKey>([
-    ...FILTER_DESCRIPTORS.filter((item) => item.saved).map((item) => item.key),
-    ...VIEW_KEYS,
-    "min_score",
-    "max_score",
-    "score_state",
-    "min_skill_match",
-    "max_skill_match",
-    "skill_match_state",
-    "skill_tier",
-  ]);
-  for (const key of keys) {
-    const value = filters[key];
-    if (value === undefined || value === "") continue;
-    out[key] = value;
-  }
-  return out;
-}
-
-/** Kayıtlı görünümden bilinen anahtarları uygular; bilinmeyenleri yok sayar. */
-export function applySavedView(filters: OpportunityBrowseFilters, raw: unknown): OpportunityBrowseFilters {
-  const data = (raw ?? {}) as Record<string, unknown>;
-  const section = data.section;
-  const targetSection =
-    section === "jobs" || section === "announcements" || section === "trash" ? section : filters.section;
-  const base = targetSection === filters.section ? filters : switchSection(filters, targetSection);
-  const draft = { ...base, offset: 0 } as unknown as Record<string, unknown>;
-  for (const descriptor of FILTER_DESCRIPTORS) {
-    const value = data[descriptor.key];
-    if (typeof value === "string" || typeof value === "number") {
-      draft[descriptor.key] = value;
-    }
-  }
-  for (const key of ["min_score", "max_score", "min_skill_match", "max_skill_match"] as const) {
-    const value = data[key];
-    if (typeof value === "number") draft[key] = value;
-  }
-  if (data.score_state === "computed" || data.score_state === "uncomputed") {
-    draft.score_state = data.score_state;
-  }
-  if (data.skill_match_state === "computed" || data.skill_match_state === "uncomputed") {
-    draft.skill_match_state = data.skill_match_state;
-  }
-  if (typeof data.skill_tier === "string") draft.skill_tier = data.skill_tier;
-  if (typeof data.sort === "string") draft.sort = data.sort;
-  return draft as unknown as OpportunityBrowseFilters;
 }
 
 /**

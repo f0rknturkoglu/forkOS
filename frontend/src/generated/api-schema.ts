@@ -8686,7 +8686,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "queued" | "running" | "ok" | "empty" | "error";
+            status: "queued" | "running" | "ok" | "partial" | "empty" | "error";
         };
         /** SourceSyncStatusOut */
         SourceSyncStatusOut: {

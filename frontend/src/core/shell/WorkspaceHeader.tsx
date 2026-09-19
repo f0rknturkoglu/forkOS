@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, Menu, Moon, PanelLeftOpen, RefreshCw, Search, Sun } from "lucide-react";
 import { api } from "@/core/api";
+import { navigate } from "@/app/router";
 import { openCommandPalette } from "@/core/CommandPalette";
 import { invalidateAfter } from "@/core/invalidation";
 import { NotificationPanel } from "@/core/NotificationPanel";
 import { moduleForPath, titleForPath } from "@/core/registry";
+import { useSourceSync } from "@/core/SyncProgress";
 import { StatusLed } from "@/core/StatusLed";
 import type { ManualRefreshStatus } from "@/core/types";
 import { Button, Chip, IconButton, Kbd, Popover, cx, useTheme, useToast } from "@/core/ui";
@@ -77,6 +79,7 @@ export function WorkspaceHeader({
     queryFn: () => api.get<ManualRefreshStatus>("/system/refresh"),
     refetchInterval: (query) => (query.state.data?.status === "running" ? 2_000 : false),
   });
+  const sourceSync = useSourceSync();
   const refresh = useMutation({
     mutationFn: (next: RefreshScope) => api.post<ManualRefreshStatus>("/system/refresh", { scope: next }),
     onSuccess: (value, next) => {
@@ -98,7 +101,8 @@ export function WorkspaceHeader({
     refresh.mutate(next);
   };
 
-  const isRefreshing = refresh.isPending || refreshStatus.data?.status === "running";
+  const activeSourceBatch = sourceSync.data?.active;
+  const isRefreshing = refresh.isPending || refreshStatus.data?.status === "running" || Boolean(activeSourceBatch);
   const summary = useMemo(() => refreshSummary(refreshStatus.data), [refreshStatus.data]);
 
   useEffect(() => {
@@ -153,13 +157,31 @@ export function WorkspaceHeader({
 
       <div className="flex shrink-0 items-center gap-1">
         <StatusLed />
-        <IconButton
-          title={isRefreshing ? "Kaynaklar yenileniyor" : `Kaynakları yenile (${scopeLabel(scope)})`}
-          disabled={!online || isRefreshing}
-          onClick={() => start(scope)}
-        >
-          <RefreshCw size={15} className={cx(isRefreshing && "animate-spin")} />
-        </IconButton>
+        <span className="relative inline-flex">
+          <IconButton
+            title={
+              activeSourceBatch
+                ? `Kaynaklar çekiliyor: ${activeSourceBatch.items_found} yeni kayıt`
+                : isRefreshing
+                  ? "Kaynaklar yenileniyor"
+                  : `Kaynakları yenile (${scopeLabel(scope)})`
+            }
+            disabled={!online || isRefreshing}
+            onClick={() => start(scope)}
+          >
+            <RefreshCw size={15} className={cx((isRefreshing || activeSourceBatch) && "animate-spin")} />
+          </IconButton>
+          {activeSourceBatch && (
+            <Chip
+              size="xs"
+              tone={activeSourceBatch.error_sources > 0 ? "danger" : "ok"}
+              className="pointer-events-none absolute -right-2 -top-2 z-10 px-1 tabular-nums"
+              aria-label={`${activeSourceBatch.items_found} yeni kayıt`}
+            >
+              +{activeSourceBatch.items_found}
+            </Chip>
+          )}
+        </span>
         <span className="relative inline-flex" ref={scopeAnchor}>
           <IconButton
             title="Yenileme kapsamı ve durumu"
@@ -213,6 +235,31 @@ export function WorkspaceHeader({
                 <p>{summary}</p>
                 {!online && <p className="text-warn">Çevrimdışısın: yenileme başlatılamaz.</p>}
               </div>
+              {activeSourceBatch && (
+                <div className="space-y-2 border-t border-subtle pt-2" aria-live="polite">
+                  <div className="flex flex-wrap items-center gap-2 text-meta">
+                    <span className="font-medium text-primary">Kaynak çekimi</span>
+                    <Chip tone="accent">%{activeSourceBatch.progress_pct}</Chip>
+                    <Chip tone="ok" className="tabular-nums">
+                      +{activeSourceBatch.items_found} yeni kayıt
+                    </Chip>
+                  </div>
+                  <p className="text-micro text-muted">
+                    {activeSourceBatch.completed_sources}/{activeSourceBatch.total_sources} kaynak tamamlandı
+                    {activeSourceBatch.error_sources > 0 ? ` · ${activeSourceBatch.error_sources} hata` : ""}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setScopeOpen(false);
+                      navigate("/sources");
+                    }}
+                  >
+                    Tüm kaynak sürecini aç
+                  </Button>
+                </div>
+              )}
             </div>
           </Popover>
         </span>
