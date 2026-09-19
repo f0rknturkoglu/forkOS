@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { POMODORO_STATS_QUERY_KEY } from "./queries";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Maximize2, Pause, Play, Plus, Trash2 } from "lucide-react";
@@ -36,7 +37,7 @@ export function PomodoroWidget() {
   }, [active?.id, active?.paused_at]);
 
   const { data: stats } = useQuery({
-    queryKey: ["pomodoro-stats", "today"],
+    queryKey: POMODORO_STATS_QUERY_KEY,
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day"),
   });
   const { data: sessions = [] } = useQuery({

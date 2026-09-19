@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { RECURRING_PAYMENTS_QUERY_KEY } from "./queries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { BarChart3, ChevronLeft, ChevronRight, CreditCard, Plus, ReceiptText } from "lucide-react";
 import { api, qs } from "@/core/api";
@@ -83,7 +84,7 @@ export function FinancePage() {
     queryFn: () => api.get<MonthlySummary[]>("/finance/summary" + qs({ months: 6 })),
   });
   const { data: recurring = [] } = useQuery({
-    queryKey: ["recurring"],
+    queryKey: RECURRING_PAYMENTS_QUERY_KEY,
     queryFn: () => api.get<RecurringPayment[]>("/recurring-payments"),
   });
 

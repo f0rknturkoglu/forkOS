@@ -1,15 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
+import { RECURRING_PAYMENTS_QUERY_KEY } from "./queries";
 import { api } from "@/core/api";
 import type { RecurringPayment } from "@/core/types";
 import { RowList, Section } from "@/core/ui";
 import { daysBetween, todayKey } from "@/lib/date";
 import { dueLabel, money } from "./financeLabels";
 
-const RECURRING_WIDGET_KEY = ["recurring", "widget"] as const;
-
 export function RecurringWidget() {
   const { data = [] } = useQuery({
-    queryKey: RECURRING_WIDGET_KEY,
+    queryKey: RECURRING_PAYMENTS_QUERY_KEY,
     queryFn: () => api.get<RecurringPayment[]>("/recurring-payments"),
   });
   const active = data

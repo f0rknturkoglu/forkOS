@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { useBackupStatus, useSourceHealth } from "@/core/runtimeQueries";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { BellRing, Blocks, Briefcase, DatabaseBackup, LayoutGrid, Plug, SlidersHorizontal } from "lucide-react";
@@ -96,10 +97,7 @@ export function SettingsPage() {
     queryKey: ["settings"],
     queryFn: () => api.get<AppSettings>("/settings"),
   });
-  const { data: sources = [] } = useQuery({
-    queryKey: ["sources", "health"],
-    queryFn: () => api.get<SourceHealth[]>("/sources/health"),
-  });
+  const { data: sources = [] } = useSourceHealth();
   const { data: google } = useQuery({
     queryKey: ["google-status"],
     queryFn: () => api.get<IntegrationStatus>("/auth/google/status"),
@@ -108,10 +106,7 @@ export function SettingsPage() {
     queryKey: ["github-status"],
     queryFn: () => api.get<IntegrationStatus>("/auth/github/status"),
   });
-  const { data: backupStatus } = useQuery({
-    queryKey: ["backup-status"],
-    queryFn: () => api.get<BackupStatus>("/backup/status"),
-  });
+  const { data: backupStatus } = useBackupStatus();
 
   /* Derin baglanti: medya paneli odaklanir ve orta hizaya kaydirilir. */
   const [focusedSection, setFocusedSection] = useState<string | null>(null);

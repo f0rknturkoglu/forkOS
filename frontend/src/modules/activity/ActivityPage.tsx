@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSourceHealth } from "@/core/runtimeQueries";
+import { POMODORO_STATS_QUERY_KEY } from "@/modules/pomodoro/queries";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
@@ -113,7 +115,7 @@ export function ActivityPage() {
 
   const { summary, monthly } = useRhythmSummary();
   const { data: pomodoro } = useQuery({
-    queryKey: ["pomodoro", "stats", "day"],
+    queryKey: POMODORO_STATS_QUERY_KEY,
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day"),
   });
   const { data: heatmap } = useQuery({
@@ -126,10 +128,7 @@ export function ActivityPage() {
     queryFn: () =>
       api.get<ActivityEvent[]>(`/activity${qs({ limit, category: SERVER_CATEGORY[filter], q: query || undefined })}`),
   });
-  const { data: health = [] } = useQuery({
-    queryKey: ["sources", "health"],
-    queryFn: () => api.get<SourceHealth[]>("/sources/health"),
-  });
+  const { data: health = [] } = useSourceHealth();
   const { data: reviews = [] } = useQuery({
     queryKey: ["reviews"],
     queryFn: () => api.get<ReviewOut[]>("/reviews?limit=10"),

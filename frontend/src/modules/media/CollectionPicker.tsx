@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { MEDIA_COLLECTIONS_QUERY_KEY } from "./queries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, Library, Plus } from "lucide-react";
 
@@ -50,7 +51,7 @@ export function CollectionPicker({
   const [newTitle, setNewTitle] = useState("");
 
   const collections = useQuery({
-    queryKey: ["media", "collections"],
+    queryKey: MEDIA_COLLECTIONS_QUERY_KEY,
     queryFn: () => api.get<MediaCollection[]>("/media/collections"),
     enabled: open,
   });

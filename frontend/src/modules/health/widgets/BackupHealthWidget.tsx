@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { useBackupStatus } from "@/core/runtimeQueries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CloudUpload, Database, HardDriveDownload } from "lucide-react";
 import { api } from "@/core/api";
@@ -24,11 +25,7 @@ export function BackupHealthWidget() {
   const toast = useToast();
   const online = useOnline();
 
-  const { data } = useQuery({
-    queryKey: ["backup-status"],
-    queryFn: () => api.get<BackupStatus>("/backup/status"),
-    refetchInterval: 60_000,
-  });
+  const { data } = useBackupStatus();
   const { data: google } = useQuery({
     queryKey: ["google-status"],
     queryFn: () => api.get<{ connected: boolean }>("/auth/google/status"),

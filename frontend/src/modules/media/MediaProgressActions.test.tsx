@@ -95,7 +95,6 @@ describe("append-only media progress", () => {
       "media-detail",
       "media-stats",
       "media-dashboard",
-      "media-collections",
       "today-agenda",
       "activity",
       "statistics",

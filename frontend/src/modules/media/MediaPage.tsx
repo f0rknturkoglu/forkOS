@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { MEDIA_COLLECTIONS_QUERY_KEY } from "./queries";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
@@ -228,7 +229,7 @@ function MediaLibraryView() {
     queryFn: () => api.get<MediaPageResponse>(requestPath),
   });
   const collections = useQuery({
-    queryKey: ["media-collections"],
+    queryKey: MEDIA_COLLECTIONS_QUERY_KEY,
     queryFn: () => api.get<MediaCollection[]>("/media/collections"),
   });
 

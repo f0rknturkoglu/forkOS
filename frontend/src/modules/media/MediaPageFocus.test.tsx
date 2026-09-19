@@ -28,6 +28,8 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
+    // Koleksiyonlar artik ["media","collections"] anahtarini paylasir.
+    if (options.queryKey[0] === "media" && options.queryKey[1] === "collections") return { data: [] };
     if (options.queryKey[0] === "media") return { data: { items: [], total: 0, next_cursor: null } };
     if (options.queryKey[0] === "media-stats") return { data: { total: 0, in_progress: 0, completed: 0, planned: 0 } };
     if (options.queryKey[0] === "media-providers") return { data: [] };

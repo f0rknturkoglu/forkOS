@@ -60,7 +60,9 @@ describe("cross-page query integration", () => {
     renderToStaticMarkup(createElement(RecurringWidget));
 
     expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["today-agenda", expect.any(String)]);
-    expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["recurring", "widget"]);
+    // Detail sayfasiyla AYNI anahtar: ayni ucu iki anahtarla sormak ucu iki
+    // kez cekerdi (bkz. finance/queries.ts).
+    expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["recurring"]);
   });
 
   it("runs the RSS save success callback with every linked refresh prefix", () => {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSystemStats } from "@/core/runtimeQueries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, Briefcase, Clock4, Cpu, HardDrive, MemoryStick, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
@@ -132,11 +133,7 @@ export function TodayFlowSection({
 
 export function SystemDiagnosticsSection() {
   const toast = useToast();
-  const { data } = useQuery({
-    queryKey: ["system-stats"],
-    queryFn: () => api.get<SystemStats>("/system/stats"),
-    refetchInterval: 30_000,
-  });
+  const { data } = useSystemStats();
   const refresh = useMutation({
     mutationFn: () => api.post<{ status: string }>("/system/refresh"),
     onSuccess: () => {

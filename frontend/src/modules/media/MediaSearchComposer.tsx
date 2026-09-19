@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { MEDIA_COLLECTIONS_QUERY_KEY } from "./queries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/core/api";
 import { Button, Checkbox, Chip, Empty, Field, Input, Select, Tabs, cx } from "@/core/ui";
@@ -231,7 +232,7 @@ export function MediaSearchComposer({
     enabled,
   });
   const collections = useQuery({
-    queryKey: ["media", "collections"],
+    queryKey: MEDIA_COLLECTIONS_QUERY_KEY,
     queryFn: () => api.get<MediaCollection[]>("/media/collections"),
     enabled: addTarget !== null,
   });

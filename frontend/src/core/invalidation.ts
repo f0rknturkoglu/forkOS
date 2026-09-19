@@ -40,7 +40,6 @@ export const AFTER = {
     "media-detail",
     "media-stats",
     "media-dashboard",
-    "media-collections",
     "today-agenda",
     "activity",
     "statistics",

@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { MEDIA_COLLECTIONS_QUERY_KEY } from "./queries";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Library, Pencil, Plus, Trash2 } from "lucide-react";
@@ -65,7 +66,7 @@ export function MediaCollectionsPage() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["media", "collections"],
+    queryKey: MEDIA_COLLECTIONS_QUERY_KEY,
     queryFn: () => api.get<MediaCollection[]>("/media/collections"),
   });
   const refresh = () => invalidateAfter("media.write");

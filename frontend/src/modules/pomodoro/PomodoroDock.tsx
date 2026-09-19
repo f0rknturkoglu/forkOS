@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { POMODORO_STATS_QUERY_KEY } from "./queries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, FileText, ListChecks, Maximize2, Pause, Play, Plus, StickyNote, Timer, X } from "lucide-react";
 import { api } from "@/core/api";
@@ -60,7 +61,7 @@ export function QuickActionDock() {
     refetchInterval: 30_000,
   });
   const { data: stats } = useQuery({
-    queryKey: ["pomodoro-stats", "today"],
+    queryKey: POMODORO_STATS_QUERY_KEY,
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day"),
   });
 
