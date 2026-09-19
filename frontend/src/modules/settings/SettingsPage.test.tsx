@@ -441,4 +441,14 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
       expect(calls.some((call) => call.method === "POST" && call.path === "/api/settings/reset")).toBe(true),
     );
   });
+
+  it("depolama raporu ve bakim durumunu gosterir", async () => {
+    renderPage();
+    await ready();
+
+    expect(await screen.findByText("Depolama")).toBeTruthy();
+    expect(screen.getByText("Otomatik hafif bakım")).toBeTruthy();
+    expect(screen.getByText(/Sonraki: her gün 04:00 \/ açılışta/)).toBeTruthy();
+  });
 });
+

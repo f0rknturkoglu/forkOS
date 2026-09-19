@@ -140,7 +140,28 @@ type StorageReport = {
   };
   files: Record<string, number>;
   warnings: { key: string; label: string; used: number; limit: number }[];
+  maintenance?: {
+    day: string;
+    at: string;
+    status: string;
+    results: Record<string, Record<string, number>>;
+    errors: string[];
+  } | null;
 };
+
+function formatMaintenancePruned(results?: Record<string, Record<string, number>> | null): string {
+  if (!results) return "temizleme kaydı yok";
+  const retention = results.retention ?? {};
+  const rss = results.rss ?? {};
+  const artwork = results.artwork ?? {};
+  const parts: string[] = [];
+  if (retention.source_run) parts.push(`${retention.source_run} kaynak koşusu`);
+  if (retention.source_sync_batch) parts.push(`${retention.source_sync_batch} kuyruk`);
+  if (retention.notification) parts.push(`${retention.notification} bildirim`);
+  if (rss.feed_item) parts.push(`${rss.feed_item} RSS öğesi`);
+  if (artwork.files) parts.push(`${artwork.files} görsel`);
+  return parts.length > 0 ? parts.join(", ") : "temizlenecek eski veri bulunamadı";
+}
 
 const FILE_LABELS: Record<string, string> = {
   documents: "Yerel belgeler",
@@ -241,6 +262,23 @@ export function StorageReportSection() {
           <p className="mt-1 text-micro text-muted">PostgreSQL istatistiklerinden; satır sayıları tahminîdir.</p>
         </div>
       )}
+
+      <div className="mt-3 rounded-card border border-subtle bg-surface p-2.5 text-meta">
+        <div className="flex items-center justify-between text-secondary">
+          <span className="font-medium text-primary">Otomatik hafif bakım</span>
+          <span className="text-micro text-muted">Sonraki: her gün 04:00 / açılışta</span>
+        </div>
+        <p className="mt-1 text-micro text-muted">
+          {data?.maintenance?.at ? (
+            <>
+              Son bakım: <span className="text-secondary">{relativeTime(data.maintenance.at)}</span> · Temizlenen:{" "}
+              <span className="text-secondary">{formatMaintenancePruned(data.maintenance.results)}</span>
+            </>
+          ) : (
+            "Kaynak koşuları, bildirimler ve yetim medya görselleri günlük bakımla sınırlandırılır."
+          )}
+        </p>
+      </div>
     </Section>
   );
 }

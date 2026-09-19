@@ -37,6 +37,7 @@ async def test_storage_report_covers_database_and_files(client: AsyncClient) -> 
         "backups",
     }
     assert "warnings" in body
+    assert "maintenance" in body
 
 
 @pytest.mark.no_database

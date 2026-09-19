@@ -104,9 +104,19 @@ async def _database_report(session: AsyncSession) -> dict[str, Any]:
 
 async def storage_report(session: AsyncSession) -> dict[str, Any]:
     """Tek okumada depolama dokumu."""
+    from app.modules.system.maintenance import MAINTENANCE_KEY
+    from app.modules.system.models import Setting
+
+    maintenance_row = await session.get(Setting, MAINTENANCE_KEY)
+    maintenance_summary = (
+        maintenance_row.value
+        if maintenance_row and isinstance(maintenance_row.value, dict)
+        else None
+    )
     return {
         "database": await _database_report(session),
         "files": _filesystem_buckets(),
+        "maintenance": maintenance_summary,
     }
 
 
