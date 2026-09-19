@@ -546,11 +546,26 @@ async def stats(session: AsyncSession) -> dict:
 
 # ── Worker tarafi ──────────────────────────────────────────────────────────
 
+async def poll_interval_minutes(session: AsyncSession) -> int:
+    """Etkin RSS cekim araligi (dakika). 0 = YALNIZ MANUEL.
+
+    Oncelik: `setting.rss.interval_minutes` (Ayarlar ekrani) -> ortam
+    degiskeni `RSS_DEFAULT_INTERVAL_MINUTES`. Ayar DB'ye yazildigi icin
+    okunmazsa Ayarlar'daki secim olu kalirdi.
+    """
+    row = await session.get(Setting, "rss.interval_minutes")
+    value = row.value if row is not None else None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return settings.rss_default_interval_minutes
+    return value
+
+
 async def due_feeds(session: AsyncSession, *, interval_minutes: int | None = None) -> list[Feed]:
     """Suresi gelmis feed'ler. last_fetched_at NULL olanlar hep once gelir (catch-up)."""
     # 0 gecerli bir deger (catch-up "hepsini simdi cek" der) -- "or" ile ezme
-    interval = (settings.rss_default_interval_minutes
-                if interval_minutes is None else interval_minutes)
+    interval = (
+        await poll_interval_minutes(session) if interval_minutes is None else interval_minutes
+    )
     cutoff = datetime.now(UTC) - timedelta(minutes=interval)
     return list((await session.execute(
         select(Feed)
@@ -662,7 +677,10 @@ async def refresh_all(concurrency: int = 8, *, ignore_interval: bool = False) ->
 
     OPML import sonrasi ve arayuzdeki "Tumunu tazele" bunu cagirir.
     Worker'dan bagimsizdir; feed'lerin tekrar cekilmesi zararsizdir
-    (ingest guid ile dedup yapar). Doner: baslatilan feed sayisi.
+    (ingest guid ile dedup yapar). Doner: EKLENEN kayit sayisi.
+
+    `ignore_interval=True` tazelik filtresini kaldirir: elle tazeleme, aralik
+    ayari "yalniz manuel" olsa bile calisir.
     """
     from app.db import SessionLocal  # yerel import: doner bagimlilik olusmasin
 

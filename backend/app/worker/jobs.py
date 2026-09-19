@@ -48,8 +48,17 @@ async def record_worker_heartbeat() -> None:
 
 
 async def poll_feeds(*, ignore_interval: bool = False) -> int:
-    """Suresi gelmis feed'leri ceker. Doner: eklenen toplam item sayisi."""
+    """Suresi gelmis feed'leri ceker. Doner: eklenen toplam item sayisi.
+
+    Aralik ARTIK AYARDAN gelir (`rss.interval_minutes`); zamanlayici kisa bir
+    tur araligiyla doner ve taze olan feed'ler `due_feeds` tarafindan elenir.
+    Boylece ayar degistiginde worker'i yeniden baslatmak GEREKMEZ.
+    """
     async with SessionLocal() as session:
+        # 0 = yalniz manuel: zamanlanmis tur hicbir sey cekmez.
+        if not ignore_interval and await rss.poll_interval_minutes(session) <= 0:
+            log.info("poll_feeds: aralik 'yalniz manuel' -- atlandi")
+            return 0
         feeds = await rss.due_feeds(session, interval_minutes=0 if ignore_interval else None)
 
     if not feeds:

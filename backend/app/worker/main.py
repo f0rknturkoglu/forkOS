@@ -38,14 +38,20 @@ from app.worker.jobs import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("worker")
 
+#: Zamanlayicinin RSS turu (dakika). GERCEK cadence `rss.interval_minutes`
+#: ayarindan gelir; bu yalnizca "ne siklikta bakariz" degeridir ve taze
+#: feed'ler `due_feeds` tarafindan elenir. Kisa tutulur ki ayar degisikligi
+#: worker yeniden baslatilmadan etkili olsun.
+RSS_POLL_TICK_MINUTES = 5
+
 
 async def main() -> None:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         poll_feeds,
         "interval",
-        minutes=settings.rss_default_interval_minutes,
-        jitter=300,  # feed'ler ayni saniyede yigilmasin
+        minutes=RSS_POLL_TICK_MINUTES,
+        jitter=60,  # feed'ler ayni saniyede yigilmasin
         id="poll_feeds",
         max_instances=1,
         coalesce=True,

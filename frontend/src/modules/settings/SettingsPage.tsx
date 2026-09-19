@@ -6,7 +6,7 @@ import { navigate, useHashRoute } from "@/app/router";
 import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import type { LucideIcon } from "lucide-react";
-import { NumberInput, PageFrame, Section, useToast } from "@/core/ui";
+import { NumberInput, PageFrame, Section, Select, useToast } from "@/core/ui";
 import {
   Workspace,
   WorkspacePaneHeader,
@@ -52,6 +52,14 @@ const TAB_IDS = new Set(TABS.map((tab) => tab.id));
 function Pane({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto max-w-3xl space-y-4">{children}</div>;
 }
+
+const RSS_INTERVALS = [
+  { minutes: 30, label: "30 dakikada bir" },
+  { minutes: 60, label: "Saatte bir" },
+  { minutes: 120, label: "2 saatte bir" },
+  { minutes: 360, label: "6 saatte bir" },
+  { minutes: 0, label: "Yalnız manuel" },
+] as const;
 
 export function SettingsPage() {
   const route = useHashRoute();
@@ -197,6 +205,7 @@ export function SettingsPage() {
     setMediaUrl("");
   };
   const retention = retentionDays ?? Number(settings["rss.retention_days"] ?? 90);
+  const intervalMinutes = Number(settings["rss.interval_minutes"] ?? 30);
   const upcoming = upcomingDays ?? Number(settings["media.upcoming_days"] ?? 30);
   const syncInterval = syncIntervalHours ?? Number(settings["media.sync_interval_hours"] ?? 24);
   const go = (id: string) => navigate(`/settings?tab=${id}`);
@@ -231,6 +240,26 @@ export function SettingsPage() {
                 <ThemePicker />
               </Section>
               <SystemDiagnosticsSection />
+              <Section title="RSS güncelleme">
+                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
+                  <span>
+                    Arka planda ne sıklıkta yeni yazı çekilsin?
+                    <span className="ml-1 text-muted">· rss.interval_minutes</span>
+                  </span>
+                  <Select
+                    value={String(intervalMinutes)}
+                    onChange={(value) => write("rss.interval_minutes", Number(value))}
+                    ariaLabel="RSS güncelleme sıklığı"
+                    className="w-40"
+                  >
+                    {RSS_INTERVALS.map((option) => (
+                      <option key={option.minutes} value={option.minutes}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </Section>
               <Section title="RSS saklama">
                 <div className="flex items-center justify-between gap-3 text-meta text-secondary">
                   <span>

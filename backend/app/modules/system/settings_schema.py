@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from app.config import settings
 from app.core.heartbeat import WORKER_HEARTBEAT_KEY
 from app.modules.system.dirty import REVISION_KEY as BACKUP_REVISION_KEY
 from app.modules.system.maintenance import MAINTENANCE_KEY as MAINTENANCE_SETTING_KEY
@@ -25,6 +26,9 @@ DEFAULTS: dict[str, Any] = {
     "today.widget_hidden": [],
     "today.auto_suggestions": True,
     "rss.retention_days": 90,
+    #: Feed cekim araligi (dakika). 0 = yalniz manuel (arka planda cekilmez).
+    #: Varsayilan ortam degiskeninden gelir ki .env ile de ayarlanabilsin.
+    "rss.interval_minutes": settings.rss_default_interval_minutes,
     "media.links": [],
     "media.sync_interval_hours": 24,
     "media.upcoming_days": 30,
@@ -95,6 +99,11 @@ def _is_media_links(value: Any) -> bool:
 #: anahtar -> (hata mesaji, dogrulayici). Mesaj kullaniciya arayuzde gorunur.
 SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
     "rss.retention_days": ("1 ile 3650 arasında tam sayı olmalı", lambda v: _is_int(v) and 1 <= v <= 3650),
+    #: 0 = yalniz manuel; aksi halde 5 dk ile 24 saat arasi.
+    "rss.interval_minutes": (
+        "0 (yalnız manuel) veya 5-1440 arasında tam sayı olmalı",
+        lambda v: _is_int(v) and (v == 0 or 5 <= v <= 1440),
+    ),
     "today.auto_suggestions": ("true/false olmalı", lambda v: isinstance(v, bool)),
     "modules.disabled": ("modül kimliklerinden oluşan liste olmalı", _is_str_list),
     "today.widget_order": ("widget kimliklerinden oluşan liste olmalı", _is_str_list),
