@@ -25,6 +25,8 @@ output/
 
 # kisisel jobhunter uyum profili (Ayarlar panelinden uretilir)
 backend/config.yaml
+backend/data/config.yaml
+backend/data/attachments/
 # forkjob kullanici verisi: runtime dosyalari `<ad>.yaml.user` — git'e GIRMEZ.
 # Sablonlar (feeds.yaml, linkedin-profiles.yaml) takip edilir ve kisisel veri tasimaz.
 backend/app/sources/forkjob_core/data/*.user

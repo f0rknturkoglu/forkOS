@@ -393,7 +393,9 @@ async def source_cache_clear(body: CacheClearIn):
 # Jobhunter ayarlari — uyum profili (scoring), LinkedIn, ortam
 
 
-_JOBHUNTER_CONFIG = Path("config.yaml")
+def _jobhunter_config() -> Path:
+    """Uyum profili konumu: kalici veri dizini (bkz. forkjob_port)."""
+    return forkjob_port.jobhunter_config_path()
 
 
 def _scoring_payload(cfg) -> dict:
@@ -449,7 +451,7 @@ def _scoring_payload(cfg) -> dict:
 
 @router.get("/sources/jobhunter/config")
 async def jobhunter_config():
-    cfg = load_config(_JOBHUNTER_CONFIG)
+    cfg = load_config(_jobhunter_config())
     return _scoring_payload(cfg)
 
 
@@ -464,18 +466,19 @@ async def jobhunter_config_update(body: dict):
         raise HTTPException(422, "scoring objesi gerekli")
     _validate_scoring_payload(body)
 
-    _JOBHUNTER_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    path = _jobhunter_config()
+    path.parent.mkdir(parents=True, exist_ok=True)
     header = "# forkjob scoring & balance -- forkOS ayarlar panelinden yonetilir.\n\n"
     payload = header + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100)
-    previous = _JOBHUNTER_CONFIG.read_text(encoding="utf-8") if _JOBHUNTER_CONFIG.exists() else None
-    _JOBHUNTER_CONFIG.write_text(payload, encoding="utf-8")
+    previous = path.read_text(encoding="utf-8") if path.exists() else None
+    path.write_text(payload, encoding="utf-8")
     try:
-        reloaded = load_config(_JOBHUNTER_CONFIG)
+        reloaded = load_config(path)
     except Exception as exc:  # noqa: BLE001 - bozuk config CALISAN ayari bozmamali
         if previous is None:
-            _JOBHUNTER_CONFIG.unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
         else:
-            _JOBHUNTER_CONFIG.write_text(previous, encoding="utf-8")
+            path.write_text(previous, encoding="utf-8")
         raise HTTPException(422, f"skorlama ayarı yüklenemedi: {type(exc).__name__}") from exc
     forkjob_port.SCORING = reloaded
     return {"ok": True}

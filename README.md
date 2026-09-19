@@ -134,6 +134,26 @@ Not: `podman compose` bazı sürümlerde `logging` bloğunu podman'a aktarmaz.
 O durumda rotasyonu `~/.config/containers/containers.conf` içindeki
 `log_size_max` ile sistem genelinde ayarla.
 
+### Veri konumları
+
+Günlük runtime'da uygulamanın **kodu** imajdan gelir, ama **yazdığı veri**
+host'a bağlanır. Bu dizinler `compose.yaml` içinde hem `api` hem `worker`
+servisine bağlanır; bağlanmasalardı container yeniden oluşturulunca kaybolurlardı.
+
+| Yol (host) | İçerik |
+| --- | --- |
+| `backend/data/documents/` | yerel belge dosyaları |
+| `backend/data/attachments/` | not ekleri (binary, sha256 adıyla) |
+| `backend/data/media/` | medya görsel önbelleği (yeniden üretilebilir) |
+| `backend/data/cache/` | scraper önbelleği (yeniden üretilebilir) |
+| `backend/data/config.yaml` | jobhunter uyum profili |
+| `backend/backups/` | JSON yedekleri ve felaket kurtarma dump'ları |
+| `backend/app/sources/forkjob_core/data/*.user` | jobhunter akışları ve LinkedIn profilleri |
+| `forkos_pgdata` (volume) | PostgreSQL verisi |
+
+Eski konumdaki `backend/config.yaml` ilk kullanımda `backend/data/config.yaml`
+altına **kopyalanır** (silinmez).
+
 Worker normal kullanımda kapalı kalabilir. Header'daki yenileme düğmesi RSS, fırsat/duyuru, medya, takvim, GitHub ve son tarih kaynaklarını tek turda günceller; yanındaki menüden kapsam seçilir:
 
 - **Kritik kaynaklar** — yalnız resmî/hızlı kaynaklar (ÖSYM, YLSY, YÖK, ATS panoları)

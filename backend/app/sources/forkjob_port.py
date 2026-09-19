@@ -7,7 +7,9 @@ notifications and health tracking stay native to forkOS.
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from app.sources.base import FetchOutcome, RawItem
@@ -21,7 +23,30 @@ from app.sources.forkjob_core.scrapers.registry import LayerBSource, load_regist
 from app.sources.forkjob_core.sources.adapters import build_adapter
 from app.sources.forkjob_core.sources.base import HttpClient
 
-SCORING = load_config()
+#: Kalici veri dizini. Container'da `/app/data` (compose'da host'a baglanir),
+#: repo kopyasinda `backend/data`. Ayni desen yerel belgeler ve gorsel
+#: onbelleginde de kullanilir.
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+CONFIG_PATH = DATA_DIR / "config.yaml"
+#: Eski konum: CWD'ye gore `config.yaml` (repo koku / container'da /app).
+LEGACY_CONFIG_PATH = Path("config.yaml")
+
+
+def jobhunter_config_path() -> Path:
+    """Uyum profili (scoring/balance) dosyasinin konumu.
+
+    Kalici veri dizini tercih edilir; eski kurulumdaki `./config.yaml` ilk
+    kullanimda oraya DEVRALINIR (kopyalanir, silinmez). Aksi halde gunluk
+    runtime'da container yeniden olusturulunca kullanicinin kalibre ettigi
+    profil kaybolurdu.
+    """
+    if not CONFIG_PATH.exists() and LEGACY_CONFIG_PATH.exists():
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(LEGACY_CONFIG_PATH, CONFIG_PATH)
+    return CONFIG_PATH
+
+
+SCORING = load_config(jobhunter_config_path())
 
 
 def job_to_raw(job: Job) -> RawItem:

@@ -46,6 +46,14 @@ services:
     # `--reload` YOK: gunluk runtime'da kaynak izleyici ve yeniden baslatma yok.
     # Bu imaj kaynagi kopyalar; backend degisikliginden sonra `make build`.
     command: uvicorn app.main:app --host 0.0.0.0 --port 8787
+    # KALICI VERI: uygulamanin runtime'da YAZDIGI her sey host'a baglanir.
+    # Bunlar olmadan gunluk runtime'da dosyalar container katmaninda kalir ve
+    # container yeniden olusturulunca kaybolur (yerel belgeler, JSON yedekler,
+    # gorsel onbellegi, jobhunter .user dosyalari, ekler).
+    volumes:
+      - ./backend/data:/app/data:z
+      - ./backend/backups:/app/backups:z
+      - ./backend/app/sources/forkjob_core/data:/app/app/sources/forkjob_core/data:z
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
@@ -76,6 +84,11 @@ services:
     profiles: ["auto"]
     build: ./backend
     command: python -m app.worker.main
+    # Worker da yazar: gecelik yedek + gorsel onbellegi (bkz. api servisi).
+    volumes:
+      - ./backend/data:/app/data:z
+      - ./backend/backups:/app/backups:z
+      - ./backend/app/sources/forkjob_core/data:/app/app/sources/forkjob_core/data:z
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
