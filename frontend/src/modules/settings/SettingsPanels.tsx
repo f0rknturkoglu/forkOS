@@ -131,6 +131,120 @@ export function TodayFlowSection({
   );
 }
 
+type StorageReport = {
+  database: {
+    total_bytes: number;
+    tables: { name: string; bytes: number; rows: number }[];
+    rows: Record<string, number>;
+    wal: { bytes: number } | null;
+  };
+  files: Record<string, number>;
+  warnings: { key: string; label: string; used: number; limit: number }[];
+};
+
+const FILE_LABELS: Record<string, string> = {
+  documents: "Yerel belgeler",
+  attachments: "Not ekleri",
+  media_artwork: "Medya görsel önbelleği",
+  scraper_cache: "Scraper önbelleği",
+  backups: "Yedekler",
+};
+
+const ROW_LABELS: Record<string, string> = {
+  source_run: "Kaynak koşuları",
+  source_sync_batch: "Yenileme kuyruğu",
+  event: "Olay geçmişi",
+  notification: "Bildirimler",
+};
+
+/**
+ * Depolama dokumu: "forkOS ne kadar disk kullaniyor, hangi veri buyuyor?"
+ *
+ * Yalnizca BURADA, elle tazelenerek okunur; surekli polling yapmaz (teshis
+ * ekrani, canli gosterge degil).
+ */
+export function StorageReportSection() {
+  const { data, isFetching, refetch } = useQuery({
+    queryKey: ["storage-report"],
+    queryFn: () => api.get<StorageReport>("/system/storage"),
+    refetchInterval: false,
+    staleTime: 30_000,
+  });
+
+  // Alanlar SAVUNMALI okunur: teshis ekrani eksik/bozuk bir yanit yuzunden
+  // cokmemeli (bu ekran bir sorunu ANLATMAK icin var).
+  const database = data?.database;
+  const files = Object.entries(data?.files ?? {});
+  const rows = Object.entries(database?.rows ?? {});
+  const tables = database?.tables ?? [];
+  const alerts = data?.warnings ?? [];
+
+  return (
+    <Section title="Depolama">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="text-meta text-muted">
+          PostgreSQL {gbFromBytes(database?.total_bytes)}
+          {database?.wal ? ` · WAL ${gbFromBytes(database.wal.bytes)}` : ""}
+        </span>
+        <Button variant="ghost" onClick={() => void refetch()} disabled={isFetching} className="text-meta">
+          {isFetching ? "Okunuyor…" : "Yenile"}
+        </Button>
+      </div>
+
+      {alerts.length > 0 && (
+        <ul className="mb-3 space-y-1 rounded-card border border-subtle bg-surface p-2 text-meta text-warn">
+          {alerts.map((alert) => (
+            <li key={alert.key} className="flex items-center gap-1.5">
+              <AlertTriangle size={13} className="shrink-0" />
+              {alert.label}: {gbFromBytes(alert.used)} / sınır {gbFromBytes(alert.limit)}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="grid gap-3 text-meta sm:grid-cols-2">
+        <div>
+          <p className="mb-1 text-muted">Dosyalar</p>
+          <ul className="space-y-0.5">
+            {files.map(([key, bytes]) => (
+              <li key={key} className="flex items-center justify-between gap-2">
+                <span className="truncate text-secondary">{FILE_LABELS[key] ?? key}</span>
+                <span className="tabular-nums text-primary">{gbFromBytes(bytes)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="mb-1 text-muted">Kayıtlar</p>
+          <ul className="space-y-0.5">
+            {rows.map(([key, count]) => (
+              <li key={key} className="flex items-center justify-between gap-2">
+                <span className="truncate text-secondary">{ROW_LABELS[key] ?? key}</span>
+                <span className="tabular-nums text-primary">{count.toLocaleString("tr-TR")}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {tables.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1 text-muted">En büyük tablolar</p>
+          <ul className="space-y-0.5 text-meta">
+            {tables.slice(0, 6).map((table) => (
+              <li key={table.name} className="flex items-center justify-between gap-2">
+                <span className="truncate text-secondary">{table.name}</span>
+                <span className="tabular-nums text-primary">{gbFromBytes(table.bytes)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-micro text-muted">PostgreSQL istatistiklerinden; satır sayıları tahminîdir.</p>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 export function SystemDiagnosticsSection() {
   const toast = useToast();
   const { data } = useSystemStats();

@@ -18,7 +18,13 @@ import {
 } from "@/core/workspace/Workspace";
 import { TodayWidgetsSection } from "./TodayWidgetsSection";
 import { NotificationsSection } from "./NotificationsSection";
-import { CareerProfileSection, DangerZoneSection, SystemDiagnosticsSection, TodayFlowSection } from "./SettingsPanels";
+import {
+  CareerProfileSection,
+  DangerZoneSection,
+  StorageReportSection,
+  SystemDiagnosticsSection,
+  TodayFlowSection,
+} from "./SettingsPanels";
 import type { CareerProfile } from "./SettingsPanels";
 import { useOnline } from "@/lib/hooks";
 import {
@@ -260,6 +266,7 @@ export function SettingsPage() {
                 <ThemePicker />
               </Section>
               <SystemDiagnosticsSection />
+              <StorageReportSection />
               <Section title="RSS güncelleme">
                 <div className="flex items-center justify-between gap-3 text-meta text-secondary">
                   <span>
