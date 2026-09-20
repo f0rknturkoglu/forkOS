@@ -11,7 +11,9 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path
+from typing import Any
 
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -209,3 +211,97 @@ async def table_counts(session: AsyncSession) -> dict[str, int]:
         ),
         "event": int((await session.execute(select(func.count()).select_from(Event))).scalar_one()),
     }
+
+
+def _build_table_selects() -> dict[str, Any]:
+    from app.core.models import EntityTag
+    from app.modules.opportunity.models import ApplicationHistory
+    from app.modules.todo.models import PlanSlot
+
+    return {
+        "entity": select(Entity.id, Entity.title, Entity.updated_at, Entity.archived_at).order_by(
+            Entity.id
+        ),
+        "entity_tag": select(EntityTag.entity_id, EntityTag.tag_id).order_by(
+            EntityTag.entity_id, EntityTag.tag_id
+        ),
+        "todo": select(
+            Todo.id, Todo.status, Todo.priority, Todo.due_at, Todo.completed_at, Todo.recur
+        ).order_by(Todo.id),
+        "plan_slot": select(
+            PlanSlot.entity_id, PlanSlot.day, PlanSlot.start_min, PlanSlot.duration_min
+        ).order_by(PlanSlot.entity_id, PlanSlot.day),
+        "project": select(Project.id, Project.status, Project.next_action).order_by(Project.id),
+        "milestone": select(
+            Milestone.id, Milestone.title, Milestone.due_at, Milestone.completed_at
+        ).order_by(Milestone.id),
+        "opportunity": select(
+            Opportunity.id, Opportunity.kind, Opportunity.status, Opportunity.rejection_reason
+        ).order_by(Opportunity.id),
+        "application": select(
+            Application.opportunity_id, Application.status, Application.status_changed_at
+        ).order_by(Application.opportunity_id),
+        "application_history": select(
+            ApplicationHistory.id,
+            ApplicationHistory.opportunity_id,
+            ApplicationHistory.from_status,
+            ApplicationHistory.to_status,
+            ApplicationHistory.scope,
+        ).order_by(ApplicationHistory.id),
+        "bookmark": select(
+            Bookmark.id, Bookmark.url, Bookmark.collection, Bookmark.read_status, Bookmark.favorite
+        ).order_by(Bookmark.id),
+        "flashcard_card": select(
+            FlashcardCard.id, FlashcardCard.reps, FlashcardCard.due_at
+        ).order_by(FlashcardCard.id),
+        "note": select(
+            Note.id, Note.body, Note.pinned, Note.trashed_at, Note.journal_day
+        ).order_by(Note.id),
+        "note_folder": select(NoteFolder.id, NoteFolder.parent_id, NoteFolder.position).order_by(
+            NoteFolder.id
+        ),
+        "link": select(Link.from_id, Link.to_id, Link.relation, Link.created_at).order_by(
+            Link.from_id, Link.to_id, Link.relation
+        ),
+        "event": select(Event.id, Event.verb, Event.entity_id, Event.occurred_at).order_by(Event.id),
+    }
+
+
+async def table_fingerprints(session: AsyncSession) -> dict[str, str]:
+    """Her kritik tablo için AYRI deterministik özet.
+
+    Mutasyon kapsamı kanıtı bunu kullanır: bir eylem yalnızca beklenen
+    tabloların özetini değiştirmelidir (§73).
+    """
+    selects = _build_table_selects()
+    fingerprints: dict[str, str] = {}
+    for name, stmt in selects.items():
+        rows = (await session.execute(stmt)).all()
+        fingerprints[name] = hashlib.sha256(str(rows).encode("utf-8")).hexdigest()
+    return fingerprints
+
+
+def changed_tables(before: dict[str, str], after: dict[str, str]) -> set[str]:
+    return {name for name in before if before[name] != after.get(name)}
+
+
+@pytest.fixture(autouse=True)
+def forbid_h1_network(monkeypatch: pytest.MonkeyPatch):
+    """§118: H1 testleri sırasında beklenmeyen AĞ erişimini test hatasına çevirir.
+
+    Yerel-only sözleşmesi yalnızca dokümanda kalmamalı: bir H1 eylemi dış
+    servise istek atarsa (httpx, source adapter, enrichment, GitHub) test
+    yüzeye çıkarır. Kullanan modüller bu fixture'ı import eder.
+    """
+    import httpx
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise AssertionError("H1 eylemi dış ağ çağrısı yapmamalı")
+
+    for attribute in ("AsyncClient", "Client", "get", "post", "put", "patch", "delete"):
+        monkeypatch.setattr(httpx, attribute, _boom, raising=False)
+
+    from app.core import readability
+
+    monkeypatch.setattr(readability, "fetch_and_extract", _boom)
+    yield

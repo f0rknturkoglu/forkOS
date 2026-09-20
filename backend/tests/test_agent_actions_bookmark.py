@@ -10,7 +10,6 @@ import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
-import httpx
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,30 +23,16 @@ from app.integrations.agent.actions import (
 )
 from app.integrations.agent.write_models import BookmarkCaptureIn, BookmarkUpdateIn
 from app.modules.bookmark.models import Bookmark
-from tests.agent_test_utils import table_counts
+from tests.agent_test_utils import (
+    forbid_h1_network,  # noqa: F401  (autouse ağ koruması)
+    table_counts,
+)
 
 
 @pytest.fixture
 async def db_session() -> AsyncIterator[AsyncSession]:
     async with SessionLocal() as session:
         yield session
-
-
-@pytest.fixture(autouse=True)
-def forbid_network(monkeypatch: pytest.MonkeyPatch):
-    """§118: H1 yazma yolları HİÇBİR ağ çağrısı yapmamalı."""
-
-    def _boom(*args: object, **kwargs: object) -> None:
-        raise AssertionError("H1 yer imi eylemi ağ çağrısı yapmamalı")
-
-    monkeypatch.setattr(httpx, "AsyncClient", _boom)
-    monkeypatch.setattr(httpx, "Client", _boom)
-    monkeypatch.setattr(httpx, "get", _boom)
-    monkeypatch.setattr(httpx, "post", _boom)
-
-    from app.core import readability
-
-    monkeypatch.setattr(readability, "fetch_and_extract", _boom)
 
 
 async def _bookmark_rows(session: AsyncSession) -> int:
