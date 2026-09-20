@@ -115,7 +115,14 @@ async def lifespan(app: FastAPI):
     task.add_done_callback(_BACKGROUND_TASKS.discard)
 
     # MCP Streamable HTTP session manager lifecycle (tied to FastAPI lifespan)
-    _ = get_streamable_http_app()
+    if getattr(mcp_server.session_manager, "_has_started", False):
+        new_mcp_app = get_streamable_http_app(force_new=True)
+        for route in app.routes:
+            if getattr(route, "path", None) == "/mcp":
+                route.app = new_mcp_app
+    else:
+        _ = get_streamable_http_app()
+
     async with mcp_server.session_manager.run():
         yield
 

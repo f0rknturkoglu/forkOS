@@ -34,3 +34,21 @@ async def test_mcp_fastapi_mount_and_smoke():
         assert status_res.is_error is False
         assert len(status_res.content) >= 1
         assert "brain_interface_version" in status_res.content[0].text
+
+
+async def test_mcp_dns_rebinding_rejection():
+    """Verify that requests with non-localhost host/origin headers are rejected by DNS rebinding protection."""
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://evil.com",
+            headers={"host": "evil.com", "origin": "http://evil.com"},
+        ) as http_client,
+    ):
+        res = await http_client.post(
+            "http://evil.com/mcp/",
+            json={"jsonrpc": "2.0", "method": "initialize", "params": {}, "id": 1},
+        )
+        assert res.status_code in (400, 403, 421)
+
