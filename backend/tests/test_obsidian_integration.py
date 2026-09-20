@@ -289,7 +289,8 @@ def test_vault_service_create_managed_note_lifecycle(tmp_path: Path, monkeypatch
     )
     assert item_again.relative_path == item.relative_path
 
-    # 3. Collision handling: different ID, same title
+    # 3. Collision handling: different ID, same title.
+    #    Sıraya bağlı "(1)" DEĞİL, kimlikten türeyen deterministik sonek kullanılır.
     other_id = uuid.uuid4()
     collision_item = create_managed_note(
         forkos_id=other_id,
@@ -297,7 +298,9 @@ def test_vault_service_create_managed_note_lifecycle(tmp_path: Path, monkeypatch
         title="Yeni Web Sitesi",
     )
     assert collision_item.forkos_id == str(other_id)
-    assert collision_item.relative_path == "20 Projects/Yeni Web Sitesi/Yeni Web Sitesi (1).md"
+    assert collision_item.relative_path == (
+        f"20 Projects/Yeni Web Sitesi/Yeni Web Sitesi--{other_id.hex[:8]}.md"
+    )
 
     # 4. Resolve item
     resolved = resolve_managed_item(str(project_id))
@@ -333,28 +336,35 @@ async def test_obsidian_api_endpoints(tmp_path: Path, monkeypatch: pytest.Monkey
         assert data["available"] is True
         assert data["managed_files"] == 0
 
-        # POST create note
-        test_id = str(uuid.uuid4())
-        create_payload = {
-            "forkos_id": test_id,
-            "forkos_type": "project",
-            "title": "API Test Projesi",
-            "initial_body": "API üzerinden oluşturuldu.",
-        }
-        res = await client.post("/api/obsidian/items", json=create_payload)
-        assert res.status_code == 201
-        created_data = res.json()
-        assert created_data["forkos_id"] == test_id
-        assert created_data["relative_path"] == "20 Projects/API Test Projesi/API Test Projesi.md"
+        # Durum yanıtı Obsidian bağlantılarını da taşır (istemci URI kurmaz).
+        assert data["open_uri"] == "obsidian://open?vault=ApiVault"
+        assert "obsidian://search" in data["inbox_uri"]
+        assert data["daily_uri"].startswith("obsidian://daily?vault=ApiVault")
+
+        # Yönetilen dosya servis katmanından oluşturulur (kimliği çağıran verir);
+        # ürün akışları capture/ensure kullanır, bu uç yüzeyde YOKTUR.
+        test_id = uuid.uuid4()
+        create_managed_note(
+            forkos_id=test_id,
+            forkos_type="project",
+            title="API Test Projesi",
+            initial_body="API üzerinden oluşturuldu.",
+        )
 
         # GET item by ID
         res = await client.get(f"/api/obsidian/items/{test_id}")
         assert res.status_code == 200
         assert res.json()["title"] == "API Test Projesi"
+        assert res.json()["relative_path"] == "20 Projects/API Test Projesi/API Test Projesi.md"
 
         # GET unknown item
         res = await client.get(f"/api/obsidian/items/{uuid.uuid4()}")
         assert res.status_code == 404
+
+        # Arama URI'si sunucuda kurulur; kullanıcı metni kaçışlanır.
+        res = await client.get("/api/obsidian/uri/search", params={"q": "tag:proje a&b"})
+        assert res.status_code == 200
+        assert res.json()["uri"] == "obsidian://search?vault=ApiVault&query=tag%3Aproje%20a%26b"
 
         # POST refresh index
         res = await client.post("/api/obsidian/index/refresh")
@@ -413,15 +423,10 @@ async def test_vault_conflict_fail_closed_get_and_post(tmp_path: Path, monkeypat
         assert detail["forkos_id"] == dup_id
         assert len(detail["conflicting_paths"]) == 2
 
-        # 3. POST create returns 409 Conflict and creates NO new file
+        # 3. Bir çakışma ÇÖZÜLMEDEN yeni dosya üretilmez
         files_before = list(vault.rglob("*.md"))
-        post_res = await client.post(
-            "/api/obsidian/items",
-            json={"forkos_id": dup_id, "forkos_type": "project", "title": "Third Try"},
-        )
-        assert post_res.status_code == 409
-        assert post_res.json()["detail"]["error"] == "conflict"
-
+        with pytest.raises(VaultConflictError):
+            create_managed_note(forkos_id=dup_id, forkos_type="project", title="Third Try")
         files_after = list(vault.rglob("*.md"))
         assert len(files_before) == len(files_after) == 2
 
@@ -554,9 +559,10 @@ def test_create_managed_note_atomic_no_overwrite(tmp_path: Path, monkeypatch: py
     # Existing file must NOT be overwritten
     assert existing_file.read_text(encoding="utf-8") == "# User hand-written notes that must never be overwritten"
 
-    # New note should be created at collision path (1)
-    assert item.relative_path == "20 Projects/Existing Proj/Existing Proj (1).md"
-    assert (proj_dir / "Existing Proj (1).md").exists()
+    # Yeni not, kimlikten türeyen deterministik çakışma yoluna yazılır.
+    expected = proj_dir / f"Existing Proj--{new_id.hex[:8]}.md"
+    assert item.relative_path == f"20 Projects/Existing Proj/Existing Proj--{new_id.hex[:8]}.md"
+    assert expected.exists()
 
 
 # =====================================================================

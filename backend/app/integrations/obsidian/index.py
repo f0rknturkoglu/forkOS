@@ -11,6 +11,47 @@ from app.integrations.obsidian.models import VaultItem, VaultStatus
 from app.integrations.obsidian.uri import open_file_uri
 
 
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def item_from_frontmatter(
+    *,
+    frontmatter: dict,
+    body: str,
+    relative_path: str,
+    vault_name: str,
+    mtime: float = 0.0,
+    size: int = 0,
+    forkos_id: str | None = None,
+    forkos_type: str | None = None,
+) -> VaultItem:
+    """Bir managed dosyanın frontmatter'ından indeks kaydı üretir.
+
+    Yalnızca YAPISAL alanlar okunur; gövde PostgreSQL'e indekslenmez.
+    `forkos_id`/`forkos_type` doğrulanmış halleriyle verilebilir.
+    """
+    relations = frontmatter.get("forkos_relations")
+    return VaultItem(
+        forkos_id=forkos_id or str(frontmatter["forkos_id"]).strip(),
+        forkos_type=forkos_type or str(frontmatter["forkos_type"]).strip().lower(),
+        title=extract_title(frontmatter, body, fallback=Path(relative_path).stem),
+        relative_path=relative_path,
+        open_uri=open_file_uri(vault_name, relative_path),
+        mtime=mtime,
+        size=size,
+        note_kind=_optional_str(frontmatter.get("forkos_note_kind")),
+        entity_type=_optional_str(frontmatter.get("forkos_entity_type")),
+        project_id=_optional_str(frontmatter.get("forkos_project_id")),
+        journal_day=_optional_str(frontmatter.get("forkos_journal_day")),
+        source_bookmark_id=_optional_str(frontmatter.get("forkos_source_bookmark_id")),
+        relation_count=len(relations) if isinstance(relations, list) else 0,
+    )
+
+
 class VaultIndex:
     """Obsidian Vault için hafif, bellek içi managed dosya indeksi.
 
@@ -62,6 +103,38 @@ class VaultIndex:
     def get_items_by_type(self, forkos_type: str) -> list[VaultItem]:
         target_type = forkos_type.lower()
         return [item for item in self._items.values() if item.forkos_type.lower() == target_type]
+
+    def find_by_note_kind(
+        self,
+        note_kind: str,
+        *,
+        project_id: str | None = None,
+        journal_day: str | None = None,
+    ) -> VaultItem | None:
+        """Yapısal metadata ile managed not arar (dosya adına GÜVENİLMEZ).
+
+        Aynı anahtara birden fazla dosya düşerse deterministik davranır:
+        yolu sözlük sırasına göre ilk olan döner, böylece çağrılar arasında
+        sonuç değişmez.
+        """
+        target_kind = note_kind.lower()
+        matches = [
+            item
+            for item in self._items.values()
+            if (item.note_kind or "").lower() == target_kind
+            and (project_id is None or item.project_id == str(project_id))
+            and (journal_day is None or item.journal_day == journal_day)
+        ]
+        if not matches:
+            return None
+        return min(matches, key=lambda item: item.relative_path)
+
+    def find_by_source_bookmark_id(self, bookmark_id: str) -> VaultItem | None:
+        target = str(bookmark_id)
+        matches = [item for item in self._items.values() if item.source_bookmark_id == target]
+        if not matches:
+            return None
+        return min(matches, key=lambda item: item.relative_path)
 
     def add_or_update_item(self, item: VaultItem) -> None:
         if item.forkos_id in self._conflicts:
@@ -202,8 +275,6 @@ class VaultIndex:
                         )
                         continue
 
-                    forkos_type = raw_type_str
-
                     try:
                         stat = file_path.stat()
                         mtime = stat.st_mtime
@@ -212,17 +283,15 @@ class VaultIndex:
                         mtime = 0.0
                         size = 0
 
-                    title = extract_title(frontmatter, body, fallback=file_path.stem)
-                    uri = open_file_uri(vault_name, rel_path)
-
-                    item = VaultItem(
-                        forkos_id=forkos_id,
-                        forkos_type=forkos_type,
-                        title=title,
+                    item = item_from_frontmatter(
+                        frontmatter=frontmatter,
+                        body=body,
                         relative_path=rel_path,
-                        open_uri=uri,
+                        vault_name=vault_name,
                         mtime=mtime,
                         size=size,
+                        forkos_id=forkos_id,
+                        forkos_type=raw_type_str,
                     )
 
                     if forkos_id in new_conflicts:
