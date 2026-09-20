@@ -35,9 +35,11 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from sqlalchemy import or_, select
@@ -74,6 +76,7 @@ from app.integrations.agent.evidence_models import (
     EvidencePathHop,
     EvidenceScope,
     EvidenceSourceDomain,
+    PathDirection,
     ResolvedEntityRef,
     RetrievalTraceStep,
 )
@@ -117,13 +120,73 @@ class _Candidate:
 
     `lines` + `focus` snippet'in kalan bütçeye kırpılabilmesi içindir: kırpma
     daima odak satırını korur, böylece eşleşme kanıttan düşmez.
+
+    `span_start`/`span_end` kırpmanın ÇIKAMAYACAĞI kaynak aralığıdır (0 tabanlı,
+    dahil): kasa kanıtında snippet'in türetildiği başlık bölümü, operasyonel
+    kanıtta projeksiyonun tamamı. Global bütçe kırpması bu aralığın dışına
+    çıkamaz; aksi hâlde `heading` ve satır numaraları yalan söylerdi (H3.1 §44).
     """
 
     item: EvidenceItem
     tier: int
     rank: int
     lines: list[str]
+    span_start: int
+    span_end: int
     focus: int = 0
+
+
+@dataclass(frozen=True)
+class GraphTraversal:
+    """Bir istek için TEK yapısal gezinme sonucu (H3.1 §32/§70).
+
+    İstek-yerlidir: kalıcı değildir, önbelleğe alınmaz, süreç genelinde
+    paylaşılmaz. Alanlar SALT-OKUNUR görünümlerdir (`MappingProxyType` + tuple),
+    böylece bir kanal başka bir kanalın köken yollarını yanlışlıkla
+    değiştiremez ve bütün kanallar aynı yapısal anlık görüntüden türetilir.
+    """
+
+    root_id: uuid.UUID
+    visited: Mapping[uuid.UUID, Entity]
+    paths: Mapping[uuid.UUID, tuple[EvidencePathHop, ...]]
+    depths: Mapping[uuid.UUID, int]
+    truncated: bool
+
+    @property
+    def neighbors(self) -> tuple[tuple[Entity, int, tuple[EvidencePathHop, ...]], ...]:
+        """Çekirdek dışındaki düğümler: (entity, derinlik, köken yolu).
+
+        Sıralama deterministiktir: `(derinlik, id)`.
+        """
+        rows = [
+            (entity, self.depths[entity_id], self.paths[entity_id])
+            for entity_id, entity in self.visited.items()
+            if entity_id != self.root_id
+        ]
+        rows.sort(key=lambda row: (row[1], str(row[0].id)))
+        return tuple(rows)
+
+
+@dataclass(frozen=True)
+class _EventEvidence:
+    """Olay kanalının çıktısı ve DÜRÜST kesme durumu (H3.1 §22).
+
+    İki bağımsız tavan vardır ve ikisi de bildirilir:
+
+    ```text
+    scan_truncated          → DB tarama penceresi (MAX_EVENT_SCAN_ROWS) doldu
+    evidence_cap_truncated  → sıralama sonrası kanıt tavanı (MAX_EVENT_EVIDENCE) doldu
+    ```
+    """
+
+    candidates: tuple[_Candidate, ...]
+    eligible: int
+    scan_truncated: bool
+    evidence_cap_truncated: bool
+
+    @property
+    def truncated(self) -> bool:
+        return self.scan_truncated or self.evidence_cap_truncated
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +202,24 @@ def _add_warning(warnings: list[str], text: str) -> None:
     if len(warnings) >= MAX_WARNINGS:
         return
     warnings.append(text[:MAX_WARNING_CHARS])
+
+
+def _bounded_int(value: object, *, name: str, low: int, high: int) -> int:
+    """Aralık denetimi: geçersiz sınır KIRPILMAZ, `INVALID_<NAME>` ile reddedilir.
+
+    Şema ilk savunmadır ama otorite çalışma zamanıdır: doğrudan Python
+    çağıranları şemayı atlayabildiği için aynı sınır burada bağımsız dayatılır
+    (H2.2 dersi).
+    """
+    try:
+        number = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise EvidenceError(f"INVALID_{name.upper()}", f"{name} must be an integer") from exc
+    if number < low or number > high:
+        raise EvidenceError(
+            f"INVALID_{name.upper()}", f"{name} must be between {low} and {high}"
+        )
+    return number
 
 
 def _parse_time(value: str | None, label: str) -> datetime | None:
@@ -349,20 +430,30 @@ async def _entity_candidate(
         retrieval_reason=_bounded_reason(reason),
         truncated=truncated,
     )
-    return _Candidate(item=item, tier=tier, rank=rank, lines=lines)
+    return _Candidate(
+        item=item,
+        tier=tier,
+        rank=rank,
+        lines=lines,
+        span_start=0,
+        span_end=len(lines) - 1,
+    )
 
 
-async def _expand_graph(
-    session: AsyncSession, root: Entity, max_depth: int
-) -> tuple[dict[uuid.UUID, Entity], dict[uuid.UUID, list[EvidencePathHop]], dict[uuid.UUID, int], bool]:
-    """Deterministik, sınırlı BFS (§54/§55).
+async def _expand_graph(session: AsyncSession, root: Entity, max_depth: int) -> GraphTraversal:
+    """Deterministik, sınırlı BFS (§54/§55) — istek başına TAM OLARAK BİR kez.
 
     Ziyaret kümesi + derinlik tavanı + düğüm tavanı birlikte çalışır; döngü
     oluşsa bile her düğüm en fazla bir kez ziyaret edilir. Özyinelemeli
     sınırsız DFS YOKTUR.
+
+    Köken yolu her düğüm için ÇEKİRDEKTEN itibaren biriktirilir ve her
+    `entity_link` hop'u kanonik ilişki adını **ve** geçiş yönünü taşır
+    (H3.1 §6/§8): `direction` bu kenarın hangi yönden geçildiğini söyler,
+    ilişki adı ters çevrilmez.
     """
     visited: dict[uuid.UUID, Entity] = {root.id: root}
-    paths: dict[uuid.UUID, list[EvidencePathHop]] = {root.id: []}
+    paths: dict[uuid.UUID, tuple[EvidencePathHop, ...]] = {root.id: ()}
     depths: dict[uuid.UUID, int] = {root.id: 0}
     frontier: list[uuid.UUID] = [root.id]
     truncated = False
@@ -400,7 +491,7 @@ async def _expand_graph(
             }
 
         frontier_set = set(frontier)
-        rows: list[tuple[str, str, str, str, str, uuid.UUID, Entity]] = []
+        rows: list[tuple[str, PathDirection, str, str, str, uuid.UUID, Entity]] = []
         for link in links:
             for self_id, other_id, direction in (
                 (link.from_id, link.to_id, "outgoing"),
@@ -424,48 +515,56 @@ async def _expand_graph(
         rows.sort(key=lambda row: (row[0], row[1], row[2], row[3], row[4]))
 
         next_frontier: list[uuid.UUID] = []
-        for relation, _direction, _type, _title, _other_key, self_id, other in rows:
+        for relation, direction, _type, _title, _other_key, self_id, other in rows:
             if len(visited) >= MAX_GRAPH_NODES:
                 truncated = True
                 break
             visited[other.id] = other
-            paths[other.id] = [
+            paths[other.id] = (
                 *paths[self_id],
                 EvidencePathHop(
                     kind="entity_link",
                     from_ref=f"entity:{self_id}",
                     relation=relation,
+                    direction=direction,
                     to_ref=f"entity:{other.id}",
                 ),
-            ]
+            )
             depths[other.id] = depth + 1
             next_frontier.append(other.id)
 
         frontier = next_frontier
         depth += 1
 
-    return visited, paths, depths, truncated
+    return GraphTraversal(
+        root_id=root.id,
+        visited=MappingProxyType(visited),
+        paths=MappingProxyType(paths),
+        depths=MappingProxyType(depths),
+        truncated=truncated,
+    )
 
 
 async def _event_candidates(
     session: AsyncSession,
     *,
-    visited: dict[uuid.UUID, Entity],
-    paths: dict[uuid.UUID, list[EvidencePathHop]],
-    root_id: uuid.UUID,
+    traversal: GraphTraversal,
     since: datetime | None,
     until: datetime | None,
     terms: vault_ev.QueryTerms,
-) -> tuple[list[_Candidate], int, bool]:
+) -> _EventEvidence:
     """Çekirdeğe ve gezinilen düğümlere bağlı olaylar (§58-§64).
 
     Tek sınırlı sorgu kullanılır (düğüm başına sorgu YOKTUR). Olaylar yalnızca
     yapısal bir çapaya bağlı olarak çekilir; global olay metin araması yoktur.
-    """
-    if not visited:
-        return [], 0, False
 
-    ids = list(visited.keys())
+    Gezinme sonucu ÇAĞIRANDAN gelir: köken yolları ve derinlikler bu isteğin
+    tek yapısal anlık görüntüsüdür (H3.1 §77).
+    """
+    if not traversal.visited:
+        return _EventEvidence((), 0, False, False)
+
+    ids = list(traversal.visited.keys())
     stmt = (
         select(Event, Entity.title)
         .outerjoin(Entity, Entity.id == Event.entity_id)
@@ -475,12 +574,17 @@ async def _event_candidates(
         stmt = stmt.where(Event.occurred_at >= since)
     if until is not None:
         stmt = stmt.where(Event.occurred_at <= until)
-    stmt = stmt.order_by(Event.occurred_at.desc(), Event.id.desc()).limit(MAX_EVENT_SCAN_ROWS)
+    # +1 NÖBETÇİ (§21): "tam 120 satır" ile "121+ satır" ayırt edilebilmelidir.
+    # `.limit(N)` + `len(rows) >= N` deseni tam-sınır durumunu yanlışlıkla
+    # "kesildi" sayardı.
+    stmt = stmt.order_by(Event.occurred_at.desc(), Event.id.desc()).limit(MAX_EVENT_SCAN_ROWS + 1)
 
     rows = list((await session.execute(stmt)).all())
-    truncated = len(rows) >= MAX_EVENT_SCAN_ROWS
+    scan_truncated = len(rows) > MAX_EVENT_SCAN_ROWS
+    if scan_truncated:
+        rows = rows[:MAX_EVENT_SCAN_ROWS]
     if not rows:
-        return [], 0, truncated
+        return _EventEvidence((), 0, scan_truncated, False)
 
     tokens = frozenset(terms.tokens)
     ranked: list[tuple[bool, float, int, Event, str]] = []
@@ -502,20 +606,24 @@ async def _event_candidates(
         )
     ranked.sort(key=lambda row: (not row[0], row[1], row[2]))
 
+    # Sıralama sonrası kanıt tavanı da bir kesmedir ve bildirilmelidir (§22):
+    # tarama tavanına takılmasa bile 9 uygun olaydan yalnızca 8'i kanıt olur.
+    evidence_cap_truncated = len(ranked) > MAX_EVENT_EVIDENCE
+
     candidates: list[_Candidate] = []
     for matching, _ts, _event_key, event, title in ranked[:MAX_EVENT_EVIDENCE]:
-        owner = visited.get(event.entity_id) if event.entity_id else None
-        is_seed = event.entity_id == root_id
-        depth = 1 if owner is None else 0
+        depth = traversal.depths.get(event.entity_id) if event.entity_id else None
+        is_seed = event.entity_id == traversal.root_id
         excerpt_lines = [f"{event.verb}" + (f' · entity="{title}"' if title else "")]
         payload_text = json.dumps(sanitize_payload(event.payload or {}), ensure_ascii=False, default=str)
         if payload_text and payload_text != "{}":
             excerpt_lines.append(f"payload={payload_text[:MAX_EVIDENCE_EXCERPT_CHARS]}")
         excerpt = "\n".join(excerpt_lines)[:MAX_EVIDENCE_EXCERPT_CHARS]
 
+        # Derinlik GERÇEK BFS derinliğidir (H3.1 §27-§29); uydurma etiket yok.
         if is_seed:
             anchor = "the explicit entity seed"
-        elif owner is not None:
+        elif depth is not None:
             anchor = f'a depth-{depth} related entity ("{title}")'
         else:
             anchor = "a traversed entity"
@@ -535,7 +643,9 @@ async def _event_candidates(
             excerpt=excerpt,
             occurred_at=event.occurred_at.isoformat(),
             updated_at=event.occurred_at.isoformat(),
-            relation_path=list(paths.get(event.entity_id, [])) if event.entity_id else [],
+            relation_path=(
+                list(traversal.paths.get(event.entity_id, ())) if event.entity_id else []
+            ),
             retrieval_reason=_bounded_reason(reason),
             truncated=len("\n".join(excerpt_lines)) > MAX_EVIDENCE_EXCERPT_CHARS,
         )
@@ -543,30 +653,34 @@ async def _event_candidates(
             _Candidate(
                 item=item,
                 tier=TIER_SEED_EVENT if is_seed else TIER_NEIGHBOR_EVENT,
-                rank=depth,
+                rank=depth if depth is not None else 0,
                 lines=excerpt_lines,
+                span_start=0,
+                span_end=len(excerpt_lines) - 1,
             )
         )
 
-    return candidates, len(rows), truncated
+    return _EventEvidence(
+        candidates=tuple(candidates),
+        eligible=len(rows),
+        scan_truncated=scan_truncated,
+        evidence_cap_truncated=evidence_cap_truncated,
+    )
 
 
-async def _operational_evidence(
-    session: AsyncSession,
-    *,
-    seed: Entity | None,
-    terms: vault_ev.QueryTerms,
-    since: datetime | None,
-    until: datetime | None,
-    effective_depth: int,
+async def _query_only_operational(
+    session: AsyncSession, terms: vault_ev.QueryTerms
 ) -> tuple[list[_Candidate], list[ResolvedEntityRef], list[RetrievalTraceStep], bool]:
-    """Yapısal (operasyonel) kanal. Vault'a HİÇ dokunmaz."""
+    """Sorgu-only yapısal kanal: yalnızca leksikal adaylar.
+
+    Hiçbir aday kök yapılıp GENİŞLETİLMEZ; olay kanalı da çalışmaz (§18/§146).
+    """
     candidates: list[_Candidate] = []
     resolved: list[ResolvedEntityRef] = []
     trace: list[RetrievalTraceStep] = []
     truncated = False
 
-    if seed is None:
+    if True:
         found = await ctx_svc.search_operational_context(
             session, terms.phrase or " ".join(terms.tokens), limit=MAX_ENTITY_CANDIDATES
         )
@@ -619,7 +733,30 @@ async def _operational_evidence(
         )
         return candidates, resolved, trace, truncated
 
-    resolved.append(_entity_ref(seed, resolution="explicit_seed", expanded=effective_depth > 0))
+    return candidates, resolved, trace, truncated
+
+
+async def _seeded_operational(
+    session: AsyncSession,
+    *,
+    seed: Entity,
+    traversal: GraphTraversal,
+    terms: vault_ev.QueryTerms,
+    since: datetime | None,
+    until: datetime | None,
+    effective_depth: int,
+) -> tuple[list[_Candidate], list[ResolvedEntityRef], list[RetrievalTraceStep], bool]:
+    """Açık çekirdekli yapısal kanal. Vault'a HİÇ dokunmaz.
+
+    Gezinme sonucu ÇAĞIRANDAN gelir: bu istekte tam olarak bir kez çalışır ve
+    entity kanıtı, olay kanıtı ile kasa köken yolları AYNI anlık görüntüden
+    türetilir (H3.1 §31-§33).
+    """
+    candidates: list[_Candidate] = []
+    trace: list[RetrievalTraceStep] = []
+    neighbors = traversal.neighbors
+
+    resolved = [_entity_ref(seed, resolution="explicit_seed", expanded=effective_depth > 0)]
     candidates.append(
         await _entity_candidate(
             session,
@@ -640,62 +777,56 @@ async def _operational_evidence(
         )
     )
 
-    visited, paths, depths, graph_truncated = await _expand_graph(session, seed, effective_depth)
-    truncated = truncated or graph_truncated
-    neighbors = [entity for entity_id, entity in visited.items() if entity_id != seed.id]
     trace.append(
         RetrievalTraceStep(
             stage="graph",
             description=(
                 "Expanded the explicit seed through canonical Link relationships "
-                f"at depth {effective_depth}."
+                f"at depth {effective_depth}; every hop carries its canonical relation and "
+                "traversal direction."
             ),
-            considered=len(visited) - 1,
+            considered=len(traversal.visited) - 1,
             accepted=len(neighbors),
-            truncated=graph_truncated,
+            truncated=traversal.truncated,
         )
     )
-    for neighbor in sorted(neighbors, key=lambda entity: (depths[entity.id], str(entity.id))):
+    for entity, depth, path in neighbors:
         candidates.append(
             await _entity_candidate(
                 session,
-                neighbor,
+                entity,
                 tier=TIER_NEIGHBOR_ENTITY,
-                rank=depths[neighbor.id],
-                reason=(
-                    f"depth-{depths[neighbor.id]} related entity via "
-                    f"'{paths[neighbor.id][-1].relation}' link"
-                ),
-                relation_path=paths[neighbor.id],
+                rank=depth,
+                reason=f"depth-{depth} related entity via '{path[-1].relation}' link",
+                relation_path=list(path),
             )
         )
 
-    events, scanned, events_truncated = await _event_candidates(
+    events = await _event_candidates(
         session,
-        visited=visited,
-        paths=paths,
-        root_id=seed.id,
+        traversal=traversal,
         since=since,
         until=until,
         terms=terms,
     )
-    truncated = truncated or events_truncated
-    candidates.extend(events)
-    window = " with the requested time window" if (since or until) else ""
+    candidates.extend(events.candidates)
+    window = " within the requested time window" if (since or until) else ""
     trace.append(
         RetrievalTraceStep(
             stage="events",
             description=(
-                f"Read append-only events for the seed and {len(neighbors)} traversed "
-                f"entit(ies){window}; ranked by query-term match then recency."
+                f"Read {events.eligible} append-only event row(s) for the seed and "
+                f"{len(neighbors)} traversed entit(ies){window}; "
+                f"{len(events.candidates)} promoted to evidence "
+                f"(scan cap {MAX_EVENT_SCAN_ROWS}, evidence cap {MAX_EVENT_EVIDENCE})."
             ),
-            considered=scanned,
-            accepted=len(events),
-            truncated=events_truncated,
+            considered=events.eligible,
+            accepted=len(events.candidates),
+            truncated=events.truncated,
         )
     )
 
-    return candidates, resolved, trace, truncated
+    return candidates, resolved, trace, traversal.truncated or events.truncated
 
 
 # ---------------------------------------------------------------------------
@@ -770,7 +901,15 @@ def _note_candidate(
         reason=reason,
     )
     focus = excerpt.line_start - 1
-    return _Candidate(item=item, tier=tier, rank=rank, lines=lines, focus=focus)
+    return _Candidate(
+        item=item,
+        tier=tier,
+        rank=rank,
+        lines=lines,
+        span_start=excerpt.section_start,
+        span_end=excerpt.section_end,
+        focus=focus,
+    )
 
 
 def _wikilink_hop(anchor_rel_path: str, target_rel_path: str) -> EvidencePathHop:
@@ -796,7 +935,7 @@ async def _knowledge_evidence(
     root: Path,
     terms: vault_ev.QueryTerms,
     seed: Entity | None,
-    neighbors: list[tuple[Entity, int, list[EvidencePathHop]]],
+    neighbors: Sequence[tuple[Entity, int, tuple[EvidencePathHop, ...]]],
     index: vault_ev.EvidenceNoteIndex,
     warnings: list[str],
 ) -> tuple[list[_Candidate], list[RetrievalTraceStep], bool]:
@@ -883,7 +1022,10 @@ async def _knowledge_evidence(
         # --- bir kasa hopu: doğrudan wikilink + doğrudan backlink (§95) ---
         if note is None:
             continue
-        anchor_knowledge_hop = _knowledge_hop(uuid.UUID(source_id), rel_path)
+        # Çapa notunun TAM köken yolu: çekirdekten bu nota kadar (H3.1 §16).
+        # Yeni bir `knowledge_pointer` UYDURULMAZ; var olan yolun devamıdır, bu
+        # yüzden komşu notlarda `entity_link` öneki KORUNUR (§14).
+        anchor_path = relation_path
         for target in note.wikilinks:
             wikilink_considered += 1
             resolution = index.resolve(target)
@@ -909,7 +1051,7 @@ async def _knowledge_evidence(
                 tier=TIER_VAULT_LINK,
                 rank=-linked.score,
                 terms=terms,
-                relation_path=[anchor_knowledge_hop, _wikilink_hop(rel_path, linked.rel_path)],
+                relation_path=[*anchor_path, _wikilink_hop(rel_path, linked.rel_path)],
                 reason=f"direct wikilink from '{rel_path}'; {_vault_match_reason(linked)}",
                 note=linked,
             )
@@ -930,7 +1072,7 @@ async def _knowledge_evidence(
                 tier=TIER_VAULT_LINK,
                 rank=-backlink_note.score,
                 terms=terms,
-                relation_path=[anchor_knowledge_hop, _backlink_hop(rel_path, backlink_note.rel_path)],
+                relation_path=[*anchor_path, _backlink_hop(rel_path, backlink_note.rel_path)],
                 reason=f"links to '{rel_path}'; {_vault_match_reason(backlink_note)}",
                 note=backlink_note,
             )
@@ -1055,7 +1197,14 @@ def _shrink(candidate: _Candidate, remaining: int) -> tuple[EvidenceItem, bool] 
         return item, False
 
     lines = candidate.lines
-    focus = min(max(candidate.focus, 0), len(lines) - 1)
+    # Kaynak aralığı ASLA aşılmaz (H3.1 §46): kasa kanıtında snippet'in
+    # türetildiği başlık bölümü, operasyonel kanıtta projeksiyonun tamamı.
+    # Aksi hâlde `heading` ve satır numaraları yalan söylerdi.
+    span_start = max(candidate.span_start, 0)
+    span_end = min(candidate.span_end, len(lines) - 1) if lines else -1
+    if lines and span_end < span_start:
+        return None
+    focus = min(max(candidate.focus, span_start), span_end) if lines else 0
     if lines and len(lines[focus]) > remaining:
         if remaining < MIN_USEFUL_EXCERPT_CHARS:
             return None
@@ -1067,14 +1216,14 @@ def _shrink(candidate: _Candidate, remaining: int) -> tuple[EvidenceItem, bool] 
     below, above = focus + 1, focus - 1
     while True:
         grew = False
-        if below < len(lines):
+        if below <= span_end:
             cost = len(lines[below]) + 1
             if used + cost <= remaining:
                 used += cost
                 end = below
                 below += 1
                 grew = True
-        if above >= 0:
+        if above >= span_start:
             cost = len(lines[above]) + 1
             if used + cost <= remaining:
                 used += cost
@@ -1202,13 +1351,19 @@ async def retrieve_evidence(
     if scope not in VALID_SCOPES:
         raise EvidenceError("INVALID_SCOPE", f"scope must be one of {list(VALID_SCOPES)}")
 
+    # Aralık dışı sınırlar KIRPILMAZ, REDDEDİLİR (H3.1 §38-§40): şema bağı ile
+    # çalışma zamanı bağı aynı olmalıdır ve doğrudan çağıranlar şemayı atlar.
+    requested_depth = _bounded_int(
+        max_depth, name="max_depth", low=MIN_EVIDENCE_DEPTH, high=MAX_EVIDENCE_DEPTH
+    )
+    requested_limit = _bounded_int(
+        limit, name="limit", low=MIN_EVIDENCE_LIMIT, high=MAX_EVIDENCE_LIMIT
+    )
+
     since_dt = _parse_time(since, "since")
     until_dt = _parse_time(until, "until")
     if since_dt is not None and until_dt is not None and since_dt > until_dt:
         raise EvidenceError("INVALID_TIME_RANGE", "'since' must not be later than 'until'")
-
-    requested_depth = max(MIN_EVIDENCE_DEPTH, min(int(max_depth), MAX_EVIDENCE_DEPTH))
-    requested_limit = max(MIN_EVIDENCE_LIMIT, min(int(limit), MAX_EVIDENCE_LIMIT))
 
     seed: Entity | None = None
     if entity_id is not None and str(entity_id).strip():
@@ -1233,31 +1388,42 @@ async def retrieve_evidence(
     sources_used: list[EvidenceSourceDomain] = []
     truncated = False
 
-    neighbors: list[tuple[Entity, int, list[EvidencePathHop]]] = []
-    if seed is not None and wants_operational:
-        visited, paths, depths, _graph_truncated = await _expand_graph(session, seed, effective_depth)
-        neighbors = sorted(
-            (
-                (entity, depths[entity.id], paths[entity.id])
-                for entity_id, entity in visited.items()
-                if entity_id != seed.id
-            ),
-            key=lambda row: (row[1], str(row[0].id)),
-        )
+    # İstek başına TEK yapısal gezinme (H3.1 §31/§33). Operasyonel kanıt, olay
+    # kanıtı ve kasa köken yolları bu sonuçtan türetilir; ikinci bir BFS yoktur.
+    traversal: GraphTraversal | None = None
 
     if wants_operational:
-        operational, resolved, operational_trace, operational_truncated = await _operational_evidence(
-            session,
-            seed=seed,
-            terms=terms,
-            since=since_dt,
-            until=until_dt,
-            effective_depth=effective_depth,
-        )
+        if seed is None:
+            (
+                operational,
+                resolved,
+                operational_trace,
+                operational_truncated,
+            ) = await _query_only_operational(session, terms)
+        else:
+            traversal = await _expand_graph(session, seed, effective_depth)
+            (
+                operational,
+                resolved,
+                operational_trace,
+                operational_truncated,
+            ) = await _seeded_operational(
+                session,
+                seed=seed,
+                traversal=traversal,
+                terms=terms,
+                since=since_dt,
+                until=until_dt,
+                effective_depth=effective_depth,
+            )
         candidates.extend(operational)
         trace.extend(operational_trace)
         truncated = truncated or operational_truncated
         sources_used.append("forkos")
+
+    # Kasa kanalı operasyonel gezinmeyi YENİDEN ÇALIŞTIRMAZ; varsa aynı
+    # sonucu paylaşır. `scope=knowledge` bilinçli olarak gezinme YAPMAZ (§34/§35).
+    neighbors = traversal.neighbors if traversal is not None else ()
 
     vault_unavailable = False
     if wants_knowledge:
