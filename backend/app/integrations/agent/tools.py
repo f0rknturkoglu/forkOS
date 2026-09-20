@@ -11,6 +11,8 @@ from pydantic import Field, ValidationError
 from app.db import SessionLocal
 from app.integrations.agent import actions as actions_svc
 from app.integrations.agent import context as ctx_svc
+from app.integrations.agent import evidence as ev_svc
+from app.integrations.agent import evidence_models as ev_models
 from app.integrations.agent import hot_memory as hm_svc
 from app.integrations.agent import knowledge as kn_svc
 from app.integrations.agent.hot_memory_models import (
@@ -237,6 +239,7 @@ def register_agent_tools(server: MCPServer) -> None:
 
     _register_write_tools(server)
     _register_hot_memory_tools(server)
+    _register_evidence_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -906,3 +909,75 @@ def _register_hot_memory_tools(server: MCPServer) -> None:
             action=hm_svc.retire_memory,
             ctx=ctx,
         )
+
+
+# ---------------------------------------------------------------------------
+# H3 kanıt getirme aracı (salt-okunur)
+# ---------------------------------------------------------------------------
+
+#: H3 girdi sınırları (§15/§164) — şemada GÖRÜNÜR, yürütmede bağımsız dayatılır.
+EvidenceQuery = Annotated[
+    str, Field(min_length=ev_models.MIN_QUERY_LENGTH, max_length=ev_models.MAX_QUERY_LENGTH)
+]
+EvidenceDepth = Annotated[
+    int, Field(ge=ev_models.MIN_EVIDENCE_DEPTH, le=ev_models.MAX_EVIDENCE_DEPTH)
+]
+EvidenceLimit = Annotated[
+    int, Field(ge=ev_models.MIN_EVIDENCE_LIMIT, le=ev_models.MAX_EVIDENCE_LIMIT)
+]
+
+
+def _register_evidence_tool(server: MCPServer) -> None:
+    """H3'ün TEK genel aracını kaydeder (§12/§13).
+
+    Neden tek araç: H0 zaten `forkos_search`, `forkos_entity_context`,
+    `forkos_project_context`, `forkos_recent_activity`, `brain_search` ve
+    `brain_read` sağlıyor. H3 mikro-araçları çoğaltmaz; bu araç bu alanları
+    birleştiren SINIRLI orkestrasyon katmanıdır.
+    """
+
+    @server.tool(
+        name="forkos_evidence",
+        description=(
+            "Retrieve inspectable evidence for a question or claim from forkOS operational "
+            "state (entities, links, append-only events) and the f0rknbrain Vault (managed "
+            "notes, one hop of wikilinks/backlinks, deterministic lexical matches). Returns an "
+            "EvidenceBundle with per-item provenance locators, relation paths, a factual "
+            "retrieval trace and honest truncation flags. Structure first: with an explicit "
+            "entity_id the canonical Link graph and Event history are traversed under hard "
+            "budgets; without one, only lexical candidates are returned and nothing is "
+            "expanded. Read-only: creates no entity, link, event or file and never modifies the "
+            "Vault. No model calls and no answer generation - forkOS retrieves evidence, the "
+            "caller reasons over it. Curated hot memory is personalization context, not "
+            "evidence, and is never returned here. " + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_evidence(
+        query: EvidenceQuery,
+        entity_id: str | None = None,
+        scope: ev_models.EvidenceScope = "all",
+        since: str | None = None,
+        until: str | None = None,
+        max_depth: EvidenceDepth = ev_models.DEFAULT_EVIDENCE_DEPTH,
+        limit: EvidenceLimit = ev_models.DEFAULT_EVIDENCE_LIMIT,
+    ) -> AgentEnvelope[ev_models.EvidenceBundle]:
+        try:
+            async with SessionLocal() as session:
+                bundle = await ev_svc.retrieve_evidence(
+                    session,
+                    query=query,
+                    entity_id=entity_id,
+                    scope=scope,
+                    since=since,
+                    until=until,
+                    max_depth=max_depth,
+                    limit=limit,
+                )
+            return AgentEnvelope(source="forkos", data=bundle, truncated=bundle.truncated)
+        except ev_svc.EvidenceError as exc:
+            raise ToolError(str(exc)) from exc
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı (§127)
+            raise ToolError(f"EVIDENCE_UNAVAILABLE: {type(exc).__name__}") from exc
