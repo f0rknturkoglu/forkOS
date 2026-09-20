@@ -34,6 +34,11 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
+# Test modulleri `tests.agent_test_utils`'i paket yoluyla import eder. Konsol
+# betigi olarak calistirilan pytest (`pytest -q`, container icinde boyle) CWD'yi
+# sys.path'e eklemez; bu satir olmadan koleksiyon `ModuleNotFoundError: No
+# module named 'tests'` ile duser.
+pythonpath = ["."]
 markers = [
   "no_database: test does not need a database connection",
 ]
