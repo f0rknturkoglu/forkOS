@@ -57,33 +57,44 @@ güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmışt�
 
 ---
 
-## H2 — Hot Memory (Sıradaki)
+## H1.1 — Write Correctness ✅ Tamamlandı
 
-**Soru:** *Ajan neyi kalıcı olarak hatırlamalı?*
+- Kısmi güncellemede **verilmeyen alan ≠ açık null** (MCP argüman bağlaması).
+- Yer imi etiket güncellemesi gerçekten çalışır; plan tekrarı `noop`.
+- `brain_save_to_entity` başarısızlıkta **atomik** (yetim Vault notu bırakmaz).
+- Mevcut başvuruda `expected_status` ZORUNLU.
+- Mutlak kasa yolu ajan tanılamasından temizlendi.
 
-**Kapsam (planlanan):**
+## H1.2 — Binding Upgrade Guard ✅ Tamamlandı
 
-- Kullanıcı profili ve çalışma tercihleri için **Vault'ta** sıcak hafıza
-  (`90 Agent/` altında yönetilen notlar).
-- Hafıza adayları: oturum içinde öne çıkan kararların öneri olarak sunulması.
-- Kullanıcı onayıyla kalıcılaştırma; onaysız yazma yok.
-
-**Sınır (H1'den devredilen kural):**
-
-- **Otomatik hafıza yazımı H1'de YOKTUR.** `brain_capture` ve
-  `brain_save_to_entity` yalnızca kullanıcının niyeti bilgi kaydetmeyi
-  içerdiğinde çağrılır. "Ajan bunu hatırlamalı" kararı H2'nin konusudur ve
-  orada bile kullanıcı onayı gerektirir.
-- Hafıza **Vault'ta** yaşar (bilgi sahipliği Faz 3 sınırı); forkOS
-  veritabanına ajan hafızası tablosu eklenmez.
-- Konuşma geçmişinin tamamı saklanmaz; yalnızca onaylanmış, sınırlı çıkarımlar.
-
-**Açılmayacaklar:** sınırsız konuşma arşivi, kullanıcı davranışının sessizce
-profillenmesi, hafıza yazımını tetikleyen arka plan işi.
+- İstek bağlamı VAR ama argümanlar çözülemiyorsa **fail-closed**
+  (`MCP_ARGUMENT_BINDING_UNAVAILABLE`); SDK yükseltmesi omitted-vs-null
+  hatasını sessizce geri getiremez.
+- Taşıma testleri hermetik oturuma geçti (başlangıç yan etkileri kapalı).
 
 ---
 
-## H3 — Retrieval & Evidence
+## H2 — Hot Curated Memory ✅ Tamamlandı
+
+**Soru:** *Ajansal bağlam olarak hangi küçük, kalıcı gerçekleri yanımda taşımalıyım?*
+
+- Sahiplik: `f0rknbrain / 90 Agent/Memory/<memory_id>.md` — öğe başına tek
+  dosya, UUID kimliği, sürümlü frontmatter (v1).
+- 5 tür: `profile`, `preference`, `goal`, `constraint`, `decision`.
+- `effective_status`: `active | expired | retired` (zaman aşımı okuma anında;
+  emeklilik silme değildir).
+- Revizyon = `sha256(dosya baytları)`; güncelleme/emeklilik `expected_revision`
+  ister, bayat yazma fail-closed.
+- Sınırlı bağlam: ≤24 öğe, ~6000 karakter, deterministik sıralama, dürüst
+  `truncated`/`omitted_total`.
+- **5 MCP aracı** (toplam yüzey 24). Silme, aday tablosu, otomatik yazma,
+  konuşma arşivi ve DB aynası YOKTUR.
+- Ayrıntı: `h2-hot-memory.md`, `h2-memory-policy.md`, `h2-tool-contract.md`,
+  `h2-setup.md`.
+
+---
+
+## H3 — Retrieval & Evidence (Sıradaki)
 
 **Soru:** *Bir iddiayı hangi kanıt destekliyor?*
 

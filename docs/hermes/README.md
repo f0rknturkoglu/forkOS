@@ -56,11 +56,11 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 
 ---
 
-## 3. Sağlanan MCP Araçları (19)
+## 3. Sağlanan MCP Araçları (24)
 
-Arayüz toplam **19** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
-(H1). Yazma araçları `readOnlyHint=false` taşır ve `trust: untrusted` bir
-istemcide kullanıcı onayı gerektirir.
+Arayüz toplam **24** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+(H1) + **5 sıcak hafıza** (H2). Yazma araçları `readOnlyHint=false` taşır ve
+`trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
 
 ### Okuma araçları (H0)
 
@@ -91,8 +91,22 @@ istemcide kullanıcı onayı gerektirir.
 | **Bilgi** | `brain_capture` | Vault `00 Inbox/` içine yeni bilgi notu |
 | **Bilgi** | `brain_save_to_entity` | Yönetilen bilgi notuna metin EKLER |
 
+### Sıcak hafıza araçları (H2)
+
+| Kategori | Araç Adı | Açıklama |
+| --- | --- | --- |
+| **Hafıza** | `hot_memory_context` | Aktif sıcak hafıza paketi (sınırlı bütçe, deterministik sıralama) |
+| **Hafıza** | `hot_memory_list` | Yönetim/keşif listesi (leksikal arama, emekli/süresi geçmiş dâhil) |
+| **Hafıza** | `hot_memory_store` | Onaylanmış tek öğe oluşturur (`90 Agent/Memory/`) |
+| **Hafıza** | `hot_memory_update` | `expected_revision` ile düzeltir |
+| **Hafıza** | `hot_memory_retire` | Kullanmayı bırakır (silmez) |
+
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
-Onay modeli: [H1 Güvenli Eylemler](h1-safe-actions.md)
+[Onay modeli](h1-safe-actions.md) ·
+[H2 Sıcak Hafıza](h2-hot-memory.md) ·
+[H2 Araç Sözleşmesi](h2-tool-contract.md) ·
+[H2 Hafıza Politikası](h2-memory-policy.md) ·
+[H2 Kurulum](h2-setup.md)
 
 ---
 
