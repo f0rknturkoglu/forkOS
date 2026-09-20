@@ -206,7 +206,8 @@ async def test_h6_tool_never_mutates_canonical_state(db_session: AsyncSession) -
         for model in (Entity, Event, Link, Todo, Project):
             table = model.__table__  # type: ignore[attr-defined]
             columns = sorted(table.columns, key=lambda column: column.name)
-            rows = (await db_session.execute(select(*columns).order_by(table.c.id))).all()
+            pk = next(iter(table.primary_key.columns))
+            rows = (await db_session.execute(select(*columns).order_by(pk))).all()
             parts.append(str(rows))
         return "|".join(parts)
 

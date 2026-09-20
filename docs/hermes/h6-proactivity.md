@@ -21,6 +21,49 @@ otomatik mutasyon katmanı **değildir**. Aday üretir, karar verir, (gerekirse)
 bildirir; hiçbir Todo/Project/Opportunity/Vault/Review/Event kaydını değiştirmez
 (`backend/app/modules/proactivity/__init__.py:8-14`).
 
+## H6.1 — Doğruluk sertleştirmesi (dört açık kapatıldı)
+
+```text
+1) entity kimliği != temporal koşul kimliği
+   Aynı fırsatın üzerinde ilan son tarihi, takip tarihi ve N görüşme
+   BAĞIMSIZ koşullardır. Koşul kimliği:
+       <module>.<sub_kind|due>.<condition_id|entity_id>
+   (görüşmede alt kaydın kararlı PK'si kullanılır; başlık ya da liste sırası
+   ASLA kimlik yerine geçmez). Kimlik ve revizyon ":" içermez, böylece
+   `deadline:v2:<kimlik>:<revizyon>:<rung>d` ayrıştırması belirsiz kalmaz.
+
+2) aralık dışı son tarih ADAY DEĞİLDİR
+   T-31 normal son tarih ve T-15 takip tarihi basamak dışıdır; `None` aday
+   listesine giremez (aksi halde kuralın tamamı düşerdi). Kural sözleşmesi
+   yalnızca gerçek `Candidate` üretir; ihlal edilirse `INVALID_CANDIDATE`
+   hata koduyla raporlanır.
+
+3) digest'te "delivered" = kullanıcıya GERÇEKTEN gösterildi
+   Bir `ProactivityRun` ancak bildirime girdiyse teslim edildi sayılır.
+   Parti kimliği ÜYE KÜMESİNDEN türetilir (deterministik, restart-safe);
+   gösterilmeyen üyeler kuyrukta kalır ve sonraki digest'te teslim edilir.
+
+4) açılışta H6 turu kaynak tazelemeyi BEKLER
+   `proactivity_tick` işi, açılış zinciri (kaynak tazeleme + H6 telafisi)
+   tamamlandıktan SONRA kaydedilir; dakikalık tur bayat durumdan aday üretmez.
+```
+
+### Son tarih kimliği neden ayrı bir kavram?
+
+`DeadlineRow.entity_id` bir son tarihin BAĞLI olduğu entity'dir; koşulun
+kimliği değildir. Fırsat modülünde aynı entity üzerinde üç ayrı koşul
+üretilebilir:
+
+```text
+opportunity.job.<opportunity_id>        ilan son tarihi
+opportunity.follow_up.<opportunity_id>  takip tarihi
+opportunity.interview.<interview_id>    her görüşme AYRI koşul
+```
+
+Kimlik olmadan: bir görüşmenin taşınması ilan son tarihini "bayat" sanar,
+snooze kardeş koşula sızar, kompozisyon yanlış satırı okur.
+
+
 ---
 
 ## 1. Sorumluluk paylaşımı
@@ -137,7 +180,7 @@ Genel bir kural DSL'i **yoktur**: yeni davranış eklemek kod yazmak demektir
 | `morning_continuity` | **kapalı** | `time` 08:05, `grace_hours` 4 | `ritual` | `continuity` | `morning_continuity:v1:<gün>` |
 | `daily_close` | **kapalı** | `time` 21:00, `grace_hours` 3 | `ritual` | `daily_close` | `daily_close:v1:<gün>` |
 | `weekly_review` | **kapalı** | `weekday` 6, `time` 18:00, `grace_hours` 24 | `ritual` | `weekly_review` | `weekly_review:v1:<yıl>-W<hafta>` |
-| `deadline_staircase` | **açık** | — | `deadline_*` | — | `<kind>:v1:<entity>:<revizyon>:<rung>d` |
+| `deadline_staircase` | **açık** | — | `deadline_*` | — | `deadline:v2:<koşul-kimliği>:<revizyon>:<rung>d` |
 | `continuity_gap` | **kapalı** | `threshold_hours` 48 | `continuity_comeback` | `continuity` | `continuity_gap:v1:<gün>` |
 | `project_stalled` | **kapalı** | `days` 14, `cooldown_days` 7 | `project_stalled` | `continuity` | `project_stalled:v1:<project_id>` |
 

@@ -45,6 +45,27 @@ log = logging.getLogger("worker")
 RSS_POLL_TICK_MINUTES = 5
 
 
+async def maintenance_job() -> None:
+    """Gunde bir kez: operasyonel saklama + RSS + gorsel onbellegi.
+
+    Gun kapisi ve idempotanslik `run_maintenance` icinde.
+    """
+    async with SessionLocal() as session:
+        await run_maintenance(session)
+
+
+async def prune_opportunities_job() -> None:
+    async with SessionLocal() as session:
+        await prune_stale_opportunities(session)
+
+
+async def backfill_opportunity_skill_matches() -> None:
+    async with SessionLocal() as session:
+        updated = await backfill_skill_match_ratios(session)
+        if updated:
+            log.info("CV eslesme cache'i tamamlandi: %d ilan", updated)
+
+
 async def main() -> None:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
@@ -66,17 +87,7 @@ async def main() -> None:
     )
     scheduler.add_job(nightly_backup, "cron", hour=3, id="nightly_backup")
 
-    async def maintenance_job() -> None:
-        # Gunde bir kez: operasyonel saklama + RSS + gorsel onbellegi.
-        # Gun kapisi ve idempotanslik `run_maintenance` icinde.
-        async with SessionLocal() as session:
-            await run_maintenance(session)
-
     scheduler.add_job(maintenance_job, "cron", hour=4, id="maintenance")
-
-    async def prune_opportunities_job() -> None:
-        async with SessionLocal() as session:
-            await prune_stale_opportunities(session)
 
     scheduler.add_job(prune_opportunities_job, "cron", hour=4, minute=30, id="prune_opportunities")
     scheduler.add_job(
@@ -113,23 +124,6 @@ async def main() -> None:
         coalesce=True,
     )
 
-    async def backfill_opportunity_skill_matches() -> None:
-        async with SessionLocal() as session:
-            updated = await backfill_skill_match_ratios(session)
-            if updated:
-                log.info("CV eslesme cache'i tamamlandi: %d ilan", updated)
-
-    # TEK proaktif is: ritüel/son tarih/proje kararlari bu turun ICINDE
-    # verilir (dakikada bir "bakilacak bir sey var mi?" kontrolu). Kullaniciya
-    # giden cadence H6 politikasindadir, zamanlayicida DEGIL.
-    scheduler.add_job(
-        proactivity_tick,
-        "interval",
-        minutes=1,
-        id="proactivity_tick",
-        max_instances=1,
-        coalesce=True,
-    )
     scheduler.add_job(
         sync_calendar,
         "interval",
@@ -145,7 +139,44 @@ async def main() -> None:
         settings.rss_retention_days,
     )
 
-    startup_tasks = [
+    await run_startup(scheduler)
+    await asyncio.Event().wait()
+
+
+async def run_startup(scheduler: AsyncIOScheduler, *, tasks: list | None = None) -> None:
+    """Aciliş zinciri + H6 turunun KAYDI (H6.1/D).
+
+    KRITIK SIRA: `proactivity_tick` ancak kaynak tazeleme ve H6 telafisi
+    TAMAMLANDIKTAN SONRA kaydedilir. Aksi halde dakikalik tur, startup
+    surerken (or. 3 dakikalik kaynak cekimi) BAYAT operasyonel durum uzerinden
+    aday uretip bildirim gonderebilirdi. Zamanlayici zaten calisiyor olsa da
+    kaydedilmeyen is CALISMAZ -- bu yuzden kapi tek satirlik ve aciktir.
+    """
+    chain = tasks if tasks is not None else _startup_tasks()
+    for task_name, task_fn in chain:
+        try:
+            await task_fn()
+        except Exception:
+            log.exception(
+                "startup gorevi basarisiz oldu (%s) -- diger gorevler devam ediyor", task_name
+            )
+
+    # TEK proaktif is: ritüel/son tarih/proje kararlari bu turun ICINDE verilir
+    # (dakikada bir "bakilacak bir sey var mi?" kontrolu). Kullaniciya giden
+    # cadence H6 politikasindadir, zamanlayicida DEGIL.
+    scheduler.add_job(
+        proactivity_tick,
+        "interval",
+        minutes=1,
+        id="proactivity_tick",
+        max_instances=1,
+        coalesce=True,
+    )
+    log.info("proaktif tur kaydedildi (kaynak tazeleme + H6 telafisi tamamlandi)")
+
+
+def _startup_tasks() -> list:
+    return [
         ("heartbeat", record_worker_heartbeat),
         ("maintenance", maintenance_job),
         ("backfill_opportunity_skill_matches", backfill_opportunity_skill_matches),
@@ -159,15 +190,6 @@ async def main() -> None:
         ("sync_github", sync_github),
         ("nightly_backup", nightly_backup),
     ]
-    for task_name, task_fn in startup_tasks:
-        try:
-            await task_fn()
-        except Exception:
-            log.exception(
-                "startup gorevi basarisiz oldu (%s) -- diger gorevler devam ediyor", task_name
-            )
-
-    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":

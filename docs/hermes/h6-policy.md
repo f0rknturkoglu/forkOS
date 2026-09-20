@@ -8,6 +8,31 @@ mıyız?"** Karar `policy.decide()` içinde (`backend/app/modules/proactivity/po
 Opak puan **yoktur**: ne "aciliyet olasılığı" ne "AI skoru". Karar kategorik
 eşiklerle ve sınırlı gerekçe kodlarıyla açıklanır (`policy.py:6-8`).
 
+### H6.1 — digest üyeliği ve kimlik kapsamı
+
+```text
+digest görünür üye   : 10 (MAX_DIGEST_ITEMS)
+üyelik takibi        : delivery.deliver_digest → (notification_id, delivered_run_ids)
+taşma davranışı      : gösterilmeyen üyeler `digest_queued` KALIR; sonraki
+                       digest turunda teslim edilir (sessiz kayıp YOK)
+parti kimliği        : sha256(üye run id'leri)[:12] → aynı yığın ikinci kez
+                       bildirim üretmez; kalan yığın YENİ kimlik alır
+boş üye              : bildirime girmez ve delivered SAYILMAZ; koşulu
+                       kalmamışsa `resolved` + NO_MEANINGFUL_CONTENT
+```
+
+```text
+stale iptal kapsamı  : koşul kimliği (entity DEĞİL)
+snooze devralma      : aynı koşulun yeni basamağı devralır; aynı entity'nin
+                       BAŞKA son tarihi devralmaz
+revizyon             : date-only → YYYY-MM-DD; datetime → UTC YYYYMMDDTHHMMSSZ
+                       (aynı gün içindeki saat değişimi de revizyonu değiştirir)
+retention (delivered): KEEP — `logical_trigger_key` tek-seferlik koşunun
+                       kimliğidir; satır budanırsa aynı eşik yeniden üretilir
+                       (bkz. core/retention.py gerekçesi)
+```
+
+
 ---
 
 ## 1. Karar sırası — ilk uyan gerekçe kazanır
@@ -171,7 +196,7 @@ bilinçli bir karardır ve her kodun **gerçek bir üretim yolu** olmalıdır.
 | `RECENTLY_SURFACED` | cooldown dolmadı | `policy.py:183` |
 | `DUPLICATE_TRIGGER` | tek seferlik koşu zaten teslim edildi **veya** bildirim dedup'ı tuttu | `policy.py:174`, `service.py:603` |
 | `CONDITION_RESOLVED` | teslim öncesi yeniden doğrulama başarısız: koşul ortadan kalktı | `service.py:430` |
-| `STALE_TRIGGER` | son tarih revizyonu değişti; aynı konunun eski koşusu iptal | `service.py:418` |
+| `STALE_TRIGGER` | **aynı koşulun** revizyonu değişti (kardeş koşullar korunur) | `service.py:cancel_stale_episodes` |
 | `DEADLINE_TODAY` / `DEADLINE_1D` / `DEADLINE_3D` / `DEADLINE_7D` / `DEADLINE_14D` / `DEADLINE_30D` | son tarih basamağı | `policy._category_code`, `rules._RUNG_REASON` |
 | `CONTINUITY_GAP` | hareketsizlik eşiği aşıldı | `rules.py:205` |
 | `MEANINGFUL_STATE_CHANGED` | eşiğin yanında anlamlı bir dikkat sinyali var | `rules.py:205` |

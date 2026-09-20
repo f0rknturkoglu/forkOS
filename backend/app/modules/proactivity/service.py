@@ -355,24 +355,41 @@ async def _claim_run(
     if run.state == "candidate":
         run.reason_codes = list(candidate.reason_codes)
         run.why_now = candidate.why_now
-    if run.snoozed_until is None and candidate.subject_id is not None:
-        # Kullanici override'i KOSUYA degil KOSULA verilir: ayni konunun yeni
-        # basamagi (or. T-3 -> T-1) snooze'u DELMEZ (§25).
-        inherited = (
-            await session.execute(
-                select(ProactivityRun.snoozed_until)
-                .where(
-                    ProactivityRun.rule_id == rule.id,
-                    ProactivityRun.subject_id == candidate.subject_id,
-                    ProactivityRun.snoozed_until.is_not(None),
-                )
-                .order_by(ProactivityRun.snoozed_until.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
+    if run.snoozed_until is None:
+        inherited = await _inherited_snooze(session, rule=rule, key=run.logical_trigger_key)
         if inherited is not None and inherited > now:
             run.snoozed_until = inherited
     return run
+
+
+async def _inherited_snooze(
+    session: AsyncSession, *, rule: ProactivityRule, key: str
+) -> datetime | None:
+    """Kullanici override'i KOSUYA degil KOSULA verilir (§25).
+
+    Ayni kosulun yeni basamagi (T-3 → T-1) snooze'u DELMEZ; ama ayni entity'nin
+    BASKA bir son tarihi (or. gorusme) bu snooze'u DEVRALMAZ.
+    """
+    scope = _episode_scope(key)
+    if scope is None:
+        return None
+    rows = (
+        await session.execute(
+            select(ProactivityRun.logical_trigger_key, ProactivityRun.snoozed_until)
+            .where(
+                ProactivityRun.rule_id == rule.id,
+                ProactivityRun.snoozed_until.is_not(None),
+            )
+            .order_by(ProactivityRun.snoozed_until.desc())
+        )
+    ).all()
+    for other_key, snoozed_until in rows:
+        if other_key == key:
+            continue
+        if _episode_scope(other_key) != scope:
+            continue
+        return snoozed_until
+    return None
 
 
 async def cancel_pending(session: AsyncSession, *, rule: ProactivityRule, reason: str) -> int:
@@ -394,29 +411,49 @@ async def cancel_pending(session: AsyncSession, *, rule: ProactivityRule, reason
     return len(runs)
 
 
+def _episode_scope(logical_trigger_key: str) -> str | None:
+    """Bir kosunun ait oldugu KOSUL kimligi (stale/snooze kapsami icin).
+
+    Son tarih kosularinda entity tek basina kapsam DEGILDIR: ayni firsatin
+    ilan son tarihi, takip tarihi ve gorusmeleri ayri kosullardir.
+    """
+    return rules.identity_of_key(logical_trigger_key)
+
+
 async def cancel_stale_episodes(
-    session: AsyncSession, *, rule: ProactivityRule, subject_id: uuid.UUID | None, keep_key: str
+    session: AsyncSession, *, rule: ProactivityRule, keep_key: str
 ) -> int:
-    """Ayni konunun ESKI kosulari (or. degisen son tarih) iptal edilir (§146)."""
-    if subject_id is None:
+    """AYNI kosulun eski revizyonlari iptal edilir (§146).
+
+    Kapsam kosul kimligidir: ayni entity'nin BASKA bir son tarihi (or. ilan
+    son tarihi vs gorusme) bu iptalden ETKILENMEZ.
+    """
+    scope = _episode_scope(keep_key)
+    if scope is None:
         return 0
     runs = list(
         (
             await session.execute(
                 select(ProactivityRun).where(
                     ProactivityRun.rule_id == rule.id,
-                    ProactivityRun.subject_id == subject_id,
                     ProactivityRun.logical_trigger_key != keep_key,
                     ProactivityRun.state.in_(sorted(ACTIVE_RUN_STATES)),
                 )
             )
         ).scalars()
     )
-    for run in runs:
+    stale = [
+        run
+        for run in runs
+        if _episode_scope(run.logical_trigger_key) == scope
+        and rules.revision_of_key(run.logical_trigger_key)
+        != rules.revision_of_key(keep_key)
+    ]
+    for run in stale:
         run.state = "cancelled"
         run.cancelled_at = datetime.now(UTC)
         run.reason_codes = ["STALE_TRIGGER"]
-    return len(runs)
+    return len(stale)
 
 
 async def resolve_run(session: AsyncSession, run: ProactivityRun, *, now: datetime) -> None:
@@ -482,10 +519,8 @@ async def _process_candidate(
     result: TickResult,
 ) -> None:
     run = await _claim_run(session, rule=rule, candidate=candidate, now=now)
-    # Ayni konunun ESKI episodlari (or. degisen son tarih) iptal edilir (§146).
-    await cancel_stale_episodes(
-        session, rule=rule, subject_id=candidate.subject_id, keep_key=run.logical_trigger_key
-    )
+    # Ayni KOSULUN eski revizyonlari iptal edilir (§146); kardes kosullar korunur.
+    await cancel_stale_episodes(session, rule=rule, keep_key=run.logical_trigger_key)
     if run.state in {"resolved", "cancelled", "failed"}:
         return
     if candidate.one_shot and run.state in {"delivered", "dismissed", "suppressed"}:
@@ -714,7 +749,7 @@ async def _flush_digest(
     if not queued:
         return
 
-    entries: list[tuple[str, list[str]]] = []
+    entries: list[delivery.DigestEntry] = []
     for run in queued:
         rule = next((item for item in rules_by_kind.values() if item.id == run.rule_id), None)
         if rule is None:
@@ -726,17 +761,29 @@ async def _flush_digest(
             await resolve_run(session, run, now=now)
             result.cancelled += 1
             continue
-        title, facts = await _compose(session, run=run, rule=rule, candidate=_candidate_for(rule, run), now=now)
-        if facts:
-            entries.append((title, facts))
+        title, facts = await _compose(
+            session, run=run, rule=rule, candidate=_candidate_for(rule, run), now=now
+        )
+        if not facts:
+            # Kanonik karsiligi kalmamis uye: bos madde YAZILMAZ ve "teslim
+            # edildi" de DENMEZ; kosul cozulmus sayilir (§C2).
+            run.state = "resolved"
+            run.resolved_at = now
+            run.reason_codes = ["NO_MEANINGFUL_CONTENT"]
+            continue
+        entries.append(delivery.DigestEntry(run_id=run.id, title=title, facts=facts))
 
     if not entries:
         return
-    notification_id = await delivery.deliver_digest(session, entries=entries, now=now)
-    if notification_id is None:
+    notification_id, delivered_ids = await delivery.deliver_digest(
+        session, entries=entries, now=now
+    )
+    if notification_id is None or not delivered_ids:
         return
+    # YALNIZCA bildirime gercekten giren uyeler teslim edildi sayilir; kalanlar
+    # `digest_queued` kalir ve sonraki digest turunda kullaniciya ulasir.
     for run in queued:
-        if run.state != "digest_queued":
+        if run.id not in delivered_ids:
             continue
         run.state = "delivered"
         run.delivery_count += 1
@@ -762,7 +809,12 @@ async def _compose(
     from app.integrations.review_intelligence import service as h5_svc
 
     if rule.kind == "deadline_staircase":
-        row = await _current_deadline_row(session, run.subject_id)
+        identity = _episode_scope(run.logical_trigger_key)
+        row = (
+            await rules.current_condition_row(session, identity)
+            if identity is not None
+            else None
+        )
         if row is None:
             return "", []
         due = row["due_at"]
@@ -796,20 +848,6 @@ async def _compose(
         [*payload.time_sensitive_changes, *payload.stalled_projects, *payload.open_loops]
     )
     return "Haftalık gözden geçirme", facts
-
-
-async def _current_deadline_row(session: AsyncSession, subject_id: uuid.UUID | None) -> dict | None:
-    if subject_id is None:
-        return None
-    from app.core.deadlines import collect_deadlines
-    from app.modules.opportunity.service import pending_follow_up_rows
-
-    rows = [*await collect_deadlines(session, limit=rules.MAX_DEADLINE_ROWS)]
-    rows.extend(await pending_follow_up_rows(session))
-    for row in rows:
-        if str(row.get("entity_id")) == str(subject_id):
-            return row
-    return None
 
 
 def _category_for(rule: ProactivityRule, run: ProactivityRun) -> str:

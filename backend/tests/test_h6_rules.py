@@ -45,15 +45,19 @@ def test_follow_up_ladder_has_no_30_day_rung() -> None:
 async def test_deadline_candidate_key_carries_the_revision(db_session: AsyncSession) -> None:
     """§46: anahtar, değişen son tarihi eski episoddan AYIRIR."""
     rule = await _rule(db_session, "deadline_staircase")
-    todo = await make_todo(db_session, title="Mülakat", due_at=NOW + timedelta(days=2, hours=1))
+    todo_due = NOW + timedelta(days=2, hours=1)
+    todo = await make_todo(db_session, title="Mülakat", due_at=todo_due)
     await db_session.commit()
 
     first = await rules.evaluate_rule(db_session, rule, now=NOW)  # type: ignore[arg-type]
     assert len(first) == 1
     key = first[0].logical_trigger_key
-    assert key.startswith(f"deadline:v1:{todo.id}:")
+    # v2: kimlik KOSULA aittir (entity tek basina kimlik degildir).
+    assert key.startswith(f"deadline:v2:todo.due.{todo.id}:")
     assert key.endswith(":3d")
     assert first[0].subject_id == todo.id
+    assert rules.identity_of_key(key) == f"todo.due.{todo.id}"
+    assert rules.revision_of_key(key) == rules.temporal_revision(todo_due)
 
     # Aynı gün içinde başka bir tur: AYNI anahtar (idempotansın ön koşulu).
     again = await rules.evaluate_rule(db_session, rule, now=NOW + timedelta(minutes=5))  # type: ignore[arg-type]
@@ -181,3 +185,58 @@ async def test_no_event_cursor_is_needed(db_session: AsyncSession) -> None:
     )
     assert "event_watermark" not in source
     assert "Event.id >" not in source
+
+
+# ---------------------------------------------------------------------------
+# H6.1 — A: aralık dışı son tarihler ADAY DEĞİLDİR
+# ---------------------------------------------------------------------------
+
+
+async def test_far_future_deadline_produces_no_candidate_and_no_crash(
+    db_session: AsyncSession,
+) -> None:
+    """T-31+ son tarih basamak dışıdır: aday yok, çökme yok."""
+    rule = await _rule(db_session, "deadline_staircase")
+    await make_todo(db_session, title="Uzak T-31", due_at=NOW + timedelta(days=31, hours=1))
+    await make_todo(db_session, title="Uzak T-60", due_at=NOW + timedelta(days=60))
+    await db_session.commit()
+
+    candidates = await rules.evaluate_rule(db_session, rule, now=NOW)  # type: ignore[arg-type]
+
+    assert candidates == []
+
+
+async def test_out_of_range_deadline_does_not_abort_the_whole_rule(
+    db_session: AsyncSession,
+) -> None:
+    """Aralık dışı satır, aynı turdaki GEÇERLİ adayları da düşürmemeli."""
+    rule = await _rule(db_session, "deadline_staircase")
+    await make_todo(db_session, title="Uzak T-45", due_at=NOW + timedelta(days=45))
+    near = await make_todo(db_session, title="Yakın T-2", due_at=NOW + timedelta(days=2, hours=1))
+    await db_session.commit()
+
+    candidates = await rules.evaluate_rule(db_session, rule, now=NOW)  # type: ignore[arg-type]
+
+    assert [item.subject_id for item in candidates] == [near.id]
+    assert all(item is not None for item in candidates)
+
+
+async def test_follow_up_out_of_range_produces_no_candidate(
+    db_session: AsyncSession,
+) -> None:
+    """Takip merdiveni 14 günden sonrasını taşımaz: aday yok, çökme yok."""
+    rule = await _rule(db_session, "deadline_staircase")
+    candidates = await rules.evaluate_rule(db_session, rule, now=NOW)  # type: ignore[arg-type]
+    assert all(item.rule_kind == "deadline_staircase" for item in candidates)
+    # Doğrudan üretici seviyesinde de aynı sözleşme geçerli olmalı.
+    assert all(isinstance(item, rules.Candidate) for item in candidates)
+
+
+@pytest.mark.parametrize(
+    ("kind", "days", "expected_rung"),
+    [("deadline", 30, 30), ("follow_up", 14, 14)],
+)
+def test_boundary_rungs_are_still_produced(kind: str, days: int, expected_rung: int) -> None:
+    """Sınır değerleri KORUNUR: T-30 normal ve T-14 takip hâlâ basamak üretir."""
+    rungs = rules.FOLLOW_UP_RUNGS if kind == "follow_up" else rules.DEADLINE_RUNGS
+    assert rules._rung(days, rungs) == expected_rung

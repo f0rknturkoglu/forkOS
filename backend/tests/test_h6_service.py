@@ -479,17 +479,21 @@ async def test_h6_activity_does_not_reset_continuity(db_session: AsyncSession) -
 
 async def test_h6_does_not_mutate_canonical_state(db_session: AsyncSession) -> None:
     """§221: canonical içerik DEĞİŞMEZ; yalnızca H6'nın kendi kayıtları değişir."""
+    from app.modules.opportunity.models import Application, Interview, Opportunity
     from app.modules.project.models import Project
+    from app.modules.review.models import Review
     from app.modules.todo.models import Todo
 
     async def canonical(session: AsyncSession) -> str:
         """Secilmis canonical alanlar — nesne kimligi DEGIL, icerik ozeti."""
         parts: list[str] = []
-        for model in (Entity, Event, Link, Todo, Project):
+        for model in (Entity, Event, Link, Todo, Project, Opportunity, Application, Interview, Review):
             table = model.__table__  # type: ignore[attr-defined]
             columns = sorted(table.columns, key=lambda column: column.name)
+            # PK adi modele gore degisir (or. Application.opportunity_id).
+            pk = next(iter(table.primary_key.columns))
             rows = (
-                await session.execute(select(*columns).order_by(table.c.id))
+                await session.execute(select(*columns).order_by(pk))
             ).all()
             parts.append(str(rows))
         return "|".join(parts)
@@ -605,3 +609,156 @@ async def test_snooze_survives_a_threshold_change(db_session: AsyncSession) -> N
     new_run = (await _runs(db_session))[-1]
     assert new_run.logical_trigger_key.endswith(":1d")
     assert new_run.snoozed_until is not None
+
+
+# ---------------------------------------------------------------------------
+# H6.1 — C: digest üyeliği = GERÇEKTEN gösterilen öğe
+# ---------------------------------------------------------------------------
+
+
+async def test_digest_overflow_never_silently_loses_members(db_session: AsyncSession) -> None:
+    """§C1: 15 aday → bildirimde ≤10; yalnız GÖRÜNEN üyeler delivered olur."""
+    from app.modules.proactivity.delivery import MAX_DIGEST_ITEMS
+
+    await _enable(db_session, digest_time="00:05")
+    for index in range(15):
+        await _deadline_todo(db_session, title=f"Yığın {index:02d}", days=6)
+    await db_session.commit()
+
+    first = await service.tick(db_session, now=NOW)
+
+    notifications = await _notifications(db_session)
+    assert len(notifications) == 1
+    assert notifications[0].body is not None
+    visible = notifications[0].body.count("•")
+    assert 0 < visible <= MAX_DIGEST_ITEMS
+    assert first.digested == 1
+
+    runs = await _runs(db_session)
+    assert len(runs) == 15
+    delivered = [run for run in runs if run.state == "delivered"]
+    queued = [run for run in runs if run.state == "digest_queued"]
+    assert len(delivered) == visible, "yalnız gösterilen üyeler delivered sayılmalı"
+    assert len(queued) == 15 - visible, "gösterilmeyen üyeler kuyrukta KALMALI"
+
+    # Sonraki geçerli digest turu kalanları teslim eder: sessiz kayıp YOK.
+    second = await service.tick(db_session, now=NOW + timedelta(minutes=2))
+
+    assert second.digested == 1
+    notifications = await _notifications(db_session)
+    assert len(notifications) == 2
+    runs = await _runs(db_session)
+    assert all(run.state == "delivered" for run in runs)
+    assert sum(run.delivery_count for run in runs) == 15
+
+
+async def test_digest_member_without_facts_is_not_marked_delivered(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """§C2: olgusuz üye bildirime girmez ve delivered SAYILMAZ."""
+    original = service._compose
+
+    async def fake_compose(session, *, run, rule, candidate, now):  # type: ignore[no-untyped-def]
+        title, facts = await original(
+            session, run=run, rule=rule, candidate=candidate, now=now
+        )
+        # Bir üyeyi olgusuz bırak: bildirime girmemeli ve teslim SAYILMAMALI.
+        if run.logical_trigger_key.endswith(tuple(f"{rung}d" for rung in (7,))):
+            return "", []
+        return title, facts
+
+    await _enable(db_session, digest_time="23:55")
+    await _deadline_todo(db_session, title="Olgusuz", days=6)
+    await db_session.commit()
+    await service.tick(db_session, now=NOW)
+    run = (await _runs(db_session))[0]
+    assert run.state == "digest_queued"
+
+    monkeypatch.setattr(service, "_compose", fake_compose)
+    await _enable(db_session, digest_time="00:05")
+    await service.tick(db_session, now=NOW + timedelta(minutes=1))
+
+    refreshed = await db_session.get(ProactivityRun, run.id)
+    assert refreshed is not None
+    assert refreshed.state != "delivered", "gösterilmeyen üye delivered olamaz"
+    assert refreshed.state == "resolved"
+    assert refreshed.reason_codes == ["NO_MEANINGFUL_CONTENT"]
+    # Olgusuz üye için boş bir bildirim de üretilmez.
+    assert await _notifications(db_session) == []
+
+
+async def test_digest_batch_is_idempotent_across_restarts(db_session: AsyncSession) -> None:
+    """§C3: aynı yığın için ikinci bildirim üretilmez (tick/restart)."""
+    await _enable(db_session, digest_time="00:05")
+    for index in range(8):
+        await _deadline_todo(db_session, title=f"Tekrar {index:02d}", days=6)
+    await db_session.commit()
+
+    await service.tick(db_session, now=NOW)
+    count_after_first = len(await _notifications(db_session))
+    assert count_after_first == 1
+
+    # Aynı yığın, tekrar turlar ve gecikmiş tur: İKİNCİ bildirim YOK.
+    await service.tick(db_session, now=NOW)
+    await service.tick(db_session, now=NOW + timedelta(seconds=30))
+    await service.tick(db_session, now=NOW + timedelta(hours=3))
+    assert len(await _notifications(db_session)) == count_after_first
+    runs = await _runs(db_session)
+    assert all(run.state == "delivered" for run in runs)
+    assert all(run.delivery_count == 1 for run in runs)
+
+
+async def test_digest_overflow_is_delivered_in_bounded_batches(
+    db_session: AsyncSession,
+) -> None:
+    """10'dan fazla birikim kaybolmaz: parti parti, her parti tek bildirim."""
+    from app.modules.proactivity.delivery import MAX_DIGEST_ITEMS
+
+    await _enable(db_session, digest_time="00:05")
+    for index in range(12):
+        await _deadline_todo(db_session, title=f"Parti {index:02d}", days=6)
+    await db_session.commit()
+
+    await service.tick(db_session, now=NOW)
+    assert len(await _notifications(db_session)) == 1
+    queued = [run for run in await _runs(db_session) if run.state == "digest_queued"]
+    assert len(queued) == 12 - MAX_DIGEST_ITEMS
+
+    await service.tick(db_session, now=NOW + timedelta(minutes=2))
+
+    notifications = await _notifications(db_session)
+    assert len(notifications) == 2
+    assert all(run.state == "delivered" for run in await _runs(db_session))
+    # Her iki bildirim de gerçekten içerik taşır.
+    assert all((item.body or "").count("•") > 0 for item in notifications)
+
+
+async def test_digest_stale_member_is_resolved_before_delivery(
+    db_session: AsyncSession,
+) -> None:
+    """§C4: teslim öncesi bayatlayan üye resolved olur, diğerleri teslim edilir."""
+    from app.modules.todo.models import Todo
+
+    await _enable(db_session, digest_time="23:55")
+    stale = await _deadline_todo(db_session, title="Bayatlayacak", days=6)
+    await _deadline_todo(db_session, title="Kalacak", days=6)
+    await db_session.commit()
+
+    await service.tick(db_session, now=NOW)
+    runs = {run.subject_id: run for run in await _runs(db_session)}
+    assert len(runs) == 2
+
+    row = await db_session.get(Todo, stale.id)
+    assert row is not None
+    row.status = "done"
+    await db_session.commit()
+
+    await _enable(db_session, digest_time="00:05")
+    await service.tick(db_session, now=NOW + timedelta(minutes=1))
+
+    refreshed = await db_session.get(ProactivityRun, runs[stale.id].id)
+    assert refreshed is not None
+    assert refreshed.state == "resolved"
+    assert refreshed.reason_codes == ["CONDITION_RESOLVED"]
+    delivered = [run for run in await _runs(db_session) if run.state == "delivered"]
+    assert len(delivered) == 1

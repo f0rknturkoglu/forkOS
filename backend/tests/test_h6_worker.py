@@ -81,7 +81,8 @@ async def test_catch_up_job_uses_catch_up_flag(monkeypatch: pytest.MonkeyPatch) 
 def test_no_second_startup_loop_was_added() -> None:
     """§89: mevcut açılış sırası kullanılır; ikinci bir döngü eklenmez."""
     source = _scheduler_source()
-    assert source.count("startup_tasks = [") == 1
+    assert source.count("def _startup_tasks(") == 1
+    assert source.count("await run_startup(scheduler)") == 1
     assert source.count("asyncio.Event().wait()") == 1
 
 
@@ -104,3 +105,78 @@ def test_worker_main_imports_are_used() -> None:
 def test_main_module_exposes_the_worker_entrypoint() -> None:
     assert hasattr(main, "main")
     assert hasattr(main, "RSS_POLL_TICK_MINUTES")
+
+
+# ---------------------------------------------------------------------------
+# H6.1/D — startup sırası: bayat durumdan proaktif üretim YOK
+# ---------------------------------------------------------------------------
+
+
+async def test_scheduled_tick_waits_for_source_refresh_and_catch_up() -> None:
+    """D1: kaynak tazeleme + H6 telafisi bitmeden dakikalık tur ÇALIŞMAZ."""
+    events: list[str] = []
+
+    class FakeScheduler:
+        def add_job(self, func: object, *args: object, **kwargs: object) -> None:
+            events.append(f"register:{kwargs.get('id')}")
+
+    async def source_refresh() -> None:
+        events.append("source_refresh")
+
+    async def feeds() -> None:
+        events.append("feeds")
+
+    async def proactivity_catch_up() -> None:
+        events.append("proactivity_catch_up")
+
+    await main.run_startup(
+        FakeScheduler(),  # type: ignore[arg-type]
+        tasks=[
+            ("source_refresh", source_refresh),
+            ("catch_up_feeds", feeds),
+            ("proactivity_catch_up", proactivity_catch_up),
+        ],
+    )
+
+    assert events == [
+        "source_refresh",
+        "feeds",
+        "proactivity_catch_up",
+        "register:proactivity_tick",
+    ]
+    # Tur KAYDI zincirin SONUNDA: kaynak tazeleme sırasında tur yok.
+    assert events.index("register:proactivity_tick") > events.index("source_refresh")
+    assert events.index("proactivity_catch_up") > events.index("source_refresh")
+
+
+async def test_startup_chain_continues_after_a_failing_task() -> None:
+    """Bir açılış görevi çökse de zincir devam eder ve tur yine kaydedilir."""
+    events: list[str] = []
+
+    class FakeScheduler:
+        def add_job(self, func: object, *args: object, **kwargs: object) -> None:
+            events.append("registered")
+
+    async def boom() -> None:
+        raise RuntimeError("kaynak çöktü")
+
+    async def ok() -> None:
+        events.append("ok")
+
+    await main.run_startup(
+        FakeScheduler(),  # type: ignore[arg-type]
+        tasks=[("boom", boom), ("ok", ok)],
+    )
+
+    assert events == ["ok", "registered"]
+
+
+def test_production_chain_orders_catch_up_after_refresh() -> None:
+    """Üretim zinciri: H6 telafisi kaynak tazelemeden SONRA gelir."""
+    names = [name for name, _ in main._startup_tasks()]
+    assert "proactivity_catch_up" in names
+    assert names.index("critical_catch_up") < names.index("proactivity_catch_up")
+    assert names.index("catch_up_feeds") < names.index("proactivity_catch_up")
+    # Eski mükerrer üreticiler zincirde YOK.
+    assert "morning_digest" not in names
+    assert "deadlines" not in names

@@ -293,6 +293,28 @@ olguya uygun mu?*
 - **H6'ya kalan:** proaktif/zamanlanmış devreye girme, bildirim kanalları,
   brifing sunumu (Today widget/terminal). H5 yalnızca sorulduğunda cevap verir.
 
+### H6.1 — Correctness Hardening ✅ Tamamlandı
+
+Bağımsız denetimde bulunan dört doğruluk açığı kapatıldı; **yeni özellik
+eklenmedi**, mimari korundu.
+
+- **Aday sözleşmesi:** aralık dışı son tarih (T-31 normal, T-15 takip) aday
+  DEĞİLDİR; `None` aday listesine giremez, ihlal `INVALID_CANDIDATE` ile
+  raporlanır.
+- **Koşul kimliği:** `entity` kimliği ≠ temporal koşul kimliği. Aynı fırsatın
+  ilan son tarihi, takip tarihi ve her görüşmesi ayrı koşullardır; stale iptal
+  ve snooze devralma kapsamı koşul kimliğidir. Anahtar `deadline:v2:...`;
+  revizyon datetime için saat duyarlıdır.
+- **Digest muhasebesi:** `delivered` yalnızca bildirime GERÇEKTEN giren üye
+  için yazılır; parti kimliği üye kümesinden türer, taşan üyeler kuyrukta kalır.
+- **Açılış sırası:** dakikalık H6 turu, kaynak tazeleme + H6 telafisi
+  tamamlandıktan sonra kaydedilir (bayat durumdan bildirim üretilmez).
+- Kanıt: `test_h6_deadline_identity.py` (B1–B5b, S1–S2), `test_h6_service.py`
+  (C1–C4), `test_h6_worker.py` (D1), `test_h6_rules.py` (A1–A2) +
+  `docs/hermes/evals/h6-proactivity.yaml` (50 vaka, 21 negatif).
+
+**H7 başlatılmadı.**
+
 ---
 
 ## H6 — Proactive / Scheduled Agent ✅ Tamamlandı

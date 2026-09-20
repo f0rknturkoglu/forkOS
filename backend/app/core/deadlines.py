@@ -26,6 +26,7 @@ async def rows_with_titles(
     due_at: dict,
     sub_kind: dict | None = None,
     priority: dict | None = None,
+    condition_id: dict | None = None,
 ) -> list[DeadlineRow]:
     """Entity id listesi + son tarih haritasindan satir kurar; basliklari
     entity tablosundan okur (arşivlenmişler atlanir)."""
@@ -43,6 +44,7 @@ async def rows_with_titles(
             module=module,
             sub_kind=sub_kind.get(eid) if sub_kind else None,
             priority=(priority or {}).get(eid, 2),
+            condition_id=(condition_id or {}).get(eid),
         )
         for eid, entity in entities.items()
         if due_at.get(eid) is not None
@@ -81,6 +83,7 @@ async def collect_deadlines(session: AsyncSession, *, limit: int = 200) -> list[
             "module": row.module,
             "sub_kind": row.sub_kind,
             "priority": row.priority,
+            "condition_id": row.condition_id,
         }
         for row in rows[:limit]
     ]

@@ -71,6 +71,8 @@ class Candidate:
     subject_type: str | None = None
     subject_id: uuid.UUID | None = None
     entity_id: uuid.UUID | None = None
+    #: Son tarih kosulunun TEKIL kimligi (yalniz deadline_staircase icin).
+    condition_identity: str | None = None
     #: Tek seferlik kosul mu (basamak/ritüel) yoksa tekrarlanabilir mi (proje)?
     one_shot: bool = True
     #: Tekrarlanabilir kosulda yeniden yuzeye cikma beklemesi (saat).
@@ -128,18 +130,77 @@ async def _deadline_candidates(
     from app.modules.opportunity.service import pending_follow_up_rows
 
     candidates: list[Candidate] = []
-    rows = await collect_deadlines(session, limit=MAX_DEADLINE_ROWS)
-    for row in rows:
-        due = row["due_at"]
+    for row, kind in (
+        *((row, "deadline") for row in await collect_deadlines(session, limit=MAX_DEADLINE_ROWS)),
+        *((row, "follow_up") for row in await pending_follow_up_rows(session)),
+    ):
+        due = row.get("due_at")
         if due is None or due < now:
             continue
-        candidates.append(_deadline_candidate(row, due=due, now=now, kind="deadline"))
-    for row in await pending_follow_up_rows(session):
-        due = row["due_at"]
-        if due is None or due < now:
-            continue
-        candidates.append(_deadline_candidate(row, due=due, now=now, kind="follow_up"))
+        # Basamak disi (or. T-31 normal / T-15 takip) satir ADAY DEGILDIR.
+        # Sozlesme: bu fonksiyon YALNIZCA gercek Candidate dondurur; `None`
+        # listeye giremez, aksi halde kuralin tamami duserdi.
+        candidate = _deadline_candidate(row, due=due, now=now, kind=kind)
+        if candidate is not None:
+            candidates.append(candidate)
     return candidates
+
+
+#: Kosul kimligi bilesen ayirici. Anahtar sozdiziminde ":" ayiricidir; bu
+#: yuzden kimlik ve revizyon ":" ICERMEZ.
+IDENTITY_SEPARATOR = "."
+
+
+def condition_identity(row: dict) -> str | None:
+    """Bir son tarih satirinin TEKIL kosul kimligi (H6.1).
+
+    Ayni entity uzerinde birden fazla bagimsiz temporal kosul olabilir
+    (ilan son tarihi, takip tarihi, N gorusme). Kimlik:
+
+        <module>.<sub_kind|due>.<condition_id|entity_id>
+
+    - deterministiktir (gosterim metnine, liste sirasina bagli DEGIL),
+    - kanonik verilere dayanir (alt kaydin kararli PK'si varsa o kullanilir),
+    - restart sonrasi AYNIdir (process-local durum yok).
+    """
+    entity_id = as_uuid(row.get("entity_id"))
+    if entity_id is None:
+        return None
+    module = str(row.get("module") or "unknown").replace(":", "").replace(".", "_")
+    sub_kind = str(row.get("sub_kind") or "due").replace(":", "").replace(".", "_")
+    child = row.get("condition_id")
+    tail = str(child).replace(":", "").replace(".", "_") if child else str(entity_id)
+    return IDENTITY_SEPARATOR.join((module, sub_kind, tail))
+
+
+def temporal_revision(due: datetime | date) -> str:
+    """Anlamli son tarih degisimini temsil eden NORMALIZE revizyon.
+
+    - date-only son tarih → `YYYY-MM-DD` (gun degisimi revizyonu degistirir)
+    - datetime son tarih  → UTC'ye normalize `YYYYMMDDTHHMMSSZ` (ayni gun
+      icindeki saat degisikligi de revizyonu degistirir)
+
+    Sozdiziminde ":" YOKTUR: anahtar ayiricisiyla cakismaz.
+    """
+    if isinstance(due, datetime):
+        moment = due if due.tzinfo is not None else due.replace(tzinfo=UTC)
+        return moment.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return due.isoformat()
+
+
+def identity_of_key(logical_trigger_key: str) -> str | None:
+    """`deadline:v2:<kimlik>:<revizyon>:<rung>d` anahtarindan kimligi cozer."""
+    parts = logical_trigger_key.split(":")
+    if len(parts) != 5 or parts[0] != "deadline" or parts[1] != "v2":
+        return None
+    return parts[2]
+
+
+def revision_of_key(logical_trigger_key: str) -> str | None:
+    parts = logical_trigger_key.split(":")
+    if len(parts) != 5 or parts[0] != "deadline" or parts[1] != "v2":
+        return None
+    return parts[3]
 
 
 def as_uuid(value: object) -> uuid.UUID | None:
@@ -159,21 +220,25 @@ def _deadline_candidate(row: dict, *, due: datetime, now: datetime, kind: str) -
     rungs = FOLLOW_UP_RUNGS if kind == "follow_up" else DEADLINE_RUNGS
     rung = _rung(days, rungs)
     entity_id = as_uuid(row.get("entity_id"))
-    if rung is None or entity_id is None:
+    identity = condition_identity(row)
+    if rung is None or entity_id is None or identity is None:
         return None
-    # Revizyon = son tarihin KENDISI: tarih degisirse eski kosu bayatlar ve
-    # yeni tarih bagimsiz basamaklar uretir (§46/§146).
-    revision = due.astimezone(UTC).date().isoformat()
+    # Revizyon = kosulun ANLAMLI son tarihi: gun (ve datetime icin saat)
+    # degisirse eski kosu bayatlar, yeni revizyon bagimsiz basamaklar uretir.
+    revision = temporal_revision(due)
     title = str(row.get("title") or "Kayıt")
     return Candidate(
         rule_kind="deadline_staircase",
-        logical_trigger_key=f"{kind}:v1:{entity_id}:{revision}:{rung}d",
+        # v2: kosul kimligi entity'den AYRI taşinir; ayni entity'nin farkli
+        # kosullari (ilan/takip/gorusme) birbirini ezemez.
+        logical_trigger_key=f"deadline:v2:{identity}:{revision}:{rung}d",
         category=_RUNG_CATEGORY[rung],
         why_now=f"{title} için son tarih {days} gün içinde",
         reason_codes=[_RUNG_REASON[rung]],
         subject_type=str(row.get("type") or kind),
         subject_id=entity_id,
         entity_id=entity_id,
+        condition_identity=identity,
     )
 
 
@@ -435,6 +500,13 @@ async def evaluate_all(
             log.exception("proaktivite kurali coktu: %s", rule.kind)
             failures.append(RuleFailure(rule.kind, "RULE_EVALUATION_FAILED"))
             continue
+        # Sozlesme kilidi: `None` ya da yanlis tip listeye GIREMEZ. Bir kural
+        # bunu ihlal ederse sessizce yutulmaz; sinirli kodla raporlanir.
+        invalid = [item for item in produced if not isinstance(item, Candidate)]
+        if invalid:
+            log.error("kural gecersiz aday uretti: %s (%d)", rule.kind, len(invalid))
+            failures.append(RuleFailure(rule.kind, "INVALID_CANDIDATE"))
+            produced = [item for item in produced if isinstance(item, Candidate)]
         candidates.extend(produced)
         if len(candidates) >= MAX_TICK_CANDIDATES:
             return candidates[:MAX_TICK_CANDIDATES], failures
@@ -480,26 +552,42 @@ async def revalidate(
     return True
 
 
-async def _revalidate_deadline(
-    session: AsyncSession, logical_trigger_key: str, *, now: datetime
-) -> bool:
+async def current_condition_row(session: AsyncSession, identity: str) -> dict | None:
+    """Kosul kimligini GUNCEL kanonik satira cozer (H6.1).
+
+    `first row where entity_id == subject` yaklasimi KULLANILMAZ: ayni entity
+    uzerinde birden fazla bagimsiz son tarih oldugunda yanlis satiri secer.
+    """
+    for row in await _all_deadline_rows(session):
+        if condition_identity(row) == identity:
+            return row
+    return None
+
+
+async def _all_deadline_rows(session: AsyncSession) -> list[dict]:
     from app.core.deadlines import collect_deadlines
     from app.modules.opportunity.service import pending_follow_up_rows
 
-    parts = logical_trigger_key.split(":")
-    if len(parts) != 5:
-        return False
-    _, _, entity_text, revision, _rung_text = parts
     rows = [*await collect_deadlines(session, limit=MAX_DEADLINE_ROWS)]
     rows.extend(await pending_follow_up_rows(session))
-    for row in rows:
-        due = row.get("due_at")
-        if due is None or str(row.get("entity_id")) != entity_text:
-            continue
-        if due < now:
-            continue
-        return due.astimezone(UTC).date().isoformat() == revision
-    return False
+    return rows
+
+
+async def _revalidate_deadline(
+    session: AsyncSession, logical_trigger_key: str, *, now: datetime
+) -> bool:
+    identity = identity_of_key(logical_trigger_key)
+    revision = revision_of_key(logical_trigger_key)
+    if identity is None or revision is None:
+        return False
+    row = await current_condition_row(session, identity)
+    if row is None:
+        return False
+    due = row.get("due_at")
+    if due is None or due < now:
+        return False
+    # Kosul hala ayni revizyonda mi? Tarih (veya saat) degistiyse bu kosu bayat.
+    return temporal_revision(due) == revision
 
 
 async def _revalidate_project(

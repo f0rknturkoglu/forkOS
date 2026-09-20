@@ -33,11 +33,24 @@
 #   snooze_expired        `snoozed` koşunun süresi doldu → yeniden `candidate` +
 #                         güncel karar (§7; davranış politika kararıyla aynıdır)
 #
+# H6.1 ek vakalar (lifecycle): far_future_deadline, far_future_followup,
+#   same_entity_multiple_temporal_conditions, same_day_interview_reschedule,
+#   digest_overflow, digest_stale_member, condition_specific_snooze,
+#   startup_stale_state_guard — servis/kural seviyesinde oynatılır
+#   (test_h6_deadline_identity.py, test_h6_service.py, test_h6_rules.py,
+#   test_h6_worker.py).
+#
 # expected_outcome: silent | defer | digest | surface | prepare | cancel
 #   (servis düzeyindeki "suppressed" durumu burada "silent" olarak ifade edilir)
 #
-# DURUM: 42 vaka; 20'si sessizlik/erteleme (negatif). Saf politika vakalarının
-# tamamı gerçek policy.decide() ile birebir oynatıldı.
+#   H6.1 ek vakalar (lifecycle): far_future_deadline, far_future_followup,
+#   same_entity_multiple_temporal_conditions, same_day_interview_reschedule,
+#   digest_overflow, digest_stale_member, condition_specific_snooze,
+#   startup_stale_state_guard — servis/kural seviyesinde oynatılır
+#   (bkz. backend/tests/test_h6_deadline_identity.py, test_h6_service.py,
+#   test_h6_rules.py, test_h6_worker.py).
+# DURUM: 50 vaka; 21'si sessizlik/erteleme (negatif). Saf politika vakalarının tamamı gerçek
+# policy.decide() ile birebir oynatıldı (backend/tests/test_h6_eval.py).
 
 version: 1
 cases:
@@ -881,3 +894,171 @@ cases:
       category: "ritual"
     expected_outcome: cancel
     expected_reason_codes: ["RULE_DISABLED"]
+  - id: h6-h61-far-deadline
+    scenario: 'T-31 normal son tarih basamak dışıdır: aday üretilmez, tur çökmez.'
+    lifecycle: far_future_deadline
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_far
+    expected_outcome: digest
+    expected_reason_codes:
+    - DEADLINE_14D
+  - id: h6-h61-far-followup
+    scenario: 'T-15 takip tarihi basamak dışıdır (takip merdiveni 14''te biter): aday yok.'
+    lifecycle: far_future_followup
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_near
+    expected_outcome: digest
+    expected_reason_codes:
+    - DEADLINE_7D
+  - id: h6-h61-same-entity-multi
+    scenario: 'Aynı fırsatta ilan son tarihi + görüşme: iki BAĞIMSIZ koşul kimliği.'
+    lifecycle: same_entity_multiple_temporal_conditions
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_soon
+    expected_outcome: surface
+    expected_reason_codes:
+    - DEADLINE_3D
+  - id: h6-h61-same-day-reschedule
+    scenario: 'Aynı gün içinde görüşme saati değişir: revizyon değişir, eski koşu bayatlar.'
+    lifecycle: same_day_interview_reschedule
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_near
+    expected_outcome: digest
+    expected_reason_codes:
+    - DEADLINE_7D
+  - id: h6-h61-digest-overflow
+    scenario: '10''dan fazla birikim: yalnız GÖSTERİLEN üyeler teslim edildi sayılır.'
+    lifecycle: digest_overflow
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_far
+    expected_outcome: digest
+    expected_reason_codes:
+    - DEADLINE_14D
+  - id: h6-h61-digest-stale-member
+    scenario: Teslim öncesi bayatlayan üye resolved olur; kalanlar teslim edilir.
+    lifecycle: digest_stale_member
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_near
+    expected_outcome: digest
+    expected_reason_codes:
+    - DEADLINE_7D
+  - id: h6-h61-startup-guard
+    scenario: Kaynak tazeleme sürerken dakikalık tur ÇALIŞMAZ (bayat durum koruması).
+    lifecycle: startup_stale_state_guard
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_soon
+    expected_outcome: surface
+    expected_reason_codes:
+    - DEADLINE_3D
+  - id: h6-h61-condition-snooze
+    scenario: 'Snooze KOŞULA verilir: aynı fırsatın kardeş son tarihi etkilenmez.'
+    lifecycle: condition_specific_snooze
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: true
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: '14:00'
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: deadline_soon
+    expected_outcome: silent
+    expected_reason_codes:
+    - USER_SNOOZED

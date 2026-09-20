@@ -41,6 +41,14 @@ class DeadlineRow:
     module: str
     sub_kind: str | None = None
     priority: int = 2
+    #: Bu satirin TEKIL temporal kosul kimligi (varsa).
+    #:
+    #: Bir entity'nin BIRDEN FAZLA bagimsiz son tarihi olabilir: ayni firsat
+    #: uzerinde ilan son tarihi + takip tarihi + N gorusme. Bunlar semantik
+    #: olarak AYRI kosullardir; `entity_id` tek basina kimlik DEGILDIR.
+    #: Alt kaydin kararli kimligi varsa (or. Interview.id) o kullanilir;
+    #: gosterim metni ya da liste sirasi ASLA kimlik yerine gecmez.
+    condition_id: str | None = None
 
 
 @dataclass(frozen=True)

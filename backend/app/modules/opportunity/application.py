@@ -971,6 +971,9 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
                 module="opportunity",
                 sub_kind="interview",
                 priority=1,
+                # Gorusmenin KENDI kimligi: ayni ilanin iki gorusmesi ayri
+                # kosullardir ve baslik/sira ile ayirt EDILEMEZ.
+                condition_id=str(interview.id),
             )
         )
     return rows

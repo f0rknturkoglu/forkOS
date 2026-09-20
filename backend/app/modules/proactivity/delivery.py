@@ -10,6 +10,8 @@ gibi psikolojik cikarim YASAK; "kayitli aktivite yok" denir.
 
 from __future__ import annotations
 
+import hashlib
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -121,24 +123,50 @@ async def deliver_run(
     ).scalar_one_or_none()
 
 
+@dataclass(frozen=True)
+class DigestEntry:
+    """Digest uyesi — hangi KOSUNUN bildirime girdigini acikca tasir (§C)."""
+
+    run_id: int
+    title: str
+    facts: list[str]
+
+
+def _batch_id(entries: list[DigestEntry]) -> str:
+    """Uye kumesinin deterministik ozeti.
+
+    Ayni kume → ayni anahtar (tekrar tur/restart ikinci bildirim uretmez).
+    Farkli kume (ilk parti teslim edildikten sonra kalanlar) → yeni anahtar,
+    boylece birikim KAYBOLMADAN sonraki digest'te teslim edilir.
+    """
+    joined = ",".join(str(entry.run_id) for entry in sorted(entries, key=lambda item: item.run_id))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:12]
+
+
 async def deliver_digest(
     session: AsyncSession,
     *,
-    entries: list[tuple[str, list[str]]],
+    entries: list[DigestEntry],
     now: datetime,
-) -> int | None:
+) -> tuple[int | None, list[int]]:
     """Birden fazla adayi TEK bildirime indirir (§75).
 
-    Cagiran, birlesen her uyeyi teslimden hemen once YENIDEN dogrulamis
-    olmalidir; burada bayat icerik karari verilmez, yalnizca metin kurulur.
+    Doner: `(notification_id, delivered_run_ids)`. Ikinci liste, bildirime
+    GERCEKTEN giren uyelerdir; cagiran YALNIZCA bu kosulari `delivered`
+    isaretler. Gorunmeyen uye kuyrukta kalir — sessiz kayip YOKTUR.
     """
-    if not entries:
-        return None
-    lines: list[str] = []
-    for title, facts in entries[:MAX_DIGEST_ITEMS]:
-        summary = " · ".join(facts) if facts else None
-        lines.append(_clip(f"{title} — {summary}" if summary else title, 200))
-    key = f"proactivity:digest:{local_today(now).isoformat()}"
+    visible = entries[:MAX_DIGEST_ITEMS]
+    if not visible:
+        return None, []
+
+    lines = [
+        _clip(
+            f"{entry.title} — {' · '.join(entry.facts)}" if entry.facts else entry.title,
+            200,
+        )
+        for entry in visible
+    ]
+    key = f"proactivity:digest:{local_today(now).isoformat()}:{_batch_id(visible)}"
     created = await notify(
         session,
         kind="proactivity.digest",
@@ -147,12 +175,16 @@ async def deliver_digest(
         dedup_key=key,
         importance=1,
     )
-    if not created:
-        return None
+
     from sqlalchemy import select
 
     from app.core.models import Notification
 
-    return (
+    notification_id = (
         await session.execute(select(Notification.id).where(Notification.dedup_key == key))
     ).scalar_one_or_none()
+    if not created:
+        # Ayni yigin zaten teslim edilmis: uyeler GERCEKTEN gosterildi, tekrar
+        # gostermeyiz ama "delivered" damgasi dogrudur.
+        return notification_id, [entry.run_id for entry in visible]
+    return notification_id, [entry.run_id for entry in visible]

@@ -131,37 +131,48 @@ async def test_next_episode_is_a_new_notification(db_session: AsyncSession) -> N
 
 
 async def test_digest_is_one_notification_for_many_candidates(db_session: AsyncSession) -> None:
-    notification_id = await delivery.deliver_digest(
+    notification_id, delivered_ids = await delivery.deliver_digest(
         db_session,
-        entries=[(f"Kayıt {index}", [f"{index} gün kaldı"]) for index in range(4)],
+        entries=[
+            delivery.DigestEntry(run_id=index + 1, title=f"Kayıt {index}", facts=[f"{index} gün kaldı"])
+            for index in range(4)
+        ],
         now=NOW,
     )
     await db_session.commit()
+    assert delivered_ids == [1, 2, 3, 4]
 
     rows = list((await db_session.execute(select(Notification))).scalars())
     assert len(rows) == 1
     assert notification_id == rows[0].id
     assert rows[0].kind == "proactivity.digest"
-    assert rows[0].dedup_key == "proactivity:digest:2026-09-21"
+    # Parti kimliği üye kümesine bağlıdır (deterministik, restart-safe).
+    assert rows[0].dedup_key.startswith("proactivity:digest:2026-09-21:")
+    assert len(rows[0].dedup_key.split(":")[-1]) == 12
     assert rows[0].importance == 1
     assert rows[0].body is not None
     assert rows[0].body.count("•") == 4
 
 
 async def test_digest_is_bounded(db_session: AsyncSession) -> None:
-    await delivery.deliver_digest(
+    _, delivered_ids = await delivery.deliver_digest(
         db_session,
-        entries=[(f"Kayıt {index}", ["x"]) for index in range(40)],
+        entries=[
+            delivery.DigestEntry(run_id=index + 1, title=f"Kayıt {index}", facts=["x"])
+            for index in range(40)
+        ],
         now=NOW,
     )
     await db_session.commit()
     row = (await db_session.execute(select(Notification))).scalar_one()
     assert row.body is not None
     assert row.body.count("•") <= delivery.MAX_DIGEST_ITEMS
+    # Yalnizca GERCEKTEN gosterilen uyeler teslim edildi sayilir (§C).
+    assert delivered_ids == list(range(1, delivery.MAX_DIGEST_ITEMS + 1))
 
 
 async def test_empty_digest_writes_nothing(db_session: AsyncSession) -> None:
-    assert await delivery.deliver_digest(db_session, entries=[], now=NOW) is None
+    assert await delivery.deliver_digest(db_session, entries=[], now=NOW) == (None, [])
     await db_session.commit()
     assert list((await db_session.execute(select(Notification))).scalars()) == []
 
@@ -228,3 +239,25 @@ async def test_pruning_never_touches_pending_runs(db_session: AsyncSession) -> N
     }
     assert removed == 2
     assert remaining == {"k:v1:pending", "k:v1:delivered"}
+
+
+async def test_digest_batch_identity_is_membership_based(db_session: AsyncSession) -> None:
+    """§C3: parti kimliği ÜYE KÜMESİNE bağlıdır — aynı küme tekrar teslim edilmez."""
+    first = [delivery.DigestEntry(run_id=index, title=f"K{index}", facts=["x"]) for index in (1, 2, 3)]
+    other = [delivery.DigestEntry(run_id=index, title=f"K{index}", facts=["x"]) for index in (4, 5)]
+
+    id_first, delivered_first = await delivery.deliver_digest(db_session, entries=first, now=NOW)
+    await db_session.commit()
+    id_repeat, delivered_repeat = await delivery.deliver_digest(db_session, entries=first, now=NOW)
+    await db_session.commit()
+    id_other, delivered_other = await delivery.deliver_digest(db_session, entries=other, now=NOW)
+    await db_session.commit()
+
+    assert id_first is not None
+    # Aynı yığın: YENİ bildirim yok, ama üyeler gerçekten gösterildi sayılır.
+    assert id_repeat == id_first
+    assert delivered_repeat == [1, 2, 3]
+    # Farklı yığın (kalan birikim): yeni bildirim.
+    assert id_other is not None and id_other != id_first
+    assert delivered_other == [4, 5]
+    assert len(list((await db_session.execute(select(Notification))).scalars())) == 2

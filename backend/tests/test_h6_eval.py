@@ -100,16 +100,46 @@ def test_lifecycle_cases_are_covered_elsewhere() -> None:
     """Yaşam döngüsü vakaları servis testlerinde karşılık bulmalı."""
     lifecycle_kinds = {case["lifecycle"] for case in LIFECYCLE_CASES}
     assert lifecycle_kinds <= {
+        # H6 v1
         "revalidate_failed",
         "stale_trigger",
         "rule_disabled",
         "no_meaningful_content",
         "duplicate_delivery",
         "snooze_expired",
+        # H6.1 sertleştirme
+        "far_future_deadline",
+        "far_future_followup",
+        "same_entity_multiple_temporal_conditions",
+        "same_day_interview_reschedule",
+        "digest_overflow",
+        "digest_stale_member",
+        "condition_specific_snooze",
+        "startup_stale_state_guard",
     }
-    service_source = pathlib.Path("tests/test_h6_service.py").read_text(encoding="utf-8")
-    for marker in ("CONDITION_RESOLVED", "STALE_TRIGGER", "RULE_DISABLED", "snoozed"):
-        assert marker in service_source
+    # Her yaşam döngüsü vakası, ilgili servis/kural/worker testinde karşılık bulmalı:
+    # veri seti "fixture var" diye başarı SAYILMAZ.
+    sources = "\n".join(
+        pathlib.Path(path).read_text(encoding="utf-8")
+        for path in (
+            "tests/test_h6_service.py",
+            "tests/test_h6_rules.py",
+            "tests/test_h6_deadline_identity.py",
+            "tests/test_h6_worker.py",
+            "tests/test_h6_delivery.py",
+        )
+    )
+    for marker in (
+        "CONDITION_RESOLVED",
+        "STALE_TRIGGER",
+        "RULE_DISABLED",
+        "snoozed",
+        "digest_queued",
+        "far_future",
+        "interview",
+        "run_startup",
+    ):
+        assert marker in sources, marker
 
 
 def test_eval_dataset_contains_no_personal_data() -> None:

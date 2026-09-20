@@ -32,7 +32,15 @@ Politika:
     terminal (resolved/cancelled/dismissed/failed) : 90 gun
     aktif (candidate/deferred/digest_queued/snoozed)
     ve teslim edilmis (delivered) kosular          : ASLA silinmez
-      (bekleyen teslim budanamaz; "neden durtuldu" sorusunun cevabi kalir)
+
+      `delivered` neden SINIRSIZ kalir (H6.1 karari: KEEP)?
+      Cunku `logical_trigger_key` TEK SEFERLIK kosunun kimligidir: satir
+      budanirsa ayni esik (or. ayni son tarihin T-3 basamagi) yeniden
+      uretilebilir hale gelir ve kullanici AYNI seyi ikinci kez alir. Satir
+      ayrica cooldown muhasebesini (`last_delivered_at`, `delivery_count`) ve
+      "neden o gun durtuldu" sorusunun cevabini tasir. Bu yuzden teslim
+      edilmis kosular H6'nin idempotans invariantinin PARCASIDIR; budama
+      yalnizca terminal durumlarla sinirlidir.
 
 Budama `created_at`e gore yapilir. Silinen bir bildirimin `dedup_key`i
 yeniden uretilebilir hale gelir; bu yalnizca kosulu hala gecerli olan kalici
