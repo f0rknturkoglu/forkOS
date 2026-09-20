@@ -149,10 +149,13 @@ async def run_maintenance(
     errors: list[str] = []
     for name, step in STEPS:
         try:
-            results[name] = await step(session, moment)
+            step_result = await step(session, moment)
+            await session.commit()
+            results[name] = step_result
         except Exception as exc:  # noqa: BLE001 - bir adim digerlerini durdurmamali
             # Postgres bir hata sonrasi transaction'i iptal eder; sonraki
-            # adimlarin calisabilmesi icin geri alinmasi ZORUNLU.
+            # adimlarin calisabilmesi icin bu adimin geri alinmasi ZORUNLU.
+            # Onceki adimlar commit edildigi icin etkilenmez.
             await session.rollback()
             errors.append(f"{name}: {type(exc).__name__}: {exc}"[:MAX_ERROR_CHARS])
             log.exception("bakim adimi basarisiz: %s", name)

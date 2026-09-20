@@ -101,6 +101,51 @@ async def test_failing_step_does_not_stop_the_others(monkeypatch: pytest.MonkeyP
     assert len(summary["errors"]) == 1 and "boom" in summary["errors"][0]
 
 
+async def test_maintenance_steps_are_transaction_isolated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Step A DB degistirir ve basarili olur; Step B exception verir; Step C uygulanir.
+    Run tamamlandiktan sonra:
+      - A'nin degisikligi DB'de gercekten kalir
+      - B error listesine girer ve results'a girmez
+      - C basariyla uygulanir ve DB'ye yazilir
+    """
+    async def step_a(session, moment: datetime) -> dict[str, int]:
+        session.add(Event(verb="maintenance.step_a", payload={"ok": True}))
+        return {"step_a": 1}
+
+    async def step_b(session, moment: datetime) -> dict[str, int]:
+        session.add(Event(verb="maintenance.step_b", payload={"should_rollback": True}))
+        raise ValueError("simule edilmis step B hatasi")
+
+    async def step_c(session, moment: datetime) -> dict[str, int]:
+        session.add(Event(verb="maintenance.step_c", payload={"ok": True}))
+        return {"step_c": 1}
+
+    monkeypatch.setattr(maintenance, "STEPS", (("step_a", step_a), ("step_b", step_b), ("step_c", step_c)))
+
+    async with SessionLocal() as session:
+        summary = await maintenance.run_maintenance(session, force=True)
+
+    assert summary is not None
+    assert summary["status"] == "completed_with_errors"
+    assert "step_a" in summary["results"]
+    assert "step_c" in summary["results"]
+    assert "step_b" not in summary["results"]
+    assert any("step_b" in err for err in summary["errors"])
+
+    async with SessionLocal() as session:
+        verbs = (
+            await session.execute(
+                select(Event.verb).where(
+                    Event.verb.in_(["maintenance.step_a", "maintenance.step_b", "maintenance.step_c"])
+                )
+            )
+        ).scalars().all()
+
+    assert "maintenance.step_a" in verbs, "Step A degisikligi DB'de kalmali"
+    assert "maintenance.step_c" in verbs, "Step C degisikligi DB'de kalmali"
+    assert "maintenance.step_b" not in verbs, "Step B degisikligi rollback olmali"
+
+
 async def test_maintenance_prunes_operational_rows_and_keeps_events() -> None:
     """Gercek adimlar bagli: kaynak kosulari budanir, `event` dokunulmaz."""
     now = datetime.now(UTC)
