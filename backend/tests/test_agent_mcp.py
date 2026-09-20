@@ -18,6 +18,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.main import app
 from app.modules.todo.models import Todo
+from tests.agent_test_utils import mcp_session  # noqa: F401  (hermetik oturum)
 
 READ_TOOL_NAMES = {
     "forkos_briefing",

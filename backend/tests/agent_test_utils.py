@@ -10,10 +10,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
+from mcp.client.session import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -305,3 +309,44 @@ def forbid_h1_network(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(readability, "fetch_and_extract", _boom)
     yield
+
+
+@asynccontextmanager
+async def mcp_session():
+    """Gerçek Streamable HTTP taşıması üzerinden bağlı, HERMETİK bir MCP oturumu.
+
+    Neden başlangıç kancaları devre dışı: FastAPI `lifespan`'ı her açılışta
+    RSS başlangıç beslemelerini kurar, günlük bakımı arka planda başlatır ve
+    kaynak catch-up tetikler. Test ortamında bunlar (a) veritabanına arka
+    planda yazar ve testin kendi transaction'ıyla kilit yarışına girer,
+    (b) H1'in "dış ağ çağrısı yok" sözleşmesini gölgeler. Taşıma testleri
+    yalnızca MCP davranışını ölçtüğü için bu yan etkiler kapatılır.
+
+    Gerçek runtime'da bu kancalar ELBETTE çalışır; burada yalnızca test
+    izolasyonu sağlanır.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    import app.main as app_main
+    from app.main import app
+
+    # Senkron yamalar (mock.patch) ile asenkron kaynaklar (lifespan/transport)
+    # iç içe kurulur: ikisi farklı bağlam yöneticisi protokolü kullanır.
+    with (
+        patch.object(app_main, "_startup_rss_starter_feeds", AsyncMock()),
+        patch.object(app_main, "_startup_critical_catch_up", AsyncMock()),
+        patch.object(app_main, "_startup_maintenance", AsyncMock()),
+    ):
+        async with (
+            app.router.lifespan_context(app),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1"
+            ) as http_client,
+            streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (
+                read_stream,
+                write_stream,
+            ),
+            ClientSession(read_stream, write_stream) as session,
+        ):
+            await session.initialize()
+            yield session
