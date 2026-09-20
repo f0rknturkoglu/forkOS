@@ -902,20 +902,6 @@
         "title": "Body_restore_backup_api_backup_restore_post",
         "type": "object"
       },
-      "Body_upload_attachment_api_notes__note_id__attachments_post": {
-        "properties": {
-          "file": {
-            "contentMediaType": "application/octet-stream",
-            "title": "File",
-            "type": "string"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "title": "Body_upload_attachment_api_notes__note_id__attachments_post",
-        "type": "object"
-      },
       "Body_upload_document_api_documents_upload_post": {
         "properties": {
           "category": {
@@ -1796,6 +1782,51 @@
           "url"
         ],
         "title": "CaptureIn",
+        "type": "object"
+      },
+      "CaptureNoteIn": {
+        "description": "Hızlı yakalama: yeni bilgi notu (kimliği sunucu üretir).",
+        "properties": {
+          "body": {
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "relate_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relate To"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "CaptureNoteIn",
         "type": "object"
       },
       "CaptureResult": {
@@ -3112,53 +3143,8 @@
         "title": "CramCardOut",
         "type": "object"
       },
-      "CreateManagedNoteIn": {
-        "properties": {
-          "forkos_id": {
-            "format": "uuid",
-            "title": "Forkos Id",
-            "type": "string"
-          },
-          "forkos_type": {
-            "title": "Forkos Type",
-            "type": "string"
-          },
-          "initial_body": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Initial Body"
-          },
-          "target_folder": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Folder"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "forkos_id",
-          "forkos_type",
-          "title"
-        ],
-        "title": "CreateManagedNoteIn",
-        "type": "object"
-      },
-      "CreateNoteFromBookmarkIn": {
+      "CreateSourceNoteIn": {
+        "description": "Kanonik kaynak notu isteği.\n\n`pinned` KALDIRILDI (PHASE 3 §14): forkOS'ta sabitlenecek bir Notlar\nlistesi kalmadı. Ek metin isteğe bağlı olarak not başlangıcına eklenir.",
         "properties": {
           "additional_text": {
             "anyOf": [
@@ -3170,14 +3156,9 @@
               }
             ],
             "title": "Additional Text"
-          },
-          "pinned": {
-            "default": false,
-            "title": "Pinned",
-            "type": "boolean"
           }
         },
-        "title": "CreateNoteFromBookmarkIn",
+        "title": "CreateSourceNoteIn",
         "type": "object"
       },
       "DeckIn": {
@@ -3276,6 +3257,21 @@
           "usages"
         ],
         "title": "DocumentUsagesOut",
+        "type": "object"
+      },
+      "EnsureManagedNoteIn": {
+        "description": "Kanonik bilgi notu: kimliği verilen kalkın entity'sine bağlıdır.",
+        "properties": {
+          "forkos_id": {
+            "format": "uuid",
+            "title": "Forkos Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "forkos_id"
+        ],
+        "title": "EnsureManagedNoteIn",
         "type": "object"
       },
       "EntityOut": {
@@ -4413,78 +4409,6 @@
           "repos"
         ],
         "title": "GithubReviewStats",
-        "type": "object"
-      },
-      "GlobalHighlightOut": {
-        "properties": {
-          "anchor_index": {
-            "default": 0,
-            "title": "Anchor Index",
-            "type": "integer"
-          },
-          "bookmark_id": {
-            "format": "uuid",
-            "title": "Bookmark Id",
-            "type": "string"
-          },
-          "bookmark_title": {
-            "title": "Bookmark Title",
-            "type": "string"
-          },
-          "bookmark_url": {
-            "title": "Bookmark Url",
-            "type": "string"
-          },
-          "color": {
-            "default": "yellow",
-            "title": "Color",
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "position_end": {
-            "default": 0,
-            "title": "Position End",
-            "type": "integer"
-          },
-          "position_start": {
-            "default": 0,
-            "title": "Position Start",
-            "type": "integer"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "bookmark_id",
-          "text",
-          "created_at",
-          "bookmark_title",
-          "bookmark_url"
-        ],
-        "title": "GlobalHighlightOut",
         "type": "object"
       },
       "GlobalMetadataSearchOut": {
@@ -8055,467 +7979,6 @@
         "title": "MonthlyPoint",
         "type": "object"
       },
-      "NoteAttachmentOut": {
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "mime": {
-            "title": "Mime",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "size": {
-            "title": "Size",
-            "type": "integer"
-          },
-          "url": {
-            "title": "Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "mime",
-          "size",
-          "url"
-        ],
-        "title": "NoteAttachmentOut",
-        "type": "object"
-      },
-      "NoteFolderIn": {
-        "properties": {
-          "name": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "parent_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Id"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "NoteFolderIn",
-        "type": "object"
-      },
-      "NoteFolderOut": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "note_count": {
-            "default": 0,
-            "title": "Note Count",
-            "type": "integer"
-          },
-          "parent_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Id"
-          },
-          "position": {
-            "default": 0,
-            "title": "Position",
-            "type": "integer"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "NoteFolderOut",
-        "type": "object"
-      },
-      "NoteFolderUpdate": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 120,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "parent_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Id"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "maximum": 100000.0,
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Position"
-          }
-        },
-        "title": "NoteFolderUpdate",
-        "type": "object"
-      },
-      "NoteIn": {
-        "properties": {
-          "body": {
-            "maxLength": 200000,
-            "minLength": 1,
-            "title": "Body",
-            "type": "string"
-          },
-          "canvas_state": {
-            "additionalProperties": true,
-            "title": "Canvas State",
-            "type": "object"
-          },
-          "default_view": {
-            "default": "page",
-            "enum": [
-              "page",
-              "canvas"
-            ],
-            "title": "Default View",
-            "type": "string"
-          },
-          "folder_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Folder Id"
-          },
-          "pinned": {
-            "default": false,
-            "title": "Pinned",
-            "type": "boolean"
-          },
-          "relate_to": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Relate To"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Tags",
-            "type": "array"
-          }
-        },
-        "required": [
-          "body"
-        ],
-        "title": "NoteIn",
-        "type": "object"
-      },
-      "NoteOut": {
-        "properties": {
-          "archived_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Archived At"
-          },
-          "attachments": {
-            "items": {
-              "$ref": "#/components/schemas/NoteAttachmentOut"
-            },
-            "title": "Attachments",
-            "type": "array"
-          },
-          "body": {
-            "title": "Body",
-            "type": "string"
-          },
-          "canvas_state": {
-            "additionalProperties": true,
-            "title": "Canvas State",
-            "type": "object"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "default_view": {
-            "default": "page",
-            "enum": [
-              "page",
-              "canvas"
-            ],
-            "title": "Default View",
-            "type": "string"
-          },
-          "folder_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Folder Id"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "journal_day": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Journal Day"
-          },
-          "pinned": {
-            "title": "Pinned",
-            "type": "boolean"
-          },
-          "project_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Id"
-          },
-          "resolved_links": {
-            "items": {
-              "$ref": "#/components/schemas/ResolvedLink"
-            },
-            "title": "Resolved Links",
-            "type": "array"
-          },
-          "source_bookmark_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Bookmark Id"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Tags",
-            "type": "array"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "trashed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trashed At"
-          },
-          "unresolved_links": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Unresolved Links",
-            "type": "array"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "body",
-          "pinned",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "NoteOut",
-        "type": "object"
-      },
-      "NoteUpdate": {
-        "properties": {
-          "body": {
-            "anyOf": [
-              {
-                "maxLength": 200000,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Body"
-          },
-          "canvas_state": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Canvas State"
-          },
-          "default_view": {
-            "anyOf": [
-              {
-                "enum": [
-                  "page",
-                  "canvas"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Default View"
-          },
-          "folder_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Folder Id"
-          },
-          "pinned": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pinned"
-          },
-          "tags": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tags"
-          }
-        },
-        "title": "NoteUpdate",
-        "type": "object"
-      },
       "NotificationOut": {
         "properties": {
           "body": {
@@ -10514,20 +9977,6 @@
         "title": "ProjectIn",
         "type": "object"
       },
-      "ProjectJournalNoteIn": {
-        "properties": {
-          "body": {
-            "maxLength": 200000,
-            "title": "Body",
-            "type": "string"
-          }
-        },
-        "required": [
-          "body"
-        ],
-        "title": "ProjectJournalNoteIn",
-        "type": "object"
-      },
       "ProjectPatch": {
         "properties": {
           "github_repo": {
@@ -11163,31 +10612,6 @@
           "name"
         ],
         "title": "RequirementOut",
-        "type": "object"
-      },
-      "ResolvedLink": {
-        "description": "Govdedeki [[hedef]] -> gercek kayit.",
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "target": {
-            "title": "Target",
-            "type": "string"
-          },
-          "type": {
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "target",
-          "id",
-          "type"
-        ],
-        "title": "ResolvedLink",
         "type": "object"
       },
       "ResourceIn": {
@@ -12929,11 +12353,6 @@
             "title": "Flashcard Deck Count",
             "type": "integer"
           },
-          "note_count": {
-            "default": 0,
-            "title": "Note Count",
-            "type": "integer"
-          },
           "open_todo": {
             "anyOf": [
               {
@@ -14172,11 +13591,6 @@
             "title": "Links",
             "type": "integer"
           },
-          "notes": {
-            "default": 0,
-            "title": "Notes",
-            "type": "integer"
-          },
           "plan_slots": {
             "default": 0,
             "title": "Plan Slots",
@@ -14884,6 +14298,19 @@
         "title": "UnfinishedTodo",
         "type": "object"
       },
+      "UriOut": {
+        "properties": {
+          "uri": {
+            "title": "Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri"
+        ],
+        "title": "UriOut",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -14925,7 +14352,19 @@
         "type": "object"
       },
       "VaultItem": {
+        "description": "Vault içinde forkOS tarafından yönetilen tek Markdown dosyası.\n\nYalnızca Vault köküne GÖRELİ yol döner; tam dosya sistemi yolu asla\nbrowser'a çıkmaz.",
         "properties": {
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
           "forkos_id": {
             "title": "Forkos Id",
             "type": "string"
@@ -14934,14 +14373,52 @@
             "title": "Forkos Type",
             "type": "string"
           },
+          "journal_day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Day"
+          },
           "mtime": {
             "default": 0.0,
             "title": "Mtime",
             "type": "number"
           },
+          "note_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Kind"
+          },
           "open_uri": {
             "title": "Open Uri",
             "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "relation_count": {
+            "default": 0,
+            "title": "Relation Count",
+            "type": "integer"
           },
           "relative_path": {
             "title": "Relative Path",
@@ -14951,6 +14428,17 @@
             "default": 0,
             "title": "Size",
             "type": "integer"
+          },
+          "source_bookmark_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Bookmark Id"
           },
           "title": {
             "title": "Title",
@@ -14991,6 +14479,17 @@
             "title": "Conflicts",
             "type": "integer"
           },
+          "daily_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Uri"
+          },
           "diagnostic": {
             "anyOf": [
               {
@@ -15002,6 +14501,17 @@
             ],
             "title": "Diagnostic"
           },
+          "inbox_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inbox Uri"
+          },
           "invalid_files": {
             "items": {
               "type": "string"
@@ -15012,6 +14522,17 @@
           "managed_files": {
             "title": "Managed Files",
             "type": "integer"
+          },
+          "open_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Uri"
           },
           "readable": {
             "title": "Readable",
@@ -16357,57 +15878,6 @@
         ]
       }
     },
-    "/api/bookmarks/{bookmark_id}/create-note": {
-      "post": {
-        "operationId": "create_note_from_bookmark_api_bookmarks__bookmark_id__create_note_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "bookmark_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Bookmark Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateNoteFromBookmarkIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Note From Bookmark",
-        "tags": [
-          "bookmark"
-        ]
-      }
-    },
     "/api/bookmarks/{bookmark_id}/enrich": {
       "post": {
         "operationId": "enrich_bookmark_api_bookmarks__bookmark_id__enrich_post",
@@ -16739,6 +16209,60 @@
           }
         },
         "summary": "Update Bookmark Progress",
+        "tags": [
+          "bookmark"
+        ]
+      }
+    },
+    "/api/bookmarks/{bookmark_id}/source-note": {
+      "post": {
+        "description": "Yer iminin kanonik Vault kaynak notunu çözer veya oluşturur.\n\nYer imi ve vurguları forkOS'ta operasyonel kalır; burada yalnızca bir Vault\ndosyası üretilir. forkOS veritabanında not kaydı OLUŞMAZ.",
+        "operationId": "create_source_note_api_bookmarks__bookmark_id__source_note_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bookmark_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bookmark Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSourceNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Source Note",
         "tags": [
           "bookmark"
         ]
@@ -17758,7 +17282,7 @@
     },
     "/api/entities/{entity_id}/backlinks": {
       "get": {
-        "description": "Bu kayda [[...]] ile baglanan kayitlar.",
+        "description": "Bu kayda [[...]] ile baglanan kayitlar.\n\nBilgi grafi GORSELLESTIRMESI PHASE 3'te kaldirildi (`/graph` ucu yok);\nbu okuma operasyonel yuzeyler (`BacklinksPanel`) icin kalir.",
         "operationId": "entity_backlinks_api_entities__entity_id__backlinks_get",
         "parameters": [
           {
@@ -18796,104 +18320,6 @@
         "summary": "Import Cards",
         "tags": [
           "flashcard"
-        ]
-      }
-    },
-    "/api/graph": {
-      "get": {
-        "description": "Bilgi grafi: dugum = entity, kenar = link. focus verilirse o kaydin cevresi.",
-        "operationId": "knowledge_graph_api_graph_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "focus",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "format": "uuid",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Focus"
-            }
-          },
-          {
-            "in": "query",
-            "name": "depth",
-            "required": false,
-            "schema": {
-              "default": 2,
-              "maximum": 4,
-              "minimum": 1,
-              "title": "Depth",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 400,
-              "maximum": 400,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Knowledge Graph",
-        "tags": [
-          "core"
-        ]
-      }
-    },
-    "/api/highlights": {
-      "get": {
-        "operationId": "list_global_highlights_api_highlights_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GlobalHighlightOut"
-                  },
-                  "title": "Response List Global Highlights Api Highlights Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List Global Highlights",
-        "tags": [
-          "bookmark"
         ]
       }
     },
@@ -21096,749 +20522,6 @@
         ]
       }
     },
-    "/api/note-folders": {
-      "get": {
-        "operationId": "list_note_folders_api_note_folders_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/NoteFolderOut"
-                  },
-                  "title": "Response List Note Folders Api Note Folders Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List Note Folders",
-        "tags": [
-          "note"
-        ]
-      },
-      "post": {
-        "operationId": "create_note_folder_api_note_folders_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NoteFolderIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NoteFolderOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Note Folder",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/note-folders/{folder_id}": {
-      "delete": {
-        "operationId": "delete_note_folder_api_note_folders__folder_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "folder_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Folder Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Note Folder",
-        "tags": [
-          "note"
-        ]
-      },
-      "patch": {
-        "operationId": "patch_note_folder_api_note_folders__folder_id__patch",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "folder_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Folder Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NoteFolderUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NoteFolderOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Patch Note Folder",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes": {
-      "get": {
-        "operationId": "list_notes_api_notes_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "include_archived",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Include Archived",
-              "type": "boolean"
-            }
-          },
-          {
-            "in": "query",
-            "name": "about",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "format": "uuid",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "About"
-            }
-          },
-          {
-            "in": "query",
-            "name": "scope",
-            "required": false,
-            "schema": {
-              "default": "active",
-              "pattern": "^(active|archive|trash)$",
-              "title": "Scope",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/NoteOut"
-                  },
-                  "title": "Response List Notes Api Notes Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Notes",
-        "tags": [
-          "note"
-        ]
-      },
-      "post": {
-        "operationId": "create_note_api_notes_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NoteIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NoteOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Note",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/daily/{journal_day}": {
-      "post": {
-        "operationId": "ensure_daily_note_api_notes_daily__journal_day__post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "journal_day",
-            "required": true,
-            "schema": {
-              "format": "date",
-              "title": "Journal Day",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NoteOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Ensure Daily Note",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/{note_id}": {
-      "delete": {
-        "operationId": "delete_note_api_notes__note_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Delete Note",
-        "tags": [
-          "note"
-        ]
-      },
-      "get": {
-        "operationId": "get_note_api_notes__note_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NoteOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Note",
-        "tags": [
-          "note"
-        ]
-      },
-      "patch": {
-        "operationId": "patch_note_api_notes__note_id__patch",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NoteUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NoteOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Patch Note",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/{note_id}/archive": {
-      "post": {
-        "operationId": "archive_note_api_notes__note_id__archive_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/NoteOut"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "title": "Response Archive Note Api Notes  Note Id  Archive Post"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Archive Note",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/{note_id}/attachments": {
-      "post": {
-        "operationId": "upload_attachment_api_notes__note_id__attachments_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_upload_attachment_api_notes__note_id__attachments_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NoteAttachmentOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Upload Attachment",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/{note_id}/attachments/{attachment_id}": {
-      "delete": {
-        "operationId": "remove_attachment_api_notes__note_id__attachments__attachment_id__delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "attachment_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Attachment Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Remove Attachment",
-        "tags": [
-          "note"
-        ]
-      },
-      "get": {
-        "operationId": "get_attachment_api_notes__note_id__attachments__attachment_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "attachment_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Attachment Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Attachment",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/{note_id}/permanent": {
-      "delete": {
-        "operationId": "permanently_delete_note_api_notes__note_id__permanent_delete",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Permanently Delete Note",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/{note_id}/restore": {
-      "post": {
-        "operationId": "restore_note_api_notes__note_id__restore_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Restore Note",
-        "tags": [
-          "note"
-        ]
-      }
-    },
-    "/api/notes/{note_id}/unarchive": {
-      "post": {
-        "operationId": "unarchive_note_api_notes__note_id__unarchive_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "note_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Note Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Unarchive Note",
-        "tags": [
-          "note"
-        ]
-      }
-    },
     "/api/notifications": {
       "get": {
         "operationId": "notifications_api_notifications_get",
@@ -21982,38 +20665,15 @@
         ]
       }
     },
-    "/api/obsidian/index/refresh": {
+    "/api/obsidian/capture": {
       "post": {
-        "description": "Obsidian Vault dizinini yeniden tarar ve bellek içi indeksi tazeler.",
-        "operationId": "refresh_index_api_obsidian_index_refresh_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VaultStatus"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Refresh Index",
-        "tags": [
-          "core",
-          "obsidian"
-        ]
-      }
-    },
-    "/api/obsidian/items": {
-      "post": {
-        "description": "Vault içinde forkOS ile yönetilen yeni bir Markdown belgesi oluşturur.",
-        "operationId": "create_item_api_obsidian_items_post",
+        "description": "Hızlı yakalanan bilgi notunu doğrudan Vault'ta (`00 Inbox/`) oluşturur.\n\nKimliği sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki\nhedefi (`relate_to`) sunucuda çözülür, istemcinin verdiği tip/başlık\nkullanılmaz.",
+        "operationId": "capture_note_api_obsidian_capture_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateManagedNoteIn"
+                "$ref": "#/components/schemas/CaptureNoteIn"
               }
             }
           },
@@ -22041,7 +20701,73 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Item",
+        "summary": "Capture Note",
+        "tags": [
+          "core",
+          "obsidian"
+        ]
+      }
+    },
+    "/api/obsidian/ensure": {
+      "post": {
+        "description": "Kanonik bilgi notunu (varsa) çözer, yoksa oluşturur.\n\nBaşlık ve tip istemciden alınmaz; `entity` tablosundan çözülür. Aynı\nkimlikle ikinci çağrı yeni dosya üretmez.",
+        "operationId": "ensure_item_api_obsidian_ensure_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsureManagedNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ensure Item",
+        "tags": [
+          "core",
+          "obsidian"
+        ]
+      }
+    },
+    "/api/obsidian/index/refresh": {
+      "post": {
+        "description": "Obsidian Vault dizinini yeniden tarar ve bellek içi indeksi tazeler.",
+        "operationId": "refresh_index_api_obsidian_index_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh Index",
         "tags": [
           "core",
           "obsidian"
@@ -22095,7 +20821,7 @@
     },
     "/api/obsidian/status": {
       "get": {
-        "description": "Obsidian Vault entegrasyonunun durumunu döner.\n\nPath'in tam sistem yolunu browser'a ifşa etmez.",
+        "description": "Obsidian Vault entegrasyonunun durumu ve Obsidian bağlantıları.\n\nPath'in tam sistem yolunu browser'a ifşa etmez.",
         "operationId": "get_status_api_obsidian_status_get",
         "responses": {
           "200": {
@@ -22110,6 +20836,52 @@
           }
         },
         "summary": "Get Status",
+        "tags": [
+          "core",
+          "obsidian"
+        ]
+      }
+    },
+    "/api/obsidian/uri/search": {
+      "get": {
+        "description": "Vault içi arama URI'si. Parametre kodlaması sunucuda yapılır.",
+        "operationId": "search_uri_for_api_obsidian_uri_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UriOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Uri For",
         "tags": [
           "core",
           "obsidian"
@@ -23415,53 +22187,6 @@
         ]
       }
     },
-    "/api/opportunities/{item_id}/notes": {
-      "get": {
-        "operationId": "opportunity_notes_api_opportunities__item_id__notes_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "item_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Item Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/NoteOut"
-                  },
-                  "title": "Response Opportunity Notes Api Opportunities  Item Id  Notes Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Opportunity Notes",
-        "tags": [
-          "opportunities"
-        ]
-      }
-    },
     "/api/opportunities/{item_id}/reply-analysis": {
       "post": {
         "operationId": "reply_analysis_api_opportunities__item_id__reply_analysis_post",
@@ -23615,6 +22340,7 @@
     },
     "/api/opportunities/{item_id}/research-note": {
       "post": {
+        "description": "Fırsatın kanonik araştırma notunu çözer, yoksa Vault'ta oluşturur.\n\nKimlik fırsatın UUID'sidir: aynı fırsat için ikinci dosya üretilmez.\nforkOS veritabanında not kaydı OLUŞMAZ; not `00 Inbox/` altında yaşar ve\nfrontmatter'ında `notes_about` ilişkisini taşır (PHASE 3 §38).",
         "operationId": "get_or_create_research_note_api_opportunities__item_id__research_note_post",
         "parameters": [
           {
@@ -23633,7 +22359,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NoteOut"
+                  "$ref": "#/components/schemas/VaultItem"
                 }
               }
             },
@@ -25038,9 +23764,10 @@
         ]
       }
     },
-    "/api/projects/{project_id}/journal/{day}": {
-      "put": {
-        "operationId": "put_project_journal_note_api_projects__project_id__journal__day__put",
+    "/api/projects/{project_id}/journal/{day}/obsidian": {
+      "post": {
+        "description": "Proje günlüğünün Vault dosyasını çözer, yoksa oluşturur.\n\nGünlük METNİ forkOS'ta tutulmaz: sahibi Vault'tur ve düzenleme Obsidian'da\nyapılır. PHASE 2 ile taşınmış günlükler `forkos_id`'leriyle yeniden\nkullanılır; aynı gün için ikinci dosya üretilmez.",
+        "operationId": "open_project_journal_in_obsidian_api_projects__project_id__journal__day__obsidian_post",
         "parameters": [
           {
             "in": "path",
@@ -25063,21 +23790,13 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProjectJournalNoteIn"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/VaultItem"
+                }
               }
             },
             "description": "Successful Response"
@@ -25093,7 +23812,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Put Project Journal Note",
+        "summary": "Open Project Journal In Obsidian",
         "tags": [
           "projects"
         ]

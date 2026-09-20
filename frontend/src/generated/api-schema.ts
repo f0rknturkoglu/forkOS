@@ -483,23 +483,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/bookmarks/{bookmark_id}/create-note": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Note From Bookmark */
-        post: operations["create_note_from_bookmark_api_bookmarks__bookmark_id__create_note_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/bookmarks/{bookmark_id}/enrich": {
         parameters: {
             query?: never;
@@ -607,6 +590,29 @@ export interface paths {
          * @description Okuma yuzdesini gunceller. Yuzde >= 90 ise otomatik okundu yapilir.
          */
         patch: operations["update_bookmark_progress_api_bookmarks__bookmark_id__progress_patch"];
+        trace?: never;
+    };
+    "/api/bookmarks/{bookmark_id}/source-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Source Note
+         * @description Yer iminin kanonik Vault kaynak notunu çözer veya oluşturur.
+         *
+         *     Yer imi ve vurguları forkOS'ta operasyonel kalır; burada yalnızca bir Vault
+         *     dosyası üretilir. forkOS veritabanında not kaydı OLUŞMAZ.
+         */
+        post: operations["create_source_note_api_bookmarks__bookmark_id__source_note_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/calendar/events": {
@@ -998,6 +1004,9 @@ export interface paths {
         /**
          * Entity Backlinks
          * @description Bu kayda [[...]] ile baglanan kayitlar.
+         *
+         *     Bilgi grafi GORSELLESTIRMESI PHASE 3'te kaldirildi (`/graph` ucu yok);
+         *     bu okuma operasyonel yuzeyler (`BacklinksPanel`) icin kalir.
          */
         get: operations["entity_backlinks_api_entities__entity_id__backlinks_get"];
         put?: never;
@@ -1338,43 +1347,6 @@ export interface paths {
          * @description Anki .apkg / .csv / .txt ic aktarim. `deck` = hedef destek adi (opsiyonel).
          */
         post: operations["import_cards_api_flashcard_import_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/graph": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Knowledge Graph
-         * @description Bilgi grafi: dugum = entity, kenar = link. focus verilirse o kaydin cevresi.
-         */
-        get: operations["knowledge_graph_api_graph_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/highlights": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Global Highlights */
-        get: operations["list_global_highlights_api_highlights_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1888,199 +1860,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/note-folders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Note Folders */
-        get: operations["list_note_folders_api_note_folders_get"];
-        put?: never;
-        /** Create Note Folder */
-        post: operations["create_note_folder_api_note_folders_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/note-folders/{folder_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Note Folder */
-        delete: operations["delete_note_folder_api_note_folders__folder_id__delete"];
-        options?: never;
-        head?: never;
-        /** Patch Note Folder */
-        patch: operations["patch_note_folder_api_note_folders__folder_id__patch"];
-        trace?: never;
-    };
-    "/api/notes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Notes */
-        get: operations["list_notes_api_notes_get"];
-        put?: never;
-        /** Create Note */
-        post: operations["create_note_api_notes_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/daily/{journal_day}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Ensure Daily Note */
-        post: operations["ensure_daily_note_api_notes_daily__journal_day__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/{note_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Note */
-        get: operations["get_note_api_notes__note_id__get"];
-        put?: never;
-        post?: never;
-        /** Delete Note */
-        delete: operations["delete_note_api_notes__note_id__delete"];
-        options?: never;
-        head?: never;
-        /** Patch Note */
-        patch: operations["patch_note_api_notes__note_id__patch"];
-        trace?: never;
-    };
-    "/api/notes/{note_id}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Archive Note */
-        post: operations["archive_note_api_notes__note_id__archive_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/{note_id}/attachments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Upload Attachment */
-        post: operations["upload_attachment_api_notes__note_id__attachments_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/{note_id}/attachments/{attachment_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Attachment */
-        get: operations["get_attachment_api_notes__note_id__attachments__attachment_id__get"];
-        put?: never;
-        post?: never;
-        /** Remove Attachment */
-        delete: operations["remove_attachment_api_notes__note_id__attachments__attachment_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/{note_id}/permanent": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Permanently Delete Note */
-        delete: operations["permanently_delete_note_api_notes__note_id__permanent_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/{note_id}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Restore Note */
-        post: operations["restore_note_api_notes__note_id__restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/notes/{note_id}/unarchive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Unarchive Note */
-        post: operations["unarchive_note_api_notes__note_id__unarchive_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/notifications": {
         parameters: {
             query?: never;
@@ -2166,6 +1945,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/obsidian/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capture Note
+         * @description Hızlı yakalanan bilgi notunu doğrudan Vault'ta (`00 Inbox/`) oluşturur.
+         *
+         *     Kimliği sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki
+         *     hedefi (`relate_to`) sunucuda çözülür, istemcinin verdiği tip/başlık
+         *     kullanılmaz.
+         */
+        post: operations["capture_note_api_obsidian_capture_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/obsidian/ensure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ensure Item
+         * @description Kanonik bilgi notunu (varsa) çözer, yoksa oluşturur.
+         *
+         *     Başlık ve tip istemciden alınmaz; `entity` tablosundan çözülür. Aynı
+         *     kimlikle ikinci çağrı yeni dosya üretmez.
+         */
+        post: operations["ensure_item_api_obsidian_ensure_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/obsidian/index/refresh": {
         parameters: {
             query?: never;
@@ -2180,26 +2006,6 @@ export interface paths {
          * @description Obsidian Vault dizinini yeniden tarar ve bellek içi indeksi tazeler.
          */
         post: operations["refresh_index_api_obsidian_index_refresh_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/obsidian/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Item
-         * @description Vault içinde forkOS ile yönetilen yeni bir Markdown belgesi oluşturur.
-         */
-        post: operations["create_item_api_obsidian_items_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2235,11 +2041,31 @@ export interface paths {
         };
         /**
          * Get Status
-         * @description Obsidian Vault entegrasyonunun durumunu döner.
+         * @description Obsidian Vault entegrasyonunun durumu ve Obsidian bağlantıları.
          *
          *     Path'in tam sistem yolunu browser'a ifşa etmez.
          */
         get: operations["get_status_api_obsidian_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/obsidian/uri/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Uri For
+         * @description Vault içi arama URI'si. Parametre kodlaması sunucuda yapılır.
+         */
+        get: operations["search_uri_for_api_obsidian_uri_search_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2510,23 +2336,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/opportunities/{item_id}/notes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Opportunity Notes */
-        get: operations["opportunity_notes_api_opportunities__item_id__notes_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/opportunities/{item_id}/reply-analysis": {
         parameters: {
             query?: never;
@@ -2571,7 +2380,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Get Or Create Research Note */
+        /**
+         * Get Or Create Research Note
+         * @description Fırsatın kanonik araştırma notunu çözer, yoksa Vault'ta oluşturur.
+         *
+         *     Kimlik fırsatın UUID'sidir: aynı fırsat için ikinci dosya üretilmez.
+         *     forkOS veritabanında not kaydı OLUŞMAZ; not `00 Inbox/` altında yaşar ve
+         *     frontmatter'ında `notes_about` ilişkisini taşır (PHASE 3 §38).
+         */
         post: operations["get_or_create_research_note_api_opportunities__item_id__research_note_post"];
         delete?: never;
         options?: never;
@@ -3057,7 +2873,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/projects/{project_id}/journal/{day}": {
+    "/api/projects/{project_id}/journal/{day}/obsidian": {
         parameters: {
             query?: never;
             header?: never;
@@ -3065,9 +2881,16 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Put Project Journal Note */
-        put: operations["put_project_journal_note_api_projects__project_id__journal__day__put"];
-        post?: never;
+        put?: never;
+        /**
+         * Open Project Journal In Obsidian
+         * @description Proje günlüğünün Vault dosyasını çözer, yoksa oluşturur.
+         *
+         *     Günlük METNİ forkOS'ta tutulmaz: sahibi Vault'tur ve düzenleme Obsidian'da
+         *     yapılır. PHASE 2 ile taşınmış günlükler `forkos_id`'leriyle yeniden
+         *     kullanılır; aynı gün için ikinci dosya üretilmez.
+         */
+        post: operations["open_project_journal_in_obsidian_api_projects__project_id__journal__day__obsidian_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4817,11 +4640,6 @@ export interface components {
             /** File */
             file: string;
         };
-        /** Body_upload_attachment_api_notes__note_id__attachments_post */
-        Body_upload_attachment_api_notes__note_id__attachments_post: {
-            /** File */
-            file: string;
-        };
         /** Body_upload_document_api_documents_upload_post */
         Body_upload_document_api_documents_upload_post: {
             /**
@@ -5151,6 +4969,20 @@ export interface components {
             url: string;
             /** Word Count */
             word_count?: number | null;
+        };
+        /**
+         * CaptureNoteIn
+         * @description Hızlı yakalama: yeni bilgi notu (kimliği sunucu üretir).
+         */
+        CaptureNoteIn: {
+            /** Body */
+            body: string;
+            /** Relate To */
+            relate_to?: string | null;
+            /** Tags */
+            tags?: string[];
+            /** Title */
+            title?: string | null;
         };
         /** CaptureResult */
         CaptureResult: {
@@ -5574,31 +5406,16 @@ export interface components {
             /** Suspended */
             suspended: boolean;
         };
-        /** CreateManagedNoteIn */
-        CreateManagedNoteIn: {
-            /**
-             * Forkos Id
-             * Format: uuid
-             */
-            forkos_id: string;
-            /** Forkos Type */
-            forkos_type: string;
-            /** Initial Body */
-            initial_body?: string | null;
-            /** Target Folder */
-            target_folder?: string | null;
-            /** Title */
-            title: string;
-        };
-        /** CreateNoteFromBookmarkIn */
-        CreateNoteFromBookmarkIn: {
+        /**
+         * CreateSourceNoteIn
+         * @description Kanonik kaynak notu isteği.
+         *
+         *     `pinned` KALDIRILDI (PHASE 3 §14): forkOS'ta sabitlenecek bir Notlar
+         *     listesi kalmadı. Ek metin isteğe bağlı olarak not başlangıcına eklenir.
+         */
+        CreateSourceNoteIn: {
             /** Additional Text */
             additional_text?: string | null;
-            /**
-             * Pinned
-             * @default false
-             */
-            pinned: boolean;
         };
         /** DeckIn */
         DeckIn: {
@@ -5648,6 +5465,17 @@ export interface components {
             document_id: string;
             /** Usages */
             usages: components["schemas"]["OpportunityUsageOut"][];
+        };
+        /**
+         * EnsureManagedNoteIn
+         * @description Kanonik bilgi notu: kimliği verilen kalkın entity'sine bağlıdır.
+         */
+        EnsureManagedNoteIn: {
+            /**
+             * Forkos Id
+             * Format: uuid
+             */
+            forkos_id: string;
         };
         /** EntityOut */
         EntityOut: {
@@ -6055,52 +5883,6 @@ export interface components {
             repos: {
                 [key: string]: number;
             };
-        };
-        /** GlobalHighlightOut */
-        GlobalHighlightOut: {
-            /**
-             * Anchor Index
-             * @default 0
-             */
-            anchor_index: number;
-            /**
-             * Bookmark Id
-             * Format: uuid
-             */
-            bookmark_id: string;
-            /** Bookmark Title */
-            bookmark_title: string;
-            /** Bookmark Url */
-            bookmark_url: string;
-            /**
-             * Color
-             * @default yellow
-             */
-            color: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Note */
-            note?: string | null;
-            /**
-             * Position End
-             * @default 0
-             */
-            position_end: number;
-            /**
-             * Position Start
-             * @default 0
-             */
-            position_start: number;
-            /** Text */
-            text: string;
         };
         /** GlobalMetadataSearchOut */
         GlobalMetadataSearchOut: {
@@ -7325,167 +7107,6 @@ export interface components {
             /** Todos */
             todos: number;
         };
-        /** NoteAttachmentOut */
-        NoteAttachmentOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Mime */
-            mime: string;
-            /** Name */
-            name: string;
-            /** Size */
-            size: number;
-            /** Url */
-            url: string;
-        };
-        /** NoteFolderIn */
-        NoteFolderIn: {
-            /** Name */
-            name: string;
-            /** Parent Id */
-            parent_id?: string | null;
-        };
-        /** NoteFolderOut */
-        NoteFolderOut: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /**
-             * Note Count
-             * @default 0
-             */
-            note_count: number;
-            /** Parent Id */
-            parent_id?: string | null;
-            /**
-             * Position
-             * @default 0
-             */
-            position: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** NoteFolderUpdate */
-        NoteFolderUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Parent Id */
-            parent_id?: string | null;
-            /** Position */
-            position?: number | null;
-        };
-        /** NoteIn */
-        NoteIn: {
-            /** Body */
-            body: string;
-            /** Canvas State */
-            canvas_state?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Default View
-             * @default page
-             * @enum {string}
-             */
-            default_view: "page" | "canvas";
-            /** Folder Id */
-            folder_id?: string | null;
-            /**
-             * Pinned
-             * @default false
-             */
-            pinned: boolean;
-            /** Relate To */
-            relate_to?: string | null;
-            /** Tags */
-            tags?: string[];
-        };
-        /** NoteOut */
-        NoteOut: {
-            /** Archived At */
-            archived_at?: string | null;
-            /** Attachments */
-            attachments?: components["schemas"]["NoteAttachmentOut"][];
-            /** Body */
-            body: string;
-            /** Canvas State */
-            canvas_state?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Default View
-             * @default page
-             * @enum {string}
-             */
-            default_view: "page" | "canvas";
-            /** Folder Id */
-            folder_id?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Journal Day */
-            journal_day?: string | null;
-            /** Pinned */
-            pinned: boolean;
-            /** Project Id */
-            project_id?: string | null;
-            /** Resolved Links */
-            resolved_links?: components["schemas"]["ResolvedLink"][];
-            /** Source Bookmark Id */
-            source_bookmark_id?: string | null;
-            /** Tags */
-            tags?: string[];
-            /** Title */
-            title: string;
-            /** Trashed At */
-            trashed_at?: string | null;
-            /** Unresolved Links */
-            unresolved_links?: string[];
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** NoteUpdate */
-        NoteUpdate: {
-            /** Body */
-            body?: string | null;
-            /** Canvas State */
-            canvas_state?: {
-                [key: string]: unknown;
-            } | null;
-            /** Default View */
-            default_view?: ("page" | "canvas") | null;
-            /** Folder Id */
-            folder_id?: string | null;
-            /** Pinned */
-            pinned?: boolean | null;
-            /** Tags */
-            tags?: string[] | null;
-        };
         /** NotificationOut */
         NotificationOut: {
             /** Body */
@@ -8111,11 +7732,6 @@ export interface components {
             /** Url */
             url?: string | null;
         };
-        /** ProjectJournalNoteIn */
-        ProjectJournalNoteIn: {
-            /** Body */
-            body: string;
-        };
         /** ProjectPatch */
         ProjectPatch: {
             /** Github Repo */
@@ -8327,21 +7943,6 @@ export interface components {
              * @enum {string}
              */
             status: "missing" | "ready" | "submitted" | "waived";
-        };
-        /**
-         * ResolvedLink
-         * @description Govdedeki [[hedef]] -> gercek kayit.
-         */
-        ResolvedLink: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Target */
-            target: string;
-            /** Type */
-            type: string;
         };
         /** ResourceIn */
         ResourceIn: {
@@ -9089,11 +8690,6 @@ export interface components {
              * @default 0
              */
             flashcard_deck_count: number;
-            /**
-             * Note Count
-             * @default 0
-             */
-            note_count: number;
             open_todo?: components["schemas"]["OpenTodoOut"] | null;
             progress: components["schemas"]["TopicProgressOut"];
             /** Resources */
@@ -9549,11 +9145,6 @@ export interface components {
              */
             links: number;
             /**
-             * Notes
-             * @default 0
-             */
-            notes: number;
-            /**
              * Plan Slots
              * @default 0
              */
@@ -9842,6 +9433,11 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** UriOut */
+        UriOut: {
+            /** Uri */
+            uri: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -9855,19 +9451,38 @@ export interface components {
             /** Error Type */
             type: string;
         };
-        /** VaultItem */
+        /**
+         * VaultItem
+         * @description Vault içinde forkOS tarafından yönetilen tek Markdown dosyası.
+         *
+         *     Yalnızca Vault köküne GÖRELİ yol döner; tam dosya sistemi yolu asla
+         *     browser'a çıkmaz.
+         */
         VaultItem: {
+            /** Entity Type */
+            entity_type?: string | null;
             /** Forkos Id */
             forkos_id: string;
             /** Forkos Type */
             forkos_type: string;
+            /** Journal Day */
+            journal_day?: string | null;
             /**
              * Mtime
              * @default 0
              */
             mtime: number;
+            /** Note Kind */
+            note_kind?: string | null;
             /** Open Uri */
             open_uri: string;
+            /** Project Id */
+            project_id?: string | null;
+            /**
+             * Relation Count
+             * @default 0
+             */
+            relation_count: number;
             /** Relative Path */
             relative_path: string;
             /**
@@ -9875,6 +9490,8 @@ export interface components {
              * @default 0
              */
             size: number;
+            /** Source Bookmark Id */
+            source_bookmark_id?: string | null;
             /** Title */
             title: string;
         };
@@ -9890,12 +9507,18 @@ export interface components {
             };
             /** Conflicts */
             conflicts: number;
+            /** Daily Uri */
+            daily_uri?: string | null;
             /** Diagnostic */
             diagnostic?: string | null;
+            /** Inbox Uri */
+            inbox_uri?: string | null;
             /** Invalid Files */
             invalid_files?: string[];
             /** Managed Files */
             managed_files: number;
+            /** Open Uri */
+            open_uri?: string | null;
             /** Readable */
             readable: boolean;
             /** Vault Name */
@@ -10764,41 +10387,6 @@ export interface operations {
             };
         };
     };
-    create_note_from_bookmark_api_bookmarks__bookmark_id__create_note_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bookmark_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateNoteFromBookmarkIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     enrich_bookmark_api_bookmarks__bookmark_id__enrich_post: {
         parameters: {
             query?: never;
@@ -11011,6 +10599,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookmarkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_source_note_api_bookmarks__bookmark_id__source_note_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bookmark_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSourceNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultItem"];
                 };
             };
             /** @description Validation Error */
@@ -12502,59 +12125,6 @@ export interface operations {
             };
         };
     };
-    knowledge_graph_api_graph_get: {
-        parameters: {
-            query?: {
-                focus?: string | null;
-                depth?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_global_highlights_api_highlights_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GlobalHighlightOut"][];
-                };
-            };
-        };
-    };
     incomes_api_incomes_get: {
         parameters: {
             query?: never;
@@ -13917,530 +13487,6 @@ export interface operations {
             };
         };
     };
-    list_note_folders_api_note_folders_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteFolderOut"][];
-                };
-            };
-        };
-    };
-    create_note_folder_api_note_folders_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NoteFolderIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteFolderOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_note_folder_api_note_folders__folder_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                folder_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patch_note_folder_api_note_folders__folder_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                folder_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NoteFolderUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteFolderOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_notes_api_notes_get: {
-        parameters: {
-            query?: {
-                include_archived?: boolean;
-                about?: string | null;
-                scope?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_note_api_notes_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NoteIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ensure_daily_note_api_notes_daily__journal_day__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                journal_day: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_note_api_notes__note_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_note_api_notes__note_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    patch_note_api_notes__note_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NoteUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    archive_note_api_notes__note_id__archive_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"] | null;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    upload_attachment_api_notes__note_id__attachments_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_upload_attachment_api_notes__note_id__attachments_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteAttachmentOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_attachment_api_notes__note_id__attachments__attachment_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-                attachment_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_attachment_api_notes__note_id__attachments__attachment_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-                attachment_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    permanently_delete_note_api_notes__note_id__permanent_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    restore_note_api_notes__note_id__restore_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    unarchive_note_api_notes__note_id__unarchive_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     notifications_api_notifications_get: {
         parameters: {
             query?: never;
@@ -14563,27 +13609,7 @@ export interface operations {
             };
         };
     };
-    refresh_index_api_obsidian_index_refresh_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VaultStatus"];
-                };
-            };
-        };
-    };
-    create_item_api_obsidian_items_post: {
+    capture_note_api_obsidian_capture_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -14592,7 +13618,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateManagedNoteIn"];
+                "application/json": components["schemas"]["CaptureNoteIn"];
             };
         };
         responses: {
@@ -14612,6 +13638,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ensure_item_api_obsidian_ensure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnsureManagedNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_index_api_obsidian_index_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultStatus"];
                 };
             };
         };
@@ -14663,6 +13742,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VaultStatus"];
+                };
+            };
+        };
+    };
+    search_uri_for_api_obsidian_uri_search_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UriOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -15322,37 +14432,6 @@ export interface operations {
             };
         };
     };
-    opportunity_notes_api_opportunities__item_id__notes_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     reply_analysis_api_opportunities__item_id__reply_analysis_post: {
         parameters: {
             query?: never;
@@ -15471,7 +14550,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NoteOut"];
+                    "application/json": components["schemas"]["VaultItem"];
                 };
             };
             /** @description Validation Error */
@@ -16467,7 +15546,7 @@ export interface operations {
             };
         };
     };
-    put_project_journal_note_api_projects__project_id__journal__day__put: {
+    open_project_journal_in_obsidian_api_projects__project_id__journal__day__obsidian_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -16477,11 +15556,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProjectJournalNoteIn"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -16489,7 +15564,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["VaultItem"];
                 };
             };
             /** @description Validation Error */
