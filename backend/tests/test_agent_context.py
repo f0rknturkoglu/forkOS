@@ -329,3 +329,100 @@ async def test_opportunity_attention_lifecycle(db_session: AsyncSession):
     assert job_item["organization"] == "Acme Corp"
 
 
+async def test_project_context_knowledge_states(
+    db_session: AsyncSession,
+    tmp_path,
+    monkeypatch,
+):
+    from app.integrations.obsidian.service import vault_index
+
+    # 1. Create a project
+    proj_id = uuid.uuid4()
+    p_ent = Entity(id=proj_id, type="project", title="State Project", search_text="")
+    db_session.add(p_ent)
+    proj = Project(id=proj_id, status="active")
+    db_session.add(proj)
+    await db_session.commit()
+
+    # Case A: unavailable (vault directory/path not configured or not accessible)
+    monkeypatch.setattr(settings, "obsidian_vault_path", "")
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    pkg_unavail = await get_project_context(db_session, str(proj_id))
+    assert pkg_unavail.knowledge["state"] in ("available", "missing", "unavailable", "conflict")
+    assert pkg_unavail.knowledge["state"] == "unavailable"
+    assert pkg_unavail.knowledge["available"] is False
+    assert pkg_unavail.knowledge["diagnostic"] is not None
+    assert len(pkg_unavail.knowledge["diagnostic"]) > 0
+
+    # Non-existent directory should also be unavailable
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(tmp_path / "NonExistentVault"))
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    pkg_unavail2 = await get_project_context(db_session, str(proj_id))
+    assert pkg_unavail2.knowledge["state"] == "unavailable"
+    assert pkg_unavail2.knowledge["available"] is False
+    assert pkg_unavail2.knowledge["diagnostic"] is not None
+
+    # Case B: missing (vault configured and accessible, but no note exists for this project)
+    v_dir = tmp_path / "StateVault"
+    v_dir.mkdir(exist_ok=True)
+    (v_dir / "20 Projects").mkdir(exist_ok=True)
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(v_dir))
+    monkeypatch.setattr(settings, "obsidian_vault_name", "StateVault")
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    pkg_missing = await get_project_context(db_session, str(proj_id))
+    assert pkg_missing.knowledge["state"] in ("available", "missing", "unavailable", "conflict")
+    assert pkg_missing.knowledge["state"] == "missing"
+    assert pkg_missing.knowledge["available"] is False
+    assert pkg_missing.knowledge["diagnostic"] is not None
+
+    # Case C: available (note resolved cleanly)
+    note1 = v_dir / "20 Projects" / "StateProject.md"
+    note1.write_text(
+        f"---\nforkos_id: {proj_id}\nforkos_type: project\n---\n# State Project\n",
+        encoding="utf-8",
+    )
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    pkg_avail = await get_project_context(db_session, str(proj_id))
+    assert pkg_avail.knowledge["state"] in ("available", "missing", "unavailable", "conflict")
+    assert pkg_avail.knowledge["state"] == "available"
+    assert pkg_avail.knowledge["available"] is True
+    assert pkg_avail.knowledge["forkos_id"] == str(proj_id)
+    assert pkg_avail.knowledge["relative_path"] == "20 Projects/StateProject.md"
+    assert pkg_avail.knowledge["title"] == "State Project"
+    assert pkg_avail.knowledge["diagnostic"] is None
+
+    # Case D: conflict (duplicate notes with same forkos_id trigger VaultConflictError)
+    note2 = v_dir / "20 Projects" / "DuplicateProject.md"
+    note2.write_text(
+        f"---\nforkos_id: {proj_id}\nforkos_type: project\n---\n# Duplicate Project\n",
+        encoding="utf-8",
+    )
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    pkg_conflict = await get_project_context(db_session, str(proj_id))
+    assert pkg_conflict.knowledge["state"] in ("available", "missing", "unavailable", "conflict")
+    assert pkg_conflict.knowledge["state"] == "conflict"
+    assert pkg_conflict.knowledge["available"] is False
+    assert pkg_conflict.knowledge["diagnostic"] is not None
+
+
+

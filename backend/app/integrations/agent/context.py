@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core import links as links_svc
 from app.core import registry as registry_svc
 from app.core import search as search_svc
@@ -19,10 +21,15 @@ from app.integrations.agent.models import (
     BriefingData,
     EntityContextData,
     EntitySearchResult,
+    KnowledgePointer,
     ProjectContextData,
     sanitize_payload,
 )
-from app.integrations.obsidian.service import resolve_managed_item, vault_index
+from app.integrations.obsidian.service import (
+    VaultConflictError,
+    resolve_managed_item,
+    vault_index,
+)
 from app.modules.flashcard.models import FlashcardCard
 from app.modules.opportunity.lifecycle import APPLICATION_TERMINAL, JOB_KINDS
 from app.modules.opportunity.models import Application, Opportunity
@@ -64,6 +71,93 @@ def _parse_since(since: str | None) -> datetime | None:
             raise ValueError(
                 f"INVALID_SINCE: '{since}' is not a valid preset (today, yesterday, 7d, 30d) or ISO datetime."
             ) from exc
+
+
+def _resolve_knowledge_pointer(forkos_id: uuid.UUID) -> KnowledgePointer:
+    """Resolve granular knowledge pointer state for an entity (available, missing, unavailable, conflict)."""
+    fid_str = str(forkos_id)
+
+    # 1. Check if Vault path is configured and directory exists / is accessible
+    v_root = settings.resolved_obsidian_vault_path
+    if v_root is None:
+        return KnowledgePointer(
+            state="unavailable",
+            available=False,
+            forkos_id=None,
+            relative_path=None,
+            title=None,
+            diagnostic="Obsidian Vault is not configured (OBSIDIAN_VAULT_PATH is empty).",
+        )
+
+    if not v_root.exists() or not v_root.is_dir():
+        return KnowledgePointer(
+            state="unavailable",
+            available=False,
+            forkos_id=None,
+            relative_path=None,
+            title=None,
+            diagnostic=f"Obsidian Vault directory does not exist or is not a directory: '{v_root}'.",
+        )
+
+    if not os.access(v_root, os.R_OK):
+        return KnowledgePointer(
+            state="unavailable",
+            available=False,
+            forkos_id=None,
+            relative_path=None,
+            title=None,
+            diagnostic=f"Obsidian Vault directory is not readable: '{v_root}'.",
+        )
+
+    # 2. Try resolve_managed_item
+    try:
+        v_item = resolve_managed_item(forkos_id)
+    except VaultConflictError as exc:
+        return KnowledgePointer(
+            state="conflict",
+            available=False,
+            forkos_id=None,
+            relative_path=None,
+            title=None,
+            diagnostic=str(exc),
+        )
+    except (RuntimeError, PermissionError, FileNotFoundError) as exc:
+        return KnowledgePointer(
+            state="unavailable",
+            available=False,
+            forkos_id=None,
+            relative_path=None,
+            title=None,
+            diagnostic=str(exc),
+        )
+
+    # 3. If item is None, check fallback for projects
+    if v_item is None:
+        try:
+            v_item = vault_index.find_by_note_kind("project", project_id=fid_str)
+        except Exception:
+            v_item = None
+
+    # 4. If still None -> missing
+    if v_item is None:
+        return KnowledgePointer(
+            state="missing",
+            available=False,
+            forkos_id=None,
+            relative_path=None,
+            title=None,
+            diagnostic="No managed knowledge note exists for this entity.",
+        )
+
+    # 5. If found -> available
+    return KnowledgePointer(
+        state="available",
+        available=True,
+        forkos_id=v_item.forkos_id,
+        relative_path=v_item.relative_path,
+        title=v_item.title,
+        diagnostic=None,
+    )
 
 
 async def get_briefing_context(session: AsyncSession, day: str | None = None) -> BriefingData:
@@ -367,20 +461,7 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
     ]
 
     # Check if a Vault note is linked to this entity (fresh canonical resolve)
-    v_item = None
-    try:
-        v_item = resolve_managed_item(ent_uuid)
-    except Exception:
-        v_item = None
-
-    knowledge_ref = None
-    if v_item:
-        knowledge_ref = {
-            "available": True,
-            "forkos_id": v_item.forkos_id,
-            "relative_path": v_item.relative_path,
-            "title": v_item.title,
-        }
+    knowledge_ref = _resolve_knowledge_pointer(ent_uuid)
 
     return EntityContextData(
         id=str(entity.id),
@@ -501,23 +582,7 @@ async def get_project_context(session: AsyncSession, project_id: str) -> Project
     deadlines = [m for m in milestones_data if m.get("due_at") and not m.get("completed")]
 
     # Vault knowledge pointer only (fresh canonical resolve)
-    v_item = None
-    try:
-        v_item = resolve_managed_item(proj_uuid)
-    except Exception:
-        v_item = None
-    if v_item is None:
-        try:
-            v_item = vault_index.find_by_note_kind("project", project_id=str(proj_uuid))
-        except Exception:
-            v_item = None
-
-    knowledge_data = {
-        "available": v_item is not None,
-        "forkos_id": v_item.forkos_id if v_item else None,
-        "relative_path": v_item.relative_path if v_item else None,
-        "title": v_item.title if v_item else None,
-    }
+    knowledge_data = _resolve_knowledge_pointer(proj_uuid)
 
     return ProjectContextData(
         project={

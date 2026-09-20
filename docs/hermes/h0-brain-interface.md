@@ -84,7 +84,7 @@ Arayüz aşağıdaki katı güvenlik denetimlerini uygular:
 
 Sistemin salt-okunurluğu `backend/tests/test_agent_immutability.py` test süiti ile otomatik olarak doğrulanmaktadır:
 
-1. **Deterministik DB Satır İçeriği SHA-256 Parmak İzi:** Yüzeysel satır sayısı sayımı yerine, `Entity`, `Event`, `Link`, `Todo`, `Project`, `Milestone`, `Notification`, `Opportunity`, `Application`, `FlashcardCard`, `Bookmark`, `Note` ve `NoteFolder` tablolarındaki tüm satır içerikleri birleştirilerek SHA-256 özetine dönüştürülür. `test_db_content_fingerprint_sensitive_to_updates` testi tek bir satırdaki alan güncellemesinin (`UPDATE`) bile parmak izini anında değiştirdiğini kanıtlar. 8 MCP aracının tamamı çalıştırıldıktan sonra veritabanı içeriği baytı baytına `%100` korunur.
+1. **Deterministik DB Satır İçeriği SHA-256 Parmak İzi:** Yüzeysel satır sayısı sayımı yerine, `Entity`, `Event`, `Link`, `Todo`, `Project`, `Milestone`, `Notification`, `Opportunity`, `Application`, `FlashcardCard`, `Bookmark`, `Note` ve `NoteFolder` tablolarındaki tüm satır içerikleri birleştirilerek SHA-256 özetine dönüştürülür. `test_db_content_fingerprint_sensitive_to_updates` testi tek bir satırdaki alan güncellemesinin (`UPDATE`) bile parmak izini anında değiştirdiğini kanıtlar. 8 MCP aracının tamamı çalıştırıldıktan sonra, kritik tablolardaki seçilmiş kanonik durum alanları üzerinde hesaplanan deterministik içerik parmak izi %100 korunur.
 2. **Dosya Sistemi Değişmezliği:** Vault içindeki tüm dosyaların SHA-256 hash'leri ve son değiştirilme zamanları (`mtime`) araç çağrılarından önce ve sonra karşılaştırılır; tek bir baytın dahi değişmediği kanıtlanır.
 3. **Protokol Seviyesinde İpuçları:** Her araç tanımında `ToolAnnotations` nesnesi şu değerlerle işaretlenmiştir:
    - `readOnlyHint = True`

@@ -154,6 +154,37 @@ class EntitySearchResult(BaseModel):
     summary: str = Field(default="", description="Short excerpt or description.")
 
 
+class KnowledgePointer(BaseModel):
+    """Granular pointer and availability state for linked Obsidian knowledge notes."""
+
+    state: Literal["available", "missing", "unavailable", "conflict"] = Field(
+        ..., description="Granular availability state of the linked Obsidian knowledge note."
+    )
+    available: bool = Field(..., description="True if state == 'available'.")
+    forkos_id: str | None = Field(default=None, description="Managed forkos_id.")
+    relative_path: str | None = Field(default=None, description="Vault-relative path.")
+    title: str | None = Field(default=None, description="Note title.")
+    diagnostic: str | None = Field(default=None, description="Diagnostic message when unavailable or in conflict.")
+
+    def __getitem__(self, item: str) -> Any:
+        try:
+            return getattr(self, item)
+        except AttributeError as exc:
+            raise KeyError(item) from exc
+
+    def get(self, item: str, default: Any = None) -> Any:
+        return getattr(self, item, default)
+
+    def __contains__(self, item: str) -> bool:
+        return hasattr(self, item)
+
+    def keys(self) -> list[str]:
+        return list(self.model_fields.keys())
+
+    def items(self) -> list[tuple[str, Any]]:
+        return [(k, getattr(self, k)) for k in self.model_fields.keys()]
+
+
 class EntityContextData(BaseModel):
     """Detailed operational context for a single entity."""
 
@@ -164,7 +195,7 @@ class EntityContextData(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict, description="Entity attributes.")
     related_entities: list[dict[str, Any]] = Field(default_factory=list, description="Linked operational entities.")
     recent_events: list[dict[str, Any]] = Field(default_factory=list, description="Last events touching this entity.")
-    knowledge_ref: dict[str, Any] | None = Field(default=None, description="Vault note pointer if linked.")
+    knowledge_ref: KnowledgePointer | None = Field(default=None, description="Vault note pointer if linked.")
 
 
 class ProjectContextData(BaseModel):
@@ -175,7 +206,14 @@ class ProjectContextData(BaseModel):
     todos: list[dict[str, Any]] = Field(default_factory=list, description="Open tasks under this project (max 20).")
     recent_activity: list[dict[str, Any]] = Field(default_factory=list, description="Recent project events (max 10).")
     deadlines: list[dict[str, Any]] = Field(default_factory=list, description="Upcoming deadlines.")
-    knowledge: dict[str, Any] = Field(default_factory=dict, description="Vault knowledge pointer only (forkos_id, relative_path, title, available).")
+    knowledge: KnowledgePointer = Field(
+        default_factory=lambda: KnowledgePointer(
+            state="missing",
+            available=False,
+            diagnostic="No managed knowledge note exists for this entity.",
+        ),
+        description="Vault knowledge pointer only (state, available, forkos_id, relative_path, title, diagnostic).",
+    )
 
 
 class ActivityEventData(BaseModel):
