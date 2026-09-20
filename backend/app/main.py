@@ -11,6 +11,7 @@ from app.config import settings
 from app.core.models import SourceRun
 from app.core.router import router as core_router
 from app.db import SessionLocal
+from app.integrations.agent.mcp import get_streamable_http_app, mcp_server
 from app.modules import MODULES
 
 log = logging.getLogger("api")
@@ -112,7 +113,11 @@ async def lifespan(app: FastAPI):
     task = asyncio.create_task(_startup_maintenance())
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
-    yield
+
+    # MCP Streamable HTTP session manager lifecycle (tied to FastAPI lifespan)
+    _ = get_streamable_http_app()
+    async with mcp_server.session_manager.run():
+        yield
 
 
 app = FastAPI(title="Life OS", version="0.1.0", lifespan=lifespan)
@@ -130,6 +135,9 @@ app.include_router(core_router, prefix="/api")
 # Her modul kendi router'ini registry uzerinden verir -- main.py'yi duzenlemene gerek yok
 for module in MODULES:
     app.include_router(module.router, prefix="/api")
+
+# H0: Streamable HTTP MCP (loopback / local-only agent interface)
+app.mount("/mcp", get_streamable_http_app())
 
 
 @app.get("/health")
