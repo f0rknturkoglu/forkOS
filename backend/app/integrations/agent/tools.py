@@ -11,7 +11,18 @@ from pydantic import Field, ValidationError
 from app.db import SessionLocal
 from app.integrations.agent import actions as actions_svc
 from app.integrations.agent import context as ctx_svc
+from app.integrations.agent import hot_memory as hm_svc
 from app.integrations.agent import knowledge as kn_svc
+from app.integrations.agent.hot_memory_models import (
+    EffectiveStatusFilter,
+    HotMemoryContextData,
+    HotMemoryListData,
+    HotMemoryRetireIn,
+    HotMemoryStoreIn,
+    HotMemoryUpdateIn,
+    MemoryKindValue,
+    SourceModeValue,
+)
 from app.integrations.agent.models import (
     ActivityEventData,
     AgentEnvelope,
@@ -219,6 +230,7 @@ def register_agent_tools(server: MCPServer) -> None:
             raise ToolError(str(exc)) from exc
 
     _register_write_tools(server)
+    _register_hot_memory_tools(server)
 
 
 # ---------------------------------------------------------------------------
@@ -696,5 +708,190 @@ def _register_write_tools(server: MCPServer) -> None:
                 forkos_id=forkos_id, text=text, heading=heading
             ))),
             action=actions_svc.save_to_entity_brain,
+            ctx=ctx,
+        )
+
+
+# ---------------------------------------------------------------------------
+# H2 sıcak hafıza araçları (90 Agent/Memory)
+# ---------------------------------------------------------------------------
+
+#: Sıcak hafıza girdi sınırları (§41) — şemada görünür.
+MemoryTags = Annotated[list[str] | None, Field(max_length=8)]
+RelatedIds = Annotated[list[str] | None, Field(max_length=5)]
+
+_READ_ONLY_CLAUSE = "Read-only. Does not modify forkOS or the Vault."
+_H2_APPROVAL_NOTE = (
+    "Write operation; requires user approval when this MCP server is configured "
+    "as untrusted. No external network calls."
+)
+
+
+def _hot_memory_read(factory: Callable[[], Any], source: str = "f0rknbrain"):
+    """H2 okuma zarflaması: model-okunur hata, mutasyonsuz."""
+    try:
+        return AgentEnvelope(source=source, data=factory(), truncated=False)
+    except actions_svc.ActionError as exc:
+        raise ToolError(str(exc)) from exc
+    except ValueError as exc:
+        raise ToolError(f"HOT_MEMORY_INVALID: {exc}") from exc
+
+
+def _register_hot_memory_tools(server: MCPServer) -> None:
+    """5 H2 aracını kaydeder. Gövdeler incedir: mantık adaptördedir."""
+
+    @server.tool(
+        name="hot_memory_context",
+        description=(
+            "Return the small curated set of ACTIVE hot memories (profile, preferences, "
+            "goals, constraints, decisions) useful for personalized reasoning. Bounded by "
+            "item and character budget; expired and retired items are excluded. "
+            + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def hot_memory_context(
+        kinds: list[MemoryKindValue] | None = None,
+    ) -> AgentEnvelope[HotMemoryContextData]:
+        return _hot_memory_read(lambda: hm_svc.get_context(kinds))
+
+    @server.tool(
+        name="hot_memory_list",
+        description=(
+            "List or search hot memories for management and discovery (lexical query only). "
+            "Includes retired and expired items when requested. " + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def hot_memory_list(
+        kind: MemoryKindValue | None = None,
+        effective_status: EffectiveStatusFilter = "active",
+        query: str | None = None,
+        limit: int = 20,
+    ) -> AgentEnvelope[HotMemoryListData]:
+        return _hot_memory_read(
+            lambda: hm_svc.list_memories(
+                kind=kind, effective_status=effective_status, query=query, limit=limit
+            )
+        )
+
+    @server.tool(
+        name="hot_memory_store",
+        description=(
+            "Create ONE approved hot memory item under 90 Agent/Memory. Server generates the "
+            "UUID; no path is accepted. An exact duplicate (same kind + normalized text) "
+            "returns status=noop instead of creating another file. Obvious credential material "
+            "is rejected. " + _H2_APPROVAL_NOTE
+        ),
+        annotations=_write_annotations(idempotent=False),
+    )
+    async def hot_memory_store(
+        kind: MemoryKindValue,
+        title: Annotated[str, Field(min_length=1, max_length=120)],
+        text: Annotated[str, Field(min_length=1, max_length=1200)],
+        source_mode: SourceModeValue,
+        importance: Annotated[int, Field(ge=1, le=3)] = 2,
+        expires_at: str | None = None,
+        related_forkos_ids: RelatedIds = None,
+        tags: MemoryTags = None,
+        ctx: Context | None = None,
+    ) -> AgentEnvelope[ActionReceipt]:
+        return await _run_write(
+            tool="hot_memory_store",
+            source="f0rknbrain",
+            factory=lambda supplied: HotMemoryStoreIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        kind=kind,
+                        title=title,
+                        text=text,
+                        source_mode=source_mode,
+                        importance=importance,
+                        expires_at=expires_at,
+                        related_forkos_ids=related_forkos_ids or [],
+                        tags=tags or [],
+                    ),
+                )
+            ),
+            action=hm_svc.store_memory,
+            ctx=ctx,
+        )
+
+    @server.tool(
+        name="hot_memory_update",
+        description=(
+            "Correct or refine ONE existing hot memory. Requires expected_revision (sha256 of "
+            "the current file); a stale revision fails with HOT_MEMORY_STALE and changes "
+            "nothing. An omitted field is preserved; an explicit null clears expiry. Status "
+            "changes use hot_memory_retire. " + _H2_APPROVAL_NOTE
+        ),
+        annotations=_write_annotations(idempotent=True),
+    )
+    async def hot_memory_update(
+        memory_id: str,
+        expected_revision: Annotated[str, Field(min_length=64, max_length=64)],
+        kind: MemoryKindValue | None = None,
+        title: Annotated[str | None, Field(max_length=120)] = None,
+        text: Annotated[str | None, Field(max_length=1200)] = None,
+        importance: Annotated[int | None, Field(ge=1, le=3)] = None,
+        expires_at: str | None = None,
+        related_forkos_ids: RelatedIds = None,
+        tags: MemoryTags = None,
+        ctx: Context | None = None,
+    ) -> AgentEnvelope[ActionReceipt]:
+        return await _run_write(
+            tool="hot_memory_update",
+            source="f0rknbrain",
+            factory=lambda supplied: HotMemoryUpdateIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        memory_id=memory_id,
+                        expected_revision=expected_revision,
+                        kind=kind,
+                        title=title,
+                        text=text,
+                        importance=importance,
+                        expires_at=expires_at,
+                        related_forkos_ids=related_forkos_ids,
+                        tags=tags,
+                    ),
+                )
+            ),
+            action=hm_svc.update_memory,
+            ctx=ctx,
+        )
+
+    @server.tool(
+        name="hot_memory_retire",
+        description=(
+            "Stop using ONE hot memory while preserving historical evidence: status becomes "
+            "retired and the item leaves active context. This is NOT deletion - the Markdown "
+            "file and its Git history remain. Requires expected_revision. "
+            + _H2_APPROVAL_NOTE
+        ),
+        annotations=_write_annotations(idempotent=True),
+    )
+    async def hot_memory_retire(
+        memory_id: str,
+        expected_revision: Annotated[str, Field(min_length=64, max_length=64)],
+        reason: Annotated[str | None, Field(max_length=240)] = None,
+        ctx: Context | None = None,
+    ) -> AgentEnvelope[ActionReceipt]:
+        return await _run_write(
+            tool="hot_memory_retire",
+            source="f0rknbrain",
+            factory=lambda supplied: HotMemoryRetireIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        memory_id=memory_id,
+                        expected_revision=expected_revision,
+                        reason=reason,
+                    ),
+                )
+            ),
+            action=hm_svc.retire_memory,
             ctx=ctx,
         )
