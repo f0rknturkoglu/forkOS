@@ -86,13 +86,13 @@ def test_todo_create_bounds():
     with pytest.raises(ValidationError):
         TodoCreateIn(title="Test", description="d" * 5001)
 
-    # Priority 1..4
-    assert TodoCreateIn(title="Test", priority=1).priority == 1
-    assert TodoCreateIn(title="Test", priority=4).priority == 4
+    # Priority 0..3
+    assert TodoCreateIn(title="Test", priority=0).priority == 0
+    assert TodoCreateIn(title="Test", priority=3).priority == 3
     with pytest.raises(ValidationError):
-        TodoCreateIn(title="Test", priority=0)
+        TodoCreateIn(title="Test", priority=-1)
     with pytest.raises(ValidationError):
-        TodoCreateIn(title="Test", priority=5)
+        TodoCreateIn(title="Test", priority=4)
 
     # Datetimes and date validation
     valid_iso = "2026-09-25T14:30:00Z"
@@ -104,6 +104,10 @@ def test_todo_create_bounds():
     )
     assert m_dates.due_at == valid_iso
     assert m_dates.plan_day == "2026-09-25"
+
+    # Whitespace stripping on datetimes
+    m_ws_date = TodoCreateIn(title="Test", due_at=" 2026-09-25T14:30:00Z ")
+    assert m_ws_date.due_at == "2026-09-25T14:30:00Z"
 
     with pytest.raises(ValidationError):
         TodoCreateIn(title="Test", due_at="invalid-date")
@@ -121,6 +125,10 @@ def test_todo_create_bounds():
         parent_id=valid_uuid,
     )
     assert m_uuids.project_id == valid_uuid
+
+    # Whitespace stripping on UUID
+    m_ws_uuid = TodoCreateIn(title="Test", project_id=" 11111111-1111-1111-1111-111111111111 ")
+    assert m_ws_uuid.project_id == "11111111-1111-1111-1111-111111111111"
 
     with pytest.raises(ValidationError):
         TodoCreateIn(title="Test", project_id="not-a-uuid")
@@ -166,7 +174,7 @@ def test_todo_update_extra_forbid():
     with pytest.raises(ValidationError):
         TodoUpdateIn(todo_id=valid_uuid, title="   ")
     with pytest.raises(ValidationError):
-        TodoUpdateIn(todo_id=valid_uuid, priority=5)
+        TodoUpdateIn(todo_id=valid_uuid, priority=4)
 
 
 def test_todo_plan_bounds():
@@ -197,6 +205,10 @@ def test_project_update_disallows_rename():
     valid_uuid = str(uuid.uuid4())
     m = ProjectUpdateIn(project_id=valid_uuid, next_action="Ship H1")
     assert m.next_action == "Ship H1"
+
+    # Next action stripped
+    m_ws = ProjectUpdateIn(project_id=valid_uuid, next_action="  Ship H1  ")
+    assert m_ws.next_action == "Ship H1"
 
     # Next action max 500 chars
     with pytest.raises(ValidationError):
@@ -286,7 +298,9 @@ def test_bookmark_capture_bounds():
     m_default = BookmarkCaptureIn(url="http://example.com")
     assert m_default.collection == "inbox"
 
-    # URL must start with http:// or https://
+    # URL must start with http:// or https:// and have non-empty host
+    with pytest.raises(ValidationError):
+        BookmarkCaptureIn(url="https://")
     with pytest.raises(ValidationError):
         BookmarkCaptureIn(url="ftp://example.com")
     with pytest.raises(ValidationError):
@@ -310,6 +324,10 @@ def test_bookmark_capture_bounds():
     with pytest.raises(ValidationError):
         BookmarkCaptureIn(url="https://example.com", tags=[f"t{i}" for i in range(21)])
 
+    # Tags stripping and ignoring empty
+    m_clean_tags = BookmarkCaptureIn(url="https://example.com", tags=["  tag1 ", "   ", "tag2  "])
+    assert m_clean_tags.tags == ["tag1", "tag2"]
+
 
 def test_bookmark_update_bounds():
     valid_uuid = str(uuid.uuid4())
@@ -323,6 +341,10 @@ def test_bookmark_update_bounds():
     assert m.collection == "archive"
     assert m.favorite is True
     assert m.read_status == "read"
+
+    # Extra forbid
+    with pytest.raises(ValidationError):
+        BookmarkUpdateIn(bookmark_id=valid_uuid, title="Extra Field")  # type: ignore[call-arg]
 
     with pytest.raises(ValidationError):
         BookmarkUpdateIn(bookmark_id="not-a-uuid")

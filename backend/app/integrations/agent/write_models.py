@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -11,8 +12,9 @@ def _validate_uuid_str(v: Any) -> str:
     if isinstance(v, uuid.UUID):
         return str(v)
     if isinstance(v, str):
+        v_stripped = v.strip()
         try:
-            return str(uuid.UUID(v))
+            return str(uuid.UUID(v_stripped))
         except (ValueError, AttributeError, TypeError) as exc:
             raise ValueError(f"Invalid UUID: {v}") from exc
     raise ValueError(f"Invalid UUID type: {type(v)}")
@@ -29,26 +31,30 @@ def _validate_iso_datetime(v: str | None) -> str | None:
         return None
     if not isinstance(v, str):
         raise ValueError("Datetime must be an ISO string")
+    v_stripped = v.strip()
     try:
-        normalized = v.replace("Z", "+00:00") if v.endswith("Z") else v
+        normalized = v_stripped.replace("Z", "+00:00") if v_stripped.endswith("Z") else v_stripped
         datetime.fromisoformat(normalized)
     except Exception as exc:
         raise ValueError(f"Invalid ISO datetime: {v}") from exc
-    return v
+    return v_stripped
 
 
 def _validate_date_str(v: str | None) -> str | None:
     if v is None:
         return None
-    if not isinstance(v, str) or len(v) != 10:
+    if not isinstance(v, str):
+        raise ValueError("Date must be a string")
+    v_stripped = v.strip()
+    if len(v_stripped) != 10:
         raise ValueError("Date must be in YYYY-MM-DD format")
     try:
-        parsed = datetime.strptime(v, "%Y-%m-%d")
-        if parsed.strftime("%Y-%m-%d") != v:
+        parsed = datetime.strptime(v_stripped, "%Y-%m-%d")
+        if parsed.strftime("%Y-%m-%d") != v_stripped:
             raise ValueError("Invalid calendar date")
     except Exception as exc:
-        raise ValueError("Invalid date format, expected YYYY-MM-DD") from exc
-    return v
+        raise ValueError(f"Invalid date format, expected YYYY-MM-DD: {v}") from exc
+    return v_stripped
 
 
 def _validate_url_str(v: str) -> str:
@@ -59,18 +65,22 @@ def _validate_url_str(v: str) -> str:
         raise ValueError("URL must start with http:// or https://")
     if len(v_stripped) > 2048:
         raise ValueError("URL cannot exceed 2048 characters")
+    parsed = urlsplit(v_stripped)
+    if not parsed.netloc:
+        raise ValueError("URL must contain a valid domain / host")
     return v_stripped
 
 
 def _validate_tags_list(v: list[str] | None) -> list[str] | None:
     if v is None:
         return None
-    if len(v) > 20:
+    cleaned = [t.strip() for t in v if t and t.strip()]
+    if len(cleaned) > 20:
         raise ValueError("Cannot have more than 20 tags")
-    for tag in v:
+    for tag in cleaned:
         if len(tag) > 50:
             raise ValueError("Each tag cannot exceed 50 characters")
-    return v
+    return cleaned
 
 
 class ActionReceipt(BaseModel):
@@ -89,7 +99,7 @@ class ActionReceipt(BaseModel):
 class TodoCreateIn(BaseModel):
     title: str
     description: str | None = Field(default=None, max_length=5000)
-    priority: int = Field(default=2, ge=1, le=4)
+    priority: int = Field(default=2, ge=0, le=3)
     due_at: str | None = None
     reminder_at: str | None = None
     plan_day: str | None = None
@@ -130,7 +140,7 @@ class TodoCreateIn(BaseModel):
     @classmethod
     def validate_tags(cls, v: list[str]) -> list[str]:
         res = _validate_tags_list(v)
-        return res or []
+        return res if res is not None else []
 
 
 class TodoUpdateIn(BaseModel):
@@ -139,7 +149,7 @@ class TodoUpdateIn(BaseModel):
     todo_id: str
     title: str | None = None
     description: str | None = Field(default=None, max_length=5000)
-    priority: int | None = Field(default=None, ge=1, le=4)
+    priority: int | None = Field(default=None, ge=0, le=3)
     due_at: str | None = None
     reminder_at: str | None = None
     tags: list[str] | None = None
@@ -205,6 +215,16 @@ class ProjectUpdateIn(BaseModel):
     @classmethod
     def validate_project_id(cls, v: Any) -> str:
         return _validate_uuid_str(v)
+
+    @field_validator("next_action")
+    @classmethod
+    def validate_next_action(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        stripped = v.strip()
+        if len(stripped) > 500:
+            raise ValueError("next_action cannot exceed 500 characters")
+        return stripped
 
     @field_validator("expected_updated_at")
     @classmethod
@@ -293,10 +313,12 @@ class BookmarkCaptureIn(BaseModel):
     @classmethod
     def validate_tags(cls, v: list[str]) -> list[str]:
         res = _validate_tags_list(v)
-        return res or []
+        return res if res is not None else []
 
 
 class BookmarkUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     bookmark_id: str
     collection: Literal["inbox", "bookmarks", "archive"] | None = None
     favorite: bool | None = None
