@@ -281,23 +281,65 @@ async def test_rejected_request_changes_nothing(
 # ---------------------------------------------------------------------------
 
 
-async def test_limit_and_depth_are_clamped_not_trusted(
-    db_session: AsyncSession, vault: Path
-) -> None:
-    seed = Entity(type="project", title="ClampSeed", search_text="")
+async def _seed_for_bounds(db_session: AsyncSession) -> Entity:
+    seed = Entity(type="project", title="BoundSeed", search_text="")
     db_session.add(seed)
     await db_session.flush()
+    return seed
 
-    bundle = await ev.retrieve_evidence(
-        db_session,
-        query="clamp",
-        entity_id=str(seed.id),
-        max_depth=99,
-        limit=10_000,
-    )
-    assert len(bundle.evidence) <= MAX_EVIDENCE_LIMIT
-    depth_step = next(step for step in bundle.retrieval_trace if step.stage == "graph")
-    assert f"depth {MAX_EVIDENCE_DEPTH}" in depth_step.description
+
+async def test_direct_service_rejects_depth_below_min(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    seed = await _seed_for_bounds(db_session)
+    with pytest.raises(ev.EvidenceError, match="INVALID_MAX_DEPTH"):
+        await ev.retrieve_evidence(db_session, query="bound", entity_id=str(seed.id), max_depth=-1)
+
+
+async def test_direct_service_rejects_depth_above_max(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§39/§135: aralık dışı derinlik KIRPILMAZ; sessizce 2'ye düşürülmez."""
+    seed = await _seed_for_bounds(db_session)
+    with pytest.raises(ev.EvidenceError, match="INVALID_MAX_DEPTH"):
+        await ev.retrieve_evidence(db_session, query="bound", entity_id=str(seed.id), max_depth=3)
+
+
+async def test_direct_service_rejects_limit_below_min(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    seed = await _seed_for_bounds(db_session)
+    with pytest.raises(ev.EvidenceError, match="INVALID_LIMIT"):
+        await ev.retrieve_evidence(db_session, query="bound", entity_id=str(seed.id), limit=0)
+
+
+async def test_direct_service_rejects_limit_above_max(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§39/§135: `limit=16` reddedilir; sessizce 15'e düşürülmez."""
+    seed = await _seed_for_bounds(db_session)
+    with pytest.raises(ev.EvidenceError, match="INVALID_LIMIT"):
+        await ev.retrieve_evidence(db_session, query="bound", entity_id=str(seed.id), limit=MAX_EVIDENCE_LIMIT + 1)
+
+
+async def test_rejected_bounds_perform_no_retrieval_work(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """Geçersiz sınır pahalı işe GİRMEDEN reddedilir ve hiçbir şey değiştirmez."""
+    (vault / "30 Knowledge").mkdir()
+    (vault / "30 Knowledge" / "Rust.md").write_text("# Rust\n", encoding="utf-8")
+    seed = await _seed_for_bounds(db_session)
+    db_before = await capture_db_content_fingerprint(db_session)
+    vault_before = capture_vault_fingerprint(vault)
+
+    for kwargs in ({"max_depth": 3}, {"limit": 16}, {"max_depth": -1}, {"limit": 0}):
+        with pytest.raises(ev.EvidenceError):
+            await ev.retrieve_evidence(
+                db_session, query="bound", entity_id=str(seed.id), **kwargs  # type: ignore[arg-type]
+            )
+
+    assert await capture_db_content_fingerprint(db_session) == db_before
+    assert capture_vault_fingerprint(vault) == vault_before
 
 
 async def test_query_only_forces_depth_zero(db_session: AsyncSession, vault: Path) -> None:

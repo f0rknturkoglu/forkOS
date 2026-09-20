@@ -274,3 +274,45 @@ async def test_transport_enforces_character_budget(db_session: AsyncSession, vau
     assert len(data["evidence"]) <= 15
     assert sum(len(item["excerpt"]) for item in data["evidence"]) <= MAX_TOTAL_EVIDENCE_CHARS
     assert data["truncated"] is True
+
+
+async def test_transport_returns_canonical_direction_in_relation_path(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§95: kanonik Link yönü gerçek `/mcp` yanıtında da korunur."""
+    world = await _seed_world(db_session, vault)
+
+    async with mcp_session() as session:
+        payload = tool_payload(
+            await session.call_tool(
+                "forkos_evidence",
+                {**EVIDENCE_ARGS, "entity_id": world["project_id"], "scope": "operational"},
+            )
+        )
+
+    item = next(
+        entry for entry in payload["data"]["evidence"] if entry["source_id"] == world["todo_id"]
+    )
+    hop = item["relation_path"][0]
+
+    assert hop["kind"] == "entity_link"
+    assert hop["relation"] == "belongs_to"
+    assert hop["direction"] == "incoming"
+    assert hop["from_ref"] == f"entity:{world['project_id']}"
+    assert hop["to_ref"] == f"entity:{world['todo_id']}"
+
+
+async def test_transport_rejects_out_of_range_bounds_before_handler(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§42: gerçek MCP'de şema ilk savunmadır; aralık dışı sınır handler'a ulaşmaz."""
+    await _seed_world(db_session, vault)
+
+    async with mcp_session() as session:
+        too_deep = await session.call_tool("forkos_evidence", {"query": "Rust", "max_depth": 99})
+        too_many = await session.call_tool("forkos_evidence", {"query": "Rust", "limit": 10000})
+
+    assert too_deep.is_error is True
+    assert too_many.is_error is True
+    assert "2" in too_deep.content[0].text
+    assert "15" in too_many.content[0].text
