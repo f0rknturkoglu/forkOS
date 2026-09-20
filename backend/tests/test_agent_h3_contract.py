@@ -68,6 +68,7 @@ H2_TOOLS = {
 H3_TOOLS = {"forkos_evidence"}
 H4_TOOLS = {"forkos_local_cognition"}
 H5_TOOLS = {"forkos_review_intelligence"}
+H6_TOOLS = {"forkos_proactivity"}
 
 #: Yasak alan adları: sahte kesinlik ve yanıt üretimi sözleşmeye SIZAMAZ.
 FORBIDDEN_FIELD_NAMES = (
@@ -130,9 +131,9 @@ def _property_names(schema: dict) -> set[str]:
 
 async def test_tool_surface_is_exactly_26_with_one_h3_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 27
+    assert len(tools) == 28
     assert set(tools) & H3_TOOLS == H3_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS
+    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS
     assert len(H0_TOOLS) == 8 and len(H1_TOOLS) == 11 and len(H2_TOOLS) == 5
 
 

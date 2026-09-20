@@ -18,6 +18,7 @@ import {
 } from "@/core/workspace/Workspace";
 import { TodayWidgetsSection } from "./TodayWidgetsSection";
 import { NotificationsSection } from "./NotificationsSection";
+import { ProactivitySection } from "./ProactivitySection";
 import {
   CareerProfileSection,
   DangerZoneSection,
@@ -350,6 +351,7 @@ export function SettingsPage() {
           {tab === "notifications" && (
             <Pane>
               <NotificationsSection />
+              <ProactivitySection online={online} />
               <WeatherSection
                 online={online}
                 weatherLoc={weatherLoc}

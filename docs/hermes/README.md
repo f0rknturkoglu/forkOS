@@ -4,7 +4,7 @@ Hermes ve forkOS arasındaki resmi entegrasyon katmanı. Kişisel işletim siste
 (forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka
 ajanlarına **bounded** bir MCP yüzeyiyle açar.
 
-Yüzey **H0 → H5** boyunca büyüdü ve bugün toplam **27** araçtır:
+Yüzey **H0 → H6** boyunca büyüdü ve bugün toplam **28** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
@@ -14,6 +14,8 @@ H3   1 araç   kökenli, sınırlı KANIT getirme (forkos_evidence)
 H4   1 araç   YEREL biliş router'ı: sınıflandırma/çıkarım/yeniden yazım
 H5   1 araç   GÖZDEN GEÇİRME zekâsı: süreklilik, gün kapanışı, haftalık,
               dönem deltası ve konsolidasyon adayları (forkos_review_intelligence)
+H6   1 araç   PROAKTİF dikkat kontrolü: kural/koşu durumu, konfigürasyon ve
+              kullanıcı override'ı (forkos_proactivity)
 ```
 
 > Bu dokümanın eski başlığı "Brain Interface Foundation (H0)" idi; H0 artık
@@ -37,7 +39,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │      27 Bounded MCP Tools      │
+                       │      28 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐
@@ -74,12 +76,13 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 
 ---
 
-## 3. Sağlanan MCP Araçları (27)
+## 3. Sağlanan MCP Araçları (28)
 
-Arayüz toplam **27** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+Arayüz toplam **28** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 (H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3) + **1 yerel biliş**
-(H4) + **1 gözden geçirme** (H5). Yazma araçları `readOnlyHint=false` taşır ve
-`trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
+(H4) + **1 gözden geçirme** (H5) + **1 proaktif dikkat** (H6). Yazma araçları
+`readOnlyHint=false` taşır ve `trust: untrusted` bir istemcide kullanıcı onayı
+gerektirir.
 
 ### Okuma araçları (H0)
 
@@ -138,6 +141,12 @@ Arayüz toplam **27** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 | --- | --- | --- |
 | **Gözden geçirme** | `forkos_review_intelligence` | Kanonik duruma bağlı, sınırlı ve deterministik gözden geçirme: `continuity` ("nerede kalmıştım?"), `daily_close`, `weekly_review`, `period_delta`, `consolidation_review`. Her olgu `support_refs` ve `source_manifest` taşır; terfi/bilgi sağlığı/yeniden yüzey çıktıları **adaydır**, doğruluk değildir. Hiçbir şey yazmaz (Review/Todo/Entity/Event/Vault/Sıcak Hafıza mutasyonu ve otomatik özet saklama yok). Yerel model yardımı (H4) isteğe bağlıdır ve yokluğunda çıktı deterministik kalır. Salt-okunur. |
 
+### Proaktif dikkat aracı (H6)
+
+| Kategori | Araç Adı | Açıklama |
+| --- | --- | --- |
+| **Dikkat** | `forkos_proactivity` | H6'nın **ne zaman** devreye gireceğini inceler ve ayarlar: `status`, `configure`, `rule_set`, `snooze`, `unsnooze`, `history`, `evaluate_now`. Kural kümesi **kapalıdır** (`morning_continuity`, `daily_close`, `weekly_review`, `deadline_staircase`, `continuity_gap`, `project_stalled`); serbest ifade/cron/SQL/prompt reddedilir. Sessizlik başarılı bir sonuçtur: tetik yalnızca "şimdi değerlendir" demektir. `snooze` saat dilimli mutlak bir zamandır ve otomasyonun her zaman saygı duyduğu açık kullanıcı override'ıdır. Yalnızca H6 konfigürasyonunu ve override durumunu yazar; Todo/Project/Opportunity/Review/Vault/Sıcak Hafıza mutasyonu yapmaz ve arka plan worker'ı canonical mutasyon gerçekleştirmez. |
+
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [Onay modeli](h1-safe-actions.md) ·
 [H2 Sıcak Hafıza](h2-hot-memory.md) ·
@@ -152,7 +161,10 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [H4 Kurulum](h4-setup.md) ·
 [H5 Gözden Geçirme Zekâsı](h5-review-intelligence.md) ·
 [H5 Araç Sözleşmesi](h5-tool-contract.md) ·
-[H5 Kaynak ve Konsolidasyon Politikası](h5-source-and-consolidation-policy.md)
+[H5 Kaynak ve Konsolidasyon Politikası](h5-source-and-consolidation-policy.md) ·
+[H6 Proaktivite](h6-proactivity.md) ·
+[H6 Karar Politikası](h6-policy.md) ·
+[H6 Araç Sözleşmesi](h6-tool-contract.md)
 
 ---
 
@@ -170,4 +182,7 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [H5 Gözden Geçirme Zekâsı](h5-review-intelligence.md): sorumluluk paylaşımı, olgu/aday/öneri ayrımı, beş mod, süreklilik felsefesi ve bozulmuş mod davranışı.
 - [H5 Araç Sözleşmesi](h5-tool-contract.md): imza, mod/argüman kuralları, zaman semantiği, sınırlar, kodlar ve örnek çıktı.
 - [H5 Kaynak ve Konsolidasyon Politikası](h5-source-and-consolidation-policy.md): episodic ≠ semantic, aday ≠ hafıza, kaynak kilidi, varış yeri politikası ve kapsam dürüstlüğü.
+- [H6 Proaktivite ve Dikkat Kontrolü](h6-proactivity.md): ürün kimliği (H6 = WHEN), boru hattı, kural aileleri, sessizlik felsefesi ve "Neler YOK".
+- [H6 Karar Politikası](h6-policy.md): karar sırası, kategoriler, kuiet saatleri, cooldown ≠ debounce, neden-şimdi ve sınırlar.
+- [H6 Araç Sözleşmesi](h6-tool-contract.md): `forkos_proactivity` imzası, işlem tablosu, REST uçları, hata kodları ve örnek çıktılar.
 - [H-Serisi Yol Haritası (H0 → H6)](roadmap.md): Beyin arayüzünün H0 temelinden H6 tam otonom eşlikçiye evrilme planı.

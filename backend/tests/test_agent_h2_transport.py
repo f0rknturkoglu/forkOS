@@ -87,10 +87,10 @@ async def _current_revision(vault: Path, memory_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def test_mcp_tool_surface_is_27() -> None:
+async def test_mcp_tool_surface_is_28() -> None:
     async with mcp_session() as session:
         tools = {t.name: t for t in (await session.list_tools()).tools}
-    assert len(tools) == 27
+    assert len(tools) == 28
     assert set(tools) >= H2_TOOL_NAMES
 
 

@@ -87,7 +87,7 @@ async def test_surface_and_annotations_over_transport() -> None:
     async with mcp_session() as session:
         tools = {tool.name: tool for tool in (await session.list_tools()).tools}
 
-    assert len(tools) == 27
+    assert len(tools) == 28
     wire = tools["forkos_local_cognition"].annotations.model_dump(by_alias=True, exclude_none=True)
     assert wire["readOnlyHint"] is True
     assert wire["destructiveHint"] is False

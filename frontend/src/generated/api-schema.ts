@@ -2771,6 +2771,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/proactivity/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Config */
+        put: operations["put_config_api_proactivity_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proactivity/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get History */
+        get: operations["get_history_api_proactivity_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proactivity/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rules */
+        get: operations["get_rules_api_proactivity_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proactivity/rules/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Rule */
+        put: operations["put_rule_api_proactivity_rules__kind__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proactivity/rules/{kind}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Snooze Rule
+         * @description Kural duzeyinde override: "bu hafta dürtme" (§26/§108).
+         */
+        post: operations["snooze_rule_api_proactivity_rules__kind__snooze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proactivity/runs/{run_id}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Snooze Run */
+        post: operations["snooze_run_api_proactivity_runs__run_id__snooze_post"];
+        /** Unsnooze Run */
+        delete: operations["unsnooze_run_api_proactivity_runs__run_id__snooze_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proactivity/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Status */
+        get: operations["get_status_api_proactivity_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects": {
         parameters: {
             query?: never;
@@ -7706,6 +7829,122 @@ export interface components {
              */
             interrupted: boolean;
         };
+        /**
+         * ProactivityConfigIn
+         * @description Yalnizca BILINEN alanlar; bilinmeyen anahtar SESSIZCE DUSMEZ (§106).
+         */
+        ProactivityConfigIn: {
+            /** Digest Time */
+            digest_time?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Focus Deferral Enabled */
+            focus_deferral_enabled?: boolean | null;
+            /** Quiet Hours End */
+            quiet_hours_end?: string | null;
+            /** Quiet Hours Start */
+            quiet_hours_start?: string | null;
+        };
+        /** ProactivityFailureOut */
+        ProactivityFailureOut: {
+            /** At */
+            at: string;
+            /** Failure Code */
+            failure_code: string | null;
+            /** Rule Kind */
+            rule_kind: string | null;
+        };
+        /**
+         * ProactivityRuleIn
+         * @description Kural ac/kapa ve esik ayari — kapali sema, serbest JSON degil.
+         */
+        ProactivityRuleIn: {
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            } | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Scope Entity Id */
+            scope_entity_id?: string | null;
+        };
+        /** ProactivityRuleOut */
+        ProactivityRuleOut: {
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Enabled */
+            enabled: boolean;
+            /** Kind */
+            kind: string;
+            /** Logical Key */
+            logical_key: string;
+            /** Snoozed Until */
+            snoozed_until?: string | null;
+            /** Version */
+            version: number;
+        };
+        /** ProactivityRunOut */
+        ProactivityRunOut: {
+            /** Delivered At */
+            delivered_at?: string | null;
+            /** Delivery Count */
+            delivery_count: number;
+            /** Failure Code */
+            failure_code?: string | null;
+            /** Id */
+            id: number;
+            /** Notification Id */
+            notification_id?: number | null;
+            /** Reason Codes */
+            reason_codes?: string[];
+            /** Rule Kind */
+            rule_kind?: string | null;
+            /** Snoozed Until */
+            snoozed_until?: string | null;
+            /** State */
+            state: string;
+            /** Subject Id */
+            subject_id?: string | null;
+            /** Subject Type */
+            subject_type?: string | null;
+            /** Triggered At */
+            triggered_at: string;
+            /** Why Now */
+            why_now?: string | null;
+        };
+        /** ProactivityStatusOut */
+        ProactivityStatusOut: {
+            /** Digest Time */
+            digest_time: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Focus Deferral Enabled */
+            focus_deferral_enabled: boolean;
+            /** Immediate Budget */
+            immediate_budget: number;
+            /** Immediate Surfaces Today */
+            immediate_surfaces_today: number;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /** Pending Deferred */
+            pending_deferred: number;
+            /** Pending Digest */
+            pending_digest: number;
+            /** Quiet Hours End */
+            quiet_hours_end: string;
+            /** Quiet Hours Start */
+            quiet_hours_start: string;
+            /** Recent Failures */
+            recent_failures: components["schemas"]["ProactivityFailureOut"][];
+            /** Rules */
+            rules: components["schemas"]["ProactivityRuleOut"][];
+            /** Worker Heartbeat */
+            worker_heartbeat?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** ProjectIn */
         ProjectIn: {
             /** Github Repo */
@@ -8333,6 +8572,17 @@ export interface components {
             matched: string[];
             /** Missing */
             missing: string[];
+        };
+        /**
+         * SnoozeIn
+         * @description Saat dilimli MUTLAK zaman; serbest metin cozumleme backend'de YOK (§108).
+         */
+        SnoozeIn: {
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
         };
         /**
          * SourceRefreshIn
@@ -15313,6 +15563,246 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_config_api_proactivity_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProactivityConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_history_api_proactivity_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rules_api_proactivity_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityRuleOut"][];
+                };
+            };
+        };
+    };
+    put_rule_api_proactivity_rules__kind__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProactivityRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    snooze_rule_api_proactivity_rules__kind__snooze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnoozeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityRuleOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    snooze_run_api_proactivity_runs__run_id__snooze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnoozeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unsnooze_run_api_proactivity_runs__run_id__snooze_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_proactivity_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProactivityStatusOut"];
                 };
             };
         };

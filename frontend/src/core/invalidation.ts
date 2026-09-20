@@ -150,7 +150,20 @@ export const AFTER = {
   "document.write": ["documents", "activity"],
   "calendar.write": ["calendar-events", "plan", "today-agenda", "activity"],
   "review.write": ["review-preview", "reviews", "todos", "plan", "activity"],
-  "settings.write": ["settings", "automation", "github-status", "google-status", "backup-status", "saved-views"],
+  // H6 kontrol yuzeyi (Ayarlar > Proaktivite + bildirim panelindeki erteleme)
+  // bu yazma olayindan beslenir: ana anahtar, esik ve erteleme durum/kural/
+  // gecmis sorgularinin ucunu de tazeler.
+  "settings.write": [
+    "settings",
+    "automation",
+    "github-status",
+    "google-status",
+    "backup-status",
+    "saved-views",
+    "proactivity-status",
+    "proactivity-rules",
+    "proactivity-history",
+  ],
   "views.write": ["views"],
   "backup.write": ["backup-status", "activity"],
   "source.sync": [

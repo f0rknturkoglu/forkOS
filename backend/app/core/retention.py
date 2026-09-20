@@ -28,6 +28,11 @@ Politika:
     okunmus/kapatilmis, importance < 3           : 90 gun
     okunmus/kapatilmis, importance >= 3          : 180 gun
     okunmamis VE kapatilmamis                    : ASLA silinmez
+  proactivity_run
+    terminal (resolved/cancelled/dismissed/failed) : 90 gun
+    aktif (candidate/deferred/digest_queued/snoozed)
+    ve teslim edilmis (delivered) kosular          : ASLA silinmez
+      (bekleyen teslim budanamaz; "neden durtuldu" sorusunun cevabi kalir)
 
 Budama `created_at`e gore yapilir. Silinen bir bildirimin `dedup_key`i
 yeniden uretilebilir hale gelir; bu yalnizca kosulu hala gecerli olan kalici
@@ -144,4 +149,26 @@ async def prune_operational(session: AsyncSession, *, now: datetime | None = Non
         "source_run": await prune_source_runs(session, now=now),
         "source_sync_batch": await prune_source_sync_batches(session, now=now),
         "notification": await prune_notifications(session, now=now),
+        "proactivity_run": await prune_proactivity_runs(session, now=now),
     }
+
+
+async def prune_proactivity_runs(session: AsyncSession, *, now: datetime | None = None) -> int:
+    """H6 kosu gecmisi: YALNIZCA terminal kosular budanir.
+
+    Bekleyen (ertelenmis/digest kuyrugunda) veya teslim edilmis kosular
+    silinmez: "neden simdi durtuldu" sorusunun cevabi ve cooldown muhasebesi
+    bu satirlara baglidir.
+    """
+    from app.modules.proactivity.models import ProactivityRun
+    from app.modules.proactivity.service import RUN_RETENTION_DAYS
+
+    moment = now or datetime.now(UTC)
+    cutoff = moment - timedelta(days=RUN_RETENTION_DAYS)
+    result = await session.execute(
+        delete(ProactivityRun).where(
+            ProactivityRun.created_at < cutoff,
+            ProactivityRun.state.in_(("resolved", "cancelled", "dismissed", "failed")),
+        )
+    )
+    return int(result.rowcount or 0)

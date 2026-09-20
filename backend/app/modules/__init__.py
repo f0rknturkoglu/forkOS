@@ -65,6 +65,7 @@ from app.modules.media import MODULE as media_module  # noqa: E402
 from app.modules.note import MODULE as note_module  # noqa: E402
 from app.modules.opportunity import MODULE as opportunity_module  # noqa: E402
 from app.modules.pomodoro import MODULE as pomodoro_module  # noqa: E402
+from app.modules.proactivity import MODULE as proactivity_module  # noqa: E402
 from app.modules.project import MODULE as project_module  # noqa: E402
 from app.modules.review import MODULE as review_module  # noqa: E402
 from app.modules.rss import MODULE as rss_module  # noqa: E402
@@ -80,6 +81,7 @@ MODULES: list[ModuleSpec] = [
     todo_module,
     today_module,
     pomodoro_module,
+    proactivity_module,
     review_module,
     opportunity_module,
     learning_module,

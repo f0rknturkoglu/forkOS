@@ -40,6 +40,39 @@ log = logging.getLogger("worker.jobs")
 CONCURRENCY = 4
 
 
+async def proactivity_tick() -> int:
+    """H6 degerlendirme turu — zamanlayicinin cagirdigi TEK proaktif is.
+
+    Ritüeller, son tarihler ve proje izleme AYRI isler DEGILDIR: hepsi bu
+    turda degerlendirilir, boylece zamanlama semantigi H6 durumunda yasar.
+
+    Tur hatasi worker dongusunu DUSURMEZ: loglanir ve sonraki tur beklenir.
+    """
+    from app.modules.proactivity import service as proactivity_service
+
+    try:
+        async with SessionLocal() as session:
+            result = await proactivity_service.tick(session)
+    except Exception:
+        log.exception("proaktivite turu basarisiz oldu -- sonraki tur beklenecek")
+        return 0
+    return result.delivered
+
+
+async def proactivity_catch_up() -> int:
+    """Aciliş telafisi: AYNI servis, `catch_up=True` (§172).
+
+    Kaynaklar tazelendikten SONRA cagrilir; boylece son tarih tavsiyesi
+    guncel veriye dayanir. Firtina korumasi H6'nin kendi durumundadir:
+    tekrarlanan tur yeni mantiksal kosu ACAMAZ.
+    """
+    from app.modules.proactivity import service as proactivity_service
+
+    async with SessionLocal() as session:
+        result = await proactivity_service.tick(session, catch_up=True)
+    return result.delivered
+
+
 async def record_worker_heartbeat() -> None:
     async with SessionLocal() as session:
         heartbeat = await session.get(Setting, WORKER_HEARTBEAT_KEY)

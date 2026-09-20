@@ -61,7 +61,6 @@ def _insight(
         type=insight_type,  # type: ignore[arg-type]
         text=text[:MAX_INSIGHT_TEXT],
         support_refs=refs,
-        source_count=len(refs),
         status=status,  # type: ignore[arg-type]
         temporal_start=temporal_start,
         temporal_end=temporal_end,

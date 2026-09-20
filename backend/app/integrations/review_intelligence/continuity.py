@@ -70,8 +70,7 @@ def _insight(
     return ReviewInsight(
         type=insight_type,  # type: ignore[arg-type]
         text=text[:MAX_INSIGHT_TEXT],
-        support_refs=[ref for ref in support_refs if ref],
-        source_count=len([ref for ref in support_refs if ref]),
+        support_refs=list(support_refs),
         status=status,  # type: ignore[arg-type]
         temporal_start=temporal_start,
         temporal_end=temporal_end,

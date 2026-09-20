@@ -125,18 +125,42 @@ async def dismiss_notification(notification_id: int, session: AsyncSession = Dep
     item.dismissed_at = now
     if item.read_at is None:
         item.read_at = now
+    # H6 kosusu da kapandi sayilir: "bildirim kapatildi, kosu sonsuza dek
+    # teslim edildi" durumu BIRAKILMAZ. Kapatmak COZMEK DEGILDIR (§24/§185).
+    await _sync_proactivity_dismissal(session, notification_id=notification_id, now=now)
     await session.commit()
     return {"ok": True}
+
+
+async def _sync_proactivity_dismissal(
+    session: AsyncSession, *, notification_id: int, now: datetime
+) -> None:
+    from app.modules.proactivity import service as proactivity_service
+
+    await proactivity_service.dismiss_for_notification(
+        session, notification_id=notification_id, now=now
+    )
 
 
 @router.post("/notifications/dismiss-all")
 async def dismiss_all_notifications(session: AsyncSession = Depends(get_session)):
     now = datetime.now(UTC)
+    # Kapatilacak kimlikler ONCE toplanir: H6 kosulari da ayni islemde
+    # kapanir, aksi halde "kapatildi ama kosu hala teslim edildi" kalirdi.
+    pending_ids = list(
+        (
+            await session.execute(
+                select(Notification.id).where(Notification.dismissed_at.is_(None))
+            )
+        ).scalars()
+    )
     result = await session.execute(
         update(Notification)
         .where(Notification.dismissed_at.is_(None))
         .values(dismissed_at=now, read_at=func.coalesce(Notification.read_at, now))
     )
+    for notification_id in pending_ids:
+        await _sync_proactivity_dismissal(session, notification_id=notification_id, now=now)
     await session.commit()
     return {"dismissed": result.rowcount or 0}
 

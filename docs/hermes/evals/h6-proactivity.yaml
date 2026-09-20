@@ -1,0 +1,883 @@
+# forkOS × Hermes — H6 (Proaktivite / Dikkat Kontrolü) karar vakaları
+#
+# Araç: forkos_proactivity · Karar noktası: policy.decide() — SAF, veritabanı ve
+# model çağrısı YOK; aynı girdi her zaman aynı kararı verir.
+# Kapsam: kapalı kural kümesi (morning_continuity, daily_close, weekly_review,
+# deadline_staircase, continuity_gap, project_stalled) + servis yaşam döngüsü.
+#
+# Tüm veriler SENTETİKTİR: gerçek kişi, gerçek kayıt veya gerçek içerik YOKTUR.
+# `state` yalnızca kategorik eşikler taşır; kişisel veri taşımaz.
+#
+# ÇAPA (tüm vakalar için):
+#   yerel şimdi = 2026-09-21T14:00:00+03:00  →  UTC 2026-09-21T11:00:00Z
+#   state.local_time verilirse yerel çapa o saate taşınır; now = yerelin UTC karşılığı.
+#
+# state alanları → policy.PolicyInput eşlemesi:
+#   master_enabled · rule_enabled · one_shot · category · delivery_count ·
+#   cooldown_hours · focus_active · focus_deferral_enabled ·
+#   immediate_surfaces_today · immediate_budget        → aynı adla
+#   snoozed: true                                      → snoozed_until = now + 3h
+#   last_delivered_at: null | "-48h" | "-8d"           → now + göreli ofset
+#   quiet_hours: null | ["HH:MM", "HH:MM"]             → (time, time) demeti
+#   local_time                                         → local_now saat/dakika
+#   (sabit) run_state = "candidate", why_now = null     → karar metnini etkilemez
+#
+# lifecycle != null → saf politika DEĞİL, servis yaşam döngüsü vakası:
+#   revalidate_failed     teslim öncesi rules.revalidate False → service.resolve_run
+#                         → reason_codes ["CONDITION_RESOLVED"]
+#   stale_trigger         service.cancel_stale_episodes (son tarih revizyonu değişti)
+#                         → ["STALE_TRIGGER"]
+#   rule_disabled         service.cancel_pending (kural kapatıldı) → ["RULE_DISABLED"]
+#   no_meaningful_content teslim anında anlamlı olgu yok → suppressed → ["NO_MEANINGFUL_CONTENT"]
+#   duplicate_delivery    bildirim dedup'ı tuttu → suppressed → ["DUPLICATE_TRIGGER"]
+#   snooze_expired        `snoozed` koşunun süresi doldu → yeniden `candidate` +
+#                         güncel karar (§7; davranış politika kararıyla aynıdır)
+#
+# expected_outcome: silent | defer | digest | surface | prepare | cancel
+#   (servis düzeyindeki "suppressed" durumu burada "silent" olarak ifade edilir)
+#
+# DURUM: 42 vaka; 20'si sessizlik/erteleme (negatif). Saf politika vakalarının
+# tamamı gerçek policy.decide() ile birebir oynatıldı.
+
+version: 1
+cases:
+  - id: h6-silent-01
+    scenario: "Ana anahtar kapalı: en kritik kategori bile sessiz kalır."
+    lifecycle: null
+    state:
+      master_enabled: false
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: silent
+    expected_reason_codes: ["PROACTIVITY_DISABLED"]
+  - id: h6-silent-02
+    scenario: "Ana anahtar kapalı; düşük öncelikli proje sinyali de sessiz."
+    lifecycle: null
+    state:
+      master_enabled: false
+      rule_enabled: true
+      one_shot: false
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: silent
+    expected_reason_codes: ["PROACTIVITY_DISABLED"]
+  - id: h6-silent-03
+    scenario: "Kural kapalı: master açık ama bu kural devre dışı."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: false
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: silent
+    expected_reason_codes: ["RULE_DISABLED"]
+  - id: h6-silent-04
+    scenario: "Ritüel kuralı kapalı; sabah penceresi açık olsa da sessiz."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: false
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "ritual"
+    expected_outcome: silent
+    expected_reason_codes: ["RULE_DISABLED"]
+  - id: h6-silent-05
+    scenario: "Kullanıcı snooze'u otomasyonun önündedir (kritik kategori dâhil)."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: true
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: silent
+    expected_reason_codes: ["USER_SNOOZED"]
+  - id: h6-silent-06
+    scenario: "Snooze sürerken tekrarlanabilir proje koşulu da sessiz."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: false
+      snoozed: true
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: silent
+    expected_reason_codes: ["USER_SNOOZED"]
+  - id: h6-silent-07
+    scenario: "Tek seferlik koşu zaten teslim edildi: tekrar bildirilmez."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 1
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: silent
+    expected_reason_codes: ["DUPLICATE_TRIGGER"]
+  - id: h6-silent-08
+    scenario: "Cooldown dolmadı (48 sa önce teslim, 168 sa bekleme)."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: false
+      snoozed: false
+      delivery_count: 1
+      last_delivered_at: "-48h"
+      cooldown_hours: 168
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: silent
+    expected_reason_codes: ["RECENTLY_SURFACED"]
+  - id: h6-silent-09
+    scenario: "Cooldown sınırı: 167 sa önce teslim, 168 sa bekleme → hâlâ sessiz."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: false
+      snoozed: false
+      delivery_count: 1
+      last_delivered_at: "-167h"
+      cooldown_hours: 168
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: silent
+    expected_reason_codes: ["RECENTLY_SURFACED"]
+  - id: h6-silent-10
+    scenario: "Anlamlı olgu yok: boş bildirim yerine sessizlik (servis)."
+    lifecycle: no_meaningful_content
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "ritual"
+    expected_outcome: silent
+    expected_reason_codes: ["NO_MEANINGFUL_CONTENT"]
+  - id: h6-silent-11
+    scenario: "Bildirim dedup'ı tuttu: aynı teslim episodu ikinci kez yazılmaz."
+    lifecycle: duplicate_delivery
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: silent
+    expected_reason_codes: ["DUPLICATE_TRIGGER"]
+  - id: h6-defer-01
+    scenario: "Kuiet saati (23:45) T-0 son tarihi bile erteler; acil istisnası yok."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: ["23:30", "08:30"]
+      local_time: "23:45"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: defer
+    expected_reason_codes: ["QUIET_HOURS", "DEADLINE_TODAY"]
+  - id: h6-defer-02
+    scenario: "Kuiet penceresi gece yarısını aşar: 03:00 hâlâ kuiet."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: ["23:30", "08:30"]
+      local_time: "03:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_tomorrow"
+    expected_outcome: defer
+    expected_reason_codes: ["QUIET_HOURS", "DEADLINE_1D"]
+  - id: h6-defer-03
+    scenario: "Pencere kapanmadan hemen önce (07:59) kuiet sürer."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: ["23:30", "08:30"]
+      local_time: "07:59"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "ritual"
+    expected_outcome: defer
+    expected_reason_codes: ["QUIET_HOURS", "RITUAL_DUE"]
+  - id: h6-defer-04
+    scenario: "Gündüz kuiet penceresi de çalışır (13:59 ∈ [12:00,14:00))."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: ["12:00", "14:00"]
+      local_time: "13:59"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "ritual"
+    expected_outcome: defer
+    expected_reason_codes: ["QUIET_HOURS", "RITUAL_DUE"]
+  - id: h6-defer-05
+    scenario: "Odak aktifken ritüel ertelenir (odak ertelemesi açık)."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: true
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "ritual"
+    expected_outcome: defer
+    expected_reason_codes: ["FOCUS_ACTIVE", "RITUAL_DUE"]
+  - id: h6-defer-06
+    scenario: "Odak aktifken yakın son tarih ertelenir (kritik değil)."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: true
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: defer
+    expected_reason_codes: ["FOCUS_ACTIVE", "DEADLINE_3D"]
+  - id: h6-defer-07
+    scenario: "Odak aktifken süreklilik dönüşü ertelenir."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: true
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "continuity_comeback"
+    expected_outcome: defer
+    expected_reason_codes: ["FOCUS_ACTIVE", "CONTINUITY_GAP"]
+  - id: h6-defer-08
+    scenario: "Odak aktifken proje sinyali ertelenir."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: false
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: true
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: defer
+    expected_reason_codes: ["FOCUS_ACTIVE", "PROJECT_STALLED"]
+  - id: h6-defer-09
+    scenario: "Kuiet odaktan önce gelir: ikisi birlikteyken gerekçe QUIET_HOURS olur."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: ["23:30", "08:30"]
+      local_time: "23:45"
+      focus_active: true
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: defer
+    expected_reason_codes: ["QUIET_HOURS", "DEADLINE_3D"]
+  - id: h6-surface-01
+    scenario: "T-0 son tarih: anlık yüzeye çıkar."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: surface
+    expected_reason_codes: ["DEADLINE_TODAY"]
+  - id: h6-surface-02
+    scenario: "T-1 son tarih: anlık yüzeye çıkar."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_tomorrow"
+    expected_outcome: surface
+    expected_reason_codes: ["DEADLINE_1D"]
+  - id: h6-surface-03
+    scenario: "T-3 son tarih, bütçe 2/3 dolu → hâlâ anlık."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 2
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: surface
+    expected_reason_codes: ["DEADLINE_3D"]
+  - id: h6-surface-04
+    scenario: "Ritüel, anlamlı sinyal buldu → anlık."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "ritual"
+    expected_outcome: surface
+    expected_reason_codes: ["RITUAL_DUE"]
+  - id: h6-surface-05
+    scenario: "Kullanıcı odak ertelemesini kapattı: odaktayken bile anlık."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: true
+      focus_deferral_enabled: false
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: surface
+    expected_reason_codes: ["DEADLINE_3D"]
+  - id: h6-surface-06
+    scenario: "Kritik kategori odak ertelemesinden muaf: T-0 odakta da anlık."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: true
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_today"
+    expected_outcome: surface
+    expected_reason_codes: ["DEADLINE_TODAY"]
+  - id: h6-surface-07
+    scenario: "Odakta T-1 de muaf; yalnız kuiet/snooze durabilir."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: true
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_tomorrow"
+    expected_outcome: surface
+    expected_reason_codes: ["DEADLINE_1D"]
+  - id: h6-digest-01
+    scenario: "T-7 son tarih: sindirilir."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_near"
+    expected_outcome: digest
+    expected_reason_codes: ["DEADLINE_7D"]
+  - id: h6-digest-02
+    scenario: "T-14 son tarih: sindirilir."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_far"
+    expected_outcome: digest
+    expected_reason_codes: ["DEADLINE_14D"]
+  - id: h6-digest-03
+    scenario: "Proje hareketsizliği: sindirilir."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: false
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: digest
+    expected_reason_codes: ["PROJECT_STALLED"]
+  - id: h6-digest-04
+    scenario: "Anlık bütçe dolsa da digest kategorisi digest kalır (bütçe yalnız surface'ı etkiler)."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 3
+      immediate_budget: 3
+      category: "deadline_near"
+    expected_outcome: digest
+    expected_reason_codes: ["DEADLINE_7D"]
+  - id: h6-digest-05
+    scenario: "Anlık bütçe doldu (3/3): T-3 kaybolmaz, digest'e düşer."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 3
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: digest
+    expected_reason_codes: ["IMMEDIATE_BUDGET_EXHAUSTED", "DEADLINE_3D"]
+  - id: h6-digest-06
+    scenario: "Bütçe doldu: T-1 anlık yerine digest'e düşer."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 3
+      immediate_budget: 3
+      category: "deadline_tomorrow"
+    expected_outcome: digest
+    expected_reason_codes: ["IMMEDIATE_BUDGET_EXHAUSTED", "DEADLINE_1D"]
+  - id: h6-digest-07
+    scenario: "Bilinmeyen kategori güvenli varsayılana düşer: digest."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "unknown_future_category"
+    expected_outcome: digest
+    expected_reason_codes: ["DIGEST_ELIGIBLE"]
+  - id: h6-digest-08
+    scenario: "Cooldown sınırı aşıldı: 169 sa önce teslim, 168 sa bekleme → yeniden aday."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: false
+      snoozed: false
+      delivery_count: 1
+      last_delivered_at: "-169h"
+      cooldown_hours: 168
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: digest
+    expected_reason_codes: ["PROJECT_STALLED"]
+  - id: h6-prepare-01
+    scenario: "Süreklilik dönüşü: önce H5 bağlamı kurulur, sonra teslim."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "continuity_comeback"
+    expected_outcome: prepare
+    expected_reason_codes: ["CONTINUITY_GAP"]
+  - id: h6-prepare-02
+    scenario: "Anlık bütçe prepare'ı ETKİLEMEZ (bütçe yalnız surface için)."
+    lifecycle: null
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 3
+      immediate_budget: 3
+      category: "continuity_comeback"
+    expected_outcome: prepare
+    expected_reason_codes: ["CONTINUITY_GAP"]
+  - id: h6-lifecycle-01
+    scenario: "Snooze süresi doldu: tur koşuyu yeniden `candidate` yapar ve GÜNCEL durumla karar verir."
+    lifecycle: snooze_expired
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: surface
+    expected_reason_codes: ["DEADLINE_3D"]
+  - id: h6-cancel-01
+    scenario: "Teslim öncesi yeniden doğrulama başarısız: koşul ortadan kalktı."
+    lifecycle: revalidate_failed
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: cancel
+    expected_reason_codes: ["CONDITION_RESOLVED"]
+  - id: h6-cancel-02
+    scenario: "Proje koşulu teslimden önce çözüldü → iptal."
+    lifecycle: revalidate_failed
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: false
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "project_stalled"
+    expected_outcome: cancel
+    expected_reason_codes: ["CONDITION_RESOLVED"]
+  - id: h6-cancel-03
+    scenario: "Son tarih revizyonu değişti: aynı konunun eski koşusu bayatlar."
+    lifecycle: stale_trigger
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "deadline_soon"
+    expected_outcome: cancel
+    expected_reason_codes: ["STALE_TRIGGER"]
+  - id: h6-cancel-04
+    scenario: "Kural kapatıldı: bekleyen teslimler iptal edilir."
+    lifecycle: rule_disabled
+    state:
+      master_enabled: true
+      rule_enabled: true
+      one_shot: true
+      snoozed: false
+      delivery_count: 0
+      last_delivered_at: null
+      cooldown_hours: null
+      quiet_hours: null
+      local_time: "14:00"
+      focus_active: false
+      focus_deferral_enabled: true
+      immediate_surfaces_today: 0
+      immediate_budget: 3
+      category: "ritual"
+    expected_outcome: cancel
+    expected_reason_codes: ["RULE_DISABLED"]

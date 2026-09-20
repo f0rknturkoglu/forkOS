@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Modlar (§17)
@@ -248,6 +248,11 @@ class ReviewInsight(BaseModel):
     referansı taşır. Kaynaksız olgu uydurma olurdu; bu yüzden kural yalnızca
     `status=fact` için değil, model düzeyinde ZORUNLUDUR. Boş ya da yalnızca
     boşluk içeren referans listesi doğrulama hatasıdır: fail-closed.
+
+    TEK DOĞRULUK KAYNAĞI (§H5.2): `source_count` çağırandan ALINMAZ; benzersiz
+    referans sayısından TÜRETİLİR. Böylece sayaç ile kanıt listesi hiçbir zaman
+    çelişemez. Kopya referanslar deterministik olarak (ilk görülme sırası
+    korunarak) tekilleştirilir; sessizce iki kez sayılmaz.
     """
 
     type: InsightType
@@ -261,12 +266,22 @@ class ReviewInsight(BaseModel):
     @field_validator("support_refs")
     @classmethod
     def _require_canonical_citation(cls, value: list[str]) -> list[str]:
-        refs = [ref for ref in value if ref and ref.strip()]
+        refs: list[str] = []
+        for ref in value:
+            text = (ref or "").strip()
+            if not text:
+                raise ValueError("support_refs must not contain blank refs")
+            if text not in refs:
+                refs.append(text)
         if not refs:
             raise ValueError("support_refs requires at least one canonical source ref")
-        if len(refs) != len(value):
-            raise ValueError("support_refs must not contain blank refs")
         return refs
+
+    @model_validator(mode="after")
+    def _derive_source_count(self) -> ReviewInsight:
+        """Sayaç türetilir: çelişkili `source_count` geçmek İMKÂNSIZDIR."""
+        self.source_count = len(self.support_refs)
+        return self
 
 
 class AttentionCandidate(BaseModel):

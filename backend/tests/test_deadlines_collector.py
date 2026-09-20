@@ -101,65 +101,42 @@ async def test_media_item_row_drops_when_unit_release_exists(client):
 
 
 # ---------------------------------------------------------------------------
-# Faz 5: merdiven ve dislama kurallari
+# Faz 5 / H6: takip satirlari ve dislama kurallari
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.no_database
-def test_deadline_rung_picks_the_nearest_threshold():
-    """Her kalan sure EN YAKIN basamaga duser; hepsi 30'a yigilmaz."""
-    from app.modules.opportunity.service import FOLLOWUP_LADDER_DAYS, deadline_rung
+async def test_follow_up_rows_are_the_canonical_take_over_source(client):
+    """Takip tarihleri artik TEK kaynaktan gelir: `pending_follow_up_rows`.
 
-    assert deadline_rung(45) is None
-    assert deadline_rung(30) == 30
-    assert deadline_rung(29) == 30
-    assert deadline_rung(14) == 14
-    assert deadline_rung(13) == 14
-    assert deadline_rung(7) == 7
-    assert deadline_rung(6) == 7
-    assert deadline_rung(3) == 3
-    assert deadline_rung(2) == 3
-    assert deadline_rung(1) == 1
-    assert deadline_rung(0) == 1
-
-    # Takip merdiveni 30 gunluk basamak tasimaz.
-    assert deadline_rung(30, FOLLOWUP_LADDER_DAYS) is None
-    assert deadline_rung(14, FOLLOWUP_LADDER_DAYS) == 14
-
-
-async def test_deadline_ladder_notifies_once_per_rung(client):
-    """Ayni esik icin tekrar tekrar bildirim uretilmez."""
-    from sqlalchemy import select
-
-    from app.core.models import Notification
-    from app.modules.opportunity.service import deadline_ladder
+    Son tarih merdiveni H6'ya tasindi; takip satirlari ayni fonksiyon
+    uzerinden H6 kuralina beslenir (ikinci bir uretici yok).
+    """
+    from app.modules.opportunity.service import pending_follow_up_rows
 
     created = await client.post(
-        "/api/opportunities", json={"title": "Merdiven testi", "kind": "job"}
+        "/api/opportunities", json={"title": "Takip testi", "kind": "job"}
     )
     assert created.status_code == 201, created.text
     item_id = created.json()["id"]
-    due = datetime.now(UTC) + timedelta(days=6, hours=1)
     assert (
-        await client.patch(f"/api/opportunities/{item_id}", json={"deadline_at": due.isoformat()})
+        await client.put(
+            f"/api/opportunities/{item_id}/application", json={"status": "applied"}
+        )
+    ).status_code in (200, 201)
+    follow_up = datetime.now(UTC) + timedelta(days=6, hours=1)
+    assert (
+        await client.patch(
+            f"/api/opportunities/{item_id}", json={"follow_up_at": follow_up.isoformat()}
+        )
     ).status_code == 200
 
     async with SessionLocal() as session:
-        first = await deadline_ladder(session)
-    async with SessionLocal() as session:
-        second = await deadline_ladder(session)
+        rows = await pending_follow_up_rows(session)
 
-    async with SessionLocal() as session:
-        rows = list(
-            (
-                await session.execute(
-                    select(Notification).where(Notification.dedup_key == f"deadline:{item_id}:7")
-                )
-            ).scalars()
-        )
-    assert first >= 1
-    assert second == 0
-    assert len(rows) == 1
+    matching = [row for row in rows if str(row["entity_id"]) == item_id]
+    assert matching, "takip tarihi yaklasan basvuru kanonik kaynakta gorunmeli"
+    assert matching[0]["sub_kind"] == "follow_up"
+    assert matching[0]["module"] == "opportunity"
 
 
 async def test_deadline_provider_drops_past_and_terminal_records(client):

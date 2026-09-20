@@ -134,7 +134,7 @@ async def queue(
 
 
 async def run() -> None:
-    from app.modules.opportunity.service import deadline_ladder
+    from app.modules.proactivity import service as proactivity_service
     from app.modules.rss import service as rss_service
     from app.worker.jobs import drain_source_sync_batches, sync_calendar, sync_github
 
@@ -152,11 +152,14 @@ async def run() -> None:
     await execute("calendar", sync_calendar)
     await execute("github", sync_github)
 
-    async def deadlines() -> int:
+    async def proactivity() -> int:
+        # Tek proaktif sahip H6'dir: elle yenileme de onu tetikler, ikinci bir
+        # son tarih merdiveni CALISTIRMAZ (yinelenen bildirim olmaz).
         async with SessionLocal() as session:
-            return await deadline_ladder(session)
+            result = await proactivity_service.tick(session, catch_up=True)
+            return result.delivered
 
-    await execute("deadlines", deadlines)
+    await execute("proactivity", proactivity)
 
     async with SessionLocal() as session:
         row = await session.get(Setting, STATUS_KEY)

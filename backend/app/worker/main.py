@@ -16,11 +16,9 @@ from app.core.heartbeat import HEARTBEAT_INTERVAL_MINUTES
 from app.db import SessionLocal
 from app.modules.opportunity.service import (
     backfill_skill_match_ratios,
-    deadline_ladder,
     prune_stale_opportunities,
 )
 from app.modules.system.maintenance import run_maintenance
-from app.worker.digest import morning_digest
 from app.worker.jobs import (
     catch_up,
     catch_up_media,
@@ -30,6 +28,8 @@ from app.worker.jobs import (
     poll_feeds,
     poll_media,
     poll_opportunities,
+    proactivity_catch_up,
+    proactivity_tick,
     record_worker_heartbeat,
     sync_calendar,
     sync_github,
@@ -113,19 +113,23 @@ async def main() -> None:
         coalesce=True,
     )
 
-    async def deadlines() -> None:
-        async with SessionLocal() as session:
-            await deadline_ladder(session)
-
     async def backfill_opportunity_skill_matches() -> None:
         async with SessionLocal() as session:
             updated = await backfill_skill_match_ratios(session)
             if updated:
                 log.info("CV eslesme cache'i tamamlandi: %d ilan", updated)
 
-    scheduler.add_job(deadlines, "cron", hour=8, id="deadline_ladder")
-    # Son tarih merdiveninden HEMEN SONRA: ozet o turun bildirimlerini de sayar.
-    scheduler.add_job(morning_digest, "cron", hour=8, minute=5, id="morning_digest")
+    # TEK proaktif is: ritüel/son tarih/proje kararlari bu turun ICINDE
+    # verilir (dakikada bir "bakilacak bir sey var mi?" kontrolu). Kullaniciya
+    # giden cadence H6 politikasindadir, zamanlayicida DEGIL.
+    scheduler.add_job(
+        proactivity_tick,
+        "interval",
+        minutes=1,
+        id="proactivity_tick",
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.add_job(
         sync_calendar,
         "interval",
@@ -149,8 +153,8 @@ async def main() -> None:
         ("critical_catch_up", critical_catch_up),
         ("catch_up_feeds", catch_up),
         ("catch_up_media", catch_up_media),
-        ("deadlines", deadlines),
-        ("morning_digest", morning_digest),
+        # Kaynaklar tazelendikten SONRA: H6 telafisi guncel duruma bakar.
+        ("proactivity_catch_up", proactivity_catch_up),
         ("sync_calendar", sync_calendar),
         ("sync_github", sync_github),
         ("nightly_backup", nightly_backup),

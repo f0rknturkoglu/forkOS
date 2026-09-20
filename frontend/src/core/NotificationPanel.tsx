@@ -3,7 +3,9 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bell, BellOff, CheckCheck, X } from "lucide-react";
 import { api } from "./api";
-import { Empty, Popover, cx, relativeTime } from "./ui";
+import { PROACTIVITY_HISTORY_KEY, proactivityHistory } from "./proactivity";
+import { SnoozePresetList, useRunSnoozeMutation } from "./ProactivitySnooze";
+import { Empty, IconButton, Popover, cx, relativeTime } from "./ui";
 import type { Notification } from "./types";
 import { entityRoute } from "./entityRegistry";
 
@@ -13,6 +15,10 @@ import { entityRoute } from "./entityRegistry";
  * Bildirimler modul-ustu: kaynak koşumu, son tarih merdiveni ve fırsat özeti
  * hepsi tek /notifications ucundan gelir. Bu yuzden core'da duruyor, bir
  * modulun icinde degil.
+ *
+ * H6 bildirimleri (`kind` "proactivity" ile baslar) ertelenebilir: kosu
+ * gecmisi `notification_id` ile eslesir ve menu panelin TEPESINDE acilir --
+ * liste kaydirilabilir bir kutu oldugu icin satir ici menu kirpilirdi.
  */
 
 /** Bildirimin hedefi -- once entity turu (kayit defterinden), o yoksa tur. */
@@ -38,7 +44,9 @@ const DOT: Record<number, string> = { 1: "bg-icon", 2: "bg-warn", 3: "bg-danger"
 
 export function NotificationPanel() {
   const [open, setOpen] = useState(false);
+  const [snoozeTarget, setSnoozeTarget] = useState<{ runId: number; headline: string } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const snoozeAnchorRef = useRef<HTMLElement | null>(null);
 
   const { data: items = [] } = useQuery({
     queryKey: ["notifications"],
@@ -46,6 +54,19 @@ export function NotificationPanel() {
     refetchInterval: 60_000,
   });
   const unread = items.filter((item) => !item.read_at).length;
+
+  /* Kosu gecmisi yalniz panel acikken ve gercekten H6 bildirimi varken cekilir:
+     eslesme yoksa satirda erteleme kontrolu GORUNMEZ. */
+  const hasProactivity = items.some((item) => item.kind.startsWith("proactivity"));
+  const { data: proactivityData } = useQuery({
+    queryKey: [PROACTIVITY_HISTORY_KEY],
+    queryFn: proactivityHistory,
+    enabled: open && hasProactivity,
+    refetchInterval: 60_000,
+  });
+  const runs = Array.isArray(proactivityData) ? proactivityData : [];
+
+  const snooze = useRunSnoozeMutation(() => setSnoozeTarget(null));
 
   const read = useMutation({
     mutationFn: (id: number) => api.post(`/notifications/${id}/read`),
@@ -140,44 +161,92 @@ export function NotificationPanel() {
             </div>
           ) : (
             <ul>
-              {items.map((item) => (
-                <li key={item.id} className="group relative border-b border-subtle last:border-b-0">
-                  <button
-                    type="button"
-                    onClick={() => openItem(item)}
-                    className={cx(
-                      "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-surface-hover",
-                      !item.read_at && "bg-accent-surface/40",
-                    )}
-                  >
-                    <span
-                      className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", DOT[item.importance] ?? DOT[1])}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1">
+              {items.map((item) => {
+                const run = runs.find((candidate) => candidate.notification_id === item.id);
+                const headline = run?.why_now ?? item.title;
+                return (
+                  <li key={item.id} className="group relative border-b border-subtle last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => openItem(item)}
+                      className={cx(
+                        "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-surface-hover",
+                        !item.read_at && "bg-accent-surface/40",
+                      )}
+                    >
                       <span
-                        className={cx("block text-body", item.read_at ? "text-secondary" : "font-medium text-primary")}
-                      >
-                        {item.title}
+                        className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", DOT[item.importance] ?? DOT[1])}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={cx(
+                            "block text-body",
+                            item.read_at ? "text-secondary" : "font-medium text-primary",
+                          )}
+                        >
+                          {item.title}
+                        </span>
+                        {item.body && <span className="mt-0.5 block text-meta text-muted">{item.body}</span>}
+                        <span className="mt-1 block text-meta text-muted">{relativeTime(item.created_at)}</span>
                       </span>
-                      {item.body && <span className="mt-0.5 block text-meta text-muted">{item.body}</span>}
-                      <span className="mt-1 block text-meta text-muted">{relativeTime(item.created_at)}</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => dismiss.mutate(item.id)}
-                    aria-label="Bildirimi kaldır"
-                    title="Kaldır"
-                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-control text-muted opacity-0 transition hover:bg-surface-sunken hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
-                  >
-                    <X size={14} />
-                  </button>
-                </li>
-              ))}
+                    </button>
+                    {run && (
+                      /* Tetikleyici satirda; menu panelin tepesinde acilir. Span'in
+                         tek isi tiklamayi yakalayip menuyu dogru satira baglamak. */
+                      <span
+                        className={cx(
+                          "absolute right-9 top-2 flex opacity-0 transition focus-within:opacity-100 group-hover:opacity-100",
+                          snoozeTarget?.runId === run.id && "opacity-100",
+                        )}
+                        onClick={(event) => {
+                          snoozeAnchorRef.current = event.currentTarget;
+                          setSnoozeTarget((current) =>
+                            current?.runId === run.id ? null : { runId: run.id, headline },
+                          );
+                        }}
+                      >
+                        <IconButton
+                          title="Bu bildirimi ertele"
+                          ariaExpanded={snoozeTarget?.runId === run.id}
+                          disabled={snooze.isPending}
+                        >
+                          <BellOff size={14} />
+                        </IconButton>
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => dismiss.mutate(item.id)}
+                      aria-label="Bildirimi kaldır"
+                      title="Kaldır"
+                      className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-control text-muted opacity-0 transition hover:bg-surface-sunken hover:text-primary focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <X size={14} />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
+      </Popover>
+
+      <Popover
+        open={snoozeTarget !== null}
+        onClose={() => setSnoozeTarget(null)}
+        anchorRef={snoozeAnchorRef}
+        role="menu"
+        ariaLabel="Erteleme süresi"
+        className="right-2 top-24 w-44 py-1"
+      >
+        <SnoozePresetList
+          headline={snoozeTarget?.headline ?? ""}
+          pending={snooze.isPending}
+          onPick={(preset) => {
+            if (snoozeTarget) snooze.mutate({ runId: snoozeTarget.runId, preset });
+          }}
+        />
       </Popover>
     </div>
   );

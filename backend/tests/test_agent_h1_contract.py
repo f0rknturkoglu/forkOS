@@ -124,18 +124,24 @@ async def _tools() -> dict:
 
 
 async def test_exact_public_tool_surface() -> None:
-    """§8/§48: 8 okuma + 11 yazma + 5 sıcak hafıza + 1 H3 kanıt = 25.
+    """8 okuma + 11 yazma + 5 sıcak hafıza + H3/H4/H5/H6 = 28.
 
-    H1'in kendi sözleşmesi (11 yazma aracı) değişmedi; H3 yüzeye tam olarak
-    bir salt-okunur araç ekledi.
+    H1'in kendi sözleşmesi (11 yazma aracı) değişmedi; sonraki fazlar yüzeye
+    tam olarak birer araç ekledi (H6'nınki kontrol yüzeyidir, yazan ama
+    yıkıcı olmayan tek istisna).
     """
     tool_map = await _tools()
-    assert len(tool_map) == 27
+    assert len(tool_map) == 28
     assert set(tool_map) == (
         set(READ_TOOLS)
         | set(WRITE_TOOLS)
         | set(H2_TOOLS)
-        | {"forkos_evidence", "forkos_local_cognition", "forkos_review_intelligence"}
+        | {
+            "forkos_evidence",
+            "forkos_local_cognition",
+            "forkos_review_intelligence",
+            "forkos_proactivity",
+        }
     )
 
 

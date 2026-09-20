@@ -30,7 +30,7 @@ async def test_mcp_tool_registration_and_metadata():
     assert "forkos_evidence" in tool_map
     assert "forkos_local_cognition" in tool_map
     assert "forkos_review_intelligence" in tool_map
-    assert len(tool_map) == 27
+    assert len(tool_map) == 28
 
     # 2. Okuma araçlarının sözleşmesi zayıflatılmadı.
     for name in expected_read_tools:

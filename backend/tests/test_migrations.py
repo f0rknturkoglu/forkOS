@@ -122,6 +122,12 @@ def test_module_tables_reference_entity():
         # Binary icerik `data/attachments/<sha256>` altinda; burada yalnizca
         # ad/mime/boyut/ozet var. Bagimsiz aranabilir/linklenebilir nesne degil.
         "note_attachment",
+        # H6 proaktivite motoru: kural konfigurasyonu ve kosu yasam dongusu.
+        # `source_run` ile ayni sinif operasyonel kayit -- aranabilir veya
+        # linklenebilir nesne DEGIL. Kullaniciya donuk kayit `notification`
+        # tablosudur; kosu gecmisi entity silinse de okunabilir kalmali.
+        "proactivity_rule",
+        "proactivity_run",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

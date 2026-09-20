@@ -1,4 +1,4 @@
-"""H5 MCP yüzeyi: 27 araç, tek yeni araç, anotasyonlar, şema, iç düğme yok."""
+"""H5 MCP yüzeyi: 28 araç, tek yeni araç, anotasyonlar, şema, iç düğme yok."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ H2_TOOLS = {
 H3_TOOLS = {"forkos_evidence"}
 H4_TOOLS = {"forkos_local_cognition"}
 H5_TOOLS = {"forkos_review_intelligence"}
+H6_TOOLS = {"forkos_proactivity"}
 
 #: H5'in genel yüzeye ASLA koymadığı iç düğmeler (§20).
 FORBIDDEN_PARAMETERS = {
@@ -37,9 +38,9 @@ async def _tools() -> dict:
 
 async def test_h5_adds_exactly_one_mcp_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 27
+    assert len(tools) == 28
     assert set(tools) & H5_TOOLS == H5_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS
+    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS
 
 
 async def test_h5_tool_is_read_only() -> None:
@@ -65,12 +66,18 @@ async def test_h5_schema_argument_shapes() -> None:
 
 
 async def test_no_new_write_tool_was_added() -> None:
+    """H5 kendisi yazan arac EKLEMEZ; yazan kume H1+H2 ve (H6 ile) kontroldur."""
     tools = await _tools()
     writing = {
         name for name, tool in tools.items()
         if tool.annotations is not None and tool.annotations.read_only_hint is False
     }
-    assert writing == H1_TOOLS | {"hot_memory_store", "hot_memory_update", "hot_memory_retire"}
+    assert writing == H1_TOOLS | {
+        "hot_memory_store",
+        "hot_memory_update",
+        "hot_memory_retire",
+        "forkos_proactivity",
+    }
 
 
 def test_h5_contract_has_no_scores_or_mood_fields() -> None:

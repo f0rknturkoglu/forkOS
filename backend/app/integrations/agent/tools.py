@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
-from typing import Annotated, Any
+from datetime import datetime
+from typing import Annotated, Any, Literal
 
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -73,6 +74,14 @@ IsoDay = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
 
 READ_ONLY_ANNOTATIONS = ToolAnnotations(
     readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+)
+
+#: H6 kontrol araci: YALNIZCA kendi konfigurasyon/override durumunu yazar.
+#: Yikici degil ve ayni girdiyle tekrar cagrilabilir (idempotent).
+PROACTIVITY_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=False,
     destructiveHint=False,
     idempotentHint=True,
 )
@@ -246,6 +255,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_evidence_tool(server)
     _register_local_cognition_tool(server)
     _register_review_intelligence_tool(server)
+    _register_proactivity_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -1137,3 +1147,138 @@ def _register_review_intelligence_tool(server: MCPServer) -> None:
             raise ToolError(str(exc)) from exc
         except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
             raise ToolError(f"REVIEW_INTELLIGENCE_FAILED: {type(exc).__name__}") from exc
+
+
+# ---------------------------------------------------------------------------
+# H6 proaktivite kontrol aracı (inceleme + kullanıcı override'i)
+# ---------------------------------------------------------------------------
+
+#: H6'nın KAPALI işlem kümesi: genel bir otomasyon yürütücüsü DEĞİL (§103).
+ProactivityOperation = Literal[
+    "status", "configure", "rule_set", "snooze", "unsnooze", "history", "evaluate_now"
+]
+
+#: `configure` icin KAPALI alt anahtar kumesi (serbest anahtar-deger YOK).
+PROACTIVITY_CONFIG_KEYS = frozenset(
+    {"quiet_hours_start", "quiet_hours_end", "focus_deferral_enabled", "digest_time"}
+)
+
+ProactivityKind = Annotated[str, Field(max_length=48)]
+ProactivityUntil = Annotated[str, Field(max_length=40)]
+
+
+def _register_proactivity_tool(server: MCPServer) -> None:
+    """H6'nın TEK aracını kaydeder (§101).
+
+    Araç H6'nın kendi konfigurasyon/override durumunu yazabilir; canonical
+    domain kayıtlarına (Todo/Project/Opportunity/Vault/Hot Memory/Review)
+    ASLA dokunmaz.
+    """
+
+    @server.tool(
+        name="forkos_proactivity",
+        description=(
+            "Inspect and control WHEN forkOS proactively comes to you. This is the attention "
+            "layer, not an automation engine: operations are status, configure, rule_set, "
+            "snooze, unsnooze, history and evaluate_now. Rule kinds are a CLOSED set "
+            "(morning_continuity, daily_close, weekly_review, deadline_staircase, "
+            "continuity_gap, project_stalled); arbitrary expressions, cron strings, prompts, "
+            "SQL or tool names are rejected. Silence is a successful outcome: a trigger only "
+            "means 'evaluate now', never 'notify now'. snooze takes an absolute timezone-aware "
+            "timestamp and is an explicit user override that automation always respects. "
+            "Writes are limited to proactivity configuration and override state - this tool "
+            "never mutates Todos, Projects, Opportunities, Reviews, the Vault or Hot Memory, "
+            "and the background worker never performs canonical mutations."
+        ),
+        annotations=PROACTIVITY_ANNOTATIONS,
+    )
+    async def forkos_proactivity(
+        operation: ProactivityOperation,
+        kind: ProactivityKind | None = None,
+        enabled: bool | None = None,
+        config: dict | None = None,
+        run_id: int | None = None,
+        until: ProactivityUntil | None = None,
+        limit: int | None = None,
+    ) -> dict:
+        from app.modules.proactivity import service as proactivity_service
+
+        try:
+            async with SessionLocal() as session:
+                if operation == "status":
+                    return await proactivity_service.status(session)
+                if operation == "configure":
+                    supplied = config or {}
+                    unknown = set(supplied) - PROACTIVITY_CONFIG_KEYS
+                    if unknown:
+                        raise proactivity_service.ProactivityError(
+                            "UNKNOWN_CONFIG_FIELD",
+                            f"bilinmeyen ayar alani: {sorted(unknown)}",
+                        )
+                    await proactivity_service.configure(
+                        session,
+                        enabled=enabled,
+                        quiet_hours_start=supplied.get("quiet_hours_start"),
+                        quiet_hours_end=supplied.get("quiet_hours_end"),
+                        focus_deferral_enabled=supplied.get("focus_deferral_enabled"),
+                        digest_time=supplied.get("digest_time"),
+                    )
+                    await session.commit()
+                    # Ayni islem TEK sekil dondurur: REST `configure` da durum
+                    # semasini doner, boylece iki yuzey ayrisamaz.
+                    return await proactivity_service.status(session)
+                if operation == "rule_set":
+                    if not kind:
+                        raise proactivity_service.ProactivityError(
+                            "INVALID_ARGUMENT", "rule_set icin 'kind' gerekli"
+                        )
+                    rule = await proactivity_service.rule_set(
+                        session, kind=kind, enabled=enabled, config=config
+                    )
+                    await session.commit()
+                    return {
+                        "kind": rule.kind,
+                        "enabled": rule.enabled,
+                        "config": rule.config,
+                        "snoozed_until": rule.snoozed_until.isoformat()
+                        if rule.snoozed_until
+                        else None,
+                    }
+                if operation == "snooze":
+                    if until is None:
+                        raise proactivity_service.ProactivityError(
+                            "INVALID_ARGUMENT", "snooze icin 'until' gerekli"
+                        )
+                    moment = datetime.fromisoformat(until)
+                    await proactivity_service.snooze(
+                        session, until=moment, run_id=run_id, kind=kind
+                    )
+                    await session.commit()
+                    return {"snoozed": True, "until": moment.isoformat()}
+                if operation == "unsnooze":
+                    await proactivity_service.unsnooze(session, run_id=run_id, kind=kind)
+                    await session.commit()
+                    return {"snoozed": False}
+                if operation == "history":
+                    return {"runs": await proactivity_service.history(session, limit=limit or 20)}
+                if operation == "evaluate_now":
+                    result = await proactivity_service.tick(session)
+                    return {
+                        "evaluated": result.evaluated,
+                        "candidates": result.candidates,
+                        "surfaced": result.surfaced,
+                        "digested": result.digested,
+                        "deferred": result.deferred,
+                        "suppressed": result.suppressed,
+                        "cancelled": result.cancelled,
+                        "failed": result.failed,
+                    }
+                raise proactivity_service.ProactivityError(
+                    "UNKNOWN_OPERATION", f"bilinmeyen islem: {operation}"
+                )
+        except proactivity_service.ProactivityError as exc:
+            raise ToolError(str(exc)) from exc
+        except ValueError as exc:
+            raise ToolError(f"INVALID_ARGUMENT: {exc}") from exc
+        except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
+            raise ToolError(f"PROACTIVITY_FAILED: {type(exc).__name__}") from exc

@@ -241,3 +241,39 @@ def test_review_insight_requires_a_canonical_source() -> None:
 def test_review_insight_citation_field_is_required() -> None:
     """Alan varsayılana düşemez: kaynak vermek ZORUNLUDUR."""
     assert ri.ReviewInsight.model_fields["support_refs"].is_required()
+
+
+def test_source_count_is_derived_from_citations() -> None:
+    """§H5.2: sayaç kanıt listesinden TÜRETİLİR; çelişki imkânsızdır."""
+    one = ri.ReviewInsight(type="win", text="x", support_refs=["event:1"])
+    assert one.source_count == 1
+
+    # Açıkça yanlış sayaç geçmek etkisizdir: türetim kazanır.
+    two = ri.ReviewInsight(
+        type="win", text="x", support_refs=["event:1", "entity:2"], source_count=99
+    )
+    assert two.source_count == 2
+
+    # Kopya referans İKİ KEZ sayılmaz; deterministik olarak tekilleşir.
+    duplicate = ri.ReviewInsight(type="win", text="x", support_refs=["event:1", "event:1"])
+    assert duplicate.support_refs == ["event:1"]
+    assert duplicate.source_count == 1
+
+    # Sıra KARARLIDIR: ilk görülme sırası korunur.
+    stable = ri.ReviewInsight(type="win", text="x", support_refs=["b", "a", "b"])
+    assert stable.support_refs == ["b", "a"]
+    assert stable.source_count == 2
+
+    # Boşluk kırpılır, kopya sayılmaz.
+    trimmed = ri.ReviewInsight(type="win", text="x", support_refs=[" event:7 ", "event:7"])
+    assert trimmed.support_refs == ["event:7"]
+    assert trimmed.source_count == 1
+
+
+def test_source_count_cannot_disagree_after_roundtrip() -> None:
+    """Serileştirme sonrası da tutarlı: doğrulama türetimi yeniden uygular."""
+    insight = ri.ReviewInsight(type="win", text="x", support_refs=["event:1", "entity:2"])
+    payload = insight.model_dump()
+    payload["source_count"] = 0  # düşmanca/bozuk yük
+    restored = ri.ReviewInsight.model_validate(payload)
+    assert restored.source_count == len(restored.support_refs) == 2

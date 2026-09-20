@@ -1554,48 +1554,16 @@ async def prune_stale_opportunities(
     return result
 
 
-#: Son tarih merdiveni (gun): ARTAN sirada taranir, en yakin esik kazanir.
-DEADLINE_LADDER_DAYS: tuple[int, ...] = (1, 3, 7, 14, 30)
-#: Takip hatirlatmasi merdiveni; 30 gunluk basamak takip icin cok genistir.
-FOLLOWUP_LADDER_DAYS: tuple[int, ...] = (1, 3, 7, 14)
+async def pending_follow_up_rows(session: AsyncSession) -> list[dict]:
+    """Takip tarihi yaklasan basvurular — KANONIK takip kaynagi.
 
-
-def deadline_rung(days: int, ladder: tuple[int, ...] = DEADLINE_LADDER_DAYS) -> int | None:
-    """Kac gun kala hangi basamak? Kalan sureye EN YAKIN esik secilir."""
-    return next((step for step in ladder if days <= step), None)
-
-
-async def deadline_ladder(session: AsyncSession) -> int:
-    from app.core.deadlines import collect_deadlines
-
-    rows = await collect_deadlines(session)
-    created = 0
+    Son tarih merdiveni H6'ya tasindi (`proactivity.rules`); bu fonksiyon
+    yalnizca takip satirlarini uretir, boylece tek bir proaktif uretici kalir.
+    """
     now = datetime.now(UTC)
-    for row in rows:
-        due = row["due_at"]
-        if due < now:
-            continue
-        days = (due - now).days
-        # ARTAN sirada: `days <= n` ilk uyan basamagi secer, yani EN YAKIN
-        # esigi. Azalan sirada her kayit 30 gunluk basamaga duser ve 14/7/3/1
-        # hicbir zaman uretilmezdi.
-        rung = deadline_rung(days)
-        if rung is None:
-            continue
-        if await notify(
-            session,
-            kind="deadline",
-            title=f"{row['title']} — {days} gün kaldı",
-            body="Yaklaşan son tarih",
-            entity_id=row["entity_id"],
-            importance=3 if days <= 3 else 2,
-            dedup_key=f"deadline:{row['entity_id']}:{rung}",
-        ):
-            created += 1
-    # Follow-up tarihleri de ayni merdivene girer (takip hatirlatmasi).
-    follow_rows = (
+    rows = (
         await session.execute(
-            select(Opportunity, Entity.title)
+            select(Opportunity.id, Entity.title, Opportunity.follow_up_at)
             .join(Application, Application.opportunity_id == Opportunity.id)
             .join(Entity, Entity.id == Opportunity.id)
             .where(
@@ -1605,25 +1573,21 @@ async def deadline_ladder(session: AsyncSession) -> int:
                 Application.status.not_in(list(lifecycle.APPLICATION_TERMINAL)),
                 Opportunity.trashed_at.is_(None),
             )
+            .order_by(Opportunity.follow_up_at.asc(), Opportunity.id.asc())
         )
     ).all()
-    for opportunity, entity_title in follow_rows:
-        days = (opportunity.follow_up_at - now).days
-        rung = deadline_rung(days, FOLLOWUP_LADDER_DAYS)
-        if rung is None:
-            continue
-        if await notify(
-            session,
-            kind="followup",
-            title=f"{entity_title} — {days} gün sonra takip",
-            body="Başvuru takip tarihi yaklaşıyor",
-            entity_id=opportunity.id,
-            importance=3 if days <= 3 else 2,
-            dedup_key=f"followup:{opportunity.id}:{rung}",
-        ):
-            created += 1
-    await session.commit()
-    return created
+    return [
+        {
+            "entity_id": opportunity_id,
+            "type": "opportunity_follow_up",
+            "title": entity_title,
+            "due_at": follow_up_at,
+            "module": "opportunity",
+            "sub_kind": "follow_up",
+            "priority": 2,
+        }
+        for opportunity_id, entity_title, follow_up_at in rows
+    ]
 
 
 # ═════════════════════════════════════════════════════════════════════

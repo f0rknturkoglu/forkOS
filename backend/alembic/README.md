@@ -4,7 +4,7 @@ forkOS migration zincirinin gerçeği dosya adları değil, her revision içinde
 
 ## Güncel durum
 
-- Tek head: `0057_note_trashed_from_archive`
+- Tek head: `0060_proactivity`
 - Taban: `0001_core`
 - Zincir doğrulaması: `backend/tests/test_migrations.py::test_revisions_form_a_single_chain`
 

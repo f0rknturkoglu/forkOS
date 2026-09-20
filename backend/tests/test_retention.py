@@ -214,7 +214,14 @@ async def test_prune_operational_reports_every_table() -> None:
     assert summary["source_run"] == 1
     assert summary["source_sync_batch"] == 1
     assert summary["notification"] == 0
-    assert set(summary) == {"source_run", "source_sync_batch", "notification"}
+    # H6 kosu gecmisi de ayni gunluk bakim adiminda budanir (ayri zamanlayici YOK).
+    assert summary["proactivity_run"] == 0
+    assert set(summary) == {
+        "source_run",
+        "source_sync_batch",
+        "notification",
+        "proactivity_run",
+    }
 
 
 async def test_retention_never_prunes_events() -> None:

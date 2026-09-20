@@ -4,7 +4,7 @@ forkOS ile otonom ajan ekosistemini (Hermes) birleştiren vizyon; kademeli,
 güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmıştır.
 
 ```text
-  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4 ✓            H5 ✓            H6
+  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4 ✓            H5 ✓            H6 ✓
 ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
 │  Gözler  │──>│  Eller   │──>│  Sıcak   │──>│  Kanıt   │──>│  Yerel   │──>│  Sentez  │──>│ Proaktif │
 │ Salt-    │   │ Onaylı   │   │  Hafıza  │   │  & Geri  │   │  Model   │   │  & Brif. │   │  Ajan    │
@@ -295,14 +295,59 @@ olguya uygun mu?*
 
 ---
 
-## H6 — Proactive / Scheduled Agent
+## H6 — Proactive / Scheduled Agent ✅ Tamamlandı
 
 **Soru:** *Kullanıcı sormadan ne zaman devreye girmeli?*
 
-- Yaklaşan kritik son tarihler, tıkanmış görevler, kaçırılan rutinler.
-- Düşük gürültülü, yüksek sinyalli proaktif uyarılar.
-- **H1'de yok:** arka plan yürütme, ajanın kontrol ettiği zamanlayıcı,
-  otonom mutasyon. H6'da bile her yazma onay kapısından geçer.
+- **Tek araç:** `forkos_proactivity` (yüzey 28) — yedi işlem: `status`,
+  `configure`, `rule_set`, `snooze`, `unsnooze`, `history`, `evaluate_now`.
+  Hermes hangi kararı istediğini söyler; H6 kural seçmez.
+- **Opt-in:** ana anahtar `proactivity.enabled` varsayılan **false**. Kapalıyken
+  hiçbir H6 bildirimi çıkmaz; bekleyen koşular tarihsel kalır ve tekrar
+  açıldığında **güncel** durumla yeniden değerlendirilir.
+- **Kapalı kural kümesi (6):** `morning_continuity`, `daily_close`,
+  `weekly_review`, `deadline_staircase`, `continuity_gap`, `project_stalled`.
+  Genel bir kural DSL'i, cron dizesi veya serbest istem YOKTUR; yeni davranış
+  kod yazmak demektir. Kural ayarları da kapalı şemadır (bilinmeyen alan
+  reddedilir).
+- **Sonuçlar ve sessizlik:** `silent | defer | digest | surface | prepare`.
+  Sessizlik **birincil sınıftır**: "yapacak bir şey yok" başarıdır. Tetik
+  yalnızca "şimdi değerlendir" demektir; anlamlı içerik yoksa boş bildirim
+  yerine sessizlik seçilir.
+- **Karar saf ve deterministik:** `policy.decide()` veritabanı ve model
+  çağrısı yapmaz; karar sırası kararlıdır (ana anahtar → kural → snooze →
+  tekrar → cooldown → kuiet → odak → günlük bütçe → kategori). Opak puan,
+  güven yüzdesi veya "AI skoru" YOKTUR; karar sınırlı gerekçe kodlarıyla
+  açıklanır. **H6 v1'de "dokunayım mı?" sorusunu model cevaplamaz.**
+- **Kalıcı koşu kimliği:** iki tablo (`proactivity_rule`, `proactivity_run`;
+  migration `0060_proactivity`). `logical_trigger_key` UNIQUE'tir: idempotans
+  veritabanında zorlanır, yalnızca zamanlayıcıya güvenilmez. Tablolar
+  `source_run` ile aynı sınıftır (operasyonel kayıt) ve `subject_id` bilinçli
+  olarak FK'sizdir; entity silinse bile "neden o gün dürtüldü" okunabilir kalır.
+- **Yeniden doğrulama teslimden önce:** tetikleyici payload'una asla
+  güvenilmez; koşul teslim anında güncel durumdan yeniden doğrulanır, ortadan
+  kalktıysa iptal edilir.
+- **Tek worker işi:** `proactivity_tick` (1 dakika, `max_instances=1`,
+  `coalesce=True`) + açılışta bir kez `proactivity_catch_up` (kaynaklar
+  tazelendikten **sonra**). Eski `morning_digest` ve `deadline_ladder` işleri
+  emekliye ayrıldı; zamanlama semantiği yalnızca H6'nın durumundadır.
+- **Otomatik mutasyon yok:** H6 hiçbir Todo/Project/Opportunity/Review/Vault/
+  Hot Memory kaydını değiştirmez; Entity/Event üretmez. Yazma yolu H1'dir ve
+  onay kapısından geçer. Dış push (e-posta/SMS/webhook) yoktur; teslim yalnızca
+  `notification` tablosuna yazılır.
+- Kanıt: `test_h6_policy.py` (karar tablosu, gerekçe kodlarının üretim yolu,
+  opak alan yokluğu), `test_h6_models.py`, `test_h6_rules.py`,
+  `test_h6_delivery.py`, `test_h6_service.py`, `test_h6_api.py`,
+  `test_h6_worker.py` ve gerçek `/mcp` taşıması dâhil
+  `test_agent_h6_contract.py` / `test_agent_h6_transport.py`; değerlendirme
+  seti `docs/hermes/evals/h6-proactivity.yaml` (42 sentetik vaka, 20'si
+  sessizlik/erteleme; saf politika vakaları `policy.decide()` ile birebir
+  oynatılır).
+- Ayrıntı: `h6-proactivity.md`, `h6-policy.md`, `h6-tool-contract.md`.
+
+**H7 başlatılmadı.** H6 sonrası faz (bildirim kanalları, Today/terminal brifing
+sunumu ve çok adımlı otonom yürütme) bu sürümde ele alınmaz; H6 bilinçli olarak
+"ne zaman dokunmalıyız?" sorusunda durur.
 
 ---
 
