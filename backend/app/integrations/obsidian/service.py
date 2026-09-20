@@ -27,7 +27,6 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.models import Entity
 from app.core.time import local_today
 from app.integrations.obsidian.constants import (
@@ -54,6 +53,7 @@ from app.integrations.obsidian.uri import (
     open_vault_uri,
     search_uri,
 )
+from app.integrations.obsidian.vault import require_writable_vault, vault_context
 
 #: Deterministik çakışma çözümü: aynı taban yol doluysa dosya adına forkOS
 #: kimliğinin kısaltılmış öneki eklenir. Sıraya bağlı "(1)" ÜRETİLMEZ.
@@ -85,23 +85,6 @@ class VaultStaleWriteError(Exception):
 vault_index = VaultIndex()
 
 
-def _get_vault_context(
-    vault_path_override: Path | None = None,
-    vault_name_override: str | None = None,
-) -> tuple[Path | None, str]:
-    if vault_path_override is not None:
-        v_root = vault_path_override
-    else:
-        v_root = settings.resolved_obsidian_vault_path
-
-    if vault_name_override is not None:
-        v_name = vault_name_override
-    else:
-        v_name = settings.resolved_obsidian_vault_name
-
-    return v_root, v_name
-
-
 def _status_with_uris(status: VaultStatus, vault_name: str) -> VaultStatus:
     """Duruma Obsidian bağlantılarını ekler (istemci URI kurmaz)."""
     if not status.configured:
@@ -124,7 +107,7 @@ def get_vault_status(
     vault_path_override: Path | None = None,
     vault_name_override: str | None = None,
 ) -> VaultStatus:
-    v_root, v_name = _get_vault_context(vault_path_override, vault_name_override)
+    v_root, v_name = vault_context(vault_path_override, vault_name_override)
     return _status_with_uris(vault_index.current_status(v_root, v_name), v_name)
 
 
@@ -132,33 +115,13 @@ def refresh_vault_index(
     vault_path_override: Path | None = None,
     vault_name_override: str | None = None,
 ) -> VaultStatus:
-    v_root, v_name = _get_vault_context(vault_path_override, vault_name_override)
+    v_root, v_name = vault_context(vault_path_override, vault_name_override)
     return _status_with_uris(vault_index.scan(v_root, v_name), v_name)
 
 
 def vault_search_uri(query: str) -> str:
-    _, v_name = _get_vault_context()
+    _, v_name = vault_context()
     return search_uri(v_name, query)
-
-
-def _require_writable_vault() -> tuple[Path, str]:
-    """Yazma öncesi kapı: yapılandırma + dizin + yazma izni.
-
-    Hata tipleri router'ın HTTP kodlarına birebir eşlenir; hiçbir durumda
-    legacy Notes deposuna düşülmez.
-    """
-    v_root, v_name = _get_vault_context()
-    if v_root is None:
-        raise RuntimeError("Obsidian Vault yapılandırılmamış (OBSIDIAN_VAULT_PATH boş)")
-
-    resolved_root = v_root.resolve()
-    if not resolved_root.is_dir():
-        raise RuntimeError(f"Obsidian Vault dizini bulunamadı: '{resolved_root.name}'")
-
-    if not os.access(resolved_root, os.W_OK):
-        raise PermissionError("Obsidian Vault dizinine yazma izni yok (salt-okunur)")
-
-    return resolved_root, v_name
 
 
 def _ensure_index_scanned() -> None:
@@ -188,7 +151,7 @@ def resolve_managed_item(
 
     item = vault_index.get_item(fid)
     if item:
-        v_root, _ = _get_vault_context(vault_path_override, vault_name_override)
+        v_root, _ = vault_context(vault_path_override, vault_name_override)
         if v_root:
             try:
                 real_file = resolve_safe_vault_path(v_root, item.relative_path)
@@ -329,7 +292,7 @@ async def capture_knowledge_note(
     Kimliği sunucu üretir; `Entity`/`Note`/`Link` satırı OLUŞTURULMAZ. İlişki
     bilgisi yalnızca frontmatter'a yazılır.
     """
-    resolved_root, v_name = _require_writable_vault()
+    resolved_root, v_name = require_writable_vault()
     clean_body = (body or "").strip()
     if not clean_body:
         raise ValueError("Not gövdesi boş olamaz")
@@ -391,7 +354,7 @@ def create_managed_note(
     if existing is not None:
         return existing
 
-    resolved_root, v_name = _require_writable_vault()
+    resolved_root, v_name = require_writable_vault()
 
     clean_title = sanitize_filename(title)
     metadata = _created_frontmatter(str_id, clean_type, title=clean_title)
@@ -449,7 +412,7 @@ async def ensure_entity_knowledge_note(
     if existing is not None:
         return existing
 
-    resolved_root, v_name = _require_writable_vault()
+    resolved_root, v_name = require_writable_vault()
 
     metadata = _created_frontmatter(
         forkos_id,
@@ -498,7 +461,7 @@ async def ensure_project_journal(
     if project is None:
         raise ValueError("Proje bulunamadı")
 
-    resolved_root, v_name = _require_writable_vault()
+    resolved_root, v_name = require_writable_vault()
     _ensure_index_scanned()
 
     day_iso = day.isoformat()
@@ -543,7 +506,7 @@ def read_managed_note_body(forkos_id: str | uuid.UUID) -> tuple[VaultItem, str] 
     item = resolve_managed_item(forkos_id)
     if item is None:
         return None
-    v_root, _ = _get_vault_context()
+    v_root, _ = vault_context()
     if v_root is None:
         raise RuntimeError("Obsidian Vault yapılandırılmamış (OBSIDIAN_VAULT_PATH boş)")
     real_file = resolve_safe_vault_path(v_root, item.relative_path)
@@ -573,7 +536,7 @@ def update_managed_note_body(
     if item is None:
         raise ValueError("Vault içinde bu kimliğe sahip yönetilen not bulunamadı")
 
-    resolved_root, v_name = _require_writable_vault()
+    resolved_root, v_name = require_writable_vault()
     real_file = resolve_safe_vault_path(resolved_root, item.relative_path)
     if not real_file.is_file():
         raise ValueError("Vault dosyası bulunamadı; indeksi yenile")
