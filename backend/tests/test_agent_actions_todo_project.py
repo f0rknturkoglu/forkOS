@@ -34,7 +34,11 @@ from app.integrations.agent.write_models import (
 )
 from app.modules.project.models import Project
 from app.modules.todo.models import PlanSlot, Todo
-from tests.agent_test_utils import capture_db_content_fingerprint, table_counts
+from tests.agent_test_utils import (
+    capture_db_content_fingerprint,
+    forbid_outbound_network,  # noqa: F401  (autouse ağ koruması)
+    table_counts,
+)
 
 
 @pytest.fixture

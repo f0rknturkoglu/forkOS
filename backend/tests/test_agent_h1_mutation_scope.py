@@ -51,7 +51,7 @@ from app.modules.todo.models import Todo
 from tests.agent_test_utils import (
     capture_db_content_fingerprint,
     changed_tables,
-    forbid_h1_network,  # noqa: F401  (autouse ağ koruması)
+    forbid_outbound_network,  # noqa: F401  (autouse ağ koruması)
     legacy_notes_counts,
     table_fingerprints,
 )

@@ -54,7 +54,7 @@ from app.modules.todo.models import PlanSlot
 from tests.agent_test_utils import (
     capture_db_content_fingerprint,
     capture_vault_fingerprint,
-    forbid_h1_network,  # noqa: F401  (autouse ağ koruması)
+    forbid_outbound_network,  # noqa: F401  (autouse ağ koruması)
     legacy_notes_counts,
 )
 

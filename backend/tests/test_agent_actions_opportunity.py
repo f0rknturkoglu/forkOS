@@ -27,7 +27,10 @@ from app.integrations.agent.write_models import (
     OpportunityTransitionIn,
 )
 from app.modules.opportunity.models import Application, Opportunity
-from tests.agent_test_utils import table_counts
+from tests.agent_test_utils import (
+    forbid_outbound_network,  # noqa: F401  (autouse ağ koruması)
+    table_counts,
+)
 
 
 @pytest.fixture

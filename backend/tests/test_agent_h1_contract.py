@@ -54,6 +54,15 @@ IDEMPOTENT_TOOLS = frozenset(
     }
 )
 
+#: H2 sıcak hafıza araçları (§48) — 8 + 11 + 5 = 24.
+H2_TOOLS = (
+    "hot_memory_context",
+    "hot_memory_list",
+    "hot_memory_store",
+    "hot_memory_update",
+    "hot_memory_retire",
+)
+
 #: Şemada görünmesi gereken sınırlar (§66) — (araç, alan) -> beklenen anahtar/değer.
 SCHEMA_BOUNDS: dict[tuple[str, str], dict[str, int]] = {
     ("forkos_todo_create", "title"): {"maxLength": 300, "minLength": 1},
@@ -114,11 +123,11 @@ async def _tools() -> dict:
     return {tool.name: tool for tool in tools}
 
 
-async def test_exactly_nineteen_public_tools() -> None:
-    """§8/§71: 8 okuma + 11 yazma = 19; fazladan hata ayıklama/yönetici aracı yok."""
+async def test_exact_public_tool_surface() -> None:
+    """§8/§48: 8 okuma + 11 yazma + 5 sıcak hafıza = 24; fazladan araç yok."""
     tool_map = await _tools()
-    assert len(tool_map) == 19
-    assert set(tool_map) == set(READ_TOOLS) | set(WRITE_TOOLS)
+    assert len(tool_map) == 24
+    assert set(tool_map) == set(READ_TOOLS) | set(WRITE_TOOLS) | set(H2_TOOLS)
 
 
 async def test_read_tools_keep_readonly_annotations() -> None:

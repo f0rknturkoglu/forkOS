@@ -24,7 +24,7 @@ from app.integrations.agent.actions import (
 from app.integrations.agent.write_models import BookmarkCaptureIn, BookmarkUpdateIn
 from app.modules.bookmark.models import Bookmark
 from tests.agent_test_utils import (
-    forbid_h1_network,  # noqa: F401  (autouse ağ koruması)
+    forbid_outbound_network,  # noqa: F401  (autouse ağ koruması)
     table_counts,
 )
 

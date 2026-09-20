@@ -27,7 +27,11 @@ from app.integrations.agent.actions import (
 from app.integrations.agent.write_models import BrainCaptureIn, BrainSaveToEntityIn
 from app.integrations.obsidian.frontmatter import parse_frontmatter
 from app.integrations.obsidian.service import vault_index
-from tests.agent_test_utils import legacy_notes_counts, table_counts
+from tests.agent_test_utils import (
+    forbid_outbound_network,  # noqa: F401  (autouse ağ koruması)
+    legacy_notes_counts,
+    table_counts,
+)
 
 
 @pytest.fixture(autouse=True)

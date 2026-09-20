@@ -290,19 +290,43 @@ def changed_tables(before: dict[str, str], after: dict[str, str]) -> set[str]:
 
 
 @pytest.fixture(autouse=True)
-def forbid_h1_network(monkeypatch: pytest.MonkeyPatch):
-    """§118: H1 testleri sırasında beklenmeyen AĞ erişimini test hatasına çevirir.
+def forbid_outbound_network(monkeypatch: pytest.MonkeyPatch):
+    """§116/§118: ajan katmanı testlerinde DIŞ AĞ erişimini test hatasına çevirir.
 
-    Yerel-only sözleşmesi yalnızca dokümanda kalmamalı: bir H1 eylemi dış
-    servise istek atarsa (httpx, source adapter, enrichment, GitHub) test
-    yüzeye çıkarır. Kullanan modüller bu fixture'ı import eder.
+    Neden soket seviyesinde: `httpx.AsyncClient`'ı yamamak, taşıma testlerinin
+    meşru biçimde kullandığı ASGI (soketsiz) istemcisini de kırardı. Doğru sınır
+    "gerçek dış ağ"dır: loopback serbest (test DB ve in-process ASGI), dışarısı
+    yasak. Böylece hangi kütüphane kullanılırsa kullanılsın dış çağrı yakalanır.
+
+    Kullanacak modüller bu fixture'ı import eder.
     """
+    import socket
+
+    allowed = {"127.0.0.1", "::1", "localhost", "", None}
+    real_connect = socket.socket.connect
+    real_getaddrinfo = socket.getaddrinfo
+
+    def guarded_connect(self, address):  # type: ignore[no-untyped-def]
+        host = address[0] if isinstance(address, tuple) else str(address)
+        if host not in allowed:
+            raise AssertionError(f"dış ağ bağlantısı engellendi: {host}")
+        return real_connect(self, address)
+
+    def guarded_getaddrinfo(host, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if host not in allowed:
+            raise AssertionError(f"dış DNS çözümlemesi engellendi: {host}")
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket.socket, "connect", guarded_connect)
+    monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)
+
+    # İkinci katman: doğrudan kolaylık fonksiyonları ve zenginleştirme.
     import httpx
 
     def _boom(*args: object, **kwargs: object) -> None:
-        raise AssertionError("H1 eylemi dış ağ çağrısı yapmamalı")
+        raise AssertionError("ajan eylemi dış ağ çağrısı yapmamalı")
 
-    for attribute in ("AsyncClient", "Client", "get", "post", "put", "patch", "delete"):
+    for attribute in ("get", "post", "put", "patch", "delete"):
         monkeypatch.setattr(httpx, attribute, _boom, raising=False)
 
     from app.core import readability
@@ -370,3 +394,19 @@ async def hermetic_lifespan():
     ):
         async with app.router.lifespan_context(app):
             yield
+
+
+def tool_payload(result) -> dict:
+    """MCP araç sonucundan JSON zarfını çıkarır (structured ya da text)."""
+    import json
+
+    structured = getattr(result, "structured_content", None)
+    if isinstance(structured, dict) and structured:
+        return structured
+    return json.loads(result.content[0].text)
+
+
+def tool_receipt(result) -> dict:
+    """Yazma araçlarının `ActionReceipt` gövdesini döner (hata varsa yükseltir)."""
+    assert result.is_error is False, result.content
+    return tool_payload(result)["data"]

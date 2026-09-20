@@ -25,9 +25,9 @@ async def test_mcp_tool_registration_and_metadata():
         "brain_read",
     ]
 
-    # 1. H0 araçları yerinde ve toplam yüzey 8 okuma + 11 yazma = 19.
+    # 1. H0 araçları yerinde ve toplam yüzey 8 okuma + 11 yazma + 5 hafıza = 24.
     assert set(expected_read_tools) <= set(tool_map)
-    assert len(tool_map) == 19
+    assert len(tool_map) == 24
 
     # 2. Okuma araçlarının sözleşmesi zayıflatılmadı.
     for name in expected_read_tools:
@@ -39,9 +39,11 @@ async def test_mcp_tool_registration_and_metadata():
         assert tool.annotations.read_only_hint is True, f"Tool {name} must have read_only_hint=True"
         assert tool.annotations.destructive_hint is False, f"Tool {name} destructive_hint must be False"
 
-    # 3. Yazma araçları asla okuma gibi işaretlenmez.
+    # 3. Okuma araçları dışındaki HER araç yazma yetkili işaretlenmelidir
+    #    (H2 sıcak hafıza okuma araçları da okuma tarafındadır).
+    read_only_names = set(expected_read_tools) | {"hot_memory_context", "hot_memory_list"}
     for name, tool in tool_map.items():
-        if name in expected_read_tools:
+        if name in read_only_names:
             continue
         assert tool.annotations.read_only_hint is False, name
 
