@@ -176,13 +176,13 @@ class KnowledgePointer(BaseModel):
         return getattr(self, item, default)
 
     def __contains__(self, item: str) -> bool:
-        return hasattr(self, item)
+        return item in type(self).model_fields
 
     def keys(self) -> list[str]:
-        return list(self.model_fields.keys())
+        return list(type(self).model_fields.keys())
 
     def items(self) -> list[tuple[str, Any]]:
-        return [(k, getattr(self, k)) for k in self.model_fields]
+        return [(k, getattr(self, k)) for k in type(self).model_fields]
 
 
 class EntityContextData(BaseModel):
