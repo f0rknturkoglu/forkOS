@@ -60,16 +60,22 @@ Arayüz aşağıdaki katı güvenlik denetimlerini uygular:
 ### 1. Dizin Atlama (Path Traversal) ve Kaçış Engellemesi
 - Tüm dosya yolları `Path.resolve()` ile kanonik hale getirilir.
 - Çözümlenen yolun `vault_path` altında kalıp kalmadığı `path.is_relative_to(vault_root)` ile denetlenir.
-- `../../etc/passwd` gibi göreli yollar veya Vault dışındaki dosyalara işaret eden sembolik linkler (`symlink`) anında reddedilir (`ToolError: ACCESS_DENIED`).
+- `../../etc/passwd` gibi göreli yollar veya Vault dışındaki dosyalara işaret eden sembolik linkler (`symlink`) anında reddedilir (`ToolError: ACCESS_DENIED` / `VAULT_PATH_ESCAPES`).
 
-### 2. Gizli ve Sistem Dosyalarının İzolasyonu
-- `.obsidian`, `.git`, `.trash` ve `.` ile başlayan tüm gizli dosya ve dizinler arama ve okuma operasyonlarından filtrelenir.
-- Yalnızca geçerli `.md` uzantılı dosyalar taranır.
+### 2. Kanonik Bilgi Yolu İzolasyonu (Unified Knowledge Path Policy)
+- Hem `brain_search` hem de `brain_read` aynı kanonik filtreleme politikasını (`is_safe_knowledge_path`) uygular:
+  - `.git/**`, `.obsidian/**`, `.forkos-migration/**`, `.trash/**`, `attachments/**`, `95-ekler/**`, `90-şablonlar/**` ve `.` ile başlayan tüm gizli dosya ve klasörler anında engellenir.
+- Yalnızca güvenli ve geçerli `.md` uzantılı dosyalar okunabilir.
 
-### 3. Hassas Bilgi Maskeleme (Credential Scrubbing)
-- `forkos_recent_activity` ve ilişkili olay günlüğü çağrılarında, `token`, `password`, `secret`, `api_key`, `authorization` ve `credential` anahtarlarını içeren tüm alanlar `[REDACTED]` ile maskelenir.
+### 3. Hassas Bilgi Maskeleme ve Yük Sınırlama (Credential Scrubbing & Payload Bounding)
+- Olay günlüğü çağrılarında, `token`, `password`, `secret`, `api_key`, `authorization` ve `credential` anahtarlarını içeren tüm alanlar `[REDACTED]` ile maskelenir.
+- Derinlik (max 4), sözlük anahtar sayısı (max 25), liste eleman sayısı (max 25), metin uzunluğu (max 500 karakter) ve toplam serileştirilmiş yük boyutu (max 4096 bayt) sınırlandırılır.
 
-### 4. Yerel Ağ Sınırı (Loopback Only)
+### 4. Localhost DNS-Rebinding Koruması
+- MCP Starlette uygulaması resmi MCP SDK `TransportSecuritySettings` ile localhost koruması etkin olarak çalıştırılır:
+  - Yalnızca `127.0.0.1:*`, `localhost:*` ve `[::1]:*` Host ve Origin başlıklarına izin verilir; yabancı origin'ler (örn. `evil.com`) 403/421 ile reddedilir.
+
+### 5. Yerel Ağ Sınırı (Loopback Only)
 - API ve MCP servisi yalnızca `127.0.0.1` adresine bağlanır (`0.0.0.0` kullanılmaz).
 
 ---
@@ -78,7 +84,7 @@ Arayüz aşağıdaki katı güvenlik denetimlerini uygular:
 
 Sistemin salt-okunurluğu `backend/tests/test_agent_immutability.py` test süiti ile otomatik olarak doğrulanmaktadır:
 
-1. **Veritabanı Değişmezliği:** 8 MCP aracının tamamı çalıştırılmadan önce ve sonra `Entity`, `Event`, `Link`, `Todo`, `Project`, `Milestone`, `Notification` ve `Opportunity` tablolarındaki satır sayıları parmak izi (fingerprint) olarak alınır. Araçların çalışması sonucu veritabanında tek bir satır dahi eklenmediği, silinmediği veya güncellenmediği doğrulanır.
+1. **Deterministik DB Satır İçeriği SHA-256 Parmak İzi:** Yüzeysel satır sayısı sayımı yerine, `Entity`, `Event`, `Link`, `Todo`, `Project`, `Milestone`, `Notification`, `Opportunity`, `Application`, `FlashcardCard`, `Bookmark`, `Note` ve `NoteFolder` tablolarındaki tüm satır içerikleri birleştirilerek SHA-256 özetine dönüştürülür. `test_db_content_fingerprint_sensitive_to_updates` testi tek bir satırdaki alan güncellemesinin (`UPDATE`) bile parmak izini anında değiştirdiğini kanıtlar. 8 MCP aracının tamamı çalıştırıldıktan sonra veritabanı içeriği baytı baytına `%100` korunur.
 2. **Dosya Sistemi Değişmezliği:** Vault içindeki tüm dosyaların SHA-256 hash'leri ve son değiştirilme zamanları (`mtime`) araç çağrılarından önce ve sonra karşılaştırılır; tek bir baytın dahi değişmediği kanıtlanır.
 3. **Protokol Seviyesinde İpuçları:** Her araç tanımında `ToolAnnotations` nesnesi şu değerlerle işaretlenmiştir:
    - `readOnlyHint = True`

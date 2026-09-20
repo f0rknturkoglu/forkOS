@@ -6,7 +6,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 BrainScope = Literal[
     "all", "inbox", "daily", "projects", "knowledge", "learning", "career", "sources", "agent"
 ]

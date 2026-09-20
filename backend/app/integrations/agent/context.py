@@ -72,8 +72,8 @@ async def get_briefing_context(session: AsyncSession, day: str | None = None) ->
     if day:
         try:
             target_date = date.fromisoformat(day.strip())
-        except (ValueError, TypeError):
-            raise ValueError(f"INVALID_DATE: '{day}' is not in valid YYYY-MM-DD format.")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"INVALID_DATE: '{day}' is not in valid YYYY-MM-DD format.") from exc
     else:
         target_date = local_today()
 

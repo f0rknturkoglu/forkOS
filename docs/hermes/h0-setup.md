@@ -80,7 +80,7 @@ asyncio.run(main())
 ```text
 Connected to server: forkos-brain 1.0.0
 Available tools: ['forkos_briefing', 'forkos_search', 'forkos_entity_context', 'forkos_project_context', 'forkos_recent_activity', 'brain_status', 'brain_search', 'brain_read']
-Brain Status: {"system": "forkos-brain", "version": "1.0", "read_only": true, ...}
+Brain Status: {"as_of": "2026-09-20T10:00:00Z", "source": "f0rknbrain", "data": {...}, "truncated": false}
 ```
 
 ---
