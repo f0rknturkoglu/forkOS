@@ -18,6 +18,7 @@ from app.integrations.obsidian.frontmatter import (
 from app.integrations.obsidian.index import VaultIndex
 from app.integrations.obsidian.security import resolve_safe_vault_path, sanitize_filename
 from app.integrations.obsidian.service import (
+    VaultConflictError,
     create_managed_note,
     get_vault_status,
     resolve_managed_item,
@@ -25,7 +26,11 @@ from app.integrations.obsidian.service import (
 )
 from app.integrations.obsidian.uri import create_note_uri, open_file_uri, search_uri
 from app.main import app
-from app.scripts.plan_note_vault_migration import format_markdown_report, plan_notes_migration
+from app.scripts.plan_note_vault_migration import (
+    format_markdown_report,
+    plan_notes_migration,
+    resolve_folder_path,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -33,12 +38,14 @@ def reset_vault_index():
     """Her test öncesinde global vault_index durumunu sıfırla."""
     vault_index._items.clear()
     vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
     vault_index._last_scanned = None
     vault_index._last_status = None
     vault_index._last_root = None
     yield
     vault_index._items.clear()
     vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
     vault_index._last_scanned = None
     vault_index._last_status = None
     vault_index._last_root = None
@@ -270,11 +277,11 @@ def test_vault_service_create_managed_note_lifecycle(tmp_path: Path, monkeypatch
     assert item.forkos_id == str(project_id)
     assert item.forkos_type == "project"
     assert item.title == "Yeni Web Sitesi"
-    assert item.relative_path == "20 Projects/Yeni Web Sitesi.md"
+    assert item.relative_path == "20 Projects/Yeni Web Sitesi/Yeni Web Sitesi.md"
     assert "obsidian://open?vault=TestVault" in item.open_uri
 
     # Verify file content
-    created_file = vault / "20 Projects/Yeni Web Sitesi.md"
+    created_file = vault / "20 Projects/Yeni Web Sitesi/Yeni Web Sitesi.md"
     assert created_file.exists()
     content = created_file.read_text(encoding="utf-8")
     assert str(project_id) in content
@@ -296,7 +303,7 @@ def test_vault_service_create_managed_note_lifecycle(tmp_path: Path, monkeypatch
         title="Yeni Web Sitesi",
     )
     assert collision_item.forkos_id == str(other_id)
-    assert collision_item.relative_path == "20 Projects/Yeni Web Sitesi (1).md"
+    assert collision_item.relative_path == "20 Projects/Yeni Web Sitesi/Yeni Web Sitesi (1).md"
 
     # 4. Resolve item
     resolved = resolve_managed_item(str(project_id))
@@ -344,7 +351,7 @@ async def test_obsidian_api_endpoints(tmp_path: Path, monkeypatch: pytest.Monkey
         assert res.status_code == 201
         created_data = res.json()
         assert created_data["forkos_id"] == test_id
-        assert created_data["relative_path"] == "20 Projects/API Test Projesi.md"
+        assert created_data["relative_path"] == "20 Projects/API Test Projesi/API Test Projesi.md"
 
         # GET item by ID
         res = await client.get(f"/api/obsidian/items/{test_id}")
@@ -452,3 +459,254 @@ async def test_plan_notes_migration_database_execution():
         # Assert zero mutation: count remains 1
         count_res = await session.execute(text("select count(*) from note where id = :id"), {"id": note_id})
         assert count_res.scalar() == 1
+
+
+# =====================================================================
+# 8. Fix 2: Conflict Fail-Closed Tests
+# =====================================================================
+
+@pytest.mark.no_database
+async def test_vault_conflict_fail_closed_get_and_post(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    vault = tmp_path / "conflict_vault"
+    vault.mkdir()
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(vault))
+    monkeypatch.setattr(settings, "obsidian_vault_name", "ConflictVault")
+
+    dup_id = str(uuid.uuid4())
+    projects_dir = vault / "20 Projects" / "DuplicateProj"
+    projects_dir.mkdir(parents=True)
+
+    file1 = projects_dir / "FileOne.md"
+    file1.write_text(
+        f"---\nforkos_id: {dup_id}\nforkos_type: project\ntitle: File One\n---\n# One",
+        encoding="utf-8",
+    )
+    file2 = projects_dir / "FileTwo.md"
+    file2.write_text(
+        f"---\nforkos_id: {dup_id}\nforkos_type: project\ntitle: File Two\n---\n# Two",
+        encoding="utf-8",
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Refresh to scan the conflict
+        res = await client.post("/api/obsidian/index/refresh")
+        assert res.status_code == 200
+        assert res.json()["conflicts"] == 1
+        assert dup_id in res.json()["conflict_details"]
+
+        # 1. Direct service call raises VaultConflictError
+        with pytest.raises(VaultConflictError) as exc_info:
+            resolve_managed_item(dup_id)
+        assert exc_info.value.forkos_id == dup_id
+        assert len(exc_info.value.conflicting_paths) == 2
+
+        with pytest.raises(VaultConflictError):
+            create_managed_note(forkos_id=dup_id, forkos_type="project", title="Third Try")
+
+        # 2. GET item returns 409 Conflict, not 404
+        get_res = await client.get(f"/api/obsidian/items/{dup_id}")
+        assert get_res.status_code == 409
+        detail = get_res.json()["detail"]
+        assert detail["error"] == "conflict"
+        assert detail["forkos_id"] == dup_id
+        assert len(detail["conflicting_paths"]) == 2
+
+        # 3. POST create returns 409 Conflict and creates NO new file
+        files_before = list(vault.rglob("*.md"))
+        post_res = await client.post(
+            "/api/obsidian/items",
+            json={"forkos_id": dup_id, "forkos_type": "project", "title": "Third Try"},
+        )
+        assert post_res.status_code == 409
+        assert post_res.json()["detail"]["error"] == "conflict"
+
+        files_after = list(vault.rglob("*.md"))
+        assert len(files_before) == len(files_after) == 2
+
+        # 4. Conflict remains until resolved by user
+        res = await client.get("/api/obsidian/status")
+        assert res.json()["conflicts"] == 1
+
+        # 5. Resolve conflict by removing file2 and refreshing index
+        file2.unlink()
+        refresh_res = await client.post("/api/obsidian/index/refresh")
+        assert refresh_res.status_code == 200
+        assert refresh_res.json()["conflicts"] == 0
+
+        # Now GET returns 200 normally
+        resolved_res = await client.get(f"/api/obsidian/items/{dup_id}")
+        assert resolved_res.status_code == 200
+        assert resolved_res.json()["forkos_id"] == dup_id
+        assert resolved_res.json()["title"] == "File One"
+
+
+# =====================================================================
+# 9. Fix 3: Symlink Boundary Containment Tests
+# =====================================================================
+
+def test_vault_scanner_symlink_containment(tmp_path: Path):
+    vault = tmp_path / "symlink_vault"
+    vault.mkdir()
+
+    outside_dir = tmp_path / "outside_dir"
+    outside_dir.mkdir()
+
+    # Normal inside file
+    normal_id = str(uuid.uuid4())
+    normal_file = vault / "normal.md"
+    normal_file.write_text(
+        f"---\nforkos_id: {normal_id}\nforkos_type: note\ntitle: Normal\n---\n# Normal",
+        encoding="utf-8",
+    )
+
+    # Outside file with valid forkOS frontmatter
+    outside_id = str(uuid.uuid4())
+    outside_file = outside_dir / "secret_outside.md"
+    outside_file.write_text(
+        f"---\nforkos_id: {outside_id}\nforkos_type: note\ntitle: Secret Outside\n---\n# Secret",
+        encoding="utf-8",
+    )
+
+    # 1. Symlinked file escaping vault
+    link_file = vault / "escaped_link.md"
+    os.symlink(outside_file, link_file)
+
+    # 2. Symlinked directory escaping vault
+    link_dir = vault / "escaped_folder"
+    os.symlink(outside_dir, link_dir)
+
+    index = VaultIndex()
+    status = index.scan(vault, "TestVault")
+
+    # Only normal_file should be indexed!
+    assert status.managed_files == 1
+    assert normal_id in index.items
+    assert outside_id not in index.items
+    assert "escaped_link.md" not in [item.relative_path for item in index.items.values()]
+
+
+# =====================================================================
+# 10. Hardening 1: Metadata Validation Tests
+# =====================================================================
+
+def test_vault_metadata_validation_hardening(tmp_path: Path):
+    vault = tmp_path / "meta_vault"
+    vault.mkdir()
+
+    # 1. Invalid forkos_id (not a valid UUID)
+    bad_id_file = vault / "bad_id.md"
+    bad_id_file.write_text(
+        "---\nforkos_id: not-a-valid-uuid\nforkos_type: note\ntitle: Bad ID\n---\n# Bad ID",
+        encoding="utf-8",
+    )
+
+    # 2. Invalid forkos_type (typo, e.g. 'porject')
+    bad_type_file = vault / "bad_type.md"
+    bad_type_file.write_text(
+        f"---\nforkos_id: {uuid.uuid4()}\nforkos_type: porject\ntitle: Typo Type\n---\n# Typo",
+        encoding="utf-8",
+    )
+
+    # 3. Valid note
+    valid_id = str(uuid.uuid4())
+    valid_file = vault / "valid.md"
+    valid_file.write_text(
+        f"---\nforkos_id: {valid_id}\nforkos_type: note\ntitle: Valid Note\n---\n# Valid",
+        encoding="utf-8",
+    )
+
+    index = VaultIndex()
+    status = index.scan(vault, "TestVault")
+
+    assert status.managed_files == 1
+    assert valid_id in index.items
+    assert len(status.invalid_files) == 2
+    assert any("geçersiz forkos_id" in err for err in status.invalid_files)
+    assert any("geçersiz forkos_type" in err for err in status.invalid_files)
+    assert "geçersiz forkOS metaverisi" in (status.diagnostic or "")
+
+
+# =====================================================================
+# 11. Hardening 2: Atomic Creation & No Overwrite Tests
+# =====================================================================
+
+def test_create_managed_note_atomic_no_overwrite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    vault = tmp_path / "atomic_vault"
+    vault.mkdir()
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(vault))
+    monkeypatch.setattr(settings, "obsidian_vault_name", "AtomicVault")
+
+    proj_dir = vault / "20 Projects" / "Existing Proj"
+    proj_dir.mkdir(parents=True)
+    existing_file = proj_dir / "Existing Proj.md"
+    existing_file.write_text("# User hand-written notes that must never be overwritten", encoding="utf-8")
+
+    new_id = uuid.uuid4()
+    item = create_managed_note(
+        forkos_id=new_id,
+        forkos_type="project",
+        title="Existing Proj",
+        initial_body="New forkOS generated body",
+    )
+
+    # Existing file must NOT be overwritten
+    assert existing_file.read_text(encoding="utf-8") == "# User hand-written notes that must never be overwritten"
+
+    # New note should be created at collision path (1)
+    assert item.relative_path == "20 Projects/Existing Proj/Existing Proj (1).md"
+    assert (proj_dir / "Existing Proj (1).md").exists()
+
+
+# =====================================================================
+# 12. Fix 5: Migration Planner Folder Hierarchy Tests
+# =====================================================================
+
+def test_plan_note_vault_migration_folder_hierarchy():
+    f1 = uuid.uuid4()
+    f2 = uuid.uuid4()
+    f3 = uuid.uuid4()
+    f4 = uuid.uuid4()
+
+    folder_map = {
+        f1: ("Programming", None),
+        f2: ("Backend", f1),
+        f3: ("ASP.NET", f2),
+        f4: ("Authentication", f3),
+    }
+
+    # Root folder
+    p1, w1 = resolve_folder_path(f1, folder_map)
+    assert p1 == "Programming/"
+    assert w1 == []
+
+    # Two-level
+    p2, w2 = resolve_folder_path(f2, folder_map)
+    assert p2 == "Programming/Backend/"
+    assert w2 == []
+
+    # Deep 4-level
+    p4, w4 = resolve_folder_path(f4, folder_map)
+    assert p4 == "Programming/Backend/ASP.NET/Authentication/"
+    assert w4 == []
+
+    # Missing parent
+    orphan = uuid.uuid4()
+    missing_parent_id = uuid.uuid4()
+    folder_map[orphan] = ("OrphanChild", missing_parent_id)
+    po, wo = resolve_folder_path(orphan, folder_map)
+    assert po == "OrphanChild/"
+    assert any("eksik üst klasör" in w for w in wo)
+
+    # Cycle protection (c1 -> c2 -> c1)
+    c1 = uuid.uuid4()
+    c2 = uuid.uuid4()
+    folder_map[c1] = ("Cycle1", c2)
+    folder_map[c2] = ("Cycle2", c1)
+    pc, wc = resolve_folder_path(c1, folder_map)
+    assert any("döngü" in w for w in wc)
+
+    # Turkish / Unicode preservation
+    t_id = uuid.uuid4()
+    folder_map[t_id] = ("Geliştirme & Araştırma", None)
+    pt, wt = resolve_folder_path(t_id, folder_map)
+    assert pt == "Geliştirme & Araştırma/"

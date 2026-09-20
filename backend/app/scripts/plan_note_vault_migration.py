@@ -25,6 +25,47 @@ from app.modules.note.models import Note, NoteAttachment, NoteFolder
 from app.modules.project.models import Project
 
 
+def resolve_folder_path(
+    folder_id: uuid.UUID | None,
+    folder_map: dict[uuid.UUID, tuple[str, uuid.UUID | None]],
+) -> tuple[str, list[str]]:
+    """Not klasör hiyerarşisini kökten yaprağa doğru rekürsif çözer.
+
+    Returns:
+        (folder_path_prefix, warnings)
+        Örnek çıktı: ("Programming/Backend/ASP.NET/", [])
+    """
+    if folder_id is None:
+        return "", []
+
+    if folder_id not in folder_map:
+        return "", [f"Bilinmeyen klasör referansı: {folder_id}"]
+
+    segments: list[str] = []
+    visited: set[uuid.UUID] = set()
+    warnings: list[str] = []
+    curr: uuid.UUID | None = folder_id
+
+    while curr is not None:
+        if curr in visited:
+            warnings.append(f"Klasör hiyerarşisinde döngü tespit edildi: {curr}")
+            break
+        visited.add(curr)
+
+        if curr not in folder_map:
+            warnings.append(f"Klasör hiyerarşisinde eksik üst klasör referansı: {curr}")
+            break
+
+        title, parent_id = folder_map[curr]
+        segments.append(sanitize_filename(title or "Folder"))
+        curr = parent_id
+
+    segments.reverse()
+    if segments:
+        return "/".join(segments) + "/", warnings
+    return "", warnings
+
+
 async def plan_notes_migration(session: AsyncSession) -> dict[str, Any]:
     """Mevcut notlari analiz eder ve ayrintili bir migration plani cikarir."""
     # 1. Proje basliklarini haritala
@@ -35,7 +76,7 @@ async def plan_notes_migration(session: AsyncSession) -> dict[str, Any]:
     ).all()
     project_titles: dict[uuid.UUID, str] = {row[0]: row[1] for row in project_rows}
 
-    # 2. Klasor basliklarini haritala
+    # 2. Klasor hiyerarsisini haritala (id -> (title, parent_id))
     folder_rows = (
         await session.execute(
             select(NoteFolder.id, Entity.title, NoteFolder.parent_id).join(
@@ -43,7 +84,9 @@ async def plan_notes_migration(session: AsyncSession) -> dict[str, Any]:
             )
         )
     ).all()
-    folder_titles: dict[uuid.UUID, str] = {row[0]: row[1] for row in folder_rows}
+    folder_map: dict[uuid.UUID, tuple[str, uuid.UUID | None]] = {
+        row[0]: (row[1], row[2]) for row in folder_rows
+    }
 
     # 3. Not ek sayilarini haritala
     att_counts_raw = (
@@ -118,9 +161,8 @@ async def plan_notes_migration(session: AsyncSession) -> dict[str, Any]:
             personal_notes += 1
             forkos_type = "note"
             safe_title = sanitize_filename(title or "Untitled")
-            folder_part = ""
-            if note.folder_id and note.folder_id in folder_titles:
-                folder_part = f"{sanitize_filename(folder_titles[note.folder_id])}/"
+            folder_part, folder_warns = resolve_folder_path(note.folder_id, folder_map)
+            warnings.extend(folder_warns)
             target_path = f"00 Inbox/Imported/{folder_part}{safe_title}.md"
 
         path_assignments.setdefault(target_path, []).append(note.id)

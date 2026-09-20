@@ -9,6 +9,7 @@ Zamanlama (grade: 0=Again, 1=Hard, 2=Good, 3=Easy):
 """
 from __future__ import annotations
 
+import contextlib
 import csv
 import html
 import io
@@ -530,20 +531,14 @@ def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]
                 col_row = connection.execute("SELECT decks, models FROM col").fetchone()
                 if col_row:
                     if col_row[0]:
-                        try:
+                        with contextlib.suppress(Exception):
                             decks_data = json.loads(col_row[0])
                             for k, v in decks_data.items():
-                                try:
+                                with contextlib.suppress(ValueError, TypeError):
                                     deck_names[int(k)] = v.get("name", "")
-                                except (ValueError, TypeError):
-                                    pass
-                        except Exception:
-                            pass
                     if col_row[1]:
-                        try:
+                        with contextlib.suppress(Exception):
                             models = json.loads(col_row[1])
-                        except Exception:
-                            pass
 
             # 2. Sentetik test / eski schema fallback (decks tablosu)
             if not deck_names:
@@ -588,7 +583,7 @@ def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]
     seen_cards: set[tuple[str, str]] = set()
     skipped = 0
 
-    for cid, nid, did, cord in card_rows:
+    for _cid, nid, did, cord in card_rows:
         ndata = notes.get(nid)
         if not ndata:
             skipped += 1
@@ -621,7 +616,7 @@ def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]
 
         if minfo:
             fnames = [f.get("name", "") for f in minfo.get("flds", [])]
-            fdict = dict(zip(fnames, field_values))
+            fdict = dict(zip(fnames, field_values, strict=False))
             tmpls = minfo.get("tmpls", [])
             tmpl = tmpls[cord] if cord < len(tmpls) else (tmpls[0] if tmpls else None)
             if tmpl:
@@ -635,16 +630,21 @@ def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]
         if not front or not back:
             if minfo:
                 fnames = [f.get("name", "") for f in minfo.get("flds", [])]
-                fdict = dict(zip(fnames, field_values))
+                fdict = dict(zip(fnames, field_values, strict=False))
             else:
                 fdict = {}
 
-            def pick_field(candidates: tuple[str, ...], default_idx: int) -> str:
-                for k, v in fdict.items():
+            def pick_field(
+                candidates: tuple[str, ...],
+                default_idx: int,
+                target_dict: dict[str, str] = fdict,
+                target_vals: list[str] = field_values,
+            ) -> str:
+                for k, v in target_dict.items():
                     if k.casefold() in candidates and v.strip():
                         return v
-                if len(field_values) > default_idx:
-                    return field_values[default_idx]
+                if len(target_vals) > default_idx:
+                    return target_vals[default_idx]
                 return ""
 
             if not front:
