@@ -7,6 +7,14 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+#: Yer imi alanlarının izinli değerleri. Kaynak TEK yerdir
+#: (`bookmark.models.COLLECTIONS` / `READ_STATUSES`); buradaki Literal şemayı
+#: kendini-anlatır kılar, testler ikisinin ayrışmadığını doğrular.
+COLLECTION_VALUES = Literal[
+    "inbox", "read_later", "learning", "reference", "projects", "archive"
+]
+READ_STATUS_VALUES = Literal["unread", "reading", "read"]
+
 
 def _validate_uuid_str(v: Any) -> str:
     if isinstance(v, uuid.UUID):
@@ -97,6 +105,8 @@ class ActionReceipt(BaseModel):
 
 
 class TodoCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str
     description: str | None = Field(default=None, max_length=5000)
     priority: int = Field(default=2, ge=0, le=3)
@@ -185,6 +195,8 @@ class TodoUpdateIn(BaseModel):
 
 
 class TodoPlanIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     todo_id: str
     day: str
     start_min: int | None = Field(default=None, ge=0, le=1439)
@@ -233,6 +245,8 @@ class ProjectUpdateIn(BaseModel):
 
 
 class OpportunityTransitionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     opportunity_id: str
     expected_status: str
     to_status: str
@@ -255,6 +269,8 @@ class OpportunityTransitionIn(BaseModel):
 
 
 class ApplicationTransitionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     opportunity_id: str
     expected_status: str | None = None
     to_status: str
@@ -288,9 +304,12 @@ class ApplicationTransitionIn(BaseModel):
 
 
 class BookmarkCaptureIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: str
     title: str | None = Field(default=None, max_length=300)
-    collection: Literal["inbox", "bookmarks", "archive"] = "inbox"
+    #: Canonical `bookmark.models.COLLECTIONS` sözlüğüyle birebir aynı.
+    collection: COLLECTION_VALUES = "inbox"
     tags: list[str] = Field(default_factory=list)
     note: str | None = Field(default=None, max_length=5000)
 
@@ -320,9 +339,9 @@ class BookmarkUpdateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     bookmark_id: str
-    collection: Literal["inbox", "bookmarks", "archive"] | None = None
+    collection: COLLECTION_VALUES | None = None
     favorite: bool | None = None
-    read_status: Literal["unread", "reading", "read"] | None = None
+    read_status: READ_STATUS_VALUES | None = None
     tags: list[str] | None = None
     expected_updated_at: str | None = None
 
@@ -343,6 +362,8 @@ class BookmarkUpdateIn(BaseModel):
 
 
 class BrainCaptureIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     body: str
     title: str | None = Field(default=None, max_length=300)
     relate_to: str | None = None

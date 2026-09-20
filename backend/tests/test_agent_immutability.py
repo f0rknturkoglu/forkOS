@@ -1,5 +1,4 @@
 import contextlib
-import hashlib
 import os
 import uuid
 from collections.abc import AsyncIterator
@@ -7,19 +6,20 @@ from pathlib import Path
 
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.models import Entity, Event, Link, Notification
+from app.core.models import Entity, Event, Link
 from app.db import SessionLocal
 from app.integrations.agent.mcp import mcp_server
-from app.modules.bookmark.models import Bookmark
-from app.modules.flashcard.models import FlashcardCard
-from app.modules.note.models import Note, NoteFolder
-from app.modules.opportunity.models import Application, Opportunity
-from app.modules.project.models import Milestone, Project
+from app.modules.project.models import Project
 from app.modules.todo.models import Todo
+from tests.agent_test_utils import (
+    capture_db_content_fingerprint as _capture_db_content_fingerprint,
+)
+from tests.agent_test_utils import (
+    capture_vault_fingerprint as _capture_vault_fingerprint,
+)
 
 
 @pytest.fixture
@@ -69,121 +69,6 @@ Daily note content for test.
     monkeypatch.setattr(settings, "obsidian_vault_name", "ImmutabilityVault")
 
     return v_dir
-
-
-async def _capture_db_content_fingerprint(session: AsyncSession) -> str:
-    """Capture deterministic SHA-256 fingerprint of row contents across all key tables."""
-    hasher = hashlib.sha256()
-
-    # 1. Entity
-    rows = (await session.execute(
-        select(Entity.id, Entity.type, Entity.title, Entity.search_text, Entity.archived_at)
-        .order_by(Entity.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 2. Event
-    rows = (await session.execute(
-        select(Event.id, Event.entity_id, Event.verb, Event.payload, Event.occurred_at)
-        .order_by(Event.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 3. Link
-    rows = (await session.execute(
-        select(Link.from_id, Link.to_id, Link.relation, Link.created_at)
-        .order_by(Link.from_id, Link.to_id, Link.relation)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 4. Todo
-    rows = (await session.execute(
-        select(Todo.id, Todo.status, Todo.priority, Todo.due_at, Todo.completed_at)
-        .order_by(Todo.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 5. Project
-    rows = (await session.execute(
-        select(Project.id, Project.status, Project.next_action, Project.github_repo, Project.stack)
-        .order_by(Project.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 6. Milestone
-    rows = (await session.execute(
-        select(Milestone.id, Milestone.project_id, Milestone.title, Milestone.due_at, Milestone.completed_at)
-        .order_by(Milestone.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 7. Notification
-    rows = (await session.execute(
-        select(Notification.id, Notification.title, Notification.body, Notification.read_at, Notification.dismissed_at)
-        .order_by(Notification.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 8. Opportunity
-    rows = (await session.execute(
-        select(Opportunity.id, Opportunity.kind, Opportunity.status, Opportunity.organization, Opportunity.deadline_at)
-        .order_by(Opportunity.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 9. Application
-    rows = (await session.execute(
-        select(Application.opportunity_id, Application.status, Application.status_changed_at)
-        .order_by(Application.opportunity_id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 10. FlashcardCard
-    rows = (await session.execute(
-        select(FlashcardCard.id, FlashcardCard.deck_id, FlashcardCard.reps, FlashcardCard.due_at)
-        .order_by(FlashcardCard.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 11. Bookmark
-    rows = (await session.execute(
-        select(Bookmark.id, Bookmark.collection, Bookmark.url, Bookmark.read_status)
-        .order_by(Bookmark.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 12. Note
-    rows = (await session.execute(
-        select(Note.id, Note.folder_id, Note.project_id, Note.pinned, Note.body)
-        .order_by(Note.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    # 13. NoteFolder
-    rows = (await session.execute(
-        select(NoteFolder.id, NoteFolder.parent_id, NoteFolder.position)
-        .order_by(NoteFolder.id)
-    )).all()
-    hasher.update(str(rows).encode("utf-8"))
-
-    return hasher.hexdigest()
-
-
-def _capture_vault_fingerprint(vault_dir: Path) -> dict[str, tuple[str, float]]:
-    """Capture SHA-256 and mtime of every file in the Vault."""
-    fingerprints = {}
-    for root, _, files in os.walk(vault_dir):
-        for f in files:
-            p = Path(root) / f
-            try:
-                content = p.read_bytes()
-                sha = hashlib.sha256(content).hexdigest()
-                mtime = os.path.getmtime(p)
-                rel = str(p.relative_to(vault_dir))
-                fingerprints[rel] = (sha, mtime)
-            except Exception:
-                pass
-    return fingerprints
 
 
 async def test_db_content_fingerprint_sensitive_to_updates(db_session: AsyncSession):
