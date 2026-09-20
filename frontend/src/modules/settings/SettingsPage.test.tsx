@@ -41,6 +41,17 @@ let calls: Call[] = [];
 let settings: Record<string, unknown> = {};
 let githubStatus: { connected: boolean; login?: string | null } = { connected: false };
 let googleStatus: { connected: boolean } = { connected: false };
+let obsidianStatus = {
+  configured: false,
+  available: false,
+  writable: false,
+  readable: false,
+  vault_name: "",
+  managed_files: 0,
+  conflicts: 0,
+  conflict_details: {} as Record<string, string[]>,
+  diagnostic: null as string | null,
+};
 
 function json(value: unknown): Response {
   return new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -121,6 +132,17 @@ beforeEach(() => {
   settings = baseSettings();
   githubStatus = { connected: false };
   googleStatus = { connected: false };
+  obsidianStatus = {
+    configured: false,
+    available: false,
+    writable: false,
+    readable: false,
+    vault_name: "",
+    managed_files: 0,
+    conflicts: 0,
+    conflict_details: {},
+    diagnostic: null,
+  };
   dialogSpy.mockClear();
   dialogSpy.mockResolvedValue(true);
   queryClient().clear();
@@ -151,6 +173,11 @@ beforeEach(() => {
         return json({ last_backup: null, drive_folder_id: null, last_drive_upload: null, last_drive_error: null });
       if (url.pathname === "/api/auth/github/status") return json(githubStatus);
       if (url.pathname === "/api/auth/google/status") return json(googleStatus);
+      if (url.pathname === "/api/obsidian/status") return json(obsidianStatus);
+      if (url.pathname === "/api/obsidian/index/refresh" && method === "POST") {
+        obsidianStatus = { ...obsidianStatus, managed_files: obsidianStatus.managed_files + 1 };
+        return json(obsidianStatus);
+      }
       if (url.pathname === "/api/auth/github" && method === "DELETE") {
         githubStatus = { connected: false };
         return new Response(null, { status: 204 });
@@ -412,6 +439,58 @@ describe("SettingsPage entegrasyonlari", () => {
     await waitFor(() =>
       expect(calls.some((call) => call.method === "DELETE" && call.path === "/api/auth/google")).toBe(true),
     );
+  });
+
+  it("Obsidian Vault durumunu gosterir ve indeksi yeniler", async () => {
+    obsidianStatus = {
+      configured: true,
+      available: true,
+      writable: true,
+      readable: true,
+      vault_name: "PersonalVault",
+      managed_files: 42,
+      conflicts: 0,
+      conflict_details: {},
+      diagnostic: null,
+    };
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    expect(await screen.findByText("Vault: PersonalVault")).toBeTruthy();
+    expect(screen.getByText("yapılandırıldı")).toBeTruthy();
+    expect(screen.getByText("erişilebilir")).toBeTruthy();
+    expect(screen.getByText("yazılabilir")).toBeTruthy();
+    expect(screen.getByText(/42 yönetilen not indekslendi/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "İndeksi Yenile" }));
+    await waitFor(() =>
+      expect(calls.some((call) => call.method === "POST" && call.path === "/api/obsidian/index/refresh")).toBe(true),
+    );
+    expect(await screen.findByText("Obsidian indeksi yenilendi.")).toBeTruthy();
+  });
+
+  it("Obsidian Vault cakismalarini listeler", async () => {
+    obsidianStatus = {
+      configured: true,
+      available: true,
+      writable: true,
+      readable: true,
+      vault_name: "PersonalVault",
+      managed_files: 10,
+      conflicts: 1,
+      conflict_details: {
+        "12345678-1234-1234-1234-123456789abc": ["20 Projects/Project A.md", "20 Projects/Project B.md"],
+      },
+      diagnostic: null,
+    };
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    expect(await screen.findByText("(1 çakışma)")).toBeTruthy();
+    expect(screen.getByText(/Çakışan Notlar/)).toBeTruthy();
+    expect(screen.getByText(/20 Projects\/Project A\.md, 20 Projects\/Project B\.md/)).toBeTruthy();
   });
 });
 

@@ -22,6 +22,7 @@ import {
   useToast,
 } from "@/core/ui";
 import { BackupMergeControl } from "@/core/BackupMergeControl";
+import { getVaultStatus, refreshVaultIndex } from "@/core/obsidian";
 import { EXPORT_MODULE } from "@/modules/finance";
 import type { Theme } from "@/core/ui";
 
@@ -415,6 +416,110 @@ export function IntegrationsSection({
             kaydet
           </Button>
         </div>
+      </div>
+    </Section>
+  );
+}
+
+export function ObsidianVaultSection({ online }: { online: boolean }) {
+  const toast = useToast();
+  const query = useQuery({
+    queryKey: ["obsidian-status"],
+    queryFn: () => getVaultStatus(),
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: () => refreshVaultIndex(),
+    onSuccess: () => {
+      void query.refetch();
+      toast.push("Obsidian indeksi yenilendi.", { tone: "ok" });
+    },
+    onError: (err: Error) => {
+      toast.push(`İndeks yenilenemedi: ${err.message}`, { tone: "danger" });
+    },
+  });
+
+  const status = query.data;
+
+  return (
+    <Section title="Obsidian Vault">
+      <div className="space-y-3">
+        <p className="text-body text-secondary">
+          forkOS operasyonel verileri yönetir. Notlar ve uzun süreli bilgi Obsidian Vault&apos;ta tutulabilir.
+        </p>
+
+        {query.isLoading ? (
+          <p className="text-meta text-muted">Vault durumu yükleniyor...</p>
+        ) : (
+          <div className="space-y-3 rounded-control border border-subtle bg-surface p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle pb-3">
+              <div className="min-w-0">
+                <p className="text-body font-medium text-primary">
+                  {status?.vault_name ? `Vault: ${status.vault_name}` : "Obsidian Bağlantısı"}
+                </p>
+                {status?.diagnostic && (
+                  <p className="mt-0.5 text-meta text-muted">{status.diagnostic}</p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {status?.configured ? (
+                  <Chip tone="ok">yapılandırıldı</Chip>
+                ) : (
+                  <Chip tone="warn">yapılandırılmadı</Chip>
+                )}
+                {status?.available ? (
+                  <Chip tone="ok">erişilebilir</Chip>
+                ) : (
+                  <Chip tone="danger">dizin yok</Chip>
+                )}
+                {status?.available && (
+                  status.writable ? (
+                    <Chip tone="ok">yazılabilir</Chip>
+                  ) : (
+                    <Chip tone="warn">salt okunur</Chip>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <div className="text-meta text-secondary">
+                <span>
+                  {status?.managed_files ?? 0} yönetilen not indekslendi
+                </span>
+                {status?.conflicts ? (
+                  <span className="ml-2 text-danger">
+                    ({status.conflicts} çakışma)
+                  </span>
+                ) : null}
+              </div>
+
+              <Button
+                variant="ghost"
+                disabled={!online || !status?.available || refreshMutation.isPending}
+                onClick={() => refreshMutation.mutate()}
+              >
+                {refreshMutation.isPending ? "Yenileniyor..." : "İndeksi Yenile"}
+              </Button>
+            </div>
+
+            {status?.conflicts && status.conflicts > 0 && status.conflict_details ? (
+              <div className="mt-2 rounded-control border border-danger-border bg-danger-surface p-2.5">
+                <p className="mb-1 text-meta font-medium text-danger">
+                  Çakışan Notlar (Aynı forkOS ID birden fazla dosyada):
+                </p>
+                <div className="space-y-1">
+                  {Object.entries(status.conflict_details).map(([id, paths]) => (
+                    <div key={id} className="text-micro text-danger">
+                      <span className="font-mono">{id.slice(0, 8)}... :</span>{" "}
+                      {paths.join(", ")}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </Section>
   );

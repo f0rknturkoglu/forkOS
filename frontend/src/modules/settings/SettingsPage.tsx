@@ -32,6 +32,7 @@ import {
   IntegrationsSection,
   MediaProvidersSection,
   ModulesSection,
+  ObsidianVaultSection,
   SettingsSourceHealth,
   ThemePicker,
   WeatherSection,
@@ -380,6 +381,7 @@ export function SettingsPage() {
                 onDisconnectGoogle={() => disconnect.mutate("google")}
                 busy={disconnect.isPending}
               />
+              <ObsidianVaultSection online={online} />
               <MediaProvidersSection
                 online={online}
                 keys={{
