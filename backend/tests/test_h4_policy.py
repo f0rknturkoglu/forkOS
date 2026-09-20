@@ -54,12 +54,14 @@ def test_small_is_selected_when_healthy_and_eligible() -> None:
 
 
 def test_medium_is_selected_when_small_is_unavailable() -> None:
+    """H4.1 §48: bu bir SEÇİMDİR, yükseltme değil (small hiç denenmedi)."""
     plan = policy_svc.route_task(
         lane="classify", input_chars=100, profiles=_profiles(small=""), health=_health(UNCONFIGURED)
     )
     assert plan.selected_slot == "local-medium"
     assert "LOCAL_SMALL_UNAVAILABLE" in plan.reason_codes
-    assert "ESCALATED_TO_LOCAL_MEDIUM" in plan.reason_codes
+    assert "LOCAL_MEDIUM_SELECTED" in plan.reason_codes
+    assert "ESCALATED_TO_LOCAL_MEDIUM" not in plan.reason_codes
 
 
 def test_medium_is_selected_when_small_is_unhealthy() -> None:
@@ -159,3 +161,85 @@ def test_health_is_separate_from_eligibility() -> None:
     )
     assert plan.selected_slot == "local-medium"
     assert "local-small" not in plan.eligible_slots
+
+
+# ---------------------------------------------------------------------------
+# H4.1 — yönlendirme gerekçe semantiği
+# ---------------------------------------------------------------------------
+
+
+def test_medium_context_exceeded_has_specific_reason() -> None:
+    """§46/§102: sağlıklı medium bütçe yüzünden uygun değilse "unavailable" DENMEZ."""
+    plan = policy_svc.route_task(
+        lane="classify",
+        input_chars=1500,
+        profiles=_profiles(small_budget=1000, medium_budget=1000),
+        health=_health(HEALTHY, HEALTHY),
+    )
+    assert plan.selected_slot is None
+    assert "LOCAL_SMALL_CONTEXT_EXCEEDED" in plan.reason_codes
+    assert "LOCAL_MEDIUM_CONTEXT_EXCEEDED" in plan.reason_codes
+    assert "LOCAL_MEDIUM_UNAVAILABLE" not in plan.reason_codes
+    assert "NO_ELIGIBLE_MODEL" in plan.reason_codes
+
+
+def test_medium_context_reason_is_not_availability() -> None:
+    plan = policy_svc.route_task(
+        lane="classify",
+        input_chars=5000,
+        profiles=_profiles(small_budget=1000, medium_budget=2000),
+        health=_health(HEALTHY, HEALTHY),
+    )
+    assert "LOCAL_SMALL_CONTEXT_EXCEEDED" in plan.reason_codes
+    assert "LOCAL_MEDIUM_CONTEXT_EXCEEDED" in plan.reason_codes
+    assert "LOCAL_SMALL_UNAVAILABLE" not in plan.reason_codes
+    assert "LOCAL_MEDIUM_UNAVAILABLE" not in plan.reason_codes
+
+
+def test_direct_medium_selection_is_not_escalation() -> None:
+    """§51/§100: small yapılandırılmamış → medium SEÇİLİR, "yükseltilmez"."""
+    plan = policy_svc.route_task(
+        lane="classify",
+        input_chars=100,
+        profiles=_profiles(small=""),
+        health=_health(UNCONFIGURED, HEALTHY),
+    )
+    assert plan.selected_slot == "local-medium"
+    assert "LOCAL_SMALL_UNAVAILABLE" in plan.reason_codes
+    assert "LOCAL_MEDIUM_SELECTED" in plan.reason_codes
+    assert "ESCALATED_TO_LOCAL_MEDIUM" not in plan.reason_codes
+
+
+def test_direct_medium_after_small_context_exceeded_uses_medium_selected() -> None:
+    """§52/§101: bütçe yüzünden medium'a geçiş de yükseltme DEĞİLDİR."""
+    plan = policy_svc.route_task(
+        lane="classify",
+        input_chars=2000,
+        profiles=_profiles(small_budget=1000, medium_budget=4000),
+        health=_health(HEALTHY, HEALTHY),
+    )
+    assert plan.selected_slot == "local-medium"
+    assert "LOCAL_SMALL_CONTEXT_EXCEEDED" in plan.reason_codes
+    assert "LOCAL_MEDIUM_SELECTED" in plan.reason_codes
+    assert "ESCALATED_TO_LOCAL_MEDIUM" not in plan.reason_codes
+
+
+def test_direct_medium_after_small_unhealthy_uses_medium_selected() -> None:
+    plan = policy_svc.route_task(
+        lane="classify",
+        input_chars=100,
+        profiles=_profiles(),
+        health=_health(UNHEALTHY, HEALTHY),
+    )
+    assert plan.selected_slot == "local-medium"
+    assert "LOCAL_MEDIUM_SELECTED" in plan.reason_codes
+    assert "ESCALATED_TO_LOCAL_MEDIUM" not in plan.reason_codes
+
+
+def test_small_selection_uses_small_selected_reason() -> None:
+    plan = policy_svc.route_task(
+        lane="classify", input_chars=100, profiles=_profiles(), health=_health()
+    )
+    assert "LOCAL_SMALL_SELECTED" in plan.reason_codes
+    assert "LOCAL_MEDIUM_SELECTED" not in plan.reason_codes
+    assert "ESCALATED_TO_LOCAL_MEDIUM" not in plan.reason_codes

@@ -110,11 +110,21 @@ def _slot_unavailable_code(slot: str) -> ReasonCode:
 
 
 def _slot_context_code(slot: str) -> ReasonCode:
-    return "LOCAL_SMALL_CONTEXT_EXCEEDED" if slot == "local-small" else "LOCAL_MEDIUM_UNAVAILABLE"
+    """Bütçe aşımı, "kullanılamaz" DEĞİLDİR (H4.1 §45).
+
+    Sağlıklı ve yapılandırılmış bir slot yalnızca girdi bütçesi yetmediği için
+    uygun değilse bunu `UNAVAILABLE` diye etiketlemek olguya aykırı olurdu.
+    """
+    return "LOCAL_SMALL_CONTEXT_EXCEEDED" if slot == "local-small" else "LOCAL_MEDIUM_CONTEXT_EXCEEDED"
 
 
 def _slot_selected_code(slot: str) -> ReasonCode:
-    return "LOCAL_SMALL_SELECTED" if slot == "local-small" else "ESCALATED_TO_LOCAL_MEDIUM"
+    """İLK yönlendirme seçimi. Bu bir yükseltme DEĞİLDİR (H4.1 §48).
+
+    `ESCALATED_TO_LOCAL_MEDIUM` yalnızca gerçek çalışma zamanı geçişinde
+    (small denendi → medium'a çıkıldı) servis tarafından eklenir.
+    """
+    return "LOCAL_SMALL_SELECTED" if slot == "local-small" else "LOCAL_MEDIUM_SELECTED"
 
 
 def route_task(
