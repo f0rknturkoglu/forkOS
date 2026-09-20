@@ -23,6 +23,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.integrations.local_cognition import temporal as temporal_svc
 from app.integrations.local_cognition.models import (
     MAX_CLASSIFICATION_GOAL_CHARS,
     MAX_DATE_TEXT_CHARS,
@@ -203,6 +204,20 @@ def excerpt_is_sourced(excerpt: str, source_text: str) -> bool:
     return normalized_excerpt in normalize_for_matching(source_text)
 
 
+def field_is_sourced(field: str, container: str) -> bool:
+    """Çıkarılan HAM alan, kapsayıcı metnin bir parçası mı? (H4.1 §7)
+
+    `date_text` gibi alanlar kaynaktan ALINTI olmalıdır. Karşılaştırma
+    NFKC + tire + boşluk normalizasyonu + büyük/küçük harf duyarsızdır; büyük
+    harf farkı olguyu değiştirmediği için burada esneklik güvenlidir.
+    Yine de bulanık/semantik eşleştirme YAPILMAZ: alan ya alıntıdır ya değildir.
+    """
+    normalized_field = temporal_svc.normalize(field)
+    if not normalized_field:
+        return False
+    return normalized_field in temporal_svc.normalize(container)
+
+
 #: Pydantic'in uzunluk ihlali tipleri (liste ve dize ayrı tipler kullanır).
 _TOO_LONG_TYPES = frozenset({"too_long", "string_too_long"})
 
@@ -261,9 +276,26 @@ def _validate_collection(
 
 
 def validate_academic_calendar(payload: Any, source_text: str) -> ValidationOutcome:
-    """`academic_calendar_v1` doğrulaması (§33/§34/§79)."""
+    """`academic_calendar_v1` doğrulaması — KAYNAK TEMELLİ (H4.1 §11).
+
+    Zincir: `source_excerpt` → `date_text` → normalize tarih.
+
+    - `date_text` kaynaktan alıntı olmalıdır (`SOURCE_FIELD_NOT_SUPPORTED`).
+    - Normalize tarih YALNIZCA deterministik ayrıştırıcı onaylarsa kabul edilir;
+      ayrıştırıcı çözemiyorsa model `null` döndürmek ZORUNDADIR.
+    - Eksik normalizasyon (null) geçerlidir: H4, uydurma tarihi eksik tarihe
+      tercih eder (§12).
+    """
 
     def sanity(item: AcademicCalendarEvent) -> ValidationCode | None:
+        if not field_is_sourced(item.date_text, item.source_excerpt):
+            return "SOURCE_FIELD_NOT_SUPPORTED"
+
+        expected_start, expected_end = temporal_svc.parse_date_range(item.date_text)
+        if item.start_date is not None and item.start_date != expected_start:
+            return "INVALID_DATE"
+        if item.end_date is not None and item.end_date != expected_end:
+            return "INVALID_DATE"
         if item.start_date and item.end_date and item.end_date < item.start_date:
             return "INVALID_DATE"
         return None
@@ -278,13 +310,27 @@ def validate_academic_calendar(payload: Any, source_text: str) -> ValidationOutc
 
 
 def validate_weekly_schedule(payload: Any, source_text: str) -> ValidationOutcome:
-    """`weekly_schedule_v1` doğrulaması (§36/§80).
+    """`weekly_schedule_v1` doğrulaması — KAYNAK TEMELLİ (H4.1 §18/§19).
 
     Aynı gün varsayımı geçerlidir: `end_time > start_time`. Gece yarısını aşan
     bloklar v1 kapsamı DIŞINDADIR.
+
+    Gün ve saatler kaynaktan ÇIKARILIR ve model değerleriyle karşılaştırılır:
+    tek başına geçerli olmak yetmez, kaynağa karşılık gelmelidir. Kaynakta
+    tanınan gün yoksa ya da birden fazla farklı gün geçiyorsa öğe reddedilir
+    (tahmin yok).
     """
 
     def sanity(item: WeeklyScheduleBlock) -> ValidationCode | None:
+        weekday = temporal_svc.find_weekday(item.source_excerpt)
+        if weekday is None or item.day_of_week != weekday:
+            return "INVALID_TIME"
+
+        times = temporal_svc.parse_times(item.source_excerpt)
+        if len(times) < 2:
+            return "INVALID_TIME"
+        if item.start_time != times[0] or item.end_time != times[1]:
+            return "INVALID_TIME"
         if item.end_time <= item.start_time:
             return "INVALID_TIME"
         return None
@@ -299,9 +345,28 @@ def validate_weekly_schedule(payload: Any, source_text: str) -> ValidationOutcom
 
 
 def validate_deadlines(payload: Any, source_text: str) -> ValidationOutcome:
-    """`deadline_candidates_v1` doğrulaması."""
+    """`deadline_candidates_v1` doğrulaması — KAYNAK TEMELLİ (H4.1 §13/§14).
+
+    `due_date` deterministik tarih çözümüyle, `due_time` ise kaynakta geçen
+    gerçek bir saatle uyuşmalıdır. Kaynakta saat yoksa `due_time` null kalır:
+    `23:59` gibi varsayılanlar UYDURULAMAZ.
+    """
 
     def sanity(item: DeadlineCandidate) -> ValidationCode | None:
+        if not field_is_sourced(item.date_text, item.source_excerpt):
+            return "SOURCE_FIELD_NOT_SUPPORTED"
+
+        expected_start, expected_end = temporal_svc.parse_date_range(item.date_text)
+        expected = expected_start or expected_end
+        if item.due_date is not None and item.due_date != expected:
+            return "INVALID_DATE"
+
+        if item.due_time is not None:
+            allowed = set(temporal_svc.parse_times(item.date_text)) | set(
+                temporal_svc.parse_times(item.source_excerpt)
+            )
+            if item.due_time not in allowed:
+                return "INVALID_TIME"
         return None
 
     return _validate_collection(
