@@ -225,8 +225,39 @@ Yüzey yine **24** araç.
   `test_h4_ollama.py`, `test_agent_h4_contract.py`, `test_agent_h4_transport.py`,
   `test_h4_live.py`.
 - Ayrıntı: `h4-local-cognition.md`, `h4-tool-contract.md`, `h4-setup.md`.
-- **Sıradaki (H4.1):** CrossEncoder rerank değerlendirmesi, sorgu yeniden yazımı
-  ayarı, bağlam sıkıştırma araştırması.
+- Ayrıntı: `h4-local-cognition.md`, `h4-tool-contract.md`, `h4-setup.md`.
+
+---
+
+## H4.1 — Source Grounding & Routing Semantics ✅ Tamamlandı
+
+**Soru:** *Kabul edilen her değer kaynaktan savunulabilir mi, ve her gerekçe
+olguya uygun mu?*
+
+- **Kaynak temellendirme zinciri:** `source_excerpt` → `date_text`/ham alan →
+  normalize değer. Gerçek bir alıntı eklemek uydurma normalize alanı
+  meşrulaştırmaz; `date_text` alıntının parçası olmalı
+  (`SOURCE_FIELD_NOT_SUPPORTED`), normalize tarih deterministik çözümle
+  uyuşmalı (`INVALID_DATE`), saat/gün kaynaktan çıkarılanla eşleşmeli
+  (`INVALID_TIME`).
+- **Deterministik zamansal ayrıştırıcı:** TR+EN, sürüm-tanımlı küçük biçim
+  kümesi (ISO, DD.MM.YYYY, DD/MM/YYYY, `D Ay YYYY`, `Month D, YYYY`, gün/ay
+  aralıkları, `X ile Y` / `X to Y`, `HH:MM`, hafta günleri). Takvim doğrulaması
+  gerçek; doğal dil anlama YOK; yeni bağımlılık YOK.
+- **Muhafazakâr null:** desteklenmeyen/biçim belirsizse normalize alan `null`
+  kalır ve bu GEÇERLİDİR — eksik normalizasyon, uydurma normalizasyondan iyidir.
+- **Sağlayıcı düşmesi tipik durum:** sağlık probu başarısızsa
+  `needs_escalation` + `MODEL_PROVIDER_UNAVAILABLE` + `attempts=[]`; ham
+  `ProviderError` sızmaz, `LOCAL_COGNITION_FAILED` üretilmez (MCP'de
+  `is_error=false`).
+- **Yükseltme ≠ seçim:** `LOCAL_MEDIUM_SELECTED` ilk yönlendirme kararıdır
+  (`escalated=false`); `ESCALATED_TO_LOCAL_MEDIUM` yalnızca small denendikten
+  sonra yukarı çıkıldığında görünür (`escalated=true`). Bütçe aşımı artık
+  `LOCAL_MEDIUM_CONTEXT_EXCEEDED` ile "kullanılamaz"dan ayrılır.
+- Kanıt: `test_h4_temporal.py`, `test_h4_grounding.py` + servis/politika/taşıma
+  regresyonları; eval 50 vaka (7 yeni düşmanca vaka, deneme-kodu doğrulamasıyla).
+- **Sıradaki (H4.2 araştırma):** CrossEncoder rerank değerlendirmesi, sorgu
+  yeniden yazımı ayarı, bağlam sıkıştırma araştırması.
 
 ---
 

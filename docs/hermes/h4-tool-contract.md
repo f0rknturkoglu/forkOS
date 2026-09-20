@@ -75,6 +75,11 @@ input_chars · required_capabilities · reason_codes · attempts[]
 validation_status(valid|invalid|not_attempted) · escalated · escalation_reason · latency_ms
 ```
 
+Sağlayıcı düşmesi (H4.1): sağlık probu başarısızsa `status=needs_escalation`,
+`failure_code=MODEL_PROVIDER_UNAVAILABLE`, `attempts=[]`, `selected_slot=null`,
+`validation_status=not_attempted`. Bu bir uygulama hatası DEĞİLDİR: MCP yanıtı
+`is_error=false` ile döner ve `LOCAL_COGNITION_FAILED` üretilmez.
+
 `AttemptRecord` (yalnız GÜVENLİ meta veri):
 
 ```text
@@ -172,6 +177,10 @@ Yanıt (kısaltılmış, gerçek bir canlı çağrıdan):
 | çıkarım koleksiyonu | ≤ 80 öğe |
 | `title` / `date_text` / `source_excerpt` | ≤ 200 / ≤ 120 / ≤ 500 |
 
+Kaynak temellendirmesi (H4.1): `date_text` alıntıdan, normalize tarih/saat ise
+deterministik ayrıştırıcıdan doğrulanır. Desteklenmeyen biçimde normalize alan
+`null` kalmalıdır; eksik normalizasyon geçerlidir, uydurma değer değildir.
+
 Şema ilk savunmadır; **çalışma zamanı otoritedir**. Aralık dışı girdi
 KIRPILMAZ: `INVALID_ARGUMENT`.
 
@@ -194,17 +203,38 @@ KIRPILMAZ: `INVALID_ARGUMENT`.
 
 Doğrulama alt kodları (deneme kayıtlarında görünür): `INVALID_MODEL_JSON`,
 `OUTPUT_SCHEMA_MISMATCH`, `INVALID_CLASS_LABEL`, `SOURCE_EXCERPT_NOT_FOUND`,
-`INVALID_DATE`, `INVALID_TIME`, `PROTECTED_TERM_LOST`, `OUTPUT_TOO_LARGE`.
+`SOURCE_FIELD_NOT_SUPPORTED`, `INVALID_DATE`, `INVALID_TIME`,
+`PROTECTED_TERM_LOST`, `OUTPUT_TOO_LARGE`.
+
+Kod semantiği (H4.1):
+
+```text
+SOURCE_EXCERPT_NOT_FOUND    alıntının KENDİSİ metinden değil
+SOURCE_FIELD_NOT_SUPPORTED  ham alan (ör. date_text) alıntıdan değil
+INVALID_DATE                normalize tarih kaynak çözümüyle çelişiyor
+INVALID_TIME                normalize saat/gün ya da saat sırası kaynakla çelişiyor
+```
 
 Yönlendirme gerekçe kodları: `LANE_*`, `STRUCTURED_OUTPUT_REQUIRED`,
 `LOCAL_SMALL_SELECTED`, `LOCAL_SMALL_UNAVAILABLE`, `LOCAL_SMALL_CONTEXT_EXCEEDED`,
-`LOCAL_SMALL_VALIDATION_FAILED`, `ESCALATED_TO_LOCAL_MEDIUM`,
-`LOCAL_MEDIUM_UNAVAILABLE`, `LOCAL_MEDIUM_VALIDATION_FAILED`,
+`LOCAL_SMALL_VALIDATION_FAILED`, `LOCAL_MEDIUM_SELECTED`,
+`ESCALATED_TO_LOCAL_MEDIUM`, `LOCAL_MEDIUM_UNAVAILABLE`,
+`LOCAL_MEDIUM_CONTEXT_EXCEEDED`, `LOCAL_MEDIUM_VALIDATION_FAILED`,
 `NO_ELIGIBLE_MODEL`, `LOCAL_CAPABILITY_UNAVAILABLE`.
 
+```text
+LOCAL_MEDIUM_SELECTED       İLK yönlendirme medium'u seçti (small hiç denenmedi)
+ESCALATED_TO_LOCAL_MEDIUM   small DENENDİ ve medium'a çıkıldı (gerçek geçiş)
+LOCAL_MEDIUM_CONTEXT_EXCEEDED  medium sağlıklı ama girdi bütçesi yetmiyor
+LOCAL_MEDIUM_UNAVAILABLE       medium yapılandırılmamış/sağlıksız
+```
+
+`RouteDecision.escalated` yalnızca gerçek yukarı geçişte `true` olur.
+
 `selected_slot` semantiği: yönlendirmenin **ilk deneme için seçtiği** slottur.
-Yalnızca hiçbir slot uygun değilse (veya argüman hatası varsa) `null` olur;
-başarısız denemelerde `attempts` listesi ne olduğunu söyler.
+Yalnızca hiçbir slot uygun değilse, argüman hatası varsa ya da sağlayıcı sağlık
+probu başarısızsa `null` olur; başarısız denemelerde `attempts` listesi ne
+olduğunu söyler.
 
 ---
 

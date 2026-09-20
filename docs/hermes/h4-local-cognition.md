@@ -135,9 +135,10 @@ Model, şemayı doldurmak için yıl veya gün UYDURMAZ.
 | Şema | Pydantic modeli, ek alan YASAK | `OUTPUT_SCHEMA_MISMATCH` |
 | Boyut | Koleksiyon/öğe tavanları | `OUTPUT_TOO_LARGE` |
 | Kaynak kanıtı | `source_excerpt` sağlanan metnin içinde **birebir** bulunmalı (NFKC + satır sonu + boşluk normalizasyonu; bulanık eşleştirme yok) | `SOURCE_EXCERPT_NOT_FOUND` |
+| Alan temellendirmesi | `date_text` gibi ham alanlar `source_excerpt`'in parçası olmalı | `SOURCE_FIELD_NOT_SUPPORTED` |
 | Etiket | `label` sağlanan kümeden olmalı | `INVALID_CLASS_LABEL` |
-| Tarih | Geçerli takvim tarihi; `end_date ≥ start_date` | `INVALID_DATE` |
-| Saat | `HH:MM`; `end_time > start_time` (gece yarısı v1 kapsamı dışında) | `INVALID_TIME` |
+| Tarih | Deterministik çözümle uyuşmalı; geçerli takvim tarihi; `end_date ≥ start_date` | `INVALID_DATE` |
+| Saat/gün | `HH:MM`; `end_time > start_time`; gün ve saatler kaynaktan çıkarılanla eşleşmeli (gece yarısı v1 kapsamı dışında) | `INVALID_TIME` |
 | Korunan terim | Yeniden yazımda AYNEN kalmalı | `PROTECTED_TERM_LOST` |
 | JSON | Ham çıktı JSON olmalı | `INVALID_MODEL_JSON` |
 
@@ -169,6 +170,44 @@ failure_code=LOCAL_CAPABILITY_UNAVAILABLE   (iki slot denendi)
              | MODEL_PROVIDER_UNAVAILABLE   (sağlayıcı erişilemez/zaman aşımı)
              | MODEL_UNAVAILABLE            (model kurulu değil)
 result=null + recovery_hint + route_decision
+```
+
+### 6.1 Sağlayıcı düşmesi tipik bir durumdur (H4.1)
+
+Yerel sunucu çalışmıyorsa (sağlık probu başarısız):
+
+```text
+status=needs_escalation
+failure_code=MODEL_PROVIDER_UNAVAILABLE
+attempts=[]                       sağlık probu bir ÇIKARIM DENEMESİ DEĞİLDİR
+selected_slot=null · validation_status=not_attempted
+```
+
+Bu **beklenen bir operasyonel durumdur**, uygulama hatası değil: ham
+`ProviderError` servis sınırından çıkmaz ve `LOCAL_COGNITION_FAILED` üretilmez.
+Aynı durum gerçek `/mcp` üzerinden de `is_error=false` + tipik gövde olarak döner.
+
+### 6.2 Yükseltme ≠ seçim (H4.1)
+
+```text
+LOCAL_MEDIUM_SELECTED
+= İLK yönlendirme kararı medium'u seçti (small yapılandırılmamış/sağlıksız/
+  bütçesi yetmiyor). small HİÇ denenmedi → escalated=false
+
+ESCALATED_TO_LOCAL_MEDIUM
+= çalışma ZAMANINDA small denendi ve medium'a çıkıldı
+  (small iki kez doğrulamada düştü ya da üretim anında MODEL_UNAVAILABLE)
+  → escalated=true
+```
+
+`RouteDecision.escalated` yalnızca gerçek yukarı geçişte `true` olur.
+
+Bütçe aşımı da "kullanılamaz" değildir:
+
+```text
+girdi > small bütçesi  → LOCAL_SMALL_CONTEXT_EXCEEDED
+girdi > medium bütçesi → LOCAL_MEDIUM_CONTEXT_EXCEEDED
+sağlıksız/yok          → LOCAL_SMALL_UNAVAILABLE / LOCAL_MEDIUM_UNAVAILABLE
 ```
 
 **Arka planda buluta düşülmez**: yükseltme kararı çağırana aittir.
