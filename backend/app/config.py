@@ -28,6 +28,26 @@ class Settings(BaseSettings):
     obsidian_vault_path: str = ""
     obsidian_vault_name: str = ""
 
+    #: H4 yerel bilis (local cognition) router'i.
+    #:
+    #: Varsayilan KAPALI: yerel model kurulu olmayabilir ve H4 zorunlu bir
+    #: bagimlilik DEGILDIR. Kapaliyken arac yuzeyde kalir ve `H4_DISABLED`
+    #: doner (MCP arac sayisi yapilandirmaya gore DEGISMEZ).
+    h4_enabled: bool = False
+    #: Yalnizca loopback kabul edilir (localhost / 127.0.0.1 / ::1). Baska bir
+    #: host `INVALID_LOCAL_MODEL_ENDPOINT` ile reddedilir: H4 yanlislikla bir
+    #: bulut gecidine donusemez.
+    h4_ollama_base_url: str = "http://127.0.0.1:11434"
+    #: Model kimlikleri YAPILANDIRMADAN gelir; kodda sabit model adi YOKTUR.
+    #: Bos = o slot yapilandirilmamis.
+    h4_small_model: str = ""
+    h4_medium_model: str = ""
+    #: Girdi karakter butceleri YONLENDIRME guvenlik sinirlaridir; modelin
+    #: gercek baglam penceresi degildir (daha buyuk olabilir).
+    h4_small_input_chars: int = 12000
+    h4_medium_input_chars: int = 24000
+    h4_timeout_seconds: float = 45.0
+
     @property
     def resolved_obsidian_vault_path(self) -> Path | None:
         if not self.obsidian_vault_path or not self.obsidian_vault_path.strip():
