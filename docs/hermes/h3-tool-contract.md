@@ -42,8 +42,8 @@ Onay gerekmez (yazma yoktur).
 | `since` / `until` | ISO-8601 **ve saat dilimli** (`+03:00`, `Z`) | `INVALID_TIME_RANGE` |
 | `since > until` | Reddedilir | `INVALID_TIME_RANGE` |
 | `since`/`until` + çekirdek yok | Reddedilir (olaylar çapa ister) | `TIME_FILTER_REQUIRES_ENTITY_SEED` |
-| `max_depth` | 0–2; aralık dışı KIRPILIR | — |
-| `limit` | 1–15; aralık dışı KIRPILIR | — |
+| `max_depth` | 0–2; aralık dışı **REDDEDİLİR** | `INVALID_MAX_DEPTH` |
+| `limit` | 1–15; aralık dışı **REDDEDİLİR** | `INVALID_LIMIT` |
 
 `query` zorunludur: bu araç genel bağlam dökümü DEĞİLDİR. Genel bağlam için
 `forkos_entity_context` / `forkos_project_context` vardır.
@@ -56,6 +56,14 @@ handler'a ulaşmadan reddedilir); çalışma zamanı otoritedir (şemadan geçen
 anlamsız girdiler — geçersiz UUID, çapasız zaman filtresi — servis katmanında
 reddedilir). Doğrudan Python çağıranları şemayı atlayabildiği için ikinci katman
 gereklidir.
+
+Aralık dışı `max_depth`/`limit` **sessizce kırpılmaz**: `max_depth=3` hata
+verir, 2'ye düşürülmez; `limit=16` hata verir, 15'e düşürülmez. H2.2 ilkesi:
+şema bağı = çalışma zamanı bağı.
+
+Tek istisna **sorgu-only** durumdur: `entity_id` yokken `max_depth=2` geçerli
+bir girdidir, ama çekirdek olmadığı için etkin derinlik **0**'dır ve grafik
+gezinmesi yapılmaz. Bu bir hata değil, kapsam semantiğidir.
 
 ---
 
@@ -126,14 +134,39 @@ yazılmaz; gerekçe gözlemlenebilir bir olgu söyler:
 ### 3.3 `EvidencePathHop`
 
 ```text
-kind     : entity_link | knowledge_pointer | wikilink | backlink
-from_ref : "entity:<uuid>" | "vault:<göreli yol>"
-relation : KANONİK makine ilişkisi (ör. belongs_to, knowledge_note, wikilink)
-to_ref   : "entity:<uuid>" | "vault:<göreli yol>"
+kind      : entity_link | knowledge_pointer | wikilink | backlink
+from_ref  : "entity:<uuid>" | "vault:<göreli yol>"
+relation  : KANONİK makine ilişkisi (ör. belongs_to, knowledge_note, wikilink)
+direction : incoming | outgoing | null
+to_ref    : "entity:<uuid>" | "vault:<göreli yol>"
 ```
 
 `relation` daima makine ilişkisidir; yerelleşmiş etiket tek başına kimlik
 olarak kullanılmaz.
+
+`direction` **gezinmeye** göredir ve yalnızca `entity_link` hop'larında bulunur:
+
+```text
+DB satırı : Todo --belongs_to--> Project
+çekirdek  : Project
+gezinme   : Project → Todo
+hop       : relation=belongs_to, direction=incoming
+```
+
+```text
+A --related--> B     A → B ⇒ outgoing        B → A ⇒ incoming
+```
+
+Kural modelde dayatılır: `entity_link` yönsüz üretilemez, diğer türler yön
+taşıyamaz. İlişki adı ASLA ters çevrilmez; `belongs_to_inverse`, `contains`,
+`owned_by` gibi uydurma ilişkiler üretilmez.
+
+`relation_path` **tam**tır: açık çekirdekte başlar, kaynakta biter. Komşu
+üzerinden gelen bir kasa kanıtı entity önekini kaybetmez:
+
+```text
+[entity_link(belongs_to, incoming), knowledge_pointer, wikilink]
+```
 
 ### 3.4 `RetrievalTraceStep`
 
@@ -149,6 +182,20 @@ truncated   : bu aşama sert bir tavana takıldı mı
 Her istek **aynı 8 aşamayı, aynı sırada** döndürür; kapsam yalnızca içerikleri
 değiştirir (`scope=knowledge` operasyonel aşamalar için "skipped" adımı taşır).
 Böylece iki farklı çağrının izleri karşılaştırılabilir kalır.
+
+Sayaç semantiği aşamaya göre kesindir:
+
+```text
+graph     considered = ziyaret edilen çekirdek dışı düğüm
+          accepted   = kanıta dönüşen komşu
+events    considered = DB tarama penceresinden SONRA dikkate alınan uygun satır
+          accepted   = genel kanıt bütçesinden ÖNCE kanıta dönüşen olay
+budget    considered = oluşturulan aday
+          accepted   = pakete giren öğe
+```
+
+Olay kanalında `truncated`, iki tavandan **herhangi biri** dolduğunda `true`
+olur (tarama penceresi veya kanıt tavanı) ve pakete yayılır.
 
 ---
 
@@ -184,7 +231,8 @@ Böylece iki farklı çağrının izleri karşılaştırılabilir kalır.
       },
       "relation_path": [
         {"kind": "knowledge_pointer", "from_ref": "entity:3ce971dd-...",
-         "relation": "knowledge_note", "to_ref": "vault:20 Projects/forkjob.md"}
+         "relation": "knowledge_note", "direction": null,
+         "to_ref": "vault:20 Projects/forkjob.md"}
       ],
       "retrieval_reason": "managed knowledge note of the explicit entity seed; query tokens matched (heading, body)"
     },
@@ -201,8 +249,8 @@ Böylece iki farklı çağrının izleri karşılaştırılabilir kalır.
       "source_type": "vault",
       "locator": {"relative_path": "30 Knowledge/Rust.md", "heading": "Rust", "line_start": 1, "line_end": 3},
       "relation_path": [
-        {"kind": "knowledge_pointer", "relation": "knowledge_note"},
-        {"kind": "wikilink", "relation": "wikilink"}
+        {"kind": "knowledge_pointer", "relation": "knowledge_note", "direction": null},
+        {"kind": "wikilink", "relation": "wikilink", "direction": null}
       ],
       "retrieval_reason": "direct wikilink from '20 Projects/forkjob.md'; query tokens matched (title token, body)"
     }
@@ -254,6 +302,8 @@ INVALID_UUID                      entity_id UUID değil
 ENTITY_NOT_FOUND                  entity_id yok
 FROZEN_ENTITY_UNAVAILABLE         legacy note/note_folder/note_attachment
 INVALID_SCOPE                     bilinmeyen scope
+INVALID_MAX_DEPTH                 max_depth 0-2 aralığının dışında
+INVALID_LIMIT                     limit 1-15 aralığının dışında
 INVALID_TIME_RANGE                bozuk / saat dilimsiz / since > until
 TIME_FILTER_REQUIRES_ENTITY_SEED  zaman filtresi çekirdeksiz kullanıldı
 VAULT_UNAVAILABLE                 scope=knowledge ve kasa yok

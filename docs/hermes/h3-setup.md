@@ -59,6 +59,10 @@ max_depth  minimum=0     maximum=2
 limit      minimum=1     maximum=15
 ```
 
+Aralık dışı `max_depth`/`limit` **kırpılmaz, reddedilir** (`INVALID_MAX_DEPTH`,
+`INVALID_LIMIT`). Gerçek MCP'de bu değerler zaten şema katmanında reddedilir;
+doğrudan Python çağrısında çalışma zamanı aynı sınırı bağımsız dayatır.
+
 ### 3.2 Davranış ve taşıma
 
 ```bash
@@ -127,7 +131,8 @@ Yorumlar:
   olduğu için beklenen gecikme ~6 ms'dir; 500 dosya tavanı en kötü durumu
   ~110 ms'de sınırlar.
 - Grafik genişlemesi (24 düğüm) + olay okuması derinlik 0 → 1 arasında
-  ~5 ms ekler.
+  ~5 ms ekler. H3.1'den beri BFS istek başına **bir kez** çalışır (önce iki
+  kez çalışıyordu); `scope=all` bu yüzden bir tur daha az sorgu atar.
 - Derinlik 2, düğüm tavanı (25) derinlik 1'de dolduğu için ek maliyet getirmez.
 - Ölçümler bilgi amaçlıdır; **kırılgan CI zamanlama eşiği yoktur**.
 
@@ -141,6 +146,8 @@ Yorumlar:
 | `VAULT_CONFLICT` uyarısı | İki dosya aynı `forkos_id`'yi taşıyor | Dosyalardan birinin `forkos_id`'sini düzelt; H3 hedef tahmin ETMEZ |
 | `ambiguity` uyarısı | Çıplak `[[Rust]]` birden fazla nota çözülüyor | Notu `[[30 Knowledge/Rust]]` gibi yol nitelikli yaz |
 | `truncated=true` | Bir kanal bütçeye takıldı | İzi oku: hangi aşama kesildi (`retrieval_trace`) |
+| Olay kanalı `truncated=true` | 9+ uygun olay veya 121+ olay satırı | İz'deki `events.considered/accepted` sayılarına bak |
+| `INVALID_MAX_DEPTH` / `INVALID_LIMIT` | Sınır aralık dışı (kırpma YOK) | 0–2 ve 1–15 aralığına çek |
 | `omitted_total` beklenenden küçük | Yalnızca **sayılabilen** atlanan adaylar sayılır | Tarama tavanı gibi bilinmeyen toplamlarda uyarıya ve iz sayaçlarına bak |
 | `TIME_FILTER_REQUIRES_ENTITY_SEED` | Zaman filtresi olay kanalına aittir | `entity_id` ver; global olay araması H3'te YOKTUR |
 | `INVALID_TIME_RANGE` | Saat dilimsiz damga | `2026-09-01T00:00:00+03:00` ya da `...Z` yaz |
@@ -159,6 +166,7 @@ toplam snippet       ≤ 8000 karakter
 en küçük snippet     120 karakter
 grafik düğümü        ≤ 25
 olay kanıtı          ≤ 8
+olay tarama penceresi ≤ 120 (+1 nöbetçi)
 entity adayı         ≤ 5 (sorgu-only)
 uyarı                 ≤ 10 (her biri ≤ 300 karakter)
 kasa dosya taraması  ≤ 500

@@ -156,31 +156,73 @@ açık çekirdek varsa        : yapısal grafik + olaylar + yönetilen not + kas
 Her kanıt öğesi iki soruyu yanıtlar: **nerede** (`locator`) ve **nasıl bağlı**
 (`relation_path`).
 
-### 4.1 Yapısal köprü
+> **Değişmez kural:** `relation_path` DAİMA açık entity çekirdeğinde başlar ve
+> kanıt öğesinin kaynağında biter. Yarısı gösterilen bir yol, yol değildir.
+
+### 4.1 Link yönü korunur
+
+`Link` modeli anlamsal yön taşır: `from_id --relation--> to_id`. Gezinme aynı
+kenarı iki yönden birinde geçebilir; bu yüzden her `entity_link` hop'u hem
+**kanonik ilişki adını** hem **geçiş yönünü** taşır:
+
+```text
+DB satırı     : Todo --belongs_to--> Project
+çekirdek      : Project
+gezinme       : Project → Todo
+raporlanan    : relation=belongs_to   direction=incoming
+```
+
+İlişki adı **ters çevrilmez**: "Project belongs_to Todo" gibi uydurma bir
+ontoloji üretilmez. `direction` gezinmeye göredir:
+
+```text
+A --related--> B     A → B  ⇒ direction=outgoing
+                     B → A  ⇒ direction=incoming
+```
+
+`knowledge_pointer`, `wikilink` ve `backlink` hop'ları yön taşımaz
+(`direction=null`): yönleri zaten `kind` ile anlatılır.
+
+### 4.2 Yapısal köprü
 
 ```text
 entity:forkjob
-   │ belongs_to (incoming)
+   │ belongs_to / incoming
    ▼
 entity:todo-x
    │
    ▼
-event:9341        relation_path = [entity_link(belongs_to)]
+event:9341        relation_path = [entity_link(belongs_to, incoming)]
 ```
 
-### 4.2 Bilgi köprüsü
+### 4.3 Bilgi köprüsü (komşudan geçen tam zincir)
 
 ```text
 entity:forkjob
+   │ belongs_to / incoming
+   ▼
+entity:todo-x
    │ knowledge_pointer (knowledge_note)
    ▼
-vault:20 Projects/forkjob.md
+vault:20 Projects/todo-x.md
    │ wikilink
    ▼
-vault:30 Knowledge/Rust.md    relation_path = [knowledge_pointer, wikilink]
+vault:30 Knowledge/Rust.md
 ```
 
-Backlink yönünde hop `kind=backlink` olur ve `from_ref` bağlantıyı kuran nottur.
+```text
+relation_path = [entity_link(belongs_to, incoming), knowledge_pointer, wikilink]
+```
+
+Backlink yönünde son hop `kind=backlink` olur ve `from_ref` bağlantıyı kuran
+nottur; entity öneki yine korunur.
+
+### 4.4 Tek yapısal anlık görüntü
+
+Bir istekte grafik gezinmesi **tam olarak bir kez** çalışır. Entity kanıtı,
+olay kanıtı ve kasa köken yolları aynı sonuçtan türetilir; bu yüzden aynı
+komşu, hangi kanaldan gelirse gelsin AYNI ilk hop'u taşır. İstek-yerlidir:
+saklanmaz, önbelleğe alınmaz, süreçler arası paylaşılmaz.
 
 ### 4.3 Satır numaraları dürüsttür
 
@@ -217,6 +259,7 @@ Rastgele UUID yoktur. Aynı durum + aynı istek = aynı kimlikler.
 | En küçük anlamlı snippet | 120 karakter | `evidence_models.py` |
 | Grafik düğümü | ≤ 25 | `evidence_models.py` |
 | Olay kanıtı | ≤ 8 | `evidence_models.py` |
+| Olay tarama penceresi | ≤ 120 satır (+1 nöbetçi) | `evidence_models.py` |
 | Entity adayı (sorgu-only) | ≤ 5 | `evidence_models.py` |
 | Uyarı | ≤ 10 (her biri ≤ 300 karakter) | `evidence_models.py` |
 | Uyarıdaki belirsiz bağ örneği | ≤ 5 | `evidence_models.py` |
@@ -240,6 +283,11 @@ warnings         → sınırlı, model-okunur; kanal kesmeleri gizlenmez
 
 Evrensel toplam bilinmiyorsa (ör. tarama tavanda durdu) **uydurma sayı
 verilmez**; bunun yerine `truncated` + uyarı + iz sayaçları konuşur.
+
+Snippet sonradan global bütçe yüzünden kısaltılırsa kırpma **snippet'in
+türetildiği başlık bölümünün dışına çıkamaz**: `heading` ve fiziksel satır
+numaraları kırpılmış hâlde de doğru kalır. Tek bir kaynak satırı bütçeyi tek
+başına aşıyorsa o satır önek olarak kırpılır (`line_start == line_end`).
 
 İz (`retrieval_trace`) her istekte AYNI 8 aşamayı, aynı sırada taşır:
 
