@@ -6,16 +6,15 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
 
 from app.config import settings
-from app.db import SessionLocal, engine
 from app.integrations.obsidian.frontmatter import (
     extract_title,
     parse_frontmatter,
     render_markdown_with_frontmatter,
 )
 from app.integrations.obsidian.index import VaultIndex
+from app.integrations.obsidian.migration.plan import resolve_folder_path
 from app.integrations.obsidian.security import resolve_safe_vault_path, sanitize_filename
 from app.integrations.obsidian.service import (
     VaultConflictError,
@@ -26,11 +25,6 @@ from app.integrations.obsidian.service import (
 )
 from app.integrations.obsidian.uri import create_note_uri, open_file_uri, search_uri
 from app.main import app
-from app.scripts.plan_note_vault_migration import (
-    format_markdown_report,
-    plan_notes_migration,
-    resolve_folder_path,
-)
 
 
 @pytest.fixture(autouse=True)
@@ -370,99 +364,7 @@ async def test_obsidian_api_endpoints(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 # =====================================================================
-# 7. Dry-Run Notes Migration Planner
-# =====================================================================
-
-def test_dry_run_migration_report_formatting():
-    result = {
-        "metrics": {
-            "total_notes": 10,
-            "personal_notes": 5,
-            "daily_notes": 3,
-            "project_journals": 2,
-            "archived_notes": 2,
-            "trashed_notes": 1,
-            "notes_with_canvas": 1,
-            "notes_with_attachments": 4,
-            "total_attachment_files": 4,
-            "notes_with_wikilinks": 12,
-            "potential_filename_collisions": 1,
-        },
-        "collisions": {
-            "00 Inbox/Imported/Duplicate.md": ["id-1", "id-2"],
-        },
-        "plan": [
-            {
-                "id": "11111111-1111-1111-1111-111111111111",
-                "title": "Test Notu",
-                "forkos_type": "note",
-                "target_path": "00 Inbox/Imported/Test Notu.md",
-                "attachments_count": 1,
-                "warnings": ["canvas_content"],
-            }
-        ],
-    }
-
-    md = format_markdown_report(result)
-    assert "# forkOS Notes -> Obsidian Vault Migration Dry-Run Report" in md
-    assert "Toplam Not Sayısı" in md
-    assert "10" in md
-    assert "00 Inbox/Imported/Test Notu.md" in md
-    assert "00 Inbox/Imported/Duplicate.md" in md
-    assert "canvas_content" in md
-
-
-async def _database_available() -> bool:
-    try:
-        async with engine.connect() as connection:
-            await connection.execute(text("select 1 from note limit 1"))
-        return True
-    except Exception:
-        return False
-
-
-async def test_plan_notes_migration_database_execution():
-    if not await _database_available():
-        pytest.skip("Test veritabanı aktif değil")
-
-    note_id = uuid.uuid4()
-    async with SessionLocal() as session:
-        await session.execute(
-            text(
-                "insert into entity (id, type, title, search_text) "
-                "values (:id, 'note', 'Günlük Notum', '')"
-            ),
-            {"id": note_id},
-        )
-        await session.execute(
-            text(
-                "insert into note (id, body, journal_day, pinned) "
-                "values (:id, 'Bugün harika bir gün [[İkinci Not]]', '2026-09-20', false)"
-            ),
-            {"id": note_id},
-        )
-        await session.commit()
-
-        # Run dry-run plan
-        plan = await plan_notes_migration(session)
-
-        # Assert metrics
-        assert plan["metrics"]["total_notes"] >= 1
-        assert plan["metrics"]["daily_notes"] >= 1
-        assert plan["metrics"]["notes_with_wikilinks"] >= 1
-
-        # Assert target path
-        found = [p for p in plan["plan"] if p["note_id"] == str(note_id)]
-        assert len(found) == 1
-        assert found[0]["target_path"] == "10 Daily/2026-09-20.md"
-
-        # Assert zero mutation: count remains 1
-        count_res = await session.execute(text("select count(*) from note where id = :id"), {"id": note_id})
-        assert count_res.scalar() == 1
-
-
-# =====================================================================
-# 8. Fix 2: Conflict Fail-Closed Tests
+# 7. Fix 2: Conflict Fail-Closed Tests
 # =====================================================================
 
 @pytest.mark.no_database
