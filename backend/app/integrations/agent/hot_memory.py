@@ -15,11 +15,12 @@ doğrulaması yapılan yazmalar oturum kullanır.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.links import FROZEN_LEGACY_ENTITY_TYPES
 from app.core.models import Entity
 from app.integrations.agent.actions import ActionError
 from app.integrations.agent.hot_memory_models import (
@@ -64,15 +65,22 @@ CONTEXT_FIELDS: dict[str, str] = {
 LIST_DEFAULT_LIMIT = 20
 LIST_MAX_LIMIT = 50
 
-#: Legacy (dondurulmuş) bilgi arşivi tipleri: bunlara bağlanmak reddedilir (§40).
-_FROZEN_ENTITY_TYPES = frozenset({"note", "note_folder"})
-
-
 def _to_action_error(exc: storage.HotMemoryError) -> ActionError:
     """Depolama hatasını H1'in model-okunur hata zarfına çevirir (kod korunur)."""
     message = str(exc)
     _, _, detail = message.partition(": ")
     return ActionError(exc.code, detail or message)
+
+
+def _storage_error(exc: Exception) -> ActionError:
+    """Depolama hatasını model-okunur zarfa çevirir (§28/§85).
+
+    Ham `OSError` de `HOT_MEMORY_UNAVAILABLE` olur: dosya sistemi istisnası,
+    yığın izi ya da mutlak yol hiçbir koşulda ajana sızmaz.
+    """
+    if isinstance(exc, storage.HotMemoryError):
+        return _to_action_error(exc)
+    return ActionError("HOT_MEMORY_UNAVAILABLE", "hafıza deposuna erişilemedi")
 
 
 def _read_root():
@@ -90,11 +98,15 @@ def _write_root():
 
 
 def _scan(root):
-    """Depolama taraması; depolama hataları H1 hata zarfına çevrilir."""
+    """Depolama taraması; depolama hataları H1 hata zarfına çevrilir.
+
+    Ham `OSError` da `HOT_MEMORY_UNAVAILABLE` olur: okuma yolları hiçbir koşulda
+    dosya sistemi istisnası ya da mutlak yol sızdırmaz (§28).
+    """
     try:
         return storage.scan_memories(root)
-    except storage.HotMemoryError as exc:
-        raise _to_action_error(exc) from exc
+    except (storage.HotMemoryError, OSError) as exc:
+        raise _storage_error(exc) from exc
 
 
 def _item(record: storage.MemoryRecord) -> HotMemoryItem:
@@ -137,6 +149,22 @@ def _receipt_snapshot(record: storage.MemoryRecord) -> dict[str, Any]:
     }
 
 
+def _updated_key(record: storage.MemoryRecord) -> datetime:
+    """Kronolojik sıralama anahtarı (§38).
+
+    Ham metin karşılaştırması farklı UTC ofsetlerini YANLIŞ sıralar
+    (`2026-09-20T16:00:00+03:00` metinsel olarak `2026-09-20T12:00:00+00:00`dan
+    sonra gelir ama aynı ana denk gelir). Bu yüzden damga her zaman farkındal
+    `datetime`a çevrilir. Doğrulanmış dosyalarda damga ISO'dur; yine de
+    çözülemeyen bir damga sıralamayı düşürmesin diye en eski anahtara düşülür.
+    """
+    try:
+        parsed = storage.parse_iso(record.updated_at)
+    except ValueError:
+        parsed = None
+    return parsed or datetime.min.replace(tzinfo=UTC)
+
+
 def _stable_rank(records: list[Any], primary: Any = None) -> list[Any]:
     """Kararlı çok geçişli sıralama: öncelik ↓, updated_at ↓, memory_id ↑.
 
@@ -148,7 +176,7 @@ def _stable_rank(records: list[Any], primary: Any = None) -> list[Any]:
     `primary` verilirse (ör. arama puanı) en son ve en öncelikli ölçüt olur.
     """
     ordered = sorted(records, key=lambda item: item[1].memory_id)
-    ordered.sort(key=lambda item: item[1].updated_at, reverse=True)
+    ordered.sort(key=lambda item: _updated_key(item[1]), reverse=True)
     if primary is not None:
         ordered.sort(key=lambda item: primary(item))
     else:
@@ -159,6 +187,25 @@ def _stable_rank(records: list[Any], primary: Any = None) -> list[Any]:
 def _rank(records: list[storage.MemoryRecord]) -> list[storage.MemoryRecord]:
     """Bağlam/liste sıralaması (§45)."""
     return [record for _, record in _stable_rank([(None, record) for record in records])]
+
+
+def _invalid_warnings(snapshot: storage.MemorySnapshot) -> list[str]:
+    """Geçersiz dosya uyarıları (§46/§47).
+
+    Sır, gövde, frontmatter ya da MUTLAK yol İÇERMEZ; yalnızca sayı söyler.
+    Şema dışı ile politika dışı ayrı raporlanır, böylece kullanıcı ne olduğunu
+    anlar.
+    """
+    warnings: list[str] = []
+    schema_invalid = snapshot.invalid_count - snapshot.policy_rejected_count
+    if schema_invalid:
+        warnings.append(f"{schema_invalid} sıcak hafıza dosyası şema dışı; yok sayıldı.")
+    if snapshot.policy_rejected_count:
+        warnings.append(
+            f"{snapshot.policy_rejected_count} sıcak hafıza dosyası politika nedeniyle "
+            "dışlandı; sıcak hafızaya yüklenmedi."
+        )
+    return warnings
 
 
 # ---------------------------------------------------------------------------
@@ -218,11 +265,6 @@ def get_context(
             char_budget -= cost
 
     omitted = active_total - returned
-    warnings: list[str] = []
-    if snapshot.invalid_count:
-        warnings.append(
-            f"{snapshot.invalid_count} sıcak hafıza dosyası şema dışı; yok sayıldı."
-        )
 
     return HotMemoryContextData(
         **buckets,
@@ -231,7 +273,7 @@ def get_context(
         omitted_total=omitted,
         invalid_count=snapshot.invalid_count,
         truncated=omitted > 0,
-        warnings=warnings,
+        warnings=_invalid_warnings(snapshot),
     )
 
 
@@ -327,7 +369,8 @@ async def _validate_related_entities(
         entity = await session.get(Entity, entity_id)
         if entity is None:
             raise ActionError("INVALID_RELATED_ENTITY", f"kayıt bulunamadı: {raw}")
-        if entity.type in _FROZEN_ENTITY_TYPES:
+        # §34: `note`, `note_folder` VE `note_attachment` (tek kaynak: core/links).
+        if entity.type in FROZEN_LEGACY_ENTITY_TYPES:
             raise ActionError(
                 "INVALID_RELATED_ENTITY",
                 f"dondurulmuş arşiv kaydına bağlanılamaz: {entity.type}",
@@ -343,6 +386,18 @@ def _reject_obvious_secrets(*parts: str | None) -> None:
             "HOT_MEMORY_POLICY_REJECTED",
             "metin apaçık kimlik bilgisi/anahtar biçimi içeriyor; sıcak hafızaya yazılmaz",
         )
+
+
+def _verify_current_revision(root, record, expected_revision: str) -> None:
+    """Bayat revizyonu, başka her karardan ÖNCE hata yapar (§18/§19).
+
+    Noop kararı "istenen durum mevcut duruma eşit" diye verilir; ama çağıran
+    BAYAT bir revizyon gönderdiyse sözleşme gereği `HOT_MEMORY_STALE` kazanır.
+    """
+    try:
+        storage.verify_current_revision(root, record, expected_revision)
+    except (storage.HotMemoryError, OSError) as exc:
+        raise _storage_error(exc) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +425,14 @@ async def store_memory(
 
     needle = storage.normalize_text(data.text)
     for record in snapshot.items:
-        if record.kind == data.kind and storage.normalize_text(record.text) == needle:
+        # §9: yalnızca AKTİF kayıt yeni bir "hatırla" isteğini bloklar. Emekli
+        # ya da süresi geçmiş kayıt yeni bir tarihsel DÖNEMİ engellemez; aksi
+        # hâlde kullanıcı açıkça istediği hâlde hiçbir şey aktif olmazdı.
+        if (
+            record.effective_status() == "active"
+            and record.kind == data.kind
+            and storage.normalize_text(record.text) == needle
+        ):
             return ActionReceipt(
                 request_id=request_id,
                 tool="hot_memory_store",
@@ -395,8 +457,8 @@ async def store_memory(
             related_forkos_ids=data.related_forkos_ids,
             tags=data.tags,
         )
-    except storage.HotMemoryError as exc:
-        raise _to_action_error(exc) from exc
+    except (storage.HotMemoryError, OSError) as exc:
+        raise _storage_error(exc) from exc
 
     return ActionReceipt(
         request_id=request_id,
@@ -432,6 +494,10 @@ async def update_memory(
         raise _to_action_error(exc) from exc
     if record is None:
         raise ActionError("HOT_MEMORY_NOT_FOUND", f"hafıza bulunamadı: {data.memory_id}")
+
+    # §18: bayat revizyon, "değişiklik yok" kararından ÖNCE kazanır. Aksi hâlde
+    # çağıran bayat bir `expected_revision` ile sessizce noop makbuzu alırdı.
+    _verify_current_revision(root, record, data.expected_revision)
 
     provided = data.model_fields_set
     if "title" in provided or "text" in provided:
@@ -496,8 +562,8 @@ async def update_memory(
             related_forkos_ids=list(next_related),
             tags=list(next_tags),
         )
-    except storage.HotMemoryError as exc:
-        raise _to_action_error(exc) from exc
+    except (storage.HotMemoryError, OSError) as exc:
+        raise _storage_error(exc) from exc
 
     before_snapshot = _receipt_snapshot(record)
     after_snapshot = _receipt_snapshot(updated)
@@ -539,6 +605,10 @@ async def retire_memory(
     if record is None:
         raise ActionError("HOT_MEMORY_NOT_FOUND", f"hafıza bulunamadı: {data.memory_id}")
 
+    # §19: zaten emekli olsa bile BAYAT revizyon noop'a üstün gelir; yalnızca
+    # güncel revizyon "zaten emekli" makbuzu alabilir.
+    _verify_current_revision(root, record, data.expected_revision)
+
     if record.status == "retired":
         return ActionReceipt(
             request_id=request_id,
@@ -559,8 +629,8 @@ async def retire_memory(
             status="retired",
             retired_reason=data.reason,
         )
-    except storage.HotMemoryError as exc:
-        raise _to_action_error(exc) from exc
+    except (storage.HotMemoryError, OSError) as exc:
+        raise _storage_error(exc) from exc
 
     return ActionReceipt(
         request_id=request_id,
