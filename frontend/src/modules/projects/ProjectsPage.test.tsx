@@ -57,6 +57,7 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 vi.mock("./GithubPanel", () => ({ GithubPanel: () => null }));
 vi.mock("./ProjectTodos", () => ({ ProjectTodos: () => null }));
 vi.mock("./ProjectJournal", () => ({ ProjectJournal: () => null }));
+vi.mock("./ProjectKnowledgeNote", () => ({ ProjectKnowledgeNote: () => null }));
 vi.mock("@/core/RelatedPanel", () => ({ RelatedPanel: () => null }));
 
 const DAY = 86_400_000;

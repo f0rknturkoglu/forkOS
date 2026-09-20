@@ -28,6 +28,7 @@ import { ProjectTodos } from "./ProjectTodos";
 import { Milestones } from "./Milestones";
 import { MilestoneTimeline } from "./MilestoneTimeline";
 import { ProjectJournal } from "./ProjectJournal";
+import { ProjectKnowledgeNote } from "./ProjectKnowledgeNote";
 import {
   Workspace,
   WorkspacePaneHeader,
@@ -264,6 +265,7 @@ function ProjectDetail({ project }: { project: Project }) {
       <MilestoneTimeline project={project} />
       <ProjectTodos project={project} />
 
+      <ProjectKnowledgeNote project={project} />
       <ProjectJournal projectId={project.id} />
       <RelatedPanel entityId={project.id} title="Bağlı kayıtlar" />
     </div>
