@@ -15002,6 +15002,13 @@
             ],
             "title": "Diagnostic"
           },
+          "invalid_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Invalid Files",
+            "type": "array"
+          },
           "managed_files": {
             "title": "Managed Files",
             "type": "integer"

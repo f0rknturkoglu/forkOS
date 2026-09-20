@@ -24,6 +24,7 @@ class VaultStatus(BaseModel):
     managed_files: int
     conflicts: int
     conflict_details: dict[str, list[str]] = Field(default_factory=dict)
+    invalid_files: list[str] = Field(default_factory=list)
     diagnostic: str | None = None
 
 

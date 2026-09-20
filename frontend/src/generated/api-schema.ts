@@ -9892,6 +9892,8 @@ export interface components {
             conflicts: number;
             /** Diagnostic */
             diagnostic?: string | null;
+            /** Invalid Files */
+            invalid_files?: string[];
             /** Managed Files */
             managed_files: number;
             /** Readable */

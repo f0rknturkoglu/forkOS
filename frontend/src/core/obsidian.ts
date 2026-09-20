@@ -9,6 +9,7 @@ export interface VaultStatus {
   managed_files: number;
   conflicts: number;
   conflict_details: Record<string, string[]>;
+  invalid_files?: string[];
   diagnostic: string | null;
 }
 
