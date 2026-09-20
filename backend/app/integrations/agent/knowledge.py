@@ -12,7 +12,7 @@ from app.integrations.agent.models import BrainReadData, BrainSearchResult, Brai
 from app.integrations.obsidian.security import resolve_safe_vault_path
 from app.integrations.obsidian.service import vault_index
 
-EXCLUDED_DIRS = {
+EXCLUDED_DIRS = frozenset({
     ".git",
     ".obsidian",
     ".forkos-migration",
@@ -21,7 +21,24 @@ EXCLUDED_DIRS = {
     "95-ekler",
     "90-şablonlar",
     "90-sablonlar",
-}
+})
+
+
+def is_safe_knowledge_path(rel_path: str | Path) -> bool:
+    """Canonical knowledge path policy for both search and read.
+
+    Rejects:
+    - Any path where any component (folder or file) starts with '.'
+    - Any path where any component lowercased matches EXCLUDED_DIRS
+    """
+    p = Path(rel_path)
+    for part in p.parts:
+        part_clean = part.strip()
+        if part_clean.startswith("."):
+            return False
+        if part_clean.lower() in EXCLUDED_DIRS:
+            return False
+    return True
 
 WHITELISTED_FRONTMATTER_KEYS = {
     "forkos_id",
@@ -156,12 +173,19 @@ def get_brain_status() -> BrainStatusData:
 
     # Count safe markdown files
     total_md = 0
-    for _root, dirs, files in os.walk(v_root, followlinks=False):
+    for root, dirs, files in os.walk(v_root, followlinks=False):
         dirs[:] = [
             d for d in dirs
-            if not d.startswith(".") and d.lower() not in EXCLUDED_DIRS
+            if is_safe_knowledge_path(d)
         ]
-        total_md += sum(1 for f in files if f.endswith(".md") and not f.startswith("."))
+        for f in files:
+            if f.endswith(".md") and is_safe_knowledge_path(f):
+                try:
+                    rel_p = (Path(root) / f).relative_to(v_root)
+                    if is_safe_knowledge_path(rel_p):
+                        total_md += 1
+                except Exception:
+                    continue
 
     idx_status = vault_index.current_status(v_root, v_name)
 
@@ -191,7 +215,9 @@ def search_vault(
 
     v_root = _get_vault_root()
     scope_lower = scope.lower().strip()
-    allowed_prefixes = SCOPE_FOLDER_MAP.get(scope_lower, [])
+    if scope_lower not in SCOPE_FOLDER_MAP:
+        raise ValueError(f"INVALID_SCOPE: Unknown scope '{scope}'. Allowed scopes: {list(SCOPE_FOLDER_MAP.keys())}")
+    allowed_prefixes = SCOPE_FOLDER_MAP[scope_lower]
 
     limit = max(1, min(limit, 20))
     q_lower = q.lower()
@@ -200,17 +226,20 @@ def search_vault(
     for root, dirs, files in os.walk(v_root, followlinks=False):
         dirs[:] = [
             d for d in dirs
-            if not d.startswith(".") and d.lower() not in EXCLUDED_DIRS
+            if is_safe_knowledge_path(d)
         ]
 
         for f in files:
-            if not f.endswith(".md") or f.startswith("."):
+            if not f.endswith(".md") or not is_safe_knowledge_path(f):
                 continue
 
             full_path = Path(root) / f
             try:
                 safe_target = resolve_safe_vault_path(v_root, full_path.relative_to(v_root))
             except Exception:
+                continue
+
+            if not is_safe_knowledge_path(safe_target.relative_to(v_root)):
                 continue
 
             rel_path_str = str(safe_target.relative_to(v_root)).replace("\\", "/")
@@ -374,6 +403,10 @@ def read_vault_note(
         raise ValueError(f"VAULT_PATH_ESCAPES: {exc}") from exc
     except ValueError as exc:
         raise ValueError(f"VAULT_PATH_ESCAPES: {exc}") from exc
+
+    rel_from_vault = safe_path.relative_to(v_root)
+    if not is_safe_knowledge_path(rel_from_vault):
+        raise ValueError(f"ACCESS_DENIED: Path '{target_rel_path}' is in an excluded or hidden directory.")
 
     if not safe_path.exists() or not safe_path.is_file() or not safe_path.name.endswith(".md"):
         raise ValueError(f"KNOWLEDGE_NOT_FOUND: File '{target_rel_path}' not found in Vault.")

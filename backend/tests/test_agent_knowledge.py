@@ -152,8 +152,44 @@ def test_read_vault_note_specific_heading(mock_vault):
 
 
 def test_read_vault_note_path_traversal_rejected(mock_vault):
-    with pytest.raises(ValueError, match="VAULT_PATH_ESCAPES|KNOWLEDGE_NOT_FOUND"):
+    with pytest.raises(ValueError, match="VAULT_PATH_ESCAPES|ACCESS_DENIED|KNOWLEDGE_NOT_FOUND"):
         read_vault_note(relative_path="../../etc/passwd")
+
+
+def test_read_vault_note_system_and_hidden_paths_rejected(mock_vault):
+    # Setup test directories & files
+    (mock_vault / "Attachments").mkdir(exist_ok=True)
+    (mock_vault / "Attachments" / "test.md").write_text("# Attachment Note", encoding="utf-8")
+    (mock_vault / "95-ekler").mkdir(exist_ok=True)
+    (mock_vault / "95-ekler" / "test.md").write_text("# Ek Note", encoding="utf-8")
+    (mock_vault / ".obsidian" / "test.md").write_text("# Obsidian Note", encoding="utf-8")
+    (mock_vault / "20 Projects" / ".hidden.md").write_text("# Hidden File", encoding="utf-8")
+
+    # 1. .forkos-migration
+    with pytest.raises(ValueError, match="ACCESS_DENIED"):
+        read_vault_note(relative_path=".forkos-migration/report.md")
+
+    # 2. .obsidian
+    with pytest.raises(ValueError, match="ACCESS_DENIED"):
+        read_vault_note(relative_path=".obsidian/test.md")
+
+    # 3. Attachments (case-insensitive)
+    with pytest.raises(ValueError, match="ACCESS_DENIED"):
+        read_vault_note(relative_path="Attachments/test.md")
+
+    # 4. 95-ekler
+    with pytest.raises(ValueError, match="ACCESS_DENIED"):
+        read_vault_note(relative_path="95-ekler/test.md")
+
+    # 5. Dot-prefixed file
+    with pytest.raises(ValueError, match="ACCESS_DENIED"):
+        read_vault_note(relative_path="20 Projects/.hidden.md")
+
+    # 6. Normal managed and unmanaged should still succeed
+    managed = read_vault_note(relative_path="20 Projects/forkOS.md")
+    assert managed.title == "forkOS Projesi"
+    unmanaged = read_vault_note(relative_path="30 Knowledge/Rust.md")
+    assert unmanaged.title == "Rust Hafıza Güvenliği"
 
 
 def test_vault_immutability_during_read(mock_vault):
