@@ -14,6 +14,10 @@ from app.config import settings
 from app.core.models import Entity, Event, Link, Notification
 from app.db import SessionLocal
 from app.integrations.agent.mcp import mcp_server
+from app.modules.bookmark.models import Bookmark
+from app.modules.flashcard.models import FlashcardCard
+from app.modules.note.models import Note, NoteFolder
+from app.modules.opportunity.models import Application, Opportunity
 from app.modules.project.models import Milestone, Project
 from app.modules.todo.models import Todo
 
@@ -67,17 +71,102 @@ Daily note content for test.
     return v_dir
 
 
-async def _capture_db_fingerprint(session: AsyncSession) -> dict[str, int]:
-    """Capture exact row counts for core operational tables."""
-    return {
-        "entity": (await session.execute(select(func.count()).select_from(Entity))).scalar_one(),
-        "event": (await session.execute(select(func.count()).select_from(Event))).scalar_one(),
-        "link": (await session.execute(select(func.count()).select_from(Link))).scalar_one(),
-        "todo": (await session.execute(select(func.count()).select_from(Todo))).scalar_one(),
-        "project": (await session.execute(select(func.count()).select_from(Project))).scalar_one(),
-        "milestone": (await session.execute(select(func.count()).select_from(Milestone))).scalar_one(),
-        "notification": (await session.execute(select(func.count()).select_from(Notification))).scalar_one(),
-    }
+async def _capture_db_content_fingerprint(session: AsyncSession) -> str:
+    """Capture deterministic SHA-256 fingerprint of row contents across all key tables."""
+    hasher = hashlib.sha256()
+
+    # 1. Entity
+    rows = (await session.execute(
+        select(Entity.id, Entity.type, Entity.title, Entity.search_text, Entity.archived_at)
+        .order_by(Entity.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 2. Event
+    rows = (await session.execute(
+        select(Event.id, Event.entity_id, Event.verb, Event.payload, Event.occurred_at)
+        .order_by(Event.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 3. Link
+    rows = (await session.execute(
+        select(Link.from_id, Link.to_id, Link.relation, Link.created_at)
+        .order_by(Link.from_id, Link.to_id, Link.relation)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 4. Todo
+    rows = (await session.execute(
+        select(Todo.id, Todo.status, Todo.priority, Todo.due_at, Todo.completed_at)
+        .order_by(Todo.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 5. Project
+    rows = (await session.execute(
+        select(Project.id, Project.status, Project.next_action, Project.github_repo, Project.stack)
+        .order_by(Project.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 6. Milestone
+    rows = (await session.execute(
+        select(Milestone.id, Milestone.project_id, Milestone.title, Milestone.due_at, Milestone.completed_at)
+        .order_by(Milestone.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 7. Notification
+    rows = (await session.execute(
+        select(Notification.id, Notification.title, Notification.body, Notification.read_at, Notification.dismissed_at)
+        .order_by(Notification.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 8. Opportunity
+    rows = (await session.execute(
+        select(Opportunity.id, Opportunity.kind, Opportunity.status, Opportunity.organization, Opportunity.deadline_at)
+        .order_by(Opportunity.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 9. Application
+    rows = (await session.execute(
+        select(Application.opportunity_id, Application.status, Application.status_changed_at)
+        .order_by(Application.opportunity_id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 10. FlashcardCard
+    rows = (await session.execute(
+        select(FlashcardCard.id, FlashcardCard.deck_id, FlashcardCard.reps, FlashcardCard.due_at)
+        .order_by(FlashcardCard.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 11. Bookmark
+    rows = (await session.execute(
+        select(Bookmark.id, Bookmark.collection, Bookmark.url, Bookmark.read_status)
+        .order_by(Bookmark.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 12. Note
+    rows = (await session.execute(
+        select(Note.id, Note.folder_id, Note.project_id, Note.pinned, Note.body)
+        .order_by(Note.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    # 13. NoteFolder
+    rows = (await session.execute(
+        select(NoteFolder.id, NoteFolder.parent_id, NoteFolder.position)
+        .order_by(NoteFolder.id)
+    )).all()
+    hasher.update(str(rows).encode("utf-8"))
+
+    return hasher.hexdigest()
 
 
 def _capture_vault_fingerprint(vault_dir: Path) -> dict[str, tuple[str, float]]:
@@ -97,6 +186,25 @@ def _capture_vault_fingerprint(vault_dir: Path) -> dict[str, tuple[str, float]]:
     return fingerprints
 
 
+async def test_db_content_fingerprint_sensitive_to_updates(db_session: AsyncSession):
+    """Proves that an UPDATE on any record without row count change strictly alters the fingerprint."""
+    todo_id = uuid.uuid4()
+    todo_ent = Entity(id=todo_id, type="todo", title="Original Title", search_text="")
+    db_session.add(todo_ent)
+    todo = Todo(id=todo_id, status="open", priority=1)
+    db_session.add(todo)
+    await db_session.commit()
+
+    fp_before = await _capture_db_content_fingerprint(db_session)
+
+    # Modify an attribute in-place without adding/removing rows
+    todo.priority = 99
+    await db_session.commit()
+
+    fp_after = await _capture_db_content_fingerprint(db_session)
+    assert fp_before != fp_after, "Fingerprint MUST change on in-place row field updates!"
+
+
 async def test_db_and_vault_immutability_under_all_mcp_tools(
     db_session: AsyncSession,
     mock_immutability_vault: Path,
@@ -104,19 +212,19 @@ async def test_db_and_vault_immutability_under_all_mcp_tools(
     """Verify that calling all 8 MCP tools causes ZERO changes to PostgreSQL and the Vault filesystem."""
     # 1. Seed some operational data
     proj_id = uuid.uuid4()
-    proj_ent = Entity(id=proj_id, type="project", title="Test Immutability Project")
+    proj_ent = Entity(id=proj_id, type="project", title="Test Immutability Project", search_text="")
     db_session.add(proj_ent)
     proj = Project(id=proj_id, status="active", next_action="Verify immutability")
     db_session.add(proj)
     await db_session.flush()
 
     todo_id = uuid.uuid4()
-    todo_ent = Entity(id=todo_id, type="todo", title="Verify immutability task")
+    todo_ent = Entity(id=todo_id, type="todo", title="Verify immutability task", search_text="")
     db_session.add(todo_ent)
     todo = Todo(id=todo_id, status="open", priority=2)
     db_session.add(todo)
 
-    link = Link(from_id=proj_id, to_id=todo_id, relation="task")
+    link = Link(from_id=todo_id, to_id=proj_id, relation="belongs_to")
     db_session.add(link)
 
     event = Event(
@@ -128,8 +236,8 @@ async def test_db_and_vault_immutability_under_all_mcp_tools(
     db_session.add(event)
     await db_session.commit()
 
-    # 2. Capture baseline fingerprints
-    db_before = await _capture_db_fingerprint(db_session)
+    # 2. Capture baseline deterministic content fingerprints
+    db_before = await _capture_db_content_fingerprint(db_session)
     vault_before = _capture_vault_fingerprint(mock_immutability_vault)
 
     # 3. Call ALL 8 MCP tools
@@ -142,8 +250,8 @@ async def test_db_and_vault_immutability_under_all_mcp_tools(
     await mcp_server.call_tool("brain_search", {"query": "Immutability"})
     await mcp_server.call_tool("brain_read", {"relative_path": "20 Projects/Immutability.md"})
 
-    # 4. Verify DB state is 100% identical
-    db_after = await _capture_db_fingerprint(db_session)
+    # 4. Verify DB content state is 100% byte-identical
+    db_after = await _capture_db_content_fingerprint(db_session)
     assert db_before == db_after, f"DB mutated during read-only tool calls! Before: {db_before}, After: {db_after}"
 
     # 5. Verify Vault files and mtimes are 100% identical
