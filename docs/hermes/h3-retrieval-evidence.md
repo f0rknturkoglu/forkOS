@@ -214,8 +214,34 @@ vault:30 Knowledge/Rust.md
 relation_path = [entity_link(belongs_to, incoming), knowledge_pointer, wikilink]
 ```
 
-Backlink yönünde son hop `kind=backlink` olur ve `from_ref` bağlantıyı kuran
-nottur; entity öneki yine korunur.
+Backlink yönünde son hop `kind=backlink` olur ve **getirme yönünü** izler:
+
+```text
+Decision.md içinde [[Todo]] varsa ve getirme Todo.md'den başlıyorsa
+gezinme : Todo.md → Decision.md
+hop     : from_ref=vault:Todo.md   to_ref=vault:Decision.md
+```
+
+`from_ref` çapa notudur (bağlantıyı ALAN), `to_ref` bağlantıyı kuran nottur;
+yön zaten `kind=backlink` ile anlatıldığı için `direction=null`. Entity öneki
+yine korunur.
+
+### 4.5 Süreklilik değişmezi
+
+Çok hop'lu her yolda ardışık hop'lar bitişik olmak ZORUNDADIR:
+
+```text
+hop[i].to_ref == hop[i+1].from_ref
+```
+
+Ve kasa kanıtlarında son hop kaynağın kendisine işaret eder:
+
+```text
+relation_path[-1].to_ref == "vault:" + locator.relative_path
+```
+
+(Olay kanıtı bilinçli istisnadır: yolu sahibi entity'de biter, olayın kendisi
+`locator.event_id` ile tanımlanır.)
 
 ### 4.4 Tek yapısal anlık görüntü
 
