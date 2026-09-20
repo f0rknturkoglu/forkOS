@@ -53,7 +53,7 @@ HOUR_DOMAINS: frozenset[str] = frozenset({"media", "github"})
 
 #: Domain -> arka plan tur araligi varsayilani (mevcut worker davranisiyla ayni;
 #: github SAAT cinsinden tutulur).
-DEFAULT_INTERVALS: dict[str, int] = {"opportunity": 15, "media": 24, "calendar": 30, "github": 3}
+DEFAULT_INTERVALS: dict[str, int] = {"opportunity": 30, "media": 24, "calendar": 60, "github": 3}
 
 #: Ayar anahtari -> varsayilan deger. `media` HARIC: kendi anahtari zaten
 #: DEFAULTS'te tasiniyor, iki kaynak ayni seyi soylemesin.
@@ -64,31 +64,20 @@ INTERVAL_DEFAULTS: dict[str, int] = {
 }
 
 #: Hazir profiller: kullaniciya teknik scheduler degerleri yerine bunlar sunulur.
-#: `None` -> o domain icin anahtara DOKUNMA.
+#: Profiller YALNIZCA cadence/aralik belirler; kullanicinin domain tercihlerini
+#: (`automation.<domain>.enabled`) EZMEZ.
 PROFILES: dict[str, dict[str, Any]] = {
     "manual": {
-        "automation.opportunity.enabled": False,
-        "automation.media.enabled": False,
-        "automation.calendar.enabled": False,
-        "automation.github.enabled": False,
         "rss.interval_minutes": 0,
     },
     "balanced": {
-        "automation.opportunity.enabled": True,
-        "automation.media.enabled": True,
-        "automation.calendar.enabled": True,
-        "automation.github.enabled": True,
         "automation.opportunity.interval_minutes": 30,
         "automation.calendar.interval_minutes": 60,
         "automation.github.interval_hours": 3,
         "rss.interval_minutes": 60,
     },
-    #: "active" mevcut (daha sik) davranisa yakin kalir.
+    #: "active" daha sik calisma araliklari sunar.
     "active": {
-        "automation.opportunity.enabled": True,
-        "automation.media.enabled": True,
-        "automation.calendar.enabled": True,
-        "automation.github.enabled": True,
         "automation.opportunity.interval_minutes": 15,
         "automation.calendar.interval_minutes": 30,
         "automation.github.interval_hours": 3,
@@ -105,10 +94,22 @@ async def _value(session: AsyncSession, key: str) -> Any:
     return row.value if row is not None else None
 
 
-async def is_enabled(session: AsyncSession, domain: str) -> bool:
-    """Domain icin arka plan otomasyonu acik mi? (varsayilan: acik)"""
+async def is_domain_enabled(session: AsyncSession, domain: str) -> bool:
+    """Kullanicinin kalici domain tercihi (profil gecislerinden bagimsiz)."""
     value = await _value(session, ENABLED_KEYS[domain])
     return True if not isinstance(value, bool) else value
+
+
+async def is_enabled(session: AsyncSession, domain: str) -> bool:
+    """Domain icin arka plan otomasyonu calisabilir mi (efektif durum)?
+
+    1. Profil 'manual' ise butun otomatik arka plan isleri global olarak
+       askidadir (global gate) -> False.
+    2. Aksi halde kullanicinin kalici domain tercihi gecerlidir.
+    """
+    if await current_profile(session) == "manual":
+        return False
+    return await is_domain_enabled(session, domain)
 
 
 async def interval_minutes(session: AsyncSession, domain: str) -> int:
@@ -131,6 +132,7 @@ async def is_due(
 
 
 async def active_domains(session: AsyncSession) -> dict[str, bool]:
+    """Efektif aktif domain'ler (manual profilde hepsi False)."""
     return {domain: await is_enabled(session, domain) for domain in DOMAINS}
 
 
@@ -138,6 +140,8 @@ async def set_profile(session: AsyncSession, profile: str) -> dict[str, Any]:
     """Profili uygula: ilgili ayarlari yaz. Commit ETMEZ (cagiran commit eder).
 
     Bilinmeyen profil adi ValueError verir; sessizce yok sayilmaz.
+    Domain tercihlerine (`automation.<domain>.enabled`) DOKUNMAZ: profiller
+    cadence belirler, kullanici tercihlerini ezmez.
     """
     if profile not in PROFILES:
         raise ValueError("bilinmeyen profil")
@@ -153,10 +157,13 @@ async def set_profile(session: AsyncSession, profile: str) -> dict[str, Any]:
 
 async def snapshot(session: AsyncSession) -> dict[str, Any]:
     """Arayuz icin tek okuma: profil + domain ayarlari."""
+    is_manual = await current_profile(session) == "manual"
     domains = {}
     for domain in DOMAINS:
+        stored = await is_domain_enabled(session, domain)
         domains[domain] = {
-            "enabled": await is_enabled(session, domain),
+            "enabled": stored,
+            "effective_enabled": False if is_manual else stored,
             "interval_minutes": await interval_minutes(session, domain),
         }
     return {
@@ -169,3 +176,4 @@ async def snapshot(session: AsyncSession) -> dict[str, Any]:
 async def current_profile(session: AsyncSession) -> str:
     value = await _value(session, PROFILE_KEY)
     return value if isinstance(value, str) and value in PROFILES else DEFAULT_PROFILE
+

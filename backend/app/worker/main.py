@@ -129,7 +129,7 @@ async def main() -> None:
     scheduler.add_job(
         sync_calendar,
         "interval",
-        minutes=30,
+        minutes=60,
         id="sync_calendar",
         max_instances=1,
         coalesce=True,

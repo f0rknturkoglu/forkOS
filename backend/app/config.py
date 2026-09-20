@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     #: Gun siniri (emek haritasi, gunluk ozet) bu bolgeye gore hesaplanir.
     #: Container UTC kosuyor -- burasi kullanicinin yasadigi bolge olmali.
     timezone: str = "Europe/Istanbul"
-    rss_default_interval_minutes: int = 30
+    rss_default_interval_minutes: int = 60
     rss_retention_days: int = 90
     google_client_id: str = ""
     google_client_secret: str = ""
