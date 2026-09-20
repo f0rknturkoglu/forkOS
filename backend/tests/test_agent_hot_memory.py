@@ -8,6 +8,7 @@ okumaların değişmezliği.
 
 from __future__ import annotations
 
+import errno
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -574,3 +575,607 @@ def test_scanning_empty_vault_creates_nothing(vault: Path) -> None:
     # Dizin bile oluşturulmaz: oluşturma yalnızca onaylı yazmada (§122).
     assert not (vault / MEMORY_DIR).exists()
     assert list(vault.rglob("*")) == []
+
+
+# ===========================================================================
+# H2.1 — eşzamanlılık, yaşam döngüsü ve gizlilik sağlamlaştırması
+# ===========================================================================
+
+
+def _manual_memory_file(
+    vault: Path,
+    *,
+    memory_id: str | None = None,
+    kind: str = "preference",
+    title: str = "Elle yazılmış tercih",
+    text: str = "Elle yazılmış gövde.",
+    status: str = "active",
+    importance: int = 2,
+    updated_at: str = "2026-09-20T12:00:00+00:00",
+    expires_at: str | None = None,
+) -> Path:
+    """Obsidian'da ELLE yazılmış, şeması geçerli bir sıcak hafıza dosyası üretir.
+
+    H2.1'in kritik senaryosu budur: kullanıcı dosyayı sistemin dışında
+    değiştirir. Bu yüzden dosya kanonik yazıcıyla değil, doğrudan metinle
+    üretilir.
+    """
+    memory_id = memory_id or str(uuid.uuid4())
+    directory = vault / MEMORY_DIR
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{memory_id}.md"
+    # Damgalar TEK TIRNAK içinde yazılır: kanonik yazıcı da öyle yapar, çünkü
+    # YAML tırnaksız ISO damgasını `datetime` nesnesine çevirir ve şema onu
+    # "metin değil" diye reddeder.
+    expires_line = "" if expires_at is None else f"expires_at: '{expires_at}'\n"
+    path.write_text(
+        "---\n"
+        "agent_memory_version: 1\n"
+        f"memory_id: {memory_id}\n"
+        f"memory_kind: {kind}\n"
+        f"title: {title}\n"
+        f"status: {status}\n"
+        f"importance: {importance}\n"
+        "source_mode: explicit_user\n"
+        f"created_at: '{updated_at}'\n"
+        f"updated_at: '{updated_at}'\n"
+        f"{expires_line}"
+        "related_forkos_ids: []\n"
+        "tags: []\n"
+        "---\n\n"
+        f"{text}\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _scanned_record(vault: Path, memory_id: str) -> storage.MemoryRecord:
+    record = storage.find_memory(storage.scan_memories(vault.resolve()), memory_id)
+    assert record is not None
+    return record
+
+
+# ---------------------------------------------------------------------------
+# §3/§70 — dosya sistemi compare-and-swap
+# ---------------------------------------------------------------------------
+
+
+async def test_hot_memory_update_rechecks_actual_revision_before_replace(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """Tarama ile yazma arasındaki kullanıcı düzenlemesi EZİLMEZ.
+
+    Kaydın revizyonu ile `expected_revision` AYNI (A) tutulur, böylece yalnızca
+    erken karşılaştırma yapan bir uygulama bu testi geçemez: fark yalnızca
+    DİSKTEKİ güncel baytlarda görünür.
+    """
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+    path = vault / record.relative_path
+
+    human_edit = path.read_text(encoding="utf-8").replace(
+        "Prefers project-level plans over hourly schedules.",
+        "Kullanıcının elle yazdığı yeni gövde.",
+    )
+    path.write_text(human_edit, encoding="utf-8")
+    revision_after_edit = storage.revision_of(path.read_bytes())
+    assert revision_after_edit != record.revision
+
+    with pytest.raises(storage.HotMemoryError, match="HOT_MEMORY_STALE"):
+        storage.rewrite_memory(
+            vault.resolve(),
+            record,
+            expected_revision=record.revision,  # A == record.revision → erken kontrol geçer
+            title="Ajan başlığı",
+        )
+
+    assert path.read_text(encoding="utf-8") == human_edit
+    assert storage.revision_of(path.read_bytes()) == revision_after_edit
+    # §84: başarısız yazma geçici dosya BIRAKMAZ.
+    assert not [item for item in path.parent.iterdir() if item.name.endswith(".tmp")]
+
+
+async def test_hot_memory_retire_rechecks_actual_revision_before_replace(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+    path = vault / record.relative_path
+    human_edit = path.read_text(encoding="utf-8").replace(
+        "Prefers project-level plans over hourly schedules.", "Kullanıcı gövdesi."
+    )
+    path.write_text(human_edit, encoding="utf-8")
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_STALE"):
+        await hm.retire_memory(
+            db_session,
+            HotMemoryRetireIn(memory_id=created.target_id, expected_revision=record.revision),
+            request_id="t",
+        )
+
+    assert path.read_text(encoding="utf-8") == human_edit
+
+
+async def test_two_writers_from_same_revision_cannot_both_succeed(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§53: ikisi de A revizyonuna dayanan iki yazmadan yalnızca BİRİ başarılı."""
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+
+    first = await hm.update_memory(
+        db_session,
+        HotMemoryUpdateIn(
+            memory_id=created.target_id,
+            expected_revision=record.revision,
+            importance=3,
+        ),
+        request_id="t1",
+    )
+    assert first.status == "executed"
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_STALE"):
+        await hm.update_memory(
+            db_session,
+            HotMemoryUpdateIn(
+                memory_id=created.target_id,
+                expected_revision=record.revision,
+                importance=1,
+            ),
+            request_id="t2",
+        )
+
+    assert _scanned_record(vault, created.target_id).importance == 3
+
+
+async def test_retire_after_update_with_old_revision_is_stale(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§54: update başarılı olduktan sonra eski revizyonla emeklilik GEÇERSİZ."""
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+
+    await hm.update_memory(
+        db_session,
+        HotMemoryUpdateIn(
+            memory_id=created.target_id,
+            expected_revision=record.revision,
+            importance=3,
+        ),
+        request_id="t1",
+    )
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_STALE"):
+        await hm.retire_memory(
+            db_session,
+            HotMemoryRetireIn(memory_id=created.target_id, expected_revision=record.revision),
+            request_id="t2",
+        )
+
+    assert _scanned_record(vault, created.target_id).status == "active"
+
+
+# ---------------------------------------------------------------------------
+# §18/§19 — bayat revizyon noop'tan önce kazanır
+# ---------------------------------------------------------------------------
+
+
+async def test_stale_revision_beats_update_noop(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """İstenen değerler mevcut duruma EŞİT olsa bile bayat revizyon hatadır."""
+    created = await _store(db_session, title="İlk başlık")
+    record = _scanned_record(vault, created.target_id)  # revizyon A
+    path = vault / record.relative_path
+
+    # Kullanıcı başlığı elle değiştirdi (revizyon B). İstenen değer B ile aynı:
+    # eski uygulama bunu "değişiklik yok" sayıp noop dönerdi.
+    edited = path.read_text(encoding="utf-8").replace("title: İlk başlık", "title: Elle başlık")
+    path.write_text(edited, encoding="utf-8")
+    revision_b = storage.revision_of(path.read_bytes())
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_STALE"):
+        await hm.update_memory(
+            db_session,
+            HotMemoryUpdateIn(
+                memory_id=created.target_id,
+                expected_revision=record.revision,
+                title="Elle başlık",
+            ),
+            request_id="t",
+        )
+
+    assert storage.revision_of(path.read_bytes()) == revision_b
+
+
+async def test_stale_revision_beats_retire_noop(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """Zaten emekli olsa bile eski revizyon STALE verir; güncel revizyon noop."""
+    created = await _store(db_session)
+    first = _scanned_record(vault, created.target_id)
+    retired = await hm.retire_memory(
+        db_session,
+        HotMemoryRetireIn(memory_id=created.target_id, expected_revision=first.revision),
+        request_id="t1",
+    )
+    assert retired.status == "executed"
+    assert retired.after["revision"] != first.revision
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_STALE"):
+        await hm.retire_memory(
+            db_session,
+            HotMemoryRetireIn(memory_id=created.target_id, expected_revision=first.revision),
+            request_id="t2",
+        )
+
+    current = _scanned_record(vault, created.target_id)
+    again = await hm.retire_memory(
+        db_session,
+        HotMemoryRetireIn(memory_id=created.target_id, expected_revision=current.revision),
+        request_id="t3",
+    )
+    assert again.status == "noop"
+    assert _scanned_record(vault, created.target_id).revision == current.revision
+
+
+# ---------------------------------------------------------------------------
+# §9/§10/§11 — yeniden hatırlama
+# ---------------------------------------------------------------------------
+
+
+async def test_active_exact_duplicate_remains_noop(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """Yaşam döngüsü matrisinin AKTİF dalı: yeni dosya açılmaz."""
+    first = await _store(db_session)
+    files_before = _memory_files(vault)
+
+    second = await _store(db_session, title="Farklı başlık")
+
+    assert second.status == "noop"
+    assert second.target_id == first.target_id
+    assert _memory_files(vault) == files_before
+
+
+async def test_retired_duplicate_can_be_remembered_again_as_new_active_item(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§41: emekli kayıt YENİDEN CANLANDIRILMAZ; yeni bir aktif kayıt doğar."""
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+    await hm.retire_memory(
+        db_session,
+        HotMemoryRetireIn(memory_id=created.target_id, expected_revision=record.revision),
+        request_id="t",
+    )
+    retired_path = vault / record.relative_path
+    retired_bytes = retired_path.read_bytes()
+
+    again = await _store(db_session)
+
+    assert again.status == "executed"
+    assert again.target_id != created.target_id
+    files = {path.name: path for path in _memory_files(vault)}
+    assert len(files) == 2
+    # Eski kayıt DEĞİŞMEDİ: emekli kalır ve tarihsel kanıt korunur.
+    assert retired_path.read_bytes() == retired_bytes
+    assert _scanned_record(vault, created.target_id).status == "retired"
+    assert _scanned_record(vault, again.target_id).status == "active"
+
+    context = hm.get_context()
+    returned = [item.memory_id for group in (context.preferences,) for item in group]
+    assert returned == [again.target_id]
+
+
+async def test_expired_duplicate_can_be_remembered_again_as_new_active_item(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§42: süresi geçmiş kayıt DÜZENLENMEZ; yeni aktif kayıt doğar."""
+    past = (datetime.now(UTC) - timedelta(days=1)).replace(microsecond=0).isoformat()
+    created = await _store(db_session, expires_at=past)
+    record = _scanned_record(vault, created.target_id)
+    assert record.effective_status() == "expired"
+    expired_bytes = (vault / record.relative_path).read_bytes()
+
+    again = await _store(db_session)
+
+    assert again.status == "executed"
+    assert again.target_id != created.target_id
+    assert (vault / record.relative_path).read_bytes() == expired_bytes
+    assert _scanned_record(vault, created.target_id).effective_status() == "expired"
+
+    context = hm.get_context()
+    assert [item.memory_id for item in context.preferences] == [again.target_id]
+
+
+# ---------------------------------------------------------------------------
+# §13/§14/§72 — elle düzenlenen sır politikası
+# ---------------------------------------------------------------------------
+
+_SECRET_BODY = "api_key=sk-abcdefghijklmnopqrstuvwx"
+_PRIVATE_KEY_BODY = (
+    "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----"
+)
+
+
+async def test_manual_secret_edit_is_excluded_from_hot_memory_context(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """Yazma anındaki kontrol yetmez: gövde Obsidian'da elle değiştirilebilir."""
+    created = await _store(db_session)
+    path = vault / created.after["relative_path"]
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "Prefers project-level plans over hourly schedules.", _SECRET_BODY
+        ),
+        encoding="utf-8",
+    )
+    before = capture_vault_fingerprint(vault)
+    db_before = await capture_db_content_fingerprint(db_session)
+
+    context = hm.get_context()
+    listed = hm.list_memories(effective_status="all")
+
+    serialized = json.dumps(context.model_dump()) + json.dumps(listed.model_dump())
+    assert _SECRET_BODY not in serialized
+    assert "sk-abcdefghijklmnopqrstuvwx" not in serialized
+    assert context.preferences == []
+    assert listed.items == []
+    # §47: geçerli kayıtlar akmaya devam eder, sayaç ve uyarı dürüsttür.
+    assert context.invalid_count == 1
+    assert any("politika" in warning for warning in context.warnings)
+    # §14: kullanıcının dosyası DEĞİŞTİRİLMEZ.
+    assert capture_vault_fingerprint(vault) == before
+    assert await capture_db_content_fingerprint(db_session) == db_before
+
+
+async def test_manual_private_key_edit_is_excluded_from_hot_memory_list(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    created = await _store(db_session)
+    path = vault / created.after["relative_path"]
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "Prefers project-level plans over hourly schedules.", _PRIVATE_KEY_BODY
+        ),
+        encoding="utf-8",
+    )
+
+    listed = hm.list_memories(effective_status="all")
+
+    serialized = json.dumps(listed.model_dump())
+    assert "PRIVATE KEY" not in serialized
+    assert "MIIEvQIBADANBgkqhkiG9w0BAQEFAASC" not in serialized
+    assert listed.items == []
+    assert listed.invalid_count == 1
+
+
+async def test_policy_rejected_manual_file_is_not_modified(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§14: politika yalnızca YÜKLEMEYİ reddeder; dosyaya dokunmaz."""
+    path = _manual_memory_file(vault, text=_SECRET_BODY)
+    before = capture_vault_fingerprint(vault)
+    stat_before = path.stat()
+
+    with pytest.raises(storage.HotMemoryError, match="HOT_MEMORY_POLICY_REJECTED"):
+        storage.parse_memory_file(path, vault.resolve())
+
+    hm.get_context()
+    hm.list_memories(effective_status="all")
+
+    after = path.stat()
+    assert capture_vault_fingerprint(vault) == before
+    assert after.st_mtime_ns == stat_before.st_mtime_ns
+    assert path.read_text(encoding="utf-8").find(_SECRET_BODY) != -1
+
+
+# ---------------------------------------------------------------------------
+# §24/§25/§77 — atomik oluşturma
+# ---------------------------------------------------------------------------
+
+
+async def test_hot_memory_create_never_exposes_partial_target_on_failure(
+    vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise OSError(errno.EIO, "yayın başarısız")
+
+    monkeypatch.setattr(storage.os, "link", _boom)
+
+    with pytest.raises(OSError):
+        storage.create_memory(
+            vault.resolve(),
+            kind="preference",
+            title="Başlık",
+            text="Gövde.",
+            importance=2,
+            source_mode="explicit_user",
+        )
+
+    directory = vault / MEMORY_DIR
+    assert list(directory.iterdir()) == []
+
+
+async def test_hot_memory_create_collision_never_overwrites_existing_file(
+    vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixed = uuid.uuid4()
+    monkeypatch.setattr(storage.uuid, "uuid4", lambda: fixed)
+    directory = vault / MEMORY_DIR
+    directory.mkdir(parents=True)
+    target = directory / f"{fixed}.md"
+    target.write_text("kullanıcının kendi dosyası", encoding="utf-8")
+
+    with pytest.raises(storage.HotMemoryError, match="HOT_MEMORY_CONFLICT"):
+        storage.create_memory(
+            vault.resolve(),
+            kind="preference",
+            title="Başlık",
+            text="Gövde.",
+            importance=2,
+            source_mode="explicit_user",
+        )
+
+    assert target.read_text(encoding="utf-8") == "kullanıcının kendi dosyası"
+    assert [path.name for path in directory.iterdir()] == [target.name]
+
+
+async def test_hot_memory_create_leaves_no_temporary_files(vault: Path) -> None:
+    created = storage.create_memory(
+        vault.resolve(),
+        kind="preference",
+        title="Başlık",
+        text="Gövde.",
+        importance=2,
+        source_mode="explicit_user",
+    )
+
+    directory = vault / MEMORY_DIR
+    names = sorted(path.name for path in directory.iterdir())
+    assert names == [f"{created.memory_id}.md"]
+    assert not any(name.endswith(".tmp") for name in names)
+    # Kısmi değil TAM dosya yayınlandı: ayrıştırma başarılı ve revizyon sabit.
+    assert storage.revision_of((directory / names[0]).read_bytes()) == created.revision
+
+
+# ---------------------------------------------------------------------------
+# §28/§30/§76 — okunamayan Vault
+# ---------------------------------------------------------------------------
+
+
+def test_unreadable_hot_memory_vault_returns_hot_memory_unavailable(
+    vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(storage, "readable_root", lambda: None)
+
+    for call in (hm.get_context, hm.list_memories):
+        with pytest.raises(hm.ActionError) as excinfo:
+            call()
+        message = str(excinfo.value)
+        assert "HOT_MEMORY_UNAVAILABLE" in message
+        # §30: mutlak yol, kullanıcı adı, yığın izi SIZMAZ.
+        assert str(vault) not in message
+        assert "Traceback" not in message
+
+
+def test_scan_oserror_becomes_unavailable_without_path_leak(
+    vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    leak = f"gizli mutlak yol: {vault}/alt"
+
+    def _boom(root: Path) -> storage.MemorySnapshot:
+        raise PermissionError(leak)
+
+    monkeypatch.setattr(storage, "readable_root", lambda: vault.resolve())
+    monkeypatch.setattr(storage, "scan_memories", _boom)
+
+    for call in (hm.get_context, hm.list_memories):
+        with pytest.raises(hm.ActionError) as excinfo:
+            call()
+        message = str(excinfo.value)
+        assert "HOT_MEMORY_UNAVAILABLE" in message
+        assert leak not in message
+        assert "Traceback" not in message
+
+
+# ---------------------------------------------------------------------------
+# §32/§33/§73 — tanılama sayaçları
+# ---------------------------------------------------------------------------
+
+
+def test_invalid_count_reports_all_invalid_files_while_paths_are_bounded(
+    vault: Path,
+) -> None:
+    directory = vault / MEMORY_DIR
+    directory.mkdir(parents=True)
+    invalid_total = storage.MAX_INVALID_REPORTED + 5
+    for index in range(invalid_total):
+        (directory / f"bozuk-{index:03d}.md").write_text("frontmatter yok", encoding="utf-8")
+    _manual_memory_file(vault, title="Geçerli kayıt")
+
+    before = capture_vault_fingerprint(vault)
+    snapshot = storage.scan_memories(vault.resolve())
+
+    assert snapshot.invalid_count == invalid_total
+    assert len(snapshot.invalid_relative_paths) == storage.MAX_INVALID_REPORTED
+    assert len(snapshot.items) == 1
+
+    listed = hm.list_memories(effective_status="all")
+    assert listed.invalid_count == invalid_total
+    assert len(listed.invalid_paths) == storage.MAX_INVALID_REPORTED
+    # Okuma hiçbir bozuk dosyayı DEĞİŞTİRMEZ.
+    assert capture_vault_fingerprint(vault) == before
+
+
+# ---------------------------------------------------------------------------
+# §34/§36/§74 — dondurulmuş aile
+# ---------------------------------------------------------------------------
+
+
+async def test_note_attachment_entity_cannot_be_related_to_hot_memory(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    attachment_id = uuid.uuid4()
+    db_session.add(
+        Entity(id=attachment_id, type="note_attachment", title="Ek", search_text="")
+    )
+    await db_session.commit()
+
+    with pytest.raises(hm.ActionError, match="INVALID_RELATED_ENTITY"):
+        await _store(db_session, related_forkos_ids=[str(attachment_id)])
+
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+    with pytest.raises(hm.ActionError, match="INVALID_RELATED_ENTITY"):
+        await hm.update_memory(
+            db_session,
+            HotMemoryUpdateIn(
+                memory_id=created.target_id,
+                expected_revision=record.revision,
+                related_forkos_ids=[str(attachment_id)],
+            ),
+            request_id="t",
+        )
+
+
+# ---------------------------------------------------------------------------
+# §38/§40/§75 — kronolojik sıralama
+# ---------------------------------------------------------------------------
+
+
+def test_hot_memory_ranking_uses_chronological_updated_at_not_raw_string_order(
+    vault: Path,
+) -> None:
+    """Farklı UTC ofsetleri metinsel sırayla YANLIŞ sıralanır.
+
+    A = 2026-09-20T23:00:00+00:00  → 23:00Z
+    B = 2026-09-21T01:00:00+03:00  → 22:00Z
+
+    Kronolojik olarak A daha yeni; metinsel olarak ("2026-09-21" > "2026-09-20")
+    B önce gelirdi. Sıralama kronolojik olmalı: [A, B].
+    """
+    later_earlier_offset = _manual_memory_file(
+        vault,
+        title="A kaydı",
+        text="A gövdesi.",
+        updated_at="2026-09-20T23:00:00+00:00",
+    )
+    earlier_later_offset = _manual_memory_file(
+        vault,
+        title="B kaydı",
+        text="B gövdesi.",
+        updated_at="2026-09-21T01:00:00+03:00",
+    )
+
+    listed = hm.list_memories(effective_status="all")
+    by_title = {item.title: item.memory_id for item in listed.items}
+    assert [item.title for item in listed.items] == ["A kaydı", "B kaydı"]
+
+    context = hm.get_context()
+    assert [item.memory_id for item in context.preferences] == [
+        by_title["A kaydı"],
+        by_title["B kaydı"],
+    ]
+    assert later_earlier_offset != earlier_later_offset

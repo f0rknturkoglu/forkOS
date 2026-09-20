@@ -218,3 +218,85 @@ def test_search_vault_invalid_scope(mock_vault):
     with pytest.raises(ValueError, match="INVALID_SCOPE"):
         search_vault("FastAPI", scope="nonexistent_scope")
 
+
+
+# ---------------------------------------------------------------------------
+# H2.1 §62/§63/§64 — sıcak hafıza politikası H0 yüzeyinde de geçerli
+# ---------------------------------------------------------------------------
+
+_HOT_MEMORY_DIR = "90 Agent/Memory"
+_VALID_MEMORY_ID = "11111111-1111-4111-8111-111111111111"
+_SECRET_MEMORY_ID = "22222222-2222-4222-8222-222222222222"
+_HOT_SECRET = "api_key=sk-abcdefghijklmnopqrstuvwx"
+
+
+def _hot_memory_markdown(memory_id: str, text: str) -> str:
+    return (
+        "---\n"
+        "agent_memory_version: 1\n"
+        f"memory_id: {memory_id}\n"
+        "memory_kind: preference\n"
+        "title: Tercih kaydı\n"
+        "status: active\n"
+        "importance: 2\n"
+        "source_mode: explicit_user\n"
+        "created_at: '2026-09-20T12:00:00+00:00'\n"
+        "updated_at: '2026-09-20T12:00:00+00:00'\n"
+        "related_forkos_ids: []\n"
+        "tags: []\n"
+        "---\n\n"
+        f"{text}\n"
+    )
+
+
+def _seed_hot_memory(vault) -> None:
+    directory = vault / _HOT_MEMORY_DIR
+    directory.mkdir(parents=True)
+    (directory / f"{_VALID_MEMORY_ID}.md").write_text(
+        _hot_memory_markdown(_VALID_MEMORY_ID, "Tercih gövdesi: sabah çalışmayı sever."),
+        encoding="utf-8",
+    )
+    (directory / f"{_SECRET_MEMORY_ID}.md").write_text(
+        _hot_memory_markdown(_SECRET_MEMORY_ID, _HOT_SECRET), encoding="utf-8"
+    )
+
+
+def test_policy_invalid_hot_memory_not_returned_by_brain_search(mock_vault):
+    """§64: H2'nin dışladığı içerik H0 aramasından da çıkmaz."""
+    _seed_hot_memory(mock_vault)
+
+    secret_hits = search_vault("api_key", scope="agent")
+    assert secret_hits == []
+    assert _HOT_SECRET not in str([hit.model_dump() for hit in search_vault("sk-", scope="agent")])
+
+    # §62: GEÇERLİ sıcak hafıza hâlâ keşfedilebilir (köprü bozulmadı).
+    valid_hits = search_vault("Tercih", scope="agent")
+    assert [hit.relative_path for hit in valid_hits] == [
+        f"{_HOT_MEMORY_DIR}/{_VALID_MEMORY_ID}.md"
+    ]
+
+
+def test_policy_invalid_hot_memory_not_returned_by_brain_read(mock_vault):
+    """§64: aynı dosya `brain_read` ile de model bağlamına giremez."""
+    _seed_hot_memory(mock_vault)
+
+    with pytest.raises(ValueError) as excinfo:
+        read_vault_note(relative_path=f"{_HOT_MEMORY_DIR}/{_SECRET_MEMORY_ID}.md")
+    message = str(excinfo.value)
+    assert "ACCESS_DENIED" in message
+    assert _HOT_SECRET not in message
+    assert "sk-abcdefghijklmnopqrstuvwx" not in message
+
+    # §63: geçerli kayıt normal kurallarla OKUNABİLİR kalır.
+    note = read_vault_note(relative_path=f"{_HOT_MEMORY_DIR}/{_VALID_MEMORY_ID}.md")
+    assert "sabah çalışmayı sever" in note.content
+
+
+def test_general_vault_knowledge_is_unaffected_by_hot_memory_policy(mock_vault):
+    """§45: politika YALNIZCA sıcak hafıza ağacına uygulanır."""
+    note = mock_vault / "30 Knowledge" / "Sır Notu.md"
+    note.write_text(f"# Not\n\n{_HOT_SECRET}\n", encoding="utf-8")
+
+    hits = search_vault("api_key", scope="knowledge")
+    assert [hit.relative_path for hit in hits] == ["30 Knowledge/Sır Notu.md"]
+    assert _HOT_SECRET in read_vault_note(relative_path="30 Knowledge/Sır Notu.md").content
