@@ -10,6 +10,7 @@ import yaml
 
 from app.config import settings
 from app.integrations.agent.models import BrainReadData, BrainSearchResult, BrainStatusData
+from app.integrations.obsidian.hot_memory import is_policy_excluded
 from app.integrations.obsidian.security import resolve_safe_vault_path
 from app.integrations.obsidian.service import vault_index
 
@@ -263,6 +264,14 @@ def search_vault(
             title = _derive_title(frontmatter, body, f)
             headings = _extract_headings(body)
 
+            # §64: sıcak hafıza tekrar tekrar model bağlamına girmek için
+            # tasarlandı; apaçık sır taşıyan `90 Agent/Memory` dosyası H2
+            # bağlamından dışlandığı gibi H0 aramasından da dışlanır. Bu kural
+            # YALNIZCA sıcak hafıza ağacına uygulanır; normal kasa bilgisi
+            # etkilenmez.
+            if is_policy_excluded(rel_path_str, title, body):
+                continue
+
             # Score matching
             title_lower = title.lower()
             body_lower = body.lower()
@@ -427,6 +436,13 @@ def read_vault_note(
     frontmatter, body = _parse_frontmatter_and_body(raw_text)
     title = _derive_title(frontmatter, body, safe_path.name)
     headings = _extract_headings(body)
+
+    # §64: politika dışı sıcak hafıza dosyası H0 okumasından da dışlanır; aksi
+    # hâlde H2'nin engellediği içerik `brain_read` ile model bağlamına girebilirdi.
+    if is_policy_excluded(rel_from_vault, title, body):
+        raise ValueError(
+            f"ACCESS_DENIED: Path '{target_rel_path}' is excluded by the agent-memory policy."
+        )
 
     # Filter whitelisted frontmatter
     whitelisted_fm = {k: v for k, v in frontmatter.items() if k in WHITELISTED_FRONTMATTER_KEYS}
