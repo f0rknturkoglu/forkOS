@@ -289,33 +289,61 @@ def changed_tables(before: dict[str, str], after: dict[str, str]) -> set[str]:
     return {name for name in before if before[name] != after.get(name)}
 
 
+def _allowed_network_hosts() -> set[str | None]:
+    """Ağ korumasının serbest bıraktığı host'lar.
+
+    Loopback + yapılandırılmış test veritabanı host'u. Compose içinde DB host'u
+    `db-test`'tir; koruma onu engellerse testler altyapıya bağlanamaz.
+    """
+    from sqlalchemy.engine import make_url
+
+    from app.config import settings
+
+    hosts: set[str | None] = {"127.0.0.1", "::1", "localhost", "", None}
+    hosts.add(make_url(settings.database_url).host)
+    return hosts
+
+
 @pytest.fixture(autouse=True)
 def forbid_outbound_network(monkeypatch: pytest.MonkeyPatch):
     """§116/§118: ajan katmanı testlerinde DIŞ AĞ erişimini test hatasına çevirir.
 
     Neden soket seviyesinde: `httpx.AsyncClient`'ı yamamak, taşıma testlerinin
     meşru biçimde kullandığı ASGI (soketsiz) istemcisini de kırardı. Doğru sınır
-    "gerçek dış ağ"dır: loopback serbest (test DB ve in-process ASGI), dışarısı
+    "gerçek dış ağ"dır: loopback ve **yapılandırılmış test veritabanı host'u**
+    serbest (Compose içinde host `db-test`'tir, loopback değildir), dışarısı
     yasak. Böylece hangi kütüphane kullanılırsa kullanılsın dış çağrı yakalanır.
 
     Kullanacak modüller bu fixture'ı import eder.
     """
     import socket
 
-    allowed = {"127.0.0.1", "::1", "localhost", "", None}
+    allowed = _allowed_network_hosts()
+    # Onaylanmış bir çözümlemeden çıkan adresler. Dış ağ sınırı AD üzerinde
+    # tutulur: `connect` adımı artık hostname değil, çözümlenmiş IP görür
+    # (`172.18.0.x` gibi), bu yüzden IP tek başına kanıt sayılmaz.
+    approved_addresses: set[str] = set()
     real_connect = socket.socket.connect
     real_getaddrinfo = socket.getaddrinfo
-
-    def guarded_connect(self, address):  # type: ignore[no-untyped-def]
-        host = address[0] if isinstance(address, tuple) else str(address)
-        if host not in allowed:
-            raise AssertionError(f"dış ağ bağlantısı engellendi: {host}")
-        return real_connect(self, address)
 
     def guarded_getaddrinfo(host, *args, **kwargs):  # type: ignore[no-untyped-def]
         if host not in allowed:
             raise AssertionError(f"dış DNS çözümlemesi engellendi: {host}")
-        return real_getaddrinfo(host, *args, **kwargs)
+        infos = real_getaddrinfo(host, *args, **kwargs)
+        for info in infos:
+            sockaddr = info[4]
+            if isinstance(sockaddr, tuple) and sockaddr:
+                approved_addresses.add(str(sockaddr[0]))
+        return infos
+
+    def guarded_connect(self, address):  # type: ignore[no-untyped-def]
+        if not isinstance(address, tuple):
+            # AF_UNIX: dosya sistemi yolu; ağ değil.
+            return real_connect(self, address)
+        host = str(address[0])
+        if host not in allowed and host not in approved_addresses:
+            raise AssertionError(f"dış ağ bağlantısı engellendi: {host}")
+        return real_connect(self, address)
 
     monkeypatch.setattr(socket.socket, "connect", guarded_connect)
     monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)
