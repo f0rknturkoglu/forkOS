@@ -14,6 +14,7 @@ from app.integrations.agent.context import (
     get_recent_activity_context,
     search_operational_context,
 )
+from app.modules.opportunity.models import Application, Opportunity
 from app.modules.project.models import Milestone, Project
 from app.modules.todo.models import Todo
 
@@ -249,4 +250,82 @@ forkos_type: project
     assert pkg.knowledge["available"] is True
     assert pkg.knowledge["forkos_id"] == str(proj_id)
     assert pkg.knowledge["relative_path"] == "20 Projects/Cold.md"
+
+
+async def test_get_briefing_context_deadlines(db_session: AsyncSession):
+    todo_id = uuid.uuid4()
+    todo_ent = Entity(id=todo_id, type="todo", title="Fix parser crash", search_text="")
+    db_session.add(todo_ent)
+    due = datetime.now(UTC) + timedelta(days=2)
+    todo = Todo(id=todo_id, status="open", priority=1, due_at=due)
+    db_session.add(todo)
+    await db_session.commit()
+
+    briefing = await get_briefing_context(db_session)
+    assert len(briefing.deadlines) >= 1
+    found = [d for d in briefing.deadlines if d["id"] == str(todo_id)]
+    assert len(found) == 1
+    assert found[0]["title"] == "Fix parser crash"
+    assert found[0]["entity_type"] == "todo"
+    assert found[0]["due_at"] is not None
+
+
+async def test_get_briefing_context_invalid_date(db_session: AsyncSession):
+    with pytest.raises(ValueError, match="INVALID_DATE"):
+        await get_briefing_context(db_session, day="2026-99-99")
+
+
+async def test_opportunity_attention_lifecycle(db_session: AsyncSession):
+    # 1. Active job application (status="applied") -> MUST appear
+    job1_id = uuid.uuid4()
+    db_session.add(Entity(id=job1_id, type="opportunity", title="Senior Backend Engineer", search_text=""))
+    opp1 = Opportunity(id=job1_id, kind="job", organization="Acme Corp", found_at=datetime.now(UTC))
+    db_session.add(opp1)
+    app1 = Application(opportunity_id=job1_id, status="applied")
+    db_session.add(app1)
+
+    # 2. Active job application (status="interview") -> MUST appear
+    job2_id = uuid.uuid4()
+    db_session.add(Entity(id=job2_id, type="opportunity", title="Lead Systems Architect", search_text=""))
+    opp2 = Opportunity(id=job2_id, kind="job", organization="Beta LLC", found_at=datetime.now(UTC))
+    db_session.add(opp2)
+    app2 = Application(opportunity_id=job2_id, status="interview")
+    db_session.add(app2)
+
+    # 3. Terminal job application (status="rejected") -> MUST NOT appear
+    job3_id = uuid.uuid4()
+    db_session.add(Entity(id=job3_id, type="opportunity", title="Junior Dev", search_text=""))
+    opp3 = Opportunity(id=job3_id, kind="job", organization="Gamma Co", found_at=datetime.now(UTC))
+    db_session.add(opp3)
+    app3 = Application(opportunity_id=job3_id, status="rejected")
+    db_session.add(app3)
+
+    # 4. Active announcement (status="action_required") -> MUST appear
+    ann1_id = uuid.uuid4()
+    db_session.add(Entity(id=ann1_id, type="opportunity", title="TÜBİTAK 2219 Grant", search_text=""))
+    opp4 = Opportunity(id=ann1_id, kind="grant", organization="TÜBİTAK", status="action_required", found_at=datetime.now(UTC))
+    db_session.add(opp4)
+
+    # 5. Completed announcement (status="completed") -> MUST NOT appear
+    ann2_id = uuid.uuid4()
+    db_session.add(Entity(id=ann2_id, type="opportunity", title="YLSY Scholarship", search_text=""))
+    opp5 = Opportunity(id=ann2_id, kind="scholarship", organization="MEB", status="completed", found_at=datetime.now(UTC))
+    db_session.add(opp5)
+
+    await db_session.commit()
+
+    briefing = await get_briefing_context(db_session)
+    att_ids = [item["id"] for item in briefing.opportunity_attention]
+    assert str(job1_id) in att_ids
+    assert str(job2_id) in att_ids
+    assert str(ann1_id) in att_ids
+    assert str(job3_id) not in att_ids
+    assert str(ann2_id) not in att_ids
+
+    # Check fields of job application
+    job_item = next(item for item in briefing.opportunity_attention if item["id"] == str(job1_id))
+    assert job_item["title"] == "Senior Backend Engineer"
+    assert job_item["status"] == "applied"
+    assert job_item["organization"] == "Acme Corp"
+
 

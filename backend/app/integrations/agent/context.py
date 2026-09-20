@@ -24,7 +24,8 @@ from app.integrations.agent.models import (
 )
 from app.integrations.obsidian.service import resolve_managed_item, vault_index
 from app.modules.flashcard.models import FlashcardCard
-from app.modules.opportunity.models import Opportunity
+from app.modules.opportunity.lifecycle import APPLICATION_TERMINAL, JOB_KINDS
+from app.modules.opportunity.models import Application, Opportunity
 from app.modules.project import service as project_svc
 from app.modules.project.models import Milestone, Project
 from app.modules.today import service as today_svc
@@ -69,8 +70,8 @@ async def get_briefing_context(session: AsyncSession, day: str | None = None) ->
     if day:
         try:
             target_date = date.fromisoformat(day.strip())
-        except ValueError:
-            target_date = local_today()
+        except (ValueError, TypeError):
+            raise ValueError(f"INVALID_DATE: '{day}' is not in valid YYYY-MM-DD format.")
     else:
         target_date = local_today()
 
@@ -78,19 +79,17 @@ async def get_briefing_context(session: AsyncSession, day: str | None = None) ->
 
     # 1. Agenda items (capped at 30)
     agenda_rows: list[dict[str, Any]] = []
-    try:
-        today_out = await today_svc.agenda(session, target_date)
-        for row in today_out.items[:30]:
-            agenda_rows.append({
-                "kind": row.kind,
-                "title": row.title,
-                "completed": row.completed,
-                "starts_at": row.starts_at.isoformat() if row.starts_at else None,
-                "duration_min": row.duration_min,
-                "project_title": row.project_title,
-            })
-    except Exception:
-        agenda_rows = []
+    today_out = await today_svc.agenda(session, target_date)
+    raw_agenda = today_out.timed + today_out.checklist
+    for row in raw_agenda[:30]:
+        agenda_rows.append({
+            "kind": row.kind,
+            "title": row.title,
+            "completed": row.completed,
+            "starts_at": row.starts_at.isoformat() if row.starts_at else None,
+            "duration_min": row.duration_min,
+            "project_title": row.project_title,
+        })
 
     # 2. Open todos (ordered by priority, capped at 20)
     todos_stmt = (
@@ -113,17 +112,17 @@ async def get_briefing_context(session: AsyncSession, day: str | None = None) ->
 
     # 3. Deadlines (within next 7 days, capped at 15)
     deadlines: list[dict[str, Any]] = []
-    try:
-        deadlines_list = await collect_deadlines(session, limit=15)
-        for d in deadlines_list:
-            deadlines.append({
-                "id": str(d.id),
-                "title": d.title,
-                "due_at": d.due_at.isoformat() if d.due_at else None,
-                "entity_type": d.entity_type,
-            })
-    except Exception:
-        deadlines = []
+    raw_deadlines = await collect_deadlines(session, limit=15)
+    for d in raw_deadlines:
+        due = d.get("due_at")
+        deadlines.append({
+            "id": str(d["entity_id"]),
+            "title": d["title"],
+            "due_at": due.isoformat() if hasattr(due, "isoformat") else str(due) if due else None,
+            "entity_type": d["type"],
+            "module": d.get("module"),
+            "priority": d.get("priority"),
+        })
 
     # 4. Active projects (capped at 10)
     proj_stmt = (
@@ -146,52 +145,79 @@ async def get_briefing_context(session: AsyncSession, day: str | None = None) ->
 
     # 5. Learning due (flashcards due, capped at 10)
     learning_due: list[dict[str, Any]] = []
-    try:
-        now_dt = datetime.now(UTC)
-        fc_stmt = (
-            select(FlashcardCard, Entity.title)
-            .join(Entity, Entity.id == FlashcardCard.id)
-            .where(
-                FlashcardCard.due_at <= now_dt,
-                Entity.archived_at.is_(None),
-            )
-            .limit(10)
+    now_dt = datetime.now(UTC)
+    fc_stmt = (
+        select(FlashcardCard, Entity.title)
+        .join(Entity, Entity.id == FlashcardCard.id)
+        .where(
+            FlashcardCard.due_at <= now_dt,
+            Entity.archived_at.is_(None),
         )
-        fc_res = await session.execute(fc_stmt)
-        for card, title in fc_res.all():
-            learning_due.append({
-                "id": str(card.id),
-                "title": title,
-                "due_at": card.due_at.isoformat() if card.due_at else None,
-                "reps": card.reps,
-            })
-    except Exception:
-        learning_due = []
+        .order_by(FlashcardCard.due_at.asc())
+        .limit(10)
+    )
+    fc_res = await session.execute(fc_stmt)
+    for card, title in fc_res.all():
+        learning_due.append({
+            "id": str(card.id),
+            "title": title,
+            "due_at": card.due_at.isoformat() if card.due_at else None,
+            "reps": card.reps,
+        })
 
-    # 6. Opportunity attention (active opportunities in interview or review, capped at 10)
+    # 6. Opportunity attention (active applications + active announcements, capped at 10)
     opportunity_attention: list[dict[str, Any]] = []
-    try:
-        opp_stmt = (
+    # 6a. Non-terminal applications
+    app_stmt = (
+        select(Application, Opportunity, Entity.title)
+        .join(Opportunity, Opportunity.id == Application.opportunity_id)
+        .join(Entity, Entity.id == Opportunity.id)
+        .where(
+            Application.status.not_in(APPLICATION_TERMINAL),
+            Entity.archived_at.is_(None),
+        )
+        .order_by(Opportunity.deadline_at.asc().nulls_last())
+        .limit(10)
+    )
+    app_res = await session.execute(app_stmt)
+    for app, opp, title in app_res.all():
+        opportunity_attention.append({
+            "id": str(opp.id),
+            "title": title,
+            "kind": opp.kind,
+            "organization": opp.organization,
+            "company": opp.organization,
+            "status": app.status,
+            "stage": app.status,
+            "deadline_at": opp.deadline_at.isoformat() if opp.deadline_at else None,
+        })
+
+    # 6b. Active announcements (action_required, watching, new)
+    remaining_slots = 10 - len(opportunity_attention)
+    if remaining_slots > 0:
+        ann_stmt = (
             select(Opportunity, Entity.title)
             .join(Entity, Entity.id == Opportunity.id)
             .where(
-                Opportunity.stage.in_(["applied", "interview", "review"]),
+                Opportunity.kind.not_in(JOB_KINDS),
+                Opportunity.status.in_({"action_required", "watching", "new"}),
                 Entity.archived_at.is_(None),
             )
             .order_by(Opportunity.deadline_at.asc().nulls_last())
-            .limit(10)
+            .limit(remaining_slots)
         )
-        opp_res = await session.execute(opp_stmt)
-        for opp, title in opp_res.all():
+        ann_res = await session.execute(ann_stmt)
+        for opp, title in ann_res.all():
             opportunity_attention.append({
                 "id": str(opp.id),
                 "title": title,
-                "company": opp.company,
-                "stage": opp.stage,
+                "kind": opp.kind,
+                "organization": opp.organization,
+                "company": opp.organization,
+                "status": opp.status,
+                "stage": opp.status,
                 "deadline_at": opp.deadline_at.isoformat() if opp.deadline_at else None,
             })
-    except Exception:
-        opportunity_attention = []
 
     # 7. Notifications (unread, capped at 10)
     notif_stmt = (
