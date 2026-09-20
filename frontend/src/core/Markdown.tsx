@@ -6,11 +6,9 @@
  * enjekte edemez. Baglantilar `safeHref` suzgecinden gecer.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Download, File, FileAudio, FilePenLine, FileText, FileVideo, Pause, Play, Trash2 } from "lucide-react";
 import { entityRoute } from "./entityRegistry";
 import { parseMarkdown, safeHref, type Block, type Inline } from "./markdownParser";
-import type { NoteAttachment } from "./types";
-import { Button, IconButton, Range, cx } from "./ui";
+import { Button, cx } from "./ui";
 
 interface MarkdownProps {
   source: string;
@@ -21,134 +19,9 @@ interface MarkdownProps {
   /** Cozulemeyen bir hedefe tiklanirsa -- ornegin "bu baslikla not olustur". */
   onMissingClick?: (target: string) => void;
   onTagClick?: (name: string) => void;
-  /** Nota ait yerel ekler; Markdown baglantilari medya olarak render edilir. */
-  attachments?: NoteAttachment[];
-  onRemoveAttachment?: (attachment: NoteAttachment) => void;
   /** Gorev listesindeki satiri yerel not govdesinde isaretler. */
   onTaskToggle?: (line: number, checked: boolean) => void;
   className?: string;
-}
-
-function localAttachment(props: MarkdownProps, href: string): NoteAttachment | undefined {
-  return props.attachments?.find((attachment) => attachment.url === href);
-}
-
-function attachmentActions(attachment: NoteAttachment, props: MarkdownProps, key: string) {
-  if (!props.onRemoveAttachment) return null;
-  return (
-    <IconButton
-      key={`${key}-remove`}
-      title="Eki sil"
-      tone="danger"
-      onClick={() => props.onRemoveAttachment?.(attachment)}
-    >
-      <Trash2 size={13} />
-    </IconButton>
-  );
-}
-
-function formatDuration(value: number): string {
-  if (!Number.isFinite(value) || value < 0) return "0:00";
-  const minutes = Math.floor(value / 60);
-  return `${minutes}:${Math.floor(value % 60)
-    .toString()
-    .padStart(2, "0")}`;
-}
-
-function LocalAudioPlayer({
-  attachment,
-  href,
-  onRemove,
-}: {
-  attachment: NoteAttachment;
-  href: string;
-  onRemove?: (attachment: NoteAttachment) => void;
-}) {
-  const audio = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [current, setCurrent] = useState(0);
-
-  useEffect(() => {
-    const element = audio.current;
-    if (!element) return;
-    const sync = () => setCurrent(element.currentTime || 0);
-    const metadata = () => setDuration(Number.isFinite(element.duration) ? element.duration : 0);
-    const stopped = () => setPlaying(false);
-    element.addEventListener("timeupdate", sync);
-    element.addEventListener("loadedmetadata", metadata);
-    element.addEventListener("durationchange", metadata);
-    element.addEventListener("ended", stopped);
-    element.addEventListener("pause", stopped);
-    return () => {
-      element.removeEventListener("timeupdate", sync);
-      element.removeEventListener("loadedmetadata", metadata);
-      element.removeEventListener("durationchange", metadata);
-      element.removeEventListener("ended", stopped);
-      element.removeEventListener("pause", stopped);
-    };
-  }, []);
-
-  const toggle = async () => {
-    const element = audio.current;
-    if (!element) return;
-    if (element.paused) {
-      await element.play();
-      setPlaying(true);
-    } else {
-      element.pause();
-    }
-  };
-
-  return (
-    <span className="my-4 block overflow-hidden rounded-card border border-subtle bg-surface shadow-card">
-      <audio ref={audio} preload="metadata" src={href} className="hidden" />
-      <span className="flex items-center gap-3 px-3.5 py-3">
-        <button
-          type="button"
-          onClick={() => void toggle()}
-          aria-label={playing ? "Sesi duraklat" : "Sesi oynat"}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-canvas transition hover:opacity-80"
-        >
-          {playing ? <Pause size={16} /> : <Play size={16} className="translate-x-px" />}
-        </button>
-        <span className="min-w-0 flex-1">
-          <span className="mb-1.5 flex items-center gap-2">
-            <FileAudio size={14} className="shrink-0 text-icon" />
-            <span className="min-w-0 flex-1 truncate text-meta font-medium text-primary">{attachment.name}</span>
-            <span className="text-micro tabular-nums text-muted">
-              {formatDuration(current)} / {formatDuration(duration)}
-            </span>
-          </span>
-          <Range
-            value={Math.min(current, duration || 0)}
-            max={duration || 1}
-            step={0.1}
-            ariaLabel={`${attachment.name} oynatma konumu`}
-            onChange={(value) => {
-              if (audio.current) audio.current.currentTime = value;
-              setCurrent(value);
-            }}
-          />
-        </span>
-        <a href={href} download={attachment.name} title="Sesi indir" className="text-icon hover:text-primary">
-          <Download size={15} />
-        </a>
-        {onRemove && (
-          <IconButton title="Eki sil" tone="danger" onClick={() => onRemove(attachment)}>
-            <Trash2 size={13} />
-          </IconButton>
-        )}
-      </span>
-    </span>
-  );
-}
-
-function attachmentIcon(mime: string) {
-  if (mime.startsWith("video/")) return <FileVideo size={18} className="text-icon" />;
-  if (mime === "application/pdf" || mime.startsWith("text/")) return <FileText size={18} className="text-icon" />;
-  if (mime === "application/vnd.excalidraw+json") return <FilePenLine size={18} className="text-icon" />;
-  return <File size={18} className="text-icon" />;
 }
 
 function renderInline(nodes: Inline[], props: MarkdownProps, keyPrefix: string): ReactNode[] {
@@ -183,51 +56,6 @@ function renderInline(nodes: Inline[], props: MarkdownProps, keyPrefix: string):
       case "link": {
         const href = safeHref(node.href);
         if (!href) return <span key={key}>{node.label}</span>;
-        const attachment = localAttachment(props, href);
-        if (attachment?.mime.startsWith("audio/")) {
-          return <LocalAudioPlayer key={key} attachment={attachment} href={href} onRemove={props.onRemoveAttachment} />;
-        }
-        if (attachment?.mime.startsWith("video/")) {
-          return (
-            <span
-              key={key}
-              className="my-4 block overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
-            >
-              <video controls preload="metadata" src={href} className="max-h-screen w-full bg-surface-sunken" />
-              <span className="flex items-center gap-2 border-t border-subtle px-3 py-2 text-meta text-muted">
-                <FileVideo size={14} />
-                <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
-                {attachmentActions(attachment, props, key)}
-              </span>
-            </span>
-          );
-        }
-        if (attachment) {
-          const kind =
-            attachment.mime === "application/vnd.excalidraw+json"
-              ? "Excalidraw"
-              : attachment.mime === "application/pdf"
-                ? "PDF"
-                : "Dosya";
-          return (
-            <span
-              key={key}
-              className="my-3 flex items-center gap-3 rounded-card border border-subtle bg-surface px-3 py-2.5 shadow-card"
-            >
-              {attachmentIcon(attachment.mime)}
-              <a href={href} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1">
-                <span className="block truncate text-body font-medium text-primary">{attachment.name}</span>
-                <span className="block text-meta text-muted">
-                  {kind} · {Math.max(1, Math.round(attachment.size / 1024))} KB
-                </span>
-              </a>
-              <a href={href} download={attachment.name} title="Dosyayı indir" className="text-icon hover:text-primary">
-                <Download size={15} />
-              </a>
-              {attachmentActions(attachment, props, key)}
-            </span>
-          );
-        }
         return (
           <a
             key={key}
@@ -240,25 +68,15 @@ function renderInline(nodes: Inline[], props: MarkdownProps, keyPrefix: string):
           </a>
         );
       }
-      case "image": {
+      case "image":
         // Local-only: Markdown bir dis URL'yi sessizce yukleyip veri sizdirmasin.
-        const attachment = localAttachment(props, node.src);
-        if (!attachment?.mime.startsWith("image/"))
-          return (
-            <span key={key}>
-              ![{node.alt}]({node.src})
-            </span>
-          );
+        // Yerel ek deposu legacy Notlar'la birlikte kalkti; bu yuzden resim
+        // sozdizimi metin olarak gosterilir (uzak istek ATILMAZ).
         return (
-          <span key={key} className="my-3 block overflow-hidden rounded-card border border-subtle bg-surface">
-            <img src={node.src} alt={node.alt} className="max-h-screen w-full object-contain" loading="lazy" />
-            <span className="flex items-center gap-2 border-t border-subtle px-3 py-2">
-              <span className="min-w-0 flex-1 truncate text-meta text-muted">{attachment.name}</span>
-              {attachmentActions(attachment, props, key)}
-            </span>
+          <span key={key}>
+            ![{node.alt}]({node.src})
           </span>
         );
-      }
       case "wiki": {
         const hit = (props.links ?? []).find(
           (candidate) => candidate.target.toLocaleLowerCase("tr") === node.target.toLocaleLowerCase("tr"),

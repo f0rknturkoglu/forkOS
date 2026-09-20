@@ -44,7 +44,6 @@ export const AFTER = {
     "activity",
     "statistics",
     "deadlines",
-    "graph",
     "related",
   ],
   "opportunity.write": [
@@ -113,7 +112,6 @@ export const AFTER = {
     "statistics",
     "review-preview",
     // Konu/alan degisimi bagli kayitlari, grafigi ve son tarihleri de etkiler.
-    "graph",
     "related",
     "backlinks",
     "deadlines",
@@ -146,7 +144,6 @@ export const AFTER = {
     "study-stats",
     "activity",
     "related",
-    "graph",
     "backlinks",
     "today-agenda",
   ],
@@ -177,25 +174,14 @@ export const AFTER = {
     "rss-stats",
     "activity",
   ],
-  "link.write": ["related", "backlinks", "graph", "activity"],
+  "link.write": ["related", "backlinks", "activity"],
+  // Bilgi artık Vault'ta yaşar: Vault yazması forkOS veritabanını
+  // DEĞİŞTİRMEZ, bu yüzden yalnız Vault sorguları tazelenir.
+  "obsidian.write": ["vault-status", "vault-item"],
   // jobhunter uyum profili/LinkedIn profilleri config.yaml'a yazilir; ayarlar
   // paneli kaydettikten sonra kendi sorgularini taze gormelidir.
   "jobhunter.write": ["jobhunter-config", "jobhunter-linkedin", "jobhunter-env"],
   "notification.write": ["notifications"],
-  "note.write": [
-    "notes",
-    "note",
-    "note-folders",
-    "project-journal",
-    "activity",
-    "tags",
-    "backlinks",
-    "graph",
-    "related",
-    // Konu detayi `note_count` tasir: not eklenince/cikarilinca basliktaki
-    // sayac da tazelenmeli, yoksa liste 1 not gosterirken baslik "0 not" der.
-    "study-topic",
-  ],
 } as const;
 
 type AfterEvent = keyof typeof AFTER;

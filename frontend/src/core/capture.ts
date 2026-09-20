@@ -1,5 +1,6 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
+import { captureVaultNote, type VaultItem } from "@/core/obsidian";
 import { createTask, invalidateTaskWrite } from "@/core/tasks";
 import { readStored, writeStored } from "@/core/storage";
 
@@ -7,8 +8,12 @@ import { readStored, writeStored } from "@/core/storage";
  * Evrensel yakalama sozlesmesi (Faz 22).
  *
  * Uc tur tek intent katmanindan gecer: gorev (Faz 17 createTask), not
- * (Faz 21 /notes), baglanti (mevcut /capture). Bilesenler dogrudan farkli
- * body'ler uretmez. "Bugune al" tercihi task icinde yine uygulanir.
+ * (Obsidian Vault `/obsidian/capture`), baglanti (mevcut /capture). Bilesenler
+ * dogrudan farkli body'ler uretmez. "Bugune al" tercihi task icinde yine
+ * uygulanir.
+ *
+ * Not turu artik forkOS veritabanina YAZMAZ: bilgi notu Vault'ta yasar, bu
+ * yuzden yalniz Vault sorgulari tazelenir.
  */
 
 export type CaptureKind = "task" | "note" | "link" | "flashcard";
@@ -36,9 +41,10 @@ interface TaskCaptureOptions {
 }
 
 interface NoteCaptureOptions {
-  pinned?: boolean;
-  /** Doluysa not bu entity'ye notes_about ile baglanir. */
+  /** Doluysa not Vault frontmatter'inda bu entity'ye baglanir. */
   relate_to?: string;
+  /** Vault dosya adini/basligini belirler; yoksa govdeden turetilir. */
+  title?: string;
 }
 
 interface FlashcardCaptureOptions {
@@ -67,7 +73,10 @@ interface CaptureIntent {
 
 interface CaptureResult {
   kind: CaptureKind;
+  /** Okunan kaydin kimligi; not turunde Vault dosyasinin `forkos_id`'sidir. */
   id: string;
+  /** Yalniz not turunde dolar: Vault kaydi (`open_uri`, `relative_path`). */
+  vault?: VaultItem;
 }
 
 /** Intent'i dogru domain servisine yonlendirir; invalidation ture ozeldir. */
@@ -98,14 +107,16 @@ export async function capture(intent: CaptureIntent): Promise<CaptureResult> {
   }
 
   if (intent.kind === "note") {
-    // Tek istek: not + notes_about bagi backend'de ayni transaction'da (Faz 29).
-    const note = await api.post<{ id: string }>("/notes", {
-      body: intent.text,
-      pinned: intent.note?.pinned ?? false,
+    // Bilgi notu forkOS'ta DEGIL Vault'ta yasar: DB'de not kaydi acilmaz ve
+    // forkOS'a ozel alanlar (`pinned`) gonderilmez. Vault basligini govdeden
+    // turettigi icin verilen baslik govdenin ilk satiri olur.
+    const title = intent.note?.title?.trim();
+    const item = await captureVaultNote({
+      body: title ? `${title}\n\n${intent.text}` : intent.text,
       ...(intent.note?.relate_to ? { relate_to: intent.note.relate_to } : {}),
     });
-    invalidateAfter("note.write", "link.write");
-    return { kind: "note", id: note.id };
+    invalidateAfter("obsidian.write");
+    return { kind: "note", id: item.forkos_id, vault: item };
   }
 
   const result = await api.post<{ id: string }>("/capture", {

@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Layers, Link2, ListChecks, StickyNote, X } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { capture, readCaptureKindPreference, writeCaptureKindPreference, type CaptureKind } from "@/core/capture";
+import { openObsidianUri } from "@/core/obsidian";
 import { Chip, Checkbox, Input, Select, Button, Kbd, cx, useToast } from "@/core/ui";
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { readPlanTodayPreference, writePlanTodayPreference } from "@/core/tasks";
@@ -72,7 +73,6 @@ export function CaptureDialog() {
   const [recur, setRecur] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
-  const [pinned, setPinned] = useState(false);
   const [collection, setCollection] = useState<string>("inbox");
   const [title, setTitle] = useState("");
   // Kart yakalama: deste + arka yuz (on yuz `text` alanini kullanir).
@@ -204,24 +204,30 @@ export function CaptureDialog() {
           project_id: projectId || undefined,
           tags,
         },
-        note: { pinned, relate_to: relateTo?.id },
+        note: { relate_to: relateTo?.id },
         flashcard: { deck_id: deckId, front: text.trim(), back: cardBack.trim() },
         link: { collection: collection as "inbox" | "reference" | "learning", tags },
       }),
     onSuccess: (result) => {
       writeCaptureKindPreference(kind);
-      const label =
-        result.kind === "task"
-          ? "Görev eklendi"
-          : result.kind === "note"
-            ? "Not eklendi"
-            : result.kind === "flashcard"
-              ? "Kart eklendi"
-              : "Bağlantı eklendi";
       const plannedDay = planDay ?? (planToday ? todayKey() : undefined);
-      toast.push(result.kind === "task" && plannedDay === todayKey() ? `${label} — bugüne planlandı` : label, {
-        tone: "ok",
-      });
+      if (result.kind === "note") {
+        // Not forkOS'a degil Vault'a yazildi; geri bildirim de kasayi isaret
+        // eder ve notu dogrudan Obsidian'da acmayi onerir.
+        const vault = result.vault;
+        toast.push(
+          "Not Obsidian kasana kaydedildi",
+          vault
+            ? { tone: "ok", action: { label: "Obsidian'da aç", run: () => openObsidianUri(vault.open_uri) } }
+            : { tone: "ok" },
+        );
+      } else {
+        const label =
+          result.kind === "task" ? "Görev eklendi" : result.kind === "flashcard" ? "Kart eklendi" : "Bağlantı eklendi";
+        toast.push(result.kind === "task" && plannedDay === todayKey() ? `${label} — bugüne planlandı` : label, {
+          tone: "ok",
+        });
+      }
       close();
     },
     onError: () => toast.push("Yakalanamadı.", { tone: "danger" }),
@@ -233,7 +239,6 @@ export function CaptureDialog() {
     setUrl("");
     setDue("");
     setProjectId("");
-    setPinned(false);
     setTags([]);
     setTagDraft("");
     setRecur("");
@@ -483,7 +488,7 @@ export function CaptureDialog() {
 
           {kind === "note" && (
             <div className="space-y-2.5">
-              <Checkbox checked={pinned} onChange={setPinned} label="sabitle" />
+              <p className="text-micro text-muted">Not forkOS'a değil, Obsidian Vault'una (00 Inbox) yazılır.</p>
               <div>
                 <span className="mb-1 block text-meta text-muted">İlişkilendir (opsiyonel)</span>
                 {relateTo ? (

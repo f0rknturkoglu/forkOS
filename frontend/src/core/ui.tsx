@@ -38,9 +38,8 @@ export function readTheme(): Theme {
  */
 const themeListeners = new Set<(theme: Theme) => void>();
 
-/** Bir tercihin ekranda karsiligi: `system` isletim sistemine cozulur.
- *  Somut tema isteyen yerler (Excalidraw gibi) bunu kullanir. */
-export function resolvedTheme(theme: Theme): "light" | "dark" {
+/** Bir tercihin ekranda karsiligi: `system` isletim sistemine cozulur. */
+function resolvedTheme(theme: Theme): "light" | "dark" {
   return theme === "system" ? systemTheme() : theme;
 }
 

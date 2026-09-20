@@ -51,7 +51,7 @@ describe("AppSidebar", () => {
     renderSidebar("/notes");
 
     expect(screen.getByRole("link", { name: "Bugün" }).getAttribute("href")).toBe("#/");
-    expect(screen.getByRole("link", { name: "Notlar" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Bilgi" }).getAttribute("aria-current")).toBe("page");
     const habitsLink = screen.getByRole("link", { name: "Rutinler" });
     expect(habitsLink.getAttribute("href")).toBe("#/habits");
     expect(habitsLink.querySelector("svg")).not.toBeNull();
@@ -59,10 +59,6 @@ describe("AppSidebar", () => {
     const plannerLink = screen.getByRole("link", { name: "Haftalık plan" });
     expect(plannerLink.getAttribute("href")).toBe("#/planner");
     expect(plannerLink.querySelector("svg")).not.toBeNull();
-
-    const graphLink = screen.getByRole("link", { name: "Bilgi grafı" });
-    expect(graphLink.getAttribute("href")).toBe("#/graph");
-    expect(graphLink.querySelector("svg")).not.toBeNull();
 
     expect(screen.getByRole("link", { name: "Odak" }).getAttribute("href")).toBe("#/pomodoro");
     expect(screen.queryByRole("button", { name: "Yeni kayıt" })).toBeNull();
@@ -115,9 +111,9 @@ describe("AppSidebar", () => {
     window.addEventListener("forkos:before-navigation", preventNavigation);
     const { onCloseMobile } = renderSidebar("/notes");
 
-    const graph = screen.getByRole("link", { name: "Bilgi grafı" });
+    const link = screen.getByRole("link", { name: "Haftalık plan" });
     const click = new MouseEvent("click", { bubbles: true, cancelable: true });
-    graph.dispatchEvent(click);
+    link.dispatchEvent(click);
 
     expect(click.defaultPrevented).toBe(true);
     expect(onCloseMobile).not.toHaveBeenCalled();

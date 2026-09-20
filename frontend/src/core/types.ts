@@ -127,14 +127,6 @@ export interface BookmarkHighlight {
   created_at: string;
 }
 
-/** Kasa genelindeki vurgu akışı; kaynak yer imi bilgisiyle gelir. */
-export interface GlobalHighlight extends BookmarkHighlight {
-  bookmark_title: string;
-  bookmark_url: string;
-  position_start: number;
-  position_end: number;
-}
-
 export interface BookmarkFullText {
   id: string;
   title: string;
@@ -208,60 +200,6 @@ export interface RssStats {
   unread: number;
   today: number;
   saved: number;
-}
-
-export interface Note {
-  id: string;
-  title: string;
-  body: string;
-  pinned: boolean;
-  /** Proje gunlugunden geldiyse bagli proje; bos ise kisisel not. */
-  project_id?: string | null;
-  /** Obsidian benzeri klasor agacindaki yeri; bos ise Kok Notlar. */
-  folder_id?: string | null;
-  /** Proje gunlugu notunun temsil ettigi yerel gun. */
-  journal_day?: string | null;
-  archived_at?: string | null;
-  trashed_at?: string | null;
-  source_bookmark_id?: string | null;
-  created_at: string;
-  updated_at: string;
-  /** Govdedeki #etiketler + elle eklenenler (tek havuz). */
-  tags?: string[];
-  /** [[...]] yazilmis ama henuz o baslikta kayit olmayan hedefler. */
-  unresolved_links?: string[];
-  /** Cozulen [[hedef]] -> gercek kayit; tiklaninca oraya gidilir. */
-  resolved_links?: { target: string; id: string; type: string }[];
-  attachments?: NoteAttachment[];
-  /** Excalidraw sahnesi; not listesinde bos, detay cagrisinda tam gelir. */
-  canvas_state?: NoteCanvasState;
-  default_view?: "page" | "canvas";
-}
-
-export interface NoteFolder {
-  id: string;
-  name: string;
-  parent_id: string | null;
-  position: number;
-  note_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface NoteCanvasState {
-  type?: "excalidraw";
-  version?: number;
-  elements?: unknown[];
-  appState?: Record<string, unknown>;
-  files?: Record<string, unknown>;
-}
-
-export interface NoteAttachment {
-  id: string;
-  name: string;
-  mime: string;
-  size: number;
-  url: string;
 }
 
 export interface Todo {
@@ -473,26 +411,6 @@ export interface LearningResource {
   course_id: string | null;
 }
 
-/** Bilgi grafi: dugum = entity, kenar = link (mentions dahil). */
-interface GraphNode {
-  id: string;
-  type: string;
-  title: string;
-  degree: number;
-}
-
-interface GraphEdge {
-  from: string;
-  to: string;
-  relation: string;
-}
-
-export interface KnowledgeGraph {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  focus: string | null;
-}
-
 export interface Document {
   id: string;
   title: string;
@@ -597,18 +515,8 @@ export interface ProjectEvent {
   occurred_at: string;
 }
 
-export interface ProjectJournalNote {
-  id: string;
-  title: string;
-  body: string;
-  pinned: boolean;
-  project_id: string;
-  journal_day: string;
-}
-
 export interface ProjectJournalDay {
   day: string;
-  note: ProjectJournalNote | null;
   events: ProjectEvent[];
 }
 

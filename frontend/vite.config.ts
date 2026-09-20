@@ -17,8 +17,8 @@ export default defineConfig({
         theme_color: "#FBFAF7",
       },
       workbox: {
-        // Excalidraw editoru ve yerel vendor parcasi 2 MiB'i asiyor. Notlar
-        // offline salt-okunur modda da acilabilsin diye ikisini precache et.
+        // Precache tavani 4 MiB: Workbox varsayilani (2 MiB) buyuk yerel
+        // parcalari sessizce disarida birakir ve offline kabuk eksik acilir.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         importScripts: ["/sw-cleanup.js"],
@@ -55,7 +55,6 @@ export default defineConfig({
                     const excluded = [
                       /^\/api\/export\//,
                       /^\/api\/backup\//,
-                      /^\/api\/notes\/[^/]+\/attachments\//,
                       /^\/api\/documents\/[^/]+\/file$/,
                       /^\/api\/media\/assets\//,
                     ];
@@ -95,7 +94,8 @@ export default defineConfig({
   build: {
     manifest: true,
     // Ana uygulama hala scripts/check-bundle.mjs ile 500 KB sinirinda.
-    // Yalnizca Tuval'e girildiginde yuklenen Excalidraw parcasi daha buyuk.
+    // Bu esik yalniz Vite'in kendi uyari gurultusunu keser; giris chunk'i
+    // sinirini check-bundle.mjs zorlar.
     chunkSizeWarningLimit: 2_500,
   },
   server: {

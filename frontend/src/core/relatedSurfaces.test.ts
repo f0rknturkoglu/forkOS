@@ -50,7 +50,10 @@ function backendEntitySpecs(): Record<string, BackendSpec> {
 
 /** Linklenebilir tip -> yuzey dosyasi/dosyalari (RelatedPanel tasir).
  *  Firsat detayi is ilani ve duyuru calisma yuzeylerine ayrildi; ikisi de
- *  RelatedPanel tasir, bu yuzden birlikte listelenir. */
+ *  RelatedPanel tasir, bu yuzden birlikte listelenir.
+ *
+ *  Faz 3: bilgi Vault'a tasindigi icin `note`/`note_folder` backend'de
+ *  linkable=False oldu; yuzeyleri yok (asagidaki kapali liste). */
 const SURFACES: Record<string, string | string[]> = {
   todo: "src/modules/todo/TodoPage.tsx",
   project: "src/modules/projects/ProjectsPage.tsx",
@@ -61,7 +64,6 @@ const SURFACES: Record<string, string | string[]> = {
   media_item: "src/modules/media/MediaDetailPage.tsx",
   bookmark: "src/modules/bookmarks/BookmarksPage.tsx",
   document: "src/modules/documents/DocumentsPage.tsx",
-  note: "src/modules/notes/NotesPage.tsx",
   expense: "src/modules/finance/FinancePage.tsx",
   income: "src/modules/finance/FinancePage.tsx",
   recurring_payment: "src/modules/finance/FinancePage.tsx",
@@ -110,6 +112,7 @@ describe("entity relation visibility (Faz 18/32)", () => {
         "media_unit",
         "flashcard_card",
         "milestone",
+        "note",
         "note_folder",
         "pomodoro_session",
         "review",

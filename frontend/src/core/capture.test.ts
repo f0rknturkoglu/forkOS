@@ -63,16 +63,50 @@ describe("evrensel yakalama (Faz 22)", () => {
     expect(harness.apiPost.mock.calls[0][1]).not.toHaveProperty("plan_day");
   });
 
-  it("note: TEK istek /notes; relate_to ayni gövdede gider (Faz 29)", async () => {
-    harness.apiPost.mockResolvedValueOnce({ id: "n1" });
-    await capture({ kind: "note", text: "Toplantı notu", note: { pinned: true, relate_to: "opp-1" } });
+  it("note: TEK istek /obsidian/capture; pinned GONDERILMEZ, Vault kaydi doner", async () => {
+    harness.apiPost.mockResolvedValueOnce({
+      forkos_id: "vault-1",
+      open_uri: "obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FToplant%C4%B1",
+    });
+    const result = await capture({ kind: "note", text: "Toplantı notu", note: { relate_to: "opp-1" } });
     expect(harness.apiPost).toHaveBeenCalledTimes(1);
-    expect(harness.apiPost).toHaveBeenCalledWith("/notes", {
+    expect(harness.apiPost).toHaveBeenCalledWith("/obsidian/capture", {
       body: "Toplantı notu",
-      pinned: true,
       relate_to: "opp-1",
     });
-    expect(harness.invalidate).toHaveBeenCalledWith("note.write", "link.write");
+    expect(harness.apiPost.mock.calls[0][1]).not.toHaveProperty("pinned");
+    // forkOS not entity'si yazilmaz: note.write/link.write ASLA tazelenmez.
+    expect(harness.invalidate).toHaveBeenCalledWith("obsidian.write");
+    expect(harness.invalidate).not.toHaveBeenCalledWith("note.write", "link.write");
+    // Donen deger Vault kaydidir (DB `id` degil, `forkos_id`).
+    expect(result.id).toBe("vault-1");
+    expect(result.vault?.open_uri).toContain("obsidian://");
+  });
+
+  it("note: verilen baslik Vault govdesinin ilk satiri olur, ayri alan olarak gitmez", async () => {
+    harness.apiPost.mockResolvedValueOnce({ forkos_id: "vault-2", open_uri: "obsidian://open" });
+    await capture({ kind: "note", text: "Gövde", note: { title: "Başlık" } });
+    expect(harness.apiPost).toHaveBeenCalledWith("/obsidian/capture", { body: "Başlık\n\nGövde" });
+  });
+
+  it("hicbir tur /notes ucuna dokunmaz (uc kaldirildi)", async () => {
+    harness.apiPost.mockResolvedValue({ id: "x" });
+    await capture({ kind: "note", text: "Not" });
+    await capture({ kind: "link", text: "Makale", url: "https://example.com/a" });
+    await capture({ kind: "flashcard", text: "Soru", flashcard: { deck_id: "d1", front: "Soru", back: "Cevap" } });
+    expect(harness.apiPost.mock.calls.some(([path]) => String(path).includes("notes"))).toBe(false);
+  });
+
+  it("flashcard: deste ucuna gider ve flashcard.write tazelenir", async () => {
+    harness.apiPost.mockResolvedValue({ id: "c1" });
+    const result = await capture({
+      kind: "flashcard",
+      text: "Soru",
+      flashcard: { deck_id: "d1", front: "Soru", back: "Cevap" },
+    });
+    expect(harness.apiPost).toHaveBeenCalledWith("/flashcard/decks/d1/cards", { front: "Soru", back: "Cevap" });
+    expect(harness.invalidate).toHaveBeenCalledWith("flashcard.write");
+    expect(result).toEqual({ kind: "flashcard", id: "c1" });
   });
 
   it("link: /capture'a url + koleksiyon gider, bookmark.write tazelenir", async () => {

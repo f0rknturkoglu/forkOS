@@ -1,6 +1,7 @@
-export const BEFORE_NAVIGATION_EVENT = "forkos:before-navigation";
+/** Sayfa navigasyonundan ONCE yayilan iptal edilebilir olay adi. */
+const BEFORE_NAVIGATION_EVENT = "forkos:before-navigation";
 
-export type NavigationRequest = {
+type NavigationRequest = {
   href: string;
 };
 

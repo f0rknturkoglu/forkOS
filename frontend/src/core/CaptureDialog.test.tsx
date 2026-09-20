@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as ObsidianModule from "@/core/obsidian";
 import { CaptureDialog, openCapture } from "./CaptureDialog";
 import { todayKey, tomorrowKey } from "@/lib/date";
 
@@ -39,6 +40,8 @@ const harness = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
   invalidate: vi.fn(),
+  toastPush: vi.fn(),
+  openUri: vi.fn(),
   mutations: [] as MutationOptions[],
   pending: false,
 }));
@@ -52,9 +55,13 @@ vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
 vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
+vi.mock("@/core/obsidian", async (orig) => {
+  const actual = await orig<typeof ObsidianModule>();
+  return { ...actual, openObsidianUri: (uri: string) => harness.openUri(uri) };
+});
 vi.mock("@/core/ui", async (orig) => {
   const actual = await orig<typeof import("@/core/ui")>();
-  return { ...actual, useToast: () => ({ push: vi.fn() }) };
+  return { ...actual, useToast: () => ({ push: harness.toastPush }) };
 });
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
@@ -90,6 +97,8 @@ describe("CaptureDialog (Faz 22/29)", () => {
     harness.apiGet.mockReset();
     harness.apiPost.mockReset();
     harness.invalidate.mockReset();
+    harness.toastPush.mockReset();
+    harness.openUri.mockReset();
     harness.mutations.length = 0;
     harness.pending = false;
   });
@@ -181,7 +190,11 @@ describe("CaptureDialog (Faz 22/29)", () => {
     expect(body.tags).toEqual(["is"]);
   });
 
-  it("not iliskilendirme: secilen kayit relate_to olarak TEK istekte gider", async () => {
+  it("not iliskilendirme: secilen kayit relate_to olarak Vault yakalamasina gider", async () => {
+    harness.apiPost.mockResolvedValue({
+      forkos_id: "vault-9",
+      open_uri: "obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FToplanti",
+    });
     openAs({ text: "Toplanti notu", kind: "note" });
     const relate = screen.getByLabelText("İlişkilendirilecek kayıt");
     fireEvent.change(relate, { target: { value: "Firsat" } });
@@ -191,8 +204,34 @@ describe("CaptureDialog (Faz 22/29)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
     await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
     const [path, body] = harness.apiPost.mock.calls[0];
-    expect(path).toBe("/notes");
-    expect(body.relate_to).toBe("opp-1");
+    expect(path).toBe("/obsidian/capture");
+    expect(body).toEqual({ body: "Toplanti notu", relate_to: "opp-1" });
+    // forkOS not entity'si kaldirildi: hicbir tur /notes'a dokunmaz.
+    expect(harness.apiPost.mock.calls.some(([call]) => String(call).includes("notes"))).toBe(false);
+    expect(harness.invalidate).toHaveBeenCalledWith("obsidian.write");
+    expect(harness.invalidate).not.toHaveBeenCalledWith("note.write", "link.write");
+  });
+
+  it("not sekmesi 'sabitle' kontrolunu kaldirir, Vault ipucunu gosterir", () => {
+    openAs({ text: "Not", kind: "note" });
+    expect(screen.queryByText("sabitle")).toBeNull();
+    expect(screen.getByText(/Obsidian Vault'una/)).toBeTruthy();
+  });
+
+  it("not basarili olunca Vault bildirimi gonderir ve notu Obsidian'da acar", async () => {
+    harness.apiPost.mockResolvedValue({
+      forkos_id: "vault-9",
+      open_uri: "obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FNot",
+    });
+    openAs({ text: "Not", kind: "note" });
+    fireEvent.click(screen.getByRole("button", { name: "Yakala" }));
+
+    await waitFor(() => expect(harness.toastPush).toHaveBeenCalled());
+    const [message, options] = harness.toastPush.mock.calls[0];
+    expect(message).toContain("Obsidian");
+    expect(options.tone).toBe("ok");
+    options.action.run();
+    expect(harness.openUri).toHaveBeenCalledWith("obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FNot");
   });
 
   it("parser temiz basligi gonderir: 'yarin 14:00 disciyi ara' -> 'disciyi ara'", async () => {

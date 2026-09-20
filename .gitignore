@@ -19,7 +19,6 @@ backend/backups/
 backend/data/cache/
 backend/data/media/
 backend/data/documents/
-frontend/public/excalidraw-assets/
 output/
 .worktrees/
 

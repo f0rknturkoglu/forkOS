@@ -12,7 +12,7 @@ import "./learning";
 import "./media";
 import "./flashcard";
 import "./documents";
-import "./notes";
+import "./knowledge";
 import "./calendar";
 import "./projects";
 import "./finance";

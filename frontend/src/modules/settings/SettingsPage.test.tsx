@@ -244,9 +244,9 @@ describe("SettingsPage yazmalari", () => {
     renderPage();
     await ready();
 
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Notlar" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Bilgi" }));
     await waitFor(() => {
-      expect(lastWrite("modules.disabled")).toContain("notes");
+      expect(lastWrite("modules.disabled")).toContain("knowledge");
     });
   });
 
@@ -530,4 +530,3 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
     expect(screen.getByText(/Sonraki: her gün 04:00 \/ açılışta/)).toBeTruthy();
   });
 });
-

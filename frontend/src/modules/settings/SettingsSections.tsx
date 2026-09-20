@@ -457,41 +457,20 @@ export function ObsidianVaultSection({ online }: { online: boolean }) {
                 <p className="text-body font-medium text-primary">
                   {status?.vault_name ? `Vault: ${status.vault_name}` : "Obsidian Bağlantısı"}
                 </p>
-                {status?.diagnostic && (
-                  <p className="mt-0.5 text-meta text-muted">{status.diagnostic}</p>
-                )}
+                {status?.diagnostic && <p className="mt-0.5 text-meta text-muted">{status.diagnostic}</p>}
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
-                {status?.configured ? (
-                  <Chip tone="ok">yapılandırıldı</Chip>
-                ) : (
-                  <Chip tone="warn">yapılandırılmadı</Chip>
-                )}
-                {status?.available ? (
-                  <Chip tone="ok">erişilebilir</Chip>
-                ) : (
-                  <Chip tone="danger">dizin yok</Chip>
-                )}
-                {status?.available && (
-                  status.writable ? (
-                    <Chip tone="ok">yazılabilir</Chip>
-                  ) : (
-                    <Chip tone="warn">salt okunur</Chip>
-                  )
-                )}
+                {status?.configured ? <Chip tone="ok">yapılandırıldı</Chip> : <Chip tone="warn">yapılandırılmadı</Chip>}
+                {status?.available ? <Chip tone="ok">erişilebilir</Chip> : <Chip tone="danger">dizin yok</Chip>}
+                {status?.available &&
+                  (status.writable ? <Chip tone="ok">yazılabilir</Chip> : <Chip tone="warn">salt okunur</Chip>)}
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <div className="text-meta text-secondary">
-                <span>
-                  {status?.managed_files ?? 0} yönetilen not indekslendi
-                </span>
-                {status?.conflicts ? (
-                  <span className="ml-2 text-danger">
-                    ({status.conflicts} çakışma)
-                  </span>
-                ) : null}
+                <span>{status?.managed_files ?? 0} yönetilen not indekslendi</span>
+                {status?.conflicts ? <span className="ml-2 text-danger">({status.conflicts} çakışma)</span> : null}
               </div>
 
               <Button
@@ -511,8 +490,7 @@ export function ObsidianVaultSection({ online }: { online: boolean }) {
                 <div className="space-y-1">
                   {Object.entries(status.conflict_details).map(([id, paths]) => (
                     <div key={id} className="text-micro text-danger">
-                      <span className="font-mono">{id.slice(0, 8)}... :</span>{" "}
-                      {paths.join(", ")}
+                      <span className="font-mono">{id.slice(0, 8)}... :</span> {paths.join(", ")}
                     </div>
                   ))}
                 </div>
