@@ -24,6 +24,7 @@ from app.core.links import FROZEN_LEGACY_ENTITY_TYPES
 from app.core.models import Entity
 from app.integrations.agent.actions import ActionError
 from app.integrations.agent.hot_memory_models import (
+    MAX_QUERY_LENGTH,
     EffectiveStatusFilter,
     HotMemoryContextData,
     HotMemoryItem,
@@ -308,7 +309,18 @@ def list_memories(
     limit: int = LIST_DEFAULT_LIMIT,
     now: datetime | None = None,
 ) -> HotMemoryListData:
-    """Yönetim/keşif listesi (§52-§54). Çakışmalar fatal değil, raporlanır."""
+    """Yönetim/keşif listesi (§52-§54). Çakışmalar fatal değil, raporlanır.
+
+    `query` sınırı MCP şemasında da vardır; ama şema yalnızca ilk savunmadır.
+    Doğrudan çağıranlar onu atlayabildiği için sınır burada — YETKİLİ yerde —
+    yeniden dayatılır (§26).
+    """
+    if query is not None and len(query.strip()) > MAX_QUERY_LENGTH:
+        raise ActionError(
+            "QUERY_TOO_LONG",
+            f"arama metni en fazla {MAX_QUERY_LENGTH} karakter olabilir",
+        )
+
     root = _read_root()
     snapshot = _scan(root)
 
@@ -380,11 +392,18 @@ async def _validate_related_entities(
 
 
 def _reject_obvious_secrets(*parts: str | None) -> None:
-    """Apaçık kimlik bilgisi biçimini reddeder (§20/§113)."""
+    """KOLAYLIK denetimi: sağlanan girdiyi erken reddeder (§6).
+
+    YETKİLİ denetim depolama katmanındadır (`assert_candidate_policy`): orada
+    hedefin göreli yolu ve render edilmiş Markdown'ın TAMAMI taranır. Buradaki
+    kontrol yalnızca hızlı hata yolu içindir ve alan listesi tutmaz — çağıranlar
+    sağlanan girdinin tamamını (serileştirilmiş) geçirir, böylece yeni bir alan
+    eklendiğinde denetim sessizce daralmaz.
+    """
     if storage.looks_like_secret(*parts):
         raise ActionError(
             "HOT_MEMORY_POLICY_REJECTED",
-            "metin apaçık kimlik bilgisi/anahtar biçimi içeriyor; sıcak hafızaya yazılmaz",
+            "girdi apaçık kimlik bilgisi/anahtar biçimi içeriyor; sıcak hafızaya yazılmaz",
         )
 
 
@@ -416,7 +435,7 @@ async def store_memory(
     Kesin tekrar (aynı tür + normalize edilmiş metin) varsa YENİ DOSYA
     açılmaz; mevcut kimlik `noop` makbuzuyla döner (§58).
     """
-    _reject_obvious_secrets(data.title, data.text)
+    _reject_obvious_secrets(data.model_dump_json())
     if data.related_forkos_ids:
         await _validate_related_entities(session, data.related_forkos_ids)
 
@@ -500,11 +519,10 @@ async def update_memory(
     _verify_current_revision(root, record, data.expected_revision)
 
     provided = data.model_fields_set
-    if "title" in provided or "text" in provided:
-        _reject_obvious_secrets(
-            data.title if "title" in provided else record.title,
-            data.text if "text" in provided else record.text,
-        )
+    # §8: denetim "başlık/gövde değişti mi?" sorusuna BAĞLANMAZ. Güncelleme
+    # yalnızca etiketleri değiştirse bile sağlanan girdinin tamamı taranır;
+    # ayrıca depolama katmanı sonuç artifact'ını bağımsız olarak doğrular.
+    _reject_obvious_secrets(data.model_dump_json())
     if "related_forkos_ids" in provided and data.related_forkos_ids:
         await _validate_related_entities(session, data.related_forkos_ids)
 

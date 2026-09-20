@@ -14,6 +14,12 @@ from app.integrations.agent import context as ctx_svc
 from app.integrations.agent import hot_memory as hm_svc
 from app.integrations.agent import knowledge as kn_svc
 from app.integrations.agent.hot_memory_models import (
+    MAX_QUERY_LENGTH,
+    MAX_RELATED,
+    MAX_REVISION_LENGTH,
+    MAX_TAGS,
+    MAX_TEXT,
+    MAX_TITLE,
     EffectiveStatusFilter,
     HotMemoryContextData,
     HotMemoryListData,
@@ -717,8 +723,11 @@ def _register_write_tools(server: MCPServer) -> None:
 # ---------------------------------------------------------------------------
 
 #: Sıcak hafıza girdi sınırları (§41) — şemada görünür.
-MemoryTags = Annotated[list[str] | None, Field(max_length=8)]
-RelatedIds = Annotated[list[str] | None, Field(max_length=5)]
+# Sınırlar modele (ve dolayısıyla ayrıştırıcıya) bağlıdır: şemada, dokümanda ve
+# çalışma zamanında AYNI sayı görünsün (§20/§25).
+MemoryTags = Annotated[list[str] | None, Field(max_length=MAX_TAGS)]
+RelatedIds = Annotated[list[str] | None, Field(max_length=MAX_RELATED)]
+MemoryQuery = Annotated[str | None, Field(max_length=MAX_QUERY_LENGTH)]
 
 _READ_ONLY_CLAUSE = "Read-only. Does not modify forkOS or the Vault."
 _H2_APPROVAL_NOTE = (
@@ -766,7 +775,7 @@ def _register_hot_memory_tools(server: MCPServer) -> None:
     async def hot_memory_list(
         kind: MemoryKindValue | None = None,
         effective_status: EffectiveStatusFilter = "active",
-        query: str | None = None,
+        query: MemoryQuery = None,
         limit: int = 20,
     ) -> AgentEnvelope[HotMemoryListData]:
         return _hot_memory_read(
@@ -787,8 +796,8 @@ def _register_hot_memory_tools(server: MCPServer) -> None:
     )
     async def hot_memory_store(
         kind: MemoryKindValue,
-        title: Annotated[str, Field(min_length=1, max_length=120)],
-        text: Annotated[str, Field(min_length=1, max_length=1200)],
+        title: Annotated[str, Field(min_length=1, max_length=MAX_TITLE)],
+        text: Annotated[str, Field(min_length=1, max_length=MAX_TEXT)],
         source_mode: SourceModeValue,
         importance: Annotated[int, Field(ge=1, le=3)] = 2,
         expires_at: str | None = None,
@@ -830,10 +839,12 @@ def _register_hot_memory_tools(server: MCPServer) -> None:
     )
     async def hot_memory_update(
         memory_id: str,
-        expected_revision: Annotated[str, Field(min_length=64, max_length=64)],
+        expected_revision: Annotated[
+            str, Field(min_length=MAX_REVISION_LENGTH, max_length=MAX_REVISION_LENGTH)
+        ],
         kind: MemoryKindValue | None = None,
-        title: Annotated[str | None, Field(max_length=120)] = None,
-        text: Annotated[str | None, Field(max_length=1200)] = None,
+        title: Annotated[str | None, Field(max_length=MAX_TITLE)] = None,
+        text: Annotated[str | None, Field(max_length=MAX_TEXT)] = None,
         importance: Annotated[int | None, Field(ge=1, le=3)] = None,
         expires_at: str | None = None,
         related_forkos_ids: RelatedIds = None,

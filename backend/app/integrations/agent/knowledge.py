@@ -264,12 +264,13 @@ def search_vault(
             title = _derive_title(frontmatter, body, f)
             headings = _extract_headings(body)
 
-            # §64: sıcak hafıza tekrar tekrar model bağlamına girmek için
+            # §16/§64: sıcak hafıza tekrar tekrar model bağlamına girmek için
             # tasarlandı; apaçık sır taşıyan `90 Agent/Memory` dosyası H2
-            # bağlamından dışlandığı gibi H0 aramasından da dışlanır. Bu kural
-            # YALNIZCA sıcak hafıza ağacına uygulanır; normal kasa bilgisi
-            # etkilenmez.
-            if is_policy_excluded(rel_path_str, title, body):
+            # bağlamından dışlandığı gibi H0 aramasından da dışlanır. Denetim
+            # TAM artifact üzerindedir (göreli yol + ham Markdown) ve snippet/
+            # başlık/frontmatter ÜRETİLMEDEN önce yapılır. Bu kural YALNIZCA
+            # sıcak hafıza ağacına uygulanır; normal kasa bilgisi etkilenmez.
+            if is_policy_excluded(rel_path_str, content):
                 continue
 
             # Score matching
@@ -437,11 +438,13 @@ def read_vault_note(
     title = _derive_title(frontmatter, body, safe_path.name)
     headings = _extract_headings(body)
 
-    # §64: politika dışı sıcak hafıza dosyası H0 okumasından da dışlanır; aksi
-    # hâlde H2'nin engellediği içerik `brain_read` ile model bağlamına girebilirdi.
-    if is_policy_excluded(rel_from_vault, title, body):
+    # §17/§64: politika dışı sıcak hafıza dosyası H0 okumasından da dışlanır;
+    # aksi hâlde H2'nin engellediği içerik `brain_read` ile model bağlamına
+    # girebilirdi. Denetim TAM artifact üzerindedir; hata mesajı sırrı, gövdeyi,
+    # frontmatter'ı ya da güvenli olmayan dosya adını YANSITMAZ.
+    if is_policy_excluded(rel_from_vault, raw_text):
         raise ValueError(
-            f"ACCESS_DENIED: Path '{target_rel_path}' is excluded by the agent-memory policy."
+            "ACCESS_DENIED: This path is excluded by the agent-memory policy."
         )
 
     # Filter whitelisted frontmatter
