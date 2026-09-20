@@ -2,11 +2,18 @@
 
 Bu runbook, `backend/app/scripts/migrate_notes_to_vault.py` aracını çalıştıran
 operatör içindir. Migration **kopya + doğrulama**dır: kaynak forkOS Notes
-verisi bu fazda hiçbir şekilde değiştirilmez.
+verisi hiçbir modda değiştirilmez.
 
 > [!IMPORTANT]
-> Bu fazda Notes sahipliği **değişmez**. Notes modülü, ek dosya deposu ve
-> frontend aynen çalışmaya devam eder. Cutover ileriki bir fazın işidir.
+> Migration'ın kendisi değişmedi: kaynak **salt-okunur**dur ve taşıma yalnızca
+> kopya + doğrulamadır. Bilgi sahipliği devri ise bu aradan sonra **gerçekleşti**
+> (PHASE 3): notlar artık private f0rknbrain Obsidian Vault'unda yaşar ve legacy
+> Notlar yüzeyi kapatılmıştır (`/api/notes*` / `/api/note-folders*` rota kaydı
+> yoktur). Bu runbook'un komutları dondurulmuş kaynağa karşı aynen çalışmaya
+> devam eder: `--dry-run` ve `--verify` hâlâ geçerlidir, kaynak veriye hiçbir
+> modda yazılmaz. Legacy tablolar, ek deposu ve arşiv kaydı sonraki temizlik
+> fazına kadar **dondurulmuş arşiv** olarak yerinde kalır (hiçbir migration tablo
+> DROP etmez). Devrin sözleşmesi: `docs/obsidian-hybrid/phase3-cutover.md`.
 
 ---
 
@@ -91,7 +98,9 @@ python -m app.scripts.migrate_notes_to_vault --verify
 ```
 
 Her not için kimlik, gövde, metadata, ek ve canvas kontrolü yeniden yapılır;
-Vault indeksi tazelenir ve `READY_FOR_CUTOVER` kararı verilir.
+Vault indeksi tazelenir ve `READY_FOR_CUTOVER` kararı verilir. Bu karar PHASE 2
+sonunda verildi ve sahiplik devri (PHASE 3) onun ardından yapıldı; `--verify`
+dondurulmuş kaynağa karşı çalışmayı sürdürür ve çıktısı hâlâ kanıt değerindedir.
 
 ---
 
@@ -153,6 +162,12 @@ Kurallar:
 - Bu temizlik **otomatik çalışmaz**; elle ve kullanıcı onayıyla yapılır.
 - Yönetilmeyen (manifest'te olmayan) hiçbir dosya silinmez.
 - `diverged` işaretli dosyalar silinmez — kullanıcı verisi olabilir.
+
+Sahiplik devrinin (PHASE 3) geri dönüşü ise bu bölümün konusu değildir: yol DB
+değil **koddur** (git revert), çünkü legacy tablolar silinmediği için kaynak
+yerinde durur. Sınır: PHASE 3'ten sonra Vault'ta oluşan yeni notlar Vault'a
+aittir ve geri dönüş onları forkOS arayüzüne getirmez
+(`docs/obsidian-hybrid/phase3-cutover.md` §6).
 
 ---
 

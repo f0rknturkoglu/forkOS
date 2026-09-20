@@ -2,16 +2,16 @@
 
 Kişisel verilerini kendi bilgisayarında tutan, tek kullanıcılı ve **local-only** bir kişisel işletim sistemi.
 
-forkOS; yakalama, planlama, odaklanma, öğrenme, medya takibi, iş fırsatları ve kişisel bilgi yönetimini birbirine bağlı tek bir çalışma alanında toplar. Hosted backend, kullanıcı hesabı veya telemetri yoktur; uygulama varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
+forkOS; yakalama, planlama, odaklanma, öğrenme, medya takibi, iş fırsatları ve operasyonel takibi birbirine bağlı tek bir çalışma alanında toplar. Hosted backend, kullanıcı hesabı veya telemetri yoktur; uygulama varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
 
-![forkOS not çalışma alanı](docs/assets/screenshots/notes-workspace.jpg)
+**İki sahipli çalışma modeli.** forkOS **yürütmenin** sahibidir: görevler, plan, takvim, Pomodoro, öğrenme ilerlemesi/SRS, fırsatlar, RSS, medya ve olay geçmişi. Bilgi ise ayrı ve private `f0rknbrain` Obsidian Vault'unda yaşar: notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları, kaynak notları. Aynalı Not sistemi yoktur. Ayrıntı: [PHASE 3 — bilgi sahipliği devri](docs/obsidian-hybrid/phase3-cutover.md).
 
 ## Neler sunuyor?
 
 | Alan | Yetenekler |
 | --- | --- |
 | **Yakala** | Evrensel gelen kutusu, web yer imleri, tam metin RSS okuyucu, yerel belgeler ve hızlı yakalama |
-| **Düşün** | Markdown notları, klasörler, wiki bağları, görsel/ses/dosya ekleri, Excalidraw tuvali ve Obsidian tarzı bilgi grafı |
+| **Düşün** | Bilgi köprüsü: hızlı yakalama ve `Vault'ta ara` / `Obsidian'da aç`; notlar, günlükler ve wiki bağları f0rknbrain Vault'unda yaşar |
 | **Yap** | Görevler, alt görevler, tekrarlayan rutinler, haftalık plan, takvim, Pomodoro ve günlük/haftalık değerlendirme |
 | **Takip et** | Öğrenme ağacı ve SRS, medya kütüphanesi, flashcard'lar, projeler, GitHub etkinliği ve finans |
 | **Fırsatları izle** | İş ilanı keşfi, CV uyumu, başvuru CRM'i, mülakat hafızası, YLSY/ÖSYM ve kamu duyuruları |
@@ -29,7 +29,7 @@ Fırsatlar ekranında aynı ilan için üç ayrı ölçü vardır ve karıştır
 
 "Skor hesaplanmadı" ile "0 puan" aynı şey değildir: hesaplanmamış kayıtlar ayrı filtrelenebilir. İlan metni veya profil değiştiğinde kayıtlı değerlendirme **bayat** işaretlenir ve yeniden hesaplanana kadar güncel gibi sunulmaz.
 
-Sistemdeki aranabilir kayıtlar ortak `entity` omurgasını kullanır. Not, görev, proje, fırsat, belge ve medya kayıtları `link` ilişkileriyle birbirine bağlanır; anlamlı değişiklikler append-only `event` günlüğüne yazılır.
+Sistemdeki aranabilir kayıtlar ortak `entity` omurgasını kullanır. Görev, proje, fırsat, belge ve medya kayıtları `link` ilişkileriyle birbirine bağlanır; anlamlı değişiklikler append-only `event` günlüğüne yazılır. Legacy Notlar bu omurgada arşivdir: `searchable=False` / `linkable=False` olduğu için arama ve ilişki panellerinde görünmez.
 
 ## Mimari
 
@@ -41,13 +41,25 @@ flowchart LR
     API --> Queue[Kalıcı kaynak kuyruğu]
     Worker[İsteğe bağlı worker] --> Queue
     Queue --> Sources[RSS · ilan · medya · takvim · GitHub]
+    API --> Vault[(f0rknbrain Obsidian Vault · bilgi)]
 ```
 
 - **Frontend:** React 18, TypeScript, Vite, TanStack Query, Tailwind CSS
 - **Backend:** FastAPI, SQLAlchemy async, Alembic, Pydantic
 - **Veri:** PostgreSQL 16; FTS + unaccent + trigram arama
+- **Bilgi:** private f0rknbrain Obsidian Vault; forkOS yalnızca `/api/obsidian/*` köprüsü ve modül köprüleriyle okur/yazar
 - **Çalıştırma:** Docker Compose veya Podman Compose; günlük (stable) runtime ve geliştirme runtime'ı ayrıdır
 - **Otomasyon:** Varsayılan olarak kapalı APScheduler worker; manuel genel yenileme worker olmadan çalışır
+
+### Bilgi sahipliği ve Vault köprüsü
+
+Notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları ile kaynak notları Vault'ta Markdown olarak yaşar; forkOS bunları yalnızca köprü uçlarıyla (`/api/obsidian/capture`, `/ensure`, `/items/{id}`, `uri/search`, `/index/refresh`, proje günlüğü ve kaynak notu köprüleri) açar ve yazar.
+
+- Navigasyondaki **Bilgi** sayfası (`/notes`) hafif bir köprü yüzeyidir: kasa adı, `Obsidian'ı Aç` / `Inbox` / `Bugünün Notu` / `Vault'ta Ara` ve `İndeksi yenile`. Not listesi, editör, klasör, ek, tuval ve bilgi grafı yoktur.
+- `/notes?focus=<uuid>` eski Aktivite/yer imi bağlantıları için çalışmaya devam eder; not Vault'ta çözülür, legacy DB'ye düşen bir okuma yoktur.
+- `/api/notes*`, `/api/note-folders*` ve `/api/graph` rota kaydı **yoktur**; legacy Notlar tabloları, ek deposu ve `note.*` olayları dondurulmuş arşiv olarak yerinde kalır (hiçbir migration tablo DROP etmez).
+- Vault erişilemezse uygulama normal çalışır, yalnızca bilgi işlemleri açık hata verir (`503`/`403`); legacy Notlar'a düşen bir yedek yazma yolu yoktur.
+- Domain grafiği (Entity/Link/Event, ilişki panelleri) korunur; forkOS artık hiçbir bilgi grafı görselleştirmesi render etmez.
 
 Ayrıntılı sözleşmeler için [mimari rehberine](docs/mimari.md) bak.
 
@@ -74,6 +86,11 @@ Ardından:
 - API: [http://127.0.0.1:8787](http://127.0.0.1:8787)
 - OpenAPI: [http://127.0.0.1:8787/docs](http://127.0.0.1:8787/docs)
 - PostgreSQL: `127.0.0.1:5433`
+
+Bilgi köprüsünü (Notlar, günlükler, proje günlükleri) de açmak için `.env` içinde
+`OBSIDIAN_VAULT_HOST_PATH` (host yolu) ve `OBSIDIAN_VAULT_NAME` değerlerini verip
+`make up-obsidian CO="docker compose"` ile başlat. Vault mount'u yalnızca `api`
+servisine verilir; `web` container'ı Vault'u görmez.
 
 `Makefile` varsayılan olarak `podman compose` kullanır. Podman kullanıyorsan `CO` parametresini yazmana gerek yoktur.
 
@@ -106,6 +123,9 @@ forkOS'un iki çalışma biçimi vardır; ikisi de aynı portları kullanır
 | `make up-dev` | **Geliştirme runtime'ı.** Yukarıdakine ek olarak Vite dev server, HMR, dosya izleyici (polling) ve `uvicorn --reload`; `backend/` ve `frontend/` bind mount edilir. `compose.yaml` + `compose.dev.yaml` | Kod yazarken |
 | `make up-auto` | Günlük runtime + APScheduler worker (`--profile auto`) | Günlük kullanım, otomasyon açık |
 | `make up-auto-dev` | Geliştirme runtime'ı + worker | Kod yazarken, otomasyon açık |
+| `make up-obsidian` | Günlük runtime + Obsidian Vault mount (`compose.obsidian.yaml`) | Normal kullanım, bilgi köprüsü açık |
+| `make up-obsidian-dev` | Geliştirme runtime'ı + Vault mount | Kod yazarken, bilgi köprüsü açık |
+| `make up-auto-obsidian` | Günlük runtime + worker + Vault mount | Otomasyon açık, bilgi köprüsü açık |
 
 Günlük runtime'da hiçbir dosya izleyici çalışmaz: SSD'ye sürekli yazan Vite
 polling'i, HMR ve `--reload` yalnızca `compose.dev.yaml` içindedir. Backend
@@ -143,13 +163,14 @@ servisine bağlanır; bağlanmasalardı container yeniden oluşturulunca kaybolu
 | Yol (host) | İçerik |
 | --- | --- |
 | `backend/data/documents/` | yerel belge dosyaları |
-| `backend/data/attachments/` | not ekleri (binary, sha256 adıyla) |
+| `backend/data/attachments/` | legacy not ekleri (binary, sha256 adıyla; dondurulmuş arşiv) |
 | `backend/data/media/` | medya görsel önbelleği (yeniden üretilebilir) |
 | `backend/data/cache/` | scraper önbelleği (yeniden üretilebilir) |
 | `backend/data/config.yaml` | jobhunter uyum profili |
 | `backend/backups/` | JSON yedekleri ve felaket kurtarma dump'ları |
 | `backend/app/sources/forkjob_core/data/*.user` | jobhunter akışları ve LinkedIn profilleri |
 | `forkos_pgdata` (volume) | PostgreSQL verisi |
+| `OBSIDIAN_VAULT_HOST_PATH` (host) | f0rknbrain Obsidian Vault kökü — **bilgi burada yaşar**, forkOS yedeğine girmez |
 
 Eski konumdaki `backend/config.yaml` ilk kullanımda `backend/data/config.yaml`
 altına **kopyalanır** (silinmez).
@@ -267,8 +288,8 @@ npm run api:generate
 - `make disaster-restore`: açık onay isteyen, safety dump alan gerçek felaket kurtarma akışıdır.
 
 Yedek kapsamı **kullanıcı anlamlı** veridir: entity omurgası, bağlantılar, olay
-geçmişi ve tüm modül tabloları (not, görev, proje, öğrenme, medya, finans,
-fırsat, yer imi, değerlendirme, belge, etiket, ayarlar…).
+geçmişi ve tüm modül tabloları (legacy not arşivi, görev, proje, öğrenme, medya,
+finans, fırsat, yer imi, değerlendirme, belge, etiket, ayarlar…).
 
 Kapsam dışı bırakılanlar:
 
@@ -280,6 +301,13 @@ Kapsam dışı bırakılanlar:
 
 Eski yedekler geriye dönük uyumludur: payload'da bulunan ama artık kapsam
 dışı olan tablolar restore sırasında sessizce atlanır.
+
+Bilgi tarafı bu kapsamın dışındadır: PHASE 3'ten sonra yazılan notlar, günlükler
+ve kaynak notları f0rknbrain Vault'unda yaşar ve kendi Git/senkron stratejisiyle
+yedeklenir — forkOS yedeğine **kopyalanmaz** (çift sahiplik yaratmamak için).
+Legacy Notlar tabloları ve kullanılan ekler arşiv olarak yedekte kalmaya devam
+eder; bu, Notlar ürününü geri getirmez ve DB → Vault otomatik yeniden göçü
+yoktur ([PHASE 3](docs/obsidian-hybrid/phase3-cutover.md) §3).
 
 ### Zamanlanmış yedek ne zaman atlanır
 
@@ -293,8 +321,9 @@ olay yazar. Şunlar "değişiklik" **sayılmaz**:
 - kaynak sağlığı bildirimleri,
 - cache bakımı (RSS budama, görsel önbelleği temizliği).
 
-Ayar değişiklikleri, not/görev/proje/medya/finans/fırsat düzenlemeleri ve
-bunun gibi tüm kullanıcı aksiyonları bir sonraki turda yedeği **tetikler**.
+Ayar değişiklikleri, görev/proje/medya/finans/fırsat düzenlemeleri ve bunun gibi
+tüm kullanıcı aksiyonları bir sonraki turda yedeği **tetikler**. Vault'a yazılan
+bilgi forkOS yedeğine girmediği için bu kapıyı tetiklemez.
 
 Elle **"Backup now"** bu kapıyı kullanmaz; her zaman yedek üretir.
 
@@ -303,8 +332,9 @@ Veri klasörleri, kişisel ayarlar, OAuth token'ları ve üretilmiş cache dosya
 ## Saklama ve bakım
 
 forkOS yalnızca **yeniden üretilebilir operasyonel** kayıtları budar. Kişisel
-verin (not, görev, proje, fırsat, medya, finans, belge, etiket, bağlantı,
-anlamlı `event` kayıtları) hiçbir saklama kuralına tabi değildir.
+verin (legacy not arşivi, görev, proje, fırsat, medya, finans, belge, etiket,
+bağlantı, anlamlı `event` kayıtları) hiçbir saklama kuralına tabi değildir.
+PHASE 3'ten sonra yazılan bilgi zaten forkOS veritabanında değildir.
 
 | Veri | Saklama |
 | --- | --- |
@@ -334,27 +364,27 @@ ağ çağrısı yapmaz.
 - Kapsam: operasyonel saklama, RSS öğeleri ve medya görsel önbelleği. Ayrıntı:
   `backend/app/modules/system/maintenance.py`.
 
-## Not ekleri
+## Not ekleri (dondurulmuş arşiv)
 
-Not eklerinin **binary içeriği veritabanında tutulmaz**: `data/attachments/`
-altında, içeriğin `sha256` özetiyle adlandırılmış tek bir dosyada durur.
-Veritabanındaki `note_attachment` satırı yalnızca metadata taşır (id, not,
-ad, mime, boyut, sha256, tarih).
+Legacy Notlar eklerinin **binary içeriği veritabanında tutulmaz**:
+`data/attachments/` altında, içeriğin `sha256` özetiyle adlandırılmış tek bir
+dosyada durur. Veritabanındaki `note_attachment` satırı yalnızca metadata taşır
+(id, not, ad, mime, boyut, sha256, tarih).
 
-- **Dedup:** aynı içerik ikinci kez eklenirse diskte tek kopya kalır; satırlar
-  ayrı kalır (iki ayrı ek, aynı blob).
-- **Silme:** blob ancak son referans silinince diskten gider. Notu çöp
-  kutusuna taşımak ekleri **silmez** (not geri alınabilir); kalıcı silmede
-  satırlar FK ile gider, dosya yetim temizliğiyle toplanır.
+- **Yeni ek yazılmaz.** PHASE 3'ten sonra hiçbir ürün akışı not veya ek
+  oluşturmaz; satırlar ve blob'lar **dondurulmuş arşiv**dir — günlük bakım
+  budamasına girmez, global aramada görünmez ve kaynak parmak izi sabit kalır.
 - **Ad güvenliği:** dosya adı hiçbir zaman istemciden gelmez, yalnızca
   özetten türetilir; `data/attachments` dışına yol üretilemez.
-- **Dönüşüm:** eski `note.attachments` (base64 JSONB) kayıtları uygulama
-  tarafında, not bazlı ve idempotent olarak taşınır — ek ID'si korunur (indirme
-  URL'i değişmez), blob yazılıp satır oluşmadan eski temsil **temizlenmez**.
-  Dönüşüm hafif bakımın bir adımıdır; worker kapalıyken API açılışında ilerler.
-- **Yedek:** ek blob'ları yedeğe girer (kullanılanlar; yetimler girmez) ve
-  restore'da geri yazılır. Geri yüklemede içeriğin özeti anahtarla uyuşmazsa
-  dosya **yazılmaz**.
+- **Dönüşüm:** eski `note.attachments` (base64 JSONB) içerikleri PHASE 2 göçünde
+  Vault'a kopyalandı; not bazlı dönüşüm adımı (`convert_legacy_attachments`)
+  PHASE 3'te bakımdan kaldırıldı, çünkü arşivi değiştirecek zamanlanmış iş
+  kalmadı.
+- **Yedek:** kullanılan ek blob'ları soğuk güvenlik arşivi olarak yedeğe girer
+  (yetimler girmez) ve restore'da geri yazılır. Geri yüklemede içeriğin özeti
+  anahtarla uyuşmazsa dosya **yazılmaz**. Bu, Notlar ürününü yeniden
+  etkinleştirmez; PHASE 3'ten sonra yazılan bilgi f0rknbrain Vault'unda yaşar ve
+  forkOS yedeğine girmez.
 
 ## Offline ve PWA cache'i
 
@@ -372,7 +402,7 @@ liste yanıt sözleşmesi üzerinden kurulur (`frontend/vite.config.ts`):
 | Cache adı / girdi | `lifeos-api-v2`, en fazla 120 girdi, 7 gün |
 
 Binary ve büyük yanıtlar cache dışıdır: `/api/export/*`, `/api/backup/*`,
-`/api/notes/*/attachments/*`, `/api/documents/*/file`, `/api/media/assets/*`
+`/api/documents/*/file`, `/api/media/assets/*`
 ve JSON olmayan her yanıt. Boyut ölçümü **gövdeden** yapılır: `Content-Length`
 gzip'li yanıtlarda hiç gelmez ve "yok"u sıfır saymak tavanı işlevsiz bırakır.
 
@@ -391,6 +421,7 @@ docs/          Yaşayan mimari ve ürün görselleri
 .agents/       Projeye özel agent becerileri ve guardrail'ler
 compose.yaml   Günlük (stable) çalışma ortamı
 compose.dev.yaml  Geliştirme overlay'i (Vite + HMR + --reload)
+compose.obsidian.yaml  Obsidian Vault mount overlay'i (yalnızca `api` servisi)
 ```
 
 Geliştirme kuralları için [AGENTS.md](AGENTS.md), migration zinciri için [backend/alembic/README.md](backend/alembic/README.md) dosyasını oku.

@@ -10,7 +10,8 @@ forkOS tek makinede ve tek kullanıcı için çalışır:
 Chrome extension ─┐
 React/Vite PWA ───┼──> FastAPI ───> PostgreSQL 16
                   │        │
-                  │        └──> kalıcı kaynak kuyruğu ──> SourceAdapter'lar
+                  │        ├──> kalıcı kaynak kuyruğu ──> SourceAdapter'lar
+                  │        └──> f0rknbrain Obsidian Vault (bind mount; bilgi)
                   │
                   └──> isteğe bağlı APScheduler worker aynı kuyruğu tüketir
 ```
@@ -56,10 +57,10 @@ Yeni bir ilişki eklerken:
 ```python
 await log_event(
     session,
-    verb="note.updated",
-    entity_id=note.id,
-    entity_type="note",
-    payload={"fields": ["body"]},
+    verb="todo.completed",
+    entity_id=todo.id,
+    entity_type="todo",
+    payload={"title": "Runbook'u güncelle", "was_overdue": False},
 )
 ```
 
@@ -75,6 +76,8 @@ Activity, ritim/ısı haritası, review özetleri ve bazı proje zaman akışlar
 - `EntityTypeSpec`: entity tipi → etiket, çoğul etiket, ikon ve frontend rotası
 
 `main.py`, arama, deadline toplama ve registry uçları bu listeden beslenir. Yeni modül için özel `main.py` bağlantısı yazılmaz.
+
+`note` ve `note_folder` tipleri registry'de tarihsel olarak kalır (eski Aktivite etiketleri ve `/notes?focus=<uuid>` derin bağlantıları için) ama `searchable=False`, `linkable=False` oldukları için canlı kayıt gibi davranmazlar: global aramada çıkmaz, ilişki panellerinde görünmezler.
 
 ### Frontend
 
@@ -134,7 +137,7 @@ Frontend'de `frontend/src/core/tasks.ts`, bütün manuel görev girişlerinin or
 
 ### Evrensel yakalama
 
-`frontend/src/core/capture.ts`, görev/not/bağlantı yakalama intent'lerini tek noktada toplar. Extension yazımları `client_uuid` ile idempotenttir. Inbox ve Bookmark aynı domain tablosunu kullanır; `collection` kayıt durumunu belirler.
+`frontend/src/core/capture.ts`, görev/not/bağlantı yakalama intent'lerini tek noktada toplar; not dalı Vault'a yazar (`captureVaultNote` → `POST /api/obsidian/capture`) ve invalidation anahtarı `obsidian.write`'tır. Extension yazımları `client_uuid` ile idempotenttir. Inbox ve Bookmark aynı domain tablosunu kullanır; `collection` kayıt durumunu belirler.
 
 ### Son tarihler
 
@@ -150,9 +153,27 @@ Agenda; görev, plan, takvim, fırsat, öğrenme ve medya kayıtlarını tek gü
 
 Pomodoro sunucu otoritelidir; sayfadan bağımsız global yüzey yalnızca aktif session'ı yansıtır. Context bir entity'ye bağlanabilir. Tamamlanan session domain'e özgü tüketim/çalışma event'lerine köprü olabilir.
 
-### Notlar ve bilgi grafı
+### Bilgi sahipliği sınırı (PHASE 3)
 
-Notlar entity-backed'tir. Markdown body, klasör, ekler, varsayılan görünüm ve Excalidraw canvas state aynı domain içinde yaşar. Wiki linkleri ve açık entity linkleri bilgi grafına katılır. Büyük attachment içeriği liste uçlarında yüklenmez; detay/attachment uçlarından alınır.
+forkOS **yürütmenin**, ayrı ve private `f0rknbrain` Obsidian Vault'u **bilginin** sahibidir. İnsan bilgisi (serbest notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları, kaynak notları) Vault'ta Markdown olarak yaşar; forkOS yalnızca yürütme/operasyonel durumu (görev, plan, ilerleme, SRS, CRM, olay geçmişi) tutar. Bir veri parçasının **tek** birincil sahibi olur: aynalı Not sistemi ve çift yazma yoktur.
+
+Vault dosya sistemi davranışı yalnızca `backend/app/integrations/obsidian/` altında yaşar; özellik modülleri doğrudan dosya yazmaz. HTTP köprüsü:
+
+```http
+GET    /api/obsidian/status                      # durum + Obsidian bağlantıları
+POST   /api/obsidian/index/refresh               # indeksi tazele
+GET    /api/obsidian/uri/search?q=<metin>         # Vault'ta ara URI'si
+GET    /api/obsidian/items/{forkos_id}            # managed dosyayı çöz (404/409)
+POST   /api/obsidian/capture                      # 00 Inbox'a yeni not
+POST   /api/obsidian/ensure                       # kayda bağlı kanonik not
+POST   /api/projects/{id}/journal/{day}/obsidian   # proje günlüğü köprüsü
+POST   /api/bookmarks/{id}/source-note             # kaynak notu köprüsü
+POST   /api/opportunities/{id}/research-note       # araştırma notu köprüsü
+```
+
+Kapalı yüzeyler: `/api/notes*`, `/api/note-folders*`, `/api/graph`. `/notes` rotası (navigasyon etiketi **Bilgi**) hafif bir köprü sayfasıdır: kasa adı, `Obsidian'ı Aç` / `Inbox` / `Bugünün Notu` / `Vault'ta Ara`, yönetilen dosya sayısı, çakışma–geçersiz metadata uyarısı ve `İndeksi yenile`. Not listesi, editör, klasör, ek, canvas, backlink ve yerel bilgi grafı **yoktur**; `forkos_id` kimliktir, dosya taşınsa bile not bulunur.
+
+Legacy Notlar tabloları, blokları ve `note.*` olayları **dondurulmuş arşiv** olarak yerinde kalır (hiçbir migration tablo DROP etmez): hiçbir ürün akışı yazmaz, global aramada ve ilişki panellerinde görünmez, günlük bakımla budanmaz. Vault erişilemezse bilgi işlemleri **fail-closed**'dur (`503`/`403`) ve legacy Notlar'a düşen bir yedek yazma yolu yoktur. Domain grafiği (Entity/Link/Event, `RelatedPanel`, `BacklinksPanel`) yürütme omurgasıdır ve aynen korunur. Ayrıntı: `docs/obsidian-hybrid/phase3-cutover.md`.
 
 ## 6. Kaynak ve scraper mimarisi
 
@@ -223,6 +244,8 @@ PostgreSQL'te Türkçe stemmer varsayılmaz. Arama:
 
 bileşimiyle çalışır. Yeni aranabilir domain kaydı entity başlığı ve arama metnini create/update sırasında güncel tutar.
 
+forkOS global araması **operasyoneldir** (görev, proje, fırsat, yer imi, medya, belge, öğrenme konusu…). Legacy notlar `searchable=False` olduğu için sonuç dönmez; bilgi araması Obsidian'ındır (`Vault'ta ara` → `obsidian://search`). Semantik arama/RAG bu fazda yoktur.
+
 ## 8. Tasarım sistemi
 
 Tasarım tokenları `frontend/src/index.css` ve `frontend/tailwind.config.js` dosyalarındadır. Ortak primitive'ler `frontend/src/core/ui.tsx` içindedir.
@@ -243,6 +266,9 @@ Loading için skeleton, veri yokluğu için açıklayıcı empty state, hata iç
 - Export ve taşınabilir yedek secret satırlarını içermez.
 - Normal restore merge/idempotent'tir; mevcut veriyi silmez.
 - Gerçek disaster restore uygulama dışı CLI sınırıdır, önce doğrulanmış safety dump alır ve transaction tamamlanmadan commit etmez.
+- Bilgi (PHASE 3'ten sonra yazılan notlar, günlükler, kaynak notları) f0rknbrain Vault'unda yaşar ve **forkOS yedeğine girmez**; yedeklemesi Vault'un kendi Git/senkron stratejisine aittir. forkOS yedeği legacy Notlar tablolarını ve kullanılan ekleri soğuk güvenlik arşivi olarak taşımaya devam eder; bu, Notlar ürününü yeniden etkinleştirmez ve DB → Vault otomatik yeniden göçü yoktur.
+- Vault ayrı ve private bir depodur: forkOS içinde `git add/commit/push` çalıştırmaz, yalnızca Markdown yazar.
+- Çalışma zamanı: Vault host yolu `OBSIDIAN_VAULT_HOST_PATH` (container) veya `OBSIDIAN_VAULT_PATH` (native) ile verilir; günlük hibrit runtime `make up-obsidian`. Vault erişilemezse uygulama normal çalışır ama bilgi işlemleri `503`/`403` ile fail-closed olur.
 
 Local-only, “hiç ağ isteği yok” anlamına gelmez. RSS, ilan, katalog ve açıkça bağlanan Google/GitHub entegrasyonları dış kaynaklardan veri çeker; kişisel veritabanını buluta yüklemez. Yeni paket veya ağ davranışında `.agents/skills/local-privacy-audit/SKILL.md` uygulanır.
 
@@ -309,7 +335,7 @@ Disk büyümesi belirli sınırlarla (bounded) tutulur:
 | Alan | Konum | Bounded / Temizleme |
 | --- | --- | --- |
 | **PostgreSQL** | `forkos_pgdata` | Operasyonel satırlar günlük hafif bakımla budanır |
-| **Not ekleri** | `backend/data/attachments/` | İçerik adresli (sha256) binary; yetimler bakımla toplanır |
+| **Not ekleri (legacy arşiv)** | `backend/data/attachments/` | İçerik adresli (sha256) binary; PHASE 3'ten sonra yeni ek yazılmaz, bakım dokunmaz (dondurulmuş kaynak parmak izi) |
 | **Belgeler** | `backend/data/documents/` | Kullanıcı tarafından yönetilen yerel belgeler |
 | **Medya görselleri** | `backend/data/media/` | Yeniden üretilebilir; 512 MB bütçe tavanı ile budanır |
 | **Scraper önbelleği** | `backend/data/cache/` | Yeniden üretilebilir; HTTP önbellek sınırları ile tutulur |
@@ -319,15 +345,15 @@ Operasyonel veri budama politikası:
 - `source_run`: `ok`/`empty` 30 gün, hatalı koşular 90 gün, kaynak başına **son 20 koşu daima korunur**.
 - `source_sync_batch`: Terminal batch'ler 60 gün; aktif kuyruk kayıtları asla silinmez.
 - `notification`: Okunmuş bildirimler 90 gün (önem derecesi ≥ 3 olanlar 180 gün); okunmamışlar asla silinmez.
-- **Kişisel veri dokunulmazlığı:** Not, görev, proje, medya, finans, fırsat ve `event` günlüğü asla otomatik budanmaz.
+- **Kişisel veri dokunulmazlığı:** legacy Notlar arşivi, görev, proje, medya, finans, fırsat ve `event` günlüğü asla otomatik budanmaz. PHASE 3'ten sonra yazılan bilgi zaten forkOS veritabanında değil, f0rknbrain Vault'undadır.
 
 ### 12.4 Hafif bakım (maintenance)
 
-Worker açıkken her gece 04:00'te; worker kapalıyken API açılışında arka planda günde en fazla bir kez koşar (`maintenance.last_run` gün kapısı). Ağ çağrısı yapmaz; operasyonel satırları budar, süresi geçmiş RSS öğelerini temizler, medya önbelleğini bütçeye çeker ve eski ek temsillerini taşır.
+Worker açıkken her gece 04:00'te; worker kapalıyken API açılışında arka planda günde en fazla bir kez koşar (`maintenance.last_run` gün kapısı). Ağ çağrısı yapmaz; operasyonel satırları budar, süresi geçmiş RSS öğelerini temizler ve medya önbelleğini bütçeye çeker. Legacy ek dönüşümü (`convert_legacy_attachments`) ve ek budama adımı PHASE 3'te kaldırıldı: `data/attachments` dondurulmuş arşivdir ve bakım ona dokunmaz.
 
 ### 12.5 Kullanıcı odaklı yedekleme ve dirty check
 
-- **Kapsam:** Entity omurgası, bağlantılar, olay günlüğü, modül kayıtları ve kullanılan not ekleri.
+- **Kapsam:** Entity omurgası, bağlantılar, olay günlüğü, modül kayıtları ve dondurulmuş legacy Notlar arşivi (tablolar + kullanılan ekler). PHASE 3'ten sonra yazılan bilgi f0rknbrain Vault'unda yaşar ve bu yedeğe girmez.
 - **Kapsam dışı:** Rebuildable operasyonel durumlar (`source_run`, `source_sync_batch`) ve hassas `oauth_token` kayıtları.
 - **Gece yedeği dirty check:** Makine durumları (kalp atışı, bakım temizliği, kaynak sağlığı) değişiklik sayılmaz. Anlamlı kullanıcı mutasyonu yoksa gece yedeği gereksiz yere disk tüketmez. Manuel "Şimdi yedekle" her zaman tam yedek üretir.
 

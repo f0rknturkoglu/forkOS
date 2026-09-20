@@ -2,6 +2,15 @@
 
 Bu doküman, Proje modülünün gelecekteki sınırlarını ve hangi yeteneklerin forkOS'ta kalıp hangilerinin Obsidian Vault'a devredileceğini tanımlar.
 
+> [!NOTE]
+> **PHASE 3 (uygulandı).** Aşağıdaki kararlar hayata geçti: proje bilgi notu
+> `20 Projects/<Proje>/<Proje>.md`, proje günlüğü
+> `20 Projects/<Proje>/Journal/YYYY-MM-DD.md` olarak private f0rknbrain Vault'unda
+> yaşar. forkOS proje sayfası operasyonel kabuk + salt-okunur
+> `ProjectActivityTimeline` + `ProjectJournalBridge` sunar; gövde düzenleme
+> Obsidian'da yapılır. Devrin sözleşmesi:
+> `docs/obsidian-hybrid/phase3-cutover.md`.
+
 ---
 
 ## 1. Temel Soru ve Ayrım Kriteri
@@ -15,7 +24,7 @@ Bu doküman, Proje modülünün gelecekteki sınırlarını ve hangi yetenekleri
 
 ## 2. Yetenek Bazında İnceleme ve Kararlar
 
-| Proje Yeteneği | Tür | Gelecekteki Sahip | Karar | Gerekçe |
+| Proje Yeteneği | Tür | Sahip (PHASE 3'te uygulandı) | Karar | Gerekçe |
 |---|---|---|---|---|
 | **Project Identity & Title** | Operasyonel | forkOS (`project` + `Entity`) | `KEEP` | Görevlerin, harcamaların, kilometre taşlarının ve durumların bağlanacağı ana çekirdek kimlik. |
 | **Project Status (`active/paused/done/idea`)** | Operasyonel | forkOS (`project.status`) | `KEEP` | Today paneli, filtreler ve odak algoritmaları bu duruma göre dinamik iş listesi üretir. |
@@ -34,7 +43,7 @@ Bu doküman, Proje modülünün gelecekteki sınırlarını ve hangi yetenekleri
 
 ## 3. Slimmed Project Sayfası Mimarisi
 
-Gelecekteki sadeleştirilmiş Projeler ekranı:
+Uygulanan sadeleştirilmiş Projeler ekranı (PHASE 3):
 
 ```text
 +------------------------------------------------------------------------+
@@ -54,14 +63,20 @@ Gelecekteki sadeleştirilmiş Projeler ekranı:
 | GITHUB ENTEGRASYONU                                                    |
 | Açık PR'lar (2) · Açık Issue'lar (4) · Son commit: 2 saat önce        |
 +------------------------------------------------------------------------+
+| AKTİVİTE (salt okunur olay zaman çizelgesi: [{day, events}])           |
+| + GÜNLÜK KÖPRÜSÜ: [Tarih seç] [Bugünün günlüğünü Obsidian'da aç]       |
++------------------------------------------------------------------------+
 ```
 
-### Ne Kaldırılıyor?
-- Ağır dahili Markdown not editörü ve ek yükleme alanı.
-- Sayfa içi ham Excalidraw tuvali.
-- forkOS veritabanındaki `note_project_journal_day_uniq` ilişkisi.
+### Ne Kaldırıldı?
+- Ağır dahili Markdown not editörü ve ek yükleme alanı (gövde artık Obsidian'da düzenlenir).
+- Sayfa içi ham Excalidraw tuvali (`NoteCanvas.tsx`; PHASE 3'te kaldırıldı, `@excalidraw/excalidraw` bağımlılığı da düştü).
+- `PUT /projects/{id}/journal/{day}` uçlu sayfa içi proje günlüğü editörü: `GET /projects/{id}/journal` artık `[{day, events}]` döner, gövde alanı yoktur.
+- forkOS veritabanındaki `note_project_journal_day_uniq` ilişkisi artık ürün akışında kullanılmaz (tablo/ilişki dondurulmuş arşiv olarak kalır).
 
 ### Ne Kazanılıyor?
 - forkOS sadece işin **yürütülmesine** ve **takibine** odaklanır.
 - Kullanıcı Obsidian'ın gelişmiş eklenti ekosistemini (Dataview, Canvas, Omnisearch) özgürce kullanır.
-- forkOS veritabanı yükü ve yedekleme boyutu dramatik biçimde küçülür.
+- forkOS veritabanına yeni bilgi yazılmaz; legacy Notlar tabloları ve ek deposu
+  dondurulmuş arşiv olarak yerinde kalır, bu yüzden yedek kapsamı bu fazda
+  küçülmez (`docs/obsidian-hybrid/phase3-cutover.md` §3).

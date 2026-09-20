@@ -2,6 +2,17 @@
 
 Bu belge, forkOS Slim vizyonu kapsamında mevcut kod tabanındaki **Notlar**, **Projeler** ve **Graf** bileşenlerinin gerçek bağımlılık haritasını ve gelecekteki sahiplik (ownership) sınırlarını kayıt altına alır.
 
+> [!NOTE]
+> **PHASE 3 (uygulandı) — bu belge planlama turunun fotoğrafıdır.** Tablodaki
+> "Owner (at inventory time)" ve `Action` kararları PHASE 2 (taşıma) ve PHASE 3
+> (sahiplik devri) ile **uygulanmıştır**: bilgi artık private f0rknbrain Obsidian
+> Vault'unda yaşar, forkOS yürütme/operasyonel durumun sahibidir. Devirle
+> kaldırılan canlı yüzeyler: `/api/notes*`, `/api/note-folders*`, `/api/graph` +
+> `/graph` rotası, bilgi grafı görselleştirmesi, Notlar editörü/listesi/tuvali ve
+> not ekleme UI'ı. Legacy tablolar, ek deposu ve `note.*` olayları
+> **dondurulmuş arşiv** olarak yerinde kalır. Devrin sözleşmesi:
+> `docs/obsidian-hybrid/phase3-cutover.md`.
+
 ---
 
 ## 1. Ürün Sınırları ve Mimari İlkeler
@@ -16,14 +27,14 @@ Bu belge, forkOS Slim vizyonu kapsamında mevcut kod tabanındaki **Notlar**, **
 
 Aşağıdaki tablo kod tabanı doğrudan taranarak oluşturulmuştur:
 
-| Feature | Current Owner | Dependencies | Future Owner | Migration Difficulty | Action |
+| Feature | Owner (at inventory time) | Dependencies | Target owner (applied in PHASE 2/3) | Migration Difficulty | Action |
 |---|---|---|---|---|---|
 | **Note Core Entity & Text Body** | forkOS (`note` table, `Note.body`) | `Entity`, `EntityBacked`, DB TSVector search, `refs.py` | Obsidian Vault (`00 Inbox/`, `30 Knowledge/`) | Medium | `MOVE_TO_VAULT` |
 | **Note Folders Tree** | forkOS (`note_folder` table) | `EntityBacked`, Self-referencing FK, `NotesExplorer.tsx` | Obsidian Vault (Filesystem klasörleri) | Easy | `MOVE_TO_VAULT` |
 | **Note Attachments (Blobs)** | forkOS (`note_attachment`, `data/attachments/`) | Content-addressed SHA-256 store, `export.py`, `restore.py`, `maintenance.py` | Obsidian Vault (`Attachments/` klasörü) | Medium | `MOVE_TO_VAULT` |
 | **Personal Daily Journal** | forkOS (`Note.journal_day` w/o project) | `note` table, `todayKey()`, calendar navigation | Obsidian Vault (`10 Daily/YYYY-MM-DD.md`) | Easy | `MOVE_TO_VAULT` |
 | **Project Journal Entries** | forkOS (`Note.journal_day` + `project_id`) | `project.service.py`, `ProjectJournal.tsx`, `Note` | Obsidian Vault (`20 Projects/<Project>/Journal/`) | Medium | `MOVE_TO_VAULT` |
-| **Excalidraw Canvas Notes** | forkOS (`Note.canvas_state`, `NoteCanvas.tsx`) | JSONB scene state, `@excalidraw/excalidraw` frontend | Obsidian Canvas / Excalidraw plugin | High | `REVIEW` |
+| **Excalidraw Canvas Notes** | forkOS (`Note.canvas_state`, `NoteCanvas.tsx`) | JSONB scene state, `@excalidraw/excalidraw` frontend | Obsidian Canvas / Excalidraw plugin | High | `DEPRECATE` (PHASE 3) |
 | **Wikilinks Extraction & Mentions** | forkOS (`core/refs.py`, `WIKILINK` regex) | `Link` table (`relation='mentions'`), `core/links.py` | Obsidian Native Index (Yerel `[[...]]`) | Easy | `MOVE_TO_VAULT` |
 | **Inline Tags Extraction** | forkOS (`core/refs.py`, `core/tags.py`) | `Tag` table, `Entity` tag links | Obsidian Native Tags (`#etiket`) | Easy | `MOVE_TO_VAULT` |
 | **Backlinks Panel & API** | forkOS (`/entities/{id}/backlinks`, `graph.py`) | `Link.mentions`, `NotesPage.tsx` | Obsidian Native Backlinks | Easy | `MOVE_TO_VAULT` |
@@ -43,8 +54,15 @@ Aşağıdaki tablo kod tabanı doğrudan taranarak oluşturulmuştur:
 | **CaptureDialog Project Assignment** | forkOS (`CaptureDialog.tsx`) | Quick capture modal, task project selection | forkOS Operational State | None (Stay in forkOS) | `KEEP` |
 | **Project Knowledge / Research / Specs**| forkOS (Dağınık proje günlükleri ve notlar) | `Note` records, `note_project_journal_day_uniq` | Obsidian Vault (`20 Projects/<Project>.md`) | Low (New bridge) | `BRIDGE` |
 | **Domain Graph (Core)** | forkOS (`Entity`, `Link`, `Event` tables) | PK/FK backbone, operational relationships | forkOS Core Architecture | None (Core foundation) | `KEEP` |
-| **Knowledge Graph Visualization UI** | forkOS (`GraphView.tsx`, `d3-force` SVG) | `/graph` endpoint, node physics, SVG render | Obsidian Native Knowledge Graph | Low (UI drop) | `DEPRECATE` |
-| **Knowledge Graph Page** | forkOS (`GraphPage.tsx`, `/graph` route) | `GraphView`, depth slider, focus zoom | Obsidian Native Graph View | Low (UI drop) | `DEPRECATE` |
+| **Knowledge Graph Visualization UI** | forkOS (`GraphView.tsx`, `d3-force` SVG) | `/graph` endpoint, node physics, SVG render | Obsidian Native Knowledge Graph | Low (UI drop) | `DEPRECATE` (PHASE 3'te kaldırıldı) |
+| **Knowledge Graph Page** | forkOS (`GraphPage.tsx`, `/graph` route) | `GraphView`, depth slider, focus zoom | Obsidian Native Graph View | Low (UI drop) | `DEPRECATE` (PHASE 3'te kaldırıldı) |
+
+> Uygulama sonrası arama durumu: legacy notlar `EntityTypeSpec` içinde
+> `searchable=False` olduğu için forkOS global aramasında **çıkmaz**; ilişki
+> panellerinde de görünmezler. Bilgi araması Obsidian'ındır (`Vault'ta ara` →
+> `obsidian://search`). `note` / `note_folder` tipleri registry'de yalnızca
+> tarihsel Aktivite etiketleri ve `/notes?focus=<uuid>` derin bağlantıları için
+> kalır.
 
 ---
 
@@ -60,12 +78,12 @@ forkOS içindeki her işlem nesnesi (`todo`, `project`, `course`, `topic`, `book
 
 Bu ilişkiler forkOS'un yürütme motorudur, sorgulanabilir, atomik ve foreign-key güvencelidir. Kesinlikle silinmeyecek ve değiştirilmeyecektir.
 
-### 3.2 Knowledge Graph UI (İnsan Bilgi Görselleştirmesi — OBSIDIAN'A DEVREDİLECEK)
-Mevcut `GraphView.tsx` ve `GraphPage.tsx` bileşenleri:
-- Notlar arasındaki `[[wikilink]]` bağlantılarını SVG üzerinde d3-force ile çizer.
-- Not odaklı serbest gezinim sağlar.
+### 3.2 Knowledge Graph UI (İnsan Bilgi Görselleştirmesi — PHASE 3'TE KALDIRILDI)
+Kaldırılan `GraphView.tsx` ve `GraphPage.tsx` bileşenleri:
+- Notlar arasındaki `[[wikilink]]` bağlantılarını SVG üzerinde d3-force ile çizerdi.
+- Not odaklı serbest gezinim sağlardı.
 
-Bu işlevsellik Obsidian'ın yerel graf motorunda (Graph View / Local Graph / Canvas) çok daha yüksek performansla, filtreleme, renklendirme ve derinlik desteğiyle halihazırda mevcuttur. forkOS frontend'indeki ağır SVG simülasyonu zamanla dejenere olmadan kullanımdan kaldırılabilir (`DEPRECATE`).
+Bu işlevsellik Obsidian'ın yerel graf motorunda (Graph View / Local Graph / Canvas) çok daha yüksek performansla, filtreleme, renklendirme ve derinlik desteğiyle zaten mevcuttu; bu yüzden forkOS frontend'indeki ağır SVG simülasyonu `DEPRECATE` kararıyla **kaldırıldı** (rota, `/api/graph` ucu, `d3-force` ve `@excalidraw/excalidraw` bağımlılıkları dahil). forkOS artık hiçbir bilgi grafı görselleştirmesi render etmez; §3.1'deki domain grafiği bundan etkilenmez.
 
 ---
 
@@ -82,22 +100,25 @@ Bu işlevsellik Obsidian'ın yerel graf motorunda (Graph View / Local Graph / Ca
 2. **BRIDGE (Hibrit Köprü Kurulacaklar):**
    - Proje bilgi notları (`forkos_id` frontmatter ile Obsidian'da tek tıkla açılabilen `20 Projects/<Project>.md`).
    - Vault metadata index ve status API (`/api/obsidian/status`, `/api/obsidian/items/{id}`).
-   - Gelecekte: Web'den kırpılan bookmark ve highlight özetlerinin Vault'a aktarımı.
+   - Yer imi kaynak notları (`60 Sources/<Başlık>.md`) ve highlight keşfi: köprü ucu `POST /api/bookmarks/{id}/source-note`, okuma tarafı Obsidian araması.
 
-3. **MOVE_TO_VAULT (Planlı Olarak Taşınacaklar - Bu turda değil, sonraki fazda):**
+3. **MOVE_TO_VAULT (PHASE 2'de taşındı, PHASE 3'te sahiplik devredildi):**
    - Kişisel notlar (`note` tablosu -> Markdown dosyaları).
    - Günlük yazılar (`journal_day` -> `10 Daily/YYYY-MM-DD.md`).
    - Proje günlükleri (`20 Projects/<Project>/Journal/`).
    - Ekler (`data/attachments` -> `Attachments/`).
 
-4. **DEPRECATE (Gereksizleşip Kaldırılacak UI Katmanları):**
+4. **DEPRECATE (PHASE 3'te kaldırıldı):**
    - `NotesPage.tsx` (53 KB) ve `NotesExplorer.tsx` (25 KB).
    - `GraphView.tsx` ve `GraphPage.tsx`.
    - `SlashCommandMenu.tsx`.
    - `NoteCanvas.tsx`.
 
-5. **SLIM (Hafifletilecekler):**
-   - `export.py` ve `restore.py`: Not gövdesi ve binary ekleri taşımayı bırakıp saf operasyonel veritabanı yedeğine dönüşecek.
+5. **SLIM (değerlendirildi, uygulanmadı):**
+   - `export.py` ve `restore.py` Not gövdesi ve binary ek taşımayı **bırakmadı**:
+     legacy Notlar tabloları ve `data/attachments` soğuk güvenlik arşivi olarak
+     yedekte kalmaya devam eder; fiziksel arşiv temizliği sonraki faza bırakıldı
+     (`docs/obsidian-hybrid/phase3-cutover.md` §3 ve §7).
 
 ## 7. Runtime ve Mount Semantiği
 

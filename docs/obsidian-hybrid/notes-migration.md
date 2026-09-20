@@ -1,9 +1,12 @@
 # forkOS — Notes Migration Design: Moving Knowledge to Obsidian Vault
 
-Bu doküman, gelecekteki geçiş aşamasında forkOS içindeki notların, günlüklerin, eklerin ve çizimlerin Obsidian Vault'a nasıl taşınacağını (migration design) ayrıntılandırır.
+Bu doküman, forkOS içindeki notların, günlüklerin, eklerin ve çizimlerin Obsidian Vault'a nasıl taşındığını (migration design) ayrıntılandırır.
 
 > [!IMPORTANT]
-> Bu tur bir temel (foundation) ve envanter turudur. **Bu aşamada gerçek bir veri taşıması yapılmaz.** Burada tanımlanan kurallar, sonraki fazda çalıştırılacak migration executor tarafından birebir uygulanacaktır.
+> §1–§5 tasarım aşamasının kaydıdır; uygulanan gerçek §6'dadır. Taşıma (PHASE 2)
+> **yapıldı** ve bilgi sahipliği devri (PHASE 3) **gerçekleşti**: forkOS artık
+> Notlar'ın çalışma zamanı sahibi değildir, notlar f0rknbrain Vault'unda yaşar.
+> Devrin sözleşmesi: `docs/obsidian-hybrid/phase3-cutover.md`.
 
 ---
 
@@ -68,10 +71,10 @@ Vault/
 
 ## 3. Ekler (Attachments) ve Medya Bağlantıları
 
-### 3.1 Mevcut Durum
-- forkOS ekleri content-addressed olarak `backend/data/attachments/<sha256>` dosya adıyla tutar.
-- Metadata `note_attachment` tablosunda (`id`, `note_id`, `name`, `mime`, `sha256`) saklanır.
-- Not gövdesindeki bağlantılar `/api/notes/{note_id}/attachments/{attachment_id}` veya base64 gömülüdür.
+### 3.1 Göç öncesi durum (tasarım kaydı)
+- forkOS ekleri content-addressed olarak `backend/data/attachments/<sha256>` dosya adıyla tutuyordu.
+- Metadata `note_attachment` tablosunda (`id`, `note_id`, `name`, `mime`, `sha256`) saklanıyordu.
+- Not gövdesindeki bağlantılar `/api/notes/{note_id}/attachments/{attachment_id}` biçimindeydi veya base64 gömülüydü.
 
 ### 3.2 Hedef Vault Mimarisi: `Attachments/`
 - **Hedef Yol:** `Attachments/<Orijinal_Dosya_Adi>` veya çakışma durumunda `Attachments/<Ad>_<sha256[:8]>.<uzanti>`.
@@ -97,7 +100,7 @@ Vault/
 
 ## 5. Excalidraw Canvas Notları
 
-- **Mevcut Durum:** forkOS `note.canvas_state` JSONB alanında ham Excalidraw sahne verisi tutmaktadır.
+- **Mevcut Durum:** forkOS `note.canvas_state` JSONB alanında ham Excalidraw sahne verisi tutuyordu. PHASE 3'ten sonra bu alan **dondurulmuş arşiv**tir: hiçbir ürün akışı yazmaz, tuval arayüzü kaldırılmıştır (`@excalidraw/excalidraw` bağımlılığı dahil).
 - **Uyumluluk Değerlendirmesi:** `PARTIAL / REVIEW`
   - Obsidian'ın yerel `.canvas` formatı JSON tabanlıdır ancak Excalidraw sahne formatından farklıdır (düğümler, kartlar ve kenarlar modelini kullanır).
   - Obsidian topluluğunun popüler **Obsidian Excalidraw** eklentisi mevcuttur ve ham Excalidraw JSON'unu `.excalidraw.md` içine gömerek birebir render eder.
@@ -278,8 +281,20 @@ not kaynaklı link'ler ve canvas verisi üzerinden hesaplanan deterministik
 sha256'dır. Rapor `SOURCE_FINGERPRINT_BEFORE` ve `AFTER` değerlerini yazar;
 **eşit olmalıdır** — kaynağın değişmediğinin kanıtı budur.
 
-## 6.11 Bu fazın sınırı
+## 6.11 Bu fazın sınırı ve sonrası
 
-Notes sahipliği hâlâ forkOS'tadır. Notlar salt-okunur yapılmaz, rota
-yönlendirilmez, tablo/ek deposu/köprü kaldırılmaz. Bu, cutover öncesi ilk
-temiz kontrol noktasıdır: kaynak el değmemiş + Vault tam + doğrulama kanıtı.
+PHASE 2'nin sınırı buydu: taşıma kopya + doğrulamaydı, Notes sahipliği hâlâ
+forkOS'taydı ve kaynak el değmemiş kalıyordu (parmak izi before == after).
+
+**PHASE 3 bu sınırı kapattı.** Bilgi sahipliği private f0rknbrain Vault'una
+geçti; legacy Notlar'ın çalışma zamanı yüzeyi kapandı (`/api/notes*`,
+`/api/note-folders*` ve `/api/graph` rota kaydı YOKTUR; bilgi grafı
+görselleştirmesi kaldırıldı) ve proje günlüğü, proje bilgi notu, öğrenme bilgi
+notu, kaynak notu ile hızlı yakalama akışları Vault köprüsüne bağlandı. Legacy
+tablolar, `data/attachments` deposu ve `note.*` olayları **dondurulmuş arşiv**
+olarak yerinde durur; hiçbir migration tablo DROP etmez ve günlük bakım artık
+ek dönüşümü çalıştırmaz. Bu belgedeki göç aracı ve doğrulama akışı
+dondurulmuş kaynağa karşı aynen geçerlidir.
+
+Devrin sözleşmesi, çalışma zamanı gereksinimleri, fail-closed davranış ve
+geri dönüş yolu: `docs/obsidian-hybrid/phase3-cutover.md`.
