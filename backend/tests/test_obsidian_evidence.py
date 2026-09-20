@@ -23,6 +23,9 @@ from app.integrations.obsidian.evidence import (
     scan_evidence_notes,
     tokenize_query,
 )
+from tests.agent_test_utils import (
+    forbid_outbound_network,  # noqa: F401  (autouse: H3 dış ağ çağrısı yapmaz)
+)
 
 
 def _write(vault: Path, rel_path: str, content: str) -> Path:
