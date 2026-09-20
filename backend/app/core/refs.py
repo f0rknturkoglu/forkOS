@@ -3,7 +3,14 @@
 Etiket havuzu ZATEN entity seviyesinde ve paylasimli (core/tags.py); burasi
 onu "not govdesinden de beslenebilir" hale getirir -- ayri bir not-etiketi
 kavrami YOKTUR. Wikilink'ler `mentions` iliskisine cevrilir; backlink paneli
-ve graf ayni link tablosundan okur.
+ayni link tablosundan okur.
+
+PHASE 3 SINIRI: `sync_refs` ve `parse_wikilinks` yalnizca legacy Notlar
+govdesinden anlam tasir. Bilgi sahipligi Vault'a gectigi icin bu fonksiyonlar
+artik hiçbir ÜRÜN akisindan cagrilmaz: tek cagiran, dondurulmus arsiv
+yazicisidir (`app.modules.note.service`, PHASE 2 goc testlerinin kaynak
+verisini uretir). Yeni bir urun ozelligi bu modulu BAGLAMAMALIDIR -- Vault
+wikilink'lerini Obsidian cozer.
 
 Cozulmemis wikilink (henuz o baslikta kayit yok) HATA DEGILDIR: link
 yazilmaz, cagiran taraf onu "olusturulabilir" olarak gosterir.

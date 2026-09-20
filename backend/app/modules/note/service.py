@@ -1,7 +1,24 @@
+"""Legacy Notlar yazıcısı — DONDURULMUŞ ARŞİV araç katmanı (PHASE 3).
+
+Bu dosya artık ÜRÜN kodu değildir. `/notes` HTTP yüzeyi kapatıldığı için
+hiçbir istek buradan geçmez; modülün tek çağıranı PHASE 2 göç testleri ve
+gerektiğinde soğuk arşiv tanılamasıdır. Göç testleri kaynak veriyi bu
+yardımcılarla üretir; bu yüzden silinmesi güvenlik kanıtını zayıflatırdı.
+
+Buradan ÜRÜN akışına yazma YASAKTIR (PHASE 3 §4). Normal ürün akışları artık
+`INSERT/UPDATE/DELETE note`, `convert_legacy_attachments()` veya wikilink→
+`Link` senkronu YAPMAZ; bilgi yazmaları `app.integrations.obsidian` üzerinden
+Obsidian Vault'a gider.
+
+Kapsam bilinçli olarak daraltıldı: ürüne hizmet eden okuma/güncelleme/silme
+yolları (liste, tek kayıt okuma, ikili içerik sunma, görünürlük geçişleri,
+ek dönüşümü) kaldırıldı. Kalan yüzey yalnızca test/göç verisi üretir:
+`create`, `update`, `create_folder`, `add_attachment`, `archive`, `delete`,
+`ensure_daily_note`.
+"""
+
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 import logging
 import re
@@ -11,28 +28,24 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy import text as sa_text
-from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import defer
 
 from app.core import refs as ref_svc
 from app.core import tags as tag_svc
 from app.core.entity import (
     archive_entity,
     create_entity,
-    delete_entity,
     restore_entity,
     touch_entity,
 )
 from app.core.events import log_event
 from app.core.links import link
-from app.core.models import Entity, Link
+from app.core.models import Entity
 from app.modules.note import storage as attachment_storage
 from app.modules.note.models import Note, NoteAttachment, NoteFolder
 from app.modules.note.schemas import (
     NoteFolderIn,
     NoteFolderOut,
-    NoteFolderUpdate,
     NoteIn,
     NoteOut,
     NoteUpdate,
@@ -257,42 +270,6 @@ async def _assert_valid_parent(
         current = parent.parent_id if parent else None
 
 
-async def list_folders(session: AsyncSession) -> list[NoteFolderOut]:
-    counts = (
-        select(Note.folder_id, func.count(Note.id).label("note_count"))
-        .where(Note.folder_id.is_not(None))
-        .group_by(Note.folder_id)
-        .subquery()
-    )
-    rows = (
-        await session.execute(
-            select(
-                NoteFolder,
-                Entity.title,
-                Entity.created_at,
-                Entity.updated_at,
-                func.coalesce(counts.c.note_count, 0),
-            )
-            .join(Entity, Entity.id == NoteFolder.id)
-            .outerjoin(counts, counts.c.folder_id == NoteFolder.id)
-            .where(Entity.archived_at.is_(None))
-            .order_by(NoteFolder.position, Entity.title)
-        )
-    ).all()
-    return [
-        NoteFolderOut(
-            id=folder.id,
-            name=title,
-            parent_id=folder.parent_id,
-            position=folder.position,
-            note_count=note_count,
-            created_at=created_at,
-            updated_at=updated_at,
-        )
-        for folder, title, created_at, updated_at, note_count in rows
-    ]
-
-
 async def create_folder(session: AsyncSession, data: NoteFolderIn) -> NoteFolderOut:
     name = data.name.strip()
     if not name:
@@ -329,80 +306,6 @@ async def create_folder(session: AsyncSession, data: NoteFolderIn) -> NoteFolder
         created_at=entity.created_at,
         updated_at=entity.updated_at,
     )
-
-
-async def update_folder(
-    session: AsyncSession, folder_id: uuid.UUID, data: NoteFolderUpdate
-) -> NoteFolderOut | None:
-    folder = await session.get(NoteFolder, folder_id)
-    entity = await session.get(Entity, folder_id)
-    if folder is None or entity is None:
-        return None
-    values = data.model_dump(exclude_unset=True)
-    if "parent_id" in values:
-        await _assert_valid_parent(
-            session, folder_id=folder_id, parent_id=values["parent_id"]
-        )
-        folder.parent_id = values["parent_id"]
-    if "position" in values and values["position"] is not None:
-        folder.position = values["position"]
-    if "name" in values and values["name"] is not None:
-        name = values["name"].strip()
-        if not name:
-            raise ValueError("klasör adı boş olamaz")
-        await touch_entity(session, folder_id, title=name, search_text=name)
-    else:
-        await touch_entity(session, folder_id)
-    await log_event(
-        session,
-        verb="note.folder_updated",
-        entity_id=folder_id,
-        entity_type=NoteFolder.ENTITY_TYPE,
-        payload={"changed_fields": sorted(values)},
-    )
-    await session.commit()
-    await session.refresh(entity)
-    count = (
-        await session.execute(
-            select(func.count(Note.id)).where(Note.folder_id == folder_id)
-        )
-    ).scalar_one()
-    return NoteFolderOut(
-        id=folder.id,
-        name=entity.title,
-        parent_id=folder.parent_id,
-        position=folder.position,
-        note_count=count,
-        created_at=entity.created_at,
-        updated_at=entity.updated_at,
-    )
-
-
-async def delete_folder(session: AsyncSession, folder_id: uuid.UUID) -> bool:
-    folder = await session.get(NoteFolder, folder_id)
-    entity = await session.get(Entity, folder_id)
-    if folder is None or entity is None:
-        return False
-    title = entity.title
-    # Alt klasorleri ve notlari silmek yerine bir ust seviyeye tasir.
-    await session.execute(
-        sql_update(NoteFolder)
-        .where(NoteFolder.parent_id == folder_id)
-        .values(parent_id=folder.parent_id)
-    )
-    await session.execute(
-        sql_update(Note).where(Note.folder_id == folder_id).values(folder_id=None)
-    )
-    await log_event(
-        session,
-        verb="note.folder_deleted",
-        entity_id=folder_id,
-        entity_type=NoteFolder.ENTITY_TYPE,
-        payload={"title": title},
-    )
-    await delete_entity(session, folder_id)
-    await session.commit()
-    return True
 
 
 async def add_attachment(
@@ -443,142 +346,6 @@ async def add_attachment(
     )
     await session.commit()
     return _attachment_out(note_id, item)
-
-
-async def attachment_content(
-    session: AsyncSession, note_id: uuid.UUID, attachment_id: uuid.UUID
-) -> tuple[bytes, str, str] | None:
-    """(icerik, mime, dosya adi) dondur; yoksa None."""
-    note = await session.get(Note, note_id)
-    if note is None:
-        return None
-    row = await session.get(NoteAttachment, attachment_id)
-    if row is not None and row.note_id == note_id:
-        content = attachment_storage.read_blob(row.sha256)
-        if content is None:
-            return None
-        return content, row.mime, row.name
-    # Donusmemis eski kayit (bkz. convert_legacy_attachments).
-    item = next(
-        (entry for entry in (note.attachments or []) if entry.get("id") == str(attachment_id)),
-        None,
-    )
-    if item is None:
-        return None
-    try:
-        content = base64.b64decode(item["data"], validate=True)
-    except (KeyError, ValueError, binascii.Error):
-        return None
-    return content, item["mime"], item["name"]
-
-
-async def delete_attachment(
-    session: AsyncSession, note_id: uuid.UUID, attachment_id: uuid.UUID
-) -> bool:
-    note = await session.get(Note, note_id)
-    if note is None:
-        return False
-    row = await session.get(NoteAttachment, attachment_id)
-    if row is not None and row.note_id == note_id:
-        digest = row.sha256
-        await session.delete(row)
-        await touch_entity(session, note_id)
-        await log_event(
-            session,
-            verb="note.attachment_deleted",
-            entity_id=note_id,
-            entity_type="note",
-            payload={"attachment_id": str(attachment_id)},
-        )
-        # Guvenli silme sirasi: Once DB commit basariyla TAMAMLANSIN.
-        # Commit patlarsa rollback olur; metadata ve blob korunur (veri kaybi onlenir).
-        await session.commit()
-
-        # Ancak commit sonrasi baska NoteAttachment referansi olup olmadigi kontrol edilir.
-        try:
-            remaining = (
-                await session.execute(
-                    select(func.count())
-                    .select_from(NoteAttachment)
-                    .where(NoteAttachment.sha256 == digest)
-                )
-            ).scalar_one()
-            if remaining == 0:
-                attachment_storage.delete_blob(digest)
-        except Exception:
-            # Fiziksel silme basarisiz olsa dahi kullanici verisi bozulmaz;
-            # orphan cleanup (prune_orphan_blobs) bakim sirasinda toplayabilir.
-            logger.warning(
-                "fiziksel ek silme basarisiz (%s), yetim temizligi toplayacak",
-                digest,
-                exc_info=True,
-            )
-        return True
-    before = note.attachments or []
-    after = [entry for entry in before if entry.get("id") != str(attachment_id)]
-    if len(after) == len(before):
-        return False
-    note.attachments = after
-    await touch_entity(session, note_id)
-    await log_event(
-        session,
-        verb="note.attachment_deleted",
-        entity_id=note_id,
-        entity_type="note",
-        payload={"attachment_id": str(attachment_id)},
-    )
-    await session.commit()
-    return True
-
-
-async def convert_legacy_attachments(session: AsyncSession, *, limit: int = 25) -> int:
-    """Eski base64 ekleri dosya sistemine tasi. Not bazli, idempotent.
-
-    Sirayla ve yalnizca basarili olursa:
-      1. blob diske yazilir (content-addressed: tekrar denemek zararsiz),
-      2. metadata satiri eklenir (ESKI ID KORUNUR -> indirme URL'i degismez),
-      3. ancak bu notun TUM ekleri icin 1-2 tamamlandiysa eski JSONB temizlenir.
-
-    Herhangi bir adimda hata olursa notun JSONB'si DOKUNULMADAN kalir ve
-    transaction geri alinir; veri kaybi olmaz. `limit` bir turda islenecek not
-    sayisidir (bakim icinde sinirli tutulur).
-    """
-    rows = (
-        await session.execute(
-            select(Note.id, Note.attachments)
-            .where(func.jsonb_array_length(Note.attachments) > 0)
-            .order_by(Note.id)
-            .limit(limit)
-        )
-    ).all()
-    migrated = 0
-    for note_id, items in rows:
-        try:
-            for item in items or []:
-                content = base64.b64decode(item["data"], validate=True)
-                digest = attachment_storage.store_blob(content)
-                attachment_id = uuid.UUID(item["id"])
-                if await session.get(NoteAttachment, attachment_id) is None:
-                    session.add(
-                        NoteAttachment(
-                            id=attachment_id,
-                            note_id=note_id,
-                            name=str(item["name"])[:180] or "ek",
-                            mime=str(item["mime"]),
-                            size=len(content),
-                            sha256=digest,
-                        )
-                    )
-            await session.flush()
-            await session.execute(
-                sql_update(Note).where(Note.id == note_id).values(attachments=[])
-            )
-            await session.commit()
-            migrated += 1
-        except Exception:  # noqa: BLE001 - bir not digerlerini durdurmamali
-            await session.rollback()
-            logger.exception("not eki donusumu basarisiz: %s", note_id)
-    return migrated
 
 
 async def create(
@@ -626,92 +393,6 @@ async def create(
     await session.commit()
     return _out(note, entity.title, entity.created_at, entity.updated_at, entity.archived_at,
                 synced["tags"], synced["unresolved"], synced["links"])
-
-
-async def list_notes(
-    session: AsyncSession,
-    *,
-    include_archived: bool = False,
-    about: uuid.UUID | None = None,
-    scope: str = "active",
-) -> list[NoteOut]:
-    """`about` verilirse yalnizca o kayda `notes_about` ile bagli notlar.
-
-    Bagli notlari cagiran tarafta tek tek cekmek yerine tek sorgu -- konu
-    detayi acilirken N+1 olmasin.
-    """
-    # Buyuk JSONB alanlarini listelemede YUKLEME. Ek metadata'si ayri SQL ile
-    # gelir; tuval ise secili notun detay cagrisi ile yuklenir.
-    stmt = (
-        select(Note, Entity.title, Entity.created_at, Entity.updated_at, Entity.archived_at)
-        .join(Entity, Entity.id == Note.id)
-        .options(defer(Note.attachments), defer(Note.canvas_state))
-        .order_by(Note.pinned.desc(), Entity.updated_at.desc())
-    )
-    if about is not None:
-        stmt = stmt.join(Link, Link.from_id == Note.id).where(
-            Link.to_id == about, Link.relation == "notes_about"
-        )
-    if scope == "trash":
-        stmt = stmt.where(Note.trashed_at.is_not(None))
-    elif scope == "archive":
-        stmt = stmt.where(Note.trashed_at.is_(None), Entity.archived_at.is_not(None))
-    elif include_archived:
-        stmt = stmt.where(Note.trashed_at.is_(None))
-    else:
-        stmt = stmt.where(Note.trashed_at.is_(None), Entity.archived_at.is_(None))
-    rows = (await session.execute(stmt)).all()
-    note_ids = [note.id for note, _, _, _, _ in rows]
-    tags = await tag_svc.tags_for(session, note_ids)
-    per_note = {note.id: ref_svc.parse_wikilinks(note.body) for note, _, _, _, _ in rows}
-    resolved = await ref_svc.resolve_titles(
-        session, list({t for targets in per_note.values() for t in targets})
-    )
-    attachments_by_note = await _attachments_metadata(session, note_ids)
-    out: list[NoteOut] = []
-    for note, title, created, updated, archived_at in rows:
-        targets = per_note[note.id]
-        out.append(
-            _out(
-                note, title, created, updated, archived_at, tags.get(note.id, []),
-                [t for t in targets if t not in resolved],
-                [
-                    {"target": t, "id": resolved[t][0], "type": resolved[t][1]}
-                    for t in targets
-                    if t in resolved
-                ],
-                attachments=attachments_by_note.get(note.id),
-                canvas_state={},
-            )
-        )
-    return out
-
-
-async def get(session: AsyncSession, note_id: uuid.UUID) -> NoteOut | None:
-    row = (await session.execute(
-        select(Note, Entity.title, Entity.created_at, Entity.updated_at, Entity.archived_at)
-        .join(Entity, Entity.id == Note.id)
-        .where(Note.id == note_id)
-    )).first()
-    if row is None:
-        return None
-    note = row[0]
-    tags = (await tag_svc.tags_for(session, [note_id])).get(note_id, [])
-    targets = ref_svc.parse_wikilinks(note.body)
-    resolved = await ref_svc.resolve_titles(session, targets)
-    # Ekler `note_attachment` satirlarindan gelir; eski JSONB yalnizca
-    # donusmemis kayitlar icin okunur (bkz. _attachments_metadata).
-    attachments = await _note_attachments(session, note_id)
-    return _out(
-        note, row[1], row[2], row[3], row[4], tags,
-        [t for t in targets if t not in resolved],
-        [
-            {"target": t, "id": resolved[t][0], "type": resolved[t][1]}
-            for t in targets
-            if t in resolved
-        ],
-        attachments=attachments,
-    )
 
 
 async def update(session: AsyncSession, note_id: uuid.UUID, data: NoteUpdate) -> NoteOut | None:
@@ -831,65 +512,6 @@ async def delete(session: AsyncSession, note_id: uuid.UUID) -> bool:
     await archive_entity(session, note_id)
     await log_event(session, verb="note.trashed", entity_id=note_id,
                     entity_type="note", payload={"title": entity.title})
-    await session.commit()
-    return True
-
-
-async def restore_from_trash(session: AsyncSession, note_id: uuid.UUID) -> bool:
-    note = await session.get(Note, note_id)
-    if note is None or note.trashed_at is None:
-        return False
-    return_to_archive = note.trashed_from_archive
-    note.trashed_at = None
-    note.trashed_from_archive = False
-    if return_to_archive:
-        await touch_entity(session, note_id)
-    else:
-        await restore_entity(session, note_id)
-    await log_event(session, verb="note.restored", entity_id=note_id,
-                    entity_type="note", payload={
-                        "from": "trash",
-                        "to": "archive" if return_to_archive else "active",
-                    })
-    await session.commit()
-    return True
-
-
-async def restore_archive(session: AsyncSession, note_id: uuid.UUID) -> bool:
-    note = await session.get(Note, note_id)
-    entity = await session.get(Entity, note_id)
-    if note is None or entity is None or note.trashed_at is not None or entity.archived_at is None:
-        return False
-    await restore_entity(session, note_id)
-    await log_event(session, verb="note.archive_restored", entity_id=note_id,
-                    entity_type="note", payload={})
-    await session.commit()
-    return True
-
-
-async def permanently_delete(
-    session: AsyncSession, note_id: uuid.UUID, *, allow_active: bool = False
-) -> bool:
-    entity = await session.get(Entity, note_id)
-    note = await session.get(Note, note_id)
-    if (
-        entity is None
-        or entity.type != Note.ENTITY_TYPE
-        or note is None
-        or (note.trashed_at is None and not allow_active)
-    ):
-        return False
-    title = entity.title
-    project_id = note.project_id
-    journal_day = note.journal_day
-    if not await delete_entity(session, note_id):
-        return False
-    await log_event(session, verb="note.deleted", entity_type="note",
-                    payload={
-                        "title": title,
-                        "project_id": str(project_id) if project_id else None,
-                        "journal_day": journal_day.isoformat() if journal_day else None,
-                    })
     await session.commit()
     return True
 

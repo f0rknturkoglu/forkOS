@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,6 +61,37 @@ async def unlink(
         await session.delete(row)
 
 
+#: Operasyonel ilişki yüzeylerinde (RelatedPanel/BacklinksPanel) GÖSTERİLMEYEN
+#: entity tipleri. Legacy Notlar PHASE 3'te dondurulmuş arşivdir: bağları
+#: silinmez (§45), ama canlı forkOS kaydı gibi sunulmaz.
+#:
+#: Bu liste kayıt defterindeki `linkable=False` ile TÜRETİLEMEZ: `media_unit`,
+#: `course`, `study_area` gibi destek tipleri de linkable=False'tur ama
+#: operasyonel ilişkilerde görünmelidir (`learns_from`, `media.collection_item`).
+#: Bu yüzden arşiv durumu burada AÇIKÇA yazılır.
+ARCHIVED_ENTITY_TYPES: frozenset[str] = frozenset({"note", "note_folder"})
+
+
+async def backlinks(session: AsyncSession, entity_id: uuid.UUID) -> list[dict]:
+    """Govdesindeki [[wikilink]] ile bu kayda baglanan entity'ler (ters yon).
+
+    `mentions` bağları yalnızca legacy Notlar gövdesinden türer; PHASE 3'ten
+    sonra hiçbir ürün akışı yenisi üretmez. Geçmiş bağlar korunur ama arşiv
+    tipleri burada gösterilmez.
+    """
+    rows = (
+        await session.execute(
+            select(Entity)
+            .join(Link, Link.from_id == Entity.id)
+            .where(Link.to_id == entity_id, Link.relation == "mentions")
+            .where(Entity.archived_at.is_(None))
+            .where(Entity.type.not_in(ARCHIVED_ENTITY_TYPES))
+            .order_by(func.lower(Entity.title))
+        )
+    ).scalars()
+    return [{"id": str(e.id), "type": e.type, "title": e.title} for e in rows]
+
+
 async def related(session: AsyncSession, entity_id: uuid.UUID) -> list[dict]:
     """Yon fark etmeksizin bagli tum entity'ler; her satir icin iliski ve yon.
 
@@ -99,4 +130,5 @@ async def related(session: AsyncSession, entity_id: uuid.UUID) -> list[dict]:
         }
         for row in rows
         if (entity := entities.get(uuid.UUID(row["to_id"])))
+        and entity.type not in ARCHIVED_ENTITY_TYPES
     ]

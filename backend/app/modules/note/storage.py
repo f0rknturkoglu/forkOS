@@ -1,5 +1,12 @@
 """Not eki blob deposu: content-addressed, dosya sisteminde.
 
+PHASE 3 NOTU: Bu depo DONDURULMUŞ arşivin bir parçasıdır. Ürün akışı artık
+yeni not eki yazmaz; kalan çağıranlar yedek/geri yükleme uyumluluğu
+(`system/export.py`, `system/restore.py`), PHASE 2 göç aracı ve arşiv
+boyutu raporudur. Silme budama yolu (yetim blob GC) bilinçli olarak
+kaldırıldı: PHASE 3 §5 gereği `data/attachments` içeriği "yetim" görünse
+bile silinmez.
+
 Icerik `data/attachments/<sha256>` altinda durur. Dosya adi YALNIZCA ozetten
 turetilir; istemciden gelen dosya adi hicbir zaman yol olarak kullanilmaz --
 path traversal bu yuzden yapisal olarak imkansizdir (`blob_path` yalnizca 64
@@ -74,67 +81,3 @@ def read_blob(digest: str) -> bytes | None:
         return path.read_bytes()
     except OSError:
         return None
-
-
-def delete_blob(digest: str) -> int:
-    """Blob'u sil; kazanilan bayt sayisini doner (yoksa 0)."""
-    try:
-        path = blob_path(digest)
-    except ValueError:
-        return 0
-    try:
-        size = path.stat().st_size
-        path.unlink()
-    except OSError:
-        return 0
-    return size
-
-
-def storage_stats() -> tuple[int, int]:
-    """(dosya sayisi, toplam bayt) -- geçici dosyalar sayilmaz."""
-    files = 0
-    total = 0
-    for _name, _mtime, size in iter_blobs():
-        files += 1
-        total += size
-    return files, total
-
-
-def iter_blobs() -> list[tuple[str, float, int]]:
-    """(ad, mtime, bayt) uclusu; gecici dosyalar atlanir."""
-    if not ATTACHMENTS_DIR.is_dir():
-        return []
-    rows: list[tuple[str, float, int]] = []
-    for entry in ATTACHMENTS_DIR.iterdir():
-        if not entry.is_file() or entry.name.startswith("."):
-            continue
-        try:
-            stat = entry.stat()
-        except OSError:
-            continue
-        rows.append((entry.name, stat.st_mtime, stat.st_size))
-    return rows
-
-
-async def prune_orphan_blobs(session, *, grace_seconds: int = 3600) -> int:
-    """Hicbir satirin gostermedigi ek blob'larini sil (yetim temizligi).
-
-    Kalici silme (not/entity) ile satirlar FK cascade'i sayesinde gider, ama
-    DISKTEKI dosya dosya sisteminde oldugu icin silinmez. Yetimler bu yuzden
-    burada, YAS ESIGIYLE temizlenir: yeni yuklenen bir blob'un satiri henuz
-    commit edilmemis olabilir; esik bu yarisi imkansiz kilar.
-    """
-    import time
-
-    from sqlalchemy import select
-
-    from app.modules.note.models import NoteAttachment
-
-    used = set((await session.execute(select(NoteAttachment.sha256).distinct())).scalars())
-    cutoff = time.time() - grace_seconds
-    removed = 0
-    for name, mtime, _size in iter_blobs():
-        if name in used or mtime >= cutoff:
-            continue
-        removed += 1 if delete_blob(name) else 0
-    return removed

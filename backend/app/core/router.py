@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import contributions as contribution_svc
 from app.core import events as event_svc
-from app.core import graph as graph_svc
 from app.core import links as link_svc
 from app.core import registry as registry_svc
 from app.core import runs as run_svc
@@ -234,21 +233,14 @@ async def delete_link(body: LinkIn, session: AsyncSession = Depends(get_session)
     await session.commit()
 
 
-@router.get("/graph")
-async def knowledge_graph(
-    focus: uuid.UUID | None = None,
-    depth: int = Query(2, ge=1, le=4),
-    limit: int = Query(graph_svc.MAX_NODES, ge=1, le=graph_svc.MAX_NODES),
-    session: AsyncSession = Depends(get_session),
-):
-    """Bilgi grafi: dugum = entity, kenar = link. focus verilirse o kaydin cevresi."""
-    return await graph_svc.build(session, focus=focus, depth=depth, limit=limit)
-
-
 @router.get("/entities/{entity_id}/backlinks")
 async def entity_backlinks(entity_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    """Bu kayda [[...]] ile baglanan kayitlar."""
-    return await graph_svc.backlinks(session, entity_id)
+    """Bu kayda [[...]] ile baglanan kayitlar.
+
+    Bilgi grafi GORSELLESTIRMESI PHASE 3'te kaldirildi (`/graph` ucu yok);
+    bu okuma operasyonel yuzeyler (`BacklinksPanel`) icin kalir.
+    """
+    return await link_svc.backlinks(session, entity_id)
 
 
 @router.get("/tags", response_model=list[TagOut])
