@@ -511,6 +511,11 @@ async def build_continuity(
             )
         )
     for deadline in deadlines:
+        entity_id = deadline.get("entity_id")
+        if not entity_id:
+            # Kanonik referansı olmayan son tarih ADAY olarak da üretilmez
+            # (§H5.1): kaynaksız aday, kaynaksız olgu kadar yanıltıcıdır.
+            continue
         reason = policy_svc.deadline_reason(int(deadline.get("remaining_days") or 0))
         attention.append(
             AttentionCandidate(
@@ -519,8 +524,8 @@ async def build_continuity(
                     f"{deadline['title']} için son tarih "
                     f"{deadline.get('remaining_days')} gün içinde."
                 ),
-                support_refs=[f"entity:{deadline['entity_id']}"] if deadline.get("entity_id") else [],
-                entity_id=deadline.get("entity_id"),
+                support_refs=[f"entity:{entity_id}"],
+                entity_id=entity_id,
                 due_at=deadline.get("due_at"),
                 remaining_days=deadline.get("remaining_days"),
             )

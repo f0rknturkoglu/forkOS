@@ -39,7 +39,7 @@ H1       → yalnızca kullanıcı onayından sonra kanonik yazmayı yapar
 kanonik durum + Review + Event + son tarihler + günlük notlar + H3 kanıtı
         ↓  deterministik kaynak montajı (sources.py)
 isteğe bağlı H4 aday çıkarımı / sınıflandırması (consolidation.py)
-        ↓  kaynak kilidi (her olgu support_refs taşır)
+        ↓  kaynak kilidi (her ReviewInsight en az bir kanonik ref taşır)
 ReviewIntelligenceResponse
         ↓  Hermes muhakemesi
         ↓  (isteğe bağlı) H1 onaylı yazmalar

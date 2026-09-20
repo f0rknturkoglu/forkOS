@@ -208,3 +208,36 @@ def test_response_payload_is_typed_per_mode() -> None:
     dumped = str(schema)
     for bundle in ("ContinuityBundle", "DailyCloseBundle", "WeeklyReviewBundle", "PeriodDeltaBundle", "ConsolidationBundle"):
         assert bundle in dumped
+
+
+def test_review_insight_requires_a_canonical_source() -> None:
+    """§H5.1: KAYNAKSIZ OLGU GEÇERSİZDİR — kural model düzeyinde zorlanır."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        ri.ReviewInsight(
+            type="win",
+            text="Tamamlandı: kaynaksız görev",
+            support_refs=[],
+            source_count=0,
+            status="fact",
+        )
+    # Aday da kaynaksız olamaz: H5 desteksiz aday ÜRETMEZ.
+    with pytest.raises(ValidationError):
+        ri.ReviewInsight(type="change", text="x", support_refs=[], status="candidate")
+    # Yalnızca boşluk içeren referans "referans" sayılmaz.
+    with pytest.raises(ValidationError):
+        ri.ReviewInsight(type="win", text="x", support_refs=["   "], status="fact")
+    # Boş referans karışık listede de sessizce kabul edilmez.
+    with pytest.raises(ValidationError):
+        ri.ReviewInsight(type="win", text="x", support_refs=["event:1", ""], status="fact")
+
+    accepted = ri.ReviewInsight(
+        type="win", text="Tamamlandı: görev", support_refs=["event:42"], source_count=1, status="fact"
+    )
+    assert accepted.support_refs == ["event:42"]
+
+
+def test_review_insight_citation_field_is_required() -> None:
+    """Alan varsayılana düşemez: kaynak vermek ZORUNLUDUR."""
+    assert ri.ReviewInsight.model_fields["support_refs"].is_required()

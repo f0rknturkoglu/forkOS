@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Modlar (§17)
@@ -244,16 +244,29 @@ class ContinuityAnchor(BaseModel):
 class ReviewInsight(BaseModel):
     """Kaynağa bağlı tek bir gözlem (§95).
 
-    `status=fact` ise `support_refs` BOŞ OLAMAZ (§90).
+    KANIT KİLİDİ (§90/H5.1): her `ReviewInsight` en az bir KANONİK kaynak
+    referansı taşır. Kaynaksız olgu uydurma olurdu; bu yüzden kural yalnızca
+    `status=fact` için değil, model düzeyinde ZORUNLUDUR. Boş ya da yalnızca
+    boşluk içeren referans listesi doğrulama hatasıdır: fail-closed.
     """
 
     type: InsightType
     text: str
-    support_refs: list[str] = Field(default_factory=list)
+    support_refs: list[str]
     source_count: int = Field(default=0, ge=0)
     temporal_start: str | None = None
     temporal_end: str | None = None
     status: InsightStatus = "fact"
+
+    @field_validator("support_refs")
+    @classmethod
+    def _require_canonical_citation(cls, value: list[str]) -> list[str]:
+        refs = [ref for ref in value if ref and ref.strip()]
+        if not refs:
+            raise ValueError("support_refs requires at least one canonical source ref")
+        if len(refs) != len(value):
+            raise ValueError("support_refs must not contain blank refs")
+        return refs
 
 
 class AttentionCandidate(BaseModel):

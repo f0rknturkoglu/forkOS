@@ -142,6 +142,25 @@ makbuzlarıdır.
 Kilit tutmazsa aday üretilmez: model "makul" bir cümle yazmış olsa bile kaynak
 gösterilemediği için listeye girmez.
 
+Kural **model düzeyinde fail-closed**'dır: `ReviewInsight` en az bir KANONİK
+referans taşımadan oluşturulamaz (boş ya da yalnızca boşluk içeren liste
+doğrulama hatasıdır). Bu yalnızca `status=fact` için değil adaylar için de
+geçerlidir; kaynaksız çıktı üretmeye çalışan bir yol varsa o yol düzeltilir,
+kural gevşetilmez.
+
+### 7.1.1 Tarihsel olgu, güncel kayıttan bağımsızdır
+
+```text
+"Todo X, Y anında tamamlandı"  →  kanıt: event:<event_id>   (append-only)
+                                  entity:<todo_id>  YALNIZCA hâlâ varsa ek bağlam
+```
+
+`todo.completed` Event'ı append-only'dir; Todo/Entity sonradan silinse bile
+Event kalır (`event.entity_id` → NULL). Bu yüzden tamamlanma olgusu Entity
+silinince KAYBOLMAZ ve referansı da boşalmaz. Aynı kural son tarih satırları
+için de geçerlidir: kanonik referansı olmayan satır için olgu/aday
+ÜRETİLMEZ; uydurma ya da pseudo kaynak yazılmaz.
+
 ### 7.2 Kapsam dürüstlüğü — `source_manifest`
 
 H5 "ne kadar baktım" sorusunu saklamaz:
@@ -257,9 +276,20 @@ Review.decisions["_receipts"]["priorities"] = [
 Sonuç satırları:
 
 ```text
-{title, todo_id, scheduled_day, outcome: completed|open, status: done|...|missing}
+{title, todo_id, scheduled_day, outcome: completed|open|unknown, status: <todo durumu>|missing}
 {title, outcome: "unknown", reason: "PRIORITY_RECEIPTS_UNAVAILABLE"}
 ```
+
+`outcome` üç değerlidir ve **yokluk kanıt değildir**:
+
+```text
+Todo var ve status=done   → outcome="completed"
+Todo var ve status≠done   → outcome="open"
+Todo YOK (silinmiş)       → outcome="unknown", status="missing"
+```
+
+Makbuz KİMLİKTİR, güncel varlık değildir: silinen hedef "açık" sayılmaz ve
+`todo_id` tarihsel kimlik olarak yanıtta kalır.
 
 Makbuz yoksa H5 **tahmin etmez**:
 

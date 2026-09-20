@@ -89,6 +89,41 @@ async def _preview(session: AsyncSession, kind: str, period_start) -> dict[str, 
     return preview.model_dump(mode="json")
 
 
+async def _completed_rows(session: AsyncSession, kind: str, period_start: Any) -> list[dict[str, Any]]:
+    """Tamamlanma satırları — kanonik review servisinden (§H5.1).
+
+    Satırlar `event_id` taşır: tamamlanma olgusunun kanıtı append-only
+    Event'tır, güncel Entity DEĞİLDİR.
+    """
+    from app.modules.review import service as review_svc
+
+    return await review_svc.completed_todo_rows(session, kind, period_start)
+
+
+def _completion_refs(collector: Collector, row: dict[str, Any]) -> list[str]:
+    """Tamamlanma için kanonik destek referansları (§H5.1).
+
+    `event:<id>` TEK BAŞINA yeterlidir: Todo/Entity silinse bile Event kalır.
+    Entity hâlâ duruyorsa bağlam olarak `entity:<id>` de eklenir. Kaynaksız
+    olgu üretilmez; bu yüzden bu fonksiyon ASLA boş liste döndürmez.
+    """
+    refs = [
+        collector.add_source(
+            SourceRef(
+                ref=f"event:{row['event_id']}",
+                domain="operational",
+                kind="event",
+                title=f"Tamamlandı: {row['title']}",
+                timestamp=row.get("completed_at"),
+                entity_id=row.get("id"),
+            )
+        )
+    ]
+    if row.get("id"):
+        refs.append(f"entity:{row['id']}")
+    return refs
+
+
 async def _open_loops_and_projects(
     session: AsyncSession, collector: Collector, *, now: datetime
 ) -> tuple[list[CanonicalOpenLoop], list[ReviewInsight], list[dict[str, Any]], list[uuid.UUID]]:
@@ -256,14 +291,15 @@ async def build_daily_close(
     )
     collector.step("review_preview_loaded", considered=1, accepted=1)
 
+    completed_rows = await _completed_rows(session, "daily", day)
     completed_outcomes = [
         _insight(
             insight_type="win",
-            text=f"Tamamlandı: {item['title']}",
-            support_refs=[f"entity:{item['id']}"] if item.get("id") else [],
-            temporal_start=item.get("completed_at"),
+            text=f"Tamamlandı: {row['title']}",
+            support_refs=_completion_refs(collector, row),
+            temporal_start=row.get("completed_at"),
         )
-        for item in preview.get("completed_todos", [])[:MAX_H5_COMPLETED_RECENT]
+        for row in completed_rows[:MAX_H5_COMPLETED_RECENT]
     ]
 
     loops, stalled, projects, project_ids = await _open_loops_and_projects(
@@ -424,13 +460,21 @@ async def build_weekly_review(
                 )
                 continue
             status = statuses.get(str(receipt["todo_id"]))
+            if status is None:
+                # §H5.1: makbuz KİMLİKTİR, güncel varlık değildir. Görev
+                # silinmişse mevcut durum YOKTUR; bu "açık" demek DEĞİLDİR.
+                outcome, status_name = "unknown", "missing"
+            elif status["status"] == "done":
+                outcome, status_name = "completed", status["status"]
+            else:
+                outcome, status_name = "open", status["status"]
             outcomes.append(
                 {
                     "title": entry["title"],
                     "todo_id": str(receipt["todo_id"]),
                     "scheduled_day": receipt.get("scheduled_day"),
-                    "outcome": "completed" if status and status["status"] == "done" else "open",
-                    "status": status["status"] if status else "missing",
+                    "outcome": outcome,
+                    "status": status_name,
                 }
             )
 
@@ -456,14 +500,15 @@ async def build_weekly_review(
     if period.partial:
         collector.warn("PARTIAL_PERIOD", "dönem tamamlanmadı; sayısal karşılaştırma yapılmadı")
 
+    completed_rows = await _completed_rows(session, "weekly", week_start)
     body_of_work = [
         _insight(
             insight_type="win",
-            text=f"Tamamlandı: {item['title']}",
-            support_refs=[f"entity:{item['id']}"] if item.get("id") else [],
-            temporal_start=item.get("completed_at"),
+            text=f"Tamamlandı: {row['title']}",
+            support_refs=_completion_refs(collector, row),
+            temporal_start=row.get("completed_at"),
         )
-        for item in current.get("completed_todos", [])[:MAX_H5_BODY_OF_WORK]
+        for row in completed_rows[:MAX_H5_BODY_OF_WORK]
     ]
 
     events, events_truncated = await source_svc.meaningful_events(
@@ -507,20 +552,29 @@ async def build_weekly_review(
     collector.manifest.deadlines_considered = len(deadlines)
     if deadlines_truncated:
         collector.warn("DEADLINE_SCAN_TRUNCATED")
-    collector.step("deadlines_loaded", considered=len(deadlines), accepted=len(deadlines))
 
     time_sensitive: list[ReviewInsight] = []
     for deadline in deadlines:
         remaining = int(deadline.get("remaining_days") or 0)
-        if remaining <= 3:
-            time_sensitive.append(
-                _insight(
-                    insight_type="time_sensitive",
-                    text=f"{deadline['title']} için son tarih {remaining} gün içinde.",
-                    support_refs=[f"entity:{deadline['entity_id']}"] if deadline.get("entity_id") else [],
-                    temporal_end=deadline.get("due_at"),
-                )
+        if remaining > 3:
+            continue
+        entity_id = deadline.get("entity_id")
+        if not entity_id:
+            # Kanonik referansı olmayan son tarih için OLGU ÜRETİLMEZ (§H5.1);
+            # uydurma/pseudo kaynak yazmak yerine sessizce değil, iz adımında
+            # "kabul edilmedi" olarak görünür.
+            continue
+        time_sensitive.append(
+            _insight(
+                insight_type="time_sensitive",
+                text=f"{deadline['title']} için son tarih {remaining} gün içinde.",
+                support_refs=[f"entity:{entity_id}"],
+                temporal_end=deadline.get("due_at"),
             )
+        )
+    collector.step(
+        "deadlines_loaded", considered=len(deadlines), accepted=len(time_sensitive)
+    )
 
     promotions: list = []
     health: list = []

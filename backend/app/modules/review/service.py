@@ -15,7 +15,7 @@ from app.modules.flashcard.models import FlashcardDeck
 from app.modules.learning.models import StudyArea, StudyTopic
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
-from app.modules.review.schemas import ReviewIn, ReviewOut, ReviewPreview
+from app.modules.review.schemas import CompletedTodo, ReviewIn, ReviewOut, ReviewPreview
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
 from app.modules.todo.schemas import PlanSlotIn, TodoIn, TodoUpdate
@@ -40,6 +40,49 @@ async def _event_count(session: AsyncSession, verb: str, start: datetime, end: d
             )
         ).scalar_one()
     )
+
+
+#: Tamamlanan görev satırı üst sınırı — preview ve H5 aynı pencereyi görür.
+COMPLETED_TODO_LIMIT = 100
+
+
+async def completed_todo_rows(
+    session: AsyncSession, kind: str, period_start: date
+) -> list[dict[str, Any]]:
+    """Dönemde TAMAMLANAN görevler — kanıtı append-only Event'tir (H5.1).
+
+    `event_id` kanonik destek referansıdır: Todo/Entity sonradan silinse bile
+    `todo.completed` Event'ı kalır (`event.entity_id` → NULL). HTTP sözleşmesi
+    (`ReviewPreview.completed_todos`) DEĞİŞMEZ; alan yalnızca çağırana döner.
+    """
+    start, end = period_bounds(kind, period_start)
+    start_dt, end_dt = local_day_bounds(start)[0], local_day_bounds(end)[0]
+    rows = (
+        await session.execute(
+            select(
+                Event.id,
+                Event.entity_id,
+                Event.payload["title"].astext,
+                Event.occurred_at,
+            )
+            .where(
+                Event.verb == "todo.completed",
+                Event.occurred_at >= start_dt,
+                Event.occurred_at < end_dt,
+            )
+            .order_by(Event.occurred_at.desc())
+            .limit(COMPLETED_TODO_LIMIT)
+        )
+    ).all()
+    return [
+        {
+            "event_id": str(event_id),
+            "id": str(entity_id) if entity_id else None,
+            "title": title or "Görev",
+            "completed_at": occurred_at.isoformat(),
+        }
+        for event_id, entity_id, title, occurred_at in rows
+    ]
 
 
 async def preview(session: AsyncSession, kind: str, period_start: date) -> ReviewPreview:
@@ -230,22 +273,6 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             .order_by(Todo.priority.desc(), Todo.due_at.asc().nullslast())
         )
     ).all()
-    completed_rows = (
-        await session.execute(
-            select(
-                Event.entity_id,
-                Event.payload["title"].astext,
-                Event.occurred_at,
-            )
-            .where(
-                Event.verb == "todo.completed",
-                Event.occurred_at >= start_dt,
-                Event.occurred_at < end_dt,
-            )
-            .order_by(Event.occurred_at.desc())
-            .limit(100)
-        )
-    ).all()
     stats = {
         "todos": {
             "completed": await _event_count(session, "todo.completed", start_dt, end_dt),
@@ -307,12 +334,8 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
         for row in unfinished_rows
     ]
     completed = [
-        {
-            "id": str(row.entity_id) if row.entity_id else None,
-            "title": row[1] or "Görev",
-            "completed_at": row.occurred_at.isoformat(),
-        }
-        for row in completed_rows
+        CompletedTodo(id=item["id"], title=item["title"], completed_at=item["completed_at"])
+        for item in await completed_todo_rows(session, kind, period_start)
     ]
     return ReviewPreview(
         kind=kind,
