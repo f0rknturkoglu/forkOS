@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,6 +13,18 @@ from app.integrations.obsidian.index import VaultIndex
 from app.integrations.obsidian.models import VaultItem, VaultStatus
 from app.integrations.obsidian.security import resolve_safe_vault_path, sanitize_filename
 from app.integrations.obsidian.uri import open_file_uri
+
+
+class VaultConflictError(Exception):
+    """Belirtilen forkOS ID'si Vault içinde birden fazla dosyada tespit edildiğinde fırlatılır."""
+
+    def __init__(self, forkos_id: str, conflicting_paths: list[str]) -> None:
+        self.forkos_id = forkos_id
+        self.conflicting_paths = conflicting_paths
+        super().__init__(
+            f"Vault içinde '{forkos_id}' kimliğine sahip birden fazla dosya bulundu: {conflicting_paths}"
+        )
+
 
 vault_index = VaultIndex()
 
@@ -57,6 +71,9 @@ def resolve_managed_item(
     if not vault_index.is_scanned:
         refresh_vault_index(vault_path_override, vault_name_override)
 
+    if vault_index.is_conflicted(fid):
+        raise VaultConflictError(fid, vault_index.conflicts[fid])
+
     item = vault_index.get_item(fid)
     if item:
         v_root, _ = _get_vault_context(vault_path_override, vault_name_override)
@@ -66,7 +83,11 @@ def resolve_managed_item(
                 if not real_file.is_file():
                     # Dosya taşınmış veya silinmişse yeniden tara
                     refresh_vault_index(vault_path_override, vault_name_override)
+                    if vault_index.is_conflicted(fid):
+                        raise VaultConflictError(fid, vault_index.conflicts[fid])
                     return vault_index.get_item(fid)
+            except VaultConflictError:
+                raise
             except Exception:
                 return None
     return item
@@ -114,24 +135,34 @@ def create_managed_note(
 
     str_id = str(forkos_id)
 
+    # 0. Çakışma kontrolü: Bu forkos_id birden fazla dosyada mevcutsa fail-closed!
+    if not vault_index.is_scanned:
+        refresh_vault_index(vault_path_override, vault_name_override)
+    if vault_index.is_conflicted(str_id):
+        raise VaultConflictError(str_id, vault_index.conflicts[str_id])
+
     # 1. Zaten aynı forkos_id ile kayıtlı bir dosya var mı? (İdempotent koruma)
     existing = resolve_managed_item(str_id, v_root, v_name)
     if existing:
         return existing
 
-    folder_name = target_folder or TYPE_DEFAULT_FOLDERS.get(clean_type, "00 Inbox")
+    base_name = sanitize_filename(title)
+
+    # 2. Kanonik yerleşim düzeni (Fix 4)
+    # Projeler: 20 Projects/<Project Name>/<Project Name>.md
+    # Diğerleri: <Default Folder>/<Title>.md
+    if clean_type == "project":
+        parent_folder = target_folder or TYPE_DEFAULT_FOLDERS.get("project", "20 Projects")
+        parent_stripped = parent_folder.rstrip("/")
+        if not (parent_stripped.endswith(f"/{base_name}") or parent_stripped == base_name):
+            folder_name = f"{parent_stripped}/{base_name}"
+        else:
+            folder_name = parent_stripped
+    else:
+        folder_name = target_folder or TYPE_DEFAULT_FOLDERS.get(clean_type, "00 Inbox")
+
     target_dir = resolve_safe_vault_path(resolved_root, folder_name)
     target_dir.mkdir(parents=True, exist_ok=True)
-
-    base_name = sanitize_filename(title)
-    target_file = target_dir / f"{base_name}.md"
-
-    # 2. Dosya adı çakışması kontrolü
-    if target_file.exists():
-        counter = 1
-        while target_file.exists():
-            target_file = target_dir / f"{base_name} ({counter}).md"
-            counter += 1
 
     now_iso = datetime.now(UTC).isoformat()
     frontmatter = {
@@ -144,7 +175,26 @@ def create_managed_note(
     body = initial_body if initial_body is not None else _default_body_for_type(clean_type, title)
     full_content = render_markdown_with_frontmatter(frontmatter, body)
 
-    target_file.write_text(full_content, encoding="utf-8")
+    # 3. Atomik ve güvenli dosya oluşturma (Hardening 2)
+    # os.O_CREAT | os.O_EXCL ile mevcut dosyaların üzerine yazılması engellenir.
+    counter = 0
+    target_file: Path | None = None
+    while True:
+        candidate_name = f"{base_name}.md" if counter == 0 else f"{base_name} ({counter}).md"
+        candidate_file = target_dir / candidate_name
+        try:
+            fd = os.open(candidate_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            try:
+                with open(fd, "w", encoding="utf-8") as f:
+                    f.write(full_content)
+            except Exception:
+                with contextlib.suppress(OSError):
+                    candidate_file.unlink(missing_ok=True)
+                raise
+            target_file = candidate_file
+            break
+        except FileExistsError:
+            counter += 1
 
     rel_path = str(target_file.relative_to(resolved_root)).replace("\\", "/")
     stat = target_file.stat()

@@ -28,7 +28,18 @@ async def refresh_index() -> VaultStatus:
 @router.get("/items/{forkos_id}", response_model=VaultItem)
 async def get_item(forkos_id: uuid.UUID) -> VaultItem:
     """Belirtilen forkOS ID'sine karşılık gelen Vault dosyasını ve açılış URI'sini döner."""
-    item = service.resolve_managed_item(str(forkos_id))
+    try:
+        item = service.resolve_managed_item(str(forkos_id))
+    except service.VaultConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "conflict",
+                "message": f"Bu kimlik ('{forkos_id}') birden fazla Obsidian dosyasında kullanılıyor. Çakışmayı Vault içinde çöz ve indeksi yenile.",
+                "forkos_id": str(forkos_id),
+                "conflicting_paths": exc.conflicting_paths,
+            },
+        ) from exc
     if not item:
         raise HTTPException(
             status_code=404,
@@ -48,6 +59,16 @@ async def create_item(body: CreateManagedNoteIn) -> VaultItem:
             target_folder=body.target_folder,
             initial_body=body.initial_body,
         )
+    except service.VaultConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "conflict",
+                "message": f"Bu kimlik ('{body.forkos_id}') birden fazla Obsidian dosyasında zaten kullanılıyor. Yeni dosya oluşturulamaz.",
+                "forkos_id": str(body.forkos_id),
+                "conflicting_paths": exc.conflicting_paths,
+            },
+        ) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:

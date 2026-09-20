@@ -125,4 +125,31 @@ describe("ProjectKnowledgeNote", () => {
       });
     });
   });
+
+  it("Kimlik çakışması (duplicate conflict) varsa uyarı gösterir ve oluştur butonunu gizler", () => {
+    harness.status = {
+      configured: true,
+      available: true,
+      writable: true,
+      vault_name: "Vault",
+      conflicts: 1,
+      conflict_details: {
+        [mockProject.id]: [
+          "20 Projects/forkOS Core/forkOS Core.md",
+          "20 Projects/Old/forkOS Core.md",
+        ],
+      },
+    };
+    harness.item = null;
+
+    render(<ProjectKnowledgeNote project={mockProject} />);
+    expect(
+      screen.getByText(/Bu kimlik birden fazla Obsidian dosyasında kullanılıyor/i)
+    ).toBeDefined();
+    expect(screen.getByText("20 Projects/forkOS Core/forkOS Core.md")).toBeDefined();
+    expect(screen.getByText("20 Projects/Old/forkOS Core.md")).toBeDefined();
+
+    const btn = screen.queryByRole("button", { name: /Obsidian proje notu oluştur/i });
+    expect(btn).toBeNull();
+  });
 });

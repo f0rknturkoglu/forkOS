@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BookOpen, ExternalLink, Plus } from "lucide-react";
+import { AlertTriangle, BookOpen, ExternalLink, Plus } from "lucide-react";
 import { Button, Section, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
+import { ApiError } from "@/core/api";
 import { createVaultItem, getVaultItem, getVaultStatus, type VaultItem } from "@/core/obsidian";
 import type { Project } from "@/core/types";
 
@@ -16,7 +17,7 @@ export function ProjectKnowledgeNote({ project }: { project: Project }) {
     queryFn: getVaultStatus,
   });
 
-  const { data: queryItem, isLoading: isItemLoading } = useQuery({
+  const { data: queryItem, isLoading: isItemLoading, error: itemError } = useQuery({
     queryKey: ["obsidian-item", project.id],
     queryFn: () => getVaultItem(project.id),
     enabled: Boolean(status?.available),
@@ -24,6 +25,11 @@ export function ProjectKnowledgeNote({ project }: { project: Project }) {
   });
 
   const item = createdItem ?? queryItem;
+
+  const conflictPaths = status?.conflict_details?.[project.id];
+  const isConflicted = Boolean(
+    conflictPaths || (itemError instanceof ApiError && itemError.status === 409)
+  );
 
   const createNote = useMutation({
     mutationFn: () =>
@@ -57,6 +63,31 @@ export function ProjectKnowledgeNote({ project }: { project: Project }) {
                 ? "Obsidian Vault yapılandırılmamış (isteğe bağlı .env dosyasından açılabilir)."
                 : "Obsidian Vault dizini mevcut değil veya erişilemiyor."}
             </span>
+          </div>
+        </div>
+      </Section>
+    );
+  }
+
+  // Çakışma durumu: aynı forkos_id birden fazla dosyada mevcutsa fail-closed göster
+  if (isConflicted) {
+    return (
+      <Section title="Bilgi notu">
+        <div className="rounded-control border border-danger-border bg-danger-surface p-3 text-meta">
+          <div className="flex items-start gap-2 text-danger">
+            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">
+                Bu kimlik birden fazla Obsidian dosyasında kullanılıyor. Çakışmayı Vault içinde çöz ve indeksi yenile.
+              </p>
+              {conflictPaths && conflictPaths.length > 0 && (
+                <ul className="list-disc list-inside text-micro text-danger/80 font-mono space-y-0.5 mt-1">
+                  {conflictPaths.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       </Section>

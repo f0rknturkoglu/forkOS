@@ -239,7 +239,7 @@ def test_notification_ownership_and_routes_are_core_scoped():
     assert NotificationOut.__module__ == "app.core.schemas"
     assert core_notifications.notify.__module__ == "app.core.notifications"
 
-    core_paths = {route.path for route in core_router.routes}
+    core_paths = {route.path for route in core_router.routes if hasattr(route, "path")}
     opportunity_paths = {route.path for route in opportunity_router.routes}
     expected = {
         "/notifications",
