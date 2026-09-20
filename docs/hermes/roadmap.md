@@ -4,7 +4,7 @@ forkOS ile otonom ajan ekosistemini (Hermes) birleştiren vizyon; kademeli,
 güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmıştır.
 
 ```text
-  H0 ✓            H1 ✓             H2              H3              H4              H5              H6
+  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4              H5              H6
 ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
 │  Gözler  │──>│  Eller   │──>│  Sıcak   │──>│  Kanıt   │──>│  Yerel   │──>│  Sentez  │──>│ Proaktif │
 │ Salt-    │   │ Onaylı   │   │  Hafıza  │   │  & Geri  │   │  Model   │   │  & Brif. │   │  Ajan    │
@@ -146,20 +146,42 @@ Yüzey yine **24** araç.
 
 ---
 
-## H3 — Retrieval & Evidence (Sıradaki)
+## H3 — Retrieval & Evidence ✅ Tamamlandı
 
 **Soru:** *Bir iddiayı hangi kanıt destekliyor?*
 
-- Yapısal ilişkiler (Entity–Link) ile Vault serbest metin/`[[wikilink]]` ağının
-  birlikte kullanımı.
-- Çok adımlı gezinme: proje → görevler → toplantı notları → geçmiş kararlar.
-- Yanıtların kaynak göstermesi (hangi dosya, hangi alan, hangi olay).
-- **Şimdilik yok:** embedding, vektör veritabanı, semantik reranker. H0'ın
-  leksikal araması korunur.
+- **Tek genel araç:** `forkos_evidence` (yüzey 25). Yanıt ÜRETMEZ; kökenli bir
+  `EvidenceBundle` döner. Hermes paketin üzerinde akıl yürütür.
+- **Üç kanıt kaynağı:** `entity` (güncel durum), `event` (append-only geçmiş),
+  `vault` (Markdown). Sıcak hafıza kanıt DEĞİLDİR ve taranmaz.
+- **Yapı önce:** sorguya çekirdek verilirse kanonik Link grafiği (deterministik
+  BFS, düğüm tavanı 25) ve olay geçmişi taranır; verilmezse yalnızca leksikal
+  adaylar döner ve hiçbir aday kök yapılıp genişletilmez.
+- **Köken zinciri:** her öğe `locator` (dosya/başlık/satır veya olay id) ve
+  `relation_path` (`entity_link` / `knowledge_pointer` / `wikilink` /
+  `backlink`) taşır.
+- **Tek kasa hopu:** yönetilen not → doğrudan wikilink + doğrudan backlink.
+  Belirsiz bağ TAHMİN EDİLMEZ (`VAULT_CONFLICT`, ambiguity uyarısı); çözülemeyen
+  bağ ölümcül değildir. Kod blokları ve `![[ek]]` bağ sayılmaz.
+- **Leksikal kasa araması** token tabanlıdır (stopword küçük ve açık; `İ→i`,
+  `ş→s` aksan duyarsız). Bağlı not ancak sorguyla eşleşiyorsa kanıt olur.
+- **Dürüst sınırlar:** öğe (≤15), snippet (≤1200), toplam (≤8000), grafik (≤25),
+  olay (≤8), kasa notu (≤12), tarama dosyası (≤500), tek dosya (≤256 KiB).
+  `truncated` / `omitted_total` / `warnings` sınırları saklamaz.
+- **Kapsam ayrımı:** `scope=operational` Vault'a HİÇ dokunmaz;
+  `scope=knowledge` entity/olay kanıtı üretmez.
+- **Determinizm:** aynı durum + aynı istek = aynı kanıt kimlikleri, sıra, köken
+  yolları ve iz. İz her istekte aynı 8 aşamayı taşır.
+- **Eklenmedi:** embedding, vektör DB, model çağrısı, GraphRAG indeksi, kalıcı
+  iz/index, arka plan işçisi, migration, frontend, REST ucu, yanıt üretimi.
+  Yüzey 25 araçtır (H0 8 + H1 11 + H2 5 + H3 1).
+- Kanıt: `test_agent_h3_contract.py`, `test_agent_h3_evidence.py`,
+  `test_agent_h3_transport.py`, `test_obsidian_evidence.py` (75 test).
+- Ayrıntı: `h3-retrieval-evidence.md`, `h3-tool-contract.md`, `h3-setup.md`.
 
 ---
 
-## H4 — Local Model Router
+## H4 — Local Model Router (Sıradaki)
 
 **Soru:** *Hangi iş hangi yerel modelle yapılmalı?*
 
@@ -197,7 +219,8 @@ Yüzey yine **24** araç.
 3. **Domain otoritesi:** iş kuralları canonical servislerde yaşar; ajan katmanı
    kopyalamaz.
 4. **Backend-yerel sınır:** ajan araçları kendileri dış model/servis
-   ÇAĞIRMAZ ve H0/H1/H2 işlemleri dış ağ çağrısı yapmaz. Verinin makineden
+   ÇAĞIRMAZ ve H0/H1/H2/H3 işlemleri dış ağ çağrısı yapmaz (H3 kanıt getirmesi
+   dahil: 0 HTTP, 0 DNS, 0 dış soket). Verinin makineden
    çıkıp çıkmaması, yapılandırılmış ajan/model sağlayıcısına bağlıdır: MCP
    sonuçlarını harness tüketir ve uzak bir model kullanılıyorsa bağlam oraya
    gidebilir. "Uçtan uca yerel" ancak model çalıştırma yolu yerelleştikten

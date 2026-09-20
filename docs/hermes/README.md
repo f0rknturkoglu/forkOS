@@ -4,12 +4,13 @@ Hermes ve forkOS arasındaki resmi entegrasyon katmanı. Kişisel işletim siste
 (forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka
 ajanlarına **bounded** bir MCP yüzeyiyle açar.
 
-Yüzey **H0 → H2** boyunca büyüdü ve bugün toplam **24** araçtır:
+Yüzey **H0 → H3** boyunca büyüdü ve bugün toplam **25** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
 H1  11 araç   açıkça onaylanan güvenli YAZMALAR
 H2   5 araç   f0rknbrain `90 Agent/Memory` içinde küratörlü sıcak hafıza
+H3   1 araç   kökenli, sınırlı KANIT getirme (forkos_evidence)
 ```
 
 > Bu dokümanın eski başlığı "Brain Interface Foundation (H0)" idi; H0 artık
@@ -33,7 +34,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │      24 Bounded MCP Tools      │
+                       │      25 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐
@@ -63,16 +64,17 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 
 - **%100 Salt-Okunur (Zero Mutation):** H0 içinde hiçbir yazma, güncelleme veya silme aracı **bulunmaz**. Ne PostgreSQL veritabanında ne de Vault dosya sisteminde tek bir bayt dahi değiştirilemez.
 - **Harici Ağ Çağrısı Yok (Local-Only):** Arayüz yalnızca yerel döngü (`127.0.0.1`) üzerinde çalışır. Dışarıya telemetri, LLM çağrısı veya veri çıkışı yoktur.
-- **forkOS İçinde LLM/Embedding/Vektör DB Yok:** Semantik arama, embedding üretimi veya dil modeli çalıştırma forkOS backend'inin işi değildir; bu sorumluluk Hermes'e aittir. forkOS yalnızca deterministik leksikal tarama ve yapısal veri sunar.
-- **Hafıza Konsolidasyonu Yok:** Ajanın uzun vadeli hafıza üretmesi veya hafızayı Vault'a geri yazması H0 kapsamında değildir (H3'e ertelenmiştir).
+- **forkOS İçinde LLM/Embedding/Vektör DB Yok:** Semantik arama, embedding üretimi veya dil modeli çalıştırma forkOS backend'inin işi değildir; bu sorumluluk Hermes'e aittir. forkOS yalnızca deterministik leksikal tarama ve yapısal veri sunar. H3 bu sınırı korur: `forkos_evidence` de gömme/vektör/model kullanmaz.
+- **Hafıza Konsolidasyonu Yok:** Ajanın uzun vadeli hafıza üretmesi veya hafızayı Vault'a geri yazması bu katmanların işi değildir (konsolidasyon H5'e bırakılmıştır; H2 yalnızca insan onaylı küratörlü hafıza tutar).
 - **Dondurulmuş Not Tabloları:** Eski forkOS `note` ve `note_folder` tabloları salt arşivdir; diriltilmez ve arama sonuçlarına dahil edilmez.
 
 ---
 
-## 3. Sağlanan MCP Araçları (24)
+## 3. Sağlanan MCP Araçları (25)
 
-Arayüz toplam **24** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
-(H1) + **5 sıcak hafıza** (H2). Yazma araçları `readOnlyHint=false` taşır ve
+Arayüz toplam **25** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+(H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3). Yazma araçları
+`readOnlyHint=false` taşır ve
 `trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
 
 ### Okuma araçları (H0)
@@ -114,12 +116,21 @@ Arayüz toplam **24** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 | **Hafıza** | `hot_memory_update` | `expected_revision` ile düzeltir |
 | **Hafıza** | `hot_memory_retire` | Kullanmayı bırakır (silmez) |
 
+### Kanıt getirme aracı (H3)
+
+| Kategori | Araç Adı | Açıklama |
+| --- | --- | --- |
+| **Kanıt** | `forkos_evidence` | Bir soru/iddia için kökenli, sınırlı kanıt paketi: yapısal grafik + olay geçmişi + yönetilen kasa notları + tek kasa hopu + deterministik leksikal eşleşme. Yanıt ÜRETMEZ; `EvidenceBundle` döner. Salt-okunur. |
+
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [Onay modeli](h1-safe-actions.md) ·
 [H2 Sıcak Hafıza](h2-hot-memory.md) ·
 [H2 Araç Sözleşmesi](h2-tool-contract.md) ·
 [H2 Hafıza Politikası](h2-memory-policy.md) ·
-[H2 Kurulum](h2-setup.md)
+[H2 Kurulum](h2-setup.md) ·
+[H3 Kanıt Getirme](h3-retrieval-evidence.md) ·
+[H3 Araç Sözleşmesi](h3-tool-contract.md) ·
+[H3 Kurulum](h3-setup.md)
 
 ---
 
@@ -128,4 +139,7 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [Teknik Mimari ve Lifespan Entegrasyonu](h0-brain-interface.md): Streamable HTTP mimarisi, FastAPI yaşam döngüsü ve doğrudan Vault tarama tasarımı.
 - [Araç Sözleşmeleri ve Şemalar](h0-tool-contract.md): 8 aracın tüm parametre şemaları, yanıt zarfları ve örnek JSON çıktıları.
 - [Hermes Kurulum Rehberi](h0-setup.md): Hermes yapılandırması, yerel bağlantı adımları ve test yöntemleri.
+- [H3 Kanıt Getirme](h3-retrieval-evidence.md): kanıt modeli, kanallar, öncelik katmanları, köken zincirleri ve dürüstlük semantiği.
+- [H3 Araç Sözleşmesi](h3-tool-contract.md): `forkos_evidence` imzası, sınırlar, hata kodları ve örnek çıktı.
+- [H3 Kurulum ve Doğrulama](h3-setup.md): testler, ölçümler ve sorun giderme.
 - [H-Serisi Yol Haritası (H0 → H6)](roadmap.md): Beyin arayüzünün H0 temelinden H6 tam otonom eşlikçiye evrilme planı.
