@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import os
 from contextlib import asynccontextmanager
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -361,6 +362,21 @@ def forbid_outbound_network(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(readability, "fetch_and_extract", _boom)
     yield
+
+
+def assert_continuous_path(path) -> None:
+    """Köken yolu GERÇEKTEN izlenen yolu mu anlatıyor? (H3.2 §5)
+
+    Ardışık her hop için `hop[i].to_ref == hop[i+1].from_ref` olmalıdır; aksi
+    hâlde zincir kopuktur ve `relation_path` "bu kanıta nasıl ulaşıldı"yı
+    anlatmaz. Tek hop'lu yollar tanım gereği süreklidir.
+    """
+    hops = list(path)
+    for left, right in pairwise(hops):
+        assert left.to_ref == right.from_ref, (
+            f"kopuk köken yolu: {left.to_ref!r} -> {right.from_ref!r} "
+            f"(kind={left.kind} -> {right.kind})"
+        )
 
 
 @asynccontextmanager

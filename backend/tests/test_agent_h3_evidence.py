@@ -25,6 +25,7 @@ from app.integrations.obsidian.service import refresh_vault_index
 from app.modules.project.models import Project
 from app.modules.todo.models import Todo
 from tests.agent_test_utils import (
+    assert_continuous_path,
     capture_db_content_fingerprint,
     capture_vault_fingerprint,
     forbid_outbound_network,  # noqa: F401  (autouse: H3 dış ağ çağrısı yapmaz)
@@ -1358,3 +1359,176 @@ async def test_single_overlong_line_keeps_correct_heading_and_line(
     assert item.truncated is True
     assert lines[item.locator.line_start - 1].startswith(item.excerpt)
     assert "başka" not in item.excerpt
+
+
+# ---------------------------------------------------------------------------
+# H3.2 — Backlink köken sürekliliği ve tek-satır locator dürüstlüğü
+# ---------------------------------------------------------------------------
+
+
+async def test_direct_seed_backlink_relation_path_is_continuous(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§8: `Project → Project.md → Decision.md` zinciri kopuk olamaz."""
+    project = await _project(db_session, title="direct-back")
+    _note(
+        vault,
+        "20 Projects/direct-back.md",
+        "# direct-back\n\n## Karar\n\nRust kararı.\n",
+        forkos_id=str(project.id),
+        forkos_type="project",
+    )
+    _note(vault, "50 Career/karar.md", "# Karar\n\nRust gerekçesi.\n\n[[direct-back]]\n")
+    refresh_vault_index()
+
+    bundle = await ev.retrieve_evidence(
+        db_session, query="Rust kararı", entity_id=str(project.id), scope="knowledge"
+    )
+    backlink = next(
+        item for item in _vault_items(bundle) if item.locator.relative_path == "50 Career/karar.md"
+    )
+
+    assert_continuous_path(backlink.relation_path)
+    assert [hop.kind for hop in backlink.relation_path] == ["knowledge_pointer", "backlink"]
+    assert backlink.relation_path[0].to_ref == "vault:20 Projects/direct-back.md"
+    assert backlink.relation_path[1].from_ref == "vault:20 Projects/direct-back.md"
+    assert backlink.relation_path[1].to_ref == "vault:50 Career/karar.md"
+
+
+async def test_neighbor_backlink_relation_path_is_continuous(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§7/§156: komşu üzerinden gelen backlink de baştan sona bitişiktir."""
+    project = await _project(db_session, title="neighbor-back")
+    todo = await _todo(db_session, title="Geri görev", project=project)
+    _note(
+        vault,
+        "20 Projects/geri-gorev.md",
+        "# Geri görev\n\n## Karar\n\nRust kararı.\n",
+        forkos_id=str(todo.id),
+        forkos_type="note",
+    )
+    _note(vault, "50 Career/karar.md", "# Karar\n\nRust gerekçesi.\n\n[[geri-gorev]]\n")
+    refresh_vault_index()
+
+    bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
+    backlink = next(
+        item for item in _vault_items(bundle) if item.locator.relative_path == "50 Career/karar.md"
+    )
+
+    assert_continuous_path(backlink.relation_path)
+    assert [hop.kind for hop in backlink.relation_path] == [
+        "entity_link",
+        "knowledge_pointer",
+        "backlink",
+    ]
+    assert backlink.relation_path[0].from_ref == f"entity:{project.id}"
+    assert backlink.relation_path[0].to_ref == f"entity:{todo.id}"
+    assert backlink.relation_path[1].to_ref == "vault:20 Projects/geri-gorev.md"
+    assert backlink.relation_path[2].from_ref == "vault:20 Projects/geri-gorev.md"
+    assert backlink.relation_path[2].to_ref == "vault:50 Career/karar.md"
+
+
+async def test_vault_relation_paths_are_adjacent_hop_continuous(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§5: bütün kasa kanıtlarında ardışık hop'lar bitişik olmalı."""
+    project = await _project(db_session, title="continuity")
+    todo = await _todo(db_session, title="Süreklilik görevi", project=project)
+    await _event(db_session, todo, verb="todo.updated")
+    _note(
+        vault,
+        "20 Projects/sureklilik.md",
+        "# Süreklilik görevi\n\n## Karar\n\nRust kararı burada.\n\n[[Rust]]\n",
+        forkos_id=str(todo.id),
+        forkos_type="note",
+    )
+    _note(vault, "30 Knowledge/Rust.md", "# Rust\n\nRust notu.\n")
+    _note(vault, "50 Career/karar.md", "# Karar\n\nRust gerekçesi.\n\n[[sureklilik]]\n")
+    refresh_vault_index()
+
+    bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
+
+    vault_items = _vault_items(bundle)
+    assert len(vault_items) >= 3
+    for item in vault_items:
+        assert_continuous_path(item.relation_path)
+    # Operasyonel ve olay kanıtları da aynı kurala uyar.
+    for item in bundle.evidence:
+        assert_continuous_path(item.relation_path)
+
+
+async def test_backlink_final_ref_is_evidence_source(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§6: kasa kanıtının son hop'u KAYNAĞIN KENDİSİNE işaret eder."""
+    project = await _project(db_session, title="final-ref")
+    todo = await _todo(db_session, title="Son referans", project=project)
+    _note(
+        vault,
+        "20 Projects/son-referans.md",
+        "# Son referans\n\n## Karar\n\nRust kararı.\n\n[[Rust]]\n",
+        forkos_id=str(todo.id),
+        forkos_type="note",
+    )
+    _note(vault, "30 Knowledge/Rust.md", "# Rust\n\nRust notu.\n")
+    _note(vault, "50 Career/karar.md", "# Karar\n\nRust gerekçesi.\n\n[[son-referans]]\n")
+    refresh_vault_index()
+
+    bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
+
+    for item in _vault_items(bundle):
+        if not item.relation_path:
+            continue
+        assert item.relation_path[-1].to_ref == f"vault:{item.locator.relative_path}"
+
+
+async def test_global_shrink_multiline_excerpt_to_single_focus_updates_locator(
+    db_session: AsyncSession, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """§11/§157: çok satırlı snippet tek odak satırına düşerse locator GÜNCELLENİR."""
+    from app.integrations.obsidian import evidence as vault_evidence
+
+    project = await _project(db_session, title="focus-shrink")
+    long_line = "Rust " + "x" * 790
+    body = (
+        "# forkjob\n\n"
+        "## Old Decision\n\n"
+        "Python was considered.\n\n"
+        "## Architecture Decision\n\n"
+        "short context line\n"
+        f"{long_line}\n"
+        "another short line\n"
+    )
+    path = _note(
+        vault,
+        "20 Projects/focus.md",
+        body,
+        forkos_id=str(project.id),
+        forkos_type="project",
+    )
+    refresh_vault_index()
+
+    lines = path.read_text(encoding="utf-8").split("\n")
+    focus_index = next(index for index, line in enumerate(lines) if line.startswith("Rust "))
+    sections = vault_evidence.build_sections(lines, vault_evidence.body_start_line(lines))
+    initial = vault_evidence.extract_excerpt(
+        lines, sections, vault_evidence.tokenize_query("Rust"), max_chars=1200
+    )
+
+    # 1) İlk çıkarım ÇOK satırlıdır (bölüm bütçeye sığdı).
+    assert initial is not None
+    assert initial.line_start < initial.line_end
+    assert initial.truncated is False
+
+    # 2) Global bütçe snippet'i tek odak satırının önekine indirir.
+    monkeypatch.setattr(ev, "MAX_TOTAL_EVIDENCE_CHARS", 200)
+    bundle = await ev.retrieve_evidence(
+        db_session, query="Rust", entity_id=str(project.id), scope="knowledge", limit=1
+    )
+    item = bundle.evidence[0]
+
+    assert item.truncated is True
+    assert item.locator.heading == "Architecture Decision"
+    assert item.locator.line_start == item.locator.line_end == focus_index + 1
+    assert item.excerpt == lines[focus_index][:200]
