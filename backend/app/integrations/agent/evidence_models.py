@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Girdi sınırları (§15/§114-§116)
@@ -87,6 +87,15 @@ EvidenceSourceType = Literal["entity", "event", "vault"]
 #: Kanıtın çekirdeğe nasıl bağlandığı (§29).
 EvidencePathKind = Literal["entity_link", "knowledge_pointer", "wikilink", "backlink"]
 
+#: Kanonik Link'in GEÇİŞ yönü (H3.1 §8).
+#:
+#: `Link` modeli anlamsal yön taşır: `from_id --relation--> to_id`. Gezinme bu
+#: kenarı iki yönden birinde geçebilir. `direction` hangi yönden geçildiğini
+#: söyler ve **ilişki adı ASLA ters çevrilmez**: `Todo --belongs_to--> Project`
+#: satırı `Project`'ten gezerken `relation="belongs_to", direction="incoming"`
+#: olarak raporlanır, "Project belongs_to Todo" diye YENİDEN YAZILMAZ.
+PathDirection = Literal["incoming", "outgoing"]
+
 #: Getirme hattının aşamaları (§44).
 RetrievalStage = Literal[
     "entity_resolution",
@@ -130,16 +139,43 @@ class EvidenceLocator(BaseModel):
 
 
 class EvidencePathHop(BaseModel):
-    """Çekirdekten kanıta giden tek bir adım (§29).
+    """Çekirdekten kanıta giden tek bir adım (§29/H3.1 §7).
 
     `relation` DAİMA kanonik makine ilişkisidir (ör. `belongs_to`), yerelleşmiş
-    etiket değil (§57).
+    etiket değil (§57). `direction` ise bu ilişkinin hangi YÖNDEN geçildiğini
+    söyler; kanonik `from_id`/`to_id` anlamı böylece kaybolmaz.
+
+    Kural:
+
+    ```text
+    entity_link        → direction ZORUNLU (incoming | outgoing)
+    knowledge_pointer  → direction = null (yön kavramı yok)
+    wikilink           → direction = null
+    backlink           → direction = null
+    ```
     """
 
     kind: EvidencePathKind = Field(..., description="Hop kind: entity_link, knowledge_pointer, wikilink or backlink.")
     from_ref: str = Field(..., description="Source reference, e.g. 'entity:<uuid>' or 'vault:<relative_path>'.")
     relation: str = Field(..., description="Canonical machine relation, e.g. 'belongs_to' or 'knowledge_note'.")
+    direction: PathDirection | None = Field(
+        default=None,
+        description=(
+            "Traversal direction across a canonical Link: 'outgoing' when from_id->to_id was "
+            "followed, 'incoming' when to_id->from_id was followed. Required for entity_link "
+            "hops, null for every other kind."
+        ),
+    )
     to_ref: str = Field(..., description="Target reference, e.g. 'entity:<uuid>' or 'vault:<relative_path>'.")
+
+    @model_validator(mode="after")
+    def _direction_matches_kind(self) -> EvidencePathHop:
+        """Sözleşmeyi modelde dayatır: yanlış hop sessizce üretilemez."""
+        if self.kind == "entity_link" and self.direction is None:
+            raise ValueError("entity_link hop requires a traversal direction")
+        if self.kind != "entity_link" and self.direction is not None:
+            raise ValueError(f"{self.kind} hop must not carry a traversal direction")
+        return self
 
 
 class EvidenceItem(BaseModel):
