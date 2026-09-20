@@ -1,6 +1,19 @@
-# forkOS × Hermes — Brain Interface Foundation (H0)
+# forkOS × Hermes — Brain Interface
 
-Hermes ve forkOS arasındaki ilk resmi entegrasyon katmanı olan **H0: Brain Interface Foundation**, kişisel işletim sistemi (forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka ajanlarına açan **salt-okunur, bounded ve yerel** bir arayüzdür.
+Hermes ve forkOS arasındaki resmi entegrasyon katmanı. Kişisel işletim sistemi
+(forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka
+ajanlarına **bounded** bir MCP yüzeyiyle açar.
+
+Yüzey **H0 → H2** boyunca büyüdü ve bugün toplam **24** araçtır:
+
+```text
+H0   8 araç   operasyonel durum + bilgi kasası OKUMA
+H1  11 araç   açıkça onaylanan güvenli YAZMALAR
+H2   5 araç   f0rknbrain `90 Agent/Memory` içinde küratörlü sıcak hafıza
+```
+
+> Bu dokümanın eski başlığı "Brain Interface Foundation (H0)" idi; H0 artık
+> yüzeyin yalnızca ilk katmanıdır.
 
 Bu arayüz, resmi Model Context Protocol (MCP) Python SDK'sı kullanılarak inşa edilmiştir ve FastAPI çalışma zamanı içine `/mcp` Streamable HTTP endpoint'i olarak entegre edilmiştir.
 
@@ -20,7 +33,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │    8 Bounded Read-Only Tools   │
+                       │      24 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐

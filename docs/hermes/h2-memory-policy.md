@@ -102,7 +102,16 @@ Bu bir sınıflandırıcı DEĞİLDİR ve öyle sunulmaz. Asıl savunma şudur: 
 
 Sıcak hafıza dosyaları Obsidian'da **elle düzenlenebilir**; bu bir özelliktir.
 Bu yüzden araç üzerinden gelen içerik ile elle düzenlenmiş içerik AYNI
-yüksek güvenli denetimden geçer:
+yüksek güvenli denetimden geçer — ve denetim **tam artifact** üzerindedir:
+
+```text
+göreli yol + ham Markdown (başlık, gövde, tags, retired_reason,
+                           bilinmeyen frontmatter, dosya adı)
+```
+
+Yani `tags: [api_key=...]` ya da `source: Bearer ...` gibi bir metadata kaydı,
+gövde tamamen temiz olsa bile politikayı ATLAYAMAZ: araç yazmasında aday
+yayınlanmadan önce, elle düzenlemede dosya yüklenmeden önce reddedilir.
 
 ```text
 araç yazması      → HOT_MEMORY_POLICY_REJECTED (yazma reddedilir, dosya yok)

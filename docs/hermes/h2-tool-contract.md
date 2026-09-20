@@ -90,10 +90,15 @@ Davranış:
 | | |
 |---|---|
 | Anotasyonlar | `readOnly=true`, `destructive=false`, `idempotent=true` |
-| Girdi | `kind`, `effective_status` (`active\|expired\|retired\|all`), `query`, `limit` (varsayılan 20, en fazla 50) |
+| Girdi | `kind`, `effective_status` (`active\|expired\|retired\|all`), `query` (en fazla **200** karakter), `limit` (varsayılan 20, en fazla 50) |
 | Çıktı | `HotMemoryListData` |
 | Yan etki | YOK |
 | Ağ | NO |
+
+`query` sınırı hem MCP şemasında (`maxLength: 200`) hem çalışma zamanında
+dayatılır: şema ilk savunmadır, doğrudan çağıranlar için YETKİLİ denetim
+servistedir. Aşan sorgu `QUERY_TOO_LONG` ile reddedilir — sessizce
+kısaltılmaz.
 
 `query` yalnızca **leksikaldir** (başlık, metin, etiket): tam başlık > etiket >
 başlık kelimesi > metin; eşitlikte `updated_at ↓`. Embedding/semantik benzerlik
@@ -123,7 +128,7 @@ raporlanmaz. Çakışmalar fatal değildir, `conflict_ids` olarak raporlanır.
 | | |
 |---|---|
 | Anotasyonlar | `readOnly=false`, `destructive=false`, `idempotent=false` |
-| Girdi | `kind*`, `title*` (1-120), `text*` (1-1200), `source_mode*` (`explicit_user\|approved_candidate`), `importance` (1-3, varsayılan 2), `expires_at`, `related_forkos_ids` (en fazla 5), `tags` (en fazla 8) |
+| Girdi | `kind*`, `title*` (1-120), `text*` (1-1200), `source_mode*` (`explicit_user\|approved_candidate`), `importance` (1-3, varsayılan 2), `expires_at`, `related_forkos_ids` (en fazla 5), `tags` (en fazla 8, etiket başına en fazla 50 karakter) |
 | Çıktı | `ActionReceipt` (`target_type=hot_memory`) |
 | Yan etki | **tek** Markdown dosyası: `90 Agent/Memory/<yeni UUID>.md` |
 | DB | ZERO (yalnızca `related_forkos_ids` doğrulanırsa salt-okunur sorgu) |
@@ -145,9 +150,12 @@ Kurallar:
 - `related_forkos_ids` aktif operasyonel kayıtlar olmalı; dondurulmuş arşiv
   (`note`, `note_folder`, `note_attachment`) ya da arşivlenmiş kayıt reddedilir
   (`INVALID_RELATED_ENTITY`). **Link/Entity satırı oluşturulmaz.**
-- Oluşturma **atomiktir ve üzerine yazmaz**: hedef yalnızca içeriği tam olan
-  dosyaya bağlanır; başarısız oluşturma ne yarım hedef ne artık geçici dosya
-  bırakır.
+- Oluşturma **üzerine yazmaz**. Birincil yolda yayın ATOMİKTİR:
+  `geçici dosya (+fsync) → os.link`; hedef yalnızca içeriği tam olan dosyaya
+  bağlanır. Sert bağ desteklemeyen dosya sistemlerinde `O_CREAT|O_EXCL` yoluna
+  düşülür: üzerine yazma yine engellenir, ancak **kısmi görünürlük garantisi o
+  yolda geçerli DEĞİLDİR**. Her iki yolda da başarısız oluşturma ne yarım hedef
+  ne artık geçici dosya bırakır.
 - Vault yoksa `HOT_MEMORY_UNAVAILABLE`; başka depoya düşülmez.
 
 ---

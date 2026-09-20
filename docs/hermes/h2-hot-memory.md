@@ -295,7 +295,7 @@ yolu dizini oluşturmaz; dizin yalnızca onaylı bir yazmada doğar.
 
 ## 13. Depolama güvenceleri
 
-### 13.1 Oluşturma atomiktir ve üzerine yazmaz
+### 13.1 Oluşturma üzerine yazmaz (birincil yolda atomik)
 
 ```text
 tam içerik → geçici dosya (+fsync) → os.link(geçici, hedef) → geçici silinir
@@ -306,9 +306,13 @@ değildir. Hedef yalnızca içeriği TAM olan bir dosyaya işaret ettiği için 
 bir Markdown dosyası hiçbir an görünmez. Başarısız oluşturma ne yarım hedef ne
 de artık geçici dosya bırakır.
 
+Her iki yolda da politika denetimi yayından ÖNCE çalışır: sır taşıyan bir aday
+ne hedef dosya ne dizin yaratır.
+
 > Sert bağ desteklemeyen dosya sistemlerinde (bazı ağ/FUSE mount'ları) yayın
-> `O_CREAT|O_EXCL` yoluna düşer: üzerine yazma yine engellenir, ancak kısmi
-> görünürlük garantisi o senaryoda geçersizdir.
+> `O_CREAT|O_EXCL` yoluna düşer: üzerine yazma yine engellenir, ancak **kısmi
+> görünürlük garantisi o senaryoda geçersizdir**. İki yol aynı garantiyi
+> VERMEZ ve öyle sunulmaz.
 
 ### 13.2 Güncelleme atomiktir
 
@@ -322,6 +326,11 @@ invalid_count      = şema dışı + politika dışı dosyaların GERÇEK sayıs
 invalid_paths      = yalnızca ilk MAX_INVALID_REPORTED göreli yol (20)
 policy_rejected_count = yalnızca politika nedeniyle dışlananlar
 ```
+
+Tanılamadaki yollar **redakte edilir**: sır benzeri dosya adı bileşenleri
+`[redacted]` ile değiştirilir ve mutlak yol hiçbir koşulda döndürülmez. Aynı
+kural çakışma hatalarında da geçerlidir. Bozuk ya da politika dışı dosyalar
+okuma sırasında **düzeltilmez**.
 
 50 bozuk dosya varsa `invalid_count` 50'dir; yol listesi 20'de kesilir. Sayaç
 ile liste birbirinden bağımsızdır ki tanılama yalan söylemesin.
@@ -340,8 +349,20 @@ Bu yüzden sıcak hafıza küçük, hassas olmayan ve amaçlı kalmalıdır. Pol
 ### 14.1 Politika OKUMA anında da uygulanır
 
 Sıcak hafıza dosyaları Obsidian'da elle düzenlenebilir; yazma anındaki kontrol
-tek başına yetmez. Bu yüzden ayrıştırma sırasında başlık ve gövde, yazmayla
-AYNI yüksek güvenli kimlik bilgisi denetiminden geçer. Eşleşen dosya:
+tek başına yetmez. Denetim **TAM artifact** üzerindedir:
+
+```text
+politika girdisi = göreli yol + dosyanın HAM Markdown içeriği
+```
+
+Yalnızca başlık ve gövdeyi taramak; `tags`, `retired_reason`, bilinmeyen
+frontmatter ve taşınmış dosya adı gibi kullanıcı denetimindeki diğer metinleri
+kaçırırdı. Sıcak hafıza dosyaları küçüktür; tam tarama ucuzdur ve ayrışan alan
+listeleri bakımı gerektirmez. Yazmada da AYNI kapı çalışır: render edilen aday
+yayınlanmadan önce denetlenir, yani reddedilen metadata ne hedef dosya ne dizin
+yaratır.
+
+Eşleşen dosya:
 
 ```text
 sıcak hafıza bağlamına YÜKLENMEZ  (hot_memory_context / hot_memory_list)

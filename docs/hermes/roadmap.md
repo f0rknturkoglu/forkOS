@@ -121,6 +121,31 @@ benzerlik. Yüzey yine **24** araç.
 
 ---
 
+## H2.2 — Metadata Privacy & Bounded Contracts ✅ Tamamlandı
+
+**Soru:** *Politika yalnızca başlık/gövdeyi mi koruyor, ve belgelenen her sınır
+gerçekten uygulanıyor mu?*
+
+- **Tam artifact politikası:** denetim girdisi artık `göreli yol + ham Markdown`.
+  `tags`, `retired_reason`, bilinmeyen frontmatter ve taşınmış dosya adı da
+  kapsanır; ajan yüzeyine çıkabilecek hiçbir metadata kaçış yolu kalmaz.
+- **Depolama yetkili:** politika, render edilen aday YAYINLANMADAN önce depolama
+  katmanında dayatılır; adaptördeki denetim yalnızca kolaylıktır.
+- **Tanılama redaksiyonu:** `invalid_paths` ve çakışma mesajlarındaki sır benzeri
+  bileşenler `[redacted]` olur; mutlak yol hiçbir koşulda dönmez.
+- **Gerçek sınırlar:** elle düzenlenen dosyada etiket başına 50 karakter ve
+  boş-olmayan etiket kuralı ayrıştırıcıda da uygulanır; `query` sınırı (200)
+  hem MCP şemasında hem çalışma zamanında dayatılır.
+- **Belge dürüstlüğü:** kök README ve bu doküman 24 araçlı gerçek yüzeyi
+  anlatır; gizlilik ifadesi "uçtan uca yerel" iddiasından arındırılıp
+  ajan/model sağlayıcı sınırına bağlandı; oluşturma garantisi sert bağ ve
+  yedek yol ayrımıyla yazıldı.
+
+**Eklenmedi:** yeni araç, yeni tablo, PII sınıflandırıcı, semantik arama, H3.
+Yüzey yine **24** araç.
+
+---
+
 ## H3 — Retrieval & Evidence (Sıradaki)
 
 **Soru:** *Bir iddiayı hangi kanıt destekliyor?*
@@ -171,8 +196,12 @@ benzerlik. Yüzey yine **24** araç.
 2. **Tek sahiplik:** operasyonel durum forkOS'ta, bilgi f0rknbrain Vault'unda.
 3. **Domain otoritesi:** iş kuralları canonical servislerde yaşar; ajan katmanı
    kopyalamaz.
-4. **Local-only:** kişisel veri dış servise gitmez; yazmalar dış ağ çağrısı
-   yapmaz.
+4. **Backend-yerel sınır:** ajan araçları kendileri dış model/servis
+   ÇAĞIRMAZ ve H0/H1/H2 işlemleri dış ağ çağrısı yapmaz. Verinin makineden
+   çıkıp çıkmaması, yapılandırılmış ajan/model sağlayıcısına bağlıdır: MCP
+   sonuçlarını harness tüketir ve uzak bir model kullanılıyorsa bağlam oraya
+   gidebilir. "Uçtan uca yerel" ancak model çalıştırma yolu yerelleştikten
+   sonra iddia edilebilir.
 5. **Silme yok:** ajan yüzeyinde yıkıcı yetenek bulunmaz.
 6. **Sessiz yedek yok:** bir yazma başarısızsa hata olarak kalır; başka bir
    depoya düşülmez.
