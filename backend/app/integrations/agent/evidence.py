@@ -900,7 +900,9 @@ def _note_candidate(
         relation_path=relation_path,
         reason=reason,
     )
-    focus = excerpt.line_start - 1
+    # Odak: snippet'in DAYANAĞI olan satır (snippet'in ilk satırı DEĞİL).
+    # Bütçe kırpması bu satırı korur; aksi hâlde kanıt eşleşmeyi kaybederdi.
+    focus = excerpt.focus_line
     return _Candidate(
         item=item,
         tier=tier,
@@ -922,11 +924,21 @@ def _wikilink_hop(anchor_rel_path: str, target_rel_path: str) -> EvidencePathHop
 
 
 def _backlink_hop(anchor_rel_path: str, source_rel_path: str) -> EvidencePathHop:
+    """Backlink hop'u GETİRME yönünü izler (H3.2 §3).
+
+    `relation_path` "bu kanıta çekirdekten nasıl ulaşıldı"yı anlatır; Markdown
+    bağının fiziksel yönünü değil. `Decision.md` içinde `[[Todo]]` varsa ve
+    getirme `Todo.md`'den başlıyorsa, gezinme `Todo.md → Decision.md`'dir.
+    Yön bilgisi zaten `kind=backlink` ile verilir, bu yüzden `direction=null`.
+
+    Aksi hâlde ardışık hop'lar zincir OLUŞTURMAZ (`hop[i].to_ref` !=
+    `hop[i+1].from_ref`) ve köken yolu okunamaz hâle gelirdi.
+    """
     return EvidencePathHop(
         kind="backlink",
-        from_ref=f"vault:{source_rel_path}",
+        from_ref=f"vault:{anchor_rel_path}",
         relation="backlink",
-        to_ref=f"vault:{anchor_rel_path}",
+        to_ref=f"vault:{source_rel_path}",
     )
 
 
@@ -1208,7 +1220,20 @@ def _shrink(candidate: _Candidate, remaining: int) -> tuple[EvidenceItem, bool] 
     if lines and len(lines[focus]) > remaining:
         if remaining < MIN_USEFUL_EXCERPT_CHARS:
             return None
-        trimmed = item.model_copy(update={"excerpt": lines[focus][:remaining], "truncated": True})
+        # Kanıt TEK bir fiziksel satıra düştü: locator da tek satırı göstermeli,
+        # aksi hâlde satır aralığı snippet'i yalanlardı (H3.2 §9/§10).
+        locator = item.locator
+        if locator.line_start is not None:
+            locator = locator.model_copy(
+                update={"line_start": focus + 1, "line_end": focus + 1}
+            )
+        trimmed = item.model_copy(
+            update={
+                "excerpt": lines[focus][:remaining],
+                "truncated": True,
+                "locator": locator,
+            }
+        )
         return trimmed, True
 
     start = end = focus

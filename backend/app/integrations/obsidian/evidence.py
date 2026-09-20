@@ -177,6 +177,10 @@ class Excerpt:
     `section_start`/`section_end` snippet'in TÜRETİLDİĞİ bölümün sınırlarıdır
     (0 tabanlı, dahil). Sonraki global bütçe kırpması bu aralığın DIŞINA
     çıkamaz; aksi hâlde `heading` yalan söylerdi (H3.1 §44-§47).
+
+    `focus_line` snippet'in DAYANAĞI olan satırdır (0 tabanlı): sorgu
+    kelimelerinin en çok eşleştiği satır. Sonraki bir kırpma daima bu satırı
+    korur; aksi hâlde kanıt, kanıtladığı şeyi kaybederdi (H3.2 §10).
     """
 
     text: str
@@ -186,6 +190,7 @@ class Excerpt:
     truncated: bool
     section_start: int
     section_end: int
+    focus_line: int
 
 
 def body_start_line(lines: list[str]) -> int:
@@ -304,6 +309,7 @@ def extract_excerpt(
                 truncated=True,
                 section_start=section.start,
                 section_end=section.end,
+                focus_line=focus,
             )
         below, above = focus + 1, focus - 1
         while True:
@@ -335,6 +341,7 @@ def extract_excerpt(
         truncated=truncated,
         section_start=section.start,
         section_end=section.end,
+        focus_line=focus,
     )
 
 
