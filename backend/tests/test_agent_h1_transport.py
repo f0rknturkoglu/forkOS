@@ -38,6 +38,9 @@ from tests.agent_test_utils import (
     legacy_notes_counts,
     mcp_session,
 )
+from tests.agent_test_utils import (
+    tool_receipt as receipt_of,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -68,12 +71,6 @@ def vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(settings, "obsidian_vault_path", str(path))
     monkeypatch.setattr(settings, "obsidian_vault_name", "TransportVault")
     return path
-
-
-def receipt_of(result) -> dict:
-    assert result.is_error is False, result.content
-    payload = json.loads(result.content[0].text)
-    return payload["data"]
 
 
 async def _seed_todo(session: AsyncSession) -> uuid.UUID:
