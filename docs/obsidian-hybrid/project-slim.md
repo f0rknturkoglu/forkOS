@@ -25,7 +25,7 @@ Bu doküman, Proje modülünün gelecekteki sınırlarını ve hangi yetenekleri
 | **Project Activity (`last_activity_at`, commits)** | Operasyonel | forkOS (`github_activity`) | `KEEP` | Projenin ne kadar süredir hareketsiz olduğunu ölçer; pasif projeleri yüzeye çıkarır. |
 | **Today Project Widget & Context** | Operasyonel | forkOS (`ProjectsWidget.tsx`) | `KEEP` | Günlük odak sırasında hangi projede olduğunun farkında olmayı sağlar. |
 | **CaptureDialog Project Selection** | Operasyonel | forkOS | `KEEP` | Hızlı yakalama sırasında görevi projeye atama kritik operasyonel ergonomidir. |
-| **Project Knowledge Note (`20 Projects/<Name>.md`)** | Bilgi (Knowledge) | Obsidian Vault | `BRIDGE` | Proje vizyonu, mimari kararlar, araştırma linkleri tek tıkla açılan Vault notunda yaşar. |
+| **Project Knowledge Note (`20 Projects/<Name>/<Name>.md`)** | Bilgi (Knowledge) | Obsidian Vault | `BRIDGE` | Proje vizyonu, mimari kararlar, araştırma linkleri tek tıkla açılan Vault notunda yaşar. |
 | **Project Journal (`Note.journal_day` + `project_id`)** | Bilgi (Knowledge) | Obsidian Vault (`.../Journal/`) | `MOVE_TO_VAULT` | Proje günlükleri serbest metindir; Obsidian'ın arama, backlink ve günlük takviminde çok daha etkindir. |
 | **Long Descriptions & Ad-hoc Notes** | Bilgi (Knowledge) | Obsidian Vault | `MOVE_TO_VAULT` | Proje içi dev metin kutuları yerine Obsidian editörü kullanılır. |
 | **Knowledge Graph (Project Relations)** | Bilgi (Knowledge) | Obsidian Vault | `MOVE_TO_VAULT` | Proje notunun diğer notlarla ve kaynaklarla ilişkisi Obsidian grafında görselleştirilir. |
@@ -40,7 +40,7 @@ Gelecekteki sadeleştirilmiş Projeler ekranı:
 +------------------------------------------------------------------------+
 | PROJE: forkOS Core                             [Aktif] [Obsidian'da Aç]|
 +------------------------------------------------------------------------+
-| Bilgi Notu: 20 Projects/forkOS Core.md                                 |
+| Bilgi Notu: 20 Projects/forkOS Core/forkOS Core.md                     |
 | Sıradaki Aksiyon: Obsidian köprüsü testlerini tamamla                 |
 +------------------------------------------------------------------------+
 | KİLOMETRE TAŞLARI (Milestones)                                         |
