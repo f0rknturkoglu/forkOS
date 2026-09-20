@@ -300,3 +300,45 @@ def test_general_vault_knowledge_is_unaffected_by_hot_memory_policy(mock_vault):
     hits = search_vault("api_key", scope="knowledge")
     assert [hit.relative_path for hit in hits] == ["30 Knowledge/Sır Notu.md"]
     assert _HOT_SECRET in read_vault_note(relative_path="30 Knowledge/Sır Notu.md").content
+
+
+def test_manual_secret_in_frontmatter_is_not_returned_by_brain_search(mock_vault):
+    """§42: başlık, gövde ve etiketler TEMİZ; sır ek frontmatter'da.
+
+    Yalnızca başlık/gövde tarayan bir denetim bu dosyayı kaçırırdı.
+    """
+    directory = mock_vault / _HOT_MEMORY_DIR
+    directory.mkdir(parents=True)
+    (directory / f"{_VALID_MEMORY_ID}.md").write_text(
+        _hot_memory_markdown(_VALID_MEMORY_ID, "Tamamen temiz gövde.").replace(
+            "tags: []", f"tags: []\nsource: {_HOT_SECRET}"
+        ),
+        encoding="utf-8",
+    )
+
+    assert search_vault("api_key", scope="agent") == []
+    assert search_vault("temiz", scope="agent") == []
+
+    with pytest.raises(ValueError) as excinfo:
+        read_vault_note(relative_path=f"{_HOT_MEMORY_DIR}/{_VALID_MEMORY_ID}.md")
+    assert "ACCESS_DENIED" in str(excinfo.value)
+    assert _HOT_SECRET not in str(excinfo.value)
+
+
+def test_secret_like_hot_memory_filename_is_denied_by_brain_read(mock_vault):
+    """§10/§43: dosya ADI da politika kapsamındadır."""
+    directory = mock_vault / _HOT_MEMORY_DIR
+    directory.mkdir(parents=True)
+    secret_name = f"{_HOT_SECRET}.md"
+    (directory / secret_name).write_text(
+        _hot_memory_markdown(_VALID_MEMORY_ID, "Temiz gövde."), encoding="utf-8"
+    )
+
+    assert search_vault("Temiz", scope="agent") == []
+
+    with pytest.raises(ValueError) as excinfo:
+        read_vault_note(relative_path=f"{_HOT_MEMORY_DIR}/{secret_name}")
+    message = str(excinfo.value)
+    assert "ACCESS_DENIED" in message
+    assert _HOT_SECRET not in message
+    assert "sk-abcdefghijklmnopqrstuvwx" not in message

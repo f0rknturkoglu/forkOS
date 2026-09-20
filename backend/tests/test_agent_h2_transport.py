@@ -364,3 +364,66 @@ async def test_vault_unavailable_over_transport(
             result = await session.call_tool(tool, args)
             assert result.is_error is True, tool
             assert "HOT_MEMORY_UNAVAILABLE" in result.content[0].text
+
+
+# ---------------------------------------------------------------------------
+# H2.2 §25/§27 — sorgu sınırı şemada ve taşımada
+# ---------------------------------------------------------------------------
+
+
+def _max_lengths(schema: object) -> list[int]:
+    """Bir JSON şema alt ağacındaki TÜM `maxLength` değerlerini toplar."""
+    found: list[int] = []
+    if isinstance(schema, dict):
+        if isinstance(schema.get("maxLength"), int):
+            found.append(schema["maxLength"])
+        for value in schema.values():
+            found.extend(_max_lengths(value))
+    elif isinstance(schema, list):
+        for item in schema:
+            found.extend(_max_lengths(item))
+    return found
+
+
+async def test_h2_transport_query_schema_is_bounded(db_session: AsyncSession) -> None:
+    async with mcp_session() as session:
+        tools = {t.name: t for t in (await session.list_tools()).tools}
+
+    query_schema = tools["hot_memory_list"].input_schema["properties"]["query"]
+
+    assert 200 in _max_lengths(query_schema)
+    assert all(bound <= 200 for bound in _max_lengths(query_schema))
+
+
+async def test_h2_transport_rejects_oversized_query(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    created = await _store_via_service(db_session)
+    vault_before = capture_vault_fingerprint(vault)
+    db_before = await capture_db_content_fingerprint(db_session)
+
+    async with mcp_session() as session:
+        result = await session.call_tool("hot_memory_list", {"query": "a" * 201})
+
+    assert result.is_error is True
+    # Şema ilk savunmadır; hiçbir mutasyon olmamalı.
+    assert capture_vault_fingerprint(vault) == vault_before
+    assert await capture_db_content_fingerprint(db_session) == db_before
+    assert created["target_id"]
+
+
+async def _store_via_service(session: AsyncSession) -> dict:
+    from app.integrations.agent import hot_memory as hm
+    from app.integrations.agent.hot_memory_models import HotMemoryStoreIn
+
+    receipt = await hm.store_memory(
+        session,
+        HotMemoryStoreIn(
+            kind="preference",
+            title="Sorgu sınırı",
+            text="Sorgu sınırı gövdesi.",
+            source_mode="explicit_user",
+        ),
+        request_id="t",
+    )
+    return {"target_id": receipt.target_id}

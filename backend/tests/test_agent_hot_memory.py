@@ -1179,3 +1179,334 @@ def test_hot_memory_ranking_uses_chronological_updated_at_not_raw_string_order(
         by_title["B kaydı"],
     ]
     assert later_earlier_offset != earlier_later_offset
+
+
+# ===========================================================================
+# H2.2 — metadata gizliliği, sınırlı sözleşmeler ve tanılama redaksiyonu
+# ===========================================================================
+
+_SECRET_TAG = "api_key=sk-abcdefghijklmnopqrstuvwx"
+_SECRET_NAME = f"{_SECRET_TAG}.md"
+
+
+def _assert_secret_absent(payload: object, secret: str) -> None:
+    """Serileştirilmiş bir yükün HİÇBİR yerinde sır bulunmadığını doğrular (§65).
+
+    Tek bir alanı kontrol etmek yetmez: sır, tanılama yollarında, uyarılarda ya
+    da makbuz künyesinde de görünebilir.
+    """
+    serialized = payload if isinstance(payload, str) else json.dumps(payload, default=str)
+    assert secret not in serialized
+    assert "sk-abcdefghijklmnopqrstuvwx" not in serialized
+
+
+# ---------------------------------------------------------------------------
+# §7/§64 — store ve update: metadata'daki sır
+# ---------------------------------------------------------------------------
+
+
+async def test_hot_memory_store_rejects_secret_in_tags(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    db_before = await capture_db_content_fingerprint(db_session)
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_POLICY_REJECTED"):
+        await _store(db_session, tags=[_SECRET_TAG])
+
+    assert _memory_files(vault) == []
+    # Reddedilen aday dizini bile yaratmaz (§39).
+    assert not (vault / MEMORY_DIR).exists()
+    assert await capture_db_content_fingerprint(db_session) == db_before
+
+
+async def test_hot_memory_update_rejects_secret_in_tags_without_mutation(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§41: reddedilen metadata güncellemesi hedefi HİÇ değiştirmez."""
+    created = await _store(db_session, tags=["planning"])
+    record = _scanned_record(vault, created.target_id)
+    path = vault / record.relative_path
+    bytes_before = path.read_bytes()
+    stat_before = path.stat()
+    db_before = await capture_db_content_fingerprint(db_session)
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_POLICY_REJECTED"):
+        await hm.update_memory(
+            db_session,
+            HotMemoryUpdateIn(
+                memory_id=created.target_id,
+                expected_revision=record.revision,
+                tags=[_SECRET_TAG],
+            ),
+            request_id="t",
+        )
+
+    assert path.read_bytes() == bytes_before
+    assert storage.revision_of(path.read_bytes()) == record.revision
+    assert path.stat().st_mtime_ns == stat_before.st_mtime_ns
+    assert await capture_db_content_fingerprint(db_session) == db_before
+
+
+# ---------------------------------------------------------------------------
+# §9/§42/§64 — elle düzenlenmiş metadata
+# ---------------------------------------------------------------------------
+
+
+async def test_manual_secret_in_tags_is_policy_rejected(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """Başlık ve gövde TEMİZ; yalnızca etiket sır taşıyor."""
+    path = _manual_memory_file(vault, title="Temiz başlık", text="Temiz gövde.")
+    edited = path.read_text(encoding="utf-8").replace("tags: []", f"tags:\n  - {_SECRET_TAG}")
+    path.write_text(edited, encoding="utf-8")
+    stat_before = path.stat()
+
+    context = hm.get_context()
+    listed = hm.list_memories(effective_status="all")
+
+    assert context.preferences == []
+    assert listed.items == []
+    assert context.invalid_count == 1
+    _assert_secret_absent(context.model_dump(), _SECRET_TAG)
+    _assert_secret_absent(listed.model_dump(), _SECRET_TAG)
+    assert path.read_text(encoding="utf-8") == edited
+    assert path.stat().st_mtime_ns == stat_before.st_mtime_ns
+
+
+async def test_manual_secret_in_extra_frontmatter_is_policy_rejected(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """Bilinmeyen/ek frontmatter anahtarı politika kapısını ATLAYAMAZ."""
+    path = _manual_memory_file(vault, title="Temiz", text="Temiz gövde.")
+    edited = path.read_text(encoding="utf-8").replace(
+        "tags: []", f"tags: []\nsource: {_SECRET_TAG}"
+    )
+    path.write_text(edited, encoding="utf-8")
+
+    context = hm.get_context()
+    listed = hm.list_memories(effective_status="all")
+
+    assert context.preferences == []
+    assert listed.items == []
+    _assert_secret_absent(context.model_dump(), _SECRET_TAG)
+    _assert_secret_absent(listed.model_dump(), _SECRET_TAG)
+    assert path.read_text(encoding="utf-8") == edited
+
+
+async def test_secret_like_memory_filename_is_not_exposed(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    """§10: dosya adı da kullanıcı denetimindedir; ajan yüzeyine çıkamaz."""
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+    original = vault / record.relative_path
+    renamed = original.parent / _SECRET_NAME
+    original.rename(renamed)
+    stat_before = renamed.stat()
+
+    context = hm.get_context()
+    listed = hm.list_memories(effective_status="all")
+
+    assert context.preferences == []
+    assert listed.items == []
+    assert listed.invalid_count == 1
+    assert listed.invalid_paths
+    _assert_secret_absent(context.model_dump(), _SECRET_TAG)
+    _assert_secret_absent(listed.model_dump(), _SECRET_TAG)
+    # Dosya olduğu gibi bırakılır: yeniden adlandırma ya da redaksiyon YOK (§56).
+    assert renamed.is_file()
+    assert renamed.stat().st_mtime_ns == stat_before.st_mtime_ns
+
+
+# ---------------------------------------------------------------------------
+# §18-§22/§66 — elle düzenlenen metadata sınırları
+# ---------------------------------------------------------------------------
+
+
+def test_manual_hot_memory_tag_over_50_chars_is_invalid(vault: Path) -> None:
+    too_long = "t" * (storage.MAX_TAG_LENGTH + 1)
+    path = _manual_memory_file(vault)
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("tags: []", f"tags:\n  - {too_long}"),
+        encoding="utf-8",
+    )
+    before = capture_vault_fingerprint(vault)
+    stat_before = path.stat()
+
+    snapshot = storage.scan_memories(vault.resolve())
+    listed = hm.list_memories(effective_status="all")
+
+    assert snapshot.items == []
+    assert snapshot.invalid_count == 1
+    assert listed.items == []
+    assert listed.invalid_count == 1
+    # §19/§57: okuma yolu dosyayı DÜZELTMEZ.
+    assert capture_vault_fingerprint(vault) == before
+    assert path.stat().st_mtime_ns == stat_before.st_mtime_ns
+
+
+def test_manual_hot_memory_blank_tag_is_invalid(vault: Path) -> None:
+    path = _manual_memory_file(vault)
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("tags: []", 'tags:\n  - "   "'),
+        encoding="utf-8",
+    )
+    before = capture_vault_fingerprint(vault)
+
+    snapshot = storage.scan_memories(vault.resolve())
+
+    assert snapshot.items == []
+    assert snapshot.invalid_count == 1
+    assert capture_vault_fingerprint(vault) == before
+
+
+def test_manual_oversized_tag_cannot_bloat_output(vault: Path) -> None:
+    """§21: birkaç KB'lik etiket çıktıyı şişiremez."""
+    huge = "x" * 4096
+    path = _manual_memory_file(vault)
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("tags: []", f"tags:\n  - {huge}"),
+        encoding="utf-8",
+    )
+
+    listed = hm.list_memories(effective_status="all")
+
+    assert listed.items == []
+    assert huge not in json.dumps(listed.model_dump())
+
+
+# ---------------------------------------------------------------------------
+# §45 — sayaçlar dürüst kalır
+# ---------------------------------------------------------------------------
+
+
+def test_policy_counters_stay_truthful_with_mixed_invalid_files(vault: Path) -> None:
+    directory = vault / MEMORY_DIR
+    directory.mkdir(parents=True)
+    # 2 şema dışı (sır yok) + 3 politika dışı (gövdede sır).
+    for index in range(2):
+        (directory / f"bozuk-{index}.md").write_text("frontmatter yok", encoding="utf-8")
+    for index in range(3):
+        _manual_memory_file(vault, text=f"api_key=sk-secret{index}0000000000000")
+
+    snapshot = storage.scan_memories(vault.resolve())
+
+    assert snapshot.invalid_count == 5
+    assert snapshot.policy_rejected_count == 3
+    assert len(snapshot.invalid_relative_paths) == 5
+    assert len(snapshot.policy_rejected_relative_paths) == 3
+    # Sır taşıyan tanılama yolu redakte edilir (§11).
+    assert all("sk-secret" not in path for path in snapshot.invalid_relative_paths)
+
+
+# ---------------------------------------------------------------------------
+# §20 — şema = belge = çalışma zamanı
+# ---------------------------------------------------------------------------
+
+
+def test_hot_memory_bounds_match_between_models_and_storage() -> None:
+    """Aynı sınır iki katmanda ayrışırsa sessizce gevşer; burada kilitlenir."""
+    from app.integrations.agent import hot_memory_models as models
+
+    for name in (
+        "MAX_TITLE",
+        "MAX_TEXT",
+        "MAX_TAGS",
+        "MAX_TAG_LENGTH",
+        "MAX_RELATED",
+        "MAX_RETIRED_REASON",
+    ):
+        assert getattr(models, name) == getattr(storage, name), name
+
+
+# ---------------------------------------------------------------------------
+# §23-§27/§67 — sorgu sınırı (çalışma zamanı = yetki)
+# ---------------------------------------------------------------------------
+
+
+def test_hot_memory_list_query_200_chars_allowed(vault: Path) -> None:
+    _manual_memory_file(vault, title="Kayıt", text="Gövde.")
+
+    listed = hm.list_memories(query="a" * storage.MAX_TAG_LENGTH * 4, effective_status="all")
+
+    assert listed.total == 0  # eşleşme yok ama istek GEÇERLİ
+
+
+def test_hot_memory_list_query_201_chars_rejected(vault: Path) -> None:
+    from app.integrations.agent.hot_memory_models import MAX_QUERY_LENGTH
+
+    _manual_memory_file(vault, title="Kayıt", text="Gövde.")
+
+    with pytest.raises(hm.ActionError, match="QUERY_TOO_LONG"):
+        hm.list_memories(query="a" * (MAX_QUERY_LENGTH + 1))
+
+    # Sınır tam 200'de durur.
+    assert hm.list_memories(query="a" * MAX_QUERY_LENGTH).total == 0
+
+
+# ---------------------------------------------------------------------------
+# §38/§68 — sert bağ desteklemeyen dosya sistemi yolu
+# ---------------------------------------------------------------------------
+
+
+def _disable_hardlinks(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _unsupported(*args: object, **kwargs: object) -> None:
+        raise OSError(errno.EPERM, "sert bağ desteklenmiyor")
+
+    monkeypatch.setattr(storage.os, "link", _unsupported)
+
+
+def test_hot_memory_create_fallback_preserves_no_overwrite(
+    vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _disable_hardlinks(monkeypatch)
+
+    created = storage.create_memory(
+        vault.resolve(),
+        kind="preference",
+        title="Yedek yol",
+        text="Gövde.",
+        importance=2,
+        source_mode="explicit_user",
+    )
+
+    directory = vault / MEMORY_DIR
+    assert [path.name for path in directory.iterdir()] == [f"{created.memory_id}.md"]
+    assert storage.find_memory(storage.scan_memories(vault.resolve()), created.memory_id)
+
+
+def test_hot_memory_create_fallback_collision_preserves_existing_bytes(
+    vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _disable_hardlinks(monkeypatch)
+    fixed = uuid.uuid4()
+    monkeypatch.setattr(storage.uuid, "uuid4", lambda: fixed)
+    directory = vault / MEMORY_DIR
+    directory.mkdir(parents=True)
+    target = directory / f"{fixed}.md"
+    target.write_text("kullanıcının dosyası", encoding="utf-8")
+
+    with pytest.raises(storage.HotMemoryError, match="HOT_MEMORY_CONFLICT"):
+        storage.create_memory(
+            vault.resolve(),
+            kind="preference",
+            title="Başlık",
+            text="Gövde.",
+            importance=2,
+            source_mode="explicit_user",
+        )
+
+    assert target.read_text(encoding="utf-8") == "kullanıcının dosyası"
+    assert [path.name for path in directory.iterdir()] == [target.name]
+
+
+async def test_fallback_path_also_enforces_full_artifact_policy(
+    db_session: AsyncSession, vault: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """§39: politika HER iki yayın yolundan da önce çalışır."""
+    _disable_hardlinks(monkeypatch)
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_POLICY_REJECTED"):
+        await _store(db_session, tags=[_SECRET_TAG])
+
+    assert not (vault / MEMORY_DIR).exists()
