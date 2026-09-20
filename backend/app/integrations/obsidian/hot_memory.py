@@ -69,6 +69,10 @@ SOURCE_MODES: tuple[SourceMode, ...] = ("explicit_user", "approved_candidate")
 MAX_TITLE = 120
 MAX_TEXT = 1200
 MAX_TAGS = 8
+#: Etiket başına sınır (§19). `agent/hot_memory_models.py` ile AYNI olmalıdır;
+#: araç girdisi bunu zaten uygular, ayrıştırıcı da uygulamak ZORUNDADIR —
+#: aksi hâlde elle düzenlenmiş bir dosya sınırı atlar.
+MAX_TAG_LENGTH = 50
 MAX_RELATED = 5
 MAX_RETIRED_REASON = 240
 
@@ -242,15 +246,44 @@ def is_memory_relative_path(relative_path: str | Path) -> bool:
     return parts[: len(root)] == root
 
 
-def is_policy_excluded(relative_path: str | Path, *parts: str | None) -> bool:
-    """H0/H2 ORTAK politika kapısı (§64).
+def is_policy_excluded(relative_path: str | Path, raw_markdown: str | None) -> bool:
+    """H0/H2 ORTAK politika kapısı (§14/§64).
 
-    Sıcak hafıza tekrar tekrar model bağlamına girmek için tasarlandı; bu yüzden
-    apaçık kimlik bilgisi taşıyan `90 Agent/Memory` dosyası YALNIZCA H2
-    bağlamından değil, H0 bilgi yüzeyinden (`brain_search`/`brain_read`) de
-    dışlanır. Normal Vault bilgisi bu politikaya TABİ DEĞİLDİR.
+    Girdi KASITLI olarak "göreli yol + dosyanın HAM Markdown içeriği"dir. Yalnızca
+    başlık ve gövdeyi taramak; etiketleri, `retired_reason`ı, bilinmeyen
+    frontmatter'ı ve taşınmış dosya adını kaçırırdı — yani kullanıcı denetiminde
+    olan ve ajan yüzeyine çıkabilen diğer tüm metni. Sıcak hafıza dosyaları
+    küçüktür; tam tarama ucuzdur ve ayrışan alan listeleri bakımı gerektirmez.
+
+    Normal Vault bilgisi bu politikaya TABİ DEĞİLDİR (§5/§54).
     """
-    return is_memory_relative_path(relative_path) and looks_like_secret(*parts)
+    if not is_memory_relative_path(relative_path):
+        return False
+    return looks_like_secret(str(relative_path).replace("\\", "/"), raw_markdown)
+
+
+#: Sır benzeri tanılama parçasının yerine geçen metin (§11).
+REDACTED = "[redacted]"
+
+
+def safe_memory_diagnostic_path(relative_path: str | Path) -> str:
+    """Tanılama için güvenli GÖRELİ yol (§11/§46).
+
+    Sır benzeri bileşenler redakte edilir; yolun tamamı sır benzeriyse tüm
+    bileşenler redakte edilir. Mutlak yol hiçbir koşulda döndürülmez: böyle bir
+    girdi sözleşme dışıdır ve tümüyle redakte edilir (kullanıcı adı, HOME yolu
+    ya da kasa kökü sızmasın).
+    """
+    text = str(relative_path).replace("\\", "/").strip()
+    if not text:
+        return ""
+    if text.startswith("/"):
+        return REDACTED
+    parts = [part for part in text.split("/") if part]
+    whole_is_secret = looks_like_secret(text)
+    return "/".join(
+        REDACTED if whole_is_secret or looks_like_secret(part) else part for part in parts
+    )
 
 
 def _memory_dir(root: Path) -> Path:
@@ -339,6 +372,13 @@ def _validate_frontmatter(frontmatter: dict[str, Any]) -> tuple[dict[str, Any] |
         return None, "tags listesi geçersiz"
     if any(not isinstance(tag, str) for tag in tags):
         return None, "tags yalnızca metin içerebilir"
+    for tag in tags:
+        # §19/§22: sınırlar araç girdisiyle AYNI olmalı. Elle düzenlenmiş dosya
+        # sessizce düzeltilmez; geçersizse geçersizdir ve dosya DEĞİŞMEZ.
+        if len(tag) > MAX_TAG_LENGTH:
+            return None, "etiket çok uzun"
+        if not tag.strip():
+            return None, "etiket boş"
 
     related = frontmatter.get("related_forkos_ids") or []
     if not isinstance(related, list) or len(related) > MAX_RELATED:
@@ -371,9 +411,22 @@ def _validate_frontmatter(frontmatter: dict[str, Any]) -> tuple[dict[str, Any] |
 
 
 def parse_memory_file(path: Path, root: Path) -> MemoryRecord:
-    """Tek dosyayı okuyup doğrular. Hata durumunda `HotMemoryError` yükseltir."""
+    """Tek dosyayı okuyup doğrular. Hata durumunda `HotMemoryError` yükseltir.
+
+    Politika denetimi yapısal doğrulamadan ÖNCE gelir (§3): sır taşıyan içerik
+    hiçbir koşulda "geçerli bir kayıt" hâline gelmemelidir.
+    """
     raw = path.read_bytes()
     content = raw.decode("utf-8", errors="replace")
+
+    # §13: TAM artifact (göreli yol + ham Markdown). Başlık/gövde ile sınırlı bir
+    # denetim etiketleri, retired_reason'ı ve bilinmeyen frontmatter'ı kaçırırdı.
+    if is_policy_excluded(_relative(root, path), content):
+        raise HotMemoryError(
+            "HOT_MEMORY_POLICY_REJECTED",
+            "dosya apaçık kimlik bilgisi biçimi içeriyor; sıcak hafızaya yüklenmedi",
+        )
+
     frontmatter, body = parse_frontmatter(content)
     if not isinstance(frontmatter, dict):
         raise HotMemoryError("HOT_MEMORY_INVALID", "frontmatter bulunamadı")
@@ -385,15 +438,6 @@ def parse_memory_file(path: Path, root: Path) -> MemoryRecord:
     text = body.strip()
     if not text or len(text) > MAX_TEXT:
         raise HotMemoryError("HOT_MEMORY_INVALID", "gövde boş ya da çok uzun")
-
-    # §13/§14: politika OKUMA anında da uygulanır. Gövde Obsidian'da elle
-    # düzenlenebildiği için yazma anındaki kontrol tek başına yetmez. Eşleşen
-    # dosya DEĞİŞTİRİLMEZ — yalnızca sıcak hafızaya yüklenmez.
-    if looks_like_secret(validated["title"], text):
-        raise HotMemoryError(
-            "HOT_MEMORY_POLICY_REJECTED",
-            "dosya apaçık kimlik bilgisi biçimi içeriyor; sıcak hafızaya yüklenmedi",
-        )
 
     extra = {key: value for key, value in frontmatter.items() if key not in OWNED_KEYS}
     return MemoryRecord(
@@ -454,7 +498,7 @@ def scan_memories(root: Path) -> MemorySnapshot:
         except (HotMemoryError, OSError) as exc:
             # §32: SAYAÇ gerçeği söyler, yol listesi sınırlı kalır.
             invalid_count += 1
-            relative = _relative(root, entry)
+            relative = safe_memory_diagnostic_path(_relative(root, entry))
             if len(invalid) < MAX_INVALID_REPORTED:
                 invalid.append(relative)
             if isinstance(exc, HotMemoryError) and exc.code == "HOT_MEMORY_POLICY_REJECTED":
@@ -488,7 +532,8 @@ def assert_no_conflict(snapshot: MemorySnapshot, memory_id: str) -> None:
     if paths:
         raise HotMemoryError(
             "HOT_MEMORY_CONFLICT",
-            f"aynı memory_id birden fazla dosyada: {', '.join(sorted(paths))}",
+            "aynı memory_id birden fazla dosyada: "
+            + ", ".join(sorted(safe_memory_diagnostic_path(path) for path in paths)),
         )
 
 
@@ -542,6 +587,24 @@ def _render_frontmatter(
         for key, value in extra.items():
             metadata.setdefault(key, value)
     return metadata
+
+
+def assert_candidate_policy(relative_path: str, content: str) -> None:
+    """YAZMA öncesi tam artifact denetimi (§6/§39/§40).
+
+    Yetkili kapı burasıdır: hedefin göreli yolunu ve render edilmiş Markdown'ın
+    TAMAMINI tarar, böylece etiketler, `retired_reason` ve bilinmeyen
+    frontmatter da kapsanır. Denetim depolama katmanında olduğu için gelecekteki
+    bir çağıran, adaptördeki kolaylık denetimini atlayarak politikayı atlayamaz.
+
+    Hiçbir yayın yolu (sert bağ ya da `O_CREAT|O_EXCL`) bu kapıdan önce
+    çalışmaz: sır taşıyan bir aday hedef olarak BİR AN bile görünmez.
+    """
+    if is_policy_excluded(relative_path, content):
+        raise HotMemoryError(
+            "HOT_MEMORY_POLICY_REJECTED",
+            "içerik apaçık kimlik bilgisi biçimi içeriyor; sıcak hafızaya yazılmadı",
+        )
 
 
 def _temp_path(target: Path) -> Path:
@@ -698,10 +761,15 @@ def create_memory(
         tags=list(tags or []),
     )
     content = render_markdown_with_frontmatter(metadata, text)
+    relative_path = f"{MEMORY_ROOT}/{memory_id}.md"
+
+    # §39: politika her iki yayın yolundan da ÖNCE. Reddedilen aday ne hedef
+    # dosya ne dizin yaratır.
+    assert_candidate_policy(relative_path, content)
 
     memory_dir = _memory_dir(root)
     memory_dir.mkdir(parents=True, exist_ok=True)
-    target = resolve_safe_vault_path(root, f"{MEMORY_ROOT}/{memory_id}.md")
+    target = resolve_safe_vault_path(root, relative_path)
 
     # `memory_id` sunucu üretimi olduğu için çakışma pratikte imkânsızdır; yine de
     # sessiz üzerine yazma yerine deterministik hata tercih edilir.
@@ -781,6 +849,11 @@ def rewrite_memory(
         extra=record.extra_frontmatter,
     )
     content = render_markdown_with_frontmatter(metadata, text if text is not None else record.text)
+
+    # §40: sonuç artifact'ı yayınlanmadan önce denetlenir. Kayıt parse'tan
+    # geçtiği için zaten temizdir; amaç, güncellemeyle gelen yeni metaddenin
+    # (ör. etiketler) hedefe yazılmasını engellemektir.
+    assert_candidate_policy(record.relative_path, content)
 
     # §3/§5: YETKİLİ kontrol replace'ten hemen önce çalışır. Yukarıdaki
     # `record.revision` karşılaştırması hızlı hata yoludur; tek başına YETKİ
