@@ -1,13 +1,59 @@
+"""MCP Streamable HTTP taşıma testleri.
+
+§116/§117: araçlar yalnızca doğrudan Python çağrısıyla değil, GERÇEK `/mcp`
+taşıması üzerinden de doğrulanır -- Hermes tam olarak bu yolu kullanır.
+"""
+
+from __future__ import annotations
+
+import json
+import uuid
+
 import httpx
 import pytest
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+from sqlalchemy import select
 
+from app.db import SessionLocal
 from app.main import app
+from app.modules.todo.models import Todo
 
-pytestmark = pytest.mark.no_database
+READ_TOOL_NAMES = {
+    "forkos_briefing",
+    "forkos_search",
+    "forkos_entity_context",
+    "forkos_project_context",
+    "forkos_recent_activity",
+    "brain_status",
+    "brain_search",
+    "brain_read",
+}
+
+WRITE_TOOL_NAMES = {
+    "forkos_todo_create",
+    "forkos_todo_update",
+    "forkos_todo_complete",
+    "forkos_todo_plan",
+    "forkos_project_update",
+    "forkos_opportunity_transition",
+    "forkos_application_transition",
+    "forkos_bookmark_capture",
+    "forkos_bookmark_update",
+    "brain_capture",
+    "brain_save_to_entity",
+}
 
 
+def _payload(result) -> dict:
+    """Araç sonucundan JSON gövdesini çıkarır (structured ya da text)."""
+    structured = getattr(result, "structured_content", None)
+    if isinstance(structured, dict) and structured:
+        return structured
+    return json.loads(result.content[0].text)
+
+
+@pytest.mark.no_database
 async def test_mcp_fastapi_mount_and_smoke():
     """Verify that /mcp mounted in FastAPI responds correctly to official MCP streamable_http_client."""
     async with (
@@ -20,22 +66,121 @@ async def test_mcp_fastapi_mount_and_smoke():
         init_result = await session.initialize()
         assert init_result.server_info.name == "forkos-brain"
 
-        # 2. List tools
+        # 2. List tools: 8 H0 read + 11 H1 write = 19 (§8)
         tools = await session.list_tools()
-        tool_names = [t.name for t in tools.tools]
-        assert "forkos_briefing" in tool_names
-        assert "brain_status" in tool_names
-        assert "brain_search" in tool_names
-        assert "brain_read" in tool_names
-        assert len(tool_names) == 8
+        tool_names = {t.name for t in tools.tools}
+        assert tool_names >= READ_TOOL_NAMES
+        assert tool_names >= WRITE_TOOL_NAMES
+        assert len(tool_names) == 19
 
-        # 3. Call brain_status
+        # 3. Call brain_status (H0 read)
         status_res = await session.call_tool("brain_status", {})
         assert status_res.is_error is False
-        assert len(status_res.content) >= 1
         assert "brain_interface_version" in status_res.content[0].text
 
 
+@pytest.mark.no_database
+async def test_mcp_write_annotations_are_visible_over_the_wire():
+    """§117: Hermes'in onay davranışı araç metadata'sına bağlıdır."""
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http_client,
+        streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (read_stream, write_stream),
+        ClientSession(read_stream, write_stream) as session,
+    ):
+        await session.initialize()
+        tools = {t.name: t for t in (await session.list_tools()).tools}
+
+        for name in READ_TOOL_NAMES:
+            assert tools[name].annotations.read_only_hint is True, name
+
+        idempotent = {
+            "forkos_todo_update",
+            "forkos_todo_complete",
+            "forkos_todo_plan",
+            "forkos_project_update",
+            "forkos_bookmark_update",
+        }
+        for name in WRITE_TOOL_NAMES:
+            annotations = tools[name].annotations
+            assert annotations.read_only_hint is False, name
+            assert annotations.destructive_hint is False, name
+            assert annotations.idempotent_hint == (name in idempotent), name
+
+
+async def test_mcp_transport_h1_write_roundtrip():
+    """§116: yazma yolu gerçek taşıma üzerinden çalışır ve DB'de doğrulanır."""
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http_client,
+        streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (read_stream, write_stream),
+        ClientSession(read_stream, write_stream) as session,
+    ):
+        await session.initialize()
+
+        created = await session.call_tool(
+            "forkos_todo_create",
+            {"title": "H1 smoke over /mcp", "priority": 1},
+        )
+        assert created.is_error is False, created.content
+
+        receipt = _payload(created)["data"]
+        assert receipt["tool"] == "forkos_todo_create"
+        assert receipt["status"] == "executed"
+        assert receipt["target_type"] == "todo"
+
+        # §14: istek kimliği GİRDİ değildir; yalnızca tanılama alanıdır.
+        listed = {t.name: t for t in (await session.list_tools()).tools}
+        assert "request_id" not in listed["forkos_todo_create"].input_schema.get(
+            "properties", {}
+        )
+
+        todo_id = uuid.UUID(receipt["target_id"])
+        async with SessionLocal() as db:
+            todo = await db.get(Todo, todo_id)
+            assert todo is not None
+            assert todo.status == "open"
+
+        # Tamamlama turu: canonical semantik taşıma üzerinden de çalışır.
+        completed = await session.call_tool("forkos_todo_complete", {"todo_id": str(todo_id)})
+        assert completed.is_error is False, completed.content
+        completion_receipt = _payload(completed)["data"]
+        assert completion_receipt["status"] == "executed"
+        assert completion_receipt["after"]["status"] == "done"
+
+        # İkinci tamamlama noop döner ve ek kayıt üretmez (§27).
+        again = await session.call_tool("forkos_todo_complete", {"todo_id": str(todo_id)})
+        assert again.is_error is False
+        assert _payload(again)["data"]["status"] == "noop"
+        async with SessionLocal() as db:
+            rows = (await db.execute(select(Todo).where(Todo.id == todo_id))).scalars().all()
+            assert len(rows) == 1
+
+
+async def test_mcp_transport_error_envelope_is_model_readable():
+    """§67: taşıma üzerinden hata kodu net döner; yığın izi sızmaz."""
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http_client,
+        streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (read_stream, write_stream),
+        ClientSession(read_stream, write_stream) as session,
+    ):
+        await session.initialize()
+
+        missing = await session.call_tool(
+            "forkos_todo_complete", {"todo_id": str(uuid.uuid4())}
+        )
+        assert missing.is_error is True
+        text = missing.content[0].text
+        assert "TARGET_NOT_FOUND" in text
+        assert "Traceback" not in text
+
+        invalid = await session.call_tool("forkos_bookmark_capture", {"url": "ftp://example.com"})
+        assert invalid.is_error is True
+        assert "INVALID_INPUT" in invalid.content[0].text
+
+
+@pytest.mark.no_database
 async def test_mcp_dns_rebinding_rejection():
     """Verify that requests with non-localhost host/origin headers are rejected by DNS rebinding protection."""
     async with (
@@ -51,4 +196,3 @@ async def test_mcp_dns_rebinding_rejection():
             json={"jsonrpc": "2.0", "method": "initialize", "params": {}, "id": 1},
         )
         assert res.status_code in (400, 403, 421)
-

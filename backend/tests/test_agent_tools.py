@@ -6,10 +6,15 @@ pytestmark = pytest.mark.no_database
 
 
 async def test_mcp_tool_registration_and_metadata():
+    """H0 okuma araçları korunur; toplam yüzey H1 ile 19'a çıkar (§2/§8).
+
+    Ayrıntılı yazma anotasyon sözleşmesi `test_agent_h1_contract.py`'dedir;
+    burada H0 tarafının DEĞİŞMEDİĞİ kanıtlanır.
+    """
     tools = await mcp_server.list_tools()
     tool_map = {t.name: t for t in tools}
 
-    expected_tools = [
+    expected_read_tools = [
         "forkos_briefing",
         "forkos_search",
         "forkos_entity_context",
@@ -20,17 +25,25 @@ async def test_mcp_tool_registration_and_metadata():
         "brain_read",
     ]
 
-    # 1. Assert exact 8 tool names
-    assert sorted(tool_map.keys()) == sorted(expected_tools)
+    # 1. H0 araçları yerinde ve toplam yüzey 8 okuma + 11 yazma = 19.
+    assert set(expected_read_tools) <= set(tool_map)
+    assert len(tool_map) == 19
 
-    # 2. Assert read-only description and annotations on every single tool
-    for name, tool in tool_map.items():
+    # 2. Okuma araçlarının sözleşmesi zayıflatılmadı.
+    for name in expected_read_tools:
+        tool = tool_map[name]
         assert "Read-only. Does not modify forkOS or the Vault." in (tool.description or ""), (
             f"Tool {name} description missing read-only contract clause"
         )
         assert tool.annotations is not None, f"Tool {name} missing annotations"
         assert tool.annotations.read_only_hint is True, f"Tool {name} must have read_only_hint=True"
         assert tool.annotations.destructive_hint is False, f"Tool {name} destructive_hint must be False"
+
+    # 3. Yazma araçları asla okuma gibi işaretlenmez.
+    for name, tool in tool_map.items():
+        if name in expected_read_tools:
+            continue
+        assert tool.annotations.read_only_hint is False, name
 
 
 async def test_brain_status_tool_call():
