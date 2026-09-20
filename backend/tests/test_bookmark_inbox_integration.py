@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
+from app.config import settings
 from app.db import engine
+from app.integrations.obsidian.service import vault_index
 from app.main import app
 
 
@@ -18,6 +21,31 @@ async def _database_ready() -> bool:
     except Exception:
         return False
 
+
+@pytest.fixture(autouse=True)
+def reset_vault_index():
+    """Global Vault indeksi testler arasinda sizmasin."""
+    def clear() -> None:
+        vault_index._items.clear()
+        vault_index._conflicts.clear()
+        vault_index._invalid_files.clear()
+        vault_index._last_scanned = None
+        vault_index._last_status = None
+        vault_index._last_root = None
+
+    clear()
+    yield
+    clear()
+
+
+@pytest.fixture
+def vault(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """Bilgi yazmalari GECICI bir Vault'a gider; kullanicinin kasasina dokunulmaz."""
+    path = tmp_path / "vault"
+    path.mkdir()
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(path))
+    monkeypatch.setattr(settings, "obsidian_vault_name", "TestVault")
+    return path
 
 @pytest.mark.asyncio
 async def test_inbox_bulk_action_move_and_delete():
@@ -76,7 +104,7 @@ async def test_inbox_bulk_action_move_and_delete():
 
 
 @pytest.mark.asyncio
-async def test_inbox_convert_to_task_and_create_note():
+async def test_inbox_convert_to_task_and_create_source_note(vault: Path):
     if not await _database_ready():
         pytest.skip("Postgres calismiyor")
 
@@ -118,15 +146,16 @@ async def test_inbox_convert_to_task_and_create_note():
         assert "https://example.com/research" in todo_data["description"]
         assert "Onemli mimari notu" in todo_data["description"]
 
-        # Ayni bookmark'tan baglantili not olustur
-        note_res = await client.post(f"/api/bookmarks/{b_id}/create-note", json={
-            "pinned": True,
+        # Ayni bookmark'tan kanonik Vault kaynak notu olustur.
+        # PHASE 3: kimlik yer iminin UUID'sidir; forkOS'ta not kaydi OLUSMAZ.
+        note_res = await client.post(f"/api/bookmarks/{b_id}/source-note", json={
             "additional_text": "Ek analiz dusunceleri",
         })
-        assert note_res.status_code == 200
-        note_id = note_res.json()["note_id"]
-
-        note_get = await client.get(f"/api/notes/{note_id}")
-        assert note_get.status_code == 200
-        assert note_get.json()["pinned"] is True
-        assert "https://example.com/research" in note_get.json()["body"]
+        assert note_res.status_code == 201, note_res.text
+        item = note_res.json()
+        assert item["forkos_id"] == b_id
+        assert item["forkos_type"] == "source"
+        assert item["relative_path"] == "60 Sources/Arastirma Yazisi.md"
+        written = (vault / item["relative_path"]).read_text(encoding="utf-8")
+        assert "https://example.com/research" in written
+        assert "Ek analiz dusunceleri" in written

@@ -105,62 +105,6 @@ async def test_resources_drive_topic_progress_across_subtopics(client: AsyncClie
 # ── Not: wikilink -> backlink, #etiket -> genel etiket havuzu ───────────
 
 
-async def test_note_body_creates_backlinks_and_tags(client: AsyncClient) -> None:
-    area = (await client.post("/api/study/areas", json={"title": "Alan"})).json()
-    topic = (
-        await client.post(
-            "/api/study/topics", json={"title": "Grafik Teorisi", "area_id": area["id"]}
-        )
-    ).json()
-
-    note = (
-        await client.post(
-            "/api/notes",
-            json={
-                "body": "[[Grafik Teorisi]] uzerine notlar. #matematik\n[[Olmayan Konu]] da var.",
-                "tags": ["ders"],
-            },
-        )
-    ).json()
-
-    # Cozulen wikilink baglanir, cozulmeyen "unresolved" olarak doner.
-    assert note["unresolved_links"] == ["Olmayan Konu"]
-    # Elle verilen etiket ile govdedeki #etiket ayni havuzda birlesir.
-    assert sorted(note["tags"]) == ["ders", "matematik"]
-
-    # Konu tarafindan bakinca backlink gorunur.
-    backlinks = (await client.get(f"/api/entities/{topic['id']}/backlinks")).json()
-    assert [b["id"] for b in backlinks] == [note["id"]]
-
-    # Graf ayni bagi kenar olarak dondurur.
-    graph = (await client.get(f"/api/graph?focus={topic['id']}&depth=1")).json()
-    assert {n["id"] for n in graph["nodes"]} >= {note["id"], topic["id"]}
-    assert {"from": note["id"], "to": topic["id"], "relation": "mentions"} in graph["edges"]
-
-
-async def test_editing_a_note_body_resyncs_links_and_keeps_manual_tags(
-    client: AsyncClient,
-) -> None:
-    area = (await client.post("/api/study/areas", json={"title": "Alan2"})).json()
-    topic = (
-        await client.post("/api/study/topics", json={"title": "Diziler", "area_id": area["id"]})
-    ).json()
-    note = (
-        await client.post(
-            "/api/notes", json={"body": "[[Diziler]] hakkinda. #eski", "tags": ["elle"]}
-        )
-    ).json()
-    assert sorted(note["tags"]) == ["elle", "eski"]
-
-    # Govdeden wikilink ve #eski cikarildi: bag da etiket de gider,
-    # elle eklenen etiket KALIR.
-    updated = (
-        await client.patch(f"/api/notes/{note['id']}", json={"body": "Artik baglanti yok."})
-    ).json()
-    assert updated["tags"] == ["elle"]
-    assert (await client.get(f"/api/entities/{topic['id']}/backlinks")).json() == []
-
-
 @pytest.mark.no_database
 def test_derived_title_strips_markdown_syntax() -> None:
     from app.modules.note.service import derive_title

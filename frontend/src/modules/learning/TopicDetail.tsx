@@ -20,7 +20,6 @@ import {
   FolderInput,
   ListPlus,
   MoreHorizontal,
-  NotebookPen,
   Pencil,
   Play,
   ScrollText,
@@ -59,7 +58,7 @@ import { statusButtonClass, statusLabel, statusTone, TOPIC_STATUSES } from "./le
 import { ImpactDialog } from "./ImpactDialog";
 import { ResourceList, TopicProgressBar } from "./ResourceList";
 import { ReviewPanel } from "./ReviewPanel";
-import { TopicNotes } from "./TopicNotes";
+import { TopicKnowledgeNote } from "./TopicKnowledgeNote";
 import type { components } from "@/generated/api-schema";
 import { formatTrDate } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
@@ -192,7 +191,6 @@ export function TopicDetail({
   const online = useOnline();
   const toast = useToast();
   const [addResourceSignal, setAddResourceSignal] = useState(0);
-  const [composeNoteSignal, setComposeNoteSignal] = useState(0);
   const [subTopicOpen, setSubTopicOpen] = useState(false);
   const [subTopicTitle, setSubTopicTitle] = useState("");
   const [moveOpen, setMoveOpen] = useState(false);
@@ -423,15 +421,6 @@ export function TopicDetail({
           <Button disabled={!online} onClick={() => setSubTopicOpen(true)}>
             <Baby size={14} /> Alt konu ekle
           </Button>
-          <Button
-            disabled={!online}
-            onClick={() => {
-              setComposeNoteSignal((count) => count + 1);
-              onTabChange("notlar");
-            }}
-          >
-            <NotebookPen size={14} /> Not al
-          </Button>
           <Button disabled={!online} onClick={() => setMoveOpen(true)}>
             <FolderInput size={14} /> Taşı
           </Button>
@@ -574,10 +563,6 @@ export function TopicDetail({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-meta text-muted">Not</dt>
-                  <dd className="font-medium text-primary">{detail.note_count}</dd>
-                </div>
-                <div>
                   <dt className="text-meta text-muted">Flashcard destesi</dt>
                   <dd className="font-medium text-primary">{detail.flashcard_deck_count}</dd>
                 </div>
@@ -603,31 +588,12 @@ export function TopicDetail({
                 </div>
               </section>
             )}
-
-            <section className="space-y-2">
-              <SectionHeader
-                label="Notlar"
-                hint={`${detail.note_count} not`}
-                action={
-                  <Button size="sm" onClick={() => onTabChange("notlar")}>
-                    <NotebookPen size={13} /> Notlara git
-                  </Button>
-                }
-              />
-            </section>
           </div>
         )}
 
         {tab === "kaynaklar" && <ResourceList topicId={topicId} addSignal={addResourceSignal} />}
 
-        {tab === "notlar" && (
-          <TopicNotes
-            topicId={topicId}
-            topicTitle={topic.title}
-            noteCount={detail.note_count}
-            composeSignal={composeNoteSignal}
-          />
-        )}
+        {tab === "notlar" && <TopicKnowledgeNote topicId={topicId} topicTitle={topic.title} />}
 
         {tab === "baglantilar" && (
           <div className="space-y-5">

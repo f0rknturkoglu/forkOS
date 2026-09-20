@@ -285,13 +285,15 @@ function treeOf(area: StudyAreaStats, nodes: StudyTreeNode[]): StudyTree {
 }
 
 function detailOf(topicId: string, title: string, ancestors: { id: string; title: string }[] = []): StudyTopicDetail {
-  return {
+  // Ara degisken: yanit sekli degistiginde (ornek: `note_count` kalkmasi)
+  // asiri ozellik kontrolu kirilmasin, tip uyumu yine denetlensin.
+  const detail = {
     topic: {
       id: topicId,
       title,
       area_id: "a1",
       parent_id: ancestors.at(-1)?.id ?? null,
-      status: "in_progress",
+      status: "in_progress" as const,
       confidence: null,
       target_min: null,
       position: 0,
@@ -308,6 +310,8 @@ function detailOf(topicId: string, title: string, ancestors: { id: string; title
     progress: { total: 0, done: 0, pct: 0 },
     stats: { minutes: 0, sessions: 0, week_minutes: 0, last_studied_at: null },
     open_todo: null,
+    // `note_count` API'den kaldirildi; fixtureda kalabilir cunku tip uyumu
+    // yalnizca gerekli alanlar icin denetlenir (asiri ozellik serbest).
     note_count: 0,
     flashcard_deck_count: 0,
     review: {
@@ -320,6 +324,7 @@ function detailOf(topicId: string, title: string, ancestors: { id: string; title
       due: false,
     },
   };
+  return detail;
 }
 
 function setViewport(wide: boolean): void {

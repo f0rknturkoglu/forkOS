@@ -4,21 +4,42 @@ import { AlertTriangle, BookOpen, ExternalLink, Plus } from "lucide-react";
 import { Button, Section, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { ApiError } from "@/core/api";
-import { createVaultItem, getVaultItem, getVaultStatus, type VaultItem } from "@/core/obsidian";
+import { invalidateAfter } from "@/core/invalidation";
+import {
+  ensureVaultItem,
+  getVaultItem,
+  getVaultStatus,
+  openObsidianUri,
+  VAULT_ITEM_KEY,
+  VAULT_STATUS_KEY,
+  type VaultItem,
+} from "@/core/obsidian";
 import type { Project } from "@/core/types";
 
+/**
+ * Projenin kanonik bilgi notu (Obsidian Vault).
+ *
+ * Kimlik projenin forkOS UUID'sidir: sunucu basligi, klasoru ve tipini
+ * kendisi cozer. Istemci yalnizca "bu kimlik icin not var mi" sorusunu
+ * sorar; yoksa `ensure` ile olusturur. Govde forkOS'ta DUZENLENMEZ --
+ * yazma yuzeyi Obsidian'in kendisidir.
+ */
 export function ProjectKnowledgeNote({ project }: { project: Project }) {
   const online = useOnline();
   const toast = useToast();
   const [createdItem, setCreatedItem] = useState<VaultItem | null>(null);
 
   const { data: status } = useQuery({
-    queryKey: ["obsidian-status"],
+    queryKey: [VAULT_STATUS_KEY],
     queryFn: getVaultStatus,
   });
 
-  const { data: queryItem, isLoading: isItemLoading, error: itemError } = useQuery({
-    queryKey: ["obsidian-item", project.id],
+  const {
+    data: queryItem,
+    isLoading: isItemLoading,
+    error: itemError,
+  } = useQuery({
+    queryKey: [VAULT_ITEM_KEY, project.id],
     queryFn: () => getVaultItem(project.id),
     enabled: Boolean(status?.available),
     retry: false,
@@ -27,24 +48,15 @@ export function ProjectKnowledgeNote({ project }: { project: Project }) {
   const item = createdItem ?? queryItem;
 
   const conflictPaths = status?.conflict_details?.[project.id];
-  const isConflicted = Boolean(
-    conflictPaths || (itemError instanceof ApiError && itemError.status === 409)
-  );
+  const isConflicted = Boolean(conflictPaths || (itemError instanceof ApiError && itemError.status === 409));
 
   const createNote = useMutation({
-    mutationFn: () =>
-      createVaultItem({
-        forkos_id: project.id,
-        forkos_type: "project",
-        title: project.title,
-        target_folder: "20 Projects",
-      }),
+    mutationFn: () => ensureVaultItem(project.id),
     onSuccess: (created) => {
       setCreatedItem(created);
+      invalidateAfter("obsidian.write");
       toast.push("Obsidian proje notu oluşturuldu.", { tone: "ok" });
-      if (created.open_uri) {
-        window.open(created.open_uri, "_blank");
-      }
+      openObsidianUri(created.open_uri);
     },
     onError: (err: Error) => {
       toast.push(`Proje notu oluşturulamadı: ${err.message}`, { tone: "danger" });

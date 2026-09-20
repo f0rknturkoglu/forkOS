@@ -33,6 +33,7 @@ import type {
   Todo,
 } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
+import type { VaultItem } from "@/core/obsidian";
 import { CareerStoryBank } from "./CareerStoryBank";
 import { OpportunityConnectionsSection } from "./OpportunityConnectionsSection";
 import { OpportunityEvaluationSection } from "./OpportunityEvaluationSection";
@@ -40,11 +41,10 @@ import {
   ApplicationSection,
   FollowUpSection,
   InterviewsSection,
-  OpportunityNotesPanel,
+  OpportunityKnowledgeSection,
   ReplyProcessorSection,
   RequirementsSection,
 } from "./OpportunityDetailSections";
-import type { OpportunityNote } from "./OpportunityDetailSections";
 import {
   APPLICATION_STATUS_TONES,
   REMOTE_LABELS,
@@ -675,16 +675,17 @@ function JobNotes({ item, online }: { item: Opportunity; online: boolean }) {
 
   return (
     <div className="space-y-4">
-      <OpportunityNotesPanel
+      <OpportunityKnowledgeSection
         id={item.id}
         online={online}
+        canonical
         title="Şirket & Mülakat Notu"
-        description="Bu ilan ve kurum için tüm araştırmalarını ve mülakat notlarını buradan yönet."
-        placeholder="Şirket araştırması, görüşülecek kişiler, teknik sorular…"
-        createLabel="Şirket Araştırma Notu Oluştur"
+        description="Bu ilan ve kurum için araştırma notu Obsidian Vault'unda yaşar; forkOS yalnız köprüyü kurar."
+        searchQuery={item.title}
+        createLabel="Araştırma notu oluştur"
         emptyTitle="Henüz Şirket Notu Oluşturulmadı"
-        emptyText={`${item.organization || "Şirket"} hakkında faaliyet alanı, teknoloji yığını ve mülakat soruları için tek tıkla şablon not oluştur.`}
-        create={() => api.post<OpportunityNote>(`/opportunities/${item.id}/research-note`)}
+        emptyText={`${item.organization || "Şirket"} hakkında faaliyet alanı, teknoloji yığını ve mülakat soruları için tek tıkla Vault'ta şablon not oluştur.`}
+        create={() => api.post<VaultItem>(`/opportunities/${item.id}/research-note`)}
       />
 
       {item.notes && (

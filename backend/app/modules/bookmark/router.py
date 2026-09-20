@@ -6,6 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
+from app.integrations.obsidian import service as obsidian_service
+from app.integrations.obsidian.models import VaultItem
+from app.integrations.obsidian.router import vault_http_error
 from app.modules.bookmark import service
 from app.modules.bookmark.models import COLLECTIONS, READ_STATUSES
 from app.modules.bookmark.schemas import (
@@ -21,8 +24,7 @@ from app.modules.bookmark.schemas import (
     CaptureIn,
     CaptureResult,
     ConvertToTaskIn,
-    CreateNoteFromBookmarkIn,
-    GlobalHighlightOut,
+    CreateSourceNoteIn,
 )
 
 router = APIRouter(tags=["bookmark"])
@@ -67,11 +69,6 @@ async def list_bookmarks(
         session, collection=collection, read_status=read_status, favorite=favorite,
         source=source, q=q, tag=tag, limit=limit, offset=offset,
     )
-
-
-@router.get("/highlights", response_model=list[GlobalHighlightOut])
-async def list_global_highlights(session: AsyncSession = Depends(get_session)):
-    return await service.list_global_highlights(session)
 
 
 @router.get("/bookmarks/stats", response_model=BookmarkStats)
@@ -243,17 +240,31 @@ async def convert_bookmark_to_task(
         raise HTTPException(404, str(err)) from err
 
 
-@router.post("/bookmarks/{bookmark_id}/create-note")
-async def create_note_from_bookmark(
+@router.post(
+    "/bookmarks/{bookmark_id}/source-note", response_model=VaultItem, status_code=201
+)
+async def create_source_note(
     bookmark_id: uuid.UUID,
-    body: CreateNoteFromBookmarkIn,
+    body: CreateSourceNoteIn,
     session: AsyncSession = Depends(get_session),
 ):
+    """Yer iminin kanonik Vault kaynak notunu çözer veya oluşturur.
+
+    Yer imi ve vurguları forkOS'ta operasyonel kalır; burada yalnızca bir Vault
+    dosyası üretilir. forkOS veritabanında not kaydı OLUŞMAZ.
+    """
     try:
-        note_id = await service.create_note_from_bookmark(session, bookmark_id, body)
-        return {"note_id": note_id}
+        return await service.ensure_source_note(session, bookmark_id, body)
     except ValueError as err:
         raise HTTPException(404, str(err)) from err
+    except (
+        obsidian_service.VaultConflictError,
+        obsidian_service.VaultStaleWriteError,
+        obsidian_service.VaultWriteError,
+        PermissionError,
+        RuntimeError,
+    ) as err:
+        raise vault_http_error(err) from err
 
 
 @router.post("/bookmarks/{bookmark_id}/enrich", response_model=BookmarkOut)

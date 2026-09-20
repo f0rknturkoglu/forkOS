@@ -38,7 +38,7 @@ describe("ImpactDialog", () => {
     harness.apiGet.mockReset();
     harness.apiDel.mockReset();
     harness.invalidate.mockReset();
-    harness.apiGet.mockResolvedValue({ topics: 3, resources: 1, links: 1, plan_slots: 0, todos: 2, notes: 0 });
+    harness.apiGet.mockResolvedValue({ topics: 3, resources: 1, links: 1, plan_slots: 0, todos: 2 });
     harness.apiDel.mockResolvedValue(undefined);
   });
 
@@ -54,7 +54,6 @@ describe("ImpactDialog", () => {
       ["Bağlantı", "1"],
       ["Plan kaydı", "0"],
       ["Görev", "2"],
-      ["Not", "0"],
     ] as const;
     for (const [label, value] of rows) {
       const row = screen.getByText(label).closest("div");

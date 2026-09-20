@@ -16,6 +16,7 @@ const harness = vi.hoisted(() => ({
   apiPatch: vi.fn(),
   apiPost: vi.fn(),
   invalidate: vi.fn(),
+  openUri: vi.fn(),
   mutations: [] as MutationOptions[],
   queries: [] as QueryOptions[],
   queryData: {} as Record<string, unknown>,
@@ -41,6 +42,8 @@ vi.mock("@/lib/hooks", () => ({
 vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
+
+vi.mock("@/core/obsidian", () => ({ openObsidianUri: (uri: string) => harness.openUri(uri) }));
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
@@ -98,6 +101,7 @@ describe("InboxTodayWidget", () => {
     harness.apiGet.mockReset();
     harness.apiPost.mockReset();
     harness.invalidate.mockReset();
+    harness.openUri.mockReset();
     harness.mutations.length = 0;
     harness.queries.length = 0;
     harness.queryData = {};
@@ -135,6 +139,7 @@ describe("InboxFocusTriageModal", () => {
     harness.apiGet.mockReset();
     harness.apiPost.mockReset();
     harness.invalidate.mockReset();
+    harness.openUri.mockReset();
     harness.mutations.length = 0;
     harness.queries.length = 0;
     harness.queryData = {};
@@ -172,5 +177,27 @@ describe("InboxFocusTriageModal", () => {
     const html = renderToStaticMarkup(<InboxFocusTriageModal open={true} onClose={() => {}} />);
     const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
     expect(emojiRegex.test(html)).toBe(false);
+  });
+
+  it("'Not Olustur' kaydin kanonik Vault notunu olusturur ve Obsidian'da acar", async () => {
+    harness.queryData["triage-modal"] = [sampleBookmarks[0]];
+    harness.apiPost.mockResolvedValue({
+      forkos_id: "vault-1",
+      open_uri: "obsidian://open?vault=f0rknbrain&file=Kaynaklar%2FOrnek",
+    });
+    renderToStaticMarkup(<InboxFocusTriageModal open={true} onClose={() => {}} />);
+
+    const noteMutation = harness.mutations.find((m) => m.mutationFn?.toString().includes("source-note"));
+    expect(noteMutation).toBeDefined();
+
+    await noteMutation?.mutationFn?.("bm-1");
+    expect(harness.apiPost).toHaveBeenCalledWith("/bookmarks/bm-1/source-note");
+    expect(harness.apiPost.mock.calls.some(([path]) => String(path).includes("create-note"))).toBe(false);
+    expect(harness.apiPost.mock.calls.some(([path]) => String(path).includes("/notes"))).toBe(false);
+
+    noteMutation?.onSuccess?.({ open_uri: "obsidian://open?vault=f0rknbrain&file=Kaynaklar%2FOrnek" });
+    expect(harness.openUri).toHaveBeenCalledWith("obsidian://open?vault=f0rknbrain&file=Kaynaklar%2FOrnek");
+    expect(harness.invalidate).toHaveBeenCalledWith("bookmark.write", "obsidian.write");
+    expect(harness.invalidate).not.toHaveBeenCalledWith("bookmark.write", "note.write", "link.write");
   });
 });

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
+from app.config import settings
 from app.db import engine
+from app.integrations.obsidian.service import vault_index
 from app.main import app
 
 
@@ -15,6 +18,31 @@ async def _database_ready() -> bool:
         await connection.execute(text("select 1 from bookmark limit 1"))
     return True
 
+
+@pytest.fixture(autouse=True)
+def reset_vault_index():
+    """Global Vault indeksi testler arasinda sizmasin."""
+    def clear() -> None:
+        vault_index._items.clear()
+        vault_index._conflicts.clear()
+        vault_index._invalid_files.clear()
+        vault_index._last_scanned = None
+        vault_index._last_status = None
+        vault_index._last_root = None
+
+    clear()
+    yield
+    clear()
+
+
+@pytest.fixture
+def vault(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """Bilgi yazmalari GECICI bir Vault'a gider; kullanicinin kasasina dokunulmaz."""
+    path = tmp_path / "vault"
+    path.mkdir()
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(path))
+    monkeypatch.setattr(settings, "obsidian_vault_name", "TestVault")
+    return path
 
 @pytest.mark.asyncio
 async def test_bookmark_capture_with_pocket_metadata():
@@ -100,7 +128,7 @@ async def test_bookmark_highlights_crud():
 
 
 @pytest.mark.asyncio
-async def test_global_highlights_and_literature_note_are_idempotent():
+async def test_literature_note_is_one_idempotent_vault_source_note(vault: Path):
     if not await _database_ready():
         pytest.skip("Postgres calismiyor")
 
@@ -121,74 +149,25 @@ async def test_global_highlights_and_literature_note_are_idempotent():
         })
         assert highlighted.status_code == 201
 
-        global_rows = (await client.get("/api/highlights")).json()
-        row = next(item for item in global_rows if item["id"] == highlighted.json()["id"])
-        assert row["bookmark_title"] == "Literature Note"
-        assert row["bookmark_url"] == "https://example.com/literature-note"
-        assert row["position_start"] == 10
-        assert row["position_end"] == 48
+        # Vurgular OPERASYONEL kalir (forkOS'ta tutulur).
+        listed = (await client.get(f"/api/bookmarks/{bookmark_id}/highlights")).json()
+        assert [row["id"] for row in listed] == [highlighted.json()["id"]]
 
-        first = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
-        second = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
-        assert first.status_code == 200
-        assert first.json()["note_id"] == second.json()["note_id"]
-        note = (await client.get(f"/api/notes/{first.json()['note_id']}")).json()
-        assert note["source_bookmark_id"] == bookmark_id
-        assert "Tek kaynakli bilgi" in note["body"]
+        # Kanonik kaynak notu: ayni yer imi icin TEK dosya, ayni kimlik.
+        first = await client.post(f"/api/bookmarks/{bookmark_id}/source-note", json={})
+        second = await client.post(f"/api/bookmarks/{bookmark_id}/source-note", json={})
+        assert first.status_code == 201, first.text
+        assert second.status_code == 201, second.text
+        assert first.json()["forkos_id"] == bookmark_id
+        assert second.json()["forkos_id"] == bookmark_id
+        assert second.json()["relative_path"] == first.json()["relative_path"]
+        assert second.json()["source_bookmark_id"] == bookmark_id
+        assert len(list((vault / "60 Sources").glob("*.md"))) == 1
 
-
-@pytest.mark.asyncio
-async def test_literature_note_adopts_one_unambiguous_legacy_note():
-    if not await _database_ready():
-        pytest.skip("Postgres calismiyor")
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        captured = await client.post("/api/capture", json={
-            "url": "https://example.com/legacy-literature",
-            "title": "Legacy Literature",
-            "collection": "learning",
-            "source": "manual",
-            "client_uuid": str(uuid.uuid4()),
-        })
-        bookmark_id = captured.json()["id"]
-        legacy = await client.post("/api/notes", json={
-            "body": "Eski literatur notu",
-            "relate_to": bookmark_id,
-        })
-        assert legacy.status_code == 201
-        created = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
-        assert created.status_code == 200
-        assert created.json()["note_id"] == legacy.json()["id"]
-        note = (await client.get(f"/api/notes/{legacy.json()['id']}")).json()
-        assert note["source_bookmark_id"] == bookmark_id
-
-
-@pytest.mark.asyncio
-async def test_literature_note_does_not_adopt_ambiguous_legacy_notes():
-    if not await _database_ready():
-        pytest.skip("Postgres calismiyor")
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        captured = await client.post("/api/capture", json={
-            "url": "https://example.com/ambiguous-literature",
-            "title": "Ambiguous Literature",
-            "collection": "learning",
-            "source": "manual",
-            "client_uuid": str(uuid.uuid4()),
-        })
-        bookmark_id = captured.json()["id"]
-        legacy_ids = []
-        for body in ("Eski not bir", "Eski not iki"):
-            legacy = await client.post("/api/notes", json={"body": body, "relate_to": bookmark_id})
-            assert legacy.status_code == 201
-            legacy_ids.append(legacy.json()["id"])
-        created = await client.post(f"/api/bookmarks/{bookmark_id}/create-note", json={})
-        assert created.status_code == 200
-        assert created.json()["note_id"] not in legacy_ids
-        for note_id in legacy_ids:
-            assert (await client.get(f"/api/notes/{note_id}")).json()["source_bookmark_id"] is None
+        body = (vault / first.json()["relative_path"]).read_text(encoding="utf-8")
+        assert "https://example.com/literature-note" in body
+        # Vurgu niyeti korunur (§36): metin notun baslangicina tasinir.
+        assert "Tek kaynakli bilgi" in body
 
 
 @pytest.mark.asyncio

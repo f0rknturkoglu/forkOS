@@ -26,10 +26,6 @@ class ProjectPatch(BaseModel):
     position: int | None = None
 
 
-class ProjectJournalNoteIn(BaseModel):
-    body: str = Field(max_length=200_000)
-
-
 class MilestoneIn(BaseModel):
     title: str = Field(min_length=1)
     due_at: datetime | None = None

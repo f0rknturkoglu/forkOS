@@ -120,6 +120,18 @@ async def set_body(note_id: str, body: str) -> None:
         await note_service.update(session, uuid.UUID(note_id), NoteUpdate(body=body))
 
 
+async def make_journal_note(project_id: uuid.UUID, day: date, body: str) -> dict:
+    """Göç KAYNAĞINI üretir: legacy proje günlüğü satırı.
+
+    Ürün akışı artık proje günlüğünü veritabanına yazmaz (sahibi Vault).
+    Bu yardımcı dondurulmuş arşiv yazıcısını kullanır; göç testinin kaynak
+    verisini kurmaktan başka bir amacı yoktur.
+    """
+    return await make_note(
+        body, relate_to=project_id, project_id=project_id, journal_day=day
+    )
+
+
 async def make_folder(name: str, parent_id: uuid.UUID | None = None) -> uuid.UUID:
     async with SessionLocal() as session:
         folder = await note_service.create_folder(
@@ -259,11 +271,8 @@ async def test_daily_note_migrates_to_daily_folder(vault: Path) -> None:
 
 async def test_project_journal_keeps_note_type_and_project_folder(vault: Path) -> None:
     project_id = await make_project("forkOS")
-    async with SessionLocal() as session:
-        created = await project_service.upsert_journal_note(
-            session, project_id, date(2026, 3, 5), "Bugün migration planı çıkarıldı."
-        )
-    note_id = str(created["note"].id)
+    created = await make_journal_note(project_id, date(2026, 3, 5), "Bugün migration planı çıkarıldı.")
+    note_id = str(created["id"])
 
     outcome = await run_apply(vault, "TestVault")
 
@@ -314,10 +323,7 @@ class _FakeNote:
 
 async def test_project_knowledge_note_is_not_rewritten_as_note(vault: Path) -> None:
     project_id = await make_project("Kariyer")
-    async with SessionLocal() as session:
-        await project_service.upsert_journal_note(
-            session, project_id, date(2026, 4, 1), "Nisan planı"
-        )
+    await make_journal_note(project_id, date(2026, 4, 1), "Nisan planı")
     knowledge = create_managed_note(
         forkos_id=project_id,
         forkos_type="project",
@@ -952,10 +958,7 @@ async def test_migration_never_mutates_source_database(vault: Path) -> None:
     await make_note("Değişmemeli", tags=["korunacak"])
     await make_note("Tuval değişmemeli", canvas_state={"elements": [{"id": "e1"}], "files": {}})
     project_id = await make_project("Değişmez proje")
-    async with SessionLocal() as session:
-        await project_service.upsert_journal_note(
-            session, project_id, date(2026, 5, 1), "Proje günlüğü korunmalı"
-        )
+    await make_journal_note(project_id, date(2026, 5, 1), "Proje günlüğü korunmalı")
     attached = await make_note("Ekli değişmez")
     await attach(attached["id"], "korunacak.png", PNG)
     digest = hashlib.sha256(PNG).hexdigest()

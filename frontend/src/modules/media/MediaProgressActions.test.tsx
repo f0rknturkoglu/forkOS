@@ -99,7 +99,6 @@ describe("append-only media progress", () => {
       "activity",
       "statistics",
       "deadlines",
-      "graph",
       "related",
     ]);
   });

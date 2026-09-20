@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, FileJson, Network } from "lucide-react";
+import { ArrowLeft, FileJson } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { ApiError, api, qs } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
@@ -397,14 +397,6 @@ export function LearningPage() {
           title={online ? undefined : "Çevrimdışı: yazma kapalı"}
         >
           <FileJson size={14} /> JSON yükle
-        </Button>
-        <Button
-          size="sm"
-          disabled={!focusId}
-          onClick={() => navigate(`/graph${focusId ? `?focus=${focusId}` : ""}`)}
-          title={focusId ? undefined : "Önce bir konu seç"}
-        >
-          <Network size={14} /> Bilgi grafı
         </Button>
       </div>
 

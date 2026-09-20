@@ -15,6 +15,7 @@ const harness = vi.hoisted(() => ({
   apiPatch: vi.fn(),
   apiPost: vi.fn(),
   invalidate: vi.fn(),
+  openUri: vi.fn(),
   mutations: [] as MutationOptions[],
   queries: [] as QueryOptions[],
   queryData: {} as Record<string, unknown>,
@@ -31,6 +32,8 @@ vi.mock("@/core/api", () => ({
 vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
+
+vi.mock("@/core/obsidian", () => ({ openObsidianUri: (uri: string) => harness.openUri(uri) }));
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: vi.fn((options: MutationOptions) => {
@@ -188,5 +191,29 @@ describe("BookmarkReaderModal", () => {
 
     convertMutation?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith("flashcard.write", "link.write");
+  });
+
+  it("literatur notu Vault'ta olusturulur ve Obsidian'da acilir; /notes'a gidilmez", async () => {
+    const onClose = vi.fn();
+    renderToStaticMarkup(<BookmarkReaderModal open={true} bookmark={mockBookmark} onClose={onClose} />);
+
+    const literatureMutation = harness.mutations.find((m) => m.mutationFn?.toString().includes("source-note"));
+    expect(literatureMutation).toBeDefined();
+
+    harness.apiPost.mockResolvedValueOnce({
+      forkos_id: "vault-1",
+      open_uri: "obsidian://open?vault=f0rknbrain&file=Kaynaklar%2FAjan",
+    });
+    await literatureMutation?.mutationFn?.();
+
+    expect(harness.apiPost).toHaveBeenCalledWith("/bookmarks/bm-pocket-1/source-note");
+    expect(harness.apiPost.mock.calls.some(([path]) => String(path).includes("create-note"))).toBe(false);
+    expect(harness.apiPost.mock.calls.some(([path]) => String(path).includes("/notes"))).toBe(false);
+
+    literatureMutation?.onSuccess?.({ open_uri: "obsidian://open?vault=f0rknbrain&file=Kaynaklar%2FAjan" });
+    expect(harness.openUri).toHaveBeenCalledWith("obsidian://open?vault=f0rknbrain&file=Kaynaklar%2FAjan");
+    expect(harness.invalidate).toHaveBeenCalledWith("obsidian.write");
+    expect(harness.invalidate).not.toHaveBeenCalledWith("note.write", "link.write");
+    expect(onClose).toHaveBeenCalled();
   });
 });

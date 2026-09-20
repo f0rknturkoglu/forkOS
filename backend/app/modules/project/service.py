@@ -12,9 +12,6 @@ from app.core.events import log_event
 from app.core.models import Entity, Event, Link
 from app.core.time import local_zone
 from app.modules import DeadlineRow
-from app.modules.note import service as note_service
-from app.modules.note.models import Note
-from app.modules.note.schemas import NoteIn, NoteUpdate
 from app.modules.project.models import Milestone, Project
 from app.modules.project.schemas import MilestoneIn, MilestonePatch, ProjectIn, ProjectPatch
 from app.modules.todo import service as todo_service
@@ -374,89 +371,22 @@ async def timeline(session: AsyncSession, project_id: uuid.UUID, limit: int = 60
     ]
 
 
-async def upsert_journal_note(
-    session: AsyncSession,
-    project_id: uuid.UUID,
-    day: date,
-    body: str,
-) -> dict:
-    """Ayni proje/gun icin tek entity-backed notu olusturur veya gunceller.
-
-    Bos govde kaydi siler; event gecmisi append-only kalir.
-    """
-    existing = (
-        await session.execute(
-            select(Note).where(
-                Note.project_id == project_id,
-                Note.journal_day == day,
-            )
-        )
-    ).scalar_one_or_none()
-    normalized = body.strip()
-    if not normalized:
-        if existing is not None:
-            await note_service.permanently_delete(
-                session, existing.id, allow_active=True
-            )
-        return {"day": day, "note": None}
-
-    if existing is None:
-        note = await note_service.create(
-            session,
-            NoteIn(body=body, relate_to=project_id),
-            project_id=project_id,
-            journal_day=day,
-        )
-    else:
-        if existing.trashed_at is not None:
-            await note_service.restore_from_trash(session, existing.id)
-        else:
-            existing_entity = await session.get(Entity, existing.id)
-            if existing_entity is not None and existing_entity.archived_at is not None:
-                await note_service.restore_archive(session, existing.id)
-        note = await note_service.update(
-            session, existing.id, NoteUpdate(body=body)
-        )
-    return {"day": day, "note": note}
-
-
 async def journal(
     session: AsyncSession, project_id: uuid.UUID, limit: int = 60
 ) -> list[dict]:
-    """Proje olaylari ile guncel gun notlarini tarih basliklari altinda birlestirir."""
-    project_events = await timeline(session, project_id, limit)
-    # Notun kendisi gun grubunda icerik olarak gorunur. note.* event'leri
-    # append-only global Aktivite'de kalir; burada ikinci kez listelenmez.
-    events = project_events[:limit]
+    """Proje olaylarini gun basliklari altinda gruplar.
 
-    note_rows = (
-        await session.execute(
-            select(Note, Entity.title, Entity.created_at, Entity.updated_at)
-            .join(Entity, Entity.id == Note.id)
-            .where(
-                Note.project_id == project_id,
-                Note.journal_day.is_not(None),
-                Note.trashed_at.is_(None),
-            )
-        )
-    ).all()
-    notes_by_day = {
-        note.journal_day: note_service._out(note, title, created_at, updated_at)
-        for note, title, created_at, updated_at in note_rows
-    }
-
-    groups: dict[date, dict] = {
-        day: {"day": day, "note": note, "events": []}
-        for day, note in notes_by_day.items()
-        if day is not None
-    }
+    Gunluk METNI artik forkOS'ta tutulmaz: proje gunlugu Vault sahipligindedir
+    (bkz. `POST /projects/{id}/journal/{day}/obsidian`). Bu gorunum yalnizca
+    operasyonel zaman cizelgesidir -- not gövdesi, `notes_about` bagi veya
+    `note.*` olayi URETILMEZ.
+    """
+    events = (await timeline(session, project_id, limit))[:limit]
     zone = local_zone()
+    groups: dict[date, dict] = {}
     for event in events:
         event_day = event["occurred_at"].astimezone(zone).date()
-        group = groups.setdefault(
-            event_day,
-            {"day": event_day, "note": notes_by_day.get(event_day), "events": []},
-        )
+        group = groups.setdefault(event_day, {"day": event_day, "events": []})
         group["events"].append(event)
     return [groups[day] for day in sorted(groups, reverse=True)]
 

@@ -10,15 +10,33 @@
  *  - ana kılavuz bağlantısı `?focus=<parent_id>` adresini açar,
  *  - durum aksiyonları yalnızca `allowed_transitions` ile sınırlıdır.
  */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type * as ObsidianModule from "@/core/obsidian";
 import type { Opportunity } from "@/core/types";
 
+const obsidianHarness = vi.hoisted(() => ({ openUri: vi.fn() }));
+const invalidationHarness = vi.hoisted(() => ({ invalidate: vi.fn() }));
+
+vi.mock("@/core/obsidian", async (orig) => {
+  const actual = await orig<typeof ObsidianModule>();
+  return { ...actual, openObsidianUri: (uri: string) => obsidianHarness.openUri(uri) };
+});
+vi.mock("@/core/invalidation", () => ({
+  invalidateAfter: (...events: string[]) => invalidationHarness.invalidate(...events),
+}));
+vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
+
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: vi.fn(() => ({ data: [], isLoading: false, refetch: vi.fn() })),
-  useMutation: vi.fn((options: { mutationFn: (vars: unknown) => unknown }) => ({
-    mutate: (vars: unknown) => void options.mutationFn(vars),
+  useQuery: vi.fn(() => ({ data: [], isLoading: false, isFetching: false, refetch: vi.fn() })),
+  useMutation: vi.fn((options: { mutationFn: (vars: unknown) => unknown; onSuccess?: (value: unknown) => void }) => ({
     isPending: false,
+    mutate: (vars: unknown) => {
+      const result = options.mutationFn(vars);
+      if (result && typeof (result as Promise<unknown>).then === "function") {
+        void (result as Promise<unknown>).then((value) => options.onSuccess?.(value));
+      }
+    },
   })),
 }));
 
@@ -29,6 +47,10 @@ vi.mock("@/core/api", () => ({
     patch: vi.fn(() => Promise.resolve({})),
     put: vi.fn(() => Promise.resolve({})),
     del: vi.fn(() => Promise.resolve()),
+  },
+  qs: (params: Record<string, string | number | boolean | undefined | null>) => {
+    const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
+    return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)]))}` : "";
   },
 }));
 
@@ -178,5 +200,31 @@ describe("AnnouncementDetail", () => {
     expect(vi.mocked(api.post)).toHaveBeenCalledWith("/opportunities/ann-1/transition", { to: "watching" });
     fireEvent.click(screen.getByRole("button", { name: "Arşivle" }));
     expect(vi.mocked(api.post)).toHaveBeenCalledWith("/opportunities/ann-1/transition", { to: "archived" });
+  });
+
+  it("duyuru notu Vault'ta yakalanır ve Obsidian'da açılır; /notes'a yazılmaz", async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      forkos_id: "vault-ann-1",
+      open_uri: "obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FYLSY",
+    });
+    render(<AnnouncementDetail item={ANNOUNCEMENT} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Notlar ve İlişkiler" }));
+
+    // Serbest yakalama: kanonik dosya YOK, hep olusturma aksiyonu sunulur.
+    expect(screen.queryByRole("button", { name: "Obsidian'da aç" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Duyuru notu oluştur" }));
+
+    await waitFor(() => expect(obsidianHarness.openUri).toHaveBeenCalled());
+    expect(obsidianHarness.openUri).toHaveBeenCalledWith("obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FYLSY");
+    const [path, body] = vi.mocked(api.post).mock.calls.find(([call]) => String(call).includes("obsidian")) ?? [];
+    expect(path).toBe("/obsidian/capture");
+    expect(body).toEqual({
+      body: expect.stringContaining("2026 YLSY Başvuru Kılavuzu"),
+      relate_to: "ann-1",
+      tags: ["duyuru"],
+    });
+    expect(vi.mocked(api.post).mock.calls.some(([call]) => String(call) === "/notes")).toBe(false);
+    expect(invalidationHarness.invalidate).toHaveBeenCalledWith("obsidian.write");
+    expect(invalidationHarness.invalidate).not.toHaveBeenCalledWith("note.write", "opportunity.write");
   });
 });

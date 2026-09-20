@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
+import { openObsidianUri, type VaultItem } from "@/core/obsidian";
 import { Button, Chip, Empty, IconButton, Input, Kbd, Modal, cx, hostOf, relativeTime, useToast } from "@/core/ui";
 import type { Bookmark, Collection } from "@/core/types";
 
@@ -85,11 +86,14 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
     },
   });
 
+  // Kanonik bilgi notu: kayit sahibi bookmark'tir, Vault dosyasini sunucu
+  // uretir ve biz yalniz Obsidian'da acariz (forkOS'ta not editoru kalmadi).
   const createNote = useMutation({
-    mutationFn: (id: string) => api.post<{ note_id: string }>(`/bookmarks/${id}/create-note`, { pinned: false }),
-    onSuccess: () => {
-      invalidateAfter("bookmark.write", "note.write", "link.write");
-      toast.push("Baglantili not olusturuldu", { tone: "ok" });
+    mutationFn: (id: string) => api.post<VaultItem>(`/bookmarks/${id}/source-note`),
+    onSuccess: (item) => {
+      invalidateAfter("bookmark.write", "obsidian.write");
+      toast.push("Vault notu olusturuldu", { tone: "ok" });
+      openObsidianUri(item.open_uri);
     },
   });
 

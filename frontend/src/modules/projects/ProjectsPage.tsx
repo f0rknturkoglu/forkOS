@@ -27,7 +27,8 @@ import { GithubPanel } from "./GithubPanel";
 import { ProjectTodos } from "./ProjectTodos";
 import { Milestones } from "./Milestones";
 import { MilestoneTimeline } from "./MilestoneTimeline";
-import { ProjectJournal } from "./ProjectJournal";
+import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
+import { ProjectJournalBridge } from "./ProjectJournalBridge";
 import { ProjectKnowledgeNote } from "./ProjectKnowledgeNote";
 import {
   Workspace,
@@ -266,7 +267,8 @@ function ProjectDetail({ project }: { project: Project }) {
       <ProjectTodos project={project} />
 
       <ProjectKnowledgeNote project={project} />
-      <ProjectJournal projectId={project.id} />
+      <ProjectActivityTimeline projectId={project.id} />
+      <ProjectJournalBridge projectId={project.id} />
       <RelatedPanel entityId={project.id} title="Bağlı kayıtlar" />
     </div>
   );

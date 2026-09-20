@@ -14,8 +14,9 @@ from app.core.events import log_event
 from app.core.links import link
 from app.core.models import Entity, Link
 from app.db import get_session
-from app.modules.note import service as note_service
-from app.modules.note.schemas import NoteIn, NoteOut
+from app.integrations.obsidian import service as obsidian_service
+from app.integrations.obsidian.models import VaultItem
+from app.integrations.obsidian.router import vault_http_error
 from app.modules.opportunity import career as career_service
 from app.modules.opportunity import lifecycle, scoring, service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
@@ -505,21 +506,19 @@ async def add_opportunity_todo(
     return todo
 
 
-@router.get("/opportunities/{item_id}/notes", response_model=list[NoteOut])
-async def opportunity_notes(item_id: UUID, session: AsyncSession = Depends(get_session)):
-    if await session.get(Opportunity, item_id) is None:
-        raise HTTPException(404, "Fırsat bulunamadı")
-    return await note_service.list_notes(session, about=item_id)
+@router.post("/opportunities/{item_id}/research-note", response_model=VaultItem)
+async def get_or_create_research_note(
+    item_id: UUID, session: AsyncSession = Depends(get_session)
+):
+    """Fırsatın kanonik araştırma notunu çözer, yoksa Vault'ta oluşturur.
 
-
-@router.post("/opportunities/{item_id}/research-note", response_model=NoteOut)
-async def get_or_create_research_note(item_id: UUID, session: AsyncSession = Depends(get_session)):
+    Kimlik fırsatın UUID'sidir: aynı fırsat için ikinci dosya üretilmez.
+    forkOS veritabanında not kaydı OLUŞMAZ; not `00 Inbox/` altında yaşar ve
+    frontmatter'ında `notes_about` ilişkisini taşır (PHASE 3 §38).
+    """
     item = await session.get(Opportunity, item_id)
     if item is None:
         raise HTTPException(404, "Fırsat bulunamadı")
-    existing = await note_service.list_notes(session, about=item_id)
-    if existing:
-        return existing[0]
 
     entity = await session.get(Entity, item_id)
     title = entity.title if entity else (item.organization or "Fırsat")
@@ -542,11 +541,19 @@ async def get_or_create_research_note(item_id: UUID, session: AsyncSession = Dep
         f"## Görüşme Notları\n"
         f"- \n"
     )
-    note = await note_service.create(
-        session,
-        NoteIn(body=body, relate_to=item_id, tags=["mülakat", "araştırma"]),
-    )
-    return note
+    try:
+        return await obsidian_service.ensure_entity_knowledge_note(
+            session, item_id, initial_body=body
+        )
+    except (
+        obsidian_service.VaultConflictError,
+        obsidian_service.VaultStaleWriteError,
+        obsidian_service.VaultWriteError,
+        PermissionError,
+        ValueError,
+        RuntimeError,
+    ) as exc:
+        raise vault_http_error(exc) from exc
 
 
 # Application CRM endpointleri

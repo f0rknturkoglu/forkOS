@@ -21,8 +21,8 @@ import { planDayForToday } from "@/core/tasks";
 import { Button, Chip, Empty, Input, Section, Tabs, relativeTime, useToast } from "@/core/ui";
 import type { Document, Opportunity } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
-import { OpportunityNotesPanel, RequirementsSection } from "./OpportunityDetailSections";
-import type { OpportunityNote } from "./OpportunityDetailSections";
+import { captureVaultNote } from "@/core/obsidian";
+import { OpportunityKnowledgeSection, RequirementsSection } from "./OpportunityDetailSections";
 import { STATUS_TONES, announcementCategoryLabel, daysLeft, kindLabel, statusLabel } from "./labels";
 
 type AnnouncementTab = "ozet" | "tarihler" | "kontenjan" | "belgeler" | "notlar";
@@ -327,17 +327,18 @@ export function AnnouncementDetail({ item }: { item: Opportunity }) {
 
         {tab === "notlar" && (
           <div className="space-y-4">
-            <OpportunityNotesPanel
+            <OpportunityKnowledgeSection
               id={item.id}
               online={online}
+              canonical={false}
               title="Duyuru Notu"
-              description="Bu duyuru için notlarını, takip ettiğin tarihleri ve hazırlık adımlarını buradan yönet."
-              placeholder="Duyuru notları, takip edilecek tarihler, hazırlanacak belgeler…"
-              createLabel="Not Oluştur"
+              description="Duyuru notları Obsidian Vault'unda yaşar; takip ettiğin tarihleri ve hazırlık adımlarını orada yönet."
+              searchQuery={item.organization ?? item.title}
+              createLabel="Duyuru notu oluştur"
               emptyTitle="Henüz Duyuru Notu Oluşturulmadı"
-              emptyText="Bu duyuru için tek tıkla boş bir not oluştur ve gereksinimlerini buraya yaz."
+              emptyText="Bu duyuru için Vault'ta şablon bir bilgi notu oluştur ve gereksinimlerini oraya yaz."
               create={() =>
-                api.post<OpportunityNote>("/notes", {
+                captureVaultNote({
                   body: noteTemplate(item),
                   relate_to: item.id,
                   tags: ["duyuru"],

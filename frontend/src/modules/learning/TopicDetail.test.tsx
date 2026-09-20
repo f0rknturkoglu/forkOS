@@ -9,6 +9,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "@/core/api";
 import { DialogHost } from "@/core/dialog";
 import { ToastProvider } from "@/core/ui";
 import { TopicDetail, pickNextAction, type NextActionInput, type TopicTab } from "./TopicDetail";
@@ -78,7 +79,6 @@ const detail = {
   progress: { total: 3, done: 1, pct: 33 },
   stats: { minutes: 45, sessions: 2, week_minutes: 20, last_studied_at: "2026-09-10T10:00:00Z" },
   open_todo: null,
-  note_count: 2,
   flashcard_deck_count: 1,
   review: {
     due: false,
@@ -247,5 +247,25 @@ describe("TopicDetail", () => {
     const { onTabChange } = renderDetail();
     fireEvent.click(await screen.findByRole("tab", { name: "Tekrar" }));
     expect(onTabChange).toHaveBeenCalledWith("tekrar");
+  });
+
+  it("'Notlar' sekmesi kanonik bilgi notunu gosterir; eski /notes istegi YOK", async () => {
+    harness.apiGet.mockImplementation(async (path: string) => {
+      if (path === "/study/topics/t1") return detail;
+      if (path === "/pomodoro/active") return null;
+      if (path === "/obsidian/status") {
+        return { configured: true, available: true, writable: true, vault_name: "Vault" };
+      }
+      if (path === "/obsidian/items/t1") {
+        throw new ApiError(404, "bulunamadi", null);
+      }
+      return [];
+    });
+    renderDetail({ tab: "notlar" });
+
+    expect(await screen.findByRole("button", { name: /Bilgi notu oluştur/i })).toBeTruthy();
+    expect(harness.apiGet.mock.calls.every(([path]) => !String(path).includes("/notes"))).toBe(true);
+    // Not sayaci ve "Not al" aksiyonu kalkti.
+    expect(screen.queryByRole("button", { name: /Not al/ })).toBeNull();
   });
 });

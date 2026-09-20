@@ -22,7 +22,6 @@ const IMPACT_ROWS = [
   { key: "links", label: "Bağlantı" },
   { key: "plan_slots", label: "Plan kaydı" },
   { key: "todos", label: "Görev" },
-  { key: "notes", label: "Not" },
 ] as const;
 
 export function ImpactDialog({

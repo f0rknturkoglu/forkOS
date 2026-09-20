@@ -72,8 +72,13 @@ class ConvertToTaskIn(BaseModel):
     due_at: datetime | None = None
 
 
-class CreateNoteFromBookmarkIn(BaseModel):
-    pinned: bool = False
+class CreateSourceNoteIn(BaseModel):
+    """Kanonik kaynak notu isteği.
+
+    `pinned` KALDIRILDI (PHASE 3 §14): forkOS'ta sabitlenecek bir Notlar
+    listesi kalmadı. Ek metin isteğe bağlı olarak not başlangıcına eklenir.
+    """
+
     additional_text: str | None = None
 
 
@@ -98,11 +103,6 @@ class BookmarkHighlightOut(BaseModel):
     position_start: int = 0
     position_end: int = 0
     created_at: datetime
-
-
-class GlobalHighlightOut(BookmarkHighlightOut):
-    bookmark_title: str
-    bookmark_url: str
 
 
 class BookmarkProgressUpdate(BaseModel):

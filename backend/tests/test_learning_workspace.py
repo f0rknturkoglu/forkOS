@@ -396,8 +396,6 @@ async def test_topic_detail_bundles_everything_the_ui_needs(client: AsyncClient)
     todo = (
         await client.post(f"/api/study/topics/{child['id']}/todos", json={"priority": 1})
     ).json()["todo"]
-    note = (await client.post("/api/notes", json={"body": "not", "relate_to": child["id"]})).json()
-    assert note["id"]
     async with SessionLocal() as session:
         deck = await create_entity(session, type="flashcard_deck", title="Deste")
         await create_link(session, deck.id, UUID(child["id"]), "studies")
@@ -412,7 +410,8 @@ async def test_topic_detail_bundles_everything_the_ui_needs(client: AsyncClient)
     assert body["stats"]["sessions"] == 0
     assert body["open_todo"]["id"] == todo["id"]
     assert body["open_todo"]["priority"] == 1
-    assert body["note_count"] == 1
+    # PHASE 3: `note_count` KALDIRILDI -- konu bilgisi artık Vault'ta yaşar ve
+    # forkOS tarafında sayılacak bir not kaydı yoktur.
     assert body["flashcard_deck_count"] == 1
     assert body["review"]["review_count"] == 0
     assert body["review"]["due"] is False
@@ -621,18 +620,21 @@ async def test_course_lifecycle_dates_links_and_archive(client: AsyncClient) -> 
     assert (await client.get("/api/courses")).json() == []
     assert len((await client.get("/api/courses", params={"include_archived": True})).json()) == 1
 
-    # Sertifika yalnizca document/note olabilir.
+    # Sertifika yalnizca document olabilir (note artik canli bir tip degil).
     assert (
         await client.patch(
             f"/api/courses/{course['id']}", json={"certificate_entity_id": area["id"]}
         )
     ).status_code == 422
-    note = (await client.post("/api/notes", json={"body": "sertifika"})).json()
+    async with SessionLocal() as session:
+        certificate = await create_entity(session, type="document", title="Sertifika")
+        await session.commit()
+        certificate_id = str(certificate.id)
     ok = await client.patch(
-        f"/api/courses/{course['id']}", json={"certificate_entity_id": note["id"]}
+        f"/api/courses/{course['id']}", json={"certificate_entity_id": certificate_id}
     )
     assert ok.status_code == 200
-    assert ok.json()["certificate_entity_id"] == note["id"]
+    assert ok.json()["certificate_entity_id"] == certificate_id
 
     # Bilinmeyen durum reddedilir.
     assert (

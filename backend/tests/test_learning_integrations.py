@@ -149,29 +149,3 @@ async def test_review_reschedules_into_the_future(client):
     next_at = detail["review"]["next_review_at"]
     assert next_at is not None
     assert datetime.fromisoformat(next_at.replace("Z", "+00:00")) > datetime.now(UTC) - timedelta(minutes=1)
-
-
-async def test_topic_note_count_matches_visible_notes(client):
-    """Cop kutusundaki not sayaci SISIRMEZ.
-
-    Panel listesi (`GET /notes?about=`) cop kutusunu disarida birakir; konu
-    sayaci da ayni kumeyi saymali. Soft delete sonrasi baslik "1 not" derken
-    liste bos kaliyordu.
-    """
-    area = await _area(client, f"Notlar {uuid.uuid4().hex[:6]}")
-    topic = await _topic(client, area["id"], "Notlu konu")
-
-    created = await client.post("/api/notes", json={"body": "Konu notu", "relate_to": topic["id"]})
-    assert created.status_code == 201, created.text
-    note_id = created.json()["id"]
-
-    detail = (await client.get(f"/api/study/topics/{topic['id']}")).json()
-    assert detail["note_count"] == 1
-
-    trashed = await client.delete(f"/api/notes/{note_id}")
-    assert trashed.status_code == 204, trashed.text
-
-    visible = (await client.get("/api/notes", params={"about": topic["id"]})).json()
-    after = (await client.get(f"/api/study/topics/{topic['id']}")).json()
-    assert visible == []
-    assert after["note_count"] == 0, "sayac listeyle ayni kalmali"

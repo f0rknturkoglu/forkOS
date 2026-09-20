@@ -12,9 +12,23 @@
  *  - başvuru yoksa `POST /opportunities/{id}/apply` sunar,
  *  - birleşik zaman çizelgesi kronolojik render edilir.
  */
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type * as ObsidianModule from "@/core/obsidian";
 import type { Opportunity } from "@/core/types";
+
+const obsidianHarness = vi.hoisted(() => ({ openUri: vi.fn() }));
+const invalidationHarness = vi.hoisted(() => ({ invalidate: vi.fn() }));
+
+vi.mock("@/core/obsidian", async (orig) => {
+  const actual = await orig<typeof ObsidianModule>();
+  return { ...actual, openObsidianUri: (uri: string) => obsidianHarness.openUri(uri) };
+});
+
+vi.mock("@/core/invalidation", () => ({
+  invalidateAfter: (...events: string[]) => invalidationHarness.invalidate(...events),
+}));
+vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(({ queryKey }: { queryKey: unknown[] }) => {
@@ -43,14 +57,23 @@ vi.mock("@tanstack/react-query", () => ({
         isLoading: false,
       };
     }
+    // Kanonik Vault notu henuz uretilmemis: bos durum.
+    if (path.startsWith("vault-item")) {
+      return { data: null, isLoading: false, isFetching: false, refetch: vi.fn() };
+    }
     if (path.startsWith("application")) {
       return { data: null, isLoading: false, refetch: vi.fn() };
     }
     return { data: [], isLoading: false, refetch: vi.fn() };
   }),
-  useMutation: vi.fn((options: { mutationFn: (vars: unknown) => unknown }) => ({
-    mutate: (vars: unknown) => void options.mutationFn(vars),
+  useMutation: vi.fn((options: { mutationFn: (vars: unknown) => unknown; onSuccess?: (value: unknown) => void }) => ({
     isPending: false,
+    mutate: (vars: unknown) => {
+      const result = options.mutationFn(vars);
+      if (result && typeof (result as Promise<unknown>).then === "function") {
+        void (result as Promise<unknown>).then((value) => options.onSuccess?.(value));
+      }
+    },
   })),
 }));
 
@@ -61,6 +84,10 @@ vi.mock("@/core/api", () => ({
     patch: vi.fn(() => Promise.resolve({})),
     put: vi.fn(() => Promise.resolve({})),
     del: vi.fn(() => Promise.resolve()),
+  },
+  qs: (params: Record<string, string | number | boolean | undefined | null>) => {
+    const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
+    return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)]))}` : "";
   },
 }));
 
@@ -248,5 +275,45 @@ describe("JobDetail", () => {
     expect(text).toContain("İlan keşfedildi");
     expect(text).toContain("Teknik görüşme planlandı");
     expect(text.indexOf("İlan keşfedildi")).toBeLessThan(text.indexOf("Teknik görüşme planlandı"));
+  });
+
+  it("araştırma notu Vault'ta oluşturulur ve Obsidian'da açılır; Notlar listesi kaldırıldı", async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      forkos_id: "opp-1",
+      open_uri: "obsidian://open?vault=f0rknbrain&file=Firsatlar%2FAcme",
+    });
+    render(<JobDetail item={JOB} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Notlar ve İlişkiler" }));
+
+    // Kanonik not yokken oluşturma aksiyonu sunulur (satir ici editor YOK).
+    const create = await screen.findByRole("button", { name: "Araştırma notu oluştur" });
+    expect(screen.getByRole("button", { name: "Vault'ta ara" })).toBeTruthy();
+    // forkOS icinde ikinci bir not editoru YOK (kaldirilan panelin textarea'si).
+    expect(create.closest("section")?.querySelector("textarea")).toBeNull();
+
+    fireEvent.click(create);
+    await waitFor(() =>
+      expect(obsidianHarness.openUri).toHaveBeenCalledWith("obsidian://open?vault=f0rknbrain&file=Firsatlar%2FAcme"),
+    );
+    expect(vi.mocked(api.post)).toHaveBeenCalledWith("/opportunities/opp-1/research-note");
+    expect(invalidationHarness.invalidate).toHaveBeenCalledWith("obsidian.write");
+    expect(invalidationHarness.invalidate).not.toHaveBeenCalledWith("note.write", "opportunity.write");
+    // Kaldirilan uclar: not listesi ve PATCH /notes cagrilmaz.
+    expect(vi.mocked(api.get).mock.calls.some(([path]) => String(path).includes("notes"))).toBe(false);
+    expect(vi.mocked(api.patch).mock.calls.some(([path]) => String(path).includes("/notes"))).toBe(false);
+  });
+
+  it("Vault'ta ara kaydın başlığıyla Vault arama URI'sini Obsidian'da açar", async () => {
+    vi.mocked(api.get).mockResolvedValue({ uri: "obsidian://search?vault=f0rknbrain&query=Senior%20Platform" });
+    render(<JobDetail item={JOB} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Notlar ve İlişkiler" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Vault'ta ara" }));
+    await waitFor(() =>
+      expect(obsidianHarness.openUri).toHaveBeenCalledWith(
+        "obsidian://search?vault=f0rknbrain&query=Senior%20Platform",
+      ),
+    );
+    expect(vi.mocked(api.get)).toHaveBeenCalledWith(expect.stringContaining("/obsidian/uri/search?q=Senior"));
   });
 });

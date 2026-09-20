@@ -270,7 +270,6 @@ class StudyTopicDetailOut(BaseModel):
     progress: TopicProgressOut
     stats: TopicStatsDetailOut
     open_todo: OpenTodoOut | None = None
-    note_count: int = 0
     flashcard_deck_count: int = 0
     review: ReviewBlockOut
 
@@ -345,7 +344,6 @@ class TopicImpactOut(BaseModel):
     links: int = 0
     plan_slots: int = 0
     todos: int = 0
-    notes: int = 0
 
 
 # ---------------------------------------------------------------------------

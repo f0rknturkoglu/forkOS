@@ -11,6 +11,9 @@ from app.core.links import link
 from app.core.time import local_today
 from app.db import get_session
 from app.integrations.models import OAuthToken
+from app.integrations.obsidian import service as obsidian_service
+from app.integrations.obsidian.models import VaultItem
+from app.integrations.obsidian.router import vault_http_error
 from app.modules.project import github_repo, service
 from app.modules.project.models import Project
 from app.modules.project.schemas import (
@@ -19,7 +22,6 @@ from app.modules.project.schemas import (
     MilestoneIn,
     MilestonePatch,
     ProjectIn,
-    ProjectJournalNoteIn,
     ProjectPatch,
     TodoLinkIn,
 )
@@ -102,18 +104,33 @@ async def project_journal(
     return await service.journal(session, project_id, limit)
 
 
-@router.put("/projects/{project_id}/journal/{day}")
-async def put_project_journal_note(
+@router.post("/projects/{project_id}/journal/{day}/obsidian", response_model=VaultItem)
+async def open_project_journal_in_obsidian(
     project_id: uuid.UUID,
     day: date,
-    body: ProjectJournalNoteIn,
     session: AsyncSession = Depends(get_session),
 ):
+    """Proje günlüğünün Vault dosyasını çözer, yoksa oluşturur.
+
+    Günlük METNİ forkOS'ta tutulmaz: sahibi Vault'tur ve düzenleme Obsidian'da
+    yapılır. PHASE 2 ile taşınmış günlükler `forkos_id`'leriyle yeniden
+    kullanılır; aynı gün için ikinci dosya üretilmez.
+    """
     if await session.get(Project, project_id) is None:
         raise HTTPException(404)
     if day > local_today():
         raise HTTPException(400, "Gelecek bir gun icin gunluk notu yazilamaz")
-    return await service.upsert_journal_note(session, project_id, day, body.body)
+    try:
+        return await obsidian_service.ensure_project_journal(session, project_id, day)
+    except (
+        obsidian_service.VaultConflictError,
+        obsidian_service.VaultStaleWriteError,
+        obsidian_service.VaultWriteError,
+        PermissionError,
+        ValueError,
+        RuntimeError,
+    ) as exc:
+        raise vault_http_error(exc) from exc
 
 
 @router.post("/projects/{project_id}/todos", status_code=201)

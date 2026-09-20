@@ -514,8 +514,10 @@ async def patch_course(session: AsyncSession, course_id: UUID, data) -> dict | N
     certificate = values.pop("certificate_entity_id", _UNSET)
     old_status, old_progress = course.status, course.progress_pct
     if certificate is not _UNSET and certificate is not None:
+        # PHASE 3: sertifika yalnızca belge olabilir. `note` artık canlı bir
+        # forkOS tipi değildir (bilgi Vault'ta yaşar), bu yüzden kabul edilmez.
         await _validate_entities(
-            session, [certificate], expected=("document", "note"), label="sertifika"
+            session, [certificate], expected=("document",), label="sertifika"
         )
     for key, value in values.items():
         setattr(course, key, value)
@@ -1028,33 +1030,6 @@ async def _open_todo(session: AsyncSession, topic_id: UUID) -> dict | None:
     }
 
 
-async def _note_count(session: AsyncSession, topic_id: UUID) -> int:
-    """Konuya bagli GORUNUR not sayisi.
-
-    Panelin listesi (`GET /notes?about=`) cop kutusundaki ve arsivli notlari
-    disarida birakir; sayac da ayni kumeyi saymali. Aksi halde cop kutusuna
-    tasinan bir nottan sonra baslik "1 not" derken liste bos gorunur.
-    """
-    from app.modules.note.models import Note
-
-    return int(
-        (
-            await session.execute(
-                select(func.count())
-                .select_from(Link)
-                .join(Note, Note.id == Link.from_id)
-                .join(Entity, Entity.id == Note.id)
-                .where(
-                    Link.to_id == topic_id,
-                    Link.relation == "notes_about",
-                    Note.trashed_at.is_(None),
-                    Entity.archived_at.is_(None),
-                )
-            )
-        ).scalar_one()
-    )
-
-
 async def _deck_count(session: AsyncSession, topic_id: UUID) -> int:
     from app.modules.flashcard.service import STUDY_RELATIONS
 
@@ -1120,7 +1095,6 @@ async def get_topic(session: AsyncSession, topic_id: UUID) -> dict | None:
             "last_studied_at": metrics["last_studied_at"],
         },
         "open_todo": await _open_todo(session, topic_id),
-        "note_count": await _note_count(session, topic_id),
         "flashcard_deck_count": await _deck_count(session, topic_id),
         "review": review_block(topic),
     }
@@ -1146,10 +1120,7 @@ async def topic_impact(session: AsyncSession, topic_id: UUID) -> dict | None:
                         where s.entity_id in (select id from subtree)) as plan_slots,
                       (select count(*) from link l
                         where l.to_id in (select id from subtree)
-                          and l.relation = 'prepares_for') as todos,
-                      (select count(*) from link l
-                        where l.to_id in (select id from subtree)
-                          and l.relation = 'notes_about') as notes"""
+                          and l.relation = 'prepares_for') as todos"""
                 ),
                 {"id": topic_id, "limit": MAX_DEPTH},
             )

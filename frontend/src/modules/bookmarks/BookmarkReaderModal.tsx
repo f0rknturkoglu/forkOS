@@ -16,8 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { navigate } from "@/app/router";
 import { invalidateAfter } from "@/core/invalidation";
+import { openObsidianUri, type VaultItem } from "@/core/obsidian";
 import type { Bookmark, BookmarkFullText, BookmarkHighlight, Collection } from "@/core/types";
 import { Button, Chip, Empty, IconButton, Input, Select, cx, hostOf, useToast } from "@/core/ui";
 
@@ -270,13 +270,14 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
     },
   });
 
+  // Literatür notu: kanonik bilgi notu Vault'ta yaşar (kayıt sahibi bookmark).
   const createLiteratureNote = useMutation({
-    mutationFn: () => api.post<{ note_id: string }>(`/bookmarks/${bookmark?.id}/create-note`),
-    onSuccess: ({ note_id }) => {
-      invalidateAfter("note.write", "link.write");
+    mutationFn: () => api.post<VaultItem>(`/bookmarks/${bookmark?.id}/source-note`),
+    onSuccess: (item) => {
+      invalidateAfter("obsidian.write");
       toast.push("Literatür notu kasaya eklendi.", { tone: "ok" });
       onClose();
-      navigate(`/notes?focus=${note_id}`);
+      openObsidianUri(item.open_uri);
     },
     onError: () => toast.push("Literatür notu oluşturulamadı.", { tone: "danger" }),
   });

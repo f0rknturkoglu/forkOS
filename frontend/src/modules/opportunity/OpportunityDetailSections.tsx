@@ -1,9 +1,10 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, FileText, MailSearch, Plus, Save, X } from "lucide-react";
+import { BookOpen, Check, ExternalLink, FileText, MailSearch, Plus, X } from "lucide-react";
 import { ApiError, api } from "@/core/api";
-import { Button, Chip, Input, SectionHeader, Select, Spinner, Textarea, cx, relativeTime, useToast } from "@/core/ui";
+import { VAULT_ITEM_KEY, getVaultItem, getVaultSearchUri, openObsidianUri, type VaultItem } from "@/core/obsidian";
+import { Button, Chip, Input, SectionHeader, Select, Spinner, Textarea, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import type {
   Application,
@@ -768,29 +769,23 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
     </section>
   );
 }
-
-export interface OpportunityNote {
-  id: string;
-  title: string;
-  body: string;
-  updated_at?: string;
-}
-
 /**
- * Firsat notu paneli — is ilani (sirket/mulakat arastirma notu) ve duyuru
- * (genel not) ayni davranisi paylasir; yalnizca basliklar ve not olusturma
- * istegi farklidir.
+ * Fırsat bilgi köprüsü — bilgi notu artık forkOS'ta değil Obsidian Vault'unda
+ * yaşar, bu yüzden panelin işi içerik düzenlemek değil köprü kurmaktır:
+ * kanonik notu çözer, yoksa oluşturur ve Obsidian'da açar. Burada ikinci bir
+ * Markdown editörü açılmaz.
  *
- * Taslak yalnizca NOT KIMLIGI degistiginde yuklenir: body-only refetch
- * (window focus, baglanti tazeleme) kullanicinin yazmakta oldugu taslagi
- * ezmez (NotesPage ile ayni desen).
+ * `canonical=false` serbest yakalamadır (duyuru notu): sunucu her seferinde
+ * yeni bir `00 Inbox` dosyası üretir, kayıt kimliğiyle çözülebilen tek bir
+ * dosya yoktur.
  */
-export function OpportunityNotesPanel({
+export function OpportunityKnowledgeSection({
   id,
   online,
+  canonical,
   title,
   description,
-  placeholder,
+  searchQuery,
   createLabel,
   emptyTitle,
   emptyText,
@@ -798,94 +793,95 @@ export function OpportunityNotesPanel({
 }: {
   id: string;
   online: boolean;
-  /** Not henuz yokken gosterilen baslik. */
+  /** Kanonik not: kaydın kendi Vault dosyası (`forkos_id` = kayıt kimliği). */
+  canonical: boolean;
+  /** Not henüz yokken gösterilen başlık. */
   title: string;
   description: string;
-  placeholder: string;
+  /** `Vault'ta ara` sorgusu (genellikle kaydın başlığı). */
+  searchQuery: string;
   createLabel: string;
   emptyTitle: string;
   emptyText: string;
-  /** Not olusturma istegi (is ilani: research-note · duyuru: POST /notes). */
-  create: () => Promise<OpportunityNote>;
+  /** Not oluşturma isteği (iş ilanı: research-note · duyuru: hızlı yakalama). */
+  create: () => Promise<VaultItem>;
 }) {
   const toast = useToast();
   const {
-    data: notes = [],
+    data: item,
     refetch,
-    isError: notesFailed,
-    error: notesError,
-    isFetching: notesFetching,
-  } = useQuery({
-    queryKey: ["opportunity", id, "notes"],
-    queryFn: () => api.get<OpportunityNote[]>(`/opportunities/${id}/notes`),
-  });
-  const active = notes[0];
-  const [draft, setDraft] = useState<string | null>(null);
-  const draftNoteId = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (active && draftNoteId.current !== active.id) {
-      draftNoteId.current = active.id;
-      setDraft(active.body);
-    }
-  }, [active?.id]);
-
-  const save = useMutation({
-    mutationFn: (body: string) => api.patch(`/notes/${active?.id}`, { body }),
-    onSuccess: () => {
-      invalidateAfter("note.write", "opportunity.write");
-      refetch();
-      toast.push("Not kaydedildi", { tone: "ok" });
+    isError,
+    error,
+    isFetching,
+  } = useQuery<VaultItem | null>({
+    queryKey: [VAULT_ITEM_KEY, id],
+    queryFn: async () => {
+      try {
+        return await getVaultItem(id);
+      } catch (cause) {
+        // 404 = kanonik not henuz uretilmemis: hata degil, bos durumdur.
+        if (cause instanceof ApiError && cause.status === 404) return null;
+        throw cause;
+      }
     },
+    enabled: canonical,
   });
 
-  const createNote = useMutation({
+  const openInObsidian = useMutation({
     mutationFn: () => create(),
-    onSuccess: (note) => {
-      invalidateAfter("note.write", "opportunity.write");
+    onSuccess: (created) => {
+      invalidateAfter("obsidian.write");
+      openObsidianUri(created.open_uri);
+      toast.push("Not Vault'ta oluşturuldu ve Obsidian'da açıldı", { tone: "ok" });
       refetch();
-      draftNoteId.current = note.id;
-      setDraft(note.body);
-      toast.push("Not oluşturuldu", { tone: "ok" });
     },
+    onError: (cause: Error) => toast.push(cause.message, { tone: "danger" }),
   });
+
+  const search = useMutation({
+    mutationFn: () => getVaultSearchUri(searchQuery),
+    onSuccess: ({ uri }) => openObsidianUri(uri),
+    onError: () => toast.push("Vault araması açılamadı", { tone: "danger" }),
+  });
+
+  const busy = openInObsidian.isPending || search.isPending;
+  // Serbest yakalamada kayıtla çözülen kanonik dosya YOKTUR (her istek yeni bir
+  // `00 Inbox` notu üretir); mevcut-durum yalnız kanonik modda gösterilir.
+  const vaultItem = canonical ? (item ?? null) : null;
 
   return (
     <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
-      <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3">
-        <div>
+      <div className="flex items-start justify-between gap-3 border-b border-subtle pb-3">
+        <div className="min-w-0">
           <SectionHeader
-            label={active ? active.title : title}
-            hint={active?.updated_at ? `Son kayıt: ${relativeTime(active.updated_at)}` : undefined}
+            label={vaultItem ? vaultItem.title : title}
+            hint={vaultItem ? vaultItem.relative_path : undefined}
           />
           <p className="text-meta text-muted">{description}</p>
         </div>
-        {active && (
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!online || save.isPending || draft === active.body}
-            title={online ? undefined : OFFLINE_WRITE_TITLE}
-            onClick={() => draft !== null && save.mutate(draft)}
-          >
-            <Save size={13} /> {save.isPending ? "Kaydediliyor…" : "Kaydet"}
-          </Button>
-        )}
+        <Button
+          size="sm"
+          disabled={!online || busy}
+          title={online ? undefined : OFFLINE_WRITE_TITLE}
+          onClick={() => search.mutate()}
+        >
+          <BookOpen size={13} aria-hidden="true" /> Vault'ta ara
+        </Button>
       </div>
 
-      {notesFailed ? (
+      {isError ? (
         <div
           role="alert"
           className="mt-4 space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
         >
           <p className="text-meta text-danger">
-            Notlar yüklenemedi: {notesError instanceof Error ? notesError.message : "bilinmeyen hata"}
+            Vault kaydı okunamadı: {error instanceof Error ? error.message : "bilinmeyen hata"}
           </p>
-          <Button size="sm" disabled={notesFetching} onClick={() => void refetch()}>
+          <Button size="sm" disabled={isFetching} onClick={() => void refetch()}>
             Tekrar dene
           </Button>
         </div>
-      ) : !active ? (
+      ) : !vaultItem ? (
         <div className="py-8 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent-surface text-accent">
             <FileText size={24} />
@@ -895,29 +891,27 @@ export function OpportunityNotesPanel({
           <Button
             variant="primary"
             className="mt-4"
-            disabled={!online || createNote.isPending}
+            disabled={!online || busy}
             title={online ? undefined : OFFLINE_WRITE_TITLE}
-            onClick={() => createNote.mutate()}
+            onClick={() => openInObsidian.mutate()}
           >
-            <Plus size={14} /> {createLabel}
+            <Plus size={14} aria-hidden="true" /> {createLabel}
           </Button>
         </div>
       ) : (
-        <div className="mt-4 space-y-3">
-          <Textarea
-            value={draft ?? ""}
-            onChange={setDraft}
-            onBlur={() => {
-              if (draft !== null && draft !== active.body) save.mutate(draft);
-            }}
-            rows={16}
-            placeholder={placeholder}
-            className="font-mono text-meta leading-relaxed"
-          />
-          <div className="flex items-center justify-between text-micro text-muted">
-            <span>* Otomatik kaydeder (veya yukarıdaki Kaydet butonunu kullan).</span>
-            <span>Fırsatlar'dan ayrılmadan notlar güvenle saklanır.</span>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-meta text-secondary">{vaultItem.relative_path}</p>
+            <p className="text-micro text-muted">Bilgi notu Obsidian kasanda yaşar; forkOS yalnız köprüyü kurar.</p>
           </div>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!online || busy}
+            onClick={() => openObsidianUri(vaultItem.open_uri)}
+          >
+            <ExternalLink size={13} aria-hidden="true" /> Obsidian'da aç
+          </Button>
         </div>
       )}
     </section>

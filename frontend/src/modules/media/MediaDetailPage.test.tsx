@@ -4,9 +4,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as ObsidianModule from "@/core/obsidian";
 import { allRoutes } from "@/core/registry";
 import "./index";
 import { MediaDetailPage } from "./MediaDetailPage";
+
+const obsidianHarness = vi.hoisted(() => ({ openUri: vi.fn() }));
+
+// Obsidian devri (open_uri -> isletim sistemi) gozlemlenebilir olsun; Vault
+// istemcisinin geri kalani gercek kalir.
+vi.mock("@/core/obsidian", async (orig) => {
+  const actual = await orig<typeof ObsidianModule>();
+  return { ...actual, openObsidianUri: (uri: string) => obsidianHarness.openUri(uri) };
+});
 
 const item = {
   archived_at: null,
@@ -185,7 +195,26 @@ function defaultResponder(path: string, method: string): Response {
     if (path.startsWith("/api/entities/")) return json([]);
     if (path.startsWith("/api/media/")) return json(detail);
   }
-  if (path.startsWith("/api/notes")) return json({ id: "note-1" }, 201);
+  if (path.startsWith("/api/obsidian/capture")) {
+    return json(
+      {
+        forkos_id: "vault-media-1",
+        forkos_type: "note",
+        title: "Dune notları",
+        relative_path: "00 Inbox/Dune notları.md",
+        open_uri: "obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FDune",
+        mtime: 0,
+        size: 0,
+        note_kind: "personal",
+        entity_type: null,
+        project_id: null,
+        journal_day: null,
+        source_bookmark_id: null,
+        relation_count: 1,
+      },
+      201,
+    );
+  }
   if (path.startsWith("/api/todos")) return json({ id: "todo-1" }, 201);
   return json(item);
 }
@@ -210,6 +239,7 @@ describe("media detail page", () => {
   beforeEach(() => {
     calls = [];
     responder = defaultResponder;
+    obsidianHarness.openUri.mockReset();
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() },
@@ -553,7 +583,7 @@ describe("media detail page", () => {
     window.removeEventListener("forkos:pomodoro-open", opened);
   });
 
-  it("creates a note bound to the record and opens it in the notes module", async () => {
+  it("creates a Vault note bound to the record and opens it in Obsidian", async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByRole("heading", { name: "Dune: Prophecy" });
@@ -565,12 +595,20 @@ describe("media detail page", () => {
     await user.type(screen.getByRole("textbox", { name: "İlk satır" }), "İlk izlenim");
     await user.click(screen.getByRole("button", { name: "Notu oluştur ve aç" }));
 
-    await waitFor(() => expect(calls.some((call) => call.path === "/api/notes" && call.method === "POST")).toBe(true));
-    expect(calls.find((call) => call.path === "/api/notes")?.body).toEqual({
+    await waitFor(() =>
+      expect(calls.some((call) => call.path === "/api/obsidian/capture" && call.method === "POST")).toBe(true),
+    );
+    expect(calls.find((call) => call.path === "/api/obsidian/capture")?.body).toEqual({
       body: "Dune notları\n\nİlk izlenim",
       relate_to: "media-1",
     });
-    await waitFor(() => expect(location.hash).toContain("/notes?focus=note-1"));
+    // forkOS not entity'si kaldirildi: hicbir /api/notes cagrisi yok.
+    expect(calls.some((call) => call.path.startsWith("/api/notes"))).toBe(false);
+    await waitFor(() =>
+      expect(obsidianHarness.openUri).toHaveBeenCalledWith("obsidian://open?vault=f0rknbrain&file=00%20Inbox%2FDune"),
+    );
+    // Not forkOS icinde acilmaz: rota degismez.
+    expect(location.hash).toBe("#/media/media-1");
   });
 
   it("creates a todo from the shared intent layer and links it to the record", async () => {

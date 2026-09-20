@@ -16,11 +16,12 @@ import {
   X,
 } from "lucide-react";
 
-import { navigate, useHashRoute } from "@/app/router";
+import { useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import { linkEntities } from "@/core/links";
+import { captureVaultNote, openObsidianUri } from "@/core/obsidian";
 import { createTask, invalidateTaskWrite } from "@/core/tasks";
-import type { MediaDetail, MediaItem, MediaProviderStatus, Note } from "@/core/types";
+import type { MediaDetail, MediaItem, MediaProviderStatus } from "@/core/types";
 import type { components } from "@/generated/api-schema";
 import {
   Button,
@@ -238,7 +239,9 @@ function CollectionMembership({
 
 /**
  * "Not oluştur": medyada IKINCI bir editor acmadan baslangic metnini alir,
- * notu kayda baglar ve Notlar modulunde acar (`/notes?focus=<id>`).
+ * bilgi notunu Vault'ta olusturur ve Obsidian'da acar (forkOS'ta not editoru
+ * kalmadi; medyanin kendi `notes` alani bir domain alanidir ve buradan
+ * degismez).
  */
 function NoteComposer({ item, open, onClose }: { item: MediaItem; open: boolean; onClose: () => void }) {
   const toast = useToast();
@@ -247,11 +250,11 @@ function NoteComposer({ item, open, onClose }: { item: MediaItem; open: boolean;
   const [firstLine, setFirstLine] = useState("");
   const body = [title.trim(), firstLine.trim()].filter(Boolean).join("\n\n");
   const create = useMutation({
-    mutationFn: () => api.post<Note>("/notes", { body, relate_to: item.id }),
-    onSuccess: (note) => {
-      invalidateAfter("note.write");
+    mutationFn: () => captureVaultNote({ body, relate_to: item.id }),
+    onSuccess: (vaultItem) => {
+      invalidateAfter("obsidian.write");
       onClose();
-      navigate(`/notes?focus=${encodeURIComponent(note.id)}`);
+      openObsidianUri(vaultItem.open_uri);
     },
     onError: (error: Error) => toast.push(error.message, { tone: "danger" }),
   });

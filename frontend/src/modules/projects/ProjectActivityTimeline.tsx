@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarDays } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { invalidateAfter } from "@/core/invalidation";
 import type { ProjectEvent, ProjectJournalDay } from "@/core/types";
-import { Empty, Field, Input, Section, SectionHeader, Textarea, cx, relativeTime, useToast, Skeleton } from "@/core/ui";
+import { Empty, Field, Input, Section, SectionHeader, Skeleton, cx, relativeTime } from "@/core/ui";
 import { VERB_LABELS } from "@/core/verbs";
 import { keyToUtc, todayKey } from "@/lib/date";
-import { useOnline } from "@/lib/hooks";
+
+/**
+ * Gunluge gore gruplanmis proje hareketleri (salt okunur).
+ *
+ * Gunluk NOTU artik forkOS'ta yasamaz; bu yuzey yalnizca projenin operasyonel
+ * izini gosterir. Yazma yuzeyi `ProjectJournalBridge` uzerinden Obsidian'dir.
+ * Yanit sozlesmesi `note` alanini TASIMAZ; gunluk metni Vault'a aittir.
+ */
+type JournalDayGroup = ProjectJournalDay;
 
 function eventTone(verb: string): string {
   if (verb.startsWith("github.")) return "bg-feed-gh";
@@ -33,6 +40,7 @@ function eventText(event: ProjectEvent): string | null {
   );
 }
 
+/** Vault'a tasinan eski `note.*` olaylari artik proje hareketi degildir. */
 function visibleProjectEvents(events: ProjectEvent[]): ProjectEvent[] {
   return events.filter((event) => !event.verb.startsWith("note."));
 }
@@ -61,38 +69,25 @@ function EventRows({ events }: { events: ProjectEvent[] }) {
   );
 }
 
-export function ProjectJournal({ projectId }: { projectId: string }) {
+export function ProjectActivityTimeline({ projectId }: { projectId: string }) {
   const today = todayKey();
-  const online = useOnline();
-  const toast = useToast();
   const [selectedDay, setSelectedDay] = useState(today);
 
   const journalQuery = useQuery({
     queryKey: ["project-journal", projectId],
-    queryFn: () => api.get<ProjectJournalDay[]>(`/projects/${projectId}/journal${qs({ limit: 60 })}`),
+    queryFn: () => api.get<JournalDayGroup[]>(`/projects/${projectId}/journal${qs({ limit: 60 })}`),
   });
   const groups = journalQuery.data ?? [];
   const activeGroup = groups.find((group) => group.day === selectedDay);
   const activeEvents = visibleProjectEvents(activeGroup?.events ?? []);
   const historyGroups = groups.filter((group) => group.day !== selectedDay);
-  const savedBody = activeGroup?.note?.body ?? "";
-  const [draft, setDraft] = useState(savedBody);
 
   useEffect(() => {
     setSelectedDay(today);
   }, [projectId, today]);
-  useEffect(() => {
-    setDraft(savedBody);
-  }, [selectedDay, savedBody]);
-
-  const save = useMutation({
-    mutationFn: (body: string) => api.put(`/projects/${projectId}/journal/${selectedDay}`, { body }),
-    onSuccess: () => invalidateAfter("note.write", "project.write", "link.write"),
-    onError: () => toast.push("Günlük notu kaydedilemedi.", { tone: "danger" }),
-  });
 
   return (
-    <Section title="Günlük" hint="günlük notlar ve proje hareketleri" bodyClassName="space-y-4">
+    <Section title="Proje hareketleri" hint="güne göre proje olayları" bodyClassName="space-y-4">
       <article
         data-testid="project-journal-active-day"
         className="overflow-hidden rounded-control border border-accent bg-accent-surface"
@@ -116,33 +111,6 @@ export function ProjectJournal({ projectId }: { projectId: string }) {
           </div>
           <span className="pb-1 text-meta text-muted">{activeEvents.length} hareket</span>
         </header>
-
-        <div className="bg-surface px-3 py-3">
-          <Field
-            label="Günlük notu"
-            hint={
-              !online
-                ? "Çevrimdışıyken günlük okunabilir; yazma kapalıdır."
-                : draft.trim() !== savedBody.trim()
-                  ? "Kaydedilmedi; alandan çıkınca kaydedilir."
-                  : "Her proje için günde tek düzenlenebilir not."
-            }
-          >
-            <Textarea
-              value={draft}
-              onChange={setDraft}
-              onBlur={(value) => {
-                const normalized = value.trim();
-                if (normalized !== savedBody.trim()) save.mutate(normalized);
-              }}
-              disabled={!online || save.isPending || journalQuery.isLoading || journalQuery.isError}
-              rows={4}
-              ariaLabel="Günlük notu"
-              placeholder="Bugün ne oldu, hangi karar alındı, sıradaki bağlam ne?"
-              className="font-mono text-meta leading-6"
-            />
-          </Field>
-        </div>
 
         <div className="border-t border-subtle bg-surface px-3 py-2">
           <SectionHeader label="Günün hareketleri" hint={`${activeEvents.length}`} />
@@ -182,11 +150,6 @@ export function ProjectJournal({ projectId }: { projectId: string }) {
                     <span className="ml-auto text-meta text-muted">{events.length} hareket</span>
                   </button>
 
-                  {group.note && (
-                    <p className="mt-2 whitespace-pre-wrap border-l-2 border-warn-border pl-3 text-body text-secondary">
-                      {group.note.body}
-                    </p>
-                  )}
                   {events.length > 0 && (
                     <div className="mt-2 border-t border-subtle">
                       <EventRows events={events} />

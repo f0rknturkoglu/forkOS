@@ -56,7 +56,8 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 // yasanir. Milestones + MilestoneTimeline gercek kalir (gorunurluk testi).
 vi.mock("./GithubPanel", () => ({ GithubPanel: () => null }));
 vi.mock("./ProjectTodos", () => ({ ProjectTodos: () => null }));
-vi.mock("./ProjectJournal", () => ({ ProjectJournal: () => null }));
+vi.mock("./ProjectActivityTimeline", () => ({ ProjectActivityTimeline: () => null }));
+vi.mock("./ProjectJournalBridge", () => ({ ProjectJournalBridge: () => null }));
 vi.mock("./ProjectKnowledgeNote", () => ({ ProjectKnowledgeNote: () => null }));
 vi.mock("@/core/RelatedPanel", () => ({ RelatedPanel: () => null }));
 

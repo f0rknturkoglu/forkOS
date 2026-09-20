@@ -21,9 +21,11 @@ from app.core import search as search_svc
 from app.core import tags as tag_svc
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
-from app.core.models import Entity, Link
+from app.core.models import Entity
 from app.core.readability import fetch_and_extract
 from app.core.time import local_day_bounds, local_today
+from app.integrations.obsidian import service as obsidian_service
+from app.integrations.obsidian.models import VaultItem
 from app.modules.bookmark.models import COLLECTIONS, Bookmark, BookmarkHighlight
 from app.modules.bookmark.schemas import (
     BookmarkBulkActionIn,
@@ -34,8 +36,7 @@ from app.modules.bookmark.schemas import (
     BookmarkUpdate,
     CaptureIn,
     ConvertToTaskIn,
-    CreateNoteFromBookmarkIn,
-    GlobalHighlightOut,
+    CreateSourceNoteIn,
 )
 
 _TRACKING_PREFIXES = ("utm_", "fbclid", "gclid", "mc_cid", "mc_eid", "ref")
@@ -572,23 +573,6 @@ async def list_highlights(
     return [BookmarkHighlightOut.model_validate(h) for h in rows]
 
 
-async def list_global_highlights(session: AsyncSession) -> list[GlobalHighlightOut]:
-    rows = (await session.execute(
-        select(BookmarkHighlight, Entity.title, Bookmark.url)
-        .join(Bookmark, Bookmark.id == BookmarkHighlight.bookmark_id)
-        .join(Entity, Entity.id == Bookmark.id)
-        .order_by(BookmarkHighlight.created_at.desc())
-    )).all()
-    return [
-        GlobalHighlightOut(
-            **BookmarkHighlightOut.model_validate(highlight).model_dump(),
-            bookmark_title=title,
-            bookmark_url=url,
-        )
-        for highlight, title, url in rows
-    ]
-
-
 async def convert_highlight_to_flashcard(
     session: AsyncSession, bookmark_id: uuid.UUID, highlight_id: uuid.UUID
 ) -> uuid.UUID:
@@ -731,11 +715,18 @@ async def convert_to_task(
     return todo_out.id
 
 
-async def create_note_from_bookmark(
+async def ensure_source_note(
     session: AsyncSession,
     bookmark_id: uuid.UUID,
-    data: CreateNoteFromBookmarkIn,
-) -> uuid.UUID:
+    data: CreateSourceNoteIn,
+) -> VaultItem:
+    """Yer iminin kanonik Vault kaynak notunu çözer veya oluşturur.
+
+    Kimlik yer iminin UUID'sidir; aynı yer imi için ikinci dosya üretilmez.
+    Yer iminin KENDİ alanları (url, read state, highlights, not) operasyonel
+    kalır -- buraya yalnızca notun başlangıç gövdesi olarak yansır. Makale
+    gövdesi KOPYALANMAZ (PHASE 3 §36).
+    """
     bookmark = await session.get(Bookmark, bookmark_id)
     if bookmark is None:
         raise ValueError("Bookmark bulunamadi")
@@ -743,64 +734,24 @@ async def create_note_from_bookmark(
     if entity is None:
         raise ValueError("Entity bulunamadi")
 
-    from app.modules.note.models import Note
-
-    existing_id = (await session.execute(
-        select(Note.id).where(Note.source_bookmark_id == bookmark_id)
-    )).scalar_one_or_none()
-    if existing_id is not None:
-        return existing_id
-
-    legacy_candidates = list((await session.execute(
-        select(Note)
-        .join(Link, Link.from_id == Note.id)
-        .join(Entity, Entity.id == Note.id)
-        .where(
-            Link.to_id == bookmark_id,
-            Link.relation == "notes_about",
-            Note.source_bookmark_id.is_(None),
-            Note.project_id.is_(None),
-            Note.journal_day.is_(None),
-            Note.trashed_at.is_(None),
-            Entity.archived_at.is_(None),
-        )
-    )).scalars().all())
-    if len(legacy_candidates) == 1:
-        legacy = legacy_candidates[0]
-        legacy.source_bookmark_id = bookmark_id
-        await touch_entity(session, legacy.id)
-        await log_event(
-            session,
-            verb="note.source_linked",
-            entity_id=legacy.id,
-            entity_type="note",
-            payload={"source_bookmark_id": str(bookmark_id)},
-        )
-        await session.commit()
-        return legacy.id
-
-    from app.modules.note import service as note_svc
-    from app.modules.note.schemas import NoteIn
-
-    body_parts = [f"# {entity.title}", f"\nKaynak: {bookmark.url}"]
+    body_parts = [f"# {entity.title}", "", f"Source: {bookmark.url}", "", "## Notlar"]
     if bookmark.note:
-        body_parts.append(f"\n> Not: {bookmark.note}")
+        body_parts.extend(["", f"> Not: {bookmark.note}"])
+    body_parts.extend(["", "## Öne çıkanlar"])
     highlights = await list_highlights(session, bookmark_id)
     if highlights:
-        body_parts.append("\n## Vurgular")
         body_parts.extend(f"> {highlight.text}" for highlight in highlights)
     elif bookmark.selection:
-        body_parts.append(f"\n> Alinti:\n> {bookmark.selection}")
+        body_parts.extend(["", f"> Alıntı: {bookmark.selection}"])
     if data.additional_text:
-        body_parts.append(f"\n{data.additional_text}")
+        body_parts.extend(["", data.additional_text])
 
-    note_in = NoteIn(
-        body="\n".join(body_parts),
-        pinned=data.pinned,
-        relate_to=bookmark.id,
+    return await obsidian_service.ensure_entity_knowledge_note(
+        session,
+        bookmark_id,
+        initial_body="\n".join(body_parts),
+        source_url=bookmark.url,
     )
-    note_out = await note_svc.create(session, note_in, source_bookmark_id=bookmark_id)
-    return note_out.id
 
 
 async def enrich_bookmark(session: AsyncSession, bookmark_id: uuid.UUID) -> BookmarkOut | None:
