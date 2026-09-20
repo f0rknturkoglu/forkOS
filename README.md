@@ -61,6 +61,10 @@ Notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notla
 - Vault erişilemezse uygulama normal çalışır, yalnızca bilgi işlemleri açık hata verir (`503`/`403`); legacy Notlar'a düşen bir yedek yazma yolu yoktur.
 - Domain grafiği (Entity/Link/Event, ilişki panelleri) korunur; forkOS artık hiçbir bilgi grafı görselleştirmesi render etmez.
 
+### Ajan Entegrasyonu ve Hermes (H0 Brain Interface)
+
+forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Bu arayüz %100 salt-okunur ve sınırlandırılmış 8 temel araç (`forkos_briefing`, `brain_search`, vb.) içerir; sisteme mutasyon uygulamaz. Ayrıntılı mimari, araç sözleşmeleri ve kurulum için [Hermes H0 Entegrasyon Rehberi](docs/hermes/README.md) dokümanına bak.
+
 Ayrıntılı sözleşmeler için [mimari rehberine](docs/mimari.md) bak.
 
 ## Hızlı başlangıç
