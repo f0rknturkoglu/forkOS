@@ -1,0 +1,849 @@
+# forkOS × Hermes — H4 (Local Cognition Router) yönlendirme + doğrulama vakaları
+#
+# Araç: forkos_local_cognition · Yürütme sınırı: local_loopback
+# Lane seti: classify | structured_extract | query_rewrite
+#   (rerank / compress / reason / chat / answer / plan → INVALID_LANE; H4.1 ve H5
+#    araştırma konusudur, bu sürümde AKTİF DEĞİL.)
+#
+# Tüm metinler SENTETİKTİR: uydurma ders adları, uydurma tarihler, ayrılmış
+# .invalid alan adları. Gerçek kişisel veri, gerçek kurum adı veya gerçek
+# kullanıcı içeriği YOKTUR.
+#
+# Yeniden oynatma kuralları:
+#   script: ok               → responses sırayla denenir; son eleman tekrarlanır
+#                              ve HER girdi ilgili lane doğrulayıcısından geçmelidir
+#   script: malformed_json   → JSON olmayan gövde
+#   script: empty_output     → boş gövde
+#   script: timeout          → yanıt yok (responses yazılmaz)
+#   script: model_missing    → model kurulu değil (responses yazılmaz)
+#
+# config yalnızca varsayılandan FARKLI bir şey test edildiğinde yazılır.
+# Varsayılan: small_model=local-small-model, medium_model=local-medium-model,
+# ikisi de healthy, small_input_chars=12000, medium_input_chars=24000,
+# endpoint=http://127.0.0.1:11434, enabled=true.
+#
+# Deneme tavanı: local-small toplam 2, local-medium toplam 1, toplam ≤ 3.
+# Yukarı yapışkanlık: small → medium geçişi geri dönmez.
+
+version: 1
+# selected_slot: yonlendirmenin ILK deneme icin sectigi slottur.
+#   - success/needs_escalation: secilen slot yazilir (local-small | local-medium)
+#   - yalnizca hicbir slot UYGUN DEGILSE (veya arguman hatasi varsa) null olur
+#   - needs_escalation + LOCAL_CAPABILITY_UNAVAILABLE: iki slot da denendi
+#   - needs_escalation + VALIDATION_FAILED: tek slot denendi (daha guclusu yok)
+cases:
+  # ---------------------------------------------------------------- classify
+  - id: tr-classify-01
+    category: tr_classify
+    lane: classify
+    text: |
+      Kurgusal Takvim Notu
+      29 Kasım 2026 tarihinde ALES deneme sınavı var.
+      Kayıt işlemleri bu hafta içinde kapanıyor.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    provider:
+      script: ok
+      responses:
+        - '{"label": "deadline"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: en-classify-01
+    category: en_classify
+    lane: classify
+    text: |
+      Fictional Study Log
+      The synthetic study group meets on Friday to walk through the vector index notes.
+      Nothing is due this week.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Assign the single best category for the text."
+    provider:
+      script: ok
+      responses:
+        - '{"label": "calendar_event"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # Negatif: "meeting" labels listesinde yok → INVALID_CLASS_LABEL.
+  # small iki denemede de düşer, medium da düşer → yukarı yapışkan, tavan dolar.
+  - id: tr-classify-02
+    category: tr_classify
+    lane: classify
+    text: |
+      Kurgusal Gelen Kutusu
+      Yeni bir toplantı daveti geldi.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    provider:
+      script: ok
+      responses:
+        - '{"label": "meeting"}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_VALIDATION_FAILED, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+
+  # ------------------------------------------------------- akademik takvim TR
+  - id: tr-calendar-01
+    category: tr_calendar
+    lane: structured_extract
+    text: |
+      Kurgusal Akademik Takvim
+      Güz dönemi dersleri 15 Eylül 2026 tarihinde başlıyor.
+      Vakıf Kuruluş Günü 29 Ekim 2026 tarihinde tatildir.
+      Ara sınav haftası 9 Kasım 2026 tarihinde başlar.
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Güz dönemi ders başlangıcı", "category": "classes", "date_text": "15 Eylül 2026", "start_date": "2026-09-15", "end_date": null, "source_excerpt": "Güz dönemi dersleri 15 Eylül 2026 tarihinde başlıyor."}, {"title": "Vakıf Kuruluş Günü", "category": "holiday", "date_text": "29 Ekim 2026", "start_date": "2026-10-29", "end_date": null, "source_excerpt": "Vakıf Kuruluş Günü 29 Ekim 2026 tarihinde tatildir."}, {"title": "Ara sınav haftası", "category": "exam", "date_text": "9 Kasım 2026", "start_date": "2026-11-09", "end_date": null, "source_excerpt": "Ara sınav haftası 9 Kasım 2026 tarihinde başlar."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: tr-calendar-02
+    category: tr_calendar
+    lane: structured_extract
+    text: |
+      Kurgusal Kayıt Duyurusu
+      Ders kayıtları 1 Eylül 2026 ile 5 Eylül 2026 arasında yapılır.
+      Kayıt işlemleri 5 Eylül 2026 tarihinde sona erer.
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Ders kayıt aralığı", "category": "registration", "date_text": "1 Eylül 2026 ile 5 Eylül 2026", "start_date": "2026-09-01", "end_date": "2026-09-05", "source_excerpt": "Ders kayıtları 1 Eylül 2026 ile 5 Eylül 2026 arasında yapılır."}, {"title": "Kayıt son tarihi", "category": "deadline", "date_text": "5 Eylül 2026", "start_date": "2026-09-05", "end_date": null, "source_excerpt": "Kayıt işlemleri 5 Eylül 2026 tarihinde sona erer."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: tr-calendar-03
+    category: tr_calendar
+    lane: structured_extract
+    text: |
+      Kurgusal Sınav Duyurusu
+      Veri Yapıları dersi sınavı 12 Ocak 2027 tarihinde yapılacak.
+      Dağıtık Sistemler dersi sınavı 14 Ocak 2027 tarihinde yapılacak.
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Veri Yapıları dersi sınavı", "category": "exam", "date_text": "12 Ocak 2027", "start_date": "2027-01-12", "end_date": null, "source_excerpt": "Veri Yapıları dersi sınavı 12 Ocak 2027 tarihinde yapılacak."}, {"title": "Dağıtık Sistemler dersi sınavı", "category": "exam", "date_text": "14 Ocak 2027", "start_date": "2027-01-14", "end_date": null, "source_excerpt": "Dağıtık Sistemler dersi sınavı 14 Ocak 2027 tarihinde yapılacak."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # Belirsiz tarih metni: normalize edilemez → start_date null (geçerli çıktı).
+  - id: tr-calendar-04
+    category: tr_calendar
+    lane: structured_extract
+    text: |
+      Kurgusal Duyuru Panosu
+      Bahar dönemi oryantasyonu önümüzdeki ay yapılacak.
+      Kesin tarih henüz açıklanmadı.
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Bahar dönemi oryantasyonu", "category": "orientation", "date_text": "önümüzdeki ay", "start_date": null, "end_date": null, "source_excerpt": "Bahar dönemi oryantasyonu önümüzdeki ay yapılacak."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # ------------------------------------------------------- akademik takvim EN
+  - id: en-calendar-01
+    category: en_calendar
+    lane: structured_extract
+    text: |
+      Fictional Academic Calendar
+      Fall classes start on 14 September 2026.
+      Founders Day is a holiday on 26 October 2026.
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Fall classes start", "category": "classes", "date_text": "14 September 2026", "start_date": "2026-09-14", "end_date": null, "source_excerpt": "Fall classes start on 14 September 2026."}, {"title": "Founders Day", "category": "holiday", "date_text": "26 October 2026", "start_date": "2026-10-26", "end_date": null, "source_excerpt": "Founders Day is a holiday on 26 October 2026."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: en-calendar-02
+    category: en_calendar
+    lane: structured_extract
+    text: |
+      Fictional Advising Notice
+      Advising week runs from 7 September 2026 to 11 September 2026.
+      Late registration is not offered after that window.
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Advising week", "category": "registration", "date_text": "7 September 2026 to 11 September 2026", "start_date": "2026-09-07", "end_date": "2026-09-11", "source_excerpt": "Advising week runs from 7 September 2026 to 11 September 2026."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: en-calendar-03
+    category: en_calendar
+    lane: structured_extract
+    text: |
+      Fictional Enrollment Notice
+      The last day to register for the spring term is 16 January 2027.
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Spring term registration deadline", "category": "deadline", "date_text": "16 January 2027", "start_date": "2027-01-16", "end_date": null, "source_excerpt": "The last day to register for the spring term is 16 January 2027."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # -------------------------------------------------------- haftalık program
+  - id: tr-schedule-01
+    category: tr_schedule
+    lane: structured_extract
+    text: |
+      Kurgusal Haftalık Ders Programı
+      Pazartesi 09:30 - 11:00 Araştırma Semineri
+      Çarşamba 13:00 - 14:30 Veri Yapıları
+      Cuma 10:00 - 11:30 Dağıtık Sistemler
+    contract: weekly_schedule_v1
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "Araştırma Semineri", "day_of_week": "monday", "start_time": "09:30", "end_time": "11:00", "source_excerpt": "Pazartesi 09:30 - 11:00 Araştırma Semineri"}, {"title": "Veri Yapıları", "day_of_week": "wednesday", "start_time": "13:00", "end_time": "14:30", "source_excerpt": "Çarşamba 13:00 - 14:30 Veri Yapıları"}, {"title": "Dağıtık Sistemler", "day_of_week": "friday", "start_time": "10:00", "end_time": "11:30", "source_excerpt": "Cuma 10:00 - 11:30 Dağıtık Sistemler"}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: en-schedule-01
+    category: en_schedule
+    lane: structured_extract
+    text: |
+      Fictional Weekly Timetable
+      Tuesday 08:00 - 09:30 Linear Algebra
+      Thursday 15:00 - 16:30 Systems Lab
+    contract: weekly_schedule_v1
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "Linear Algebra", "day_of_week": "tuesday", "start_time": "08:00", "end_time": "09:30", "source_excerpt": "Tuesday 08:00 - 09:30 Linear Algebra"}, {"title": "Systems Lab", "day_of_week": "thursday", "start_time": "15:00", "end_time": "16:30", "source_excerpt": "Thursday 15:00 - 16:30 Systems Lab"}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # Negatif: geçersiz saat (INVALID_TIME). small yapılandırılmamış → tek slot
+  # (medium) denenir ve doğrulama düşer → VALIDATION_FAILED, deneme tavanı 1.
+  - id: tr-schedule-02
+    category: tr_schedule
+    lane: structured_extract
+    text: |
+      Kurgusal Ders Programı
+      Salı 25:00 - 26:30 Gece Semineri
+    contract: weekly_schedule_v1
+    config:
+      small_model: ""
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "Gece Semineri", "day_of_week": "tuesday", "start_time": "25:00", "end_time": "26:30", "source_excerpt": "Salı 25:00 - 26:30 Gece Semineri"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-medium
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      failure_code: VALIDATION_FAILED
+      attempts: 1
+
+  # Negatif: end_time < start_time. small iki kez, medium bir kez düşer.
+  - id: en-schedule-02
+    category: en_schedule
+    lane: structured_extract
+    text: |
+      Fictional Timetable Draft
+      Monday 16:00 - 14:00 Reading Group
+    contract: weekly_schedule_v1
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "Reading Group", "day_of_week": "monday", "start_time": "16:00", "end_time": "14:00", "source_excerpt": "Monday 16:00 - 14:00 Reading Group"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_VALIDATION_FAILED, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+
+  # Negatif: source_excerpt metnin birebir alt dizesi DEĞİL (08:00 ↔ 09:00).
+  - id: tr-schedule-03
+    category: tr_schedule
+    lane: structured_extract
+    text: |
+      Kurgusal Program Notu
+      Perşembe 09:00 - 10:30 Sayısal Yöntemler
+    contract: weekly_schedule_v1
+    config:
+      small_model: ""
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "Sayısal Yöntemler", "day_of_week": "thursday", "start_time": "09:00", "end_time": "10:30", "source_excerpt": "Perşembe 08:00 - 10:30 Sayısal Yöntemler"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-medium
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      failure_code: VALIDATION_FAILED
+      attempts: 1
+
+  # --------------------------------------------------------------- deadline
+  - id: tr-deadline-01
+    category: tr_deadline
+    lane: structured_extract
+    text: |
+      Kurgusal Başvuru Takvimi
+      Burs başvuruları 20 Ekim 2026 tarihine kadar yapılmalı.
+      Yeterlilik sınavı 3 Kasım 2026 tarihinde uygulanır.
+    contract: deadline_candidates_v1
+    provider:
+      script: ok
+      responses:
+        - '{"deadlines": [{"title": "Burs başvurusu", "kind": "application", "date_text": "20 Ekim 2026", "due_date": "2026-10-20", "due_time": null, "source_excerpt": "Burs başvuruları 20 Ekim 2026 tarihine kadar yapılmalı."}, {"title": "Yeterlilik sınavı", "kind": "exam", "date_text": "3 Kasım 2026", "due_date": "2026-11-03", "due_time": null, "source_excerpt": "Yeterlilik sınavı 3 Kasım 2026 tarihinde uygulanır."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: en-deadline-01
+    category: en_deadline
+    lane: structured_extract
+    text: |
+      Fictional Project Notice
+      The assignment submission closes on 30 November 2026.
+      The lab fee payment is due by 15 December 2026.
+    contract: deadline_candidates_v1
+    provider:
+      script: ok
+      responses:
+        - '{"deadlines": [{"title": "Assignment submission", "kind": "submission", "date_text": "30 November 2026", "due_date": "2026-11-30", "due_time": null, "source_excerpt": "The assignment submission closes on 30 November 2026."}, {"title": "Lab fee payment", "kind": "payment", "date_text": "15 December 2026", "due_date": "2026-12-15", "due_time": null, "source_excerpt": "The lab fee payment is due by 15 December 2026."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # Normalize edilemeyen tarih: due_date null (geçerli çıktı).
+  - id: tr-deadline-02
+    category: tr_deadline
+    lane: structured_extract
+    text: |
+      Kurgusal Ödeme Notu
+      Laboratuvar ücreti dönem başında ödenecek.
+      Kesin gün henüz belirlenmedi.
+    contract: deadline_candidates_v1
+    provider:
+      script: ok
+      responses:
+        - '{"deadlines": [{"title": "Laboratuvar ücreti ödemesi", "kind": "payment", "date_text": "dönem başı", "due_date": null, "due_time": null, "source_excerpt": "Laboratuvar ücreti dönem başında ödenecek."}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # ---------------------------------------------------------- query rewrite
+  - id: tr-query-01
+    category: tr_query_rewrite
+    lane: query_rewrite
+    text: |
+      forkjob projesindeki Rust kararları için son iki haftada eklediğim notları getir.
+    protected_terms: [forkjob, Rust]
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "forkjob Rust mimari kararları son iki hafta notları"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: en-query-01
+    category: en_query_rewrite
+    lane: query_rewrite
+    text: |
+      Show the capture notes I added for the vector index tuning task.
+    protected_terms: [vector index]
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "vector index tuning task capture notes"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # ------------------------------------------------------ korunan kimlikler
+  - id: protect-uuid-01
+    category: protected_identity
+    lane: query_rewrite
+    text: |
+      Show the evidence items for entity 4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34 from last week.
+    protected_terms: ["4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34"]
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "evidence items entity 4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34 last week"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: protect-url-01
+    category: protected_identity
+    lane: query_rewrite
+    text: |
+      Summarize the notes stored under https://example.invalid/synthetic/dataset-spec for me.
+    protected_terms: ["https://example.invalid/synthetic/dataset-spec"]
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "notes summary https://example.invalid/synthetic/dataset-spec"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: protect-repo-01
+    category: protected_identity
+    lane: query_rewrite
+    text: |
+      List the open items in forkos/demo-forkjob that mention the parser rewrite.
+    protected_terms: [forkos/demo-forkjob]
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "open items forkos/demo-forkjob parser rewrite"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  - id: protect-version-01
+    category: protected_identity
+    lane: query_rewrite
+    text: |
+      Which notes mention the v2.4.1 migration checklist?
+    protected_terms: [v2.4.1]
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "notes v2.4.1 migration checklist"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 1
+
+  # --------------------------------------------------- yeniden yazım negatif
+  # Korunan terim "forkjob" yeniden yazımda kayboldu → PROTECTED_TERM_LOST.
+  - id: qr-protected-lost-01
+    category: rewrite_validation
+    lane: query_rewrite
+    text: |
+      Bring up the forkjob architecture notes for the local router decision.
+    protected_terms: [forkjob]
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "architecture notes for the local router decision"}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_VALIDATION_FAILED, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+
+  # Yeniden yazım 200 karakterden uzun → OUTPUT_TOO_LARGE.
+  - id: qr-too-large-01
+    category: rewrite_validation
+    lane: query_rewrite
+    text: |
+      forkjob için uzun bir yeniden yazım denemesi yap.
+    protected_terms: [forkjob]
+    config:
+      small_model: ""
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": "forkjob router notes about the local model selection and the validation rules for the structured extraction lane and the classification lane and the query rewrite lane and the routing decision table and the retry budget policy and the sticky escalation rule and the protected term verification step"}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-medium
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      failure_code: VALIDATION_FAILED
+      attempts: 1
+
+  # Boş yeniden yazım → OUTPUT_SCHEMA_MISMATCH.
+  - id: qr-empty-01
+    category: rewrite_validation
+    lane: query_rewrite
+    text: |
+      Empty rewrite probe for the local router decision path.
+    protected_terms: [local router]
+    config:
+      small_model: ""
+    provider:
+      script: ok
+      responses:
+        - '{"rewritten_query": ""}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-medium
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      failure_code: VALIDATION_FAILED
+      attempts: 1
+
+  # --------------------------------------------------------- bütçe yönlendirme
+  # small bütçesi (50 karakter) aşılır, medium bütçesine sığar → medium seçilir.
+  - id: route-overflow-01
+    category: routing
+    lane: classify
+    text: |
+      Kurgusal Uzun Not
+      Bu not elli karakterden uzun olduğu için küçük model bütçesine sığmıyor.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    config:
+      small_input_chars: 50
+    provider:
+      script: ok
+      responses:
+        - '{"label": "task"}'
+    expect:
+      status: success
+      selected_slot: local-medium
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_CONTEXT_EXCEEDED, ESCALATED_TO_LOCAL_MEDIUM]
+      failure_code: null
+
+  # Hiçbir bütçeye sığmayan girdi → CONTEXT_TOO_LARGE (model çağrısı yok).
+  - id: route-context-01
+    category: routing
+    lane: classify
+    text: |
+      Kurgusal Çok Uzun Not
+      Bu sentetik not iki yüz karakterden uzundur ve hiçbir yerel model bütçesine sığmaz.
+      Amaç bağlam taşması yolunu deterministik olarak tekrar oynatmaktır.
+      Bu satır yalnızca uzunluğu artırmak için yazılmıştır.
+      Son satır da aynı amaçla burada durmaktadır.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    config:
+      small_input_chars: 100
+      medium_input_chars: 200
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: CONTEXT_TOO_LARGE
+
+  # small yapılandırılmamış (model boş) → medium seçilir ve başarır.
+  - id: route-nosmall-01
+    category: routing
+    lane: classify
+    text: |
+      Kurgusal Kısa Not
+      Yarın sentetik bir okuma grubu toplantısı var.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    config:
+      small_model: ""
+    provider:
+      script: ok
+      responses:
+        - '{"label": "calendar_event"}'
+    expect:
+      status: success
+      selected_slot: local-medium
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM]
+      failure_code: null
+
+  # medium da yoksa hiçbir uygun slot kalmaz → NO_ELIGIBLE_MODEL.
+  - id: route-nomodel-01
+    category: routing
+    lane: classify
+    text: |
+      Kurgusal Kısa Not
+      Model yapılandırması boş bırakılmış bir deneme.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    config:
+      small_model: ""
+      medium_model: ""
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: NO_ELIGIBLE_MODEL
+
+  # ---------------------------------------------------------- deneme bütçesi
+  # small ilk denemede düşer, ikinci denemede başarır → medium ÇAĞRILMAZ.
+  - id: retry-01
+    category: retry_budget
+    lane: classify
+    text: |
+      Kurgusal Tekrar Deneme Notu
+      İlk yanıt geçersiz, ikinci yanıt geçerli olacak.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    provider:
+      script: ok
+      responses:
+        - '{"label": "meeting"}'
+        - '{"label": "task"}'
+    expect:
+      status: success
+      selected_slot: local-small
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_SELECTED]
+      failure_code: null
+      attempts: 2
+
+  # small iki kez düşer → medium başarır; yukarı yapışkan, tavan 3 deneme.
+  - id: retry-02
+    category: retry_budget
+    lane: classify
+    text: |
+      Kurgusal Yukarı Çıkış Notu
+      small iki kez düşecek, medium başaracak.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    provider:
+      script: ok
+      responses:
+        - '{"label": "meeting"}'
+        - '{"label": "meeting"}'
+        - '{"label": "knowledge"}'
+    expect:
+      status: success
+      selected_slot: local-medium
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_VALIDATION_FAILED, ESCALATED_TO_LOCAL_MEDIUM]
+      failure_code: null
+      attempts: 3
+
+  # -------------------------------------------------------- sağlayıcı betiği
+  # Bozuk JSON gövdesi → her deneme doğrulama düşer, tavan dolar.
+  - id: provider-malformed-01
+    category: provider_script
+    lane: classify
+    text: |
+      Kurgusal Bozuk Yanıt Notu
+      Sağlayıcı JSON olmayan bir gövde döndürecek.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    provider:
+      script: malformed_json
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      reason_codes: [LANE_CLASSIFY]
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+
+  # Boş gövde → şema doğrulaması geçilemez.
+  - id: provider-empty-01
+    category: provider_script
+    lane: query_rewrite
+    text: |
+      Fictional empty output probe for the router.
+    protected_terms: [router]
+    provider:
+      script: empty_output
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      reason_codes: [LANE_QUERY_REWRITE]
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+
+  # Yanıt yok (zaman aşımı) → sağlayıcı erişilemez.
+  - id: provider-timeout-01
+    category: provider_script
+    lane: structured_extract
+    text: |
+      Kurgusal Zaman Aşımı Notu
+      Ödeme son tarihi 8 Aralık 2026 olarak duyuruldu.
+    contract: deadline_candidates_v1
+    provider:
+      script: timeout
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED]
+      failure_code: MODEL_PROVIDER_UNAVAILABLE
+
+  # medium kurulu değil (small zaten yapılandırılmamış) → MODEL_UNAVAILABLE.
+  - id: provider-missing-01
+    category: provider_script
+    lane: classify
+    text: |
+      Kurgusal Kurulu Olmayan Model Notu
+      Yalnızca medium denenebilir ve o da kurulu değildir.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    config:
+      small_model: ""
+    provider:
+      script: model_missing
+    expect:
+      status: needs_escalation
+      selected_slot: local-medium
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_UNAVAILABLE]
+      failure_code: MODEL_UNAVAILABLE
+
+  # ------------------------------------------------------------ geçersiz girdi
+  # Reddedilen lane (rerank H4.1 araştırması) → INVALID_LANE.
+  - id: lane-reason-01
+    category: invalid_lane
+    lane: reason
+    text: |
+      Kurgusal Akıl Yürütme İsteği
+      Bu lane H4 sürümünde aktif değildir.
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: INVALID_LANE
+
+  - id: lane-rerank-01
+    category: invalid_lane
+    lane: rerank
+    text: |
+      Fictional rerank probe.
+      This lane is not active in the H4 surface.
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: INVALID_LANE
+
+  # classify + contract birlikte verilemez → INVALID_ARGUMENT.
+  - id: arg-classify-contract-01
+    category: invalid_argument
+    lane: classify
+    text: |
+      Kurgusal Çelişkili Argüman Notu
+      classify lane ile sözleşme birlikte verildi.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    contract: academic_calendar_v1
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: INVALID_ARGUMENT
+
+  # Bilinmeyen sözleşme sürümü → INVALID_ARGUMENT.
+  - id: arg-unknown-contract-01
+    category: invalid_argument
+    lane: structured_extract
+    text: |
+      Kurgusal Bilinmeyen Sözleşme Notu
+      Ders içeriği 3 Şubat 2027 tarihinde yayımlanacak.
+    contract: syllabus_v9
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: INVALID_ARGUMENT
+
+  # ------------------------------------------------------------ gizlilik sınırı
+  # Loopback dışı uç nokta → INVALID_LOCAL_MODEL_ENDPOINT (bağlantı DENENMEZ).
+  - id: endpoint-cloud-01
+    category: privacy_boundary
+    lane: classify
+    text: |
+      Kurgusal Sınır İhlali Notu
+      Uzak bir sağlayıcı adresi verildi.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    config:
+      endpoint: "https://api.somecloud.com"
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: INVALID_LOCAL_MODEL_ENDPOINT
+
+  # ----------------------------------------------------------------- kapılar
+  # H4_ENABLED=false → H4_DISABLED (hiçbir lane çalışmaz).
+  - id: disabled-01
+    category: config_gate
+    lane: classify
+    text: |
+      Kurgusal Kapalı Özellik Notu
+      H4 devre dışıyken çağrı reddedilir.
+    labels: [calendar_event, deadline, task, knowledge]
+    classification_goal: "Metni en uygun kategoriye ata."
+    config:
+      enabled: false
+    provider:
+      script: ok
+    expect:
+      status: error
+      selected_slot: null
+      failure_code: H4_DISABLED
