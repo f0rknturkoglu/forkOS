@@ -1,7 +1,7 @@
 # forkOS × Hermes — H4 Araç Sözleşmesi (`forkos_local_cognition`)
 
-H4 genel yüzeye **tam olarak bir** araç ekler. Yüzey 26 olur
-(H0 8 + H1 11 + H2 5 + H3 1 + H4 1). Mikro-araç çoğaltması YOKTUR: tek araç,
+H4 genel yüzeye **tam olarak bir** araç ekler; H5 sonrası yüzey 27'dir
+(H0 8 + H1 11 + H2 5 + H3 1 + H4 1 + H5 1). H4 sözleşmesi değişmez. Mikro-araç çoğaltması YOKTUR: tek araç,
 üç lane.
 
 ---
@@ -254,7 +254,7 @@ Onarım promptu yalnızca doğrulama kodunu ve şema hatırlatmasını taşır.
 ## 7. Yüzey doğrulaması
 
 ```text
-H0 = 8    H1 = 11    H2 = 5    H3 = 1    H4 = 1    TOPLAM = 26
+H0 = 8    H1 = 11    H2 = 5    H3 = 1    H4 = 1    H5 = 1    TOPLAM = 27
 ```
 
 Kanıt dosyaları: `test_agent_h4_contract.py` (yüzey + şema + yasak parametreler),

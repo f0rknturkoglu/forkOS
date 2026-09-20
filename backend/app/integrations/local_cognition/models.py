@@ -155,12 +155,14 @@ ExtractionContractName = Literal[
     "academic_calendar_v1",
     "weekly_schedule_v1",
     "deadline_candidates_v1",
+    "consolidation_candidates_v1",
 ]
 
 EXTRACTION_CONTRACTS: tuple[str, ...] = (
     "academic_calendar_v1",
     "weekly_schedule_v1",
     "deadline_candidates_v1",
+    "consolidation_candidates_v1",
 )
 
 

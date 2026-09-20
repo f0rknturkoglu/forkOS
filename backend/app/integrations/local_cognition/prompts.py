@@ -11,6 +11,7 @@ Model bir ARAÇ DEĞİL, dar bir metin dönüştürücüdür. Bu yüzden:
 
 from __future__ import annotations
 
+from app.integrations.local_cognition.contracts import effective_protected_terms
 from app.integrations.local_cognition.models import (
     ClassifyRequest,
     LaneRequest,
@@ -85,11 +86,14 @@ def build_user_prompt(request: LaneRequest) -> str:
             f"{_source_block(request.text)}"
         )
 
-    protected = request.protected_terms or []
+    # Prompt ve doğrulayıcı AYNI listeyi görür (§9): açık terimler + otomatik
+    # tanınan kimlikler. Böylece "sessizce kaybolan UUID" iki tarafta da aynı
+    # şekilde yasaklanır.
+    protected = effective_protected_terms(request.text, request.protected_terms)
     protected_block = (
         "\n".join(f"- {term}" for term in protected)
         if protected
-        else "- (none supplied; still preserve identifiers, URLs, UUIDs and repository slugs)"
+        else "- (none detected; still preserve any identifier you see verbatim)"
     )
     return (
         "Task: rewrite the source text as a short retrieval query.\n"

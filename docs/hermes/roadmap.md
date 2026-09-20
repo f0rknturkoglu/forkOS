@@ -4,7 +4,7 @@ forkOS ile otonom ajan ekosistemini (Hermes) birleştiren vizyon; kademeli,
 güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmıştır.
 
 ```text
-  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4 ✓            H5              H6
+  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4 ✓            H5 ✓            H6
 ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
 │  Gözler  │──>│  Eller   │──>│  Sıcak   │──>│  Kanıt   │──>│  Yerel   │──>│  Sentez  │──>│ Proaktif │
 │ Salt-    │   │ Onaylı   │   │  Hafıza  │   │  & Geri  │   │  Model   │   │  & Brif. │   │  Ajan    │
@@ -201,7 +201,7 @@ Yüzey yine **24** araç.
 
 **Soru:** *Hangi iş hangi yerel modelle yapılmalı?*
 
-- **Tek araç:** `forkos_local_cognition` (yüzey 26). Hermes hangi primitifi
+- **Tek araç:** `forkos_local_cognition` (H4 sonrası yüzey 26; H5 ile 27). Hermes hangi primitifi
   istediğini **açıkça** söyler; H4 hedef ayrıştırmaz.
 - **Üç aktif lane:** `classify`, `structured_extract`, `query_rewrite`.
   `rerank` H4.1'e, `compress` H4.x/H5'e ertelendi; `reason`/`chat`/`answer`/
@@ -261,13 +261,37 @@ olguya uygun mu?*
 
 ---
 
-## H5 — Consolidation & Briefings (Sıradaki)
+## H5 — Consolidation & Review Intelligence ✅ Tamamlandı
 
 **Soru:** *Biriken bilgi nasıl özetlenir?*
 
-- Haftalık/aylık konsolidasyon: olay geçmişinden kalıcı bilgiye dönüşüm.
-- Kişiselleştirilmiş brifingler (sabah/akşam), kullanıcıya sunum kanalları
-  (Today widget, terminal, bildirim).
+- **Tek araç:** `forkos_review_intelligence` (yüzey 27) — beş mod:
+  `continuity`, `daily_close`, `weekly_review`, `period_delta`,
+  `consolidation_review`. Hermes hangi soruyu sorduğunu söyler; H5 mod seçmez.
+- **%100 salt-okunur:** hiçbir mod Event/Todo/Review/Vault/hot memory yazmaz;
+  parmak iziyle kanıtlanır. Kalıcı aday tablosu, arka plan işçisi ve zamanlayıcı
+  YOKTUR; özetleme yazma değildir.
+- **Fact / candidate / suggestion:** her çıktı `support_refs` taşır ve
+  "önerilen aksiyon" diye bir alan yoktur. Opak puan, güven yüzdesi, üretkenlik
+  veya ruh hali metriği üretilmez.
+- **Süreklilik çapası gerçek damgadır:** `explicit` → `last_meaningful_activity`
+  → `previous_review` → `fallback`; hiçbiri yoksa tarih uydurulmaz.
+- **Kaynaklı terfi adayları:** günlük notlar + olaylar sınırlı bir pakete girer,
+  H4 `consolidation_candidates_v1` sözleşmesiyle aday çıkarır, her aday alıntısı
+  kaynağa geri eşlenir; belirsiz alıntı aday ÜRETMEZ
+  (`AMBIGUOUS_CANDIDATE_SOURCE`).
+- **Bilgi sağlığı adayları:** eskime (`operational_state_newer_than_managed_note`),
+  olası yerine geçme (yalnızca H4 sınıflandırması + H3 kanıtı varsa) ve
+  yapısal yeniden yüzey. Not asla yeniden yazılmaz, silinmez, geçersiz kılınmaz.
+- **Bozulmada dürüstlük:** H4 kapalı → deterministik çıktı korunur
+  (`H4_UNAVAILABLE`); kasa erişilemez → bilgi okuması yapılmaz
+  (`VAULT_UNAVAILABLE`); çelişkili kimlik → `CONFLICTING_KNOWLEDGE`; eksik günlük
+  not → `MISSING_DAILY_NOTES`; kısmi dönem → sayısal karşılaştırma yapılmaz.
+- Kanıt: `test_h5_*.py`, `test_agent_h5_*.py`, `test_review_priority_receipts.py`
+  ve gerçek `/mcp` taşıma testleri; ayrıntı `h5-review-intelligence.md`,
+  `h5-tool-contract.md`, `h5-source-and-consolidation-policy.md`.
+- **H6'ya kalan:** proaktif/zamanlanmış devreye girme, bildirim kanalları,
+  brifing sunumu (Today widget/terminal). H5 yalnızca sorulduğunda cevap verir.
 
 ---
 

@@ -268,7 +268,11 @@ async def run_local_cognition(
             route_decision=decision,
         )
 
-    selected_profile = resolved_profiles[plan.selected_slot]
+    # `selected_slot` HER YOLDA ilk yönlendirme seçimidir (H4 final cila §2):
+    # çalışma zamanında medium'a çıkılsa bile alan DEĞİŞMEZ. Gerçek yürütme
+    # yolu `attempts[]` ile dürüstçe raporlanır.
+    initial_slot = plan.selected_slot
+    initial_profile = resolved_profiles[initial_slot]
     json_schema = _json_schema_for(request)
     attempts: list[AttemptRecord] = []
     reason_codes = list(plan.reason_codes)
@@ -322,8 +326,8 @@ async def run_local_cognition(
                 # Sağlayıcı düzeyinde hata: zincir burada durur.
                 decision = RouteDecision(
                     lane=request.lane,
-                    selected_slot=plan.selected_slot,
-                    selected_model=selected_profile.model_id,
+                    selected_slot=initial_slot,
+                    selected_model=initial_profile.model_id,
                     input_chars=input_chars,
                     required_capabilities=list(plan.required_capabilities),
                     reason_codes=reason_codes,
@@ -371,8 +375,8 @@ async def run_local_cognition(
             if outcome.ok:
                 decision = RouteDecision(
                     lane=request.lane,
-                    selected_slot=slot,  # type: ignore[arg-type]
-                    selected_model=profile.model_id,
+                    selected_slot=initial_slot,
+                    selected_model=initial_profile.model_id,
                     input_chars=input_chars,
                     required_capabilities=list(plan.required_capabilities),
                     reason_codes=reason_codes,
@@ -408,8 +412,8 @@ async def run_local_cognition(
     )
     decision = RouteDecision(
         lane=request.lane,
-        selected_slot=plan.selected_slot,
-        selected_model=selected_profile.model_id,
+        selected_slot=initial_slot,
+        selected_model=initial_profile.model_id,
         input_chars=input_chars,
         required_capabilities=list(plan.required_capabilities),
         reason_codes=reason_codes,

@@ -4,7 +4,7 @@ Hermes ve forkOS arasındaki resmi entegrasyon katmanı. Kişisel işletim siste
 (forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka
 ajanlarına **bounded** bir MCP yüzeyiyle açar.
 
-Yüzey **H0 → H4** boyunca büyüdü ve bugün toplam **26** araçtır:
+Yüzey **H0 → H5** boyunca büyüdü ve bugün toplam **27** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
@@ -12,6 +12,8 @@ H1  11 araç   açıkça onaylanan güvenli YAZMALAR
 H2   5 araç   f0rknbrain `90 Agent/Memory` içinde küratörlü sıcak hafıza
 H3   1 araç   kökenli, sınırlı KANIT getirme (forkos_evidence)
 H4   1 araç   YEREL biliş router'ı: sınıflandırma/çıkarım/yeniden yazım
+H5   1 araç   GÖZDEN GEÇİRME zekâsı: süreklilik, gün kapanışı, haftalık,
+              dönem deltası ve konsolidasyon adayları (forkos_review_intelligence)
 ```
 
 > Bu dokümanın eski başlığı "Brain Interface Foundation (H0)" idi; H0 artık
@@ -35,7 +37,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │      26 Bounded MCP Tools      │
+                       │      27 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐
@@ -67,16 +69,16 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 - **Harici Ağ Çağrısı Yok (Local-Only):** Arayüz yalnızca yerel döngü (`127.0.0.1`) üzerinde çalışır. Dışarıya telemetri veya veri çıkışı yoktur. H4'ün yerel model çağrısı da yalnızca **loopback** üzerindedir (localhost/127.0.0.1/::1); başka bir adres yapılandırılamaz.
 - **forkOS İçinde Embedding/Vektör DB Yok:** Semantik arama, embedding üretimi ve vektör veritabanı forkOS backend'inin işi DEĞİLDİR. forkOS deterministik leksikal tarama ve yapısal veri sunar; H3 kanıt getirmesi gömme/vektör kullanmaz.
 - **H4 yerel modeli ÇALIŞTIRMAZ, yönlendirir:** çıkarımı yapılandırılmış yerel sağlayıcı (Ollama) yapar; forkOS yalnızca sınırlı istek gönderir, çıktıyı deterministik doğrular ve hiçbir uzak modele düşmez. Model önerir; doğrulayıcı karar verir.
-- **Hafıza Konsolidasyonu Yok:** Ajanın uzun vadeli hafıza üretmesi veya hafızayı Vault'a geri yazması bu katmanların işi değildir (konsolidasyon H5'e bırakılmıştır; H2 yalnızca insan onaylı küratörlü hafıza tutar).
+- **Hafıza Konsolidasyonu Yok:** Ajanın uzun vadeli hafıza üretmesi veya hafızayı Vault'a geri yazması bu katmanların işi değildir (konsolidasyon H5'in gözden geçirme katmanının işidir ve H5 yalnızca **aday** üretir, hiçbir şey yazmaz; H2 yalnızca insan onaylı küratörlü hafıza tutar).
 - **Dondurulmuş Not Tabloları:** Eski forkOS `note` ve `note_folder` tabloları salt arşivdir; diriltilmez ve arama sonuçlarına dahil edilmez.
 
 ---
 
-## 3. Sağlanan MCP Araçları (26)
+## 3. Sağlanan MCP Araçları (27)
 
-Arayüz toplam **26** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+Arayüz toplam **27** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 (H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3) + **1 yerel biliş**
-(H4). Yazma araçları `readOnlyHint=false` taşır ve
+(H4) + **1 gözden geçirme** (H5). Yazma araçları `readOnlyHint=false` taşır ve
 `trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
 
 ### Okuma araçları (H0)
@@ -130,6 +132,12 @@ Arayüz toplam **26** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 | --- | --- | --- |
 | **Biliş** | `forkos_local_cognition` | Açıkça seçilen TEK yerel primitifi yürütür: `classify`, `structured_extract` (sürümlü sözleşmeler), `query_rewrite`. Model önerir, deterministik doğrulayıcı karar verir; zincir tükenirse `needs_escalation`. Yalnız loopback model trafiği; yazma yok, bağlam toplamaz. |
 
+### Gözden geçirme aracı (H5)
+
+| Kategori | Araç Adı | Açıklama |
+| --- | --- | --- |
+| **Gözden geçirme** | `forkos_review_intelligence` | Kanonik duruma bağlı, sınırlı ve deterministik gözden geçirme: `continuity` ("nerede kalmıştım?"), `daily_close`, `weekly_review`, `period_delta`, `consolidation_review`. Her olgu `support_refs` ve `source_manifest` taşır; terfi/bilgi sağlığı/yeniden yüzey çıktıları **adaydır**, doğruluk değildir. Hiçbir şey yazmaz (Review/Todo/Entity/Event/Vault/Sıcak Hafıza mutasyonu ve otomatik özet saklama yok). Yerel model yardımı (H4) isteğe bağlıdır ve yokluğunda çıktı deterministik kalır. Salt-okunur. |
+
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [Onay modeli](h1-safe-actions.md) ·
 [H2 Sıcak Hafıza](h2-hot-memory.md) ·
@@ -141,7 +149,10 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [H3 Kurulum](h3-setup.md) ·
 [H4 Yerel Biliş](h4-local-cognition.md) ·
 [H4 Araç Sözleşmesi](h4-tool-contract.md) ·
-[H4 Kurulum](h4-setup.md)
+[H4 Kurulum](h4-setup.md) ·
+[H5 Gözden Geçirme Zekâsı](h5-review-intelligence.md) ·
+[H5 Araç Sözleşmesi](h5-tool-contract.md) ·
+[H5 Kaynak ve Konsolidasyon Politikası](h5-source-and-consolidation-policy.md)
 
 ---
 
@@ -156,4 +167,7 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [H4 Yerel Biliş](h4-local-cognition.md): sorumluluk paylaşımı, lane'ler, yönlendirme politikası, sınırlı tekrar ve gizlilik sınırı.
 - [H4 Araç Sözleşmesi](h4-tool-contract.md): imza, sınırlar, kodlar ve örnek çıktı.
 - [H4 Kurulum ve Doğrulama](h4-setup.md): yapılandırma, model kurulumu, sorun giderme.
+- [H5 Gözden Geçirme Zekâsı](h5-review-intelligence.md): sorumluluk paylaşımı, olgu/aday/öneri ayrımı, beş mod, süreklilik felsefesi ve bozulmuş mod davranışı.
+- [H5 Araç Sözleşmesi](h5-tool-contract.md): imza, mod/argüman kuralları, zaman semantiği, sınırlar, kodlar ve örnek çıktı.
+- [H5 Kaynak ve Konsolidasyon Politikası](h5-source-and-consolidation-policy.md): episodic ≠ semantic, aday ≠ hafıza, kaynak kilidi, varış yeri politikası ve kapsam dürüstlüğü.
 - [H-Serisi Yol Haritası (H0 → H6)](roadmap.md): Beyin arayüzünün H0 temelinden H6 tam otonom eşlikçiye evrilme planı.

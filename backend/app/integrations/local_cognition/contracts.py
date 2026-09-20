@@ -138,6 +138,45 @@ class DeadlineExtraction(BaseModel):
     )
 
 
+ConsolidationKind = Literal[
+    "decision",
+    "lesson",
+    "commitment",
+    "goal",
+    "constraint",
+    "project_knowledge",
+    "reference",
+]
+
+#: Konsolidasyon adaylarının tavanları (§54).
+MAX_CONSOLIDATION_CANDIDATES = 30
+MAX_CONSOLIDATION_TEXT_CHARS = 500
+
+
+class ConsolidationCandidate(BaseModel):
+    """Geçici malzemeden çıkarılmış TEK kalıcılık adayı (sürüm: v1).
+
+    `text` model kaynaklı ADAY İFADEDİR; kanıt değildir. Kanıt, sağlanan
+    metinde birebir bulunması zorunlu olan `source_excerpt`'tir (§55).
+    """
+
+    model_config = _STRICT
+
+    kind: ConsolidationKind
+    text: str = Field(..., min_length=1, max_length=MAX_CONSOLIDATION_TEXT_CHARS)
+    source_excerpt: str = Field(..., min_length=1, max_length=MAX_SOURCE_EXCERPT_CHARS)
+
+
+class ConsolidationExtraction(BaseModel):
+    """`consolidation_candidates_v1` çıktısı."""
+
+    model_config = _STRICT
+
+    candidates: list[ConsolidationCandidate] = Field(
+        default_factory=list, max_length=MAX_CONSOLIDATION_CANDIDATES
+    )
+
+
 class ClassificationPayload(BaseModel):
     """`classify` çıktısı. Güven/olasılık alanı KABUL EDİLMEZ (§39)."""
 
@@ -196,6 +235,89 @@ def normalize_for_matching(text: str) -> str:
     return " ".join(normalized.split())
 
 
+#: Otomatik korunan kimlik sayısı tavanı (§7). Açık terimler önce gelir ve
+#: bu tavana DAHİL DEĞİLDİR.
+MAX_AUTO_PROTECTED_TERMS = 8
+
+#: Kanonik UUID (8-4-4-4-12, onaltılık).
+_AUTO_UUID_RE = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
+#: http/https URL; sondaki cümle noktalaması ayrıca kırpılır.
+_AUTO_URL_RE = re.compile(r"https?://[^\s<>\"')]+")
+#: `owner/repo` benzeri kimlik: her iki taraf HARFLE başlar, böylece tarih
+#: (`12/09/2026`) ve rastgele eğik çizgili ifadeler korunmaz (§6).
+_AUTO_SLUG_RE = re.compile(
+    r"(?<![\w./-])([A-Za-z][\w.-]*/[A-Za-z][\w.-]*)(?![\w/-])"
+)
+#: Sürüm dizeleri: `v2.4.1`, `2.4.1`, `1.0`.
+_AUTO_VERSION_RE = re.compile(r"\bv?\d+\.\d+(?:\.\d+)*\b")
+
+#: URL sonundan kırpılan cümle noktalaması.
+_TRAILING_PUNCTUATION = ".,;:!?)]}\"'"
+
+
+def detect_identifiers(source_text: str) -> tuple[str, ...]:
+    """Kaynak metindeki apaçık kimlikleri GÖRÜNME SIRASINA göre döner.
+
+    Deterministik ve muhafazakârdır: model çıkarımı yoktur, sözlük yoktur.
+    Yalnızca UUID, URL, `owner/repo` ve sürüm dizeleri tanınır.
+    """
+    if not source_text:
+        return ()
+
+    found: list[tuple[int, str]] = []
+    for pattern in (_AUTO_UUID_RE, _AUTO_URL_RE, _AUTO_SLUG_RE, _AUTO_VERSION_RE):
+        for match in pattern.finditer(source_text):
+            value = match.group(1) if pattern is _AUTO_SLUG_RE else match.group(0)
+            if pattern is _AUTO_URL_RE:
+                value = value.rstrip(_TRAILING_PUNCTUATION)
+            if value:
+                found.append((match.start(), value))
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for _position, value in sorted(found, key=lambda row: row[0]):
+        key = value.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(value)
+    return tuple(ordered[:MAX_AUTO_PROTECTED_TERMS])
+
+
+def effective_protected_terms(
+    source_text: str, explicit_terms: list[str] | None
+) -> tuple[str, ...]:
+    """PROMPT ve DOĞRULAYICI için TEK korunan terim listesi (§5/§9).
+
+    Sıra: açık terimler (verilen sırayla), sonra kaynaktan otomatik tanınan
+    kimlikler (görünme sırası). Açık terimler önceliklidir ve otomatik tavana
+    dahil değildir.
+
+    Aynı yardımcıyı iki taraf da kullanır; aksi hâlde prompt ile doğrulayıcı
+    yeniden ayrışır ve "sessizce kaybolan kimlik" hatası geri gelir.
+    """
+    terms: list[str] = []
+    seen: set[str] = set()
+
+    def _add(value: str) -> None:
+        cleaned = (value or "").strip()
+        if not cleaned:
+            return
+        key = cleaned.casefold()
+        if key in seen:
+            return
+        seen.add(key)
+        terms.append(cleaned)
+
+    for term in explicit_terms or []:
+        _add(term)
+    for term in detect_identifiers(source_text):
+        _add(term)
+    return tuple(terms)
+
+
 def excerpt_is_sourced(excerpt: str, source_text: str) -> bool:
     """`source_excerpt` gerçekten sağlanan metinden mi geliyor?"""
     normalized_excerpt = normalize_for_matching(excerpt)
@@ -221,19 +343,26 @@ def field_is_sourced(field: str, container: str) -> bool:
 #: Pydantic'in uzunluk ihlali tipleri (liste ve dize ayrı tipler kullanır).
 _TOO_LONG_TYPES = frozenset({"too_long", "string_too_long"})
 
+#: Tarih/saat alanları TAM ADLA eşleşir. Alt dize kontrolü (`"date" in location`)
+#: koleksiyon anahtarının kendisiyle yanlış eşleşiyordu: `candidates` içindeki
+#: "candi**date**s" her şema hatasını `INVALID_DATE` yapıyordu.
+_DATE_FIELDS = frozenset({"start_date", "end_date", "due_date"})
+_TIME_FIELDS = frozenset({"start_time", "end_time", "due_time", "day_of_week"})
+
 
 def _code_for_validation_error(error: ValidationError, collection_key: str) -> ValidationCode:
     """Pydantic hatasını sınırlı bir doğrulama koduna eşler."""
     for detail in error.errors():
-        location = ".".join(str(part) for part in detail.get("loc", ()))
+        location = detail.get("loc", ())
+        field = str(location[-1]) if location else ""
         error_type = str(detail.get("type", ""))
         if error_type in _TOO_LONG_TYPES:
             return "OUTPUT_TOO_LARGE"
-        if error_type == "too_short" and location.startswith(collection_key):
+        if error_type == "too_short" and field == collection_key:
             return "OUTPUT_SCHEMA_MISMATCH"
-        if "date" in location:
+        if field in _DATE_FIELDS:
             return "INVALID_DATE"
-        if "time" in location:
+        if field in _TIME_FIELDS:
             return "INVALID_TIME"
     return "OUTPUT_SCHEMA_MISMATCH"
 
@@ -378,6 +507,26 @@ def validate_deadlines(payload: Any, source_text: str) -> ValidationOutcome:
     )
 
 
+def validate_consolidation(payload: Any, source_text: str) -> ValidationOutcome:
+    """`consolidation_candidates_v1` doğrulaması (§55).
+
+    `source_excerpt` katı kaynak kuralına uyar (sağlanan pakette birebir
+    bulunmalı). `text` bilinçli olarak model kaynaklı aday ifadedir ve ayrıca
+    kaynağa bağlanması BEKLENMEZ: yeniden yazım serbesttir, kanıt değildir.
+    """
+
+    def sanity(item: ConsolidationCandidate) -> ValidationCode | None:
+        return None
+
+    return _validate_collection(
+        payload=payload,
+        model=ConsolidationExtraction,
+        collection_key="candidates",
+        source_text=source_text,
+        sanity=sanity,
+    )
+
+
 def validate_classification(
     payload: Any, source_text: str, labels: list[str]
 ) -> ValidationOutcome:
@@ -415,7 +564,8 @@ def validate_query_rewrite(
         return ValidationOutcome.invalid(code, "payload does not match the contract")
 
     normalized_rewrite = normalize_for_matching(parsed.rewritten_query)
-    for term in protected_terms:
+    # Açık terimler + kaynaktan otomatik tanınan kimlikler (UUID/URL/slug/sürüm).
+    for term in effective_protected_terms(source_text, protected_terms):
         if normalize_for_matching(term) not in normalized_rewrite:
             return ValidationOutcome.invalid(
                 "PROTECTED_TERM_LOST", "the rewrite dropped a protected term"
@@ -428,6 +578,7 @@ EXTRACTION_VALIDATORS: dict[str, Callable[[Any, str], ValidationOutcome]] = {
     "academic_calendar_v1": validate_academic_calendar,
     "weekly_schedule_v1": validate_weekly_schedule,
     "deadline_candidates_v1": validate_deadlines,
+    "consolidation_candidates_v1": validate_consolidation,
 }
 
 #: Çıkarım sözleşmesi → (koleksiyon anahtarı, JSON şeması). Sağlayıcıya
@@ -436,6 +587,7 @@ EXTRACTION_SCHEMAS: dict[str, tuple[str, dict[str, Any]]] = {
     "academic_calendar_v1": ("events", AcademicCalendarExtraction.model_json_schema()),
     "weekly_schedule_v1": ("blocks", WeeklyScheduleExtraction.model_json_schema()),
     "deadline_candidates_v1": ("deadlines", DeadlineExtraction.model_json_schema()),
+    "consolidation_candidates_v1": ("candidates", ConsolidationExtraction.model_json_schema()),
 }
 
 CLASSIFICATION_SCHEMA: dict[str, Any] = ClassificationPayload.model_json_schema()

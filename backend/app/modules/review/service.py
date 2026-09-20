@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import Integer, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -332,7 +333,7 @@ async def create(session: AsyncSession, data: ReviewIn) -> ReviewOut:
     ).scalar_one_or_none()
     if existing:
         raise RuntimeError("bu donem icin review zaten var")
-    await _apply_decisions(session, data.decisions, snap.period_end)
+    receipts = await _apply_decisions(session, data.decisions, snap.period_end)
     entity = await create_entity(
         session,
         type=Review.ENTITY_TYPE,
@@ -345,7 +346,9 @@ async def create(session: AsyncSession, data: ReviewIn) -> ReviewOut:
         period_start=snap.period_start,
         period_end=snap.period_end,
         stats=snap.stats.model_dump(mode="json"),
-        decisions=data.decisions,
+        # Makbuz, kararlarin urettigi GERCEK kayitlarin kanitidir: istemci
+        # gonderdigi `_receipts` varsa EZILIR, cunku tek kaynak sunucudur.
+        decisions={**data.decisions, "_receipts": receipts},
         note=data.note,
     )
     session.add(review)
@@ -360,7 +363,16 @@ async def create(session: AsyncSession, data: ReviewIn) -> ReviewOut:
     return _out(review)
 
 
-async def _apply_decisions(session: AsyncSession, decisions: dict, next_start: date) -> None:
+async def _apply_decisions(
+    session: AsyncSession, decisions: dict, next_start: date
+) -> dict[str, list[dict[str, Any]]]:
+    """Kararlari uygular ve urettigi kayitlarin makbuzunu dondurur.
+
+    Makbuz olmadan "oncelik olusturuldu" iddiasi dogrulanamaz: Todo id'si
+    sunucuda uretilir, istemci yalnizca basligi bilir. Bu yuzden donen kayit
+    `Review.decisions["_receipts"]` altina yazilir. Simdilik yalnizca
+    oncelikler makbuz tasir; diger kararlar mevcut kayitlari degistirir.
+    """
     for raw_id in decisions.get("drop", []):
         await todo_service.update(
             session, uuid.UUID(str(raw_id)), TodoUpdate(status="dropped"), commit=False
@@ -380,6 +392,7 @@ async def _apply_decisions(session: AsyncSession, decisions: dict, next_start: d
             commit=False,
         )
         await todo_service.schedule(session, PlanSlotIn(entity_id=todo_id, day=day), commit=False)
+    receipts: list[dict[str, Any]] = []
     for item in decisions.get("priorities", [])[:3]:
         title = item if isinstance(item, str) else item.get("title", "")
         if not title:
@@ -388,6 +401,14 @@ async def _apply_decisions(session: AsyncSession, decisions: dict, next_start: d
         await todo_service.schedule(
             session, PlanSlotIn(entity_id=todo.id, day=next_start), commit=False
         )
+        receipts.append(
+            {
+                "title": title,
+                "todo_id": str(todo.id),
+                "scheduled_day": next_start.isoformat(),
+            }
+        )
+    return {"priorities": receipts}
 
 
 def _out(review: Review) -> ReviewOut:

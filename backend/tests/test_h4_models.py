@@ -223,13 +223,23 @@ def test_execution_boundary_is_loopback_only() -> None:
 # ---------------------------------------------------------------------------
 
 
+#: Sözleşme başına koleksiyon tavanı — sürümün PARÇASIDIR, belgelenmiştir.
+EXPECTED_ITEM_CAPS = {
+    "academic_calendar_v1": 80,
+    "weekly_schedule_v1": 80,
+    "deadline_candidates_v1": 80,
+    "consolidation_candidates_v1": 30,
+}
+
+
 def test_extraction_contracts_are_versioned_and_bounded() -> None:
     assert set(contract_svc.EXTRACTION_SCHEMAS) == set(lc.EXTRACTION_CONTRACTS)
     assert all(name.endswith("_v1") for name in lc.EXTRACTION_CONTRACTS)
+    assert set(EXPECTED_ITEM_CAPS) == set(lc.EXTRACTION_CONTRACTS)
 
     for name, (collection_key, schema) in contract_svc.EXTRACTION_SCHEMAS.items():
         assert collection_key in schema["properties"]
-        assert schema["properties"][collection_key]["maxItems"] == lc.MAX_EXTRACTION_ITEMS, name
+        assert schema["properties"][collection_key]["maxItems"] == EXPECTED_ITEM_CAPS[name], name
 
 
 def test_contract_items_require_source_excerpt() -> None:
@@ -270,3 +280,89 @@ def test_route_task_cannot_see_the_text() -> None:
     signature = inspect.signature(policy_svc.route_task)
     assert "text" not in signature.parameters
     assert set(signature.parameters) == {"lane", "input_chars", "profiles", "health"}
+
+
+# ---------------------------------------------------------------------------
+# H4 final cila — otomatik kimlik koruma (§4-§9)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("entity 4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34", ("4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34",)),
+        ("see https://example.invalid/a/b.md.", ("https://example.invalid/a/b.md",)),
+        ("repo f0rknturkoglu/forkOS release", ("f0rknturkoglu/forkOS",)),
+        ("version v2.4.1 shipped", ("v2.4.1",)),
+        ("version 2.4.1 shipped", ("2.4.1",)),
+        ("forkjob repo status", ()),
+        ("Tarih 12/09/2026 ve saat 10:00", ()),
+        ("forkjobda rustu neden seçtik", ()),
+        ("", ()),
+    ],
+)
+def test_identifier_detection_is_conservative(text: str, expected: tuple[str, ...]) -> None:
+    """Yalnızca apaçık kimlikler; tarih ve serbest metin korunmaz (§6)."""
+    assert contract_svc.detect_identifiers(text) == expected
+
+
+def test_identifier_detection_is_order_stable_and_deduplicated() -> None:
+    text = "b/x then a/y then b/x again"
+    assert contract_svc.detect_identifiers(text) == ("b/x", "a/y")
+
+
+def test_identifier_detection_is_bounded() -> None:
+    text = " ".join(f"owner{i}/repo{i}" for i in range(20))
+    assert len(contract_svc.detect_identifiers(text)) == contract_svc.MAX_AUTO_PROTECTED_TERMS
+
+
+def test_effective_terms_prefer_explicit_terms_and_stay_stable() -> None:
+    terms = contract_svc.effective_protected_terms("v2.4.1 shipped", ["forkjob", "forkjob"])
+    assert terms == ("forkjob", "v2.4.1")
+
+
+@pytest.mark.parametrize(
+    "identifier",
+    [
+        "4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34",
+        "https://example.invalid/a/b.md",
+        "f0rknturkoglu/forkOS",
+        "v2.4.1",
+    ],
+)
+def test_rewrite_must_preserve_auto_detected_identifiers(identifier: str) -> None:
+    """§8/§160: açık terim verilmese bile kimlik düşürülemez."""
+    source = f"Show evidence for {identifier} now"
+    dropped = contract_svc.validate_query_rewrite(
+        {"rewritten_query": "evidence request summary"}, source, []
+    )
+    assert dropped.ok is False
+    assert dropped.code == "PROTECTED_TERM_LOST"
+
+    kept = contract_svc.validate_query_rewrite(
+        {"rewritten_query": f"evidence {identifier}"}, source, []
+    )
+    assert kept.ok is True
+
+
+def test_explicit_terms_still_enforced_alongside_auto_detection() -> None:
+    source = "forkjobda rustu neden seçtik 4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34"
+    outcome = contract_svc.validate_query_rewrite(
+        {"rewritten_query": "forkjob Rust gerekçesi"}, source, ["forkjob", "Rust"]
+    )
+    assert outcome.ok is False
+    assert outcome.code == "PROTECTED_TERM_LOST"
+
+
+def test_prompt_and_validator_share_the_same_term_list() -> None:
+    """§9: prompt ile doğrulayıcı AYNI yardımcıyı kullanır (sürüklenme yok)."""
+    from app.integrations.local_cognition import prompts as prompt_svc
+
+    request = lc.build_lane_request(
+        lane="query_rewrite",
+        text="entity 4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34 repo",
+        protected_terms=["forkjob"],
+    )
+    prompt = prompt_svc.build_user_prompt(request)
+    for term in contract_svc.effective_protected_terms(request.text, request.protected_terms):
+        assert term in prompt

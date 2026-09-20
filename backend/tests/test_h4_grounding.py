@@ -451,3 +451,127 @@ async def test_service_accepts_grounded_extraction(monkeypatch) -> None:
 
     assert response.status == "success"
     assert response.result.items[0]["start_date"] == "2026-09-01"
+
+
+# ---------------------------------------------------------------------------
+# H4 konsolidasyon sözleşmesi (§53-§55/§119)
+# ---------------------------------------------------------------------------
+
+CONSOLIDATION_PACKET = (
+    "forkjob UI için minimum kaynak yaklaşımı benimsendi.\n"
+    "Yarın H4 modellerini karşılaştır.\n"
+)
+
+
+def test_consolidation_candidates_are_source_grounded() -> None:
+    outcome = contract_svc.validate_consolidation(
+        {
+            "candidates": [
+                {
+                    "kind": "decision",
+                    "text": "forkjob UI minimum kaynak yaklaşımı kullanacak",
+                    "source_excerpt": "forkjob UI için minimum kaynak yaklaşımı benimsendi.",
+                },
+                {
+                    "kind": "commitment",
+                    "text": "H4 modellerini karşılaştır",
+                    "source_excerpt": "Yarın H4 modellerini karşılaştır.",
+                },
+            ]
+        },
+        CONSOLIDATION_PACKET,
+    )
+    assert outcome.ok is True
+    assert [item["kind"] for item in outcome.payload["candidates"]] == ["decision", "commitment"]
+
+
+def test_consolidation_rejects_unsourced_excerpt() -> None:
+    outcome = contract_svc.validate_consolidation(
+        {"candidates": [{"kind": "lesson", "text": "x", "source_excerpt": "bu metin pakette yok"}]},
+        CONSOLIDATION_PACKET,
+    )
+    assert outcome.ok is False
+    assert outcome.code == "SOURCE_EXCERPT_NOT_FOUND"
+
+
+def test_consolidation_rejects_unknown_kind_and_extra_fields() -> None:
+    unknown_kind = contract_svc.validate_consolidation(
+        {"candidates": [{"kind": "uydurma", "text": "x", "source_excerpt": "forkjob UI için minimum kaynak yaklaşımı benimsendi."}]},
+        CONSOLIDATION_PACKET,
+    )
+    assert unknown_kind.ok is False
+    assert unknown_kind.code == "OUTPUT_SCHEMA_MISMATCH"
+
+    extra = contract_svc.validate_consolidation(
+        {
+            "candidates": [
+                {
+                    "kind": "decision",
+                    "text": "x",
+                    "source_excerpt": "forkjob UI için minimum kaynak yaklaşımı benimsendi.",
+                    "confidence": 0.9,
+                }
+            ]
+        },
+        CONSOLIDATION_PACKET,
+    )
+    assert extra.ok is False
+    assert extra.code == "OUTPUT_SCHEMA_MISMATCH"
+
+
+def test_consolidation_candidate_cap_is_enforced() -> None:
+    too_many = [
+        {
+            "kind": "decision",
+            "text": f"aday {index}",
+            "source_excerpt": "forkjob UI için minimum kaynak yaklaşımı benimsendi.",
+        }
+        for index in range(contract_svc.MAX_CONSOLIDATION_CANDIDATES + 1)
+    ]
+    outcome = contract_svc.validate_consolidation({"candidates": too_many}, CONSOLIDATION_PACKET)
+    assert outcome.ok is False
+    assert outcome.code == "OUTPUT_TOO_LARGE"
+
+
+def test_consolidation_text_is_bounded() -> None:
+    outcome = contract_svc.validate_consolidation(
+        {
+            "candidates": [
+                {
+                    "kind": "decision",
+                    "text": "x" * (contract_svc.MAX_CONSOLIDATION_TEXT_CHARS + 1),
+                    "source_excerpt": "forkjob UI için minimum kaynak yaklaşımı benimsendi.",
+                }
+            ]
+        },
+        CONSOLIDATION_PACKET,
+    )
+    assert outcome.ok is False
+    assert outcome.code == "OUTPUT_TOO_LARGE"
+
+
+def test_validation_codes_match_field_names_not_substrings() -> None:
+    """Regresyon: koleksiyon anahtarı `candidates` içindeki 'candiDATEs' tuzağı."""
+    unknown_kind = contract_svc.validate_consolidation(
+        {"candidates": [{"kind": "uydurma", "text": "x", "source_excerpt": CONSOLIDATION_PACKET.split("\n")[0]}]},
+        CONSOLIDATION_PACKET,
+    )
+    assert unknown_kind.code == "OUTPUT_SCHEMA_MISMATCH"
+
+    bad_date = contract_svc.validate_academic_calendar(
+        {
+            "events": [
+                {
+                    "title": "Kayıt",
+                    "category": "registration",
+                    "date_text": "1 - 5 Eylül 2026",
+                    "start_date": "2026-09-01",
+                    "end_date": "2026-09-05",
+                    "source_excerpt": "Kayıt yenileme: 1 - 5 Eylül 2026",
+                    "extra_field": True,
+                }
+            ]
+        },
+        "Kayıt yenileme: 1 - 5 Eylül 2026\n",
+    )
+    assert bad_date.code == "OUTPUT_SCHEMA_MISMATCH"

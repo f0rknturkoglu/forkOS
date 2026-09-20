@@ -60,6 +60,8 @@ from app.integrations.agent.write_models import (
 )
 from app.integrations.local_cognition import models as lc_models
 from app.integrations.local_cognition import service as lc_svc
+from app.integrations.review_intelligence import models as ri_models
+from app.integrations.review_intelligence import service as ri_svc
 
 #: H1 girdi sınırları (§66). Şemada GÖRÜNÜR olmalı ki Hermes onaydan önce
 #: limitleri bilebilsin; yürütmedeki otorite yine `write_models` doğrulamasıdır.
@@ -243,6 +245,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_hot_memory_tools(server)
     _register_evidence_tool(server)
     _register_local_cognition_tool(server)
+    _register_review_intelligence_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -1075,3 +1078,62 @@ def _register_local_cognition_tool(server: MCPServer) -> None:
             raise ToolError(f"INVALID_ARGUMENT: {_first_validation_error(exc)}") from exc
         except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
             raise ToolError(f"LOCAL_COGNITION_FAILED: {type(exc).__name__}") from exc
+
+
+# ---------------------------------------------------------------------------
+# H5 gözden geçirme zekâsı aracı (salt-okunur)
+# ---------------------------------------------------------------------------
+
+#: H5 girdi sınırları (§20) — şemada GÖRÜNÜR, yürütmede bağımsız dayatılır.
+ReviewReferenceDate = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+ReviewFocusEntity = Annotated[str, Field(max_length=ri_models.MAX_FOCUS_ENTITY_LEN)]
+
+
+def _register_review_intelligence_tool(server: MCPServer) -> None:
+    """H5'in TEK aracını kaydeder (§15).
+
+    Beş mod, tek araç: mikro-araç çoğaltması (`forkos_weekly_summary`,
+    `forkos_consolidate`, ...) YOKTUR.
+    """
+
+    @server.tool(
+        name="forkos_review_intelligence",
+        description=(
+            "Bounded, read-only reflection over existing forkOS state: where you left off "
+            "(continuity), what changed between two moments (period_delta), the daily close, "
+            "the weekly delta review, and consolidation candidates. Modes: continuity, "
+            "daily_close, weekly_review, period_delta, consolidation_review. Every factual "
+            "insight carries source references and a source manifest; promotion, knowledge-health "
+            "and resurfacing outputs are CANDIDATES, never truth. This tool writes nothing: no "
+            "Review, Todo, Entity, Link, Event, Vault or Hot Memory mutation, and no automatic "
+            "summary storage. It reuses the existing Review preview, canonical deadlines and H3 "
+            "evidence; local model assistance (H4) is optional and degrades to deterministic "
+            "output when unavailable. " + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_review_intelligence(
+        mode: ri_models.ReviewMode,
+        since: str | None = None,
+        until: str | None = None,
+        reference_date: ReviewReferenceDate | None = None,
+        focus_entity_id: ReviewFocusEntity | None = None,
+        include_knowledge: bool = True,
+    ) -> ri_models.ReviewIntelligenceResponse:
+        try:
+            async with SessionLocal() as session:
+                return await ri_svc.review_intelligence(
+                    session,
+                    mode=mode,
+                    since=since,
+                    until=until,
+                    reference_date=reference_date,
+                    focus_entity_id=focus_entity_id,
+                    include_knowledge=include_knowledge,
+                )
+        except ri_models.ReviewIntelligenceError as exc:
+            raise ToolError(str(exc)) from exc
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
+            raise ToolError(f"REVIEW_INTELLIGENCE_FAILED: {type(exc).__name__}") from exc

@@ -589,7 +589,20 @@ async def test_runtime_small_to_medium_uses_escalated_reason(h4_on: None) -> Non
     assert "LOCAL_SMALL_VALIDATION_FAILED" in codes
     assert "ESCALATED_TO_LOCAL_MEDIUM" in codes
     assert response.route_decision.escalated is True
-    assert response.route_decision.selected_slot == "local-medium"
+    # H4 final cila §2: `selected_slot` İLK yönlendirme seçimidir; medium'a
+    # çıkıldığı gerçeği `attempts[]` ile raporlanır.
+    assert response.route_decision.selected_slot == "local-small"
+    assert response.route_decision.selected_model == "small-model"
+    assert [attempt.slot for attempt in response.route_decision.attempts] == [
+        "local-small",
+        "local-small",
+        "local-medium",
+    ]
+    assert [attempt.validation_status for attempt in response.route_decision.attempts] == [
+        "invalid",
+        "invalid",
+        "valid",
+    ]
 
 
 async def test_direct_medium_execution_is_not_escalation(h4_on: None) -> None:
@@ -642,3 +655,101 @@ async def test_medium_context_exceeded_is_not_reported_as_unavailable(h4_on: Non
         await _run(request, ScriptedProvider(responses=["{}"]), profiles=tiny)
 
     assert excinfo.value.code == "CONTEXT_TOO_LARGE"
+
+
+# ---------------------------------------------------------------------------
+# H4 final cila — `selected_slot` tek anlamlıdır (§2/§3)
+# ---------------------------------------------------------------------------
+
+
+async def test_selected_slot_is_initial_route_on_success_after_escalation(h4_on: None) -> None:
+    """Small seçildi, düştü, medium başardı → `selected_slot` yine local-small."""
+    provider = ScriptedProvider(
+        responses=['{"label": "u1"}', '{"label": "u2"}', '{"label": "knowledge"}']
+    )
+    response = await _run(_classify_request(), provider)
+    decision = response.route_decision
+
+    assert response.status == "success"
+    assert decision.selected_slot == "local-small"
+    assert decision.selected_model == "small-model"
+    assert decision.escalated is True
+    assert [attempt.slot for attempt in decision.attempts] == [
+        "local-small",
+        "local-small",
+        "local-medium",
+    ]
+
+
+async def test_selected_slot_is_initial_route_on_exhausted_chain(h4_on: None) -> None:
+    provider = ScriptedProvider(
+        responses=['{"label": "u1"}', '{"label": "u2"}', '{"label": "u3"}']
+    )
+    response = await _run(_classify_request(), provider)
+    decision = response.route_decision
+
+    assert response.status == "needs_escalation"
+    assert decision.selected_slot == "local-small"
+    assert decision.selected_model == "small-model"
+
+
+async def test_selected_slot_is_medium_when_medium_was_selected_initially(h4_on: None) -> None:
+    provider = ScriptedProvider(responses=['{"label": "task"}'])
+    response = await _run(
+        _classify_request(),
+        provider,
+        profiles=_profiles(small=""),
+        health=_health(ModelHealth.unavailable(configured=False), HEALTHY),
+    )
+
+    assert response.route_decision.selected_slot == "local-medium"
+    assert response.route_decision.selected_model == "medium-model"
+    assert response.route_decision.escalated is False
+
+
+async def test_selected_slot_is_null_when_health_probe_fails(h4_on: None) -> None:
+    from tests.h4_test_provider import DownProvider
+
+    response = await _run_with_probe(_classify_request(), DownProvider())
+
+    assert response.route_decision.selected_slot is None
+    assert response.route_decision.selected_model is None
+
+
+async def test_selected_slot_semantics_are_consistent_across_outcomes(h4_on: None) -> None:
+    """Aynı istek için başarı/başarısızlık `selected_slot`'u DEĞİŞTİRMEZ."""
+    success = await _run(
+        _classify_request(), ScriptedProvider(responses=['{"label": "u1"}', '{"label": "task"}'])
+    )
+    failure = await _run(
+        _classify_request(), ScriptedProvider(responses=['{"label": "u1"}', '{"label": "u2"}', '{"label": "u3"}'])
+    )
+
+    assert success.status == "success"
+    assert failure.status == "needs_escalation"
+    assert success.route_decision.selected_slot == failure.route_decision.selected_slot
+    assert success.route_decision.selected_model == failure.route_decision.selected_model
+
+
+async def test_auto_protected_identifier_is_enforced_end_to_end(h4_on: None) -> None:
+    """§160: model UUID'yi düşürürse zincir tükenir (açık terim verilmemiş olsa bile)."""
+    uuid_value = "4f1c9a2e-7b3d-4c58-9a11-2d6e8f0b7c34"
+    request = lc.build_lane_request(
+        lane="query_rewrite",
+        text=f"Show evidence for entity {uuid_value}",
+        protected_terms=[],
+    )
+    dropped = '{"rewritten_query": "evidence request summary"}'
+    provider = ScriptedProvider(responses=[dropped, dropped, dropped])
+
+    response = await _run(request, provider)
+
+    assert response.status == "needs_escalation"
+    assert all(
+        attempt.failure_code == "PROTECTED_TERM_LOST" for attempt in response.route_decision.attempts
+    )
+
+    kept = json.dumps({"rewritten_query": f"evidence entity {uuid_value}"})
+    ok_response = await _run(request, ScriptedProvider(responses=[kept]))
+    assert ok_response.status == "success"
+    assert uuid_value in ok_response.result.rewritten_query

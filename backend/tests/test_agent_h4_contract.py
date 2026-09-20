@@ -39,6 +39,7 @@ H2_TOOLS = {
 }
 H3_TOOLS = {"forkos_evidence"}
 H4_TOOLS = {"forkos_local_cognition"}
+H5_TOOLS = {"forkos_review_intelligence"}
 
 #: H4'ün genel yüzeye ASLA koymadığı parametreler (§27).
 FORBIDDEN_PARAMETERS = {
@@ -62,9 +63,9 @@ async def _tools() -> dict:
 
 async def test_h4_adds_exactly_one_mcp_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 26
+    assert len(tools) == 27
     assert set(tools) & H4_TOOLS == H4_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS
+    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS
     assert len(H0_TOOLS) == 8 and len(H1_TOOLS) == 11 and len(H2_TOOLS) == 5
 
 
@@ -133,7 +134,7 @@ async def test_existing_surfaces_are_untouched() -> None:
 
 
 async def test_h4_tool_stays_registered_when_disabled() -> None:
-    """§166: yüzey yapılandırmaya göre DEĞİŞMEZ (26 araç sabittir)."""
+    """§166: yüzey yapılandırmaya göre DEĞİŞMEZ (27 araç sabittir)."""
     from app.config import settings
 
     assert settings.h4_enabled is False  # varsayılan

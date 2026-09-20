@@ -155,11 +155,11 @@ Kapsam:
 | `test_h4_policy.py` | Lane politikası, reddedilen lane'ler, yönlendirme gerekçe kodları, deneme tavanı |
 | `test_h4_service.py` | Uçtan uca servis akışı, sınırlar, `needs_escalation`, doğrulama zinciri |
 | `test_h4_ollama.py` | Yerel HTTP istemcisi, loopback dayatması, zaman aşımı, sağlayıcı hataları |
-| `test_agent_h4_contract.py` | Yüzey (26 araç), `forkos_local_cognition` anotasyonları, hata kodları |
+| `test_agent_h4_contract.py` | Yüzey (H5 sonrası 27 araç), `forkos_local_cognition` anotasyonları, hata kodları |
 | `test_agent_h4_transport.py` | Gerçek `/mcp`: şema, değişmezlik, gizli bağlam yok, kaynak metin loglanmaz |
 | `test_h4_live.py` | Gerçek yerel modelle üç lane (yalnız `H4_LIVE=1` ile koşar) |
 
-Yüzey toplamı: **H0=8, H1=11, H2=5, H3=1, H4=1 → 26 araç**.
+Yüzey toplamı: **H0=8, H1=11, H2=5, H3=1, H4=1, H5=1 → 27 araç**.
 
 ---
 
