@@ -425,4 +425,106 @@ async def test_project_context_knowledge_states(
     assert pkg_conflict.knowledge["diagnostic"] is not None
 
 
+async def test_entity_context_knowledge_states(
+    db_session: AsyncSession,
+    tmp_path,
+    monkeypatch,
+):
+    from app.integrations.obsidian.service import vault_index
+
+    # 1. Create an entity
+    ent_id = uuid.uuid4()
+    ent = Entity(id=ent_id, type="project", title="Entity Knowledge Test", search_text="")
+    db_session.add(ent)
+    proj = Project(id=ent_id, status="active")
+    db_session.add(proj)
+    await db_session.commit()
+
+    # Case A: unavailable (vault directory/path not configured or not accessible)
+    monkeypatch.setattr(settings, "obsidian_vault_path", "")
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    ctx_unavail = await get_entity_context(db_session, str(ent_id))
+    assert ctx_unavail.knowledge_ref is not None
+    assert ctx_unavail.knowledge_ref["state"] in ("available", "missing", "unavailable", "conflict")
+    assert ctx_unavail.knowledge_ref["state"] == "unavailable"
+    assert ctx_unavail.knowledge_ref["available"] is False
+    assert ctx_unavail.knowledge_ref["diagnostic"] is not None
+    assert len(ctx_unavail.knowledge_ref["diagnostic"]) > 0
+
+    # Non-existent directory should also be unavailable
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(tmp_path / "NonExistentVault"))
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    ctx_unavail2 = await get_entity_context(db_session, str(ent_id))
+    assert ctx_unavail2.knowledge_ref is not None
+    assert ctx_unavail2.knowledge_ref["state"] == "unavailable"
+    assert ctx_unavail2.knowledge_ref["available"] is False
+    assert ctx_unavail2.knowledge_ref["diagnostic"] is not None
+
+    # Case B: missing (vault configured, but no note exists for this entity)
+    v_dir = tmp_path / "EntityVault"
+    v_dir.mkdir(exist_ok=True)
+    (v_dir / "20 Projects").mkdir(exist_ok=True)
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(v_dir))
+    monkeypatch.setattr(settings, "obsidian_vault_name", "EntityVault")
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    ctx_missing = await get_entity_context(db_session, str(ent_id))
+    assert ctx_missing.knowledge_ref is not None
+    assert ctx_missing.knowledge_ref["state"] in ("available", "missing", "unavailable", "conflict")
+    assert ctx_missing.knowledge_ref["state"] == "missing"
+    assert ctx_missing.knowledge_ref["available"] is False
+    assert ctx_missing.knowledge_ref["diagnostic"] is not None
+
+    # Case C: available (note exists and resolves cleanly)
+    note_path = v_dir / "20 Projects" / "EntityNote.md"
+    note_path.write_text(
+        f"---\nforkos_id: {ent_id}\nforkos_type: project\n---\n# Entity Knowledge Test\n",
+        encoding="utf-8",
+    )
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    ctx_avail = await get_entity_context(db_session, str(ent_id))
+    assert ctx_avail.knowledge_ref is not None
+    assert ctx_avail.knowledge_ref["state"] in ("available", "missing", "unavailable", "conflict")
+    assert ctx_avail.knowledge_ref["state"] == "available"
+    assert ctx_avail.knowledge_ref["available"] is True
+    assert ctx_avail.knowledge_ref["forkos_id"] == str(ent_id)
+    assert ctx_avail.knowledge_ref["relative_path"] == "20 Projects/EntityNote.md"
+    assert ctx_avail.knowledge_ref["title"] == "Entity Knowledge Test"
+    assert ctx_avail.knowledge_ref["diagnostic"] is None
+
+    # Case D: conflict (duplicate note exists with same forkos_id)
+    dup_path = v_dir / "20 Projects" / "DuplicateEntity.md"
+    dup_path.write_text(
+        f"---\nforkos_id: {ent_id}\nforkos_type: project\n---\n# Duplicate Entity Note\n",
+        encoding="utf-8",
+    )
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+
+    ctx_conflict = await get_entity_context(db_session, str(ent_id))
+    assert ctx_conflict.knowledge_ref is not None
+    assert ctx_conflict.knowledge_ref["state"] in ("available", "missing", "unavailable", "conflict")
+    assert ctx_conflict.knowledge_ref["state"] == "conflict"
+    assert ctx_conflict.knowledge_ref["available"] is False
+    assert ctx_conflict.knowledge_ref["diagnostic"] is not None
+
+
+
 

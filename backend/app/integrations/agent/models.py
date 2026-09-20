@@ -182,7 +182,7 @@ class KnowledgePointer(BaseModel):
         return list(self.model_fields.keys())
 
     def items(self) -> list[tuple[str, Any]]:
-        return [(k, getattr(self, k)) for k in self.model_fields.keys()]
+        return [(k, getattr(self, k)) for k in self.model_fields]
 
 
 class EntityContextData(BaseModel):
