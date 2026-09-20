@@ -1,0 +1,522 @@
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, date, datetime, time, timedelta
+from typing import Any
+
+from sqlalchemy import and_, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import registry as registry_svc
+from app.core import search as search_svc
+from app.core.deadlines import collect_deadlines
+from app.core.models import Entity, Event, Link, Notification
+from app.core.time import local_today, local_zone
+from app.integrations.agent.knowledge import get_brain_status
+from app.integrations.agent.models import (
+    ActivityEventData,
+    BriefingData,
+    EntityContextData,
+    EntitySearchResult,
+    ProjectContextData,
+    sanitize_payload,
+)
+from app.integrations.obsidian.service import vault_index
+from app.modules.flashcard.models import FlashcardCard
+from app.modules.opportunity.models import Opportunity
+from app.modules.project.models import Milestone, Project
+from app.modules.today import service as today_svc
+from app.modules.todo.models import Todo
+
+FROZEN_LEGACY_TYPES = {"note", "note_folder", "note_attachment"}
+
+
+def _resolve_route(entity_type: str, entity_id: uuid.UUID) -> str:
+    spec = registry_svc.type_spec(entity_type)
+    if spec and spec.route:
+        return spec.route.replace("{id}", str(entity_id))
+    return f"/{entity_type}s/{entity_id}"
+
+
+def _parse_since(since: str | None) -> datetime | None:
+    if not since or not since.strip():
+        return None
+    s = since.strip().lower()
+    now = datetime.now(UTC)
+    zone = local_zone()
+    today_dt = datetime.combine(local_today(), time.min, tzinfo=zone).astimezone(UTC)
+
+    if s == "today":
+        return today_dt
+    elif s == "yesterday":
+        return today_dt - timedelta(days=1)
+    elif s == "7d":
+        return now - timedelta(days=7)
+    elif s == "30d":
+        return now - timedelta(days=30)
+    else:
+        try:
+            return datetime.fromisoformat(since)
+        except Exception:
+            return None
+
+
+async def get_briefing_context(session: AsyncSession, day: str | None = None) -> BriefingData:
+    """Factual, bounded day packet from existing forkOS services."""
+    target_date: date
+    if day:
+        try:
+            target_date = date.fromisoformat(day.strip())
+        except ValueError:
+            target_date = local_today()
+    else:
+        target_date = local_today()
+
+    day_str = target_date.isoformat()
+
+    # 1. Agenda items (capped at 30)
+    agenda_rows: list[dict[str, Any]] = []
+    try:
+        today_out = await today_svc.agenda(session, target_date)
+        for row in today_out.items[:30]:
+            agenda_rows.append({
+                "kind": row.kind,
+                "title": row.title,
+                "completed": row.completed,
+                "starts_at": row.starts_at.isoformat() if row.starts_at else None,
+                "duration_min": row.duration_min,
+                "project_title": row.project_title,
+            })
+    except Exception:
+        agenda_rows = []
+
+    # 2. Open todos (ordered by priority, capped at 20)
+    todos_stmt = (
+        select(Todo, Entity.title)
+        .join(Entity, Entity.id == Todo.id)
+        .where(Todo.status != "done", Entity.archived_at.is_(None))
+        .order_by(Todo.priority.asc(), Todo.due_at.asc().nulls_last())
+        .limit(20)
+    )
+    todos_res = await session.execute(todos_stmt)
+    open_todos: list[dict[str, Any]] = []
+    for todo, title in todos_res.all():
+        open_todos.append({
+            "id": str(todo.id),
+            "title": title,
+            "priority": todo.priority,
+            "status": todo.status,
+            "due_at": todo.due_at.isoformat() if todo.due_at else None,
+        })
+
+    # 3. Deadlines (within next 7 days, capped at 15)
+    deadlines: list[dict[str, Any]] = []
+    try:
+        deadlines_list = await collect_deadlines(session, limit=15)
+        for d in deadlines_list:
+            deadlines.append({
+                "id": str(d.id),
+                "title": d.title,
+                "due_at": d.due_at.isoformat() if d.due_at else None,
+                "entity_type": d.entity_type,
+            })
+    except Exception:
+        deadlines = []
+
+    # 4. Active projects (capped at 10)
+    proj_stmt = (
+        select(Project, Entity.title)
+        .join(Entity, Entity.id == Project.id)
+        .where(Project.status != "completed", Entity.archived_at.is_(None))
+        .order_by(Project.position.asc(), Project.last_activity_at.desc().nulls_last())
+        .limit(10)
+    )
+    proj_res = await session.execute(proj_stmt)
+    active_projects: list[dict[str, Any]] = []
+    for proj, title in proj_res.all():
+        active_projects.append({
+            "id": str(proj.id),
+            "title": title,
+            "status": proj.status,
+            "next_action": proj.next_action,
+            "github_repo": proj.github_repo,
+        })
+
+    # 5. Learning due (flashcards due, capped at 10)
+    learning_due: list[dict[str, Any]] = []
+    try:
+        now_dt = datetime.now(UTC)
+        fc_stmt = (
+            select(FlashcardCard, Entity.title)
+            .join(Entity, Entity.id == FlashcardCard.id)
+            .where(
+                FlashcardCard.due_at <= now_dt,
+                Entity.archived_at.is_(None),
+            )
+            .limit(10)
+        )
+        fc_res = await session.execute(fc_stmt)
+        for card, title in fc_res.all():
+            learning_due.append({
+                "id": str(card.id),
+                "title": title,
+                "due_at": card.due_at.isoformat() if card.due_at else None,
+                "reps": card.reps,
+            })
+    except Exception:
+        learning_due = []
+
+    # 6. Opportunity attention (active opportunities in interview or review, capped at 10)
+    opportunity_attention: list[dict[str, Any]] = []
+    try:
+        opp_stmt = (
+            select(Opportunity, Entity.title)
+            .join(Entity, Entity.id == Opportunity.id)
+            .where(
+                Opportunity.stage.in_(["applied", "interview", "review"]),
+                Entity.archived_at.is_(None),
+            )
+            .order_by(Opportunity.deadline_at.asc().nulls_last())
+            .limit(10)
+        )
+        opp_res = await session.execute(opp_stmt)
+        for opp, title in opp_res.all():
+            opportunity_attention.append({
+                "id": str(opp.id),
+                "title": title,
+                "company": opp.company,
+                "stage": opp.stage,
+                "deadline_at": opp.deadline_at.isoformat() if opp.deadline_at else None,
+            })
+    except Exception:
+        opportunity_attention = []
+
+    # 7. Notifications (unread, capped at 10)
+    notif_stmt = (
+        select(Notification)
+        .where(Notification.read_at.is_(None), Notification.dismissed_at.is_(None))
+        .order_by(Notification.created_at.desc())
+        .limit(10)
+    )
+    notif_res = await session.execute(notif_stmt)
+    notifications = [
+        {
+            "id": str(n.id),
+            "title": n.title,
+            "message": n.body or "",
+            "created_at": n.created_at.isoformat(),
+        }
+        for n in notif_res.scalars().all()
+    ]
+
+    # 8. Recent activity summary (last 10 events)
+    recent_events = await get_recent_activity_context(session, limit=10)
+    recent_activity_summary = [e.model_dump(mode="json") for e in recent_events]
+
+    # 9. Vault status
+    vault_status = get_brain_status().model_dump(mode="json")
+
+    return BriefingData(
+        day=day_str,
+        agenda=agenda_rows,
+        open_todos=open_todos,
+        deadlines=deadlines,
+        active_projects=active_projects,
+        learning_due=learning_due,
+        opportunity_attention=opportunity_attention,
+        notifications=notifications,
+        recent_activity_summary=recent_activity_summary,
+        vault_status=vault_status,
+    )
+
+
+async def search_operational_context(
+    session: AsyncSession,
+    query: str,
+    entity_types: list[str] | None = None,
+    limit: int = 10,
+) -> list[EntitySearchResult]:
+    """Search active operational entities, strictly excluding legacy note entities."""
+    q = query.strip()
+    if len(q) < 2:
+        return []
+
+    # Determine types
+    all_searchable = [t for t in search_svc.searchable_types() if t not in FROZEN_LEGACY_TYPES]
+    if entity_types:
+        types_filter = [t for t in entity_types if t in all_searchable]
+    else:
+        types_filter = all_searchable
+
+    if not types_filter:
+        return []
+
+    cap = max(1, min(limit, 30))
+    raw_entities = await search_svc.search_entities(session, q, types=types_filter, limit=cap)
+
+    results: list[EntitySearchResult] = []
+    for ent in raw_entities:
+        if ent.type in FROZEN_LEGACY_TYPES:
+            continue
+        route = _resolve_route(ent.type, ent.id)
+        results.append(
+            EntitySearchResult(
+                id=str(ent.id),
+                type=ent.type,
+                title=ent.title,
+                route=route,
+                summary=ent.search_text[:200] if ent.search_text else "",
+            )
+        )
+
+    return results
+
+
+async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityContextData:
+    """Inspect identity, deep links, relationships, and activity for an entity."""
+    try:
+        ent_uuid = uuid.UUID(entity_id.strip())
+    except ValueError as exc:
+        raise ValueError(f"INVALID_LOCATOR: Invalid entity UUID '{entity_id}'.") from exc
+
+    ent_res = await session.execute(select(Entity).where(Entity.id == ent_uuid))
+    entity = ent_res.scalar_one_or_none()
+    if entity is None:
+        raise ValueError(f"ENTITY_NOT_FOUND: Entity '{entity_id}' does not exist.")
+
+    # Check for legacy frozen note
+    if entity.type in FROZEN_LEGACY_TYPES:
+        return EntityContextData(
+            id=str(entity.id),
+            type=entity.type,
+            title=entity.title,
+            route="/notes",
+            details={
+                "status": "frozen legacy archive",
+                "note": "Legacy Note entities are frozen. Active knowledge lives in the f0rknbrain Vault.",
+            },
+            related_entities=[],
+            recent_events=[],
+            knowledge_ref=None,
+        )
+
+    route = _resolve_route(entity.type, entity.id)
+
+    # Fetch links (related entities)
+    links_stmt = (
+        select(Link, Entity.type, Entity.title)
+        .join(Entity, or_(
+            and_(Link.from_id == ent_uuid, Entity.id == Link.to_id),
+            and_(Link.to_id == ent_uuid, Entity.id == Link.from_id),
+        ))
+        .where(or_(Link.from_id == ent_uuid, Link.to_id == ent_uuid))
+        .limit(20)
+    )
+    links_res = await session.execute(links_stmt)
+    related: list[dict[str, Any]] = []
+    for link, target_type, target_title in links_res.all():
+        other_id = link.to_id if link.from_id == ent_uuid else link.from_id
+        direction = "outgoing" if link.from_id == ent_uuid else "incoming"
+        related.append({
+            "id": str(other_id),
+            "type": target_type,
+            "title": target_title,
+            "relation": link.relation,
+            "direction": direction,
+            "route": _resolve_route(target_type, other_id),
+        })
+
+    # Fetch recent events touching this entity
+    events_stmt = (
+        select(Event)
+        .where(Event.entity_id == ent_uuid)
+        .order_by(Event.occurred_at.desc())
+        .limit(5)
+    )
+    events_res = await session.execute(events_stmt)
+    recent_events = [
+        {
+            "id": ev.id,
+            "verb": ev.verb,
+            "timestamp": ev.occurred_at.isoformat(),
+            "payload": sanitize_payload(ev.payload or {}),
+        }
+        for ev in events_res.scalars().all()
+    ]
+
+    # Check if a Vault note is linked to this entity
+    v_item = vault_index.get_item(str(ent_uuid))
+    knowledge_ref = None
+    if v_item:
+        knowledge_ref = {
+            "available": True,
+            "forkos_id": v_item.forkos_id,
+            "relative_path": v_item.relative_path,
+            "title": v_item.title,
+        }
+
+    return EntityContextData(
+        id=str(entity.id),
+        type=entity.type,
+        title=entity.title,
+        route=route,
+        details={
+            "created_at": entity.created_at.isoformat() if entity.created_at else None,
+            "updated_at": entity.updated_at.isoformat() if entity.updated_at else None,
+        },
+        related_entities=related,
+        recent_events=recent_events,
+        knowledge_ref=knowledge_ref,
+    )
+
+
+async def get_project_context(session: AsyncSession, project_id: str) -> ProjectContextData:
+    """Compact project operational packet with Vault pointer only."""
+    try:
+        proj_uuid = uuid.UUID(project_id.strip())
+    except ValueError as exc:
+        raise ValueError(f"INVALID_LOCATOR: Invalid project UUID '{project_id}'.") from exc
+
+    proj_stmt = (
+        select(Project, Entity.title)
+        .join(Entity, Entity.id == Project.id)
+        .where(Project.id == proj_uuid)
+    )
+    proj_res = await session.execute(proj_stmt)
+    row = proj_res.first()
+    if not row:
+        raise ValueError(f"PROJECT_NOT_FOUND: Project '{project_id}' does not exist.")
+
+    project, title = row
+
+    # Milestones
+    ms_stmt = (
+        select(Milestone)
+        .where(Milestone.project_id == proj_uuid)
+        .order_by(Milestone.position.asc(), Milestone.due_at.asc().nulls_last())
+    )
+    ms_res = await session.execute(ms_stmt)
+    milestones_data = [
+        {
+            "id": str(m.id),
+            "title": m.title,
+            "due_at": m.due_at.isoformat() if m.due_at else None,
+            "completed": m.completed_at is not None,
+        }
+        for m in ms_res.scalars().all()
+    ]
+    milestone_ids = [m["id"] for m in milestones_data]
+
+    # Open todos linked to this project (via Link or Milestone)
+    todos_stmt = (
+        select(Todo, Entity.title)
+        .join(Entity, Entity.id == Todo.id)
+        .outerjoin(Link, and_(Link.to_id == Todo.id, Link.from_id == proj_uuid))
+        .where(
+            Todo.status != "done",
+            Entity.archived_at.is_(None),
+            or_(
+                Link.id.is_not(None),
+                Todo.milestone_id.in_([uuid.UUID(mid) for mid in milestone_ids]) if milestone_ids else False,
+            ),
+        )
+        .order_by(Todo.priority.asc(), Todo.due_at.asc().nulls_last())
+        .limit(20)
+    )
+    todos_res = await session.execute(todos_stmt)
+    todos_data = [
+        {
+            "id": str(t.id),
+            "title": t_title,
+            "priority": t.priority,
+            "status": t.status,
+            "due_at": t.due_at.isoformat() if t.due_at else None,
+        }
+        for t, t_title in todos_res.all()
+    ]
+
+    # Recent activity for this project
+    events_stmt = (
+        select(Event)
+        .where(Event.entity_id == proj_uuid)
+        .order_by(Event.occurred_at.desc())
+        .limit(10)
+    )
+    events_res = await session.execute(events_stmt)
+    activity_data = [
+        {
+            "id": ev.id,
+            "verb": ev.verb,
+            "timestamp": ev.occurred_at.isoformat(),
+            "payload": sanitize_payload(ev.payload or {}),
+        }
+        for ev in events_res.scalars().all()
+    ]
+
+    # Deadlines for this project
+    deadlines = [m for m in milestones_data if m.get("due_at") and not m.get("completed")]
+
+    # Vault knowledge pointer only
+    v_item = vault_index.find_by_note_kind("project", project_id=str(proj_uuid)) or vault_index.get_item(str(proj_uuid))
+    knowledge_data = {
+        "available": v_item is not None,
+        "forkos_id": v_item.forkos_id if v_item else None,
+        "relative_path": v_item.relative_path if v_item else None,
+        "title": v_item.title if v_item else None,
+    }
+
+    return ProjectContextData(
+        project={
+            "id": str(project.id),
+            "title": title,
+            "status": project.status,
+            "next_action": project.next_action,
+            "stack": project.stack or [],
+            "github_repo": project.github_repo,
+        },
+        milestones=milestones_data,
+        todos=todos_data,
+        recent_activity=activity_data,
+        deadlines=deadlines,
+        knowledge=knowledge_data,
+    )
+
+
+async def get_recent_activity_context(
+    session: AsyncSession,
+    since: str | None = None,
+    entity_type: str | None = None,
+    verb: str | None = None,
+    limit: int = 30,
+) -> list[ActivityEventData]:
+    """Retrieve sanitized, bounded append-only event log."""
+    cap = max(1, min(limit, 100))
+    since_dt = _parse_since(since)
+
+    stmt = select(Event, Entity.title).outerjoin(Entity, Entity.id == Event.entity_id)
+
+    if since_dt:
+        stmt = stmt.where(Event.occurred_at >= since_dt)
+    if entity_type:
+        stmt = stmt.where(Event.entity_type == entity_type)
+    if verb:
+        stmt = stmt.where(Event.verb == verb)
+
+    stmt = stmt.order_by(Event.occurred_at.desc()).limit(cap)
+    res = await session.execute(stmt)
+
+    events: list[ActivityEventData] = []
+    for ev, title in res.all():
+        events.append(
+            ActivityEventData(
+                id=ev.id,
+                timestamp=ev.occurred_at.isoformat(),
+                verb=ev.verb,
+                entity_id=str(ev.entity_id) if ev.entity_id else None,
+                entity_type=ev.entity_type,
+                title=title or "",
+                payload=sanitize_payload(ev.payload or {}),
+            )
+        )
+
+    return events
