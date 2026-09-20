@@ -3112,6 +3112,52 @@
         "title": "CramCardOut",
         "type": "object"
       },
+      "CreateManagedNoteIn": {
+        "properties": {
+          "forkos_id": {
+            "format": "uuid",
+            "title": "Forkos Id",
+            "type": "string"
+          },
+          "forkos_type": {
+            "title": "Forkos Type",
+            "type": "string"
+          },
+          "initial_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Body"
+          },
+          "target_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Folder"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "forkos_id",
+          "forkos_type",
+          "title"
+        ],
+        "title": "CreateManagedNoteIn",
+        "type": "object"
+      },
       "CreateNoteFromBookmarkIn": {
         "properties": {
           "additional_text": {
@@ -14878,6 +14924,113 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VaultItem": {
+        "properties": {
+          "forkos_id": {
+            "title": "Forkos Id",
+            "type": "string"
+          },
+          "forkos_type": {
+            "title": "Forkos Type",
+            "type": "string"
+          },
+          "mtime": {
+            "default": 0.0,
+            "title": "Mtime",
+            "type": "number"
+          },
+          "open_uri": {
+            "title": "Open Uri",
+            "type": "string"
+          },
+          "relative_path": {
+            "title": "Relative Path",
+            "type": "string"
+          },
+          "size": {
+            "default": 0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "forkos_id",
+          "forkos_type",
+          "title",
+          "relative_path",
+          "open_uri"
+        ],
+        "title": "VaultItem",
+        "type": "object"
+      },
+      "VaultStatus": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "conflict_details": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Conflict Details",
+            "type": "object"
+          },
+          "conflicts": {
+            "title": "Conflicts",
+            "type": "integer"
+          },
+          "diagnostic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostic"
+          },
+          "managed_files": {
+            "title": "Managed Files",
+            "type": "integer"
+          },
+          "readable": {
+            "title": "Readable",
+            "type": "boolean"
+          },
+          "vault_name": {
+            "title": "Vault Name",
+            "type": "string"
+          },
+          "writable": {
+            "title": "Writable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "configured",
+          "available",
+          "writable",
+          "readable",
+          "vault_name",
+          "managed_files",
+          "conflicts"
+        ],
+        "title": "VaultStatus",
+        "type": "object"
+      },
       "app__modules__flashcard__schemas__ReviewIn": {
         "properties": {
           "grade": {
@@ -21819,6 +21972,140 @@
         "summary": "Read Notification",
         "tags": [
           "core"
+        ]
+      }
+    },
+    "/api/obsidian/index/refresh": {
+      "post": {
+        "description": "Obsidian Vault dizinini yeniden tarar ve bellek içi indeksi tazeler.",
+        "operationId": "refresh_index_api_obsidian_index_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh Index",
+        "tags": [
+          "core",
+          "obsidian"
+        ]
+      }
+    },
+    "/api/obsidian/items": {
+      "post": {
+        "description": "Vault içinde forkOS ile yönetilen yeni bir Markdown belgesi oluşturur.",
+        "operationId": "create_item_api_obsidian_items_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateManagedNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Item",
+        "tags": [
+          "core",
+          "obsidian"
+        ]
+      }
+    },
+    "/api/obsidian/items/{forkos_id}": {
+      "get": {
+        "description": "Belirtilen forkOS ID'sine karşılık gelen Vault dosyasını ve açılış URI'sini döner.",
+        "operationId": "get_item_api_obsidian_items__forkos_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "forkos_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Forkos Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Item",
+        "tags": [
+          "core",
+          "obsidian"
+        ]
+      }
+    },
+    "/api/obsidian/status": {
+      "get": {
+        "description": "Obsidian Vault entegrasyonunun durumunu döner.\n\nPath'in tam sistem yolunu browser'a ifşa etmez.",
+        "operationId": "get_status_api_obsidian_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "core",
+          "obsidian"
         ]
       }
     },

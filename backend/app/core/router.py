@@ -264,3 +264,8 @@ async def source_health(
     """Her kaynagin son kosumu. 'empty' veya 'error' goruyorsan bir sey kirilmis."""
     return await run_svc.health(session, limit=limit)
 
+
+from app.integrations.obsidian.router import router as obsidian_router  # noqa: E402
+
+router.include_router(obsidian_router)
+

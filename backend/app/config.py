@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +22,26 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://127.0.0.1:8787/api/auth/google/callback"
     worker_enabled: bool = False
+
+    #: Opsiyonel Obsidian Vault destegi (hibrit mimari).
+    #: Bos birakilirsa Vault entegrasyonu pasiftir ve forkOS normal calisir.
+    obsidian_vault_path: str = ""
+    obsidian_vault_name: str = ""
+
+    @property
+    def resolved_obsidian_vault_path(self) -> Path | None:
+        if not self.obsidian_vault_path or not self.obsidian_vault_path.strip():
+            return None
+        return Path(self.obsidian_vault_path.strip()).expanduser().resolve()
+
+    @property
+    def resolved_obsidian_vault_name(self) -> str:
+        if self.obsidian_vault_name and self.obsidian_vault_name.strip():
+            return self.obsidian_vault_name.strip()
+        path = self.resolved_obsidian_vault_path
+        if path:
+            return path.name
+        return "Vault"
 
     @property
     def cors_origins(self) -> list[str]:

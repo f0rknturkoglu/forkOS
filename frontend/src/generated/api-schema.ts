@@ -2166,6 +2166,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/obsidian/index/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Index
+         * @description Obsidian Vault dizinini yeniden tarar ve bellek içi indeksi tazeler.
+         */
+        post: operations["refresh_index_api_obsidian_index_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/obsidian/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Item
+         * @description Vault içinde forkOS ile yönetilen yeni bir Markdown belgesi oluşturur.
+         */
+        post: operations["create_item_api_obsidian_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/obsidian/items/{forkos_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Item
+         * @description Belirtilen forkOS ID'sine karşılık gelen Vault dosyasını ve açılış URI'sini döner.
+         */
+        get: operations["get_item_api_obsidian_items__forkos_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/obsidian/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Obsidian Vault entegrasyonunun durumunu döner.
+         *
+         *     Path'in tam sistem yolunu browser'a ifşa etmez.
+         */
+        get: operations["get_status_api_obsidian_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities": {
         parameters: {
             query?: never;
@@ -5491,6 +5573,22 @@ export interface components {
             reps: number;
             /** Suspended */
             suspended: boolean;
+        };
+        /** CreateManagedNoteIn */
+        CreateManagedNoteIn: {
+            /**
+             * Forkos Id
+             * Format: uuid
+             */
+            forkos_id: string;
+            /** Forkos Type */
+            forkos_type: string;
+            /** Initial Body */
+            initial_body?: string | null;
+            /** Target Folder */
+            target_folder?: string | null;
+            /** Title */
+            title: string;
         };
         /** CreateNoteFromBookmarkIn */
         CreateNoteFromBookmarkIn: {
@@ -9756,6 +9854,52 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VaultItem */
+        VaultItem: {
+            /** Forkos Id */
+            forkos_id: string;
+            /** Forkos Type */
+            forkos_type: string;
+            /**
+             * Mtime
+             * @default 0
+             */
+            mtime: number;
+            /** Open Uri */
+            open_uri: string;
+            /** Relative Path */
+            relative_path: string;
+            /**
+             * Size
+             * @default 0
+             */
+            size: number;
+            /** Title */
+            title: string;
+        };
+        /** VaultStatus */
+        VaultStatus: {
+            /** Available */
+            available: boolean;
+            /** Configured */
+            configured: boolean;
+            /** Conflict Details */
+            conflict_details?: {
+                [key: string]: string[];
+            };
+            /** Conflicts */
+            conflicts: number;
+            /** Diagnostic */
+            diagnostic?: string | null;
+            /** Managed Files */
+            managed_files: number;
+            /** Readable */
+            readable: boolean;
+            /** Vault Name */
+            vault_name: string;
+            /** Writable */
+            writable: boolean;
         };
         /** ReviewIn */
         app__modules__flashcard__schemas__ReviewIn: {
@@ -14413,6 +14557,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_index_api_obsidian_index_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultStatus"];
+                };
+            };
+        };
+    };
+    create_item_api_obsidian_items_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManagedNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_item_api_obsidian_items__forkos_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                forkos_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_obsidian_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VaultStatus"];
                 };
             };
         };
