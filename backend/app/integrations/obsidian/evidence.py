@@ -173,6 +173,10 @@ class Excerpt:
 
     `truncated=False` ise `text`, `lines[line_start-1:line_end]` ile BİREBİR
     aynıdır. `truncated=True` ise `text` aynı satırların bir ÖNEKİdir.
+
+    `section_start`/`section_end` snippet'in TÜRETİLDİĞİ bölümün sınırlarıdır
+    (0 tabanlı, dahil). Sonraki global bütçe kırpması bu aralığın DIŞINA
+    çıkamaz; aksi hâlde `heading` yalan söylerdi (H3.1 §44-§47).
     """
 
     text: str
@@ -180,6 +184,8 @@ class Excerpt:
     line_start: int
     line_end: int
     truncated: bool
+    section_start: int
+    section_end: int
 
 
 def body_start_line(lines: list[str]) -> int:
@@ -296,6 +302,8 @@ def extract_excerpt(
                 line_start=focus + 1,
                 line_end=focus + 1,
                 truncated=True,
+                section_start=section.start,
+                section_end=section.end,
             )
         below, above = focus + 1, focus - 1
         while True:
@@ -325,6 +333,8 @@ def extract_excerpt(
         line_start=start + 1,
         line_end=end + 1,
         truncated=truncated,
+        section_start=section.start,
+        section_end=section.end,
     )
 
 
