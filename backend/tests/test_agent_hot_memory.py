@@ -1510,3 +1510,29 @@ async def test_fallback_path_also_enforces_full_artifact_policy(
         await _store(db_session, tags=[_SECRET_TAG])
 
     assert not (vault / MEMORY_DIR).exists()
+
+
+async def test_retired_reason_with_secret_is_rejected(db_session: AsyncSession, vault: Path) -> None:
+    """Emeklilik gerekçesi de frontmatter'a yazılır; sır taşıyamaz (§6)."""
+    created = await _store(db_session)
+    record = _scanned_record(vault, created.target_id)
+    path = vault / record.relative_path
+    bytes_before = path.read_bytes()
+    stat_before = path.stat()
+    db_before = await capture_db_content_fingerprint(db_session)
+
+    with pytest.raises(hm.ActionError, match="HOT_MEMORY_POLICY_REJECTED"):
+        await hm.retire_memory(
+            db_session,
+            HotMemoryRetireIn(
+                memory_id=created.target_id,
+                expected_revision=record.revision,
+                reason=_SECRET_TAG,
+            ),
+            request_id="t",
+        )
+
+    assert path.read_bytes() == bytes_before
+    assert path.stat().st_mtime_ns == stat_before.st_mtime_ns
+    assert _scanned_record(vault, created.target_id).status == "active"
+    assert await capture_db_content_fingerprint(db_session) == db_before
