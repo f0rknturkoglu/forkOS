@@ -104,7 +104,15 @@ source_mode, created_at, updated_at, expires_at, related_forkos_ids, tags,
 revision, relative_path` — `relative_path` **görelidir**, mutlak yol dönmez.
 
 Şema dışı dosyalar: `invalid_count` + sınırlı `invalid_paths` (göreli).
-Çakışmalar fatal değildir, `conflict_ids` olarak raporlanır.
+
+```text
+invalid_count  = şema dışı + politika dışı dosyaların GERÇEK sayısı
+invalid_paths  = yalnızca ilk 20 göreli yol (MAX_INVALID_REPORTED)
+```
+
+Politika nedeniyle dışlanan dosyalar (bkz. §3) ayrıca sayılır ve
+`hot_memory_context` uyarısında raporlanır; sır, gövde ya da mutlak yol
+raporlanmaz. Çakışmalar fatal değildir, `conflict_ids` olarak raporlanır.
 
 ---
 
@@ -125,12 +133,21 @@ Kurallar:
 
 - `memory_id`'yi **sunucu üretir**; çağıran kimlik veremez.
 - **Yol girdisi YOKTUR** (`path`, `relative_path` şemada bulunmaz).
-- **Kesin tekrar:** aynı `kind` + normalize edilmiş `text` zaten aktifse yeni
-  dosya açılmaz → `status=noop`, mevcut `memory_id` döner.
-- Apaçık kimlik bilgisi biçimi → `HOT_MEMORY_POLICY_REJECTED`.
+- **Kesin tekrar YALNIZCA aktif kayıt için:** aynı `kind` + normalize edilmiş
+  `text` zaten **aktifse** yeni dosya açılmaz → `status=noop`, mevcut
+  `memory_id` döner. Emekli ya da süresi geçmiş kayıt engellemez: aynı olgu
+  sonradan yeniden hatırlatılırsa **yeni aktif kayıt** doğar (yeni
+  `memory_id`); eski kayıt değişmeden kalır.
+- Apaçık kimlik bilgisi biçimi → `HOT_MEMORY_POLICY_REJECTED`. Aynı denetim
+  OKUMA anında da uygulanır: elle düzenlenmiş bir dosya sır taşıyorsa
+  yüklenmez, DEĞİŞTİRİLMEZ ve H0 yüzeyinden de (`brain_search`/`brain_read`)
+  dışlanır.
 - `related_forkos_ids` aktif operasyonel kayıtlar olmalı; dondurulmuş arşiv
-  (`note`, `note_folder`) ya da arşivlenmiş kayıt reddedilir
+  (`note`, `note_folder`, `note_attachment`) ya da arşivlenmiş kayıt reddedilir
   (`INVALID_RELATED_ENTITY`). **Link/Entity satırı oluşturulmaz.**
+- Oluşturma **atomiktir ve üzerine yazmaz**: hedef yalnızca içeriği tam olan
+  dosyaya bağlanır; başarısız oluşturma ne yarım hedef ne artık geçici dosya
+  bırakır.
 - Vault yoksa `HOT_MEMORY_UNAVAILABLE`; başka depoya düşülmez.
 
 ---
@@ -155,8 +172,11 @@ Kurallar:
   okunur (H1.1/H1.2 sözleşmesi).
 - `expected_revision` uyuşmazsa `HOT_MEMORY_STALE`; **hiçbir yazma yapılmaz**
   ve kullanıcı düzenlemesi korunur.
-- Sonuç aynıysa `status=noop`; **dosya yeniden yazılmaz**, `updated_at`
-  tazelenmez.
+- Doğrulama **dosyanın şu anki baytları** üzerinden yapılır ve `noop`
+  kararından ÖNCE gelir. İstenen değerler mevcut duruma eşit olsa bile bayat
+  revizyon `HOT_MEMORY_STALE` verir — sessiz bir `noop` makbuzu verilmez.
+- Sonuç aynıysa (ve revizyon güncelse) `status=noop`; **dosya yeniden
+  yazılmaz**, `updated_at` tazelenmez.
 - Bilinmeyen kullanıcı frontmatter anahtarları KORUNUR.
 - Kimlik çakışması varsa `HOT_MEMORY_CONFLICT`.
 
@@ -181,8 +201,11 @@ Kurallar:
   açıkça uyarı olarak söyler.
 - Aktif bağlamdan çıkar; `hot_memory_list(effective_status="retired")` ile
   görünür kalır.
-- Zaten emekliyse `status=noop`; **yeniden yazma yok**.
-- Revizyon bayatsa önce `HOT_MEMORY_STALE` ile durur.
+- Zaten emekliyse `status=noop`; **yeniden yazma yok** — ama yalnızca
+  `expected_revision` GÜNCEL ise. Bayat revizyon, "zaten emekli" kararından
+  ÖNCE kazanır: `HOT_MEMORY_STALE`.
+- Güncelleme ile aynı CAS kuralı: karar, dosyanın şu anki baytlarının
+  hash'inden gelir; kullanıcı düzenlemesi ezilmez.
 
 ---
 

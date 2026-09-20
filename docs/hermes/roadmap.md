@@ -94,6 +94,33 @@ güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmışt�
 
 ---
 
+## H2.1 — Correctness, Concurrency & Privacy Hardening ✅ Tamamlandı
+
+**Soru:** *Kullanıcı dosyayı elle düzenlediğinde ve iki yazma yarıştığında
+sistem hâlâ güvenilir mi?*
+
+Mimari DEĞİŞMEDİ; yalnızca somut doğruluk/yarış/gizlilik açıkları kapatıldı:
+
+- **Dosya sistemi CAS:** revizyon kararı artık tarama anındaki kopyadan değil,
+  `os.replace`'ten hemen önce okunan **güncel baytlardan** gelir. Kullanıcının
+  Obsidian düzenlemesi bayat bir ajan yazmasıyla ezilmez.
+- **Bayat revizyon > `noop`:** istenen değerler mevcut duruma eşit olsa bile
+  bayat `expected_revision` `HOT_MEMORY_STALE` verir (update ve retire).
+- **Yaşam döngüsü dürüstlüğü:** kesin tekrar denetimi yalnızca AKTİF kayıtlar
+  için; emekli/süresi geçmiş kayıt yeni bir "hatırla" isteğini bloklamaz, aynı
+  olgu YENİ kimlikle aktifleşir.
+- **Okuma anında politikası:** elle düzenlenmiş dosya apaçık sır taşıyorsa
+  sıcak hafızaya yüklenmez, DEĞİŞTİRİLMEZ ve H0 yüzeyinden de dışlanır.
+- **Atomik oluşturma:** hedef yalnızca içeriği tam olan dosyaya bağlanır; kısmi
+  dosya görünmez, başarısızlık artık geçici dosya bırakmaz.
+- **Dürüst tanılama:** `invalid_count` gerçek sayıyı, `invalid_paths` sınırlı
+  listeyi verir; okunamayan Vault temiz `HOT_MEMORY_UNAVAILABLE` döner.
+
+**Eklenmedi:** yeni araç, yeni tablo, embedding, kilit alt sistemi, semantik
+benzerlik. Yüzey yine **24** araç.
+
+---
+
 ## H3 — Retrieval & Evidence (Sıradaki)
 
 **Soru:** *Bir iddiayı hangi kanıt destekliyor?*

@@ -98,6 +98,33 @@ HOT_MEMORY_POLICY_REJECTED
 Bu bir sınıflandırıcı DEĞİLDİR ve öyle sunulmaz. Asıl savunma şudur: küçük
 şema + açık onay + net politika + otomatik yazma yasağı.
 
+### 4.1 Yazma anı tek başına yetmez
+
+Sıcak hafıza dosyaları Obsidian'da **elle düzenlenebilir**; bu bir özelliktir.
+Bu yüzden araç üzerinden gelen içerik ile elle düzenlenmiş içerik AYNI
+yüksek güvenli denetimden geçer:
+
+```text
+araç yazması      → HOT_MEMORY_POLICY_REJECTED (yazma reddedilir, dosya yok)
+elle düzenleme    → dosya yüklenmez, DEĞİŞTİRİLMEZ, raporlanır
+```
+
+Elle düzenlenmiş politikaya takılan dosya:
+
+```text
+hot_memory_context ve hot_memory_list içinde GÖRÜNMEZ
+brain_search(scope="agent") ve brain_read ile DE okunamaz
+silinmez, yeniden yazılmaz, mtime'ı değişmez
+yalnızca "politika nedeniyle dışlandı" sayacı/uyarısı ve göreli yol raporlanır
+```
+
+Sır, gövde ya da frontmatter hiçbir hata/warning/tanılama alanında
+GÖRÜNMEZ. Bu kapsam **yalnızca `90 Agent/Memory`** içindir; normal Vault
+bilgisi, günlük notlar ve kaynaklar bu politikaya tabi değildir.
+
+> Denetim dar ve deterministiktir; "tüm hassas veri yakalanır" denmez.
+> Kullanıcı hassas bilgisini normal Vault notu olarak tutmaya devam edebilir.
+
 ---
 
 ## 5. Aday akışı — konuşmada yaşar
@@ -170,6 +197,30 @@ aktif bağlamdan ÇIKAR
 
 "Her tarihsel kopyayı güvenle yok et" DEĞİLDİR ve öyle anlatılmaz. Fiziksel
 silme H2'nin yüzeyinde yoktur; kullanıcının kendi kararıdır.
+
+### 7.1 Sonradan yeniden hatırlama
+
+```text
+emekli   = bilinçli olarak artık aktif değil
+expired  = zamanı dolduğu için artık aktif değil
+```
+
+Kullanıcı AYNI olguyu sonradan yeniden hatırlatırsa:
+
+```text
+eski kayıt canlandırılmaz (historiği yeniden yazmak olurdu)
+aynı metin YENİ bir aktif kayıt olarak eklenir → yeni memory_id
+eski kayıt yerinde ve emekli/süresi geçmiş hâlde kalır
+```
+
+```text
+eski dönem : retired / expired kayıt (dosya yerinde)
+yeni dönem : yeni aktif kayıt (yeni kimlik)
+```
+
+Aktif bir kaydın kesin tekrarı ise hâlâ `noop`'tur: gereksiz ikinci dosya
+açılmaz. Bu kural **yalnızca kesin** (aynı tür + aynı normalize edilmiş metin)
+eşleşmedir; bulanık/semantik benzerlik aranmaz.
 
 ---
 
