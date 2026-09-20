@@ -4,13 +4,14 @@ Hermes ve forkOS arasındaki resmi entegrasyon katmanı. Kişisel işletim siste
 (forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka
 ajanlarına **bounded** bir MCP yüzeyiyle açar.
 
-Yüzey **H0 → H3** boyunca büyüdü ve bugün toplam **25** araçtır:
+Yüzey **H0 → H4** boyunca büyüdü ve bugün toplam **26** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
 H1  11 araç   açıkça onaylanan güvenli YAZMALAR
 H2   5 araç   f0rknbrain `90 Agent/Memory` içinde küratörlü sıcak hafıza
 H3   1 araç   kökenli, sınırlı KANIT getirme (forkos_evidence)
+H4   1 araç   YEREL biliş router'ı: sınıflandırma/çıkarım/yeniden yazım
 ```
 
 > Bu dokümanın eski başlığı "Brain Interface Foundation (H0)" idi; H0 artık
@@ -34,7 +35,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │      25 Bounded MCP Tools      │
+                       │      26 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐
@@ -63,18 +64,19 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
 H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek önceliktir. Aşağıdaki kurallar mutlaktır:
 
 - **%100 Salt-Okunur (Zero Mutation):** H0 içinde hiçbir yazma, güncelleme veya silme aracı **bulunmaz**. Ne PostgreSQL veritabanında ne de Vault dosya sisteminde tek bir bayt dahi değiştirilemez.
-- **Harici Ağ Çağrısı Yok (Local-Only):** Arayüz yalnızca yerel döngü (`127.0.0.1`) üzerinde çalışır. Dışarıya telemetri, LLM çağrısı veya veri çıkışı yoktur.
-- **forkOS İçinde LLM/Embedding/Vektör DB Yok:** Semantik arama, embedding üretimi veya dil modeli çalıştırma forkOS backend'inin işi değildir; bu sorumluluk Hermes'e aittir. forkOS yalnızca deterministik leksikal tarama ve yapısal veri sunar. H3 bu sınırı korur: `forkos_evidence` de gömme/vektör/model kullanmaz.
+- **Harici Ağ Çağrısı Yok (Local-Only):** Arayüz yalnızca yerel döngü (`127.0.0.1`) üzerinde çalışır. Dışarıya telemetri veya veri çıkışı yoktur. H4'ün yerel model çağrısı da yalnızca **loopback** üzerindedir (localhost/127.0.0.1/::1); başka bir adres yapılandırılamaz.
+- **forkOS İçinde Embedding/Vektör DB Yok:** Semantik arama, embedding üretimi ve vektör veritabanı forkOS backend'inin işi DEĞİLDİR. forkOS deterministik leksikal tarama ve yapısal veri sunar; H3 kanıt getirmesi gömme/vektör kullanmaz.
+- **H4 yerel modeli ÇALIŞTIRMAZ, yönlendirir:** çıkarımı yapılandırılmış yerel sağlayıcı (Ollama) yapar; forkOS yalnızca sınırlı istek gönderir, çıktıyı deterministik doğrular ve hiçbir uzak modele düşmez. Model önerir; doğrulayıcı karar verir.
 - **Hafıza Konsolidasyonu Yok:** Ajanın uzun vadeli hafıza üretmesi veya hafızayı Vault'a geri yazması bu katmanların işi değildir (konsolidasyon H5'e bırakılmıştır; H2 yalnızca insan onaylı küratörlü hafıza tutar).
 - **Dondurulmuş Not Tabloları:** Eski forkOS `note` ve `note_folder` tabloları salt arşivdir; diriltilmez ve arama sonuçlarına dahil edilmez.
 
 ---
 
-## 3. Sağlanan MCP Araçları (25)
+## 3. Sağlanan MCP Araçları (26)
 
-Arayüz toplam **25** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
-(H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3). Yazma araçları
-`readOnlyHint=false` taşır ve
+Arayüz toplam **26** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+(H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3) + **1 yerel biliş**
+(H4). Yazma araçları `readOnlyHint=false` taşır ve
 `trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
 
 ### Okuma araçları (H0)
@@ -122,6 +124,12 @@ Arayüz toplam **25** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 | --- | --- | --- |
 | **Kanıt** | `forkos_evidence` | Bir soru/iddia için kökenli, sınırlı kanıt paketi: yapısal grafik + olay geçmişi + yönetilen kasa notları + tek kasa hopu + deterministik leksikal eşleşme. Yanıt ÜRETMEZ; `EvidenceBundle` döner. Salt-okunur. |
 
+### Yerel biliş aracı (H4)
+
+| Kategori | Araç Adı | Açıklama |
+| --- | --- | --- |
+| **Biliş** | `forkos_local_cognition` | Açıkça seçilen TEK yerel primitifi yürütür: `classify`, `structured_extract` (sürümlü sözleşmeler), `query_rewrite`. Model önerir, deterministik doğrulayıcı karar verir; zincir tükenirse `needs_escalation`. Yalnız loopback model trafiği; yazma yok, bağlam toplamaz. |
+
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [Onay modeli](h1-safe-actions.md) ·
 [H2 Sıcak Hafıza](h2-hot-memory.md) ·
@@ -130,7 +138,10 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [H2 Kurulum](h2-setup.md) ·
 [H3 Kanıt Getirme](h3-retrieval-evidence.md) ·
 [H3 Araç Sözleşmesi](h3-tool-contract.md) ·
-[H3 Kurulum](h3-setup.md)
+[H3 Kurulum](h3-setup.md) ·
+[H4 Yerel Biliş](h4-local-cognition.md) ·
+[H4 Araç Sözleşmesi](h4-tool-contract.md) ·
+[H4 Kurulum](h4-setup.md)
 
 ---
 
@@ -142,4 +153,7 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [H3 Kanıt Getirme](h3-retrieval-evidence.md): kanıt modeli, kanallar, öncelik katmanları, köken zincirleri ve dürüstlük semantiği.
 - [H3 Araç Sözleşmesi](h3-tool-contract.md): `forkos_evidence` imzası, sınırlar, hata kodları ve örnek çıktı.
 - [H3 Kurulum ve Doğrulama](h3-setup.md): testler, ölçümler ve sorun giderme.
+- [H4 Yerel Biliş](h4-local-cognition.md): sorumluluk paylaşımı, lane'ler, yönlendirme politikası, sınırlı tekrar ve gizlilik sınırı.
+- [H4 Araç Sözleşmesi](h4-tool-contract.md): imza, sınırlar, kodlar ve örnek çıktı.
+- [H4 Kurulum ve Doğrulama](h4-setup.md): yapılandırma, model kurulumu, sorun giderme.
 - [H-Serisi Yol Haritası (H0 → H6)](roadmap.md): Beyin arayüzünün H0 temelinden H6 tam otonom eşlikçiye evrilme planı.

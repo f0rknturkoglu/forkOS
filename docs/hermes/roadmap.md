@@ -4,7 +4,7 @@ forkOS ile otonom ajan ekosistemini (Hermes) birleştiren vizyon; kademeli,
 güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmıştır.
 
 ```text
-  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4              H5              H6
+  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4 ✓            H5              H6
 ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
 │  Gözler  │──>│  Eller   │──>│  Sıcak   │──>│  Kanıt   │──>│  Yerel   │──>│  Sentez  │──>│ Proaktif │
 │ Salt-    │   │ Onaylı   │   │  Hafıza  │   │  & Geri  │   │  Model   │   │  & Brif. │   │  Ajan    │
@@ -181,17 +181,56 @@ Yüzey yine **24** araç.
 
 ---
 
-## H4 — Local Model Router (Sıradaki)
+## H3.2 — Son Köken Düzeltmesi ✅ Tamamlandı
 
-**Soru:** *Hangi iş hangi yerel modelle yapılmalı?*
+**Soru:** *Gösterdiğimiz yol, gerçekten gittiğimiz yol mu?*
 
-- Yerel modellerin (Ollama/MLX/llama.cpp sınıfı) görev tipine göre
-  yönlendirilmesi; **local-only** kalır.
-- **Şimdilik yok:** hiçbir model kurulumu, indirme veya dış sağlayıcı bağlama.
+- **Backlink hop'u getirme yönünü izler:** `from_ref` çapa notu, `to_ref`
+  bağlantıyı kuran nottur. Ardışık hop'lar artık bitişik
+  (`hop[i].to_ref == hop[i+1].from_ref`) ve kasa kanıtının son hop'u kaynağın
+  kendisine işaret eder.
+- **Tek satıra düşen kırpma locator'ı günceller:** global bütçe snippet'i odak
+  satırının önekine indirdiğinde `line_start == line_end == odak satırı` yazılır.
+- **Odak satırı eşleşen satırdır:** `Excerpt.focus_line` dışa verilir; kırpma
+  kanıtın dayanağını korur (aksi hâlde öğe düşüyordu).
+- Kanıt: `assert_continuous_path` yardımcısı + 5 regresyon testi.
 
 ---
 
-## H5 — Consolidation & Briefings
+## H4 — Local Model Router ✅ Tamamlandı
+
+**Soru:** *Hangi iş hangi yerel modelle yapılmalı?*
+
+- **Tek araç:** `forkos_local_cognition` (yüzey 26). Hermes hangi primitifi
+  istediğini **açıkça** söyler; H4 hedef ayrıştırmaz.
+- **Üç aktif lane:** `classify`, `structured_extract`, `query_rewrite`.
+  `rerank` H4.1'e, `compress` H4.x/H5'e ertelendi; `reason`/`chat`/`answer`/
+  `plan` reddedilir (muhakeme Hermes'e aittir).
+- **Sinyal ≠ politika ≠ karar:** yönlendirme saf ve deterministiktir; `route_task`
+  metni hiç görmez, bu yüzden "prompt zor görünüyor" diye karar veremez.
+- **Slot seçimi:** `local-small` → `local-medium`. Medium yalnızca small
+  yapılandırılmamış/sağlıksız/bütçesi yetmiyor/doğrulamada tükendiyse seçilir.
+- **Model önerir, doğrulayıcı karar verir:** şema, kaynak kanıtı (birebir
+  `source_excerpt`), tarih/saat, etiket ve korunan terim denetimleri deterministik.
+- **Sınırlı tekrar:** small ≤2, medium ≤1, toplam ≤3 çağrı; yukarı yapışkan
+  (small → medium → dur). Zincir tükenirse `needs_escalation`; **arka planda
+  buluta düşülmez**.
+- **Yalnız loopback:** `localhost`/`127.0.0.1`/`::1`; yönlendirme izlenmez,
+  proxy devralınmaz, araç verilmez, çalışma zamanında model indirilmez.
+- **Yazma yok:** Entity/Link/Event/Todo/Vault/Sıcak Hafıza'ya dokunmaz; DB
+  oturumu açmaz, kasa okumaz, bağlam toplamaz.
+- **Eval + canlı ölçüm:** 43 sentetik vaka (`docs/hermes/evals/h4-routing.yaml`),
+  betikli sağlayıcıyla tam tekrar; gerçek modelle üç lane doğrulandı.
+- Kanıt: `test_h4_models.py`, `test_h4_policy.py`, `test_h4_service.py`,
+  `test_h4_ollama.py`, `test_agent_h4_contract.py`, `test_agent_h4_transport.py`,
+  `test_h4_live.py`.
+- Ayrıntı: `h4-local-cognition.md`, `h4-tool-contract.md`, `h4-setup.md`.
+- **Sıradaki (H4.1):** CrossEncoder rerank değerlendirmesi, sorgu yeniden yazımı
+  ayarı, bağlam sıkıştırma araştırması.
+
+---
+
+## H5 — Consolidation & Briefings (Sıradaki)
 
 **Soru:** *Biriken bilgi nasıl özetlenir?*
 
