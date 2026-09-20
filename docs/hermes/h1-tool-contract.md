@@ -25,6 +25,7 @@ TARGET_NOT_FOUND   INVALID_INPUT     INVALID_TRANSITION   STALE_ACTION
 AMBIGUOUS_PLAN     INVALID_DATE      INVALID_TARGET       ACTION_NOT_ALLOWED
 VAULT_UNAVAILABLE  VAULT_CONFLICT    VAULT_STALE          VAULT_WRITE_FAILED
 KNOWLEDGE_NOT_FOUND  HEADING_NOT_FOUND  AMBIGUOUS_HEADING  APPLICATION_NOT_FOUND
+EXPECTED_STATUS_REQUIRED
 ```
 
 ---
@@ -75,6 +76,9 @@ Ayrıntılı H0 sözleşmesi: `h0-tool-contract.md`.
   `expected_updated_at`.
 - **Kapsam dışı:** durum (`done`/`dropped`), silme, ebeveyn/ilişki yeniden
   düzenleme — bunlar bu araçta YOKTUR.
+- **Verilmeyen ≠ null:** bir alanı hiç göndermemek onu KORUR; açıkça `null`
+  göndermek (desteklenen alanlarda, ör. `recur: ""`) temizler. `expected_updated_at`
+  yalnızca önkoşuldur, mutasyon değildir.
 - **Önkoşul:** `expected_updated_at` verilmişse `Entity.updated_at` ile
   eşleşmeli, aksi halde `STALE_ACTION`.
 - **Yan etki:** `Todo`, `Entity` (touch), etiketler, `Event` — yalnızca verilen alanlar.
@@ -92,7 +96,7 @@ Ayrıntılı H0 sözleşmesi: `h0-tool-contract.md`.
   olayı ve **rutin görevde bir sonraki oluşum**. Tekrar davranışı burada
   taklit EDİLMEZ; canonical servis çalışır.
 - **İdempotans:** `true` — zaten `done` ise `status=noop` döner ve EK oluşum
-  üretilmez.
+  üretilmez. Noop makbuzu **gerçek kalıcı** `completed_at` değerini taşır.
 - **Hatalar:** `TARGET_NOT_FOUND`.
 - **Makbuz notu:** `after.next_occurrence_id` ve `warnings` yeni oluşumu bildirir.
 
@@ -107,7 +111,8 @@ Ayrıntılı H0 sözleşmesi: `h0-tool-contract.md`.
   **tek** slot varsa güncellenir, **birden fazla** varsa `AMBIGUOUS_PLAN`.
 - **Yan etki:** yalnızca `PlanSlot` (+ canonical planlama olayı). Görev içeriği
   DEĞİŞMEZ.
-- **İdempotans:** `true` (tek slot güncellenir).
+- **İdempotans:** `true` — istenen sonuç mevcut slotla AYNIYSA canonical servis
+  çağrılmaz, olay/timestamp üretilmez ve `status=noop` döner.
 - **Hatalar:** `TARGET_NOT_FOUND`, `AMBIGUOUS_PLAN`, `INVALID_DATE`, `INVALID_INPUT`.
 
 ### 2.5 `forkos_project_update`
@@ -119,6 +124,8 @@ Ayrıntılı H0 sözleşmesi: `h0-tool-contract.md`.
 - **Önkoşul:** `expected_updated_at` verilmişse eşleşmeli (`STALE_ACTION`).
 - **Yan etki:** `Project`, `Entity` (touch), `Event`. **Vault'a DOKUNMAZ**:
   operasyonel güncelleme proje Markdown'ını yeniden yazmaz.
+- **Verilmeyen ≠ null:** yalnızca `project_id` göndermek `next_action`'ı
+  TEMİZLEMEZ (`status=noop`); `next_action: null` açıkça temizler.
 - **İdempotans:** `true` — aynı değer ise servis çağrılmaz, `status=noop`.
 - **Hatalar:** `TARGET_NOT_FOUND`, `STALE_ACTION`, `INVALID_INPUT`.
 
@@ -145,14 +152,17 @@ Duyuru akışı: `new → reviewed | watching | action_required | applied | comp
   `rejection_reason` (≤200, yalnızca `rejected` için anlamlı).
 - **Önkoşul:**
   - başvuru kaydı **yoksa** yalnızca `to_status="applied"` kaydı oluşturabilir
-    (canonical `apply`); diğer hedefler `APPLICATION_NOT_FOUND`;
-  - kayıt varsa `expected_status` verilmişse eşleşmeli (`STALE_ACTION`);
+    (canonical `apply`) ve `expected_status` gerekmez; diğer hedefler
+    `APPLICATION_NOT_FOUND`;
+  - kayıt **varsa** `expected_status` ZORUNLUDUR; verilmezse
+    `EXPECTED_STATUS_REQUIRED` ile reddedilir (tazelik önkoşulu isteğe bağlı olamaz);
+  - `expected_status` güncel durumla eşleşmezse `STALE_ACTION`;
   - hedef zaten geçerli durum ise `status=noop`.
 - **Yan etki:** `Application`, `ApplicationHistory`, (canonical servisin
   bağladığı) `Opportunity` alanları, `Entity`, `Event`.
 - **İdempotans:** `false` (append-only geçmiş üretir).
 - **Hatalar:** `TARGET_NOT_FOUND`, `APPLICATION_NOT_FOUND`, `STALE_ACTION`,
-  `INVALID_TRANSITION`, `INVALID_INPUT`.
+  `EXPECTED_STATUS_REQUIRED`, `INVALID_TRANSITION`, `INVALID_INPUT`.
 
 > Terminal durumlar (`accepted`, `rejected`, `closed`) operasyonel durumdur,
 > veri silme DEĞİLDİR. Yine de kullanıcı onayı zorunludur; Hermes bir
@@ -181,6 +191,11 @@ Duyuru akışı: `new → reviewed | watching | action_required | applied | comp
   zenginleştirme, fulltext yeniden yazımı.
 - **Önkoşul:** `expected_updated_at` verilmişse eşleşmeli (`STALE_ACTION`).
 - **Yan etki:** `Bookmark`, `Entity`, etiketler, `Event`.
+- **Verilmeyen ≠ null:** yalnızca `favorite` göndermek koleksiyon, okuma durumu
+  ve etiketleri KORUR.
+- **Etiketler** idempotans karşılaştırmasına DÂHİLDİR: aynı etiket kümesi
+  yeniden gönderilirse `status=noop`, farklıysa `executed` ve makbuz `tags`
+  alanını `changed_fields` içinde bildirir.
 - **İdempotans:** `true` — aynı değer ise `status=noop`.
 - **Hatalar:** `TARGET_NOT_FOUND`, `STALE_ACTION`, `INVALID_INPUT`.
 
@@ -208,6 +223,10 @@ Duyuru akışı: `new → reviewed | watching | action_required | applied | comp
   semantik eylem).
 - **Başlık verilirse:** tam eşleşen tek başlık aranır; 0 eşleşme
   `HEADING_NOT_FOUND`, >1 eşleşme `AMBIGUOUS_HEADING`.
+- **Başarısızlık atomikliği:** hedef not yoksa ve `heading` verildiyse istek
+  **yaratmadan önce** `HEADING_NOT_FOUND` ile reddedilir; yetim yönetilen dosya
+  BIRAKILMAZ. Başlıksız istekte canonical `ensure` ile oluşturup eklemek tek
+  semantik eylemdir.
 - **Yan etki:** **tek bir yönetilen Markdown dosyası** (oluşturma ve/veya
   gövde ekleme). Gövde DEĞİŞTİRİLMEZ, kullanıcı frontmatter'ı ve Markdown'ı
   korunur. Vault `mtime` tazelik kontrolü uygulanır (`VAULT_STALE`).

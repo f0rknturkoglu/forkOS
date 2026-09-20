@@ -149,6 +149,25 @@ Ayrıca:
 
 ---
 
+## 4b. Verilmeyen alan ≠ null verilen alan
+
+MCP çağrısında bir alanı **hiç göndermemek** ile **açıkça `null` göndermek**
+farklı anlamlara gelir ve H1 bu ayrımı korur:
+
+| İstek | Anlamı |
+|---|---|
+| `{"todo_id": "...", "priority": 1}` | yalnızca `priority` değişir; diğer alanlar KORUNUR |
+| `{"todo_id": "...", "description": null}` | `description` TEMİZLENİR |
+| `{"project_id": "..."}` | istenen bir mutasyon yok → `status = noop` |
+| `{"project_id": "...", "next_action": null}` | `next_action` TEMİZLENİR |
+
+Bu ayrım sunucuda **ham istek argümanlarından** okunur; şemada sahte bir
+"gönderilmedi" işareti (`"__UNSET__"` vb.) YOKTUR ve alan düzeyi kısıtlar
+(`maxLength`, `enum`, sayı aralıkları) korunur.
+
+> `recur` alanında canonical domain sözleşmesi geçerlidir: boş metin (`""`)
+> rutini KALDIRIR, alanı hiç göndermemek rutini korur.
+
 ## 5. Tekrar deneme politikası
 
 Yazma çağrıları **kör otomatik tekrar denemeye DAYANMAZ**. Sonucu belirsiz
@@ -266,6 +285,39 @@ Kurallar:
 - Bilgi notunun gövdesi veritabanı olay yüklerine KOPYALANMAZ.
 
 ---
+
+## 9b. Bilgi yazmalarında başarısızlık atomikliği
+
+Yönetilen nota ekleme (`brain_save_to_entity`) **yaratıcı adımdan ÖNCE**
+doğrular. Hedef not yoksa ve çağıran bir başlık verdiyse istek
+`HEADING_NOT_FOUND` ile reddedilir; **yetim bir yönetilen dosya bırakılmaz**.
+
+```text
+not yok + başlık verildi        → HEADING_NOT_FOUND, Vault DEĞİŞMEZ
+not yok + başlık verilmedi      → canonical `ensure` ile oluştur + ekle (tek eylem)
+not var + geçersiz başlık       → HEADING_NOT_FOUND, gövde DEĞİŞMEZ
+```
+
+Herhangi bir başarısızlıkta hem veritabanı içerik parmak izi hem Vault dosya
+ağacı özeti **aynı** kalır. Geri alma için "dosyayı sil" gibi bir yan etki
+kullanılmaz; doğrulama yan etkiden önce yapılır.
+
+## 9c. Yol gizliliği
+
+Ajan çıktısı ve MCP yanıtları **mutlak dosya yolu taşımaz**:
+
+```text
+✓ "Obsidian Vault directory does not exist."
+✓ "Obsidian Vault is not configured."
+✓ "Multiple managed notes share this identity."
+✗ "/Users/<kullanıcı>/.../f0rkn-vault"
+✗ HOME, kullanıcı adı, sürücü harfi içeren tam yollar
+```
+
+Bilgi yazma makbuzları yalnızca **göreli** yol (`relative_path`) döndürür.
+Tanılama metinleri ayrıca bir redaksiyon ağından geçer: yol gövdesi boşluk
+içerebilir, bu yüzden kesme noktaları tırnak/parantez/virgül/satır sonudur;
+göreli yollar (`20 Projects/x.md`) yanlışlıkla redakte EDİLMEZ.
 
 ## 10. Kapsam dışı (H1'de yok)
 
