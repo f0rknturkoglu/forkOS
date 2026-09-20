@@ -12,6 +12,7 @@ from app.integrations.agent.models import (
     EntityContextData,
     EntitySearchResult,
     ProjectContextData,
+    sanitize_and_bound_payload,
     sanitize_payload,
 )
 
@@ -151,3 +152,35 @@ def test_other_models_instantiation():
         content="# Sample Note\nContent",
     )
     assert read_data.title == "Sample Note"
+
+
+def test_sanitize_and_bound_payload_bounds():
+    # 1. Depth bounding (max_depth=4)
+    deep = {"l1": {"l2": {"l3": {"l4": {"l5": {"l6": "too deep"}}}}}}
+    bounded_deep = sanitize_and_bound_payload(deep, max_depth=4)
+    assert bounded_deep["l1"]["l2"]["l3"]["l4"] == "[TRUNCATED_DEPTH]"
+
+    # 2. Key count bounding (max_keys=25)
+    wide_dict = {f"key_{i}": i for i in range(35)}
+    bounded_dict = sanitize_and_bound_payload(wide_dict, max_keys=25)
+    assert len([k for k in bounded_dict if not k.startswith("_")]) == 25
+    assert bounded_dict["_truncated_keys"] == 10
+
+    # 3. Item count bounding (max_items=25)
+    long_list = list(range(35))
+    bounded_list = sanitize_and_bound_payload(long_list, max_items=25)
+    assert len(bounded_list) == 26  # 25 items + 1 truncation marker
+    assert bounded_list[-1] == "[TRUNCATED_ITEMS]"
+
+    # 4. String length bounding (max_str_len=500)
+    long_str = "x" * 1000
+    bounded_str = sanitize_and_bound_payload(long_str, max_str_len=500)
+    assert len(bounded_str) == 500 + len("...[truncated]")
+    assert bounded_str.endswith("...[truncated]")
+
+    # 5. Total payload byte bounding (max_bytes=4096)
+    large_payload = {f"k{i}": "y" * 300 for i in range(25)}
+    bounded_large = sanitize_and_bound_payload(large_payload, max_bytes=1024)
+    assert bounded_large.get("_payload_truncated") is True
+    assert bounded_large.get("_byte_length") > 1024
+

@@ -59,9 +59,11 @@ def _parse_since(since: str | None) -> datetime | None:
         return now - timedelta(days=30)
     else:
         try:
-            return datetime.fromisoformat(since)
-        except Exception:
-            return None
+            return datetime.fromisoformat(since.strip())
+        except Exception as exc:
+            raise ValueError(
+                f"INVALID_SINCE: '{since}' is not a valid preset (today, yesterday, 7d, 30d) or ISO datetime."
+            ) from exc
 
 
 async def get_briefing_context(session: AsyncSession, day: str | None = None) -> BriefingData:
@@ -267,7 +269,9 @@ async def search_operational_context(
     """Search active operational entities, strictly excluding legacy note entities."""
     q = query.strip()
     if len(q) < 2:
-        return []
+        raise ValueError("QUERY_TOO_SHORT: Query must be at least 2 characters.")
+    if len(q) > 200:
+        raise ValueError("QUERY_TOO_LONG: Query must be at most 200 characters.")
 
     # Determine types
     all_searchable = [t for t in search_svc.searchable_types() if t not in FROZEN_LEGACY_TYPES]
@@ -304,8 +308,8 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
     """Inspect identity, deep links, relationships, and activity for an entity."""
     try:
         ent_uuid = uuid.UUID(entity_id.strip())
-    except ValueError as exc:
-        raise ValueError(f"INVALID_LOCATOR: Invalid entity UUID '{entity_id}'.") from exc
+    except (ValueError, AttributeError) as exc:
+        raise ValueError(f"INVALID_UUID: Invalid entity UUID '{entity_id}'.") from exc
 
     ent_res = await session.execute(select(Entity).where(Entity.id == ent_uuid))
     entity = ent_res.scalar_one_or_none()
@@ -397,8 +401,8 @@ async def get_project_context(session: AsyncSession, project_id: str) -> Project
     """Compact project operational packet with Vault pointer only."""
     try:
         proj_uuid = uuid.UUID(project_id.strip())
-    except ValueError as exc:
-        raise ValueError(f"INVALID_LOCATOR: Invalid project UUID '{project_id}'.") from exc
+    except (ValueError, AttributeError) as exc:
+        raise ValueError(f"INVALID_UUID: Invalid project UUID '{project_id}'.") from exc
 
     proj_stmt = (
         select(Project, Entity.title)

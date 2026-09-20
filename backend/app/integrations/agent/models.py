@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+BrainScope = Literal[
+    "all", "inbox", "daily", "projects", "knowledge", "learning", "career", "sources", "agent"
+]
 
 
 def _now_utc() -> datetime:
@@ -22,22 +28,95 @@ SENSITIVE_KEY_SUBSTRINGS = (
 )
 
 
-def sanitize_payload(obj: Any) -> Any:
-    """Recursively sanitize dictionary/list structures to prevent leaking credentials or secrets."""
+def sanitize_and_bound_payload(
+    obj: Any,
+    max_depth: int = 4,
+    max_keys: int = 25,
+    max_items: int = 25,
+    max_str_len: int = 500,
+    max_bytes: int = 4096,
+    _current_depth: int = 0,
+) -> Any:
+    """Recursively sanitize secrets and bound depth, key count, string lengths, and byte size."""
+    if _current_depth >= max_depth:
+        return "[TRUNCATED_DEPTH]"
+
     if isinstance(obj, dict):
-        sanitized = {}
-        for k, v in obj.items():
-            k_lower = str(k).lower()
-            if any(sub in k_lower for sub in SENSITIVE_KEY_SUBSTRINGS):
+        keys = list(obj.keys())
+        sanitized: dict[str, Any] = {}
+        for k in keys[:max_keys]:
+            k_str = str(k)
+            if any(sub in k_str.lower() for sub in SENSITIVE_KEY_SUBSTRINGS):
                 sanitized[k] = "[REDACTED]"
             else:
-                sanitized[k] = sanitize_payload(v)
+                sanitized[k] = sanitize_and_bound_payload(
+                    obj[k],
+                    max_depth=max_depth,
+                    max_keys=max_keys,
+                    max_items=max_items,
+                    max_str_len=max_str_len,
+                    max_bytes=max_bytes,
+                    _current_depth=_current_depth + 1,
+                )
+        if len(keys) > max_keys:
+            sanitized["_truncated_keys"] = len(keys) - max_keys
+
+        if _current_depth == 0:
+            try:
+                serialized = json.dumps(sanitized, default=str)
+                if len(serialized.encode("utf-8")) > max_bytes:
+                    return {
+                        "_payload_truncated": True,
+                        "_byte_length": len(serialized.encode("utf-8")),
+                        "preview": str(sanitized)[:max_str_len],
+                    }
+            except Exception:
+                pass
         return sanitized
-    elif isinstance(obj, list):
-        return [sanitize_payload(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return tuple(sanitize_payload(item) for item in obj)
+
+    elif isinstance(obj, (list, tuple)):
+        items: list[Any] = []
+        for item in obj[:max_items]:
+            items.append(
+                sanitize_and_bound_payload(
+                    item,
+                    max_depth=max_depth,
+                    max_keys=max_keys,
+                    max_items=max_items,
+                    max_str_len=max_str_len,
+                    max_bytes=max_bytes,
+                    _current_depth=_current_depth + 1,
+                )
+            )
+        if len(obj) > max_items:
+            items.append("[TRUNCATED_ITEMS]")
+
+        res = tuple(items) if isinstance(obj, tuple) else items
+        if _current_depth == 0:
+            try:
+                serialized = json.dumps(res, default=str)
+                if len(serialized.encode("utf-8")) > max_bytes:
+                    return {
+                        "_payload_truncated": True,
+                        "_byte_length": len(serialized.encode("utf-8")),
+                        "preview": str(res)[:max_str_len],
+                    }
+            except Exception:
+                pass
+        return res
+
+    elif isinstance(obj, str):
+        if len(obj) > max_str_len:
+            return obj[:max_str_len] + "...[truncated]"
+        return obj
+
     return obj
+
+
+def sanitize_payload(obj: Any) -> Any:
+    """Recursively sanitize dictionary/list structures and bound payload to prevent leaking credentials or unbounded memory."""
+    return sanitize_and_bound_payload(obj)
+
 
 
 class AgentEnvelope[T](BaseModel):

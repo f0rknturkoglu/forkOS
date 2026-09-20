@@ -39,3 +39,40 @@ async def test_brain_status_tool_call():
     assert len(result.content) >= 1
     assert "brain_interface_version" in result.content[0].text
     assert "f0rknbrain" in result.content[0].text
+
+
+async def test_forkos_search_input_validation():
+    with pytest.raises(Exception, match="QUERY_TOO_SHORT"):
+        await mcp_server.call_tool("forkos_search", {"query": "a"})
+    with pytest.raises(Exception, match="QUERY_TOO_LONG"):
+        await mcp_server.call_tool("forkos_search", {"query": "x" * 201})
+
+
+async def test_forkos_entity_context_uuid_validation():
+    with pytest.raises(Exception, match="INVALID_UUID"):
+        await mcp_server.call_tool("forkos_entity_context", {"entity_id": "not-a-uuid"})
+
+
+async def test_forkos_project_context_uuid_validation():
+    with pytest.raises(Exception, match="INVALID_UUID"):
+        await mcp_server.call_tool("forkos_project_context", {"project_id": "not-a-uuid"})
+
+
+async def test_forkos_recent_activity_since_validation():
+    with pytest.raises(Exception, match="INVALID_SINCE"):
+        await mcp_server.call_tool("forkos_recent_activity", {"since": "not-a-date"})
+
+
+async def test_brain_search_input_validation():
+    with pytest.raises(Exception, match="QUERY_TOO_SHORT"):
+        await mcp_server.call_tool("brain_search", {"query": " "})
+    with pytest.raises(Exception, match="QUERY_TOO_LONG"):
+        await mcp_server.call_tool("brain_search", {"query": "x" * 201})
+    with pytest.raises(Exception, match="INVALID_SCOPE|literal_error"):
+        await mcp_server.call_tool("brain_search", {"query": "hello", "scope": "invalid_scope_name"})
+
+
+async def test_brain_read_uuid_validation():
+    with pytest.raises(Exception, match="INVALID_UUID"):
+        await mcp_server.call_tool("brain_read", {"forkos_id": "not-a-uuid"})
+

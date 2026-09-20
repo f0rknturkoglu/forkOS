@@ -206,3 +206,15 @@ def test_vault_immutability_during_read(mock_vault):
 
     assert mtime_before == mtime_after
     assert content_before == content_after
+
+
+def test_read_vault_note_truncated(mock_vault):
+    note = read_vault_note(relative_path="30 Knowledge/Rust.md", char_limit=20)
+    assert note.truncated is True
+    assert len(note.content) == 20
+
+
+def test_search_vault_invalid_scope(mock_vault):
+    with pytest.raises(ValueError, match="INVALID_SCOPE"):
+        search_vault("FastAPI", scope="nonexistent_scope")
+

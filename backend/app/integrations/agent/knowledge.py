@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -211,7 +212,9 @@ def search_vault(
     """Deterministically search all safe Markdown files across the Vault."""
     q = query.strip()
     if len(q) < 2:
-        return []
+        raise ValueError("QUERY_TOO_SHORT: Query must be at least 2 characters.")
+    if len(q) > 200:
+        raise ValueError("QUERY_TOO_LONG: Query must be at most 200 characters.")
 
     v_root = _get_vault_root()
     scope_lower = scope.lower().strip()
@@ -357,6 +360,12 @@ def read_vault_note(
     """Safely read a Vault markdown note by forkos_id or relative_path."""
     if (forkos_id is None and relative_path is None) or (forkos_id is not None and relative_path is not None):
         raise ValueError("INVALID_LOCATOR: Provide exactly one of 'forkos_id' or 'relative_path'.")
+
+    if forkos_id:
+        try:
+            uuid.UUID(str(forkos_id).strip())
+        except (ValueError, AttributeError) as exc:
+            raise ValueError(f"INVALID_UUID: '{forkos_id}' is not a valid UUID.") from exc
 
     v_root = _get_vault_root()
 

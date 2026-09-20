@@ -11,6 +11,7 @@ from app.integrations.agent.models import (
     ActivityEventData,
     AgentEnvelope,
     BrainReadData,
+    BrainScope,
     BrainSearchResult,
     BrainStatusData,
     BriefingData,
@@ -42,7 +43,15 @@ def register_agent_tools(server: MCPServer) -> None:
         try:
             async with SessionLocal() as session:
                 data = await ctx_svc.get_briefing_context(session, day=day)
-                return AgentEnvelope(source="forkos", data=data)
+                truncated = any([
+                    len(data.open_todos) >= 20,
+                    len(data.deadlines) >= 15,
+                    len(data.active_projects) >= 10,
+                    len(data.learning_due) >= 10,
+                    len(data.opportunity_attention) >= 10,
+                    len(data.notifications) >= 10,
+                ])
+                return AgentEnvelope(source="forkos", data=data, truncated=truncated)
         except Exception as exc:
             raise ToolError(f"BRIEFING_ERROR: {exc}") from exc
 
@@ -64,7 +73,8 @@ def register_agent_tools(server: MCPServer) -> None:
                 results = await ctx_svc.search_operational_context(
                     session, query=query, entity_types=entity_types, limit=limit
                 )
-                return AgentEnvelope(source="forkos", data=results)
+                truncated = len(results) >= limit
+                return AgentEnvelope(source="forkos", data=results, truncated=truncated)
         except Exception as exc:
             raise ToolError(f"SEARCH_ERROR: {exc}") from exc
 
@@ -80,7 +90,7 @@ def register_agent_tools(server: MCPServer) -> None:
         try:
             async with SessionLocal() as session:
                 data = await ctx_svc.get_entity_context(session, entity_id=entity_id)
-                return AgentEnvelope(source="forkos", data=data)
+                return AgentEnvelope(source="forkos", data=data, truncated=False)
         except Exception as exc:
             raise ToolError(str(exc)) from exc
 
@@ -96,7 +106,7 @@ def register_agent_tools(server: MCPServer) -> None:
         try:
             async with SessionLocal() as session:
                 data = await ctx_svc.get_project_context(session, project_id=project_id)
-                return AgentEnvelope(source="forkos", data=data)
+                return AgentEnvelope(source="forkos", data=data, truncated=False)
         except Exception as exc:
             raise ToolError(str(exc)) from exc
 
@@ -119,7 +129,8 @@ def register_agent_tools(server: MCPServer) -> None:
                 data = await ctx_svc.get_recent_activity_context(
                     session, since=since, entity_type=entity_type, verb=verb, limit=limit
                 )
-                return AgentEnvelope(source="forkos", data=data)
+                truncated = len(data) >= limit
+                return AgentEnvelope(source="forkos", data=data, truncated=truncated)
         except Exception as exc:
             raise ToolError(f"ACTIVITY_ERROR: {exc}") from exc
 
@@ -134,7 +145,7 @@ def register_agent_tools(server: MCPServer) -> None:
     async def brain_status() -> AgentEnvelope[BrainStatusData]:
         try:
             data = kn_svc.get_brain_status()
-            return AgentEnvelope(source="f0rknbrain", data=data)
+            return AgentEnvelope(source="f0rknbrain", data=data, truncated=False)
         except Exception as exc:
             raise ToolError(f"STATUS_ERROR: {exc}") from exc
 
@@ -148,12 +159,13 @@ def register_agent_tools(server: MCPServer) -> None:
     )
     async def brain_search(
         query: str,
-        scope: str = "all",
+        scope: BrainScope = "all",
         limit: int = 8,
     ) -> AgentEnvelope[list[BrainSearchResult]]:
         try:
             data = kn_svc.search_vault(query=query, scope=scope, limit=limit)
-            return AgentEnvelope(source="f0rknbrain", data=data)
+            truncated = len(data) >= limit
+            return AgentEnvelope(source="f0rknbrain", data=data, truncated=truncated)
         except Exception as exc:
             raise ToolError(f"VAULT_SEARCH_ERROR: {exc}") from exc
 
@@ -174,6 +186,6 @@ def register_agent_tools(server: MCPServer) -> None:
             data = kn_svc.read_vault_note(
                 forkos_id=forkos_id, relative_path=relative_path, heading=heading
             )
-            return AgentEnvelope(source="f0rknbrain", data=data)
+            return AgentEnvelope(source="f0rknbrain", data=data, truncated=data.truncated)
         except Exception as exc:
             raise ToolError(str(exc)) from exc
