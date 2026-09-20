@@ -168,6 +168,12 @@ Bu ayrım sunucuda **ham istek argümanlarından** okunur; şemada sahte bir
 > `recur` alanında canonical domain sözleşmesi geçerlidir: boş metin (`""`)
 > rutini KALDIRIR, alanı hiç göndermemek rutini korur.
 
+**Bağlama güvenliği:** alan varlığı ham MCP istek argümanlarından okunur.
+İstek bağlamı VAR ama argümanlar çözülemiyorsa (ör. MCP SDK iç yerleşimi
+değiştiyse) sunucu "her argüman verilmiş say" varsayımına DÜŞMEZ: işlem
+`MCP_ARGUMENT_BINDING_UNAVAILABLE` ile reddedilir ve hiçbir yazma denenmez.
+Sessiz veri kaybı yerine gürültülü hata tercih edilir.
+
 ## 5. Tekrar deneme politikası
 
 Yazma çağrıları **kör otomatik tekrar denemeye DAYANMAZ**. Sonucu belirsiz

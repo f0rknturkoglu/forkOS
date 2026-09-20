@@ -350,3 +350,23 @@ async def mcp_session():
         ):
             await session.initialize()
             yield session
+
+
+@asynccontextmanager
+async def hermetic_lifespan():
+    """Yalnızca FastAPI lifespan'ını, başlangıç yan etkileri KAPALI olarak açar.
+
+    Ham HTTP istemcisi gereken (ör. DNS rebinding reddi) testler için.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    import app.main as app_main
+    from app.main import app
+
+    with (
+        patch.object(app_main, "_startup_rss_starter_feeds", AsyncMock()),
+        patch.object(app_main, "_startup_critical_catch_up", AsyncMock()),
+        patch.object(app_main, "_startup_maintenance", AsyncMock()),
+    ):
+        async with app.router.lifespan_context(app):
+            yield

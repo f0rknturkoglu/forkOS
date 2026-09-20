@@ -493,3 +493,75 @@ async def test_knowledge_pointer_does_not_expose_absolute_vault_path(
     assert knowledge["state"] == "unavailable"
     assert knowledge["available"] is False
     assert knowledge["diagnostic"]
+
+
+# ---------------------------------------------------------------------------
+# H1.2 — Argüman bağlaması çözülemezse FAIL CLOSED
+# ---------------------------------------------------------------------------
+
+
+class _MalformedRequestContext:
+    """MCP SDK iç yerleşimi değişmiş gibi davranan sahte istek bağlamı.
+
+    `params` var ama `arguments` okunamıyor: bu durumda "her Python argümanı
+    verilmiş say" varsayımına düşmek omitted-vs-null hatasını geri getirirdi.
+    """
+
+    params = object()
+
+
+class _MalformedContext:
+    request_context = _MalformedRequestContext()
+
+
+async def test_supplied_arguments_fails_closed_with_unresolvable_context() -> None:
+    """§3: ctx VAR ama argümanlar çözülemiyorsa sessiz varsayım YOK."""
+    from app.integrations.agent.actions import ActionError
+    from app.integrations.agent.tools import _supplied_arguments
+
+    # ctx yok → doğrudan Python yolu, güvenli fallback korunur.
+    assert _supplied_arguments(None) is None
+
+    with pytest.raises(ActionError, match="MCP_ARGUMENT_BINDING_UNAVAILABLE"):
+        _supplied_arguments(_MalformedContext())  # type: ignore[arg-type]
+
+
+async def test_malformed_context_cannot_mutate_state(db_session: AsyncSession) -> None:
+    """§4: bozuk bağlamla yazma denemesi DB ve Vault'u DEĞİŞTİRMEZ."""
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from app.integrations.agent import actions as actions_svc
+    from app.integrations.agent.tools import _run_write, _supplied_only
+    from app.integrations.agent.write_models import TodoUpdateIn
+
+    todo_id = await _seed_todo(db_session)
+    db_before = await capture_db_content_fingerprint(db_session)
+
+    with pytest.raises(ToolError, match="MCP_ARGUMENT_BINDING_UNAVAILABLE"):
+        await _run_write(
+            tool="forkos_todo_update",
+            source="forkos",
+            factory=lambda supplied: TodoUpdateIn(
+                **_supplied_only(supplied, dict(todo_id=str(todo_id), priority=1))
+            ),
+            action=actions_svc.update_todo,
+            ctx=_MalformedContext(),  # type: ignore[arg-type]
+        )
+
+    assert await capture_db_content_fingerprint(db_session) == db_before
+    todo = await db_session.get(Todo, todo_id)
+    assert todo is not None and todo.priority == 3  # dokunulmadı
+
+
+async def test_real_mcp_context_still_resolves_supplied_arguments(
+    db_session: AsyncSession,
+) -> None:
+    """§4: gerçek `/mcp` bağlamasında çıkarım çalışmaya devam eder."""
+    project_id = await _seed_project(db_session, next_action="Korunmali")
+    async with mcp_session() as session:
+        result = await session.call_tool(
+            "forkos_project_update", {"project_id": str(project_id)}
+        )
+    assert receipt_of(result)["status"] == "noop"
+    project = await db_session.get(Project, project_id)
+    assert project is not None and project.next_action == "Korunmali"

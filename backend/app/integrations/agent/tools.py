@@ -274,21 +274,37 @@ def _supplied_arguments(ctx: Context | None) -> set[str] | None:
     temizler. Çözüm: alan listesini ham istek argümanlarından okumak --
     şema değişmez, ayrım korunur.
 
-    İstek bağlamı yoksa (doğrudan Python çağrısı) None döner ve çağıran tüm
-    alanları verilmiş sayar.
+    Bağlama sözleşmesi (H1.2) — üç durum vardır:
+
+        ctx yok                     → doğrudan Python/test yolu; None döner ve
+                                      çağıran tüm alanları verilmiş sayar.
+        ctx var + argümanlar okundu → normal yol; alan adları döner.
+        ctx var + argümanlar OKUNAMIYOR → FAIL CLOSED.
+
+    Üçüncü durum kritiktir: MCP SDK iç yerleşimini değiştirirse "her Python
+    argümanı verilmiş say" varsayımına düşmek, H1.1'de kapatılan
+    omitted-vs-null hatasını sessizce geri getirirdi. Bunun yerine işlem
+    reddedilir; sessiz veri kaybı yerine gürültülü hata tercih edilir.
     """
     if ctx is None:
         return None
+
     try:
         params = ctx.request_context.params
-    except Exception:  # istek bağlamı dışı
-        return None
+    except Exception as exc:  # istek bağlamı okunamadı
+        raise actions_svc.ActionError(
+            "MCP_ARGUMENT_BINDING_UNAVAILABLE",
+            "MCP istek bağlamı okunamadı; çağrı güvenle yorumlanamıyor",
+        ) from exc
 
     arguments = getattr(params, "arguments", None)
     if arguments is None and isinstance(params, Mapping):
         arguments = params.get("arguments")
     if not isinstance(arguments, Mapping):
-        return None
+        raise actions_svc.ActionError(
+            "MCP_ARGUMENT_BINDING_UNAVAILABLE",
+            "MCP çağrı argümanları çözülemedi; hangi alanların verildiği bilinemiyor",
+        )
     return {str(key) for key in arguments}
 
 
@@ -313,17 +329,20 @@ async def _run_write(
     *,
     tool: str,
     source: str,
-    factory: Callable[[], Any],
+    factory: Callable[[set[str] | None], Any],
     action: Callable[..., Awaitable[ActionReceipt]],
     ctx: Context | None,
 ) -> AgentEnvelope[ActionReceipt]:
     """H1 yazmalarının TEK yürütme yolu (§110).
 
-    Sıra: katı girdi doğrulaması → taze oturum → canonical adaptör → makbuz.
+    Sıra: MCP argüman bağlaması → katı girdi doğrulaması → taze oturum →
+    canonical adaptör → makbuz. Bağlama çözülemezse fail-closed
+    (`MCP_ARGUMENT_BINDING_UNAVAILABLE`); hiçbir yazma denenmez.
     Hata yüzeyi model-okunurdur: yığın izi ve iç dosya yolu SIZMAZ.
     """
     try:
-        data = factory()
+        supplied = _supplied_arguments(ctx)
+        data = factory(supplied)
         async with SessionLocal() as session:
             receipt = await action(session, data, request_id=_request_id(ctx))
     except actions_svc.ActionError as exc:
@@ -367,11 +386,10 @@ def _register_write_tools(server: MCPServer) -> None:
         recur: Annotated[str | None, Field(pattern="^(daily|weekdays|weekly|monthly)$")] = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_todo_create",
             source="forkos",
-            factory=lambda: TodoCreateIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: TodoCreateIn(**_supplied_only(supplied, dict(
                 title=title,
                 description=description,
                 priority=priority,
@@ -409,11 +427,10 @@ def _register_write_tools(server: MCPServer) -> None:
         expected_updated_at: str | None = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_todo_update",
             source="forkos",
-            factory=lambda: TodoUpdateIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: TodoUpdateIn(**_supplied_only(supplied, dict(
                 todo_id=todo_id,
                 title=title,
                 description=description,
@@ -445,7 +462,7 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_todo_complete",
             source="forkos",
-            factory=lambda: todo_id,
+            factory=lambda supplied: todo_id,
             action=actions_svc.complete_todo,
             ctx=ctx,
         )
@@ -466,11 +483,10 @@ def _register_write_tools(server: MCPServer) -> None:
         duration_min: Annotated[int | None, Field(ge=5, le=1440)] = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_todo_plan",
             source="forkos",
-            factory=lambda: TodoPlanIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: TodoPlanIn(**_supplied_only(supplied, dict(
                 todo_id=todo_id, day=day, start_min=start_min, duration_min=duration_min
             ))),
             action=actions_svc.plan_todo,
@@ -492,11 +508,10 @@ def _register_write_tools(server: MCPServer) -> None:
         expected_updated_at: str | None = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_project_update",
             source="forkos",
-            factory=lambda: ProjectUpdateIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: ProjectUpdateIn(**_supplied_only(supplied, dict(
                 project_id=project_id,
                 next_action=next_action,
                 expected_updated_at=expected_updated_at,
@@ -522,11 +537,10 @@ def _register_write_tools(server: MCPServer) -> None:
         note: Annotated[str | None, Field(max_length=1000)] = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_opportunity_transition",
             source="forkos",
-            factory=lambda: OpportunityTransitionIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: OpportunityTransitionIn(**_supplied_only(supplied, dict(
                 opportunity_id=opportunity_id,
                 expected_status=expected_status,
                 to_status=to_status,
@@ -555,11 +569,10 @@ def _register_write_tools(server: MCPServer) -> None:
         rejection_reason: Annotated[str | None, Field(max_length=200)] = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_application_transition",
             source="forkos",
-            factory=lambda: ApplicationTransitionIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: ApplicationTransitionIn(**_supplied_only(supplied, dict(
                 opportunity_id=opportunity_id,
                 expected_status=expected_status,
                 to_status=to_status,
@@ -587,11 +600,10 @@ def _register_write_tools(server: MCPServer) -> None:
         note: Annotated[str | None, Field(max_length=5000)] = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_bookmark_capture",
             source="forkos",
-            factory=lambda: BookmarkCaptureIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: BookmarkCaptureIn(**_supplied_only(supplied, dict(
                 url=url,
                 title=title,
                 collection=collection,
@@ -620,11 +632,10 @@ def _register_write_tools(server: MCPServer) -> None:
         expected_updated_at: str | None = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="forkos_bookmark_update",
             source="forkos",
-            factory=lambda: BookmarkUpdateIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: BookmarkUpdateIn(**_supplied_only(supplied, dict(
                 bookmark_id=bookmark_id,
                 collection=collection,
                 favorite=favorite,
@@ -652,11 +663,10 @@ def _register_write_tools(server: MCPServer) -> None:
         tags: Tags = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="brain_capture",
             source="f0rknbrain",
-            factory=lambda: BrainCaptureIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: BrainCaptureIn(**_supplied_only(supplied, dict(
                 body=body, title=title, relate_to=relate_to, tags=tags
             ))),
             action=actions_svc.capture_brain_note,
@@ -679,11 +689,10 @@ def _register_write_tools(server: MCPServer) -> None:
         heading: Annotated[str | None, Field(max_length=200)] = None,
         ctx: Context | None = None,
     ) -> AgentEnvelope[ActionReceipt]:
-        supplied = _supplied_arguments(ctx)
         return await _run_write(
             tool="brain_save_to_entity",
             source="f0rknbrain",
-            factory=lambda: BrainSaveToEntityIn(**_supplied_only(supplied, dict(
+            factory=lambda supplied: BrainSaveToEntityIn(**_supplied_only(supplied, dict(
                 forkos_id=forkos_id, text=text, heading=heading
             ))),
             action=actions_svc.save_to_entity_brain,

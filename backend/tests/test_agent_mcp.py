@@ -2,6 +2,11 @@
 
 §116/§117: araçlar yalnızca doğrudan Python çağrısıyla değil, GERÇEK `/mcp`
 taşıması üzerinden de doğrulanır -- Hermes tam olarak bu yolu kullanır.
+
+Tüm oturumlar `mcp_session()` ile **hermetik** açılır: FastAPI `lifespan`'ının
+başlangıç yan etkileri (RSS kurulumu, günlük bakım, kaynak catch-up) test
+ortamında kapatılır; aksi halde arka planda yazıp testin transaction'ıyla kilit
+yarışına giriyorlar.
 """
 
 from __future__ import annotations
@@ -11,14 +16,12 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client.session import ClientSession
-from mcp.client.streamable_http import streamable_http_client
 from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
 from app.modules.todo.models import Todo
-from tests.agent_test_utils import mcp_session  # noqa: F401  (hermetik oturum)
+from tests.agent_test_utils import hermetic_lifespan, mcp_session
 
 READ_TOOL_NAMES = {
     "forkos_briefing",
@@ -56,25 +59,18 @@ def _payload(result) -> dict:
 
 @pytest.mark.no_database
 async def test_mcp_fastapi_mount_and_smoke():
-    """Verify that /mcp mounted in FastAPI responds correctly to official MCP streamable_http_client."""
-    async with (
-        app.router.lifespan_context(app),
-        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http_client,
-        streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (read_stream, write_stream),
-        ClientSession(read_stream, write_stream) as session,
-    ):
-        # 1. Initialize
+    """`/mcp` FastAPI'ye doğru bağlanmış ve resmi istemciyle konuşuyor mu."""
+    async with mcp_session() as session:
         init_result = await session.initialize()
         assert init_result.server_info.name == "forkos-brain"
 
-        # 2. List tools: 8 H0 read + 11 H1 write = 19 (§8)
+        # 8 H0 okuma + 11 H1 yazma = 19
         tools = await session.list_tools()
         tool_names = {t.name for t in tools.tools}
         assert tool_names >= READ_TOOL_NAMES
         assert tool_names >= WRITE_TOOL_NAMES
         assert len(tool_names) == 19
 
-        # 3. Call brain_status (H0 read)
         status_res = await session.call_tool("brain_status", {})
         assert status_res.is_error is False
         assert "brain_interface_version" in status_res.content[0].text
@@ -83,13 +79,7 @@ async def test_mcp_fastapi_mount_and_smoke():
 @pytest.mark.no_database
 async def test_mcp_write_annotations_are_visible_over_the_wire():
     """§117: Hermes'in onay davranışı araç metadata'sına bağlıdır."""
-    async with (
-        app.router.lifespan_context(app),
-        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http_client,
-        streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (read_stream, write_stream),
-        ClientSession(read_stream, write_stream) as session,
-    ):
-        await session.initialize()
+    async with mcp_session() as session:
         tools = {t.name: t for t in (await session.list_tools()).tools}
 
         for name in READ_TOOL_NAMES:
@@ -111,14 +101,7 @@ async def test_mcp_write_annotations_are_visible_over_the_wire():
 
 async def test_mcp_transport_h1_write_roundtrip():
     """§116: yazma yolu gerçek taşıma üzerinden çalışır ve DB'de doğrulanır."""
-    async with (
-        app.router.lifespan_context(app),
-        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http_client,
-        streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (read_stream, write_stream),
-        ClientSession(read_stream, write_stream) as session,
-    ):
-        await session.initialize()
-
+    async with mcp_session() as session:
         created = await session.call_tool(
             "forkos_todo_create",
             {"title": "H1 smoke over /mcp", "priority": 1},
@@ -143,7 +126,9 @@ async def test_mcp_transport_h1_write_roundtrip():
             assert todo.status == "open"
 
         # Tamamlama turu: canonical semantik taşıma üzerinden de çalışır.
-        completed = await session.call_tool("forkos_todo_complete", {"todo_id": str(todo_id)})
+        completed = await session.call_tool(
+            "forkos_todo_complete", {"todo_id": str(todo_id)}
+        )
         assert completed.is_error is False, completed.content
         completion_receipt = _payload(completed)["data"]
         assert completion_receipt["status"] == "executed"
@@ -160,14 +145,7 @@ async def test_mcp_transport_h1_write_roundtrip():
 
 async def test_mcp_transport_error_envelope_is_model_readable():
     """§67: taşıma üzerinden hata kodu net döner; yığın izi sızmaz."""
-    async with (
-        app.router.lifespan_context(app),
-        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as http_client,
-        streamable_http_client("http://127.0.0.1/mcp/", http_client=http_client) as (read_stream, write_stream),
-        ClientSession(read_stream, write_stream) as session,
-    ):
-        await session.initialize()
-
+    async with mcp_session() as session:
         missing = await session.call_tool(
             "forkos_todo_complete", {"todo_id": str(uuid.uuid4())}
         )
@@ -183,9 +161,9 @@ async def test_mcp_transport_error_envelope_is_model_readable():
 
 @pytest.mark.no_database
 async def test_mcp_dns_rebinding_rejection():
-    """Verify that requests with non-localhost host/origin headers are rejected by DNS rebinding protection."""
+    """Localhost dışı host/origin başlıkları DNS rebinding korumasınca reddedilir."""
     async with (
-        app.router.lifespan_context(app),
+        hermetic_lifespan(),
         httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
             base_url="http://evil.com",
