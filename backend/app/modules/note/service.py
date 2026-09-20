@@ -482,17 +482,6 @@ async def delete_attachment(
     if row is not None and row.note_id == note_id:
         digest = row.sha256
         await session.delete(row)
-        await session.flush()
-        # Ayni icerik baska bir ekte de kullaniyorsa dosya KALIR (dedup).
-        remaining = (
-            await session.execute(
-                select(func.count())
-                .select_from(NoteAttachment)
-                .where(NoteAttachment.sha256 == digest)
-            )
-        ).scalar_one()
-        if remaining == 0:
-            attachment_storage.delete_blob(digest)
         await touch_entity(session, note_id)
         await log_event(
             session,
@@ -501,7 +490,29 @@ async def delete_attachment(
             entity_type="note",
             payload={"attachment_id": str(attachment_id)},
         )
+        # Guvenli silme sirasi: Once DB commit basariyla TAMAMLANSIN.
+        # Commit patlarsa rollback olur; metadata ve blob korunur (veri kaybi onlenir).
         await session.commit()
+
+        # Ancak commit sonrasi baska NoteAttachment referansi olup olmadigi kontrol edilir.
+        try:
+            remaining = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(NoteAttachment)
+                    .where(NoteAttachment.sha256 == digest)
+                )
+            ).scalar_one()
+            if remaining == 0:
+                attachment_storage.delete_blob(digest)
+        except Exception:
+            # Fiziksel silme basarisiz olsa dahi kullanici verisi bozulmaz;
+            # orphan cleanup (prune_orphan_blobs) bakim sirasinda toplayabilir.
+            logger.warning(
+                "fiziksel ek silme basarisiz (%s), yetim temizligi toplayacak",
+                digest,
+                exc_info=True,
+            )
         return True
     before = note.attachments or []
     after = [entry for entry in before if entry.get("id") != str(attachment_id)]

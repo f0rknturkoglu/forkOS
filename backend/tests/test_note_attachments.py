@@ -321,3 +321,24 @@ async def test_orphan_sweep_spares_referenced_and_fresh_blobs(client: AsyncClien
 
     assert len(_blobs(attachment_storage.ATTACHMENTS_DIR)) == 2
     assert attachment_storage.read_blob(fresh) == b"henuz-satiri-yok"
+
+
+async def test_commit_failure_preserves_blob_on_disk(client: AsyncClient) -> None:
+    note = await _create_note(client)
+    content = b"guvenli-silme-testi"
+    att = await _upload(client, note["id"], content)
+    digest = attachment_storage.digest_of(content)
+    assert attachment_storage.blob_path(digest).exists()
+
+    async with SessionLocal() as session:
+        async def fail_commit():
+            raise RuntimeError("simule edilmis veritabani commit hatasi")
+
+        session.commit = fail_commit  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError, match="simule edilmis"):
+            await note_service.delete_attachment(
+                session, uuid.UUID(note["id"]), uuid.UUID(att["id"])
+            )
+
+    # Commit basarisiz oldugu icin blob diskte KESINLIKLE kalmali (veri kaybi yok)
+    assert attachment_storage.blob_path(digest).exists(), "DB commit basarisiz olunca blob SILINMEMELI"
