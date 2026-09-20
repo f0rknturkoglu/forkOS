@@ -93,6 +93,64 @@ def _counts_of(payload: dict) -> dict:
     }
 
 
+def check_attachments_integrity(payload: dict) -> dict[str, Any]:
+    """Yedek eklerinin bütünlüğünü denetler (Faz 16/32).
+
+    1. note_attachment tablosunda referans verilen her sha256, payload['attachments']
+       haritasında bulunmalıdır.
+    2. payload['attachments'] içindeki her kaydın SHA-256 özeti içeriğiyle
+       uyuşmalıdır (bozuk veya sahte payload engellenir).
+    3. Eski tip legacy JSONB ekler (note.attachments) bu tablodan
+       bağımsızdır ve hataya yol açmaz.
+    """
+    import base64
+
+    from app.modules.note import storage as attachment_storage
+
+    modules = payload.get("modules", {})
+    note_attachment_rows = modules.get("note_attachment") or []
+
+    referenced_digests: set[str] = set()
+    invalid_rows: list[str] = []
+    for row in note_attachment_rows:
+        digest = str(row.get("sha256") or "")
+        if not attachment_storage.is_digest(digest):
+            invalid_rows.append(digest)
+        else:
+            referenced_digests.add(digest)
+
+    attachments_map = payload.get("attachments")
+    if not isinstance(attachments_map, dict):
+        attachments_map = {}
+
+    missing: list[str] = sorted(d for d in referenced_digests if d not in attachments_map)
+
+    corrupt: list[str] = []
+    for digest, data_b64 in attachments_map.items():
+        if not attachment_storage.is_digest(str(digest)) or not isinstance(data_b64, str):
+            corrupt.append(str(digest))
+            continue
+        try:
+            content = base64.b64decode(data_b64, validate=True)
+        except Exception:
+            corrupt.append(str(digest))
+            continue
+        if attachment_storage.digest_of(content) != str(digest):
+            corrupt.append(str(digest))
+
+    corrupt.extend(invalid_rows)
+    corrupt = sorted(set(corrupt))
+
+    is_ok = len(missing) == 0 and len(corrupt) == 0
+    return {
+        "ok": is_ok,
+        "missing": missing,
+        "corrupt": corrupt,
+        "referenced_count": len(referenced_digests),
+        "payload_count": len(attachments_map),
+    }
+
+
 def inspect_payload(payload: dict) -> dict:
     """Import oncesi preflight (Faz 16): hicbir sey yazmadan yedegi inceler.
 
@@ -105,6 +163,18 @@ def inspect_payload(payload: dict) -> dict:
     manifest = payload.get("manifest") or {}
     reported = manifest.get("row_counts") or {}
     actual = _counts_of(payload)
+    att_check = check_attachments_integrity(payload)
+
+    manifest_ok = (reported == actual) if reported else None
+    if manifest_ok is False or not att_check["ok"]:
+        integrity_ok: bool | None = False
+    elif manifest_ok is True and att_check["ok"]:
+        integrity_ok = True
+    elif att_check["ok"]:
+        integrity_ok = manifest_ok
+    else:
+        integrity_ok = False
+
     return {
         "version": payload.get("version"),
         "app": manifest.get("app"),
@@ -120,7 +190,10 @@ def inspect_payload(payload: dict) -> dict:
             if is_secret_setting(str(row.get("key", "")))
         ),
         "files_count": len(payload.get("files") or {}),
-        "integrity_ok": reported == actual if reported else None,
+        "attachments_count": len(payload.get("attachments") or {}),
+        "missing_attachments": att_check["missing"],
+        "corrupt_attachments": att_check["corrupt"],
+        "integrity_ok": integrity_ok,
     }
 
 
@@ -194,6 +267,15 @@ async def restore(
     ya rollback eder (Faz 28). Normal merge endpoint'i default True ile
     onceki davranisi korur.
     """
+    att_check = check_attachments_integrity(payload)
+    if not att_check["ok"]:
+        errors = []
+        if att_check["missing"]:
+            errors.append(f"eksik ekler: {', '.join(att_check['missing'])}")
+        if att_check["corrupt"]:
+            errors.append(f"bozuk ekler: {', '.join(att_check['corrupt'])}")
+        raise ValueError(f"Yedek ek bütünlük hatası: {'; '.join(errors)}")
+
     summary: dict[str, dict[str, int]] = {}
 
     # 1. Asama: FK sirasiyla, cakisma olursa yok sayarak ekle.

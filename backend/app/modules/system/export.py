@@ -120,11 +120,26 @@ async def full_json(session: AsyncSession) -> dict:
 
         for row in modules["note_attachment"]:
             digest = str(row.get("sha256") or "")
-            if digest in attachments or not attachment_storage.is_digest(digest):
+            if not attachment_storage.is_digest(digest):
+                raise RuntimeError(
+                    f"Yedek bütünlük hatası: '{row.get('id')}' ek kaydında geçersiz SHA-256 özeti: {digest!r}"
+                )
+            if digest in attachments:
                 continue
+            path = attachment_storage.blob_path(digest)
+            if not path.is_file():
+                raise RuntimeError(
+                    f"Yedek bütünlük hatası: '{digest}' ek dosyası diskte bulunamadı."
+                )
             content = attachment_storage.read_blob(digest)
             if content is None:
-                continue
+                raise RuntimeError(
+                    f"Yedek bütünlük hatası: '{digest}' ek dosyası diskte bulunamadı veya okunamadı."
+                )
+            if attachment_storage.digest_of(content) != digest:
+                raise RuntimeError(
+                    f"Yedek bütünlük hatası: '{digest}' ek dosyasının SHA-256 özeti uyuşmuyor."
+                )
             attachments[digest] = base64.b64encode(content).decode("ascii")
 
     return {
