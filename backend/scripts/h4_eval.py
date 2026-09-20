@@ -73,6 +73,7 @@ class CaseOutcome:
     attempts: int
     latency_ms: float
     reason_codes: tuple[str, ...]
+    attempt_failure_codes: tuple[str, ...]
     mismatches: tuple[str, ...]
 
     @property
@@ -154,6 +155,12 @@ def _compare(case: dict[str, Any], outcome: CaseOutcome) -> tuple[str, ...]:
         missing = set(expect["reason_codes"]) - set(outcome.reason_codes)
         if missing:
             mismatches.append(f"missing reason_codes: {sorted(missing)}")
+    if "attempt_failure_codes" in expect:
+        expected_codes = list(expect["attempt_failure_codes"])
+        if expected_codes != list(outcome.attempt_failure_codes):
+            mismatches.append(
+                f"attempt_failure_codes: {list(outcome.attempt_failure_codes)} != {expected_codes}"
+            )
     return tuple(mismatches)
 
 
@@ -189,6 +196,9 @@ async def _run_case_routing(case: dict[str, Any]) -> CaseOutcome:
             attempts=len(decision.attempts),
             latency_ms=decision.latency_ms,
             reason_codes=tuple(decision.reason_codes),
+            attempt_failure_codes=tuple(
+                attempt.failure_code or "valid" for attempt in decision.attempts
+            ),
             mismatches=(),
         )
     except lc_models.H4Error as exc:
@@ -202,6 +212,7 @@ async def _run_case_routing(case: dict[str, Any]) -> CaseOutcome:
             attempts=0,
             latency_ms=0.0,
             reason_codes=(),
+            attempt_failure_codes=(),
             mismatches=(),
         )
     finally:
@@ -229,6 +240,7 @@ async def _run_case_live(case: dict[str, Any], provider: OllamaProvider) -> Case
             attempts=0,
             latency_ms=0.0,
             reason_codes=(),
+            attempt_failure_codes=(),
             mismatches=(),
         )
     decision = response.route_decision
@@ -242,6 +254,9 @@ async def _run_case_live(case: dict[str, Any], provider: OllamaProvider) -> Case
         attempts=len(decision.attempts),
         latency_ms=decision.latency_ms,
         reason_codes=tuple(decision.reason_codes),
+        attempt_failure_codes=tuple(
+            attempt.failure_code or "valid" for attempt in decision.attempts
+        ),
         mismatches=(),
     )
 
@@ -319,6 +334,8 @@ async def _main_async(args: argparse.Namespace) -> int:
     ]
     if args.lane:
         live_cases = [case for case in live_cases if case.get("lane") == args.lane]
+    if args.contract:
+        live_cases = [case for case in live_cases if case.get("contract") == args.contract]
     if args.limit:
         live_cases = live_cases[: args.limit]
     outcomes = [await _run_case_live(case, provider) for case in live_cases]
@@ -333,6 +350,7 @@ def main() -> int:
     parser.add_argument("--live", action="store_true", help="live local model evaluation")
     parser.add_argument("--dataset", default=None, help="path to h4-routing.yaml")
     parser.add_argument("--lane", default=None, help="only cases for this lane")
+    parser.add_argument("--contract", default=None, help="only cases for this extraction contract")
     parser.add_argument("--limit", type=int, default=None, help="max cases to run (live mode)")
     parser.add_argument("--json", action="store_true", help="emit machine-readable summary")
     args = parser.parse_args()

@@ -288,7 +288,7 @@ cases:
     expect:
       status: needs_escalation
       selected_slot: local-medium
-      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_UNAVAILABLE, LOCAL_MEDIUM_SELECTED, LOCAL_MEDIUM_VALIDATION_FAILED]
       failure_code: VALIDATION_FAILED
       attempts: 1
 
@@ -328,7 +328,7 @@ cases:
     expect:
       status: needs_escalation
       selected_slot: local-medium
-      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      reason_codes: [LANE_STRUCTURED_EXTRACT, STRUCTURED_OUTPUT_REQUIRED, LOCAL_SMALL_UNAVAILABLE, LOCAL_MEDIUM_SELECTED, LOCAL_MEDIUM_VALIDATION_FAILED]
       failure_code: VALIDATION_FAILED
       attempts: 1
 
@@ -530,7 +530,7 @@ cases:
     expect:
       status: needs_escalation
       selected_slot: local-medium
-      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_UNAVAILABLE, LOCAL_MEDIUM_SELECTED, LOCAL_MEDIUM_VALIDATION_FAILED]
       failure_code: VALIDATION_FAILED
       attempts: 1
 
@@ -550,7 +550,7 @@ cases:
     expect:
       status: needs_escalation
       selected_slot: local-medium
-      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM, LOCAL_MEDIUM_VALIDATION_FAILED]
+      reason_codes: [LANE_QUERY_REWRITE, LOCAL_SMALL_UNAVAILABLE, LOCAL_MEDIUM_SELECTED, LOCAL_MEDIUM_VALIDATION_FAILED]
       failure_code: VALIDATION_FAILED
       attempts: 1
 
@@ -573,7 +573,7 @@ cases:
     expect:
       status: success
       selected_slot: local-medium
-      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_CONTEXT_EXCEEDED, ESCALATED_TO_LOCAL_MEDIUM]
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_CONTEXT_EXCEEDED, LOCAL_MEDIUM_SELECTED]
       failure_code: null
 
   # Hiçbir bütçeye sığmayan girdi → CONTEXT_TOO_LARGE (model çağrısı yok).
@@ -616,7 +616,7 @@ cases:
     expect:
       status: success
       selected_slot: local-medium
-      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_UNAVAILABLE, ESCALATED_TO_LOCAL_MEDIUM]
+      reason_codes: [LANE_CLASSIFY, LOCAL_SMALL_UNAVAILABLE, LOCAL_MEDIUM_SELECTED]
       failure_code: null
 
   # medium da yoksa hiçbir uygun slot kalmaz → NO_ELIGIBLE_MODEL.
@@ -847,3 +847,131 @@ cases:
       status: error
       selected_slot: null
       failure_code: H4_DISABLED
+
+  # --- H4.1: kaynak temellendirmesi (düşmanca) ---
+  # Model, GERÇEK bir alıntı ekleyerek uydurma normalize alanı meşrulaştıramaz.
+  - id: ground-calendar-normalized-hallucination-01
+    category: grounding_calendar
+    lane: structured_extract
+    contract: academic_calendar_v1
+    text: |
+      Kurgusal Kayıt Duyurusu
+      Kayıt yenileme: 1 - 5 Eylül 2026
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Kayıt yenileme", "category": "registration", "date_text": "1 - 5 Eylül 2026", "start_date": "2030-01-01", "end_date": "2030-01-05", "source_excerpt": "Kayıt yenileme: 1 - 5 Eylül 2026"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+      attempt_failure_codes: [INVALID_DATE, INVALID_DATE, INVALID_DATE]
+
+  - id: ground-calendar-unsourced-date-text-01
+    category: grounding_calendar
+    lane: structured_extract
+    contract: academic_calendar_v1
+    text: |
+      Kurgusal Kayıt Duyurusu
+      Kayıt yenileme: 1 - 5 Eylül 2026
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Kayıt yenileme", "category": "registration", "date_text": "1 Ocak 2030", "start_date": null, "end_date": null, "source_excerpt": "Kayıt yenileme: 1 - 5 Eylül 2026"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+      attempt_failure_codes: [SOURCE_FIELD_NOT_SUPPORTED, SOURCE_FIELD_NOT_SUPPORTED, SOURCE_FIELD_NOT_SUPPORTED]
+
+  - id: ground-calendar-conservative-null-01
+    category: grounding_calendar
+    lane: structured_extract
+    contract: academic_calendar_v1
+    text: |
+      Kurgusal Kayıt Duyurusu
+      Kayıt yenileme: 1 - 5 Eylül 2026
+    provider:
+      script: ok
+      responses:
+        - '{"events": [{"title": "Kayıt yenileme", "category": "registration", "date_text": "1 - 5 Eylül 2026", "start_date": null, "end_date": null, "source_excerpt": "Kayıt yenileme: 1 - 5 Eylül 2026"}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      failure_code: null
+      attempts: 1
+      attempt_failure_codes: [valid]
+
+  - id: ground-deadline-invented-time-01
+    category: grounding_deadline
+    lane: structured_extract
+    contract: deadline_candidates_v1
+    text: |
+      Kurgusal Teslim Duyurusu
+      Teslim: 12 Ekim 2026
+    provider:
+      script: ok
+      responses:
+        - '{"deadlines": [{"title": "Teslim", "kind": "submission", "date_text": "12 Ekim 2026", "due_date": "2026-10-12", "due_time": "23:59", "source_excerpt": "Teslim: 12 Ekim 2026"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+      attempt_failure_codes: [INVALID_TIME, INVALID_TIME, INVALID_TIME]
+
+  - id: ground-schedule-wrong-weekday-01
+    category: grounding_schedule
+    lane: structured_extract
+    contract: weekly_schedule_v1
+    text: |
+      Kurgusal Ders Programı
+      Pazartesi 09:00-11:00 Veri Yapıları
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "Veri Yapıları", "day_of_week": "friday", "start_time": "09:00", "end_time": "11:00", "source_excerpt": "Pazartesi 09:00-11:00 Veri Yapıları"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+      attempt_failure_codes: [INVALID_TIME, INVALID_TIME, INVALID_TIME]
+
+  - id: ground-schedule-wrong-time-01
+    category: grounding_schedule
+    lane: structured_extract
+    contract: weekly_schedule_v1
+    text: |
+      Kurgusal Ders Programı
+      Çarşamba 14:00-16:00 İngilizce
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "İngilizce", "day_of_week": "wednesday", "start_time": "13:00", "end_time": "17:00", "source_excerpt": "Çarşamba 14:00-16:00 İngilizce"}]}'
+    expect:
+      status: needs_escalation
+      selected_slot: local-small
+      failure_code: LOCAL_CAPABILITY_UNAVAILABLE
+      attempts: 3
+      attempt_failure_codes: [INVALID_TIME, INVALID_TIME, INVALID_TIME]
+
+  - id: ground-schedule-grounded-01
+    category: grounding_schedule
+    lane: structured_extract
+    contract: weekly_schedule_v1
+    text: |
+      Kurgusal Ders Programı
+      Çarşamba 14:00-16:00 İngilizce
+    provider:
+      script: ok
+      responses:
+        - '{"blocks": [{"title": "İngilizce", "day_of_week": "wednesday", "start_time": "14:00", "end_time": "16:00", "source_excerpt": "Çarşamba 14:00-16:00 İngilizce"}]}'
+    expect:
+      status: success
+      selected_slot: local-small
+      failure_code: null
+      attempts: 1
+      attempt_failure_codes: [valid]
