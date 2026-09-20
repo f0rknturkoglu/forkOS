@@ -41,6 +41,11 @@ LEARNING_ROOT = "40 Learning"
 SOURCES_ROOT = "60 Sources"
 JOURNAL_FOLDER = "Journal"
 
+#: Sıcak hafıza ağacı (H2). Kanonik kök BURASIDIR; depolama katmanı
+#: (`hot_memory.py`) ve yol politikası (`security.py`) aynı dizeyi paylaşır.
+#: `TYPE_DEFAULT_FOLDERS["memory"]` ile aynı ağaçtadır.
+MEMORY_ROOT = "90 Agent/Memory"
+
 #: Operasyonel entity tipi -> (forkos_type, kanonik klasör).
 #: Bu tiplerin TEK bilgi notu olur; kimlik entity UUID'sidir.
 #: `note` tipi, notun entity'nin KENDİSİ değil "hakkında" olduğu durumdur:

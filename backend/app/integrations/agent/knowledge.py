@@ -11,36 +11,12 @@ import yaml
 from app.config import settings
 from app.integrations.agent.models import BrainReadData, BrainSearchResult, BrainStatusData
 from app.integrations.obsidian.hot_memory import is_policy_excluded
-from app.integrations.obsidian.security import resolve_safe_vault_path
+from app.integrations.obsidian.security import (
+    EXCLUDED_DIRS,
+    is_safe_knowledge_path,
+    resolve_safe_vault_path,
+)
 from app.integrations.obsidian.service import vault_index
-
-EXCLUDED_DIRS = frozenset({
-    ".git",
-    ".obsidian",
-    ".forkos-migration",
-    ".trash",
-    "attachments",
-    "95-ekler",
-    "90-şablonlar",
-    "90-sablonlar",
-})
-
-
-def is_safe_knowledge_path(rel_path: str | Path) -> bool:
-    """Canonical knowledge path policy for both search and read.
-
-    Rejects:
-    - Any path where any component (folder or file) starts with '.'
-    - Any path where any component lowercased matches EXCLUDED_DIRS
-    """
-    p = Path(rel_path)
-    for part in p.parts:
-        part_clean = part.strip()
-        if part_clean.startswith("."):
-            return False
-        if part_clean.lower() in EXCLUDED_DIRS:
-            return False
-    return True
 
 WHITELISTED_FRONTMATTER_KEYS = {
     "forkos_id",

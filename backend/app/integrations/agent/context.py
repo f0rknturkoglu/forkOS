@@ -41,7 +41,7 @@ from app.modules.today import service as today_svc
 from app.modules.todo.models import Todo
 
 
-def _resolve_route(entity_type: str, entity_id: uuid.UUID) -> str:
+def resolve_route(entity_type: str, entity_id: uuid.UUID) -> str:
     spec = registry_svc.type_spec(entity_type)
     if spec and spec.route:
         return spec.route.replace("{id}", str(entity_id))
@@ -405,7 +405,7 @@ async def search_operational_context(
     for ent in raw_entities:
         if ent.type in FROZEN_LEGACY_ENTITY_TYPES:
             continue
-        route = _resolve_route(ent.type, ent.id)
+        route = resolve_route(ent.type, ent.id)
         results.append(
             EntitySearchResult(
                 id=str(ent.id),
@@ -447,7 +447,7 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
             knowledge_ref=None,
         )
 
-    route = _resolve_route(entity.type, entity.id)
+    route = resolve_route(entity.type, entity.id)
 
     # Fetch links (related entities) using canonical service which strictly excludes ARCHIVED_ENTITY_TYPES
     raw_related = await links_svc.related(session, ent_uuid)
@@ -458,7 +458,7 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
             "title": r["entity"]["title"],
             "relation": r["relation"],
             "direction": r["direction"],
-            "route": _resolve_route(r["entity"]["type"], uuid.UUID(r["entity"]["id"])),
+            "route": resolve_route(r["entity"]["type"], uuid.UUID(r["entity"]["id"])),
         }
         for r in raw_related[:20]
     ]

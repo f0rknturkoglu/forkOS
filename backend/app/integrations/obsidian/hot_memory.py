@@ -43,15 +43,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from app.integrations.obsidian.constants import MEMORY_ROOT
 from app.integrations.obsidian.frontmatter import (
     parse_frontmatter,
     render_markdown_with_frontmatter,
 )
-from app.integrations.obsidian.security import resolve_safe_vault_path
+from app.integrations.obsidian.security import is_memory_relative_path, resolve_safe_vault_path
 from app.integrations.obsidian.vault import require_writable_vault
-
-#: Kanonik kök. `TYPE_DEFAULT_FOLDERS["memory"]` ile aynı ağaçtadır.
-MEMORY_ROOT = "90 Agent/Memory"
 
 #: Frontmatter sözleşme sürümü. Uyumsuz sürüm = geçersiz dosya.
 MEMORY_SCHEMA_VERSION = 1
@@ -235,15 +233,6 @@ def looks_like_secret(*parts: str | None) -> bool:
     """Apaçık kimlik bilgisi biçimi var mı (deterministik, muhafazakâr)."""
     blob = "\n".join(part for part in parts if part)
     return any(pattern.search(blob) for pattern in _SECRET_PATTERNS)
-
-
-def is_memory_relative_path(relative_path: str | Path) -> bool:
-    """Göreli yol sıcak hafıza ağacının içinde mi? (kasa köküne göre)"""
-    parts = tuple(
-        part.casefold() for part in Path(str(relative_path).replace("\\", "/")).parts
-    )
-    root = tuple(part.casefold() for part in Path(MEMORY_ROOT).parts)
-    return parts[: len(root)] == root
 
 
 def is_policy_excluded(relative_path: str | Path, raw_markdown: str | None) -> bool:
