@@ -2,6 +2,8 @@
 
 Bu belge, H0 aşamasında sunulan 8 salt-okunur MCP aracının şemalarını, parametrelerini, yanıt zarflarını, doğrulama kurallarını ve hata formatlarını tanımlar.
 
+> H1 ile arayüze 11 yazma aracı eklendi ve toplam yüzey 19'a çıktı. Yazma araçlarının tam sözleşmesi [`h1-tool-contract.md`](h1-tool-contract.md), onay modeli [`h1-safe-actions.md`](h1-safe-actions.md) içindedir. Bu belge yalnızca okuma yüzeyini tanımlar.
+
 ---
 
 ## 1. Genel Yanıt Zarfı (`AgentEnvelope[T]`)

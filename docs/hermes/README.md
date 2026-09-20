@@ -56,9 +56,13 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 
 ---
 
-## 3. Sağlanan 8 Temel MCP Aracı
+## 3. Sağlanan MCP Araçları (19)
 
-Arayüz tam olarak 8 adet bounded, deterministik ve salt-okunur araç sunar:
+Arayüz toplam **19** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+(H1). Yazma araçları `readOnlyHint=false` taşır ve `trust: untrusted` bir
+istemcide kullanıcı onayı gerektirir.
+
+### Okuma araçları (H0)
 
 | Kategori | Araç Adı | Açıklama |
 | --- | --- | --- |
@@ -70,6 +74,25 @@ Arayüz tam olarak 8 adet bounded, deterministik ve salt-okunur araç sunar:
 | **Bilgi** | `brain_status` | Obsidian Vault bağlantı durumu, erişim izinleri ve dosya istatistikleri |
 | **Bilgi** | `brain_search` | Vault içindeki tüm güvenli Markdown dosyalarında deterministik leksikal arama |
 | **Bilgi** | `brain_read` | `forkos_id` veya `relative_path` ile sınırlandırılmış güvenli Markdown okuyucu |
+
+### Yazma araçları (H1)
+
+| Kategori | Araç Adı | Açıklama |
+| --- | --- | --- |
+| **Görev** | `forkos_todo_create` | Tek görev oluşturur; `plan_day` plan kaydını da yazar |
+| **Görev** | `forkos_todo_update` | Görev metadata'sını günceller (durum/silme hariç) |
+| **Görev** | `forkos_todo_complete` | Canonical tekrar kurallarıyla tamamlar |
+| **Görev** | `forkos_todo_plan` | Plan slotunu oluşturur/yeniden zamanlar |
+| **Proje** | `forkos_project_update` | Yalnızca operasyonel `next_action` alanı |
+| **Fırsat** | `forkos_opportunity_transition` | Keşif/duyuru yaşam döngüsü geçişi |
+| **Fırsat** | `forkos_application_transition` | Başvuru CRM hattı geçişi |
+| **Yer imi** | `forkos_bookmark_capture` | Yerel yer imi kaydı (ağ erişimi yok) |
+| **Yer imi** | `forkos_bookmark_update` | Koleksiyon, favori, okuma durumu, etiketler |
+| **Bilgi** | `brain_capture` | Vault `00 Inbox/` içine yeni bilgi notu |
+| **Bilgi** | `brain_save_to_entity` | Yönetilen bilgi notuna metin EKLER |
+
+Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
+Onay modeli: [H1 Güvenli Eylemler](h1-safe-actions.md)
 
 ---
 

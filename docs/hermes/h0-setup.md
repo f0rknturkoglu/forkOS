@@ -95,6 +95,6 @@ Brain Status: {"as_of": "2026-09-20T10:00:00Z", "source": "f0rknbrain", "data": 
 - H0 arayüzü tüm parametreleri Pydantic modelleriyle sıkı denetler. Örneğin `brain_read` için hem `forkos_id` hem `relative_path` boş gönderilirse veya geçersiz bir UUID girilirse `ToolError` yükseltilir. Parametreleri [Araç Sözleşmeleri](h0-tool-contract.md) dokümanına göre kontrol edin.
 
 ### 3. Hermes Veritabanına Yazmaya Çalışırsa
-- H0 arayüzünde hiçbir mutasyon aracı tanımlı değildir. Hermes'e verilen sistem prompt'unda:
+- H0 okuma yüzeyinde hiçbir mutasyon aracı tanımlı değildir (H1 ile 11 yazma aracı eklendi; bkz. [H1 Kurulum](h1-setup.md)). Hermes'e verilen sistem prompt'unda:
   *"forkOS arayüzü salt-okunurdur. Görev ekleme veya not düzenleme araçları bulunmaz; yalnızca durum incelemesi yapılabilir."*
   bilgisinin bulunması önerilir.

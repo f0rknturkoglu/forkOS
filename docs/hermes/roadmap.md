@@ -1,80 +1,140 @@
 # forkOS × Hermes — Evrimsel Yol Haritası (H-Serisi)
 
-forkOS ile otonom ajan ekosistemini (Hermes) birleştiren vizyon, kademeli, güvenli ve insan denetimini asla elden bırakmayan aşamalar halinde tasarlanmıştır.
+forkOS ile otonom ajan ekosistemini (Hermes) birleştiren vizyon; kademeli,
+güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmıştır.
 
 ```text
-  H0 (Mevcut)         H1                 H2                 H3                 H4                 H5                 H6
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│    Temel    │    │   Günlük    │    │   Rehberli  │    │    Hafıza   │    │  Çok Adımlı │    │  Proaktif   │    │    Tam      │
-│ Salt-Okunur │───>│   Brifing   │───>│   Öneriler  │───>│ Konsolidasy.│───>│   Akıl Yür. │───>│ Tetikleyic. │───>│   Otonom    │
-│   Arayüz    │    │  Sentezi    │    │ (İnsan Onay)│    │   (Kasa)    │    │ & Semantik  │    │ & Rutinler  │    │   Eşlikçi   │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+  H0 ✓            H1 ✓             H2              H3              H4              H5              H6
+┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+│  Gözler  │──>│  Eller   │──>│  Sıcak   │──>│  Kanıt   │──>│  Yerel   │──>│  Sentez  │──>│ Proaktif │
+│ Salt-    │   │ Onaylı   │   │  Hafıza  │   │  & Geri  │   │  Model   │   │  & Brif. │   │  Ajan    │
+│ Okunur   │   │ Eylemler │   │ (Vault)  │   │  Getirme │   │  Router  │   │          │   │          │
+└──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘
 ```
 
 ---
 
-## Aşama Detayları
+## H0 — Brain Interface Foundation ✅ Tamamlandı
 
-### H0 — Brain Interface Foundation (Tamamlandı)
-- **Durum:** Tamamlandı ve Doğrulandı.
-- **Kapsam:**
-  - Streamable HTTP üzerinden FastAPI `/mcp` uç noktası.
-  - 8 adet salt-okunur araç (`forkos_briefing`, `forkos_search`, `brain_read`, vb.).
-  - %100 değişmezlik (DB ve Vault dosya sistemine sıfır yazma).
-  - Deterministik leksikal Vault taraması (< 10 ms).
-  - Loopback-only ve hassas veri filtreleme.
+**Soru:** *Ne oluyor ve ne biliyorum?*
 
----
-
-### H1 — Curated Daily Digest & Briefing Persona
-- **Amaç:** Ajanın salt-okunur araçları kullanarak kullanıcıya özel, yüksek kaliteli sabah ve akşam brifingleri üretmesi.
-- **Kapsam:**
-  - Hermes için optimize edilmiş prompt ve persona tanımları.
-  - Açık görevler, takvim blokları, tekrarlayan rutinler ve son tarihlerin sentezlenmesi.
-  - İlgili Vault notlarından "günün odak konusu" önerileri çıkarma.
-  - Kullanıcıya Telegram, Terminal veya forkOS Today widget'ı üzerinden sunum.
+- FastAPI `/mcp` üzerinde Streamable HTTP MCP ucu (loopback-only, DNS rebinding koruması).
+- **8 salt-okunur araç:** `forkos_briefing`, `forkos_search`,
+  `forkos_entity_context`, `forkos_project_context`, `forkos_recent_activity`,
+  `brain_status`, `brain_search`, `brain_read`.
+- %100 değişmezlik: DB ve Vault'a **sıfır yazma** (deterministik içerik parmak
+  izi ile kanıtlanır).
+- Deterministik leksikal Vault taraması; bounded payload'lar; sır maskeleme.
+- Ayrıntı: `h0-brain-interface.md`, `h0-tool-contract.md`, `h0-setup.md`.
 
 ---
 
-### H2 — Guided Action Proposals (Staged Mutations)
-- **Amaç:** Ajanın doğrudan veritabanına yazmadan, kullanıcı onayına sunulacak "eylem teklifleri" üretebilmesi.
-- **Güvenlik Sınırı (Human-in-the-Loop):**
-  - Ajan doğrudan DB'ye satır ekleyemez / silemez.
-  - Ajan bir teklif üretir (`proposal`): örneğin yeni bir görev, bir takvim bloğu veya durum güncellemesi.
-  - Teklif, forkOS Inbox veya Today arayüzünde "Ajan Önerisi" kartı olarak belirir.
-  - Kullanıcı tek tıkla kabul eder (`Approve`) veya reddeder (`Reject`). Yalnızca kabul edilen teklifler veritabanına işlenir.
+## H1 — Safe Actions & Approval ✅ Tamamlandı
+
+**Soru:** *Kullanıcı açıkça onayladıktan sonra neyi değiştirebilirim?*
+
+- **11 yazma aracı** (toplam yüzey 19): görev oluştur/güncelle/tamamla/planla,
+  proje `next_action`, fırsat ve başvuru geçişleri, yer imi kaydet/güncelle,
+  bilgi yakala, yönetilen nota ekle.
+- **Onay modeli:** onay kapısı MCP istemcisindedir (`trust: untrusted`); forkOS
+  kendi onay tablosunu/kuyruğunu KURMAZ. Sunucu tarafı yalnızca yazma
+  araçlarını `readOnlyHint=false` ile doğru işaretler.
+- **Domain otoritesi korunur:** tüm yazmalar canonical servislere delege eder
+  (`todo.service`, `project.service`, `opportunity.lifecycle/application`,
+  `bookmark.service`, `obsidian.service`). Genel mutasyon, raw SQL, keyfî
+  dosya yazımı ve silme YOKTUR.
+- **Fail-closed tazelik:** `expected_updated_at`, `expected_status`, Vault
+  `mtime`; bayat karar uygulanmaz (`STALE_ACTION`, `VAULT_STALE`).
+- **Yerellik:** hiçbir yazma aracı dış ağ çağrısı yapmaz.
+- **Bilgi sahipliği:** `brain_capture` / `brain_save_to_entity` doğrudan Vault'a
+  yazar; forkOS veritabanına not satırı eklemez; legacy Notlar arşivine sıfır
+  yazma.
+- Kanıt: `test_agent_h1_contract.py` (yüzey + anotasyon + sınırlar),
+  `test_agent_h1_mutation_scope.py` (yalnızca beklenen domain değişir),
+  `test_agent_h1_failure_immutability.py` (başarısızlık hiçbir şey değiştirmez),
+  `test_agent_mcp.py` (gerçek `/mcp` taşıması).
+- Ayrıntı: `h1-safe-actions.md`, `h1-tool-contract.md`, `h1-setup.md`.
 
 ---
 
-### H3 — Memory & Long-Term Context Consolidation
-- **Amaç:** Ajanın kullanıcı tercihlerini, kalıcı alışkanlıklarını ve proje kararlarını Vault içinde kurallara bağlı bir "sıcak hafıza" (hot memory) dosyasında konsolide etmesi.
-- **Kapsam:**
-  - Vault altında `00 Meta/Agent Memory.md` veya günlük özet notları oluşturma kuralları.
-  - Olay günlüğündeki (event log) önemli kırılma anlarının haftalık olarak özetlenip kalıcı bilgiye dönüştürülmesi.
-  - Operasyonel tarihçe ile f0rknbrain bilgi grafı arasındaki bağların güçlendirilmesi.
+## H2 — Hot Memory (Sıradaki)
+
+**Soru:** *Ajan neyi kalıcı olarak hatırlamalı?*
+
+**Kapsam (planlanan):**
+
+- Kullanıcı profili ve çalışma tercihleri için **Vault'ta** sıcak hafıza
+  (`90 Agent/` altında yönetilen notlar).
+- Hafıza adayları: oturum içinde öne çıkan kararların öneri olarak sunulması.
+- Kullanıcı onayıyla kalıcılaştırma; onaysız yazma yok.
+
+**Sınır (H1'den devredilen kural):**
+
+- **Otomatik hafıza yazımı H1'de YOKTUR.** `brain_capture` ve
+  `brain_save_to_entity` yalnızca kullanıcının niyeti bilgi kaydetmeyi
+  içerdiğinde çağrılır. "Ajan bunu hatırlamalı" kararı H2'nin konusudur ve
+  orada bile kullanıcı onayı gerektirir.
+- Hafıza **Vault'ta** yaşar (bilgi sahipliği Faz 3 sınırı); forkOS
+  veritabanına ajan hafızası tablosu eklenmez.
+- Konuşma geçmişinin tamamı saklanmaz; yalnızca onaylanmış, sınırlı çıkarımlar.
+
+**Açılmayacaklar:** sınırsız konuşma arşivi, kullanıcı davranışının sessizce
+profillenmesi, hafıza yazımını tetikleyen arka plan işi.
 
 ---
 
-### H4 — Multi-hop Reasoning & Hybrid Retrieval
-- **Amaç:** Yapısal ilişkisel varlıklar (Entity-Link) ile Vault'un serbest metin/wiki-link ağını birlikte kullanarak derin akıl yürütme.
-- **Kapsam:**
-  - Bir proje ele alındığında: projeye bağlı görevler, toplantı notları, geçmiş kararlar ve dış kaynaklar arasında otomatik çok adımlı gezinti.
-  - Leksikal arama ile hafif yerel embedding tabanlı semantik aramanın hibrit (RRF) harmanlanması.
+## H3 — Retrieval & Evidence
+
+**Soru:** *Bir iddiayı hangi kanıt destekliyor?*
+
+- Yapısal ilişkiler (Entity–Link) ile Vault serbest metin/`[[wikilink]]` ağının
+  birlikte kullanımı.
+- Çok adımlı gezinme: proje → görevler → toplantı notları → geçmiş kararlar.
+- Yanıtların kaynak göstermesi (hangi dosya, hangi alan, hangi olay).
+- **Şimdilik yok:** embedding, vektör veritabanı, semantik reranker. H0'ın
+  leksikal araması korunur.
 
 ---
 
-### H5 — Proactive Event Triggers & Routine Assistance
-- **Amaç:** Kullanıcı sormadan, belirli durumlar gerçekleştiğinde ajanın devreye girmesi.
-- **Kapsam:**
-  - Yaklaşan kritik son tarihler (deadlines).
-  - 3 günden uzun süredir tıkanmış (blocked) görevler veya duraklamış projeler.
-  - Arka arkaya kaçırılan rutinler veya biriken RSS kaynakları.
-  - Düşük gürültülü, yüksek sinyalli proaktif uyarılar.
+## H4 — Local Model Router
+
+**Soru:** *Hangi iş hangi yerel modelle yapılmalı?*
+
+- Yerel modellerin (Ollama/MLX/llama.cpp sınıfı) görev tipine göre
+  yönlendirilmesi; **local-only** kalır.
+- **Şimdilik yok:** hiçbir model kurulumu, indirme veya dış sağlayıcı bağlama.
 
 ---
 
-### H6 — Full Autonomous Co-Pilot & Self-Optimizing Brain
-- **Amaç:** forkOS + f0rknbrain üzerinde uçtan uca araştırma, planlama ve yürütme desteği sağlayan tam entegre yerel yapay zeka işletim sistemi.
-- **Kapsam:**
-  - Karmaşık projelerin otomatik kilometre taşlarına ve görev listelerine dönüştürülmesi.
-  - Sürekli gelişen, kullanıcının çalışma tarzını öğrenen ve sistemi optimize eden kişisel yapay zeka ortağı.
+## H5 — Consolidation & Briefings
+
+**Soru:** *Biriken bilgi nasıl özetlenir?*
+
+- Haftalık/aylık konsolidasyon: olay geçmişinden kalıcı bilgiye dönüşüm.
+- Kişiselleştirilmiş brifingler (sabah/akşam), kullanıcıya sunum kanalları
+  (Today widget, terminal, bildirim).
+
+---
+
+## H6 — Proactive / Scheduled Agent
+
+**Soru:** *Kullanıcı sormadan ne zaman devreye girmeli?*
+
+- Yaklaşan kritik son tarihler, tıkanmış görevler, kaçırılan rutinler.
+- Düşük gürültülü, yüksek sinyalli proaktif uyarılar.
+- **H1'de yok:** arka plan yürütme, ajanın kontrol ettiği zamanlayıcı,
+  otonom mutasyon. H6'da bile her yazma onay kapısından geçer.
+
+---
+
+## Değişmez ilkeler (tüm fazlar)
+
+1. **İnsan onayı her mutasyonun önündedir.** Otonomi, onayın yerini almaz.
+2. **Tek sahiplik:** operasyonel durum forkOS'ta, bilgi f0rknbrain Vault'unda.
+3. **Domain otoritesi:** iş kuralları canonical servislerde yaşar; ajan katmanı
+   kopyalamaz.
+4. **Local-only:** kişisel veri dış servise gitmez; yazmalar dış ağ çağrısı
+   yapmaz.
+5. **Silme yok:** ajan yüzeyinde yıkıcı yetenek bulunmaz.
+6. **Sessiz yedek yok:** bir yazma başarısızsa hata olarak kalır; başka bir
+   depoya düşülmez.
