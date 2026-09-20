@@ -171,10 +171,11 @@ def _same_value(current: Any, requested: Any) -> bool:
     return current == requested
 
 
-async def _todo_tags(session: AsyncSession, todo_id: uuid.UUID) -> list[str]:
+async def _entity_tags(session: AsyncSession, entity_id: uuid.UUID) -> list[str]:
+    """Etiketler `entity_tag` üzerinden yaşar; canonical yardımcıdan okunur."""
     from app.core import tags as tag_svc
 
-    return list((await tag_svc.tags_for(session, [todo_id])).get(todo_id, []))
+    return list((await tag_svc.tags_for(session, [entity_id])).get(entity_id, []))
 
 
 # ---------------------------------------------------------------------------
@@ -301,7 +302,7 @@ async def update_todo(
     if "recur" in provided:
         payload["recur"] = data.recur
 
-    tags_before = await _todo_tags(session, todo_id)
+    tags_before = await _entity_tags(session, todo_id)
     before = _todo_state(todo, title=entity.title, tags=tags_before)
 
     current_map: dict[str, Any] = {
@@ -371,6 +372,8 @@ async def complete_todo(
         raise ActionError("TARGET_NOT_FOUND", f"görev bulunamadı: {tid}")
 
     if todo.status == "done":
+        # Makbuz KANITTIR: gerçek kalıcı zaman damgasını bildirir, None uydurmaz.
+        completed_at = todo.completed_at.isoformat() if todo.completed_at else None
         return ActionReceipt(
             request_id=request_id,
             tool="forkos_todo_complete",
@@ -378,8 +381,8 @@ async def complete_todo(
             target_type="todo",
             target_id=str(tid),
             summary="Todo already completed",
-            before={"status": "done"},
-            after={"status": "done", "completed_at": None},
+            before={"status": "done", "completed_at": completed_at},
+            after={"status": "done", "completed_at": completed_at},
         )
 
     was_recurring = bool(todo.recur)
@@ -491,6 +494,31 @@ async def plan_todo(
         created = True
     else:
         slot = future_slots[0]
+        # Verilmeyen alan MEVCUT değeri korur; sonuç aynıysa canonical servis
+        # HİÇ çağrılmaz: olay/timestamp gürültüsü üretilmez (§26).
+        next_start = data.start_min if "start_min" in provided else slot.start_min
+        next_duration = data.duration_min if "duration_min" in provided else slot.duration_min
+        current_slot = {
+            "slot_id": str(slot.id),
+            "day": slot.day.isoformat(),
+            "start_min": slot.start_min,
+            "duration_min": slot.duration_min,
+        }
+        if (
+            slot.day == target_day
+            and slot.start_min == next_start
+            and slot.duration_min == next_duration
+        ):
+            return ActionReceipt(
+                request_id=request_id,
+                tool="forkos_todo_plan",
+                status="noop",
+                target_type="todo",
+                target_id=str(tid),
+                summary=f'Plan already {current_slot["day"]} {current_slot["start_min"]}',
+                before=current_slot,
+                after=current_slot,
+            )
         payload: dict[str, Any] = {"day": target_day}
         if "start_min" in provided:
             payload["start_min"] = data.start_min
@@ -695,7 +723,14 @@ async def transition_application(
             after={"status": status},
         )
 
-    if data.expected_status is not None and app.status != data.expected_status:
+    if data.expected_status is None:
+        # Mevcut bir başvuruda tazelik önkoşulu İSTEĞE BAĞLI OLAMAZ: aksi halde
+        # onay ile yürütme arasındaki değişim sessizce ezilir (§18).
+        raise ActionError(
+            "EXPECTED_STATUS_REQUIRED",
+            f"mevcut başvuru durumu '{app.status}'; geçiş için expected_status zorunludur",
+        )
+    if app.status != data.expected_status:
         raise ActionError(
             "STALE_ACTION",
             f"beklenen başvuru durumu '{data.expected_status}' ama güncel durum '{app.status}'",
@@ -864,14 +899,20 @@ async def update_bookmark(
     if "tags" in provided:
         payload["tags"] = data.tags
 
-    current_map = {
+    tags_before = await _entity_tags(session, bid)
+    before["tags"] = sorted(tags_before)
+    current_map: dict[str, Any] = {
         "collection": bookmark.collection,
         "read_status": bookmark.read_status,
         "favorite": bookmark.favorite,
+        "tags": tags_before,
     }
+    # Bilinmeyen alan sessizce "değişmedi" sayılmaz: fail-closed.
+    unknown = set(payload) - set(current_map)
+    if unknown:
+        raise ActionError("ACTION_NOT_ALLOWED", f"desteklenmeyen alanlar: {sorted(unknown)}")
     if not payload or all(
-        key not in current_map or _same_value(current_map[key], value)
-        for key, value in payload.items()
+        _same_value(current_map[key], value) for key, value in payload.items()
     ):
         return ActionReceipt(
             request_id=request_id,
@@ -892,6 +933,7 @@ async def update_bookmark(
         "collection": out.collection,
         "read_status": out.read_status,
         "favorite": out.favorite,
+        "tags": sorted(await _entity_tags(session, bid)),
     }
     changed = _changed_fields(before, after)
     return ActionReceipt(
@@ -997,6 +1039,21 @@ async def save_to_entity_brain(
     (§49/§55). Not yoksa canonical `ensure` ile oluşturulur (§50).
     """
     fid = _as_uuid(data.forkos_id)
+
+    # §13: yaratıcı birincil çağrıdan ÖNCE doğrula. Aksi halde "not yok +
+    # geçersiz başlık" isteği yetim bir yönetilen dosya bırakırdı.
+    try:
+        existing = obsidian_service.resolve_managed_item(fid)
+    except obsidian_service.VaultConflictError as exc:
+        raise ActionError("VAULT_CONFLICT", str(exc)) from exc
+    except (PermissionError, RuntimeError) as exc:
+        raise ActionError("VAULT_UNAVAILABLE", str(exc)) from exc
+    if existing is None and data.heading:
+        raise ActionError(
+            "HEADING_NOT_FOUND",
+            f"yönetilen bilgi notu yok; '{data.heading}' başlığı aranamaz",
+        )
+
     try:
         item = await obsidian_service.ensure_entity_knowledge_note(session, fid)
     except obsidian_service.VaultConflictError as exc:
