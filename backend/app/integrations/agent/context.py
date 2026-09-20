@@ -4,13 +4,14 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import links as links_svc
 from app.core import registry as registry_svc
 from app.core import search as search_svc
 from app.core.deadlines import collect_deadlines
-from app.core.models import Entity, Event, Link, Notification
+from app.core.models import Entity, Event, Notification
 from app.core.time import local_today, local_zone
 from app.integrations.agent.knowledge import get_brain_status
 from app.integrations.agent.models import (
@@ -21,9 +22,10 @@ from app.integrations.agent.models import (
     ProjectContextData,
     sanitize_payload,
 )
-from app.integrations.obsidian.service import vault_index
+from app.integrations.obsidian.service import resolve_managed_item, vault_index
 from app.modules.flashcard.models import FlashcardCard
 from app.modules.opportunity.models import Opportunity
+from app.modules.project import service as project_svc
 from app.modules.project.models import Milestone, Project
 from app.modules.today import service as today_svc
 from app.modules.todo.models import Todo
@@ -302,29 +304,19 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
 
     route = _resolve_route(entity.type, entity.id)
 
-    # Fetch links (related entities)
-    links_stmt = (
-        select(Link, Entity.type, Entity.title)
-        .join(Entity, or_(
-            and_(Link.from_id == ent_uuid, Entity.id == Link.to_id),
-            and_(Link.to_id == ent_uuid, Entity.id == Link.from_id),
-        ))
-        .where(or_(Link.from_id == ent_uuid, Link.to_id == ent_uuid))
-        .limit(20)
-    )
-    links_res = await session.execute(links_stmt)
-    related: list[dict[str, Any]] = []
-    for link, target_type, target_title in links_res.all():
-        other_id = link.to_id if link.from_id == ent_uuid else link.from_id
-        direction = "outgoing" if link.from_id == ent_uuid else "incoming"
-        related.append({
-            "id": str(other_id),
-            "type": target_type,
-            "title": target_title,
-            "relation": link.relation,
-            "direction": direction,
-            "route": _resolve_route(target_type, other_id),
-        })
+    # Fetch links (related entities) using canonical service which strictly excludes ARCHIVED_ENTITY_TYPES
+    raw_related = await links_svc.related(session, ent_uuid)
+    related: list[dict[str, Any]] = [
+        {
+            "id": r["entity"]["id"],
+            "type": r["entity"]["type"],
+            "title": r["entity"]["title"],
+            "relation": r["relation"],
+            "direction": r["direction"],
+            "route": _resolve_route(r["entity"]["type"], uuid.UUID(r["entity"]["id"])),
+        }
+        for r in raw_related[:20]
+    ]
 
     # Fetch recent events touching this entity
     events_stmt = (
@@ -344,8 +336,13 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
         for ev in events_res.scalars().all()
     ]
 
-    # Check if a Vault note is linked to this entity
-    v_item = vault_index.get_item(str(ent_uuid))
+    # Check if a Vault note is linked to this entity (fresh canonical resolve)
+    v_item = None
+    try:
+        v_item = resolve_managed_item(ent_uuid)
+    except Exception:
+        v_item = None
+
     knowledge_ref = None
     if v_item:
         knowledge_ref = {
@@ -407,57 +404,84 @@ async def get_project_context(session: AsyncSession, project_id: str) -> Project
     ]
     milestone_ids = [m["id"] for m in milestones_data]
 
-    # Open todos linked to this project (via Link or Milestone)
-    todos_stmt = (
-        select(Todo, Entity.title)
-        .join(Entity, Entity.id == Todo.id)
-        .outerjoin(Link, and_(Link.to_id == Todo.id, Link.from_id == proj_uuid))
-        .where(
-            Todo.status != "done",
-            Entity.archived_at.is_(None),
-            or_(
-                Link.id.is_not(None),
-                Todo.milestone_id.in_([uuid.UUID(mid) for mid in milestone_ids]) if milestone_ids else False,
-            ),
+    # Open todos linked to this project (via canonical belongs_to or milestone)
+    raw_project_todos = await project_svc.project_todos(session, proj_uuid)
+    todo_ids_seen = {
+        str(t["id"] if isinstance(t, dict) else t.id)
+        for t in raw_project_todos
+    }
+    extra_todos: list[dict[str, Any]] = []
+    if milestone_ids:
+        ms_todos_stmt = (
+            select(Todo, Entity.title)
+            .join(Entity, Entity.id == Todo.id)
+            .where(
+                Todo.milestone_id.in_([uuid.UUID(mid) for mid in milestone_ids]),
+                Todo.id.not_in([uuid.UUID(tid) for tid in todo_ids_seen]) if todo_ids_seen else True,
+                Entity.archived_at.is_(None),
+            )
+            .order_by(Todo.priority.asc(), Todo.due_at.asc().nulls_last())
         )
-        .order_by(Todo.priority.asc(), Todo.due_at.asc().nulls_last())
-        .limit(20)
-    )
-    todos_res = await session.execute(todos_stmt)
-    todos_data = [
-        {
-            "id": str(t.id),
-            "title": t_title,
-            "priority": t.priority,
-            "status": t.status,
-            "due_at": t.due_at.isoformat() if t.due_at else None,
-        }
-        for t, t_title in todos_res.all()
-    ]
+        ms_todos_res = await session.execute(ms_todos_stmt)
+        for t, t_title in ms_todos_res.all():
+            extra_todos.append({
+                "id": str(t.id),
+                "title": t_title,
+                "status": t.status,
+                "priority": t.priority,
+                "due_at": t.due_at.isoformat() if t.due_at else None,
+            })
 
-    # Recent activity for this project
-    events_stmt = (
-        select(Event)
-        .where(Event.entity_id == proj_uuid)
-        .order_by(Event.occurred_at.desc())
-        .limit(10)
-    )
-    events_res = await session.execute(events_stmt)
+    todos_data: list[dict[str, Any]] = []
+    for item in raw_project_todos:
+        t_id = str(item["id"] if isinstance(item, dict) else item.id)
+        t_title = item["title"] if isinstance(item, dict) else item.title
+        t_status = item.get("status", "open") if isinstance(item, dict) else item.status
+        t_priority = item.get("priority", 0) if isinstance(item, dict) else item.priority
+        raw_due = item.get("due_at") if isinstance(item, dict) else getattr(item, "due_at", None)
+        due_str = raw_due.isoformat() if hasattr(raw_due, "isoformat") else str(raw_due) if raw_due else None
+        if t_status != "done":
+            todos_data.append({
+                "id": t_id,
+                "title": t_title,
+                "priority": t_priority,
+                "status": t_status,
+                "due_at": due_str,
+            })
+
+    for item in extra_todos:
+        if item.get("status") != "done":
+            todos_data.append(item)
+
+    todos_data = todos_data[:20]
+
+    # Recent activity from canonical project timeline service (includes project, linked todos, and commits)
+    raw_timeline = await project_svc.timeline(session, proj_uuid, limit=10)
     activity_data = [
         {
-            "id": ev.id,
-            "verb": ev.verb,
-            "timestamp": ev.occurred_at.isoformat(),
-            "payload": sanitize_payload(ev.payload or {}),
+            "id": ev["id"],
+            "verb": ev["verb"],
+            "timestamp": ev["occurred_at"].isoformat() if hasattr(ev.get("occurred_at"), "isoformat") else str(ev.get("occurred_at")),
+            "payload": sanitize_payload(ev.get("payload") or {}),
         }
-        for ev in events_res.scalars().all()
+        for ev in raw_timeline
     ]
 
     # Deadlines for this project
     deadlines = [m for m in milestones_data if m.get("due_at") and not m.get("completed")]
 
-    # Vault knowledge pointer only
-    v_item = vault_index.find_by_note_kind("project", project_id=str(proj_uuid)) or vault_index.get_item(str(proj_uuid))
+    # Vault knowledge pointer only (fresh canonical resolve)
+    v_item = None
+    try:
+        v_item = resolve_managed_item(proj_uuid)
+    except Exception:
+        v_item = None
+    if v_item is None:
+        try:
+            v_item = vault_index.find_by_note_kind("project", project_id=str(proj_uuid))
+        except Exception:
+            v_item = None
+
     knowledge_data = {
         "available": v_item is not None,
         "forkos_id": v_item.forkos_id if v_item else None,

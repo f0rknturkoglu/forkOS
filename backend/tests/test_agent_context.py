@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.models import Entity, Event, Link
 from app.db import SessionLocal
 from app.integrations.agent.context import (
@@ -69,15 +70,15 @@ async def sample_operational_data(db_session: AsyncSession):
     )
     db_session.add(todo)
 
-    # 4. Create a Link between project and todo
+    # 4. Create a Link from todo to project (canonical: todo belongs_to project)
     link = Link(
-        from_id=proj_id,
-        to_id=todo_id,
-        relation="task",
+        from_id=todo_id,
+        to_id=proj_id,
+        relation="belongs_to",
     )
     db_session.add(link)
 
-    # 5. Create an Event with potentially sensitive payload to test sanitization
+    # 5. Create an Event for the project with potentially sensitive payload
     event = Event(
         entity_id=proj_id,
         entity_type="project",
@@ -90,6 +91,15 @@ async def sample_operational_data(db_session: AsyncSession):
     )
     db_session.add(event)
 
+    # 5b. Create an Event for the linked todo (should be included in project timeline)
+    todo_event = Event(
+        entity_id=todo_id,
+        entity_type="todo",
+        verb="todo.created",
+        payload={"title": "Write AST tests"},
+    )
+    db_session.add(todo_event)
+
     # 6. Create a legacy note entity (should be excluded from operational search)
     note_id = uuid.uuid4()
     note_entity = Entity(
@@ -99,6 +109,14 @@ async def sample_operational_data(db_session: AsyncSession):
         search_text="frozen legacy note",
     )
     db_session.add(note_entity)
+
+    # 7. Create a link between legacy note and project (must be excluded from related_entities in agent context)
+    note_link = Link(
+        from_id=note_id,
+        to_id=proj_id,
+        relation="notes_about",
+    )
+    db_session.add(note_link)
 
     await db_session.commit()
 
@@ -133,11 +151,17 @@ async def test_search_operational_context_excludes_legacy_notes(db_session: Asyn
 
 async def test_get_entity_context(db_session: AsyncSession, sample_operational_data):
     proj_id = str(sample_operational_data["proj_id"])
+    note_id = str(sample_operational_data["note_id"])
     ctx = await get_entity_context(db_session, proj_id)
     assert ctx.id == proj_id
     assert ctx.type == "project"
     assert ctx.title == "RepoLens"
-    assert len(ctx.related_entities) >= 1
+    # Related entities should include the todo
+    related_types = [r["type"] for r in ctx.related_entities]
+    assert "todo" in related_types
+    # Legacy notes must strictly NOT appear in operational related_entities
+    assert "note" not in related_types
+    assert all(r["id"] != note_id for r in ctx.related_entities)
     assert len(ctx.recent_events) >= 1
     # Check that credentials in event payload were sanitized
     assert ctx.recent_events[0]["payload"]["github_token"] == "[REDACTED]"
@@ -161,7 +185,11 @@ async def test_get_project_context(db_session: AsyncSession, sample_operational_
     assert pkg.milestones[0]["title"] == "Alpha Release"
     assert len(pkg.todos) == 1
     assert pkg.todos[0]["title"] == "Write AST tests"
-    assert len(pkg.recent_activity) >= 1
+    # Recent activity must include project and linked todo events via project_service.timeline
+    assert len(pkg.recent_activity) >= 2
+    activity_verbs = [a["verb"] for a in pkg.recent_activity]
+    assert "project.updated" in activity_verbs
+    assert "todo.created" in activity_verbs
 
 
 async def test_get_project_context_not_found(db_session: AsyncSession):
@@ -177,3 +205,48 @@ async def test_get_recent_activity_context_sanitizes_secrets(db_session: AsyncSe
     assert len(found) >= 1
     assert found[0].payload["github_token"] == "[REDACTED]"
     assert found[0].payload["info"] == "Updated next action"
+
+
+async def test_project_context_cold_vault_resolution(
+    db_session: AsyncSession,
+    tmp_path,
+    monkeypatch,
+):
+    from app.integrations.obsidian.service import vault_index
+
+    # 1. Create a project
+    proj_id = uuid.uuid4()
+    p_ent = Entity(id=proj_id, type="project", title="Cold Vault Project", search_text="")
+    db_session.add(p_ent)
+    proj = Project(id=proj_id, status="active")
+    db_session.add(proj)
+    await db_session.commit()
+
+    # 2. Setup mock vault with project file
+    v_dir = tmp_path / "ColdVault"
+    v_dir.mkdir()
+    (v_dir / "20 Projects").mkdir()
+    note_content = f"""---
+forkos_id: {proj_id}
+forkos_type: project
+---
+# Cold Vault Project
+"""
+    (v_dir / "20 Projects" / "Cold.md").write_text(note_content, encoding="utf-8")
+
+    monkeypatch.setattr(settings, "obsidian_vault_path", str(v_dir))
+    monkeypatch.setattr(settings, "obsidian_vault_name", "ColdVault")
+
+    # Reset vault_index to simulate a cold fresh process
+    vault_index._last_scanned = None
+    vault_index._items.clear()
+    vault_index._conflicts.clear()
+    vault_index._invalid_files.clear()
+    assert vault_index.is_scanned is False
+
+    # 3. Call get_project_context without calling brain_status or refresh_vault_index first
+    pkg = await get_project_context(db_session, str(proj_id))
+    assert pkg.knowledge["available"] is True
+    assert pkg.knowledge["forkos_id"] == str(proj_id)
+    assert pkg.knowledge["relative_path"] == "20 Projects/Cold.md"
+
