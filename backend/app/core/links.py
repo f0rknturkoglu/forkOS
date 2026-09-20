@@ -61,6 +61,13 @@ async def unlink(
         await session.delete(row)
 
 
+#: PHASE 3'te dondurulmuş eski Notlar ailesi: `note`, `note_folder`,
+#: `note_attachment`. Hiçbiri canlı forkOS kaydı gibi sunulmaz ve hiçbirine
+#: YENİ bağ kurulmaz. Bu ailenin TEK kaynağı burasıdır.
+FROZEN_LEGACY_ENTITY_TYPES: frozenset[str] = frozenset(
+    {"note", "note_folder", "note_attachment"}
+)
+
 #: Operasyonel ilişki yüzeylerinde (RelatedPanel/BacklinksPanel) GÖSTERİLMEYEN
 #: entity tipleri. Legacy Notlar PHASE 3'te dondurulmuş arşivdir: bağları
 #: silinmez (§45), ama canlı forkOS kaydı gibi sunulmaz.
@@ -69,6 +76,10 @@ async def unlink(
 #: `course`, `study_area` gibi destek tipleri de linkable=False'tur ama
 #: operasyonel ilişkilerde görünmelidir (`learns_from`, `media.collection_item`).
 #: Bu yüzden arşiv durumu burada AÇIKÇA yazılır.
+#:
+#: `FROZEN_LEGACY_ENTITY_TYPES`'ın alt kümesidir: yalnızca KENDİ arşiv durumunu
+#: (`archived_at`) taşıyanlar. `note_attachment` bir notun ÇOCUĞUDUR, kendi
+#: arşiv durumu yoktur; bu yüzden ayrı tutulur.
 ARCHIVED_ENTITY_TYPES: frozenset[str] = frozenset({"note", "note_folder"})
 
 

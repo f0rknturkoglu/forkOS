@@ -14,6 +14,7 @@ from app.core import links as links_svc
 from app.core import registry as registry_svc
 from app.core import search as search_svc
 from app.core.deadlines import collect_deadlines
+from app.core.links import FROZEN_LEGACY_ENTITY_TYPES
 from app.core.models import Entity, Event, Notification
 from app.core.time import local_today, local_zone
 from app.integrations.agent.knowledge import get_brain_status
@@ -38,8 +39,6 @@ from app.modules.project import service as project_svc
 from app.modules.project.models import Milestone, Project
 from app.modules.today import service as today_svc
 from app.modules.todo.models import Todo
-
-FROZEN_LEGACY_TYPES = {"note", "note_folder", "note_attachment"}
 
 
 def _resolve_route(entity_type: str, entity_id: uuid.UUID) -> str:
@@ -390,7 +389,7 @@ async def search_operational_context(
         raise ValueError("QUERY_TOO_LONG: Query must be at most 200 characters.")
 
     # Determine types
-    all_searchable = [t for t in search_svc.searchable_types() if t not in FROZEN_LEGACY_TYPES]
+    all_searchable = [t for t in search_svc.searchable_types() if t not in FROZEN_LEGACY_ENTITY_TYPES]
     if entity_types:
         types_filter = [t for t in entity_types if t in all_searchable]
     else:
@@ -404,7 +403,7 @@ async def search_operational_context(
 
     results: list[EntitySearchResult] = []
     for ent in raw_entities:
-        if ent.type in FROZEN_LEGACY_TYPES:
+        if ent.type in FROZEN_LEGACY_ENTITY_TYPES:
             continue
         route = _resolve_route(ent.type, ent.id)
         results.append(
@@ -433,7 +432,7 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
         raise ValueError(f"ENTITY_NOT_FOUND: Entity '{entity_id}' does not exist.")
 
     # Check for legacy frozen note
-    if entity.type in FROZEN_LEGACY_TYPES:
+    if entity.type in FROZEN_LEGACY_ENTITY_TYPES:
         return EntityContextData(
             id=str(entity.id),
             type=entity.type,
