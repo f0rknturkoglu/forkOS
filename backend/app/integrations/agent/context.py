@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
@@ -73,6 +74,27 @@ def _parse_since(since: str | None) -> datetime | None:
             ) from exc
 
 
+#: Mutlak dosya yolu (POSIX ya da Windows) deseni. Ajan çıktısı ve MCP
+#: yanıtı asla gerçek kasa kökünü, kullanıcı adını veya HOME yolunu göstermez
+#: (local-only gizlilik sözleşmesi).
+#:
+#: Sınır karakteri (boşluk, tırnak, parantez, virgül ya da satır başı) KORUNUR;
+#: böylece "20 Projects/x.md" gibi GÖRELİ yollar yanlışlıkla redakte edilmez.
+#: Yol gövdesi boşluk İÇEREBİLİR (ör. "/Users/ali veli/vault"); bu yüzden
+#: kesme noktaları tırnak, parantez, köşeli parantez, virgül, noktalı virgül ve
+#: satır sonudur. Eksik redaksiyon (kısmi sızıntı) yanlış redaksiyondan daha
+#: tehlikelidir; bu yüzden sınır bilinçli olarak geniş tutuldu.
+_ABSOLUTE_PATH_RE = re.compile(
+    r"(^|[\s'\"(\[,;])((?:[A-Za-z]:[\\/]|/)[^'\"()\[\],;\n]+)",
+    re.MULTILINE,
+)
+
+
+def redact_absolute_paths(text: str) -> str:
+    """Tanılama metninden mutlak yolları temizler (H0/H1 gizlilik sözleşmesi)."""
+    return _ABSOLUTE_PATH_RE.sub(lambda match: f"{match.group(1)}<vault>", text or "")
+
+
 def _resolve_knowledge_pointer(forkos_id: uuid.UUID) -> KnowledgePointer:
     """Resolve granular knowledge pointer state for an entity (available, missing, unavailable, conflict)."""
     fid_str = str(forkos_id)
@@ -96,7 +118,7 @@ def _resolve_knowledge_pointer(forkos_id: uuid.UUID) -> KnowledgePointer:
             forkos_id=None,
             relative_path=None,
             title=None,
-            diagnostic=f"Obsidian Vault directory does not exist or is not a directory: '{v_root}'.",
+            diagnostic="Obsidian Vault directory does not exist or is not a directory.",
         )
 
     if not os.access(v_root, os.R_OK):
@@ -106,7 +128,7 @@ def _resolve_knowledge_pointer(forkos_id: uuid.UUID) -> KnowledgePointer:
             forkos_id=None,
             relative_path=None,
             title=None,
-            diagnostic=f"Obsidian Vault directory is not readable: '{v_root}'.",
+            diagnostic="Obsidian Vault directory is not readable.",
         )
 
     # 2. Try resolve_managed_item
@@ -119,7 +141,7 @@ def _resolve_knowledge_pointer(forkos_id: uuid.UUID) -> KnowledgePointer:
             forkos_id=None,
             relative_path=None,
             title=None,
-            diagnostic=str(exc),
+            diagnostic=redact_absolute_paths(str(exc)),
         )
     except (RuntimeError, PermissionError, FileNotFoundError) as exc:
         return KnowledgePointer(
@@ -128,7 +150,7 @@ def _resolve_knowledge_pointer(forkos_id: uuid.UUID) -> KnowledgePointer:
             forkos_id=None,
             relative_path=None,
             title=None,
-            diagnostic=str(exc),
+            diagnostic=redact_absolute_paths(str(exc)),
         )
 
     # 3. If item is None, check fallback for projects
