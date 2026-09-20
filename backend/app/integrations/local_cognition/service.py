@@ -35,6 +35,7 @@ from app.integrations.local_cognition import contracts as contract_svc
 from app.integrations.local_cognition import policy as policy_svc
 from app.integrations.local_cognition import prompts as prompt_svc
 from app.integrations.local_cognition.models import (
+    LANE_REASON_CODES,
     MAX_MEDIUM_ATTEMPTS,
     MAX_SMALL_ATTEMPTS,
     AttemptRecord,
@@ -184,11 +185,44 @@ async def run_local_cognition(
     input_chars = len(request.text)
     started = time.perf_counter()
 
-    health = (
-        health_snapshot
-        if health_snapshot is not None
-        else await _probe_health(provider, resolved_profiles)
-    )
+    try:
+        health = (
+            health_snapshot
+            if health_snapshot is not None
+            else await _probe_health(provider, resolved_profiles)
+        )
+    except ProviderError as exc:
+        # Sağlayıcının düşmesi BEKLENEN bir operasyonel durumdur (§35): ham
+        # istisna MCP'nin genel güvenlik ağına kaçmaz, tipik H4 sonucuna
+        # dönüşür. Sağlık probu bir ÇIKARIM DENEMESİ DEĞİLDİR: `attempts=[]`
+        # kalır ve hiçbir üretim çağrısı yapılmaz (§36).
+        provider_code = (
+            exc.code if exc.code in {"MODEL_PROVIDER_UNAVAILABLE", "MODEL_UNAVAILABLE"} else "MODEL_PROVIDER_UNAVAILABLE"
+        )
+        decision = RouteDecision(
+            lane=request.lane,
+            selected_slot=None,
+            selected_model=None,
+            input_chars=input_chars,
+            required_capabilities=list(policy_svc.required_capabilities(request.lane)),
+            reason_codes=[LANE_REASON_CODES[request.lane], "STRUCTURED_OUTPUT_REQUIRED"],
+            attempts=[],
+            validation_status="not_attempted",
+            escalated=False,
+            escalation_reason=None,
+            latency_ms=(time.perf_counter() - started) * 1000,
+        )
+        return LocalCognitionResponse(
+            status="needs_escalation",
+            lane=request.lane,
+            result=None,
+            failure_code=provider_code,
+            recovery_hint=(
+                "The local model provider is not reachable; start it (for example "
+                "`ollama serve`) or handle this task with the caller's own model."
+            ),
+            route_decision=decision,
+        )
 
     plan = policy_svc.route_task(
         lane=request.lane,

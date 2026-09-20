@@ -59,12 +59,25 @@ def _health(small: ModelHealth = HEALTHY, medium: ModelHealth = HEALTHY) -> dict
     return {"local-small": small, "local-medium": medium}
 
 
-async def _run(request, provider: ScriptedProvider, *, profiles=None, health=None):
+async def _run(request, provider, *, profiles=None, health=None):
+    """Sağlık SNAPSHOT'ı enjekte edilir: yönlendirme deterministik ölçülür."""
     return await lc_svc.run_local_cognition(
         request,
         provider_factory=lambda: provider,
         profiles=profiles if profiles is not None else _profiles(),
         health_snapshot=health if health is not None else _health(),
+    )
+
+
+async def _run_with_probe(request, provider, *, profiles=None):
+    """Snapshot ENJEKTE EDİLMEZ: gerçek sağlık probu çalışır (§41).
+
+    Sağlayıcı düşmesi bu yolda ölçülür; aksi hâlde prob hiç çağrılmaz.
+    """
+    return await lc_svc.run_local_cognition(
+        request,
+        provider_factory=lambda: provider,
+        profiles=profiles if profiles is not None else _profiles(),
     )
 
 
@@ -495,3 +508,137 @@ async def test_h4_writes_nothing_on_success_or_failure(h4_on: None) -> None:
         for model in (Entity, Link, Event):
             assert (await session.execute(select(func.count(model.id)))).scalar_one() >= 0
         assert (await session.execute(select(func.count(Event.id)))).scalar_one() == events_before
+
+
+# ---------------------------------------------------------------------------
+# H4.1 — sağlayıcı düşmesi ve yönlendirme semantiği
+# ---------------------------------------------------------------------------
+
+
+async def test_health_probe_provider_failure_returns_needs_escalation(h4_on: None) -> None:
+    """§41/§99: sağlayıcı düşmesi BEKLENEN bir durumdur; tipik H4 sonucu döner."""
+    from tests.h4_test_provider import DownProvider
+
+    response = await _run_with_probe(_classify_request(), DownProvider())
+
+    assert response.status == "needs_escalation"
+    assert response.failure_code == "MODEL_PROVIDER_UNAVAILABLE"
+    assert response.result is None
+    assert response.recovery_hint
+
+
+async def test_health_probe_failure_has_zero_generation_attempts(h4_on: None) -> None:
+    """§36: sağlık probu bir çıkarım denemesi DEĞİLDİR."""
+    from tests.h4_test_provider import DownProvider
+
+    provider = DownProvider()
+    response = await _run_with_probe(_classify_request(), provider)
+
+    assert response.route_decision.attempts == []
+    assert provider.generation_calls == 0
+    assert response.route_decision.selected_slot is None
+    assert response.route_decision.selected_model is None
+    assert response.route_decision.validation_status == "not_attempted"
+    assert response.route_decision.escalated is False
+
+
+async def test_health_probe_failure_does_not_escape_provider_error(h4_on: None) -> None:
+    """§34/§35: ham `ProviderError` servis sınırından ÇIKMAZ."""
+    from app.integrations.local_cognition.provider import ProviderError
+    from tests.h4_test_provider import DownProvider
+
+    try:
+        response = await _run_with_probe(_classify_request(), DownProvider())
+    except ProviderError as exc:  # pragma: no cover - regresyon kapısı
+        raise AssertionError(f"raw ProviderError escaped the service: {exc}") from exc
+
+    assert response.failure_code == "MODEL_PROVIDER_UNAVAILABLE"
+
+
+async def test_health_probe_failure_reason_codes_are_factual(h4_on: None) -> None:
+    """§37: "small doğrulamada düştü" gibi bir iddia ÜRETİLMEZ."""
+    from tests.h4_test_provider import DownProvider
+
+    response = await _run_with_probe(_classify_request(), DownProvider())
+    codes = set(response.route_decision.reason_codes)
+
+    assert "LANE_CLASSIFY" in codes
+    assert "LOCAL_SMALL_VALIDATION_FAILED" not in codes
+    assert "LOCAL_SMALL_UNAVAILABLE" not in codes
+
+
+async def test_health_probe_failure_is_single_condition(h4_on: None) -> None:
+    """§38: sağlayıcı global olarak düşükse slot başına ayrı hata üretilmez."""
+    from tests.h4_test_provider import DownProvider
+
+    provider = DownProvider()
+    await _run_with_probe(_classify_request(), provider)
+
+    assert len(provider.health_calls) == 1
+
+
+async def test_runtime_small_to_medium_uses_escalated_reason(h4_on: None) -> None:
+    """§53/§103: gerçek çalışma zamanı geçişi yükseltmedir."""
+    provider = ScriptedProvider(
+        responses=['{"label": "u1"}', '{"label": "u2"}', '{"label": "knowledge"}']
+    )
+    response = await _run(_classify_request(), provider)
+    codes = response.route_decision.reason_codes
+
+    assert "LOCAL_SMALL_SELECTED" in codes
+    assert "LOCAL_SMALL_VALIDATION_FAILED" in codes
+    assert "ESCALATED_TO_LOCAL_MEDIUM" in codes
+    assert response.route_decision.escalated is True
+    assert response.route_decision.selected_slot == "local-medium"
+
+
+async def test_direct_medium_execution_is_not_escalation(h4_on: None) -> None:
+    """§51/§100: medium doğrudan seçildiyse `escalated=false` ve yükseltme kodu YOK."""
+    provider = ScriptedProvider(responses=['{"label": "task"}'])
+    response = await _run(
+        _classify_request(),
+        provider,
+        profiles=_profiles(small=""),
+        health=_health(ModelHealth.unavailable(configured=False), HEALTHY),
+    )
+    codes = response.route_decision.reason_codes
+
+    assert response.status == "success"
+    assert response.route_decision.selected_slot == "local-medium"
+    assert "LOCAL_SMALL_UNAVAILABLE" in codes
+    assert "LOCAL_MEDIUM_SELECTED" in codes
+    assert "ESCALATED_TO_LOCAL_MEDIUM" not in codes
+    assert response.route_decision.escalated is False
+
+
+async def test_generation_time_model_unavailable_counts_as_escalation(h4_on: None) -> None:
+    """§54: small probda sağlıklıydı ama üretimde yoksa bu GERÇEK yükseltmedir."""
+    provider = ScriptedProvider(script="model_missing")
+    response = await _run(_classify_request(), provider)
+
+    assert response.route_decision.escalated is True
+    assert "ESCALATED_TO_LOCAL_MEDIUM" in response.route_decision.reason_codes
+    assert [attempt.slot for attempt in response.route_decision.attempts] == [
+        "local-small",
+        "local-medium",
+    ]
+
+
+async def test_medium_context_exceeded_is_not_reported_as_unavailable(h4_on: None) -> None:
+    """§46: orta bütçe aşımı "kullanılamaz" değildir."""
+    tiny = {
+        "local-small": ModelProfile(
+            slot="local-small", provider="ollama", model_id="small-model",
+            execution_boundary="local_loopback", max_input_chars=500, capabilities=CAPABILITIES,
+        ),
+        "local-medium": ModelProfile(
+            slot="local-medium", provider="ollama", model_id="medium-model",
+            execution_boundary="local_loopback", max_input_chars=1000, capabilities=CAPABILITIES,
+        ),
+    }
+    request = lc.build_lane_request(lane="query_rewrite", text="x" * 2000, protected_terms=[])
+
+    with pytest.raises(lc.H4Error, match="CONTEXT_TOO_LARGE") as excinfo:
+        await _run(request, ScriptedProvider(responses=["{}"]), profiles=tiny)
+
+    assert excinfo.value.code == "CONTEXT_TOO_LARGE"

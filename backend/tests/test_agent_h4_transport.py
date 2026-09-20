@@ -309,3 +309,58 @@ async def test_h4_does_not_log_source_text(
         for record in caplog.records
         if record.name.startswith("app")
     )
+
+
+async def test_provider_down_over_mcp_is_typed_h4_response(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """§42: sağlayıcı düşmesi MCP'de TİPİK H4 sonucudur, uygulama hatası değil."""
+    from tests.h4_test_provider import DownProvider
+
+    provider = DownProvider()
+    _patch_provider(monkeypatch, provider)
+
+    async with mcp_session() as session:
+        result = await session.call_tool("forkos_local_cognition", CLASSIFY_ARGS)
+
+    assert result.is_error is False, result.content
+    payload = tool_payload(result)
+    assert payload["status"] == "needs_escalation"
+    assert payload["failure_code"] == "MODEL_PROVIDER_UNAVAILABLE"
+    assert payload["route_decision"]["attempts"] == []
+    assert payload["route_decision"]["selected_slot"] is None
+    assert payload["route_decision"]["validation_status"] == "not_attempted"
+    assert "LOCAL_COGNITION_FAILED" not in json.dumps(payload)
+    assert provider.generation_calls == 0
+
+
+async def test_hallucinated_extraction_is_rejected_over_transport(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """H4.1: gerçek alıntı + uydurma normalize tarih taşımayla da geçemez."""
+    hallucinated = json.dumps(
+        {
+            "events": [
+                {
+                    "title": "Kayıt yenileme",
+                    "category": "registration",
+                    "date_text": "1 - 5 Eylül 2026",
+                    "start_date": "2030-01-01",
+                    "end_date": "2030-01-05",
+                    "source_excerpt": "Kayıt yenileme: 1 - 5 Eylül 2026",
+                }
+            ]
+        }
+    )
+    provider = ScriptedProvider(responses=[hallucinated, hallucinated, hallucinated])
+    _patch_provider(monkeypatch, provider)
+
+    async with mcp_session() as session:
+        result = await session.call_tool("forkos_local_cognition", EXTRACT_ARGS)
+
+    assert result.is_error is False, result.content
+    payload = tool_payload(result)
+    assert payload["status"] == "needs_escalation"
+    assert all(
+        attempt["failure_code"] == "INVALID_DATE" for attempt in payload["route_decision"]["attempts"]
+    )

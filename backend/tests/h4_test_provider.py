@@ -36,6 +36,27 @@ SCRIPTS: tuple[str, ...] = (
 
 
 @dataclass
+class DownProvider:
+    """Sağlık probu patlayan sağlayıcı: yerel sunucu ÇALIŞMIYOR (H4.1 §41).
+
+    Beklenen bir operasyonel durumdur; ham `ProviderError` sızmamalıdır.
+    """
+
+    code: str = "MODEL_PROVIDER_UNAVAILABLE"
+    name: str = "down"
+    health_calls: list[str] = field(default_factory=list)
+    generation_calls: int = 0
+
+    async def health(self, model_id: str) -> ModelHealth:
+        self.health_calls.append(model_id)
+        raise ProviderError(self.code, "local model provider is not reachable")
+
+    async def generate_structured(self, request: GenerationRequest) -> GenerationResult:
+        self.generation_calls += 1
+        raise AssertionError("generation must not happen when the provider is down")
+
+
+@dataclass
 class ScriptedProvider:
     """Betiklenmiş yerel sağlayıcı."""
 
