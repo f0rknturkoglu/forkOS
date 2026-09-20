@@ -98,3 +98,24 @@ Bu işlevsellik Obsidian'ın yerel graf motorunda (Graph View / Local Graph / Ca
 
 5. **SLIM (Hafifletilecekler):**
    - `export.py` ve `restore.py`: Not gövdesi ve binary ekleri taşımayı bırakıp saf operasyonel veritabanı yedeğine dönüşecek.
+
+## 7. Runtime ve Mount Semantiği
+
+### A. Yerel (Native Python) Çalıştırma
+`.env` dosyasında:
+```env
+OBSIDIAN_VAULT_PATH=../Vault
+OBSIDIAN_VAULT_NAME=Vault
+```
+
+### B. Container (Docker / Podman) Runtime
+Container içinde host dosya sistemi doğrudan görünmez. Bu nedenle isteğe bağlı `compose.obsidian.yaml` overlay'i kullanılır:
+```env
+OBSIDIAN_VAULT_HOST_PATH=../Vault
+OBSIDIAN_VAULT_NAME=Vault
+```
+Komutlar:
+- `make up-obsidian`: Günlük stable runtime + Obsidian Vault mount (`/obsidian-vault`).
+- `make up-obsidian-dev`: Geliştirme runtime + Obsidian Vault mount.
+- `make up-auto-obsidian`: Worker profili ile birlikte Obsidian Vault mount.
+- Güvenlik: Yalnızca `api` container'ına `:z` bayrağı ile mount edilir. `web` (nginx/Vite) asla görmez.

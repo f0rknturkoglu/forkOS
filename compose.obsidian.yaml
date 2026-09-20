@@ -1,0 +1,21 @@
+# forkOS — Obsidian Vault runtime overlay.
+#
+# Gunluk (compose.yaml) veya gelistirme (compose.dev.yaml) runtime'ina
+# host uzerindeki Obsidian Vault dizinini guvenli sekilde bind-mount eder.
+#
+#   make up-obsidian        -> compose.yaml + compose.obsidian.yaml
+#   make up-obsidian-dev    -> compose.yaml + compose.obsidian.yaml + compose.dev.yaml
+#   make up-auto-obsidian   -> ayni + worker
+#
+# Guvenlik ve mimari kurallari:
+# - Yalnizca API container'ina mount edilir.
+# - Web (nginx/Vite) container'ina ASLA ifsa edilmez.
+# - Worker varsayilan olarak Vault'a dogrudan erismez.
+# - :z bayragi Podman / SELinux (Fedora vb.) uyumu saglar.
+services:
+  api:
+    volumes:
+      - ${OBSIDIAN_VAULT_HOST_PATH:-../Vault}:/obsidian-vault:z
+    environment:
+      OBSIDIAN_VAULT_PATH: /obsidian-vault
+      OBSIDIAN_VAULT_NAME: ${OBSIDIAN_VAULT_NAME:-Vault}

@@ -2,6 +2,9 @@
 CO ?= podman compose
 # Gelistirme runtime'i: gunluk runtime + Vite/HMR/--reload/source mount.
 DEV = $(CO) -f compose.yaml -f compose.dev.yaml
+# Obsidian hibrit runtime'i: host Vault dizinini api container'ina baglar.
+OBS = $(CO) -f compose.yaml -f compose.obsidian.yaml
+OBS_DEV = $(CO) -f compose.yaml -f compose.obsidian.yaml -f compose.dev.yaml
 
 # Gunluk (stable) runtime — Vite, HMR ve uvicorn --reload YOK.
 up:        ; $(CO) up -d
@@ -9,6 +12,11 @@ up:        ; $(CO) up -d
 up-dev:    ; $(DEV) up -d
 up-auto:   ; WORKER_ENABLED=1 $(CO) --profile auto up -d
 up-auto-dev: ; WORKER_ENABLED=1 $(DEV) --profile auto up -d
+# Obsidian Vault baglantili runtime'lar.
+up-obsidian:       ; $(OBS) up -d
+up-obsidian-dev:   ; $(OBS_DEV) up -d
+up-auto-obsidian:  ; WORKER_ENABLED=1 $(OBS) --profile auto up -d
+up-auto-obsidian-dev: ; WORKER_ENABLED=1 $(OBS_DEV) --profile auto up -d
 worker-up: ; WORKER_ENABLED=1 $(CO) --profile auto up -d worker
 worker-down: ; $(CO) stop worker
 down:      ; $(CO) down
@@ -17,6 +25,8 @@ ps:        ; $(CO) ps
 build:     ; $(CO) build
 config:    ; $(CO) config --quiet && echo "compose.yaml: OK"
 config-dev: ; $(DEV) config --quiet && echo "compose.yaml + compose.dev.yaml: OK"
+config-obsidian: ; $(OBS) config --quiet && echo "compose.yaml + compose.obsidian.yaml: OK"
+config-obsidian-dev: ; $(OBS_DEV) config --quiet && echo "compose.yaml + compose.obsidian.yaml + compose.dev.yaml: OK"
 sh:        ; $(CO) exec api bash
 psql:      ; $(CO) exec db psql -U lifeos -d lifeos
 migrate:   ; $(CO) exec api alembic upgrade head
