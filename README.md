@@ -61,9 +61,21 @@ Notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notla
 - Vault erişilemezse uygulama normal çalışır, yalnızca bilgi işlemleri açık hata verir (`503`/`403`); legacy Notlar'a düşen bir yedek yazma yolu yoktur.
 - Domain grafiği (Entity/Link/Event, ilişki panelleri) korunur; forkOS artık hiçbir bilgi grafı görselleştirmesi render etmez.
 
-### Ajan Entegrasyonu ve Hermes (H0 Brain Interface)
+### Ajan Entegrasyonu ve Hermes
 
-forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Bu arayüz %100 salt-okunur ve sınırlandırılmış 8 temel araç (`forkos_briefing`, `brain_search`, vb.) içerir; sisteme mutasyon uygulamaz. Ayrıntılı mimari, araç sözleşmeleri ve kurulum için [Hermes H0 Entegrasyon Rehberi](docs/hermes/README.md) dokümanına bak.
+forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Yüzey toplam **24 bounded araçtır**:
+
+| Katman | Araç | Kapsam |
+| --- | --- | --- |
+| **H0** | 8 | operasyonel durum + f0rknbrain bilgi kasası **okuma** |
+| **H1** | 11 | açıkça onaylanan güvenli **yazmalar** |
+| **H2** | 5 | `90 Agent/Memory` altında küratörlü **sıcak hafıza** |
+
+Yazma araçları `readOnlyHint=false` taşır; önerilen istemci güveni `untrusted`dır ve kullanıcı onayı istemci/harness tarafından yönetilir.
+
+Backend bu işlemler için **dış ağ çağrısı yapmaz** ve dış model/API kullanmaz. Ancak MCP araç sonuçlarını yapılandırılmış ajan harness'i tüketir: harness uzak bir model sağlayıcısı kullanıyorsa seçilen bağlam o sağlayıcıya model girdisi olarak gidebilir.
+
+Ayrıntılı mimari, araç sözleşmeleri ve kurulum için [Hermes Brain Interface Rehberi](docs/hermes/README.md) dokümanına bak.
 
 Ayrıntılı sözleşmeler için [mimari rehberine](docs/mimari.md) bak.
 
