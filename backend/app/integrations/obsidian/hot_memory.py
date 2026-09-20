@@ -18,15 +18,26 @@ Tasarım kararları:
     bırakır; tarih Git'te kalır.
   - **Okuma onarıcı değildir.** Bozuk/insan-düzenlemesi dosyalar okuma
     sırasında "düzeltilmez"; raporlanır.
+  - **Yazma yetkisi DİSKTEN gelir.** Revizyon karşılaştırması `os.replace`'ten
+    hemen önce GÜNCEL baytlar üzerinden yapılır (compare-and-swap). Tarama
+    anındaki kopya yalnızca kolaylıktır, tek başına yetki vermez; böylece
+    Obsidian'daki kullanıcı düzenlemesi bayat bir yazmayla ezilmez.
+  - **Oluşturma atomiktir ve üzerine yazmaz.** Tam içerik geçici dosyaya
+    yazılır, hedefe `os.link` ile bağlanır; kısmi bir Markdown dosyası hiçbir
+    an görünmez.
+  - **Politika okuma anında da geçerlidir.** Elle düzenlenmiş bir dosya apaçık
+    kimlik bilgisi taşıyorsa sıcak hafızaya yüklenmez — ve DEĞİŞTİRİLMEZ.
 """
 
 from __future__ import annotations
 
 import contextlib
+import errno
 import hashlib
 import os
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -63,6 +74,13 @@ MAX_RETIRED_REASON = 240
 
 #: Tanılamada dönen geçersiz dosya yolu sayısı sınırı.
 MAX_INVALID_REPORTED = 20
+
+#: Sert bağ (`os.link`) desteklemeyen dosya sistemleri: yayın `O_CREAT|O_EXCL`
+#: yoluna düşer. Üzerine yazma yine engellenir; kısmi görünürlük garantisi
+#: o ortamda geçersizdir (§24).
+_NO_HARDLINK_ERRNOS = frozenset(
+    {errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.EXDEV, errno.EMLINK}
+)
 
 #: H2'nin sahip olduğu anahtarlar. Güncellemede bunlar yönetilir; BİLİNMEYEN
 #: kullanıcı anahtarları korunur (§31).
@@ -138,7 +156,7 @@ class MemoryRecord:
             return "retired"
         if self.expires_at:
             try:
-                expiry = _parse_iso(self.expires_at)
+                expiry = parse_iso(self.expires_at)
             except ValueError:
                 return "active"
             if expiry is not None and expiry <= (now or datetime.now(UTC)):
@@ -152,13 +170,15 @@ class MemorySnapshot:
 
     items: list[MemoryRecord] = field(default_factory=list)
     conflicts: dict[str, list[str]] = field(default_factory=dict)
+    #: Göreli yollar SINIRLIDIR (`MAX_INVALID_REPORTED`); sayaç değildir (§32).
     invalid_relative_paths: list[str] = field(default_factory=list)
+    #: Şema dışı + politika dışı dosyaların GERÇEK sayısı.
+    invalid_count: int = 0
+    #: Yalnızca politika nedeniyle dışlananlar (`HOT_MEMORY_POLICY_REJECTED`).
+    policy_rejected_relative_paths: list[str] = field(default_factory=list)
+    policy_rejected_count: int = 0
     available: bool = True
     diagnostic: str | None = None
-
-    @property
-    def invalid_count(self) -> int:
-        return len(self.invalid_relative_paths)
 
     @property
     def conflict_ids(self) -> list[str]:
@@ -184,7 +204,12 @@ def revision_of(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-def _parse_iso(value: str) -> datetime | None:
+def parse_iso(value: str) -> datetime | None:
+    """ISO-8601 damgasını UTC-farkındalı `datetime`a çevirir (§38).
+
+    Sıralama ve zaman aşımı kararı bu fonksiyondan geçer; ham metin
+    karşılaştırması farklı ofsetleri yanlış sıralar.
+    """
     text = value.strip()
     if not text:
         return None
@@ -206,6 +231,26 @@ def looks_like_secret(*parts: str | None) -> bool:
     """Apaçık kimlik bilgisi biçimi var mı (deterministik, muhafazakâr)."""
     blob = "\n".join(part for part in parts if part)
     return any(pattern.search(blob) for pattern in _SECRET_PATTERNS)
+
+
+def is_memory_relative_path(relative_path: str | Path) -> bool:
+    """Göreli yol sıcak hafıza ağacının içinde mi? (kasa köküne göre)"""
+    parts = tuple(
+        part.casefold() for part in Path(str(relative_path).replace("\\", "/")).parts
+    )
+    root = tuple(part.casefold() for part in Path(MEMORY_ROOT).parts)
+    return parts[: len(root)] == root
+
+
+def is_policy_excluded(relative_path: str | Path, *parts: str | None) -> bool:
+    """H0/H2 ORTAK politika kapısı (§64).
+
+    Sıcak hafıza tekrar tekrar model bağlamına girmek için tasarlandı; bu yüzden
+    apaçık kimlik bilgisi taşıyan `90 Agent/Memory` dosyası YALNIZCA H2
+    bağlamından değil, H0 bilgi yüzeyinden (`brain_search`/`brain_read`) de
+    dışlanır. Normal Vault bilgisi bu politikaya TABİ DEĞİLDİR.
+    """
+    return is_memory_relative_path(relative_path) and looks_like_secret(*parts)
 
 
 def _memory_dir(root: Path) -> Path:
@@ -275,7 +320,7 @@ def _validate_frontmatter(frontmatter: dict[str, Any]) -> tuple[dict[str, Any] |
         if not isinstance(raw, str) or not raw.strip():
             return None, f"{key} eksik"
         try:
-            _parse_iso(raw)
+            parse_iso(raw)
         except ValueError:
             return None, f"{key} ISO değil"
 
@@ -284,7 +329,7 @@ def _validate_frontmatter(frontmatter: dict[str, Any]) -> tuple[dict[str, Any] |
         if not isinstance(expires_at, str) or not expires_at.strip():
             return None, "expires_at boş"
         try:
-            _parse_iso(expires_at)
+            parse_iso(expires_at)
         except ValueError:
             return None, "expires_at ISO değil"
         expires_at = expires_at.strip()
@@ -341,6 +386,15 @@ def parse_memory_file(path: Path, root: Path) -> MemoryRecord:
     if not text or len(text) > MAX_TEXT:
         raise HotMemoryError("HOT_MEMORY_INVALID", "gövde boş ya da çok uzun")
 
+    # §13/§14: politika OKUMA anında da uygulanır. Gövde Obsidian'da elle
+    # düzenlenebildiği için yazma anındaki kontrol tek başına yetmez. Eşleşen
+    # dosya DEĞİŞTİRİLMEZ — yalnızca sıcak hafızaya yüklenmez.
+    if looks_like_secret(validated["title"], text):
+        raise HotMemoryError(
+            "HOT_MEMORY_POLICY_REJECTED",
+            "dosya apaçık kimlik bilgisi biçimi içeriyor; sıcak hafızaya yüklenmedi",
+        )
+
     extra = {key: value for key, value in frontmatter.items() if key not in OWNED_KEYS}
     return MemoryRecord(
         memory_id=validated["memory_id"],
@@ -367,18 +421,29 @@ def scan_memories(root: Path) -> MemorySnapshot:
     """`90 Agent/Memory` altını tarar; doğrulanmış öğe, çakışma ve geçersizleri döner.
 
     Salt-okunur: hiçbir dosya yazılmaz, taşınmaz veya "onarılmaz".
+
+    Okunamayan dizin ham `OSError` olarak SIZMAZ; `HOT_MEMORY_UNAVAILABLE`a
+    çevrilir (§28). Tek tek dosyaların okunamaması ise tüm taramayı düşürmez:
+    o dosya "geçersiz" sayılır ve raporlanır.
     """
     root = _resolved_root(root)
-    memory_dir = _memory_dir(root)
-    if not memory_dir.is_dir():
-        # Dizin yoksa boş hafıza — bu bir hata değil, H2 boş başlar.
-        return MemorySnapshot(items=[], available=True)
+    try:
+        memory_dir = _memory_dir(root)
+        if not memory_dir.is_dir():
+            # Dizin yoksa boş hafıza — bu bir hata değil, H2 boş başlar (§29).
+            return MemorySnapshot(items=[], available=True)
+        entries = sorted(memory_dir.iterdir())
+    except OSError as exc:
+        raise HotMemoryError("HOT_MEMORY_UNAVAILABLE", "hafıza dizini okunamıyor") from exc
 
     items: list[MemoryRecord] = []
     conflicts: dict[str, list[str]] = {}
     invalid: list[str] = []
+    policy_rejected: list[str] = []
+    invalid_count = 0
+    policy_rejected_count = 0
 
-    for entry in sorted(memory_dir.iterdir()):
+    for entry in entries:
         if entry.name.startswith(".") or not entry.name.endswith(".md"):
             continue
         if not _is_regular_no_symlink(entry, root):
@@ -386,9 +451,16 @@ def scan_memories(root: Path) -> MemorySnapshot:
             continue
         try:
             record = parse_memory_file(entry, root)
-        except (HotMemoryError, OSError):
+        except (HotMemoryError, OSError) as exc:
+            # §32: SAYAÇ gerçeği söyler, yol listesi sınırlı kalır.
+            invalid_count += 1
+            relative = _relative(root, entry)
             if len(invalid) < MAX_INVALID_REPORTED:
-                invalid.append(_relative(root, entry))
+                invalid.append(relative)
+            if isinstance(exc, HotMemoryError) and exc.code == "HOT_MEMORY_POLICY_REJECTED":
+                policy_rejected_count += 1
+                if len(policy_rejected) < MAX_INVALID_REPORTED:
+                    policy_rejected.append(relative)
             continue
 
         if record.memory_id in conflicts:
@@ -403,6 +475,9 @@ def scan_memories(root: Path) -> MemorySnapshot:
         items=items,
         conflicts=conflicts,
         invalid_relative_paths=invalid,
+        invalid_count=invalid_count,
+        policy_rejected_relative_paths=policy_rejected,
+        policy_rejected_count=policy_rejected_count,
         available=True,
     )
 
@@ -469,16 +544,124 @@ def _render_frontmatter(
     return metadata
 
 
-def _write_atomic(target: Path, content: str) -> None:
-    """Aynı dizinde geçici dosya + `os.replace` ile atomik yazma (§71)."""
-    temp = target.with_name(f".{target.name}.hm-{uuid.uuid4().hex}.tmp")
+def _temp_path(target: Path) -> Path:
+    """Hedefin YANINDA, gizli geçici dosya adı (§71)."""
+    return target.with_name(f".{target.name}.hm-{uuid.uuid4().hex}.tmp")
+
+
+def _write_temp(target: Path, content: str) -> Path:
+    """Tam içeriği geçici dosyaya yazar; GÖRÜNÜR hedefe dokunmaz."""
+    temp = _temp_path(target)
+    with open(temp, "x", encoding="utf-8") as handle:
+        handle.write(content)
+        handle.flush()
+        os.fsync(handle.fileno())
+    return temp
+
+
+def _replace_guarded(target: Path, content: str, guard: Callable[[], None]) -> None:
+    """Geçici dosyayı yazar, `guard`ı REPLACE'TEN HEMEN ÖNCE çalıştırır, sonra
+    hedefi atomik olarak değiştirir (§3).
+
+    Sıra kasıtlıdır: pahalı iş (yazma + fsync) doğrulamadan ÖNCE yapılır, böylece
+    "doğrulandı" ile "değiştirildi" arasındaki pencere tek bir `os.replace`
+    çağrısına iner. Ters sırada (önce doğrula, sonra yaz) pencere yazma süresi
+    kadar açık kalırdı.
+
+    Süreç içi eşzamanlılık (§52): `guard()` ile `os.replace` arasında `await`
+    YOKTUR. Tek iş parçacıklı olay döngüsü bu bölümü başka bir göreve bölemez;
+    bu yüzden iki eşzamanlı forkOS isteği yarışırsa ikincisi GÜNCEL baytlarda
+    eski revizyonu görüp `HOT_MEMORY_STALE` alır. Süreç içi kilit yoktur.
+
+    Kalan pencere yalnızca DIŞ süreçlere (Obsidian) karşıdır: `os.replace`
+    çağrısından önceki mikrosaniyelerde yapılan bir düzenleme yakalanmaz. Bu,
+    tek kullanıcılı yerel mimaride kabul edilir ve hiçbir kilit onu kapatamaz.
+    """
+    temp = _write_temp(target, content)
     try:
-        temp.write_text(content, encoding="utf-8")
+        guard()
         os.replace(temp, target)
     except Exception:
         with contextlib.suppress(OSError):
             temp.unlink(missing_ok=True)
         raise
+
+
+def _create_exclusive_fallback(target: Path, content: str) -> None:
+    """Sert bağ desteklemeyen dosya sistemleri için `O_CREAT|O_EXCL` yolu."""
+    try:
+        fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError as exc:
+        raise HotMemoryError("HOT_MEMORY_CONFLICT", "aynı kimlikle dosya zaten var") from exc
+    try:
+        with open(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+    except Exception:
+        with contextlib.suppress(OSError):
+            target.unlink(missing_ok=True)
+        raise
+
+
+def _create_exclusive(target: Path, content: str) -> None:
+    """Yeni hedefi atomik VE üzerine yazmadan yayınlar (§24).
+
+    Sıra: tam içerik geçici dosyaya yazılır → `os.link` ile hedefe bağlanır →
+    geçici dosya silinir. `os.link` hedef varsa `FileExistsError` verir; yani
+    "varsa üzerine yaz" DEĞİLDİR. Hedef ancak içeriği TAM olan dosyaya işaret
+    ettiği için kısmi bir Markdown dosyası hiçbir an görünmez.
+
+    Sert bağ desteklemeyen dosya sistemlerinde `O_CREAT|O_EXCL` yoluna düşülür:
+    üzerine yazma yine engellenir, ancak kısmi görünürlük garantisi o ortamda
+    GEÇERSİZDİR.
+    """
+    temp = _write_temp(target, content)
+    try:
+        try:
+            os.link(temp, target)
+        except FileExistsError as exc:
+            raise HotMemoryError(
+                "HOT_MEMORY_CONFLICT", "aynı kimlikle dosya zaten var"
+            ) from exc
+        except OSError as exc:
+            if exc.errno not in _NO_HARDLINK_ERRNOS:
+                raise
+            _create_exclusive_fallback(target, content)
+    finally:
+        # §25/§84: başarı da başarısızlık da geçici dosya BIRAKMAZ.
+        with contextlib.suppress(OSError):
+            temp.unlink(missing_ok=True)
+
+
+def verify_current_revision(
+    root: Path, record: MemoryRecord, expected_revision: str
+) -> bytes:
+    """Hedefin GÜNCEL baytlarını okuyup revizyonu doğrular (§3/§4/§20).
+
+    YETKİLİ kontrol budur. `record.revision` tarama anına aittir; tarama ile
+    yazma arasında kullanıcı Obsidian'da dosyayı düzenlemiş olabilir. Bu yüzden
+    karar, dosyanın ŞU ANKİ baytlarının hash'i ile verilir.
+
+    Uyuşmazlıkta hiçbir yazma yapılmaz ve `HOT_MEMORY_STALE` yükseltilir;
+    çağıranlar dosyayı tazeleyip yeniden denemelidir. Dönen baytlar çağırana
+    "doğrulanmış güncel içerik" olarak verilir.
+    """
+    root = _resolved_root(root)
+    try:
+        target = resolve_safe_vault_path(root, record.relative_path)
+    except (OSError, ValueError, PermissionError) as exc:
+        raise HotMemoryError("HOT_MEMORY_UNAVAILABLE", "hedef dosya çözümlenemedi") from exc
+    if not _is_regular_no_symlink(target, root):
+        raise HotMemoryError("HOT_MEMORY_UNAVAILABLE", "hedef dosya okunamıyor")
+    try:
+        current = target.read_bytes()
+    except OSError as exc:
+        raise HotMemoryError("HOT_MEMORY_UNAVAILABLE", "hedef dosya okunamıyor") from exc
+    if revision_of(current) != expected_revision:
+        raise HotMemoryError(
+            "HOT_MEMORY_STALE",
+            "hafıza dosyası okunduktan sonra değişmiş; güncelleme yapılmadı",
+        )
+    return current
 
 
 def create_memory(
@@ -493,7 +676,11 @@ def create_memory(
     related_forkos_ids: list[str] | None = None,
     tags: list[str] | None = None,
 ) -> MemoryRecord:
-    """Tek bir sıcak hafıza dosyası oluşturur (atomik, çakışmada üzerine yazmaz)."""
+    """Tek bir sıcak hafıza dosyası oluşturur (atomik, çakışmada üzerine yazmaz).
+
+    §24: hedef, içeriği TAM olan bir dosyaya atomik olarak bağlanır; kısmi bir
+    Markdown dosyası hiçbir an görünmez ve var olan hedef ASLA değiştirilmez.
+    """
     root = _resolved_root(root)
     memory_id = str(uuid.uuid4())
     now = _now_iso()
@@ -518,17 +705,7 @@ def create_memory(
 
     # `memory_id` sunucu üretimi olduğu için çakışma pratikte imkânsızdır; yine de
     # sessiz üzerine yazma yerine deterministik hata tercih edilir.
-    try:
-        fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-    except FileExistsError as exc:
-        raise HotMemoryError("HOT_MEMORY_CONFLICT", "aynı kimlikle dosya zaten var") from exc
-    try:
-        with open(fd, "w", encoding="utf-8") as handle:
-            handle.write(content)
-    except Exception:
-        with contextlib.suppress(OSError):
-            target.unlink(missing_ok=True)
-        raise
+    _create_exclusive(target, content)
 
     return parse_memory_file(target, root)
 
@@ -549,7 +726,15 @@ def rewrite_memory(
     status: str | None = None,
     retired_reason: str | None = None,
 ) -> MemoryRecord:
-    """Var olan öğeyi atomik olarak günceller; revizyon uyuşmazsa yazmaz.
+    """Var olan öğeyi atomik olarak günceller; revizyon uyuşmazsa YAZMAZ.
+
+    İki katmanlı revizyon denetimi (§5):
+
+      erken karşılaştırma (`record.revision`) = kolaylık, hızlı hata yolu
+      `verify_current_revision` (disk)        = YETKİ
+
+    İkincisi olmadan, tarama ile yazma arasında Obsidian'da yapılan bir
+    kullanıcı düzenlemesi bayat bir ajan yazmasıyla ezilebilirdi.
 
     `None` = "alanı değiştirme". Temizleme niyeti `clear_expires_at` gibi açık
     bir bayrakla ifade edilir; böylece H1.1'deki omitted-vs-null ayrımı burada
@@ -557,6 +742,7 @@ def rewrite_memory(
     """
     root = _resolved_root(root)
     if record.revision != expected_revision:
+        # Kolaylık: en yaygın bayatlık hâlini disk okumadan yakalar.
         raise HotMemoryError(
             "HOT_MEMORY_STALE",
             "hafıza dosyası okunduktan sonra değişmiş; güncelleme yapılmadı",
@@ -596,7 +782,15 @@ def rewrite_memory(
     )
     content = render_markdown_with_frontmatter(metadata, text if text is not None else record.text)
 
-    _write_atomic(target, content)
+    # §3/§5: YETKİLİ kontrol replace'ten hemen önce çalışır. Yukarıdaki
+    # `record.revision` karşılaştırması hızlı hata yoludur; tek başına YETKİ
+    # VERMEZ, çünkü tarama ile bu an arasında kullanıcı dosyayı Obsidian'da
+    # düzenlemiş olabilir. Yetki, dosyanın ŞU ANKİ baytlarının hash'inden gelir.
+    _replace_guarded(
+        target,
+        content,
+        lambda: verify_current_revision(root, record, expected_revision),
+    )
     return parse_memory_file(target, root)
 
 
@@ -618,11 +812,25 @@ def writable_root() -> Path:
 
 
 def readable_root() -> Path | None:
-    """Okuma için kök; Vault yoksa `None` (çağıran fail-closed davranır)."""
+    """Okuma için kök; güvenle okunamıyorsa `None` (§28/§29).
+
+    Doğrulama: yapılandırılmış mı, var mı, dizin mi, OKUNABİLİR mi. Hiçbir şey
+    OLUŞTURULMAZ (§61). `90 Agent/Memory` yoksa bu bir hata değildir: boş
+    hafızadır. Dizin varsa okunabilirliği de burada doğrulanır ki ham bir
+    `PermissionError` tarama sırasında sızmasın.
+    """
     from app.integrations.obsidian.vault import vault_context
 
-    root, _ = vault_context()
-    if root is None:
+    try:
+        root, _ = vault_context()
+        if root is None:
+            return None
+        resolved = root.resolve()
+        if not resolved.is_dir() or not os.access(resolved, os.R_OK | os.X_OK):
+            return None
+        memory_dir = _memory_dir(resolved)
+        if memory_dir.is_dir() and not os.access(memory_dir, os.R_OK | os.X_OK):
+            return None
+    except (OSError, ValueError, PermissionError):
         return None
-    resolved = root.resolve()
-    return resolved if resolved.is_dir() else None
+    return resolved
