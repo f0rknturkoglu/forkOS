@@ -64,13 +64,14 @@ async def test_mcp_fastapi_mount_and_smoke():
         init_result = await session.initialize()
         assert init_result.server_info.name == "forkos-brain"
 
-        # 8 H0 okuma + 11 H1 yazma + 5 H2 hafıza + 1 H3 kanıt = 25
+        # 8 H0 okuma + 11 H1 yazma + 5 H2 hafıza + 1 H3 kanıt + 1 H4 biliş = 26
         tools = await session.list_tools()
         tool_names = {t.name for t in tools.tools}
         assert tool_names >= READ_TOOL_NAMES
         assert tool_names >= WRITE_TOOL_NAMES
         assert "forkos_evidence" in tool_names
-        assert len(tool_names) == 25
+        assert "forkos_local_cognition" in tool_names
+        assert len(tool_names) == 26
 
         status_res = await session.call_tool("brain_status", {})
         assert status_res.is_error is False

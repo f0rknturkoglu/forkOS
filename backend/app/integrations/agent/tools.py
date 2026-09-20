@@ -58,6 +58,8 @@ from app.integrations.agent.write_models import (
     TodoPlanIn,
     TodoUpdateIn,
 )
+from app.integrations.local_cognition import models as lc_models
+from app.integrations.local_cognition import service as lc_svc
 
 #: H1 girdi sınırları (§66). Şemada GÖRÜNÜR olmalı ki Hermes onaydan önce
 #: limitleri bilebilsin; yürütmedeki otorite yine `write_models` doğrulamasıdır.
@@ -240,6 +242,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_write_tools(server)
     _register_hot_memory_tools(server)
     _register_evidence_tool(server)
+    _register_local_cognition_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -981,3 +984,94 @@ def _register_evidence_tool(server: MCPServer) -> None:
             raise ToolError(str(exc)) from exc
         except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı (§127)
             raise ToolError(f"EVIDENCE_UNAVAILABLE: {type(exc).__name__}") from exc
+
+
+# ---------------------------------------------------------------------------
+# H4 yerel bilis aracı (salt-okunur, yalnız loopback model çağrısı)
+# ---------------------------------------------------------------------------
+
+#: H4 girdi sınırları (§29) — şemada GÖRÜNÜR, yürütmede bağımsız dayatılır.
+LocalCognitionText = Annotated[
+    str, Field(min_length=lc_models.MIN_TEXT_CHARS, max_length=lc_models.MAX_TEXT_CHARS)
+]
+LocalCognitionLabelItem = Annotated[
+    str,
+    Field(min_length=lc_models.MIN_LABEL_CHARS, max_length=lc_models.MAX_LABEL_CHARS),
+]
+LocalCognitionLabels = Annotated[
+    list[LocalCognitionLabelItem] | None,
+    Field(min_length=lc_models.MIN_LABELS, max_length=lc_models.MAX_LABELS),
+]
+LocalCognitionProtectedItem = Annotated[
+    str,
+    Field(
+        min_length=lc_models.MIN_PROTECTED_TERM_CHARS,
+        max_length=lc_models.MAX_PROTECTED_TERM_CHARS,
+    ),
+]
+LocalCognitionProtectedTerms = Annotated[
+    list[LocalCognitionProtectedItem] | None, Field(max_length=lc_models.MAX_PROTECTED_TERMS)
+]
+LocalCognitionGoal = Annotated[
+    str | None, Field(max_length=lc_models.MAX_CLASSIFICATION_GOAL_CHARS)
+]
+
+#: H4'ün ağ sözleşmesi H0-H3'ten FARKLIDIR: yalnızca loopback model trafiği
+#: vardır, dış ağ çağrısı yoktur.
+_H4_NETWORK_NOTE = (
+    "Model execution happens only through the configured loopback provider "
+    "(localhost/127.0.0.1/::1); no external network calls are made and no remote "
+    "model is ever contacted by forkOS."
+)
+
+
+def _register_local_cognition_tool(server: MCPServer) -> None:
+    """H4'ün TEK aracını kaydeder (§24).
+
+    Taşıma düz argümanlarla yapılır (MCP istemcileri için en güvenilir biçim);
+    ayrık lane isteği handler içinde kurulur ve çalışma zamanında doğrulanır
+    (§28: taşıma doğruluğu, şema estetiğinden önce gelir).
+    """
+
+    @server.tool(
+        name="forkos_local_cognition",
+        description=(
+            "Run ONE explicitly chosen local cognition primitive through the configured "
+            "loopback model: classify (pick one supplied label), structured_extract (named "
+            "versioned contract: academic_calendar_v1, weekly_schedule_v1, "
+            "deadline_candidates_v1) or query_rewrite (bounded retrieval rewrite that keeps "
+            "protected terms verbatim). The lane is mandatory: this tool does not decide what "
+            "kind of work to do, it executes the primitive you asked for. Model output is a "
+            "proposal only - every result passes deterministic validation, and failures are "
+            "retried within hard bounds (small 2 attempts, medium 1) before returning "
+            "status=needs_escalation. The caller supplies all text; this tool never reads the "
+            "Vault, the database, Hot Memory or evidence, and it never writes anything. "
+            "deferred/unsupported lanes (rerank, compress, reason, chat, answer, plan) are "
+            "rejected. " + _H4_NETWORK_NOTE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_local_cognition(
+        lane: lc_models.Lane,
+        text: LocalCognitionText,
+        contract: lc_models.ExtractionContractName | None = None,
+        labels: LocalCognitionLabels = None,
+        classification_goal: LocalCognitionGoal = None,
+        protected_terms: LocalCognitionProtectedTerms = None,
+    ) -> lc_models.LocalCognitionResponse:
+        try:
+            request = lc_models.build_lane_request(
+                lane=lane,
+                text=text,
+                contract=contract,
+                labels=labels,
+                classification_goal=classification_goal,
+                protected_terms=protected_terms,
+            )
+            return await lc_svc.run_local_cognition(request)
+        except lc_models.H4Error as exc:
+            raise ToolError(str(exc)) from exc
+        except ValidationError as exc:
+            raise ToolError(f"INVALID_ARGUMENT: {_first_validation_error(exc)}") from exc
+        except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
+            raise ToolError(f"LOCAL_COGNITION_FAILED: {type(exc).__name__}") from exc

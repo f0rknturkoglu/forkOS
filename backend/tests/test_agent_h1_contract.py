@@ -130,8 +130,10 @@ async def test_exact_public_tool_surface() -> None:
     bir salt-okunur araç ekledi.
     """
     tool_map = await _tools()
-    assert len(tool_map) == 25
-    assert set(tool_map) == set(READ_TOOLS) | set(WRITE_TOOLS) | set(H2_TOOLS) | {"forkos_evidence"}
+    assert len(tool_map) == 26
+    assert set(tool_map) == (
+        set(READ_TOOLS) | set(WRITE_TOOLS) | set(H2_TOOLS) | {"forkos_evidence", "forkos_local_cognition"}
+    )
 
 
 async def test_read_tools_keep_readonly_annotations() -> None:
