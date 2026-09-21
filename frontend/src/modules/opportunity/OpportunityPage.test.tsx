@@ -50,11 +50,11 @@ vi.mock("@/app/router", () => ({
 vi.mock("@/core/SaveToLibrary", () => ({ useSaveToLibrary: () => ({ save: vi.fn() }) }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
 vi.mock("@/core/SyncProgress", () => ({ SyncProgress: () => null }));
-vi.mock("./SourcePicker", () => ({ SourcePicker: () => null }));
+vi.mock("@/modules/sources/SourcePicker", () => ({ SourcePicker: () => null }));
 vi.mock("./OpportunityDetail", () => ({ OpportunityDetail: () => null }));
 vi.mock("./ApplicationsWorkspace", () => ({ ApplicationsWorkspace: () => null }));
 vi.mock("./CareerWorkspace", () => ({ CareerWorkspace: () => null }));
-vi.mock("./SourcesWorkspace", () => ({ SourcesWorkspace: () => null }));
+vi.mock("@/modules/sources/SourcesWorkspace", () => ({ SourcesWorkspace: () => null }));
 
 import { OpportunityPage } from "./OpportunityPage";
 

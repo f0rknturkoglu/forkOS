@@ -136,7 +136,9 @@ const PRODUCT_AREAS: readonly ProductArea[] = [
     label: "Sistem",
     icon: BookOpen,
     placement: "system",
-    moduleIds: ["health", "settings"],
+    // "sources" kendi modülüdür (rota + kaynak operasyonları yüzeyi); sidebar
+    // satırı modül başlığından gelir ve sıra burada belirlenir.
+    moduleIds: ["health", "sources", "settings"],
     labels: { health: "Sistem Durumu" },
   },
 ];

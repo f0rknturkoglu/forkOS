@@ -18,3 +18,4 @@ import "./projects";
 import "./finance";
 import "./settings";
 import "./health";
+import "./sources";

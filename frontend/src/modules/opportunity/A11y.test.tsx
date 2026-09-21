@@ -126,7 +126,7 @@ vi.mock("@/core/ui", async (importOriginal) => {
   return { ...actual, useToast: () => ({ push: vi.fn() }) };
 });
 
-import { SourcesWorkspace } from "./SourcesWorkspace";
+import { SourcesWorkspace } from "@/modules/sources/SourcesWorkspace";
 
 afterEach(() => {
   cleanup();
@@ -248,9 +248,7 @@ describe("Kaynak satırı düğme adları", () => {
     const name = `${sourceLabel("jobhunter:eures")} — yenile`;
     fireEvent.click(await screen.findByRole("button", { name }));
 
-    await waitFor(() =>
-      expect(harness.post).toHaveBeenCalledWith("/sources/refresh", { source_ids: ["jobhunter:eures"] }),
-    );
+    await waitFor(() => expect(harness.post).toHaveBeenCalledWith("/sources/jobhunter%3Aeures/refresh"));
     // pending hata sonrası temizlenir; düğme yeniden kullanılabilir olur.
     await waitFor(() => expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(false));
   });

@@ -13,14 +13,14 @@ import type { Opportunity } from "@/core/types";
 import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import { SyncProgress } from "@/core/SyncProgress";
 import { useOnline } from "@/lib/hooks";
+import { SourcePicker } from "@/modules/sources/SourcePicker";
+import { SourcesWorkspace } from "@/modules/sources/SourcesWorkspace";
 import { OpportunityDetail } from "./OpportunityDetail";
 import { OpportunityCard, OpportunityCollection } from "./OpportunityList";
 import { OpportunityKanban } from "./OpportunityKanban";
 import { OpportunityFilterBar } from "./OpportunityFilters";
-import { SourcePicker } from "./SourcePicker";
 import { ApplicationsWorkspace } from "./ApplicationsWorkspace";
 import { CareerWorkspace } from "./CareerWorkspace";
-import { SourcesWorkspace } from "./SourcesWorkspace";
 import { browseQuery, type OpportunityBrowseFilters, type OpportunityBrowseResponse } from "./opportunityBrowse";
 import {
   OPPORTUNITY_TABS,

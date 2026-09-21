@@ -1,76 +1,53 @@
-import { invalidateAfter } from "@/core/invalidation";
-import { SOURCE_SYNC_ACTIVE_MS, SOURCE_SYNC_IDLE_MS } from "@/core/SyncProgress";
-import { useMemo, useRef, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Check, RefreshCw, Search } from "lucide-react";
-import { api } from "@/core/api";
-import { navigate } from "@/app/router";
-import { Button, Checkbox, Input, Popover, Spinner, cx, relativeTime, useToast } from "@/core/ui";
-import type { SourceHealth, SourceRefreshResult, SourceSyncStatus } from "@/core/types";
-import { useOnline } from "@/lib/hooks";
-import { sourceLabel } from "@/core/labels";
-
-type Catalog = { id: string; interval_minutes: number; kind: string };
-const KIND_LABELS: Record<string, string> = { job: "İş ilanı", announcement: "Duyuru" };
-
 /**
- * "Kaynakları çek" acilir listesi.
+ * "Kaynakları çek" açılır listesi — paylaşılan kaynak katmanının kompakt yüzü.
  *
- * Tam kaynak ekranina gitmeden secip cekmek icin. Ayni isi yapan genis
- * ekran /sources'ta duruyor; buradaki alt bagla oraya gecilir.
+ * Kariyer sekmesinin başlığından seçip çeker. Kendi sorgu/mutasyon kopyası
+ * YOKTUR: katalog, koşular, aktif çekim ve yenileme `./sourceOps` üzerinden
+ * gelir; geniş yüzey (`/sources`) ile aynı veriyi paylaşır.
  */
+import { useMemo, useRef, useState } from "react";
+import { ArrowUpRight, RefreshCw, Search } from "lucide-react";
+import { navigate } from "@/app/router";
+import { sourceLabel } from "@/core/labels";
+import { runStateView, sourceKindLabel } from "@/core/sourceStatus";
+import { useSourceSync } from "@/core/SyncProgress";
+import { Button, Checkbox, Chip, Input, Popover, Spinner, cx, relativeTime } from "@/core/ui";
+import { useOnline } from "@/lib/hooks";
+import {
+  latestRunBySource,
+  runningSources,
+  sourceRunState,
+  syncBySource,
+  useSourceCatalog,
+  useSourceRefresh,
+  useSourceRuns,
+} from "./sourceOps";
+
 export function SourcePicker() {
   const online = useOnline();
-  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const {
-    data: catalog = [],
-    isPending: catalogLoading,
-    isError: catalogFailed,
-  } = useQuery({
-    queryKey: ["source-catalog"],
-    queryFn: () => api.get<Catalog[]>("/sources/catalog"),
-  });
-  const { data: runs = [], isError: runsFailed } = useQuery({
-    queryKey: ["source-runs"],
-    queryFn: () => api.get<SourceHealth[]>("/sources/runs"),
-  });
-  const { data: sync } = useQuery({
-    queryKey: ["source-sync"],
-    queryFn: () => api.get<SourceSyncStatus>("/sources/sync"),
-    refetchInterval: (query) => (query.state.data?.running.length ? SOURCE_SYNC_ACTIVE_MS : SOURCE_SYNC_IDLE_MS),
-  });
+  const catalog = useSourceCatalog();
+  const runs = useSourceRuns();
+  const sync = useSourceSync();
+  const refresh = useSourceRefresh();
 
-  const running = useMemo(() => new Set((sync?.running ?? []).map((item) => item.source)), [sync]);
-  const latest = useMemo(() => {
-    const map = new Map<string, SourceHealth>();
-    for (const run of runs) if (!map.has(run.source)) map.set(run.source, run);
-    return map;
-  }, [runs]);
-
-  const refresh = useMutation({
-    mutationFn: (source_ids: string[]) => api.post<SourceRefreshResult>("/sources/refresh", { source_ids }),
-    onSuccess: (result) => {
-      setPicked(new Set());
-      setOpen(false);
-      invalidateAfter("source.sync");
-      toast.push(
-        result.queued ? `${result.queued} kaynak kuyruğa alındı` : "Seçilen kaynaklar aktif çekimde zaten var",
-        { tone: "ok" },
-      );
-    },
-  });
+  const catalogEntries = useMemo(() => catalog.data ?? [], [catalog.data]);
+  const running = useMemo(() => runningSources(sync.data), [sync.data]);
+  const liveBySource = useMemo(() => syncBySource(sync.data), [sync.data]);
+  const latestRuns = useMemo(() => latestRunBySource(runs.data ?? []), [runs.data]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("tr");
-    return needle ? catalog.filter((source) => source.id.toLocaleLowerCase("tr").includes(needle)) : catalog;
-  }, [catalog, search]);
+    return needle
+      ? catalogEntries.filter((entry) => entry.id.toLocaleLowerCase("tr").includes(needle))
+      : catalogEntries;
+  }, [catalogEntries, search]);
 
-  const allPicked = visible.length > 0 && visible.every((s) => picked.has(s.id));
+  const allPicked = visible.length > 0 && visible.every((entry) => picked.has(entry.id));
 
   function toggle(id: string) {
     setPicked((current) => {
@@ -84,8 +61,8 @@ export function SourcePicker() {
   function toggleAll() {
     setPicked((current) => {
       const next = new Set(current);
-      if (allPicked) visible.forEach((s) => next.delete(s.id));
-      else visible.forEach((s) => next.add(s.id));
+      if (allPicked) visible.forEach((entry) => next.delete(entry.id));
+      else visible.forEach((entry) => next.add(entry.id));
       return next;
     });
   }
@@ -94,7 +71,7 @@ export function SourcePicker() {
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="dialog"
         className={cx(
@@ -104,7 +81,7 @@ export function SourcePicker() {
             : "border-strong bg-surface text-primary hover:bg-surface-hover",
         )}
       >
-        <RefreshCw size={15} className={running.size > 0 ? "animate-spin text-accent" : undefined} />
+        <RefreshCw size={15} aria-hidden className={running.size > 0 ? "animate-spin text-accent" : undefined} />
         Kaynakları çek
         {picked.size > 0 && (
           <span className="rounded border border-accent-border bg-accent-surface px-1.5 text-micro leading-5 text-accent">
@@ -128,7 +105,7 @@ export function SourcePicker() {
         className="right-0 top-11 w-[420px]"
       >
         <div className="flex items-center gap-2.5 border-b border-subtle px-3 py-2.5">
-          <Search size={15} className="shrink-0 text-icon" />
+          <Search size={15} aria-hidden className="shrink-0 text-icon" />
           <Input
             autoFocus
             value={search}
@@ -142,40 +119,43 @@ export function SourcePicker() {
         <div className="flex items-center gap-3 border-b border-subtle bg-surface-sunken px-3 py-2">
           <Checkbox checked={allPicked} onChange={toggleAll} label={allPicked ? "Seçimi kaldır" : "Hepsini seç"} />
           <span className="flex-1" />
-          <span className="text-meta text-muted">{catalogLoading ? "yükleniyor…" : `${visible.length} kaynak`}</span>
+          <span className="text-meta text-muted">{catalog.isLoading ? "yükleniyor…" : `${visible.length} kaynak`}</span>
         </div>
 
         <ul className="max-h-[300px] overflow-y-auto">
-          {runsFailed && (
+          {runs.isError && (
             <li className="border-b border-subtle bg-warn-surface px-3 py-2 text-meta text-warn">
               Koşu bilgisi yüklenemedi; saat ve sonuç sütunları eksik görünebilir.
             </li>
           )}
-          {catalogLoading && (
+          {catalog.isLoading && (
             <li className="flex items-center justify-center gap-2 px-3 py-6 text-meta text-muted">
               <Spinner /> Kaynak listesi yükleniyor…
             </li>
           )}
-          {catalogFailed && (
+          {catalog.isError && (
             <li className="px-3 py-6 text-center text-meta text-danger">
               Kaynak listesi yüklenemedi. Paneli kapatıp yeniden dene.
             </li>
           )}
-          {visible.map((source) => {
-            const run = latest.get(source.id);
-            const busy = running.has(source.id);
-            const checked = picked.has(source.id);
+          {visible.map((entry) => {
+            const run = latestRuns.get(entry.id);
+            const live = liveBySource.get(entry.id);
+            // Durum sözlüğü tek kaynaktan: canlı çekim > son koşu > hiç çalışmadı.
+            const state = runStateView(sourceRunState({ sync: live, run }));
+            const busy = running.has(entry.id);
+            const checked = picked.has(entry.id);
             return (
-              <li key={source.id}>
+              <li key={entry.id}>
                 <Checkbox
                   checked={checked}
-                  onChange={() => toggle(source.id)}
+                  onChange={() => toggle(entry.id)}
                   label={
                     <>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body text-primary">{sourceLabel(source.id)}</span>
+                        <span className="block truncate text-body text-primary">{sourceLabel(entry.id)}</span>
                         <span className="block truncate text-meta text-muted">
-                          {KIND_LABELS[source.kind] ?? source.kind}
+                          {sourceKindLabel(entry.kind) ?? entry.kind}
                           {" · "}
                           {busy ? "çekiliyor…" : run?.started_at ? relativeTime(run.started_at) : "hiç çalışmadı"}
                         </span>
@@ -183,23 +163,9 @@ export function SourcePicker() {
                       {run && run.items_found > 0 && (
                         <span className="numeral shrink-0 text-body text-secondary">+{run.items_found}</span>
                       )}
-                      {busy ? (
-                        <span className="shrink-0 rounded-control bg-accent-surface px-1.5 py-0.5 text-micro font-medium text-accent">
-                          çekiliyor
-                        </span>
-                      ) : run?.status === "ok" ? (
-                        <span className="shrink-0 rounded-control bg-ok-surface px-1.5 py-0.5 text-micro font-medium text-ok">
-                          aktif
-                        </span>
-                      ) : run?.status === "empty" ? (
-                        <span className="shrink-0 rounded-control bg-warn-surface px-1.5 py-0.5 text-micro font-medium text-warn">
-                          boş
-                        </span>
-                      ) : run?.status === "error" ? (
-                        <span className="shrink-0 rounded-control bg-danger-surface px-1.5 py-0.5 text-micro font-medium text-danger">
-                          hata
-                        </span>
-                      ) : null}
+                      <Chip tone={state.tone} size="xs">
+                        {state.label}
+                      </Chip>
                     </>
                   }
                   className={cx(
@@ -210,7 +176,7 @@ export function SourcePicker() {
               </li>
             );
           })}
-          {!catalogLoading && !catalogFailed && visible.length === 0 && (
+          {!catalog.isLoading && !catalog.isError && visible.length === 0 && (
             <li className="px-3 py-6 text-center text-meta text-muted">Eşleşen kaynak yok.</li>
           )}
         </ul>
@@ -224,7 +190,7 @@ export function SourcePicker() {
             }}
             className="flex items-center gap-1.5 text-meta text-muted transition hover:text-primary"
           >
-            Ayrı sayfada aç <ArrowUpRight size={13} />
+            Ayrı sayfada aç <ArrowUpRight size={13} aria-hidden />
           </button>
           <span className="flex-1" />
           {!online && <span className="text-meta text-warn">Çevrimdışı: çekim başlatılamaz.</span>}
@@ -232,9 +198,19 @@ export function SourcePicker() {
             size="sm"
             variant="primary"
             disabled={!online || picked.size === 0 || refresh.isPending}
-            onClick={() => refresh.mutate([...picked])}
+            onClick={() =>
+              refresh.mutate(
+                { source_ids: [...picked] },
+                {
+                  onSuccess: () => {
+                    setPicked(new Set());
+                    setOpen(false);
+                  },
+                },
+              )
+            }
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} aria-hidden />
             Kaynakları çek{picked.size > 0 ? ` (${picked.size})` : ""}
           </Button>
         </div>
