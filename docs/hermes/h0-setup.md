@@ -33,13 +33,20 @@ Hermes'in araç tanımları bölümüne `forkos-brain` MCP sunucusunu ekleyin:
 ```yaml
 mcp_servers:
   forkos-brain:
-    type: http
     url: "http://127.0.0.1:8787/mcp"
-    headers: {}
-    timeout: 30
+    enabled: true
+    trust: untrusted
+    timeout: 120
+    connect_timeout: 30
+    supports_parallel_tool_calls: false
+    sampling:
+      enabled: false
 ```
 
-*Not: Eğer Hermes `streamable_http` veya `sse` ayrımı yapıyorsa, resmi Streamable HTTP endpoint'i `http://127.0.0.1:8787/mcp` adresidir.*
+*Not: Gerçek bağlanma adresi her zaman `http://127.0.0.1:8787/mcp` yoludur
+(resmi Streamable HTTP endpoint'i); aynı tarif Ayarlar → **Brain & Agent**
+sekmesinde kopyalanabilir olarak da durur. `trust: untrusted` istemci tarafında
+yazma onayı ister ve forkOS bu ayarı doğrulayamaz.*
 
 ---
 

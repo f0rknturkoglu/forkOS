@@ -65,6 +65,39 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
 
 ---
 
+## 1b. Bağlantı Tarifi (Ayarlar → Brain & Agent)
+
+forkOS kendi MCP sunucusunun hazır olduğunu bilir; **Hermes istemcisinin bağlı
+olduğunu, seçtiği modeli veya trust ayarını bilemez ve böyle bir durum
+göstermez.** Bu yüzden bağlantı bir "durum" değil, bir tariftir ve Ayarlar →
+**Brain & Agent** sekmesinde verilir: canlı MCP adresi + kopyalanabilir önerilen
+istemci ayarı.
+
+```yaml
+mcp_servers:
+  forkos-brain:
+    url: "http://127.0.0.1:8787/mcp"
+    enabled: true
+    trust: untrusted
+    timeout: 120
+    connect_timeout: 30
+    supports_parallel_tool_calls: false
+    sampling:
+      enabled: false
+```
+
+- `trust: untrusted` bir **istemci** ayarıdır: yazma araçları kullanıcı onayı
+  ister. forkOS bu ayarın Hermes tarafında gerçekten açık olduğunu doğrulayamaz
+  ve forkOS içinde bir "trust aç" düğmesi YOKTUR; gerçek dosya
+  `~/.hermes/config.yaml` yalnız kullanıcı tarafından düzenlenir.
+- `sampling: enabled: false` ve `supports_parallel_tool_calls: false` güvenli
+  varsayılanlardır: forkOS tarafında sunucu-taraflı LLM çağrısı yoktur ve araç
+  yüzeyi sıralı kullanılmak üzere tasarlanmıştır.
+- Adres sunucudan gelir (gerçek bağlanma portu; Host başlığına güvenilmez) ve
+  her zaman loopback'e sabitlenir; tam sistem yolu arayüze sızmaz.
+
+---
+
 ## 2. H0 Kesin Sınırları ve Kapsam Dışı Alanlar
 
 H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek önceliktir. Aşağıdaki kurallar mutlaktır:
