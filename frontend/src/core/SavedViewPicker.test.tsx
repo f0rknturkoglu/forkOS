@@ -108,7 +108,8 @@ describe("SavedViewPicker", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Kayıtlı görünümler" }));
     await userEvent.click(await screen.findByRole("button", { name: "Okunmamış" }));
 
-    expect(onApply).toHaveBeenCalledWith({ read_status: "unread" });
+    // Görünümün kendisi de verilir: sayfa `?saved=<id>` vurgusunu yazabilsin.
+    expect(onApply).toHaveBeenCalledWith({ read_status: "unread" }, expect.objectContaining({ id: "v1" }));
   });
 
   it("yıldızla sabitlemeyi açar/kapatır", async () => {

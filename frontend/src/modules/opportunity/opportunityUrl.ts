@@ -43,6 +43,8 @@ const NUMERIC_KEYS = ["period_days", "year", "min_score", "max_score", "min_skil
 interface OpportunityUrlState {
   tab: OpportunityTab;
   focus: string | null;
+  /** Sabitlenmiş görünüm kimliği (opsiyonel): seçili filtreyi tekrar üretilebilir kılar. */
+  saved?: string | null;
   story: string | null;
   connection: string | null;
   filters: OpportunityBrowseFilters;
@@ -54,6 +56,7 @@ export function serializeOpportunityUrl(state: OpportunityUrlState): string {
   query.set("tab", state.tab);
   if (state.filters.section !== "jobs") query.set("section", state.filters.section);
   if (state.focus) query.set("focus", state.focus);
+  if (state.saved) query.set("saved", state.saved);
   if (state.story) query.set("story", state.story);
   if (state.connection) query.set("connection", state.connection);
   if (state.view) query.set("view", state.view);
@@ -117,9 +120,48 @@ export function parseOpportunityUrl(params: URLSearchParams, base: OpportunityBr
   return {
     tab,
     focus: params.get("focus"),
+    saved: params.get("saved"),
     story,
     connection,
     filters,
     view: view === "rows" || view === "grid" || view === "kanban" ? view : null,
   };
+}
+
+/**
+ * Kayıtlı görünüm filtresini TANINAN alanlarla sınırlar: eski/başka modüle ait
+ * anahtarlar sessizce yok sayılır, kayıtlı görünüm uygulamayı çökertmez.
+ */
+export function sanitizeOpportunityFilters(
+  raw: Record<string, unknown>,
+  base: OpportunityBrowseFilters,
+): OpportunityBrowseFilters {
+  const next: OpportunityBrowseFilters = { ...base };
+  for (const key of FILTER_KEYS) {
+    const value = raw[key];
+    if (value === undefined || value === null || value === "") continue;
+    (next as unknown as Record<string, unknown>)[key] = value;
+  }
+  for (const key of NUMERIC_KEYS) {
+    const value = raw[key];
+    if (typeof value !== "number") continue;
+    (next as unknown as Record<string, unknown>)[key] = value;
+  }
+  return next;
+}
+
+/** Kaydetme yönü: yalnız dolu tanınan alanlar yazılır (sanitize'ın tersi). */
+export function serializeOpportunityFilters(filters: OpportunityBrowseFilters): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  for (const key of FILTER_KEYS) {
+    const value = filters[key as keyof OpportunityBrowseFilters];
+    if (value === undefined || value === null || value === "") continue;
+    payload[key] = value;
+  }
+  for (const key of NUMERIC_KEYS) {
+    const value = filters[key as keyof OpportunityBrowseFilters];
+    if (typeof value !== "number") continue;
+    payload[key] = value;
+  }
+  return payload;
 }

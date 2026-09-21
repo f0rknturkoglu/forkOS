@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -41,6 +41,8 @@ import {
 } from "@/core/workspace/Workspace";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
+import { SavedViewPicker } from "@/core/SavedViewPicker";
+import { useAppliedSavedView } from "@/core/savedViews";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
 import type { Bookmark, BookmarkStats, Collection, TagCount } from "@/core/types";
@@ -256,6 +258,23 @@ export function BookmarksPage() {
     if (focus) document.getElementById(focus)?.scrollIntoView({ block: "center" });
   }, [focus]);
 
+  /**
+   * Sabitlenmiş/kayıtlı görünümün filtresi. Yalnız tanınan alanlar uygulanır;
+   * eski veya başka modüle ait anahtarlar sessizce yok sayılır.
+   */
+  const applySavedFilters = useCallback((saved: Record<string, unknown>) => {
+    const text = (key: string) => (typeof saved[key] === "string" ? (saved[key] as string) : undefined);
+    setFilter({
+      collection: (text("collection") as Filter["collection"]) ?? "",
+      read_status: text("read_status"),
+      favorite: saved.favorite === true || saved.favorite === "true" ? true : undefined,
+      source: text("source"),
+      tag: text("tag"),
+    });
+    if (typeof saved.q === "string") setSearch(saved.q);
+  }, []);
+  useAppliedSavedView("bookmarks", params, applySavedFilters);
+
   const query = { ...filter, q, limit: 100 } as Record<string, string | number | boolean>;
   const { data = [], isLoading } = useQuery({
     queryKey: ["bookmarks", "library", query],
@@ -418,6 +437,8 @@ export function BookmarksPage() {
                 />
               )}
             </div>
+
+            <SavedViewPicker module="bookmarks" filters={{ ...filter, q }} onApply={applySavedFilters} />
 
             {/* Sag Taraf: Gorunum Gecisi ve Ice/Disa Aktar */}
             <div className="flex items-center gap-1.5 shrink-0">

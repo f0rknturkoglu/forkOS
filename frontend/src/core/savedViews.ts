@@ -34,7 +34,8 @@ export function useSavedViews(module: string) {
 export function usePinnedSavedViews() {
   return useQuery({
     queryKey: PINNED_VIEWS_KEY,
-    queryFn: () => api.get<SavedViewRow[]>("/views").then((rows) => rows.filter((row) => row.pinned)),
+    queryFn: () =>
+      api.get<SavedViewRow[]>("/views").then((rows) => (Array.isArray(rows) ? rows.filter((row) => row.pinned) : [])),
   });
 }
 
@@ -45,10 +46,11 @@ export function usePinnedSavedViews() {
 export function useAppliedSavedView(
   module: string,
   params: URLSearchParams,
-  apply: (filter: Record<string, unknown>) => void,
+  apply: (filter: Record<string, unknown>, view: SavedViewRow) => void,
 ): void {
   const requestedId = params.get("saved");
-  const { data = [] } = useSavedViews(module);
+  const { data } = useSavedViews(module);
+  const views = Array.isArray(data) ? data : [];
   const appliedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -57,9 +59,9 @@ export function useAppliedSavedView(
       return;
     }
     if (appliedRef.current === requestedId) return;
-    const view = data.find((row) => row.id === requestedId);
+    const view = views.find((row) => row.id === requestedId);
     if (!view) return;
     appliedRef.current = requestedId;
-    apply(view.filter ?? {});
-  }, [requestedId, data, apply]);
+    apply(view.filter ?? {}, view);
+  }, [requestedId, views, apply]);
 }

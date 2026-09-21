@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
+import { SavedViewPicker } from "@/core/SavedViewPicker";
+import { useAppliedSavedView } from "@/core/savedViews";
 import { Chip, Empty, PageFrame, RowList, Section, SkeletonRows } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
@@ -63,6 +65,17 @@ export function TodoPage() {
   useEffect(() => {
     if (focusId) setStatus("");
   }, [focusId]);
+
+  /**
+   * Sabitlenmiş/kayıtlı görünüm: yalnız tanınan alanlar (durum, etiket, rutin)
+   * uygulanır; bilinmeyen anahtar yok sayılır.
+   */
+  const applySavedFilters = useCallback((saved: Record<string, unknown>) => {
+    if (typeof saved.status === "string") setStatus(saved.status);
+    if (typeof saved.tag === "string") setTag(saved.tag);
+    if (typeof saved.routine === "boolean") setRoutineOnly(saved.routine);
+  }, []);
+  useAppliedSavedView("todo", params, applySavedFilters);
 
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ["todos", status, routineOnly ? "routines" : "all", projectFilter, plannedFilter],
@@ -163,9 +176,16 @@ export function TodoPage() {
           }
           hint={`${visible.length} kayıt`}
           action={
-            <a href="#/planner" className="text-meta text-accent hover:underline">
-              Haftalık plan →
-            </a>
+            <div className="flex items-center gap-2">
+              <SavedViewPicker
+                module="todo"
+                filters={{ status, tag, routine: routineOnly }}
+                onApply={applySavedFilters}
+              />
+              <a href="#/planner" className="text-meta text-accent hover:underline">
+                Haftalık plan →
+              </a>
+            </div>
           }
         >
           {projectFilter ? (

@@ -123,6 +123,28 @@ describe("AppSidebar — ürün navigasyonu", () => {
     expect(pinned.getAttribute("href")).toBe(`#/opportunities?saved=${PINNED_VIEW.id}`);
   });
 
+  it("sabitlenmiş görünümlerin sunucu sırasını korur", async () => {
+    apiGet.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === "/views"
+          ? [
+              { ...PINNED_VIEW, id: "a", name: "Birinci", position: 0 },
+              { ...PINNED_VIEW, id: "b", name: "İkinci", position: 1 },
+              { ...PINNED_VIEW, id: "c", name: "Üçüncü", position: 2 },
+            ]
+          : [],
+      ),
+    );
+    renderSidebar("/");
+
+    await screen.findByRole("link", { name: "Üçüncü" });
+    const labels = screen
+      .getAllByRole("link")
+      .map((link) => link.textContent)
+      .filter((label) => label === "Birinci" || label === "İkinci" || label === "Üçüncü");
+    expect(labels).toEqual(["Birinci", "İkinci", "Üçüncü"]);
+  });
+
   it("hedefi bilinmeyen sabitlenmiş görünüm sidebar'ı çökertmez", async () => {
     apiGet.mockImplementation((path: string) =>
       Promise.resolve(path === "/views" ? [{ ...PINNED_VIEW, module: "silinmis-modul" }] : []),

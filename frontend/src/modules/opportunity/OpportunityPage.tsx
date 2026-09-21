@@ -5,6 +5,8 @@ import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
 import { Button, Empty, PageFrame, Section, Tabs, useToast } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
+import { SavedViewPicker } from "@/core/SavedViewPicker";
+import { useAppliedSavedView } from "@/core/savedViews";
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
@@ -22,6 +24,8 @@ import { SourcesWorkspace } from "./SourcesWorkspace";
 import { browseQuery, type OpportunityBrowseFilters, type OpportunityBrowseResponse } from "./opportunityBrowse";
 import {
   OPPORTUNITY_TABS,
+  sanitizeOpportunityFilters,
+  serializeOpportunityFilters,
   parseOpportunityUrl,
   sectionForTab,
   serializeOpportunityUrl,
@@ -66,6 +70,9 @@ export function OpportunityPage() {
   const [tab, setTab] = useState<OpportunityTab>("jobs");
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<"rows" | "grid" | "kanban">(initialView);
+  // Sabitlenmiş görünüm kimliği URL'de kalır (`?saved=`): sidebar satırı vurgulu
+  // kalır ve bağlantı yeniden üretilebilir olur.
+  const [savedView, setSavedView] = useState<string | null>(params.get("saved"));
   const [searchDraft, setSearchDraft] = useState("");
   // Kariyer deep-link'leri (`?story=` / `?connection=`) URL'de korunur; aksi
   // halde sayfa kendi URL'sini yazarken onları siler ve kayıt kapanırdı.
@@ -90,11 +97,13 @@ export function OpportunityPage() {
     setStory(parsed.story);
     setConnection(parsed.connection);
     if (parsed.view) setView(parsed.view);
+    setSavedView(parsed.saved ?? null);
   }, [params]);
 
+
   const urlState = useMemo(
-    () => serializeOpportunityUrl({ tab, focus: selected, story, connection, filters, view }),
-    [tab, selected, story, connection, filters, view],
+    () => serializeOpportunityUrl({ tab, focus: selected, story, connection, filters, view, saved: savedView }),
+    [tab, selected, story, connection, filters, view, savedView],
   );
 
   useEffect(() => {
@@ -111,6 +120,23 @@ export function OpportunityPage() {
     }, 250);
     return () => window.clearTimeout(timer);
   }, [searchDraft, filters.search]);
+
+  /**
+   * Sabitlenmiş görünümün filtresini uygular: yalnız tanınan alanlar geçer,
+   * bilinmeyen anahtar yok sayılır.
+   */
+  const applySavedFilters = useCallback(
+    (saved: Record<string, unknown>, view?: { id: string }) => {
+      const next = sanitizeOpportunityFilters(saved, INITIAL_FILTERS);
+      setFilters(next);
+      setSearchDraft(next.search ?? "");
+      if (view?.id) setSavedView(view.id);
+    },
+    [],
+  );
+
+  // Sabitlenmiş görünüm: rota `?saved=` taşıyorsa filtre bir kez uygulanır.
+  useAppliedSavedView("opportunity", params, applySavedFilters);
 
   const browseEnabled = tab === "jobs" || tab === "announcements";
   const queryFilters = useMemo(() => ({ ...filters, offset: 0 }), [filters]);
@@ -236,6 +262,11 @@ export function OpportunityPage() {
             <Tabs value={tab} onChange={changeTab} items={tabs} ariaLabel="Fırsat çalışma alanları" />
             <span className="ml-auto flex flex-wrap items-center gap-2">
               {(tab === "jobs" || tab === "announcements") && <SourcePicker />}
+              <SavedViewPicker
+                module="opportunity"
+                filters={serializeOpportunityFilters(filters)}
+                onApply={applySavedFilters}
+              />
             </span>
           </div>
           {tab !== "sources" && (

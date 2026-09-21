@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bookmark, Star, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
+import { savedViewsKey } from "@/core/savedViews";
 import { Button, IconButton, Input, Popover, cx } from "@/core/ui";
 
 /** Kayıtlı görünüm satırı — GET /views yanıtıyla birebir. */
@@ -17,12 +18,16 @@ export interface SavedViewRow {
 }
 
 interface SavedViewPickerProps {
-  /** Görünümlerin bağlı olduğu modül kimliği (örn. "bookmark"). */
+  /**
+   * Görünümlerin bağlı olduğu modül kimliği = FRONTEND registry kimliği
+   * ("bookmarks", "media", "todo", "opportunity"...). Sidebar aynı kimliği
+   * modül rotasına çevirir; backend bu alanı opak taşır.
+   */
   module: string;
-  /** Kaydedilecek mevcut filtre durumu. */
+  /** Kaydedilecek mevcut filtre durumu (düz nesne; modüle özgü anahtarlar). */
   filters: unknown;
-  /** Kayıtlı görünüm seçilince filtresi uygulanır. */
-  onApply: (filters: unknown) => void;
+  /** Kayıtlı görünüm seçilince filtresi uygulanır; görünüm de verilir. */
+  onApply: (filters: Record<string, unknown>, view: SavedViewRow) => void;
 }
 
 /** Kaydedilebilir filtre: düz nesneye indir; boş/undefined değerleri at. */
@@ -46,10 +51,12 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
   const [name, setName] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const { data: views = [] } = useQuery({
-    queryKey: ["views", module],
-    queryFn: () => api.get<SavedViewRow[]>(`/views?module=${module}`),
+  const { data } = useQuery({
+    queryKey: savedViewsKey(module),
+    queryFn: () => api.get<SavedViewRow[]>(`/views?module=${encodeURIComponent(module)}`),
   });
+  // Beklenmeyen gövde (nesne/null) çalışma alanını çökertmez: liste boş sayılır.
+  const views = Array.isArray(data) ? data : [];
 
   const refresh = () => invalidateAfter("views.write");
 
@@ -134,7 +141,7 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
                   <button
                     type="button"
                     onClick={() => {
-                      onApply(view.filter ?? {});
+                      onApply(view.filter ?? {}, view);
                       setOpen(false);
                     }}
                     className={cx(

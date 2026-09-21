@@ -148,14 +148,14 @@ describe("bookmarks flow", () => {
     expect(harness.invalidate).toHaveBeenCalledWith("bookmark.write");
   });
 
-  it("rail'de kayitli gorunum secici yok — bu yuzeyde karsiligi olmayan kontrol sunulmaz", async () => {
+  it("kayitli gorunum secicisini toolbarda sunar ve gorunumleri okur", async () => {
     harness.queryData = {
       bookmarks,
       views: [
         {
           id: "v1",
           name: "Okunmamış",
-          module: "bookmark",
+          module: "bookmarks",
           filter: { read_status: "unread" },
           sort: null,
           pinned: false,
@@ -164,9 +164,8 @@ describe("bookmarks flow", () => {
       ],
     };
     const markup = renderToStaticMarkup(<BookmarksPage />);
-    expect(markup).not.toContain("Görünümler");
-    // Gorunum sorgusu da kosmaz: kaldirilan kontrol arka planda veri cekmez.
-    expect(harness.queries.some((query) => query.queryKey[0] === "views")).toBe(false);
+    expect(markup).toContain("Görünümler");
+    expect(harness.queries.some((query) => query.queryKey[0] === "views")).toBe(true);
   });
 
   it("renders grid and list toggle buttons, and import/export action buttons", () => {
