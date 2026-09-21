@@ -36,9 +36,25 @@ export default defineConfig({
             // SAYISINI sinirlar, bayt miktarini degil.
             urlPattern: ({ url, request }) =>
               url.origin === self.location.origin && url.pathname.startsWith("/api/") && request.method === "GET",
-            handler: "StaleWhileRevalidate",
+            // AG ONCE (NetworkFirst), onbellek YEDEK.
+            //
+            // Neden StaleWhileRevalidate DEGIL: o strateji istegi ANINDA
+            // onbellekten yanitlar ve agi arka planda tazeler. Mutasyondan
+            // sonra `invalidateAfter(...)` ile yapilan tazeleme bu yuzden ESKI
+            // yaniti aliyordu; ekran ancak 30 sn'lik yoklamadan (ya da tam
+            // sayfa yenilemeden) sonra dogru hale geliyordu ("Odak seansi
+            // bitirdim ama gosterge hala calisiyor").
+            //
+            // NetworkFirst sunucu ayaktayken HER ZAMAN taze veri verir.
+            // Sunucu kapaliysa (offline = sadece okuma) baglanti reddi aninda
+            // olur ve onbellekten okunur; `networkTimeoutSeconds` yalnizca ag
+            // asili kaldiginda devreye girer, sinirsiz bekleme olmaz.
+            handler: "NetworkFirst",
             options: {
               cacheName: "lifeos-api-v2",
+              // Yerel sunucu icin cok kisa: cevrimdisi okuma en fazla bu kadar
+              // bekler, sonra onbellege duser.
+              networkTimeoutSeconds: 3,
               cacheableResponse: { statuses: [200] },
               // `options` semasinda `cacheWillUpdate` diye bir kisayol YOK
               // (workbox-build onu reddeder); desteklenen yol `plugins`.
