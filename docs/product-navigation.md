@@ -174,6 +174,62 @@ geçmişi ve tarayıcı geçmişi kırılmaz:
 | `/habits`, `/planner` | Aktif | Plan alanının alt satırları |
 | `/opportunities?tab=...&focus=...` | Aktif | Sekme kimlikleri ve filtre parametreleri sözleşmedir |
 
+## 6b. Kaynak operasyonları ve sağlık dürüstlüğü
+
+**Tek yüzey, iki çerçeve.** Kaynak operasyonlarının (katalog, yenileme, kapsam,
+koşu geçmişi, önbellek, sorun süzgeci) TEK uygulaması
+`frontend/src/modules/sources/` altındadır: sorgular ve mutasyonlar
+`sourceOps.ts` içinde paylaşılır, sunum `SourcesWorkspace.tsx` içindedir.
+
+```text
+Sistem → Kaynaklar (#/sources, ?scope=media)  → tanı odaklı çerçeve
+Kariyer → Kaynaklar (#/opportunities?tab=sources) → edinim odaklı çerçeve
+```
+
+İki yüzey aynı sorgu/mutasyon katmanını kullanır; ikinci bir fetch yolu YOKTUR.
+`/sources` rotası ve `?scope=media` bilinçli olarak korunur (§6 tablosu).
+
+**Yenileme dürüstlüğü.** İki eylem vardır ve etiketleri gerçek kapsamı söyler:
+
+```text
+Kritik + normal yenile → POST /sources/refresh { mode: "general" }   (slow_optin hariç)
+Tam tarama             → POST /sources/refresh { mode: "full" }      (slow_optin dahil, onay ister)
+```
+
+Gövdesiz/`{}` istek "tümünü çek" DEĞİLDİR: backend varsayılanı `general`'dır ve
+yavaş/isteğe bağlı kaynakları dışarıda bırakır.
+
+**Sağlık dürüstlüğü kuralları (tüm yüzeyler):**
+
+- `NO DATA ≠ HEALTHY`, `QUERY ERROR ≠ HEALTHY`, `UNKNOWN ≠ HEALTHY`. Bir
+  tanılama sorgusu düştüğünde arayüz "sağlıklı" demez; "alınamadı — bu, sorun
+  olmadığı anlamına gelmez" der ve yeniden denemeyi teklif eder
+  (`@/core/DataState`).
+- Sağlık EŞİKLERİ istemcide hesaplanmaz: karar backend özetinden gelir
+  (`/sources/coverage`: `circuit_open`, `last_status`, `consecutive_empty`).
+- Tek `empty` koşu sorun değildir; üst üste üç boş koşu "sessiz" sinyalidir.
+- `disabled`/`kapalı` bir hata DEĞİLDİR (kapalı feed, kapalı worker, kapalı H6).
+- Durum sözlüğü TEK kaynaktır: `@/core/sourceStatus` (etiket + ton + ilgi).
+  Ham enum kullanıcıya çıkmaz; hata sınıfları okunaklı etiketlenir
+  (`http_429` → "429", `parser` → "ayrıştırma").
+- Genel durum skor değildir; bilinmeyen bir alt sistem varken "Sağlıklı"
+  denmez, "Durum kısmen bilinmiyor" denir.
+
+**Yerel ≠ internet.** `navigator.onLine` "internet yok" demektir, "yerel sunucu
+kapalı" değil. Bu yüzden yerel işler çevrimdışı da çalışır (yerel yedek, kaynak
+önbelleği bakımı, ayar yazmaları, Vault indeksi); yalnız dış ağa çıkan yazmalar
+(`/auth/*`, `/system/refresh`, kaynak/RSS yenileme, hava durumu, medya
+sağlayıcı senkronu) çevrimdışı kapıdadır (`@/core/api`).
+
+**Ajan tanılaması.** Kullanıcı sorunları ve sistem durumunu Markdown paketi
+olarak kopyalayabilir (`@/core/diagnostics`, saf biçimlendiriciler). Paket
+yalnız var olan tanılama verisini taşır; sır, mutlak dosya yolu veya ham istek
+başlığı içermez, verisi alınamayan bölümü "unknown — request failed" olarak
+YAZAR ve talimat metni eklemez. Hata metinleri backend'de maskelenir
+(`core/runs.py`).
+
+---
+
 ## 7. Değişmeyen sınırlar
 
 - Router kütüphanesi YOKTUR ve eklenmez: mevcut hash router derin bağlantı,
