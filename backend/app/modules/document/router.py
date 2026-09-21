@@ -5,15 +5,27 @@ from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.models import Entity
 from app.db import get_session
-from app.integrations.google_auth import authorization_url, exchange
+from app.integrations.google_auth import authorization_url, consume_state, exchange
 from app.integrations.models import OAuthToken
 from app.modules.document import service
 from app.modules.document.models import Document
 from app.modules.document.schemas import DocumentUsagesOut
 
 router = APIRouter(tags=["documents"])
+
+#: OAuth donusu her zaman Ayarlar > Entegrasyonlar sekmesine iner: baglanti
+#: orada baslatilir ve "bagli" durumu orada beklenir. Hedef SABITTIR; query'den
+#: gelen `return`/`redirect`/`next` gibi bir parametre OKUNMAZ, boylece callback
+#: acik yonlendirme (open redirect) yuzeyi olmaz. Origin frontend CORS
+#: listesinin ilk elemanidir; prod'da da ayni listeden turetilir.
+RETURN_PATH = "/#/settings?tab=integrations"
+
+
+def _return_url() -> str:
+    return f"{settings.cors_origins[0]}{RETURN_PATH}"
 
 
 class SyncIn(BaseModel):
@@ -30,9 +42,17 @@ async def auth_start():
 
 
 @router.get("/auth/google/callback")
-async def callback(code: str, session: AsyncSession = Depends(get_session)):
+async def callback(
+    code: str,
+    state: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    # CSRF: `state` bizim urettigimiz tek kullanimlik deger olmali. Eslesmezse
+    # token alisverisi HIC baslamaz; mevcut Google baglantisi oldugu gibi kalir.
+    if not consume_state(state):
+        raise HTTPException(400, "Google bağlantısı doğrulanamadı; bağlanmayı yeniden deneyin.")
     await exchange(session, code)
-    return RedirectResponse("http://127.0.0.1:5173/#/documents")
+    return RedirectResponse(_return_url())
 
 
 @router.get("/auth/google/status")

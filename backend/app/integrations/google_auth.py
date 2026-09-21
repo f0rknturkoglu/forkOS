@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+import time
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
@@ -17,6 +19,45 @@ SCOPES = " ".join(
     ]
 )
 
+#: CSRF `state` degerleri kisa omurlu ve TEK KULLANIMLIKTIR: yalnizca tarayici
+#: Google'a gidip donene kadar yasar. Bu yuzden DB tablosu acmak yerine
+#: process-local bellek kullanilir: tek kullanicili local kurulumda API tek
+#: surecte kosar (compose'da worker sayisi verilmez) ve kayit saniyeler icinde
+#: tuketilir; kalici tablo olsaydi yetim satirlar birikirdi (ayni desen:
+#: modules/media/search.py kisa omurlu onbellegi). Coklu worker'a cikilirsa
+#: state paylasilmaz ve baglanma yeniden denenmelidir.
+STATE_TTL_SECONDS = 600.0
+MAX_PENDING_STATES = 8
+_pending_states: dict[str, float] = {}
+
+
+def _prune_states(now: float) -> None:
+    for state in [key for key, expires_at in _pending_states.items() if expires_at < now]:
+        _pending_states.pop(state, None)
+
+
+def issue_state() -> str:
+    """Yeni bir CSRF `state` uretir ve sunucu tarafinda saklar."""
+    now = time.monotonic()
+    _prune_states(now)
+    if len(_pending_states) >= MAX_PENDING_STATES:
+        # Kullanici arka arkaya baglanmayi denerse en eski bekleyen state duser;
+        # yalnizca son denemeler gecerli kalir.
+        _pending_states.pop(next(iter(_pending_states)), None)
+    state = secrets.token_urlsafe(32)
+    _pending_states[state] = now + STATE_TTL_SECONDS
+    return state
+
+
+def consume_state(state: str | None) -> bool:
+    """`state`'i dogrular ve tuketir; eslesme yoksa False doner."""
+    now = time.monotonic()
+    _prune_states(now)
+    if not state:
+        return False
+    expires_at = _pending_states.pop(state, None)
+    return expires_at is not None and expires_at >= now
+
 
 def authorization_url() -> str:
     if not settings.google_client_id:
@@ -29,6 +70,9 @@ def authorization_url() -> str:
         "access_type": "offline",
         "prompt": "consent",
         "include_granted_scopes": "true",
+        # `state` burada uretilir ve dogrulama icin sunucuda saklanir; callback
+        # gelen degeri tuketmeden token yazmaz (CSRF).
+        "state": issue_state(),
     }
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
 
