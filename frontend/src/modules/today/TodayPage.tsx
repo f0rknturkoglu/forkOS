@@ -1,28 +1,52 @@
 import type { ReactNode } from "react";
 import { allTodayStats, allTodayWidgetViews } from "@/core/registry";
 import { Empty, PageFrame } from "@/core/ui";
+import type { TodayRegion } from "@/core/types";
 import { TodayHero } from "./TodayHero";
 
 /**
- * Bugun = panel + gunluk gorevler. Uc sutun, her birinin tek bir isi var:
+ * Home = günün yürütme ekranı.
  *
- *   sol  "Plan"  — bugun ne yapacaksin: takvim, gorevler, odak, alistirma
- *   orta "Akış"  — ne oluyor: Hacker News, Reddit, RSS, GitHub
- *   sag  "Durum" — bekleyen ve olculen: hava, son tarih, gelen kutusu, sunucu
+ * Yerleşim artık eski "Plan / Akış / Durum" ÜÇ SÜTUN modeline göre değil,
+ * içeriğe göre kurulur (bkz. `core/types.ts` → `TodayRegion`):
  *
- * Saat, hava ve gunun sayilari tek ust kutuda (TodayHero) -- yerleri modul
- * eklendikce kaymasin ve panelin ustunde ust uste bant olusmasin diye. Sutunlar registry'den beslenir: modul `slot` der, burasi
- * hicbir modulun adini bilmez.
+ *   priority   karar bekleyen işler — tam genişlik, en üstte (boşken çizilmez)
+ *   main       ana çalışma bölgesi: şimdi/sırada + günün planı
+ *   rail       ana bölgenin yanındaki durum şeridi: dikkat
+ *   secondary  ana bölgenin ALTINDA akan ikincil yüzeyler
+ *
+ * Boş bölge ne çizilir ne yer tutar: varsayılan Home'da orta sütun diye bir
+ * kavram olmadığı için ekranın ortasında delik oluşmaz. Sütunlar registry'den
+ * beslenir; burası hiçbir modülün adını bilmez.
  */
 
-const COLUMN_LABELS = { left: "Plan", center: "Akış", right: "Durum" } as const;
+/** Bölgelerin görünen sırası. */
+const REGION_ORDER: TodayRegion[] = ["priority", "main", "rail", "secondary"];
+
+/** Bölge başlıkları — yalnız birden fazla bölge doluyken gösterilir. */
+const REGION_LABELS: Record<TodayRegion, string> = {
+  priority: "Karar bekleyen",
+  main: "Gün",
+  rail: "Dikkat",
+  secondary: "Bağlamsal",
+};
+
+function renderWidgets(views: { id: string; widget: { component: React.ComponentType } }[], region: TodayRegion) {
+  return views
+    .filter((view) => (view.widget as { region?: TodayRegion }).region === region)
+    .map((view) => {
+      const Widget = view.widget.component;
+      return <Widget key={view.id} />;
+    });
+}
 
 export function TodayPage() {
   const stats = allTodayStats();
   const views = allTodayWidgetViews();
-  const left = views.filter((view) => (view.widget.slot ?? "center") === "left");
-  const center = views.filter((view) => (view.widget.slot ?? "center") === "center");
-  const right = views.filter((view) => (view.widget.slot ?? "center") === "right");
+  const byRegion = Object.fromEntries(REGION_ORDER.map((region) => [region, renderWidgets(views, region)])) as Record<
+    TodayRegion,
+    ReactNode[]
+  >;
   const empty = stats.length + views.length === 0;
 
   if (empty) {
@@ -37,125 +61,68 @@ export function TodayPage() {
   }
 
   return (
-    <DashboardLayout
-      hero={
-        <TodayHero
-          metrics={stats.map((Tile, index) => (
-            <Tile key={index} />
-          ))}
-        />
-      }
-      center={center.map((view) => {
-        const Widget = view.widget.component;
-        return <Widget key={view.id} />;
-      })}
-      left={left.map((view) => {
-        const Widget = view.widget.component;
-        return <Widget key={view.id} />;
-      })}
-      right={right.map((view) => {
-        const Widget = view.widget.component;
-        return <Widget key={view.id} />;
-      })}
-      labelled
-    />
+    <PageFrame>
+      <TodayHero
+        metrics={stats.map((Tile, index) => (
+          <Tile key={index} />
+        ))}
+      />
+      <HomeRegions byRegion={byRegion} />
+    </PageFrame>
   );
-}
-
-/** Sutun basligi -- sadece sutunlarin ayristigi genislikte gorunur. */
-function ColumnLabel({ children }: { children: ReactNode }) {
-  return <p className="label-caps hidden border-b border-subtle pb-1.5 md:block">{children}</p>;
 }
 
 /**
- * Izgara şablonu GÖRÜNÜR sütunlardan türetilir.
- *
- * Ürünleştirme sonrası temiz kurulumda orta sütun (Akış) varsayılan gizlidir:
- * üç sütunluk sabit şablon o durumda ekranın ortasında kocaman bir delik
- * bırakıyordu. Boş sütunlar artık ne render edilir ne de yer tutar.
+ * Bölgeleri tek bir ızgaraya dizer. Şablon GÖRÜNÜR bölgelerden hesaplanır
+ * (CSS değişkenleri): boş bölge yer tutmaz, kalan bölge genişler.
  */
-function gridTemplate(present: { left: boolean; center: boolean; right: boolean }): {
-  wide: string;
-  areas: string;
-  tablet: string;
-  tabletAreas: string;
-} {
-  const columns = [present.left && "left", present.center && "main", present.right && "right"].filter(
-    Boolean,
-  ) as string[];
-  if (columns.length === 3) {
-    return {
-      wide: "300px minmax(0, 1fr) 300px",
-      areas: "left main right",
-      tablet: "minmax(0, 1fr) 280px",
-      tabletAreas: 'left main" "right main',
-    };
-  }
-  if (columns.length === 2) {
-    const [first, second] = columns;
-    // Orta sütun yoksa ilk sütun esnek olur: iki sabit sütun geniş ekranda
-    // yine delik bırakırdı.
-    const flexible = first === "main" ? first : second === "main" ? "main" : first;
-    // Yan sütunlar akış varken 300px (üç sütunlu düzenle aynı), akış yokken
-    // 320px: esnek sütun planı taşır, durum sütunu dar kalır.
-    const side = present.center ? "300px" : "320px";
-    const width = (name: string) => (name === flexible || name === "main" ? "minmax(0, 1fr)" : side);
-    return {
-      wide: `${width(first)} ${width(second)}`,
-      areas: `${first} ${second}`,
-      tablet: first === "main" || second === "main" ? `${width(first)} ${width(second)}` : "minmax(0, 1fr) 320px",
-      tabletAreas: `${first} ${second}`,
-    };
-  }
-  const only = columns[0] ?? "main";
-  return { wide: "minmax(0, 1fr)", areas: only, tablet: "minmax(0, 1fr)", tabletAreas: only };
-}
+export function HomeRegions({ byRegion }: { byRegion: Record<TodayRegion, ReactNode[]> }) {
+  const hasMain = byRegion.main.length > 0;
+  const hasRail = byRegion.rail.length > 0;
+  const hasSecondary = byRegion.secondary.length > 0;
+  const showLabels = [hasMain, hasRail, hasSecondary].filter(Boolean).length > 1;
 
-export function DashboardLayout({
-  hero,
-  center,
-  left,
-  right,
-  labelled = false,
-}: {
-  hero?: ReactNode;
-  center: ReactNode[];
-  left: ReactNode[];
-  right: ReactNode[];
-  labelled?: boolean;
-}) {
-  const present = { left: left.length > 0, center: center.length > 0, right: right.length > 0 };
-  const template = gridTemplate(present);
   const style = {
-    "--dash-cols": template.wide,
-    "--dash-areas": template.areas,
-    "--dash-cols-md": template.tablet,
-    "--dash-areas-md": template.tabletAreas,
+    // Ana bölge esnek, şerit dar; şerit boşsa ana bölge tam genişlik.
+    "--home-cols": hasMain && hasRail ? "minmax(0, 1fr) minmax(280px, 340px)" : "minmax(0, 1fr)",
+    "--home-areas": hasMain && hasRail ? '"main rail"' : hasMain ? '"main"' : '"rail"',
   } as React.CSSProperties;
 
   return (
-    <PageFrame>
-      {hero}
-      <div className="dashboard-grid" style={style}>
-        {present.left && (
-          <section className="dashboard-left space-y-5" aria-label={COLUMN_LABELS.left}>
-            {labelled && <ColumnLabel>{COLUMN_LABELS.left}</ColumnLabel>}
-            {left}
-          </section>
-        )}
-        {present.center && (
-          <section className="dashboard-main space-y-5" aria-label={COLUMN_LABELS.center}>
-            {labelled && <ColumnLabel>{COLUMN_LABELS.center}</ColumnLabel>}
-            {center}
-          </section>
-        )}
-        {present.right && (
-          <aside className="dashboard-right space-y-5" aria-label={COLUMN_LABELS.right}>
-            {labelled && <ColumnLabel>{COLUMN_LABELS.right}</ColumnLabel>}
-            {right}
-          </aside>
-        )}
-      </div>
-    </PageFrame>
+    <div className="home-regions" style={style}>
+      {byRegion.priority.length > 0 && (
+        <section className="home-priority space-y-4" aria-label={REGION_LABELS.priority}>
+          {byRegion.priority}
+        </section>
+      )}
+
+      {(hasMain || hasRail) && (
+        <div className="home-split">
+          {hasMain && (
+            <section className="home-main space-y-5" aria-label={REGION_LABELS.main}>
+              {showLabels && <ColumnLabel>{REGION_LABELS.main}</ColumnLabel>}
+              {byRegion.main}
+            </section>
+          )}
+          {hasRail && (
+            <aside className="home-rail space-y-5" aria-label={REGION_LABELS.rail}>
+              {showLabels && <ColumnLabel>{REGION_LABELS.rail}</ColumnLabel>}
+              {byRegion.rail}
+            </aside>
+          )}
+        </div>
+      )}
+
+      {hasSecondary && (
+        <section className="home-secondary border-t border-subtle pt-3" aria-label={REGION_LABELS.secondary}>
+          {byRegion.secondary}
+        </section>
+      )}
+    </div>
   );
+}
+
+/** Bölge başlığı — sadece bölgeler ayrıştığında görünür. */
+function ColumnLabel({ children }: { children: ReactNode }) {
+  return <p className="label-caps hidden border-b border-subtle pb-1.5 md:block">{children}</p>;
 }

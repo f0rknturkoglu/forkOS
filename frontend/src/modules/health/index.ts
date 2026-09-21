@@ -24,7 +24,7 @@ registerModule({
       id: "health.sources",
       title: "Kaynak sağlığı",
       component: SourceHealthMiniWidget,
-      slot: "right",
+      region: "secondary",
       order: 95,
       defaultVisible: false,
     },

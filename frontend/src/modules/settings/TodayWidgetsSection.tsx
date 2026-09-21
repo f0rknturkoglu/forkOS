@@ -10,8 +10,15 @@ import {
 } from "@/core/registry";
 import { focusedConfig, overviewConfig, PRESET_LABELS, type TodayPreset } from "@/core/todayPresets";
 import { Button, Section, cx } from "@/core/ui";
+import type { TodayRegion } from "@/core/types";
 
-const SLOT_LABELS = { left: "Plan", center: "Akış", right: "Durum" } as const;
+/** Home bölgeleri: kullanıcı widget'ın nerede duracağını buradan okur. */
+const REGION_LABELS: Record<TodayRegion, string> = {
+  priority: "Karar bekleyen",
+  main: "Gün",
+  rail: "Dikkat",
+  secondary: "Bağlamsal",
+};
 
 /**
  * Mevcut ETKIN durumu acik tercihe cevirir: gorunur widget'lar sira,
@@ -114,7 +121,7 @@ export function TodayWidgetsSection({
                   {view.title}
                 </p>
                 <p className="text-meta text-muted">
-                  {view.moduleId} · {SLOT_LABELS[view.widget.slot ?? "center"]} · #{view.widget.order}
+                  {view.moduleId} · {REGION_LABELS[view.widget.region ?? "secondary"]} · #{view.widget.order}
                   {isHidden && " · gizli"}
                 </p>
               </div>

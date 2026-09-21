@@ -21,7 +21,7 @@ registerModule({
       id: "learning.widget",
       title: "Öğrenme",
       component: LearningWidget,
-      slot: "left",
+      region: "secondary",
       order: 65,
       defaultVisible: false,
     },

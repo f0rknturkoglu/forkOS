@@ -22,7 +22,7 @@ registerModule({
       id: "finance.recurring",
       title: "Düzenli ödemeler",
       component: RecurringWidget,
-      slot: "right",
+      region: "secondary",
       order: 60,
       defaultVisible: false,
     },

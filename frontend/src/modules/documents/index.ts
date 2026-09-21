@@ -17,7 +17,7 @@ registerModule({
       id: "documents.recent",
       title: "Belgeler",
       component: DocumentsWidget,
-      slot: "right",
+      region: "secondary",
       order: 45,
       defaultVisible: false,
     },

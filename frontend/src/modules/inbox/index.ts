@@ -23,7 +23,7 @@ registerModule({
       id: "inbox.widget",
       title: "Gelen kutusu",
       component: InboxTodayWidget,
-      slot: "right",
+      region: "secondary",
       order: 40,
       defaultVisible: false,
     },

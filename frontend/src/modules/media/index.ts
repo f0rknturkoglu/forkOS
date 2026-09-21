@@ -41,7 +41,7 @@ registerModule({
       id: "media.continue",
       title: "Devam eden medya",
       component: MediaContinueWidget,
-      slot: "right",
+      region: "secondary",
       order: 70,
       defaultVisible: false,
     },

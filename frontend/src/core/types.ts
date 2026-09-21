@@ -1148,7 +1148,20 @@ export interface Command {
   ask?: { label: string; placeholder?: string };
 }
 
-/** Sol menudeki gruplar. "pinned" gruplarin ustunde tek basina durur. */
+/**
+ * Home bölgesi. Eski "left/center/right" sütun modeli ÜRÜNLEŞTİRME sonrası
+ * geçersiz: varsayılan Home'da orta sütun boş kalıyor ve ekranın ortasında
+ * delik oluşuyordu. Yeni model içeriğe göre konumlanır:
+ *
+ *   priority  → tam genişlik, ana içerikten ÖNCE (bekleyen kararlar)
+ *   main      → ana çalışma bölgesi (şimdi/sırada, günün planı)
+ *   rail      → ana bölgenin yanındaki dar durum şeridi (dikkat)
+ *   secondary → ana bölgenin ALTINDA akan ikincil yüzeyler
+ *
+ * Boş bölge ne çizilir ne yer tutar.
+ */
+export type TodayRegion = "priority" | "main" | "rail" | "secondary";
+
 export interface TodayWidget {
   /**
    * Moduller arasi benzersiz ve KALICI kimlik (Faz 19). Kullanicinin
@@ -1159,11 +1172,8 @@ export interface TodayWidget {
   /** Ayarlar ekraninda gorunen ad. */
   title: string;
   component: ComponentType;
-  /**
-   * Panel sutunu: "left" (plan), "center" (akis), "right" (durum).
-   * Verilmezse center.
-   */
-  slot?: "left" | "center" | "right";
+  /** Home bölgesi; verilmezse "secondary". Bkz. TodayRegion. */
+  region?: TodayRegion;
   /**
    * Sutun icindeki varsayilan sira; kucuk once. ZORUNLU: verilmezse
    * cakisma uretir (eski varsayilan 50 kaldirildi).

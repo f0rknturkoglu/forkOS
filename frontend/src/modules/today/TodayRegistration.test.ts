@@ -16,10 +16,10 @@ describe("Today module registrations", () => {
   });
 
   it("replaces the three duplicate plan widgets with the unified agenda", () => {
-    const left = harness.specs
+    const main = harness.specs
       .flatMap((spec) => spec.todayWidgets ?? [])
-      .filter((widget) => typeof widget !== "function" && widget.slot === "left");
-    const components = left.map((widget) => (typeof widget === "function" ? widget : widget.component));
+      .filter((widget) => typeof widget !== "function" && widget.region === "main");
+    const components = main.map((widget) => (typeof widget === "function" ? widget : widget.component));
 
     expect(components.filter((component) => component === TodayAgendaWidget)).toHaveLength(1);
     expect(components.map((component) => component.name)).not.toEqual(

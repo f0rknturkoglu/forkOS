@@ -18,7 +18,7 @@ registerModule({
       id: "pomodoro.widget",
       title: "Odak",
       component: PomodoroWidget,
-      slot: "left",
+      region: "secondary",
       order: 30,
       defaultVisible: false,
     },

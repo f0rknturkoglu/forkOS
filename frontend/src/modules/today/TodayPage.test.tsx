@@ -1,81 +1,106 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DashboardLayout } from "./TodayPage";
+import type { ReactNode } from "react";
+import { HomeRegions } from "./TodayPage";
+import type { TodayRegion } from "@/core/types";
 
-describe("responsive Today layout", () => {
-  it("keeps visual and keyboard order aligned across dashboard areas", () => {
-    const html = renderToStaticMarkup(
-      <DashboardLayout
-        hero={<span>üst kutu</span>}
-        center={[<span key="center">merkez</span>]}
-        left={[<span key="left">sol</span>]}
-        right={[<span key="right">sağ</span>]}
-      />,
-    );
+/**
+ * Home bölge yerleşimi (Polish 1 §13-§19).
+ *
+ * Eski "Plan / Akış / Durum" üç sütun modeli kaldırıldı: boş bölge ne çizilir
+ * ne yer tutar. Bu testler bölge modelinin sözleşmesini sabitler.
+ */
 
-    expect(html).toContain("üst kutu");
-    expect(html).toContain("dashboard-grid");
-    expect(html).toContain("dashboard-main");
-    expect(html).toContain("dashboard-left");
-    expect(html).toContain("dashboard-right");
-    expect(html.indexOf("sol")).toBeLessThan(html.indexOf("merkez"));
-    expect(html.indexOf("merkez")).toBeLessThan(html.indexOf("sağ"));
-    expect(html).toContain('aria-label="Plan"');
-    expect(html).toContain('aria-label="Akış"');
+const surface = (label: string) => [<span key={label}>{label}</span>];
+
+function regions(parts: Partial<Record<TodayRegion, ReactNode[]>>) {
+  return {
+    priority: parts.priority ?? [],
+    main: parts.main ?? [],
+    rail: parts.rail ?? [],
+    secondary: parts.secondary ?? [],
+  };
+}
+
+const page = (parts: Partial<Record<TodayRegion, ReactNode[]>>) =>
+  renderToStaticMarkup(<HomeRegions byRegion={regions(parts)} />);
+
+describe("Home bölgeleri", () => {
+  it("priority bölgesi main'den önce ve tam genişlikte gelir", () => {
+    const html = page({ priority: surface("karar"), main: surface("plan"), rail: surface("dikkat") });
+    expect(html.indexOf("karar")).toBeLessThan(html.indexOf("plan"));
+    expect(html).toContain("home-priority");
+    expect(html).toContain('aria-label="Karar bekleyen"');
   });
 
-  it("routes Hacker News and GitHub reads through the local API", () => {
-    const source = readFileSync(new URL("./widgets/FeedStreamWidget.tsx", import.meta.url), "utf8");
-
-    expect(source).toContain("/news/hacker-news");
-    expect(source).toContain("/news/github-trending");
-    expect(source).not.toContain('fetch("https://hn.algolia.com');
-    expect(source).not.toContain("fetch(\n        `https://api.github.com");
+  it("priority boşsa hiç çizilmez (boşluk bırakmaz)", () => {
+    const html = page({ main: surface("plan"), rail: surface("dikkat") });
+    expect(html).not.toContain("home-priority");
+    expect(html).not.toContain("Karar bekleyen");
   });
 
-  it("keeps the reading stream to a compact 15 items", () => {
-    const source = readFileSync(new URL("./widgets/FeedStreamWidget.tsx", import.meta.url), "utf8");
+  it("main + rail yan yana ızgarada; rail dar", () => {
+    const html = page({ main: surface("şimdi"), rail: surface("dikkat") });
+    expect(html).toContain("--home-cols:minmax(0, 1fr) minmax(280px, 340px)");
+    expect(html).toContain('aria-label="Gün"');
+    expect(html).toContain('aria-label="Dikkat"');
+  });
 
-    expect(source).toContain("const STREAM_LIMIT = 15");
-    expect(source).toContain(".slice(0, STREAM_LIMIT)");
+  it("rail boşsa main tam genişliğe yayılır (boş sütun tutulmaz)", () => {
+    const html = page({ main: surface("şimdi") });
+    expect(html).toContain("--home-cols:minmax(0, 1fr)");
+    expect(html).not.toContain("home-rail");
+    expect(html).not.toContain("home-split".replace("home-split", 'aria-label="Dikkat"'));
+  });
+
+  it("main boşsa rail tek başına çizilir", () => {
+    const html = page({ rail: surface("dikkat") });
+    expect(html).not.toContain("home-main");
+    expect(html).toContain("home-rail");
+  });
+
+  it("ikincil yüzeyler main/rail'in ALTINDA gelir", () => {
+    const html = page({ main: surface("plan"), secondary: surface("akış") });
+    expect(html.indexOf("plan")).toBeLessThan(html.indexOf("akış"));
+    expect(html).toContain('aria-label="Bağlamsal"');
+  });
+
+  it("ikincil bölge boşsa çizilmez: orta delik oluşmaz", () => {
+    const html = page({ main: surface("plan"), rail: surface("dikkat") });
+    expect(html).not.toContain("home-secondary");
+    expect(html).not.toContain("Bağlamsal");
+  });
+
+  it("tek bölge doluyken bölge etiketi gösterilmez", () => {
+    const html = page({ main: surface("plan") });
+    expect(html).not.toContain('class="label-caps');
+  });
+
+  it("bölge etiketleri yalnız birden fazla bölge doluyken görünür", () => {
+    const html = page({ main: surface("plan"), rail: surface("dikkat") });
+    expect(html).toContain("label-caps");
   });
 });
 
-describe("Home ızgara şablonu — boş sütun yer tutmaz", () => {
-  const page = (columns: { left?: boolean; center?: boolean; right?: boolean }) =>
-    renderToStaticMarkup(
-      <DashboardLayout
-        center={columns.center ? [<span key="c">merkez</span>] : []}
-        left={columns.left ? [<span key="l">sol</span>] : []}
-        right={columns.right ? [<span key="r">sağ</span>] : []}
-      />,
-    );
+describe("Home düzeni CSS sözleşmesi", () => {
+  const css = readFileSync(new URL("../../index.css", import.meta.url), "utf8");
 
-  it("üç sütun görünürken plan/akış/durum düzeni korunur", () => {
-    const html = page({ left: true, center: true, right: true });
-    expect(html).toContain("--dash-cols:300px minmax(0, 1fr) 300px");
-    expect(html).toContain("--dash-areas:left main right");
-    expect(html).toContain('aria-label="Akış"');
+  it("eski üç sütun dashboard kuralları kaldırıldı", () => {
+    expect(css).not.toContain(".dashboard-grid");
+    expect(css).not.toContain(".dashboard-left");
+    expect(css).not.toContain('grid-template-areas: "left main right"');
   });
 
-  it("orta sütun gizliyken plan genişler, boş sütun hiç çizilmez", () => {
-    const html = page({ left: true, right: true });
-    expect(html).toContain("--dash-cols:minmax(0, 1fr) 320px");
-    expect(html).toContain("--dash-areas:left right");
-    expect(html).not.toContain('aria-label="Akış"');
+  it("bölge ızgarası içerikten türeyen şablonu kullanır", () => {
+    expect(css).toContain(".home-regions");
+    expect(css).toContain("var(--home-cols");
+    expect(css).toContain(".home-secondary");
   });
 
-  it("durum sütunu gizliyken plan ile akış yan yana kalır", () => {
-    const html = page({ left: true, center: true });
-    expect(html).toContain("--dash-cols:300px minmax(0, 1fr)");
-    expect(html).toContain("--dash-areas:left main");
-    expect(html).not.toContain('aria-label="Durum"');
-  });
-
-  it("tek sütun kaldığında tam genişlik kullanılır", () => {
-    const html = page({ left: true });
-    expect(html).toContain("--dash-cols:minmax(0, 1fr)");
-    expect(html).toContain("--dash-areas:left");
+  it("mobilde tek sütun, geniş ekranda çok sütun", () => {
+    expect(css).toMatch(/\.home-split\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
+    expect(css).toContain("min-width: 1024px");
+    expect(css).toContain("min-width: 768px");
   });
 });
