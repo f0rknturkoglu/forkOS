@@ -131,7 +131,7 @@ async def test_exact_public_tool_surface() -> None:
     yıkıcı olmayan tek istisna).
     """
     tool_map = await _tools()
-    assert len(tool_map) == 28
+    assert len(tool_map) == 29
     assert set(tool_map) == (
         set(READ_TOOLS)
         | set(WRITE_TOOLS)
@@ -141,6 +141,7 @@ async def test_exact_public_tool_surface() -> None:
             "forkos_local_cognition",
             "forkos_review_intelligence",
             "forkos_proactivity",
+            "forkos_execution",
         }
     )
 

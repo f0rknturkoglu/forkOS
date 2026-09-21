@@ -3161,6 +3161,25 @@
         "title": "CreateSourceNoteIn",
         "type": "object"
       },
+      "DecisionIn": {
+        "description": "Karar gövdesi: revizyon (isteğe bağlı, eskimiş onayı yakalar).",
+        "properties": {
+          "revision": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          }
+        },
+        "title": "DecisionIn",
+        "type": "object"
+      },
       "DeckIn": {
         "properties": {
           "title": {
@@ -11345,6 +11364,17 @@
         "title": "ResourceSeed",
         "type": "object"
       },
+      "RespondIn": {
+        "properties": {
+          "answers": {
+            "additionalProperties": true,
+            "title": "Answers",
+            "type": "object"
+          }
+        },
+        "title": "RespondIn",
+        "type": "object"
+      },
       "ReviewBlockOut": {
         "properties": {
           "due": {
@@ -17790,6 +17820,366 @@
         "tags": [
           "core"
         ]
+      }
+    },
+    "/api/execution/plans": {
+      "get": {
+        "operationId": "list_plans_api_execution_plans_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "states",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "States"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Plans Api Execution Plans Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Plans"
+      }
+    },
+    "/api/execution/plans/{plan_row_id}": {
+      "get": {
+        "operationId": "get_plan_api_execution_plans__plan_row_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_row_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Plan Api Execution Plans  Plan Row Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Plan"
+      }
+    },
+    "/api/execution/plans/{plan_row_id}/approve": {
+      "post": {
+        "operationId": "approve_api_execution_plans__plan_row_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_row_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Api Execution Plans  Plan Row Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve"
+      }
+    },
+    "/api/execution/plans/{plan_row_id}/cancel": {
+      "post": {
+        "operationId": "cancel_api_execution_plans__plan_row_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_row_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Api Execution Plans  Plan Row Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel"
+      }
+    },
+    "/api/execution/plans/{plan_row_id}/execute": {
+      "post": {
+        "operationId": "execute_api_execution_plans__plan_row_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_row_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Execute Api Execution Plans  Plan Row Id  Execute Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute"
+      }
+    },
+    "/api/execution/plans/{plan_row_id}/reject": {
+      "post": {
+        "operationId": "reject_api_execution_plans__plan_row_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_row_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject Api Execution Plans  Plan Row Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject"
+      }
+    },
+    "/api/execution/plans/{plan_row_id}/respond": {
+      "post": {
+        "operationId": "respond_api_execution_plans__plan_row_id__respond_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_row_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RespondIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Respond Api Execution Plans  Plan Row Id  Respond Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Respond"
       }
     },
     "/api/expenses": {

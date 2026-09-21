@@ -1,4 +1,4 @@
-"""H6 MCP yüzeyi: 28 araç, tek yeni kontrol aracı, kapalı işlem kümesi."""
+"""H6 MCP yüzeyi: 29 araç, tek yeni kontrol aracı, kapalı işlem kümesi."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from app.modules.proactivity import policy as proactivity_policy
 from app.modules.proactivity import service as proactivity_service
 
 H6_TOOLS = {"forkos_proactivity"}
+H7_TOOLS = {"forkos_execution"}
 
 #: H6'nın genel yüzeye ASLA koymadığı yetenekler (§103/§155).
 FORBIDDEN_OPERATIONS = {
@@ -29,7 +30,7 @@ async def _tools() -> dict:
 
 async def test_h6_adds_exactly_one_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 28
+    assert len(tools) == 29
     assert set(tools) & H6_TOOLS == H6_TOOLS
 
 

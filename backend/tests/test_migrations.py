@@ -128,6 +128,12 @@ def test_module_tables_reference_entity():
         # tablosudur; kosu gecmisi entity silinse de okunabilir kalmali.
         "proactivity_rule",
         "proactivity_run",
+        # H7 karar/yürütme motoru: plan revizyonu, adım makbuzu, denetim izi.
+        # `source_run` ile aynı sınıf operasyonel kayıt — aranabilir/linklenebilir
+        # nesne DEĞİL. Kullanıcıya dönük karar yüzeyi API'dir.
+        "execution_plan",
+        "execution_receipt",
+        "execution_decision",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

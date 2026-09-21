@@ -4,12 +4,12 @@ forkOS ile otonom ajan ekosistemini (Hermes) birleştiren vizyon; kademeli,
 güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmıştır.
 
 ```text
-  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4 ✓            H5 ✓            H6 ✓
-┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
-│  Gözler  │──>│  Eller   │──>│  Sıcak   │──>│  Kanıt   │──>│  Yerel   │──>│  Sentez  │──>│ Proaktif │
-│ Salt-    │   │ Onaylı   │   │  Hafıza  │   │  & Geri  │   │  Model   │   │  & Brif. │   │  Ajan    │
-│ Okunur   │   │ Eylemler │   │ (Vault)  │   │  Getirme │   │  Router  │   │          │   │          │
-└──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘
+  H0 ✓            H1 ✓            H2 ✓            H3 ✓            H4 ✓            H5 ✓            H6 ✓            H7 ✓
+┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐
+│  Gözler  │──>│  Eller   │──>│  Sıcak   │──>│  Kanıt   │──>│  Yerel   │──>│  Sentez  │──>│ Proaktif │──>│  Karar & │
+│ Salt-    │   │ Onaylı   │   │  Hafıza  │   │  & Geri  │   │  Model   │   │  & Brif. │   │  Ajan    │   │  Yürütme │
+│ Okunur   │   │ Eylemler │   │ (Vault)  │   │  Getirme │   │  Router  │   │          │   │          │   │          │
+└──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘
 ```
 
 ---
@@ -313,7 +313,7 @@ eklenmedi**, mimari korundu.
   (C1–C4), `test_h6_worker.py` (D1), `test_h6_rules.py` (A1–A2) +
   `docs/hermes/evals/h6-proactivity.yaml` (50 vaka, 21 negatif).
 
-**H7 başlatılmadı.**
+**H7 bu sertleştirme sürümünde ele alınmadı.**
 
 ---
 

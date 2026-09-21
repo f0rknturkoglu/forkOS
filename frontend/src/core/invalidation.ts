@@ -195,6 +195,12 @@ export const AFTER = {
   // paneli kaydettikten sonra kendi sorgularini taze gormelidir.
   "jobhunter.write": ["jobhunter-config", "jobhunter-linkedin", "jobhunter-env"],
   "notification.write": ["notifications"],
+  // H7 karar/yurutme yuzeyi: kararlar (approve/reject/respond/cancel) yalnizca
+  // plan DURUMUNU degistirir, canonical kayda dokunmaz; bu yuzden tazelenen
+  // anahtarlar yalnizca bu modulun kendi listesi ve detayidir. Gercek mutasyon
+  // `execute` sirasindadir ve H1 uzerinden olur -- o zaman backend zaten ilgili
+  // kaynak sorgularini kendi invalidation'ina baglar (or. "todo.write").
+  "execution.write": ["execution-plans", "execution-plan"],
 } as const;
 
 type AfterEvent = keyof typeof AFTER;

@@ -66,6 +66,7 @@ class ModuleSpec:
 from app.modules.bookmark import MODULE as bookmark_module  # noqa: E402
 from app.modules.calendar import MODULE as calendar_module  # noqa: E402
 from app.modules.document import MODULE as document_module  # noqa: E402
+from app.modules.execution import MODULE as execution_module  # noqa: E402
 from app.modules.finance import MODULE as finance_module  # noqa: E402
 from app.modules.flashcard import MODULE as flashcard_module  # noqa: E402
 from app.modules.learning import MODULE as learning_module  # noqa: E402
@@ -94,6 +95,7 @@ MODULES: list[ModuleSpec] = [
     opportunity_module,
     learning_module,
     document_module,
+    execution_module,
     calendar_module,
     media_module,
     note_module,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Annotated, Any, Literal
@@ -84,6 +85,20 @@ PROACTIVITY_ANNOTATIONS = ToolAnnotations(
     readOnlyHint=False,
     destructiveHint=False,
     idempotentHint=True,
+)
+
+#: H7 kontrol araci: plan/karar durumunu yazar; canonical mutasyon YALNIZCA
+#: onayli yurutmede ve H1 uzerinden olur. Yikici degil, tekrar cagrilabilir.
+EXECUTION_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=False,
+    idempotentHint=True,
+)
+
+#: Onay yetkisi sunucudadir; MCP tarafi yalnizca KULLANICI niyetini tasir.
+_APPROVAL_NOTE = (
+    "Approval is a server-side record bound to one immutable plan revision: a model can never "
+    "approve, and calls that claim user approval are rejected with APPROVAL_REQUIRED."
 )
 
 
@@ -256,6 +271,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_local_cognition_tool(server)
     _register_review_intelligence_tool(server)
     _register_proactivity_tool(server)
+    _register_execution_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -1282,3 +1298,164 @@ def _register_proactivity_tool(server: MCPServer) -> None:
             raise ToolError(f"INVALID_ARGUMENT: {exc}") from exc
         except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
             raise ToolError(f"PROACTIVITY_FAILED: {type(exc).__name__}") from exc
+
+
+# ---------------------------------------------------------------------------
+# H7 karar ve yürütme aracı (plan + onay + sınırlı yürütme)
+# ---------------------------------------------------------------------------
+
+#: H7'nin KAPALI işlem kümesi: generic otomasyon yürütücüsü DEĞİL (§43).
+ExecutionOperation = Literal[
+    "prepare", "get", "list", "approve", "reject", "respond", "cancel", "execute", "status"
+]
+
+ExecutionPlanId = Annotated[int, Field(ge=1)]
+ExecutionRevision = Annotated[str, Field(max_length=80)]
+
+
+def _register_execution_tool(server: MCPServer) -> None:
+    """H7'nin TEK aracını kaydeder.
+
+    Plan hazırlamak canonical mutasyon DEĞİLDİR; `execute` ise YALNIZCA
+    onaylanmış tam revizyonu H1 üzerinden yürütür. Onay sunucu tarafıdır:
+    model `approved=true` gönderemez, gönderse de yetkisi yoktur.
+    """
+
+    @server.tool(
+        name="forkos_execution",
+        description=(
+            "Durable decision and bounded execution: propose an action plan from evidence, let "
+            "the USER approve the exact revision, then execute it strictly through the H1 write "
+            "surface. Operations: prepare, get, list, approve, reject, respond, cancel, execute, "
+            "status. Steps are a CLOSED set of H1 actions with H1-validated arguments - arbitrary "
+            "tool names, shell, SQL, HTTP or delete operations are rejected. Approval is a "
+            "server-side record bound to the plan revision: this tool cannot approve on the "
+            "user's behalf, and executing a revision that was never approved returns "
+            "APPROVAL_REQUIRED. Execution is bounded (max 10 steps), revalidates every target "
+            "before each mutation, stops at the first failure, never rolls back automatically, "
+            "and leaves a durable per-step receipt. prepare/get/list/approve/reject/respond/"
+            "cancel write only H7's own operational state; canonical mutation happens solely "
+            "during execute, through H1. " + _APPROVAL_NOTE
+        ),
+        annotations=EXECUTION_ANNOTATIONS,
+    )
+    async def forkos_execution(
+        operation: ExecutionOperation,
+        title: Annotated[str | None, Field(max_length=160)] = None,
+        steps: list[dict] | None = None,
+        summary: Annotated[str | None, Field(max_length=400)] = None,
+        reason: Annotated[str | None, Field(max_length=600)] = None,
+        source_refs: list[str] | None = None,
+        evidence_refs: list[str] | None = None,
+        input_questions: list[str] | None = None,
+        plan_row_id: ExecutionPlanId | None = None,
+        plan_id: str | None = None,
+        revision: ExecutionRevision | None = None,
+        answers: dict | None = None,
+        states: list[str] | None = None,
+        limit: int | None = None,
+    ) -> dict:
+        from app.modules.execution import service as execution_service
+        from app.modules.execution.state import TransitionError
+
+        try:
+            async with SessionLocal() as session:
+                if operation == "prepare":
+                    if not title or not steps:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "prepare icin 'title' ve 'steps' gerekli"
+                        )
+                    plan = await execution_service.prepare(
+                        session,
+                        title=title,
+                        steps=steps,
+                        summary=summary,
+                        reason=reason,
+                        source_refs=source_refs,
+                        evidence_refs=evidence_refs,
+                        input_questions=input_questions,
+                        plan_id=uuid.UUID(plan_id) if plan_id else None,
+                    )
+                    return await execution_service.get_plan(session, plan.id)
+                if operation == "get":
+                    if plan_row_id is None:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "get icin 'plan_row_id' gerekli"
+                        )
+                    return await execution_service.get_plan(session, plan_row_id)
+                if operation == "list":
+                    return {
+                        "plans": await execution_service.list_plans(
+                            session, states=states, limit=limit or 20
+                        )
+                    }
+                if operation == "approve":
+                    if plan_row_id is None:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "approve icin 'plan_row_id' gerekli"
+                        )
+                    plan = await execution_service.approve(
+                        session,
+                        plan_row_id=plan_row_id,
+                        revision=revision,
+                        # Onay KANALI kaydedilir; yetki SUNUCUDA uretilir (§6).
+                        actor="mcp_client",
+                    )
+                    return await execution_service.get_plan(session, plan.id)
+                if operation == "reject":
+                    if plan_row_id is None:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "reject icin 'plan_row_id' gerekli"
+                        )
+                    plan = await execution_service.reject(
+                        session, plan_row_id=plan_row_id, actor="mcp_client"
+                    )
+                    return await execution_service.get_plan(session, plan.id)
+                if operation == "respond":
+                    if plan_row_id is None or answers is None:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "respond icin 'plan_row_id' ve 'answers' gerekli"
+                        )
+                    plan = await execution_service.respond(
+                        session, plan_row_id=plan_row_id, answers=answers, actor="mcp_client"
+                    )
+                    return await execution_service.get_plan(session, plan.id)
+                if operation == "cancel":
+                    if plan_row_id is None:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "cancel icin 'plan_row_id' gerekli"
+                        )
+                    plan = await execution_service.cancel(
+                        session, plan_row_id=plan_row_id, actor="mcp_client"
+                    )
+                    return await execution_service.get_plan(session, plan.id)
+                if operation == "execute":
+                    if plan_row_id is None:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "execute icin 'plan_row_id' gerekli"
+                        )
+                    plan, outcome = await execution_service.execute(
+                        session, plan_row_id=plan_row_id, revision=revision, actor="mcp_client"
+                    )
+                    view = await execution_service.get_plan(session, plan.id)
+                    view["final_status"] = outcome.final_status
+                    return view
+                if operation == "status":
+                    plans = await execution_service.list_plans(session, limit=limit or 20)
+                    return {
+                        "pending_decisions": [
+                            item
+                            for item in plans
+                            if item["state"] in {"awaiting_approval", "input_required"}
+                        ],
+                        "recent": plans,
+                    }
+                raise execution_service.ExecutionPlanError(
+                    "UNKNOWN_OPERATION", f"bilinmeyen islem: {operation}"
+                )
+        except (execution_service.ExecutionPlanError, TransitionError) as exc:
+            raise ToolError(str(exc)) from exc
+        except ValueError as exc:
+            raise ToolError(f"INVALID_ARGUMENT: {exc}") from exc
+        except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
+            raise ToolError(f"EXECUTION_FAILED: {type(exc).__name__}") from exc

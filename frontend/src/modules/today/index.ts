@@ -4,6 +4,7 @@ import { registerModule } from "@/core/registry";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
 import { DailyRhythmWidget } from "./DailyRhythmWidget";
 import { FeedStreamWidget } from "./widgets/FeedStreamWidget";
+import { PendingDecisions } from "./PendingDecisions";
 import { QuickLinksWidget } from "./widgets/QuickLinksWidget";
 
 const TodayPage = lazy(() => import("./TodayPage").then((module) => ({ default: module.TodayPage })));
@@ -19,6 +20,15 @@ registerModule({
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.
   // orta = akis, sag = durum. Sira icin bkz. TodayWidget.order.
   todayWidgets: [
+    {
+      // H7 karar yuzeyi: bekleyen planlar gunun isine girmeden once gorulur.
+      // Bos liste hicbir sey cizmez (kendi icinde null doner).
+      id: "today.pending-decisions",
+      title: "Bekleyen kararlar",
+      component: PendingDecisions,
+      slot: "left",
+      order: 1,
+    },
     {
       id: "today.rhythm",
       title: "Gün özeti",

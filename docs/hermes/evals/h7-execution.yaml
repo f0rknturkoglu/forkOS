@@ -1,0 +1,858 @@
+# forkOS × Hermes — H7 (Durable Decision & Bounded Execution) karar/yürütme vakaları
+#
+# Araç: forkos_execution · Servis: backend/app/modules/execution/service.py
+# Oynatıcı: aşağıdaki akış adımları sırayla gerçek servis fonksiyonlarıyla
+# çağrılır (prepare → approve/reject/respond/cancel → execute) ve her adımda
+# beklenen durum ya da hata kodu doğrulanır. Model çağrısı YOKTUR; adımların
+# tamamı deterministiktir.
+#
+# Tüm veriler SENTETİKTİR: kurgusal UUID'ler, kurgusal başlıklar. Gerçek kişi,
+# gerçek kayıt veya gerçek içerik YOKTUR; hiçbir vakada kişisel veri yoktur.
+#
+# ÇAPA (tüm vakalar için):
+#   now = 2026-09-21T09:00:00+00:00        (deterministik saat)
+#   TTL = 72 saat (DEFAULT_PLAN_TTL_HOURS); `plan.ttl_hours` ile daraltılır
+#
+# setup anahtarları:
+#   plan.title              plan başlığı
+#   plan.steps              adım listesi ({step_id, action, arguments} nesneleri)
+#   plan.input_questions    eksik bilgi soruları (≤3)
+#   plan.source_refs        kanıt referansları ("entity:<uuid>" gerçek olmalı)
+#   plan.evidence_refs      kanıt referansları (şema kapalı)
+#   plan.ttl_hours          TTL daraltması
+#   target                  kurgusal hedef Entity kimliği (freshness için)
+#   second_target           ikinci kurgusal hedef (kısmi senaryolar)
+#   prepare_again           aynı plan_id ile ikinci prepare (EDIT = yeni revizyon)
+#   advance_hours           deterministik saat ilerletme (TTL vakaları)
+#   touch_target            hedef Entity.updated_at değişir (stale vakaları)
+#   h1_failure              adımın H1 çağrısı sınırlı kodla düşer
+#   inject_receipt          çökme simülasyonu: {step_id, status}
+#   concurrent_execute      iki eşzamanlı execute çağrısı
+#   retry_execute           aynı plan üzerinde ikinci execute çağrısı
+#   resume_via_engine       terminal/executing planı motor düzeyinde sürdürür
+#   stale_revision          onay/istek eski bir revizyon dizesi taşır
+#
+# flow adımları: op = prepare | approve | reject | respond | cancel | execute | get
+#   expect_state       çağrıdan sonra beklenen plan durumu
+#   expect_error       çağrının yükseltmesi beklenen hata kodu
+#   expect_outcomes    eşzamanlı çağrı sonuçları (sırasız küme: ok | <hata kodu>)
+#   expect_receipts    beklenen makbuz durumları (ordinal sırasıyla)
+#   answers            respond çağrısının gövdesi
+#   plan_row_id        get çağrısının hedef satırı
+#
+# Kapsanan sınıflar (vaka önekleri):
+#   simple approved plan h7-simple · rejected plan h7-reject · edited revision h7-edit
+#   input required h7-input · expired approval h7-expired · stale target h7-stale
+#   partial execution h7-partial · duplicate execution h7-duplicate
+#   concurrent execution h7-concurrent · crash resume h7-resume
+#   fake approval h7-fake · budget exceeded h7-budget · unknown action h7-unknown
+#   unsupported destructive action h7-destructive · missing evidence h7-evidence
+#   H1 validation failure h7-h1fail · cancel h7-cancel · missing plan h7-notfound
+#
+# DURUM: 36 vaka; her sınıfta en az bir pozitif, çoğunda en az bir negatif vaka.
+#
+# expected:
+#   error              vakayı bitiren hata kodu (varsa)
+#   state              vakayı bitiren plan durumu (varsa)
+#   final_status       yürütme sonucu (varsa)
+#   failure_code       yürütme durma kodu (varsa)
+#   validation_code    PLAN_VALIDATION_FAILED zarfının içindeki doğrulama kodu
+#   mutated            canonical mutasyon oluştu mu (true/false)
+#
+# İlgili testler: backend/tests/test_h7_models.py, test_h7_approval.py,
+# test_h7_execution.py.
+
+version: 1
+cases:
+  # ------------------------------------------------------------------ approve
+  - id: h7-simple-01
+    scenario: "Tek adımlı plan onaylanır ve H1 üzerinden yürür."
+    setup:
+      plan:
+        title: "Kurgusal proje sonraki adımı"
+        steps:
+          - step_id: s1
+            action: project_update
+            arguments:
+              project_id: "11111111-2222-4333-8444-555555555555"
+              next_action: "Kurgusal taslağı tamamla"
+      target: "11111111-2222-4333-8444-555555555555"
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: completed
+        expect_receipts: ["completed"]
+    expected:
+      state: completed
+      final_status: completed
+      mutated: true
+
+  - id: h7-simple-02
+    scenario: "Hedefi olmayan adım (yeni kayıt) freshness beklemeden tamamlanır."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: completed
+    expected:
+      state: completed
+      final_status: completed
+      mutated: true
+
+  # ------------------------------------------------------------------- reject
+  - id: h7-reject-01
+    scenario: "Kullanıcı reddeder; plan terminal olur ve yürütülemez."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: reject
+        expect_state: rejected
+      - op: execute
+        expect_error: PLAN_REJECTED
+    expected:
+      error: PLAN_REJECTED
+      state: rejected
+      mutated: false
+
+  - id: h7-reject-02
+    scenario: "Eksik bilgi bekleyen plan reddedilemez; geçiş izinli değildir."
+    setup:
+      plan:
+        title: "Kurgusal başvuru hazırlığı"
+        input_questions: ["Hangi kurgusal CV kullanılmalı?"]
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal başvuru görevi"
+    flow:
+      - op: prepare
+        expect_state: input_required
+      - op: reject
+        expect_error: INVALID_TRANSITION
+    expected:
+      error: INVALID_TRANSITION
+      state: input_required
+      mutated: false
+
+  # --------------------------------------------------------------------- edit
+  - id: h7-edit-01
+    scenario: "Plan düzenlenir: aynı soy ağacında yeni revizyon açılır ve eski onay geçersizleşir."
+    setup:
+      plan:
+        title: "Kurgusal proje sonraki adımı"
+        steps:
+          - step_id: s1
+            action: project_update
+            arguments:
+              project_id: "11111111-2222-4333-8444-555555555555"
+              next_action: "İlk sürüm"
+      target: "11111111-2222-4333-8444-555555555555"
+      prepare_again: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: execute
+        expect_error: APPROVAL_STALE
+    expected:
+      error: APPROVAL_STALE
+      mutated: false
+
+  - id: h7-edit-02
+    scenario: "Onay isteği eski revizyonu işaret ederse reddedilir."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      stale_revision: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_error: APPROVAL_STALE
+    expected:
+      error: APPROVAL_STALE
+      state: awaiting_approval
+      mutated: false
+
+  # ------------------------------------------------------------------- input
+  - id: h7-input-01
+    scenario: "Eksik bilgi varsa onay SUNULMAZ; yürütme de yapılamaz."
+    setup:
+      plan:
+        title: "Kurgusal başvuru hazırlığı"
+        input_questions: ["Hangi kurgusal CV kullanılmalı?", "Hangi kurgusal ilan?"]
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal başvuru görevi"
+    flow:
+      - op: prepare
+        expect_state: input_required
+      - op: approve
+        expect_error: PLAN_NOT_APPROVABLE
+      - op: execute
+        expect_error: APPROVAL_REQUIRED
+    expected:
+      error: PLAN_NOT_APPROVABLE
+      state: input_required
+      mutated: false
+
+  - id: h7-input-02
+    scenario: "Cevap planı draft'a döndürür; cevap yeni bir eylem üretmez."
+    setup:
+      plan:
+        title: "Kurgusal başvuru hazırlığı"
+        input_questions: ["Hangi kurgusal CV kullanılmalı?"]
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal başvuru görevi"
+    flow:
+      - op: prepare
+        expect_state: input_required
+      - op: respond
+        expect_state: draft
+      - op: execute
+        expect_error: APPROVAL_REQUIRED
+    expected:
+      state: draft
+      mutated: false
+
+  - id: h7-input-03
+    scenario: "Boş cevap reddedilir; plan input_required'da kalır."
+    setup:
+      plan:
+        title: "Kurgusal başvuru hazırlığı"
+        input_questions: ["Hangi kurgusal CV kullanılmalı?"]
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal başvuru görevi"
+    flow:
+      - op: prepare
+        expect_state: input_required
+      - op: respond
+        answers: {}
+        expect_error: INVALID_INPUT_RESPONSE
+    expected:
+      error: INVALID_INPUT_RESPONSE
+      state: input_required
+      mutated: false
+
+  # ------------------------------------------------------------------ expiry
+  - id: h7-expired-01
+    scenario: "TTL dolmuş plan onaylanamaz."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        ttl_hours: 1
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      advance_hours: 2
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_error: PLAN_EXPIRED
+    expected:
+      error: PLAN_EXPIRED
+      state: awaiting_approval
+      mutated: false
+
+  - id: h7-expired-02
+    scenario: "Süre dolumu okuma anında maddileşir: durum expired olur."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        ttl_hours: 1
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      advance_hours: 3
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: get
+        expect_state: expired
+      - op: execute
+        expect_error: PLAN_EXPIRED
+    expected:
+      error: PLAN_EXPIRED
+      state: expired
+      mutated: false
+
+  - id: h7-expired-03
+    scenario: "Onaylandıktan sonra süresi dolan plan yürütülemez."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        ttl_hours: 1
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      advance_hours: 2
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_error: PLAN_EXPIRED
+    expected:
+      error: PLAN_EXPIRED
+      state: expired
+      mutated: false
+
+  # ------------------------------------------------------------------- stale
+  - id: h7-stale-01
+    scenario: "Hedef onaydan sonra değişir: adım stale olur, sonraki adımlar denenmez."
+    setup:
+      plan:
+        title: "Kurgusal iki adımlı plan"
+        steps:
+          - step_id: s1
+            action: project_update
+            arguments:
+              project_id: "11111111-2222-4333-8444-555555555555"
+              next_action: "Kurgusal taslak"
+          - step_id: s2
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      target: "11111111-2222-4333-8444-555555555555"
+      touch_target: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: failed
+        expect_receipts: ["failed", "not_attempted"]
+    expected:
+      state: failed
+      final_status: failed
+      failure_code: STEP_STALE
+      mutated: false
+
+  - id: h7-stale-02
+    scenario: "Hedef onay anından önce değiştiyse onay reddedilir ve yeniden doğrulama istenir."
+    setup:
+      plan:
+        title: "Kurgusal proje sonraki adımı"
+        steps:
+          - step_id: s1
+            action: project_update
+            arguments:
+              project_id: "11111111-2222-4333-8444-555555555555"
+              next_action: "Kurgusal taslak"
+      target: "11111111-2222-4333-8444-555555555555"
+      touch_target: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_error: PLAN_NEEDS_REVALIDATION
+    expected:
+      error: PLAN_NEEDS_REVALIDATION
+      state: awaiting_approval
+      mutated: false
+
+  # ----------------------------------------------------------------- partial
+  - id: h7-partial-01
+    scenario: "İlk adım tamam, ikinci adım H1 hatasıyla düşer: sonuç partial, sonrası denenmez."
+    setup:
+      plan:
+        title: "Kurgusal iki adımlı plan"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev A"
+          - step_id: s2
+            action: todo_update
+            arguments:
+              todo_id: "99999999-8888-4777-8666-555555555555"
+              notes: "Kurgusal not"
+          - step_id: s3
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev C"
+      h1_failure:
+        step_id: s2
+        code: NOT_FOUND
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: partial
+        expect_receipts: ["completed", "failed", "not_attempted"]
+    expected:
+      state: partial
+      final_status: partial
+      failure_code: NOT_FOUND
+      mutated: true
+
+  # ------------------------------------------------------- duplicate execution
+  - id: h7-duplicate-01
+    scenario: "Aynı plana ikinci execute çağrısı terminal durumla reddedilir."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      retry_execute: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: completed
+      - op: execute
+        expect_error: PLAN_TERMINAL
+    expected:
+      error: PLAN_TERMINAL
+      state: completed
+      mutated: true
+
+  - id: h7-duplicate-02
+    scenario: "Tamamlanmış adım yeniden yürütmede makbuzla atlanır: mükerrer mutasyon yok."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      resume_via_engine: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: completed
+      - op: execute
+        expect_state: completed
+        expect_receipts: ["completed"]
+    expected:
+      state: completed
+      final_status: completed
+      mutated: true
+
+  # ------------------------------------------------------ concurrent execution
+  - id: h7-concurrent-01
+    scenario: "İki eşzamanlı execute: tek sahiplik, tek mutasyon."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      concurrent_execute: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_outcomes: ["ok", "PLAN_ALREADY_EXECUTING"]
+    expected:
+      error: PLAN_ALREADY_EXECUTING
+      final_status: completed
+      mutated: true
+
+  # --------------------------------------------------------------- crash
+  - id: h7-resume-01
+    scenario: "Makbuz yazıldıktan sonra çökme: adım körlemesine tekrarlanmaz, mutabakat istenir."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal yarım görev"
+      inject_receipt:
+        step_id: s1
+        status: not_attempted
+      resume_via_engine: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: failed
+        expect_receipts: ["not_attempted"]
+    expected:
+      state: failed
+      final_status: failed
+      failure_code: RECONCILIATION_REQUIRED
+      mutated: false
+
+  - id: h7-resume-02
+    scenario: "İlk adım tamamlandıktan sonra çökme: kalan adım yürür, tamamlanan tekrarlanmaz."
+    setup:
+      plan:
+        title: "Kurgusal iki adımlı plan"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev A"
+          - step_id: s2
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev B"
+      inject_receipt:
+        step_id: s1
+        status: completed
+      resume_via_engine: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_state: completed
+        expect_receipts: ["completed", "completed"]
+    expected:
+      state: completed
+      final_status: completed
+      mutated: true
+
+  # ----------------------------------------------------------- fake approval
+  - id: h7-fake-01
+    scenario: "Model 'approved' iddia eder ama sunucu tarafı kayıt yoktur: yürütme reddedilir."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: execute
+        expect_error: APPROVAL_REQUIRED
+    expected:
+      error: APPROVAL_REQUIRED
+      state: awaiting_approval
+      mutated: false
+
+  - id: h7-fake-02
+    scenario: "Onay kaydı başka bir revizyona aitse yürütme reddedilir."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - step_id: s1
+            action: todo_create
+            arguments:
+              title: "Kurgusal görev"
+      prepare_again: true
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: execute
+        expect_error: APPROVAL_STALE
+    expected:
+      error: APPROVAL_STALE
+      mutated: false
+
+  # -------------------------------------------------------------- budget/DSL
+  - id: h7-budget-01
+    scenario: "11 adımlı plan adım tavanını aşar ve hiç kaydedilmez."
+    setup:
+      plan:
+        title: "Kurgusal uzun plan"
+        steps:
+          - {step_id: s1, action: todo_create, arguments: {title: "Kurgusal 1"}}
+          - {step_id: s2, action: todo_create, arguments: {title: "Kurgusal 2"}}
+          - {step_id: s3, action: todo_create, arguments: {title: "Kurgusal 3"}}
+          - {step_id: s4, action: todo_create, arguments: {title: "Kurgusal 4"}}
+          - {step_id: s5, action: todo_create, arguments: {title: "Kurgusal 5"}}
+          - {step_id: s6, action: todo_create, arguments: {title: "Kurgusal 6"}}
+          - {step_id: s7, action: todo_create, arguments: {title: "Kurgusal 7"}}
+          - {step_id: s8, action: todo_create, arguments: {title: "Kurgusal 8"}}
+          - {step_id: s9, action: todo_create, arguments: {title: "Kurgusal 9"}}
+          - {step_id: s10, action: todo_create, arguments: {title: "Kurgusal 10"}}
+          - {step_id: s11, action: todo_create, arguments: {title: "Kurgusal 11"}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: PLAN_BUDGET_EXCEEDED
+      mutated: false
+
+  - id: h7-budget-02
+    scenario: "Adımsız plan kaydedilmez."
+    setup:
+      plan:
+        title: "Kurgusal boş plan"
+        steps: []
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: PLAN_HAS_NO_STEPS
+      mutated: false
+
+  - id: h7-budget-03
+    scenario: "Aynı step_id iki kez kullanılamaz."
+    setup:
+      plan:
+        title: "Kurgusal tekrarlı plan"
+        steps:
+          - {step_id: s1, action: todo_create, arguments: {title: "Kurgusal 1"}}
+          - {step_id: s1, action: todo_create, arguments: {title: "Kurgusal 2"}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: DUPLICATE_STEP_ID
+      mutated: false
+
+  - id: h7-unknown-01
+    scenario: "Bilinmeyen eylem sessizce yok sayılmaz; plan reddedilir."
+    setup:
+      plan:
+        title: "Kurgusal bilinmeyen eylem"
+        steps:
+          - {step_id: s1, action: legacy_magic_tool, arguments: {anything: 1}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: UNKNOWN_ACTION
+      mutated: false
+
+  - id: h7-destructive-01
+    scenario: "Silme yıkıcı bir eylemdir; H7 sözlüğünde yoktur ve reddedilir."
+    setup:
+      plan:
+        title: "Kurgusal yıkıcı plan"
+        steps:
+          - {step_id: s1, action: delete_everything, arguments: {}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: UNKNOWN_ACTION
+      mutated: false
+
+  - id: h7-destructive-02
+    scenario: "Shell/SQL/eşlemesiz eylem adları kapalı kümede değildir."
+    setup:
+      plan:
+        title: "Kurgusal kabuk planı"
+        steps:
+          - {step_id: s1, action: shell, arguments: {command: "true"}}
+          - {step_id: s2, action: sql, arguments: {query: "select 1"}}
+          - {step_id: s3, action: arbitrary_http, arguments: {url: "http://127.0.0.1/"}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: UNKNOWN_ACTION
+      mutated: false
+
+  # ---------------------------------------------------------------- evidence
+  - id: h7-evidence-01
+    scenario: "Uydurma kanıt referansı (var olmayan entity) planı reddettirir."
+    setup:
+      plan:
+        title: "Kurgusal kanıtlı plan"
+        source_refs: ["entity:00000000-0000-4000-8000-000000000000"]
+        steps:
+          - {step_id: s1, action: todo_create, arguments: {title: "Kurgusal görev"}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: UNKNOWN_SOURCE_REF
+      mutated: false
+
+  - id: h7-evidence-02
+    scenario: "Bilinmeyen referans şeması kabul edilmez."
+    setup:
+      plan:
+        title: "Kurgusal şemalı plan"
+        evidence_refs: ["guess:something"]
+        steps:
+          - {step_id: s1, action: todo_create, arguments: {title: "Kurgusal görev"}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: UNKNOWN_REF_SCHEME
+      mutated: false
+
+  - id: h7-evidence-03
+    scenario: "Var olmayan hedef kimliği planı reddettirir."
+    setup:
+      plan:
+        title: "Kurgusal eksik hedef"
+        steps:
+          - step_id: s1
+            action: todo_update
+            arguments:
+              todo_id: "00000000-0000-4000-8000-000000000001"
+              notes: "Kurgusal not"
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: STEP_TARGET_MISSING
+      mutated: false
+
+  # -------------------------------------------------------- H1 validation
+  - id: h7-h1fail-01
+    scenario: "H1 şemasına uymayan argüman planı reddettirir (boş başlık)."
+    setup:
+      plan:
+        title: "Kurgusal H1 hatası"
+        steps:
+          - {step_id: s1, action: todo_create, arguments: {title: ""}}
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: INVALID_STEP_ARGUMENT
+      mutated: false
+
+  - id: h7-h1fail-02
+    scenario: "H1 şemasına uymayan argüman (bilinmeyen alan) planı reddettirir."
+    setup:
+      plan:
+        title: "Kurgusal bilinmeyen alan"
+        steps:
+          - step_id: s1
+            action: project_update
+            arguments:
+              project_id: "11111111-2222-4333-8444-555555555555"
+              secret_field: "kurgusal"
+    flow:
+      - op: prepare
+        expect_error: PLAN_VALIDATION_FAILED
+    expected:
+      error: PLAN_VALIDATION_FAILED
+      validation_code: INVALID_STEP_ARGUMENT
+      mutated: false
+
+  # -------------------------------------------------------------- cancel/404
+  - id: h7-cancel-01
+    scenario: "Yürütme başlamadan iptal edilen plan canonical mutasyon üretmez."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - {step_id: s1, action: todo_create, arguments: {title: "Kurgusal görev"}}
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: cancel
+        expect_state: cancelled
+      - op: execute
+        expect_error: PLAN_TERMINAL
+    expected:
+      error: PLAN_TERMINAL
+      state: cancelled
+      mutated: false
+
+  - id: h7-cancel-02
+    scenario: "Onaylanmış ama yürütülmemiş plan iptal edilebilir; mutasyon olmaz."
+    setup:
+      plan:
+        title: "Kurgusal görev oluştur"
+        steps:
+          - {step_id: s1, action: todo_create, arguments: {title: "Kurgusal görev"}}
+    flow:
+      - op: prepare
+        expect_state: awaiting_approval
+      - op: approve
+        expect_state: approved
+      - op: cancel
+        expect_state: cancelled
+      - op: execute
+        expect_error: PLAN_TERMINAL
+    expected:
+      error: PLAN_TERMINAL
+      state: cancelled
+      mutated: false
+
+  - id: h7-notfound-01
+    scenario: "Olmayan plan satırı okunamaz."
+    setup:
+      plan: null
+    flow:
+      - op: get
+        plan_row_id: 999999
+        expect_error: PLAN_NOT_FOUND
+    expected:
+      error: PLAN_NOT_FOUND
+      mutated: false
