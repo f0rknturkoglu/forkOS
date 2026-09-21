@@ -9,6 +9,8 @@ import {
   readPlanTodayPreference,
   writePlanTodayPreference,
 } from "./tasks";
+import { invalidateAfter } from "@/core/invalidation";
+import { queryClient } from "@/core/queryClient";
 
 // jsdom 30 + Node 26'da window.localStorage getter'i undefined donuyor;
 // test icin bellek ici bir localStorage tanimliyoruz (TodoComposer.test ile ayni).
@@ -37,10 +39,6 @@ vi.hoisted(() => {
 
 const harness = vi.hoisted(() => ({ apiPost: vi.fn() }));
 vi.mock("@/core/api", () => ({ api: { post: harness.apiPost } }));
-vi.mock("@/core/invalidation", () => ({
-  invalidateAfter: vi.fn(),
-}));
-vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
 
 /**
  * Faz 17 guardrail: gorev olusturma TEK intent katmanindan gecer.
@@ -52,10 +50,13 @@ vi.mock("@/core/queryClient", () => ({ queryClient: vi.fn() }));
 const taskEntryFiles = [
   "src/modules/todo/TodoComposer.tsx",
   "src/modules/todo/TodoRow.tsx",
+  "src/modules/today/TodayAgendaWidget.tsx",
   "src/modules/projects/ProjectTodos.tsx",
   "src/modules/learning/LearningPage.tsx",
   "src/modules/opportunity/JobDetail.tsx",
   "src/modules/opportunity/AnnouncementDetail.tsx",
+  "src/modules/opportunity/OpportunityDetailSections.tsx",
+  "src/modules/bookmarks/BookmarkReaderModal.tsx",
   "src/core/DropCapture.tsx",
   "src/modules/todo/index.ts",
 ];
@@ -99,10 +100,45 @@ describe("task creation intent (Faz 17)", () => {
     expect(body.due_at).toBe("2026-09-02T10:00:00Z");
   });
 
-  it("invalidateTaskWrite hem todo hem plan key'lerini tazeler", async () => {
-    const { invalidateAfter } = vi.mocked(await import("@/core/invalidation"));
+  /**
+   * Faz 33 sozlesmesi: gorev yazmasi Todo + Home ajandasi + Haftalik plan +
+   * Proje yuzeylerinin HEPSINI tazeler. Eksik anahtar kullaniciya "manuel
+   * yenileme" olarak donuyordu (proje gorevlerinde tam olarak boyleydi).
+   * Gercek cache uzerinde olculur; mock'lanmis cagri listesi degil.
+   */
+  it("gorev yazmasi Todo/Home/Plan/Proje sorgularini tazeler", () => {
+    const cache = queryClient().getQueryCache();
+    const keys = [
+      ["todos", "open", "all", "", false],
+      ["today-agenda", "2026-01-01"],
+      ["plan", "2026-01-01"],
+      ["project-todos", "p1"],
+      ["projects", "active"],
+    ];
+    const queries = keys.map((queryKey) => cache.build(queryClient(), { queryKey, queryFn: async () => null }));
+    for (const query of queries) {
+      expect(query.state.isInvalidated, `${String(query.queryKey[0])} yazma oncesi taze`).toBe(false);
+    }
+
     invalidateTaskWrite();
-    expect(invalidateAfter).toHaveBeenCalledWith("todo.write", "plan.write");
+
+    for (const query of queries) {
+      expect(query.state.isInvalidated, `${String(query.queryKey[0])} yazma sonrasi tazelenmeli`).toBe(true);
+    }
+  });
+
+  /**
+   * Degerlendirme kararlari gorev yazar (devret -> plan slotu, oncelik -> yeni
+   * gorev); Home ajandasi kendi ucuyla okundugu icin ayrica tazelenmeli.
+   */
+  it("degerlendirme yazmasi Home ajandasini tazeler", () => {
+    const query = queryClient()
+      .getQueryCache()
+      .build(queryClient(), { queryKey: ["today-agenda", "2026-01-01"], queryFn: async () => null });
+
+    invalidateAfter("review.write");
+
+    expect(query.state.isInvalidated).toBe(true);
   });
 
   it("planDayForToday tercihe gore plan_day uretir, asla due_at degil", async () => {

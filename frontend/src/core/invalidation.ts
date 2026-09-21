@@ -20,6 +20,11 @@ export const AFTER = {
     // Konunun "acik gorev" blogu todos'tan turer.
     "study-topic",
     "study-topics",
+    // Proje yuzeyleri gorevden beslenir: proje listesi/karti sayilari ve
+    // proje detayindaki gorev listesi. Bu iki anahtar eksikken Todo disindan
+    // (or. yakalama kutusu) yazilan proje gorevi proje ekraninda bayat kaliyordu.
+    "project-todos",
+    "projects",
   ],
   "bookmark.write": [
     "bookmarks",
@@ -149,7 +154,10 @@ export const AFTER = {
   ],
   "document.write": ["documents", "activity"],
   "calendar.write": ["calendar-events", "plan", "today-agenda", "activity"],
-  "review.write": ["review-preview", "reviews", "todos", "plan", "activity"],
+  // Degerlendirme kararlari gorev yazar: devredilen gorev plan slotu alir,
+  // oncelikler yeni gorev uretir. Home ajandasi kendi ucuyla ("today-agenda")
+  // okundugu icin yalniz todos/plan tazelemek onu bayat birakiyordu.
+  "review.write": ["review-preview", "reviews", "todos", "plan", "today-agenda", "activity"],
   // H6 kontrol yuzeyi (Ayarlar > Proaktivite + bildirim panelindeki erteleme)
   // bu yazma olayindan beslenir: ana anahtar, esik ve erteleme durum/kural/
   // gecmis sorgularinin ucunu de tazeler.

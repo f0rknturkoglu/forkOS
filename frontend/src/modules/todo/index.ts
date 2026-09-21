@@ -27,8 +27,6 @@ registerModule({
       id: "todo.overdue",
       title: "Geciken görevler",
       component: OverdueTodosWidget,
-      // Durum seridi: "geciken" bir dikkat sinyalidir, gunluk plan degil.
-      region: "rail",
       order: 15,
       defaultVisible: false,
     },

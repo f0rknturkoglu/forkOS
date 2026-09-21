@@ -1,12 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { SavedViewPicker } from "@/core/SavedViewPicker";
-import { useAppliedSavedView } from "@/core/savedViews";
-import { Chip, Empty, PageFrame, RowList, Section, SkeletonRows } from "@/core/ui";
+import { Empty, PageFrame, RowList, Section, SkeletonRows } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
 import { TodoRow } from "./TodoRow";
@@ -67,15 +65,10 @@ export function TodoPage() {
   }, [focusId]);
 
   /**
-   * Sabitlenmiş/kayıtlı görünüm: yalnız tanınan alanlar (durum, etiket, rutin)
-   * uygulanır; bilinmeyen anahtar yok sayılır.
+   * Kayitli gorunum uygulama yolu KALDIRILDI (Faz 26): durum/etiket/rutin
+   * filtreleri rail'de yasar. Eski `?saved=<id>` baglantilari yalnizca
+   * yok sayilir -- URL'de kalsa da sayfa normal acilir.
    */
-  const applySavedFilters = useCallback((saved: Record<string, unknown>) => {
-    if (typeof saved.status === "string") setStatus(saved.status);
-    if (typeof saved.tag === "string") setTag(saved.tag);
-    if (typeof saved.routine === "boolean") setRoutineOnly(saved.routine);
-  }, []);
-  useAppliedSavedView("todo", params, applySavedFilters);
 
   const { data: todos = [], isLoading } = useQuery({
     queryKey: ["todos", status, routineOnly ? "routines" : "all", projectFilter, plannedFilter],
@@ -176,27 +169,24 @@ export function TodoPage() {
           }
           hint={`${visible.length} kayıt`}
           action={
-            <div className="flex items-center gap-2">
-              <SavedViewPicker
-                module="todo"
-                filters={{ status, tag, routine: routineOnly }}
-                onApply={applySavedFilters}
-              />
-              <a href="#/planner" className="text-meta text-accent hover:underline">
-                Haftalık plan →
-              </a>
-            </div>
+            <a href="#/planner" className="text-meta text-accent hover:underline">
+              Haftalık plan →
+            </a>
           }
         >
-          {projectFilter ? (
-            <Chip tone="accent">
-              {projectTitle ?? projectFilter}
-              <button type="button" onClick={() => navigate(path)} aria-label="Proje filtresini kaldır">
-                ×
-              </button>
-            </Chip>
-          ) : plannedFilter ? (
-            <Chip tone="accent">Bugün ve yarın planlananlar</Chip>
+          {projectFilter || plannedFilter ? (
+            <p className="flex items-center gap-2 text-meta text-muted">
+              {projectFilter ? (
+                <>
+                  <span>Yalnız “{projectTitle ?? projectFilter}” projesinin görevleri</span>
+                  <button type="button" onClick={() => navigate(path)} className="text-accent hover:underline">
+                    temizle
+                  </button>
+                </>
+              ) : (
+                <span>Bugün ve yarın planlananlar</span>
+              )}
+            </p>
           ) : null}
         </WorkspacePaneHeader>
         <div className="border-b border-subtle bg-surface-sunken p-3">
@@ -207,11 +197,7 @@ export function TodoPage() {
             <SkeletonRows rows={8} />
           ) : visible.length === 0 ? (
             <Empty variant="page" title="Liste boş">
-              {tag
-                ? `#${tag} etiketli görev yok.`
-                : routineOnly
-                  ? "Bu filtrede rutin görev yok. Bir göreve tekrar kuralı ekleyebilirsin."
-                  : "Bu filtrede görev yok. Yukarıdan ekleyebilirsin."}
+              {tag ? `#${tag} etiketli görev yok.` : "Bu filtrede görev yok — yukarıdan ekleyebilirsin."}
             </Empty>
           ) : (
             grouped.map((bucket) => (

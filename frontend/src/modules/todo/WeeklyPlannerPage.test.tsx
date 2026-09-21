@@ -6,7 +6,7 @@ import { WeeklyPlannerPage } from "./WeeklyPlannerPage";
 
 type MutationOptions = {
   mutationFn?: (variables: { active: string; target: string }) => Promise<unknown> | unknown;
-  onSuccess?: () => void;
+  onSuccess?: (data: unknown, variables: { active: string; target: string }) => void;
 };
 type QueryOptions = { queryKey: readonly unknown[] };
 
@@ -57,7 +57,7 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
     useMutation: vi.fn((options: MutationOptions) => ({
       mutate: async (variables: { active: string; target: string }) => {
         await options.mutationFn?.(variables);
-        options.onSuccess?.();
+        options.onSuccess?.(undefined, variables);
       },
       isPending: false,
     })),
@@ -90,5 +90,19 @@ describe("WeeklyPlannerPage", () => {
       }),
     );
     expect(harness.invalidate).toHaveBeenCalledWith("plan.write");
+  });
+
+  it("planlanan gorev 'Planlanmamış' listesinden ANINDA duser", async () => {
+    render(<WeeklyPlannerPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Klavye ile planlanacak görevini planlamak için seç" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Seçili görevi .* gününe planla/ })[0]);
+
+    // `plan` sorgusu bu testte hic yeni slot dondurmuyor: gorev yalnizca
+    // secim defteri sayesinde dusuyorsa davranis aninda demektir.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Klavye ile planlanacak görevini planlamak için seç" })).toBeNull(),
+    );
+    expect(screen.getByText("Açık görevlerin hepsi planlandı.")).toBeTruthy();
   });
 });

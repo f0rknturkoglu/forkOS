@@ -18,6 +18,7 @@ import {
 import { api, qs } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { openObsidianUri, type VaultItem } from "@/core/obsidian";
+import { createTask, invalidateTaskWrite } from "@/core/tasks";
 import type { Bookmark, BookmarkFullText, BookmarkHighlight, Collection } from "@/core/types";
 import { Button, Chip, Empty, IconButton, Input, Select, cx, hostOf, useToast } from "@/core/ui";
 
@@ -314,12 +315,15 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
   const handleConvertSelectionToTodo = async () => {
     if (!bookmark || !selectionPopup) return;
     try {
-      await api.post("/todos", {
+      // KANONIK yol (Faz 31): gorev olusturma core/tasks::createTask'tan gecer.
+      // `notes` alani TodoIn'de YOK (backend onu sessizce yok sayiyordu); serbest
+      // metin `description`a gider. "Bugune al" tercihi ve tazeleme boylece
+      // diger girislerle ayni yerden uygulanir.
+      await createTask({
         title: `Okuma: ${selectionPopup.text.slice(0, 80)}`,
-        notes: `${selectionPopup.text}${highlightNote ? `\n\nNot: ${highlightNote}` : ""}\n\nKaynak: ${bookmark.url}`,
-        priority: 2,
+        description: `${selectionPopup.text}${highlightNote ? `\n\nNot: ${highlightNote}` : ""}\n\nKaynak: ${bookmark.url}`,
       });
-      invalidateAfter("todo.write");
+      invalidateTaskWrite();
       toast.push("Gorev olusturuldu", { tone: "ok" });
       setSelectionPopup(null);
       setHighlightNote("");

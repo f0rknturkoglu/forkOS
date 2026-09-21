@@ -3,13 +3,11 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
-  Ban,
   Calendar,
   CalendarPlus,
   Check,
   CornerDownRight,
   FolderGit2,
-  GraduationCap,
   ListTree,
   Milestone as MilestoneIcon,
   Repeat,
@@ -18,26 +16,26 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/core/api";
-import { confirmDialog } from "@/core/dialog";
 import { createTask } from "@/core/tasks";
-import { Chip, IconButton, Input, cx, useToast } from "@/core/ui";
+import { IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { openPomodoro } from "@/modules/pomodoro/dock";
 import type { Todo } from "@/core/types";
 import { appLocalToUtc, todayKey } from "@/lib/date";
 import { RECURRENCES, dueLabel, planLabel, priorityOf, recurLabel } from "./priority";
 
-const DUE_CHIP = {
-  muted: "border-subtle text-secondary",
-  accent: "border-accent-border bg-accent-surface text-accent",
-  danger: "border-danger-border bg-danger-surface text-danger",
+/** Son tarih tonlari: cerceve yok, yalniz metin rengi. */
+const DUE_TEXT = {
+  muted: "text-muted",
+  accent: "text-accent",
+  danger: "text-danger",
 } as const;
 
-/** Plan cipi tonlari: gelecek plan bilgi, gecikmis plan uyari. */
-const PLAN_CHIP = {
-  muted: "border-subtle text-muted",
-  accent: "border-accent-border bg-accent-surface text-accent",
-  warn: "border-warn-border bg-warn-surface text-warn",
+/** Plan tonlari: gelecek plan bilgi, gecikmis plan uyari. */
+const PLAN_TEXT = {
+  muted: "text-muted",
+  accent: "text-accent",
+  warn: "text-warn",
 } as const;
 
 /** Proje rozetinin gittigi adres -- secili proje acilsin diye focus tasinir. */
@@ -117,6 +115,107 @@ export function TodoRow({
   const due = dueLabel(todo.due_at);
   const recur = recurLabel(todo.recur);
   const plan = planLabel(todo.planned_day ?? null, todo.planned_start_min ?? null);
+
+  /**
+   * Satir meta parcalari sirayla: oncelik (varsayilan disiysa), son tarih,
+   * plan, rutin, proje, kilometre tasi, alt gorev sayaci, etiketler.
+   * Kaynak bilgisi (ogrenme konusu) YAZILMAZ: basligin kendisi konu agacina
+   * bagli, ikinci bir rozet ayni seyi tekrar ediyordu.
+   */
+  const meta: { key: string; node: ReactNode }[] = [];
+  if (todo.priority !== 2) {
+    meta.push({
+      key: "priority",
+      node: (
+        <span className={cx("flex items-center gap-1", priority.text)}>
+          <span className={cx("h-1.5 w-1.5 rounded-full", priority.dot)} />
+          {priority.label}
+        </span>
+      ),
+    });
+  }
+  if (due) {
+    meta.push({
+      key: "due",
+      node: <span className={DUE_TEXT[due.tone]}>{due.text}</span>,
+    });
+  }
+  if (plan) {
+    meta.push({
+      key: "plan",
+      node: (
+        <span title="Plana alındı — son tarih değil" className={cx("flex items-center gap-1", PLAN_TEXT[plan.tone])}>
+          <Calendar size={11} /> {plan.text}
+        </span>
+      ),
+    });
+  }
+  if (recur && todo.recur) {
+    meta.push({
+      key: "recur",
+      node: (
+        <button
+          type="button"
+          title={
+            todo.due_at
+              ? `Rutin — sonraki: ${dueLabel(todo.due_at)?.text ?? ""} (düzenlemek için tıkla)`
+              : "Rutin — sonraki tarih yok (düzenlemek için tıkla)"
+          }
+          onClick={() => setEditingRecur((value) => !value)}
+          className="flex items-center gap-1 text-muted transition hover:text-primary"
+        >
+          <Repeat size={11} /> {recur}
+        </button>
+      ),
+    });
+  }
+  if (todo.project_title) {
+    meta.push({
+      key: "project",
+      node: (
+        <a
+          href={projectHref(todo)}
+          title={`${todo.project_title} projesi`}
+          className="flex items-center gap-1 text-accent hover:underline"
+        >
+          <FolderGit2 size={11} /> {todo.project_title}
+        </a>
+      ),
+    });
+  }
+  if (todo.milestone_title) {
+    meta.push({
+      key: "milestone",
+      node: (
+        <a
+          href={projectHref(todo)}
+          title={`${todo.milestone_title} kilometre taşı`}
+          className="flex items-center gap-1 text-secondary hover:text-primary"
+        >
+          <MilestoneIcon size={11} /> {todo.milestone_title}
+        </a>
+      ),
+    });
+  }
+  if (todo.subtask_total > 0) {
+    meta.push({
+      key: "subtasks",
+      node: (
+        <span className="flex items-center gap-1 text-muted">
+          <ListTree size={11} /> {todo.subtask_done}/{todo.subtask_total}
+        </span>
+      ),
+    });
+  }
+  todo.tags.forEach((tag) => {
+    meta.push({
+      key: `tag:${tag}`,
+      node: <span className="text-secondary">#{tag}</span>,
+    });
+  });
+  if (dropped) {
+    meta.push({ key: "dropped", node: <span className="text-muted">bırakıldı</span> });
+  }
 
   useEffect(() => {
     if (focused) rowRef.current?.scrollIntoView({ block: "center" });
@@ -206,130 +305,61 @@ export function TodoRow({
           )}
 
           {/*
-           * Meta satiri: her parca kendi hafif cercevesi icinde. Duz metin
-           * yan yana dizilince "yuksek 23 Ağu her gün #ev" tek bir bulanik
-           * satira donuyordu; elips/cerceve okunurlugu geri veriyor.
+           * Meta satiri duz metin: her parca kendi cercevesi icinde olunca
+           * satir rozet yiginina donuyordu. Ayrac + ton rengi okunurlugu
+           * cercevesiz koruyor; varsayilan oncelik ("orta") hic yazilmaz,
+           * cunku her satirda tekrar eden bilgi degil gurultu.
            */}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-meta">
-            {todo.priority > 0 && (
-              <Chip tone={priority.tone} icon={<span className={cx("h-1.5 w-1.5 rounded-full", priority.dot)} />}>
-                {priority.label}
-              </Chip>
-            )}
-            {due && (
-              <span className={cx("rounded-full border px-2 py-0.5 text-micro leading-4", DUE_CHIP[due.tone])}>
-                {due.text}
-              </span>
-            )}
-            {plan && (
-              <span
-                title="Plana alındı — son tarih değil"
-                className={cx(
-                  "flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro leading-4",
-                  PLAN_CHIP[plan.tone],
-                )}
-              >
-                <Calendar size={10} /> {plan.text}
-              </span>
-            )}
-            {recur && todo.recur && (
-              <button
-                type="button"
-                title={
-                  todo.due_at
-                    ? `Rutin — sonraki: ${dueLabel(todo.due_at)?.text ?? ""} (düzenlemek için tıkla)`
-                    : "Rutin — sonraki tarih yok (düzenlemek için tıkla)"
-                }
-                onClick={() => setEditingRecur((value) => !value)}
-                className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted transition hover:border-strong"
-              >
-                <Repeat size={10} /> {recur}
-                {todo.due_at && <span className="text-secondary">{dueLabel(todo.due_at)?.text}</span>}
-              </button>
-            )}
+          {meta.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-meta">
+              {meta.map((item, index) => (
+                <span key={item.key} className="flex items-center gap-1.5">
+                  {index > 0 && (
+                    <span aria-hidden className="text-icon">
+                      ·
+                    </span>
+                  )}
+                  {item.node}
+                </span>
+              ))}
+            </div>
+          )}
 
-            {editingRecur && todo.recur && (
-              <span className="flex flex-wrap items-center gap-1">
-                {RECURRENCES.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    aria-pressed={todo.recur === item.value}
-                    onClick={() => {
-                      if (item.value === "") {
-                        patch.mutate(
-                          { recur: "" },
-                          {
-                            onSuccess: () => toast.push("Rutin durduruldu — bu görev duruyor.", { tone: "ok" }),
-                            onError: () => toast.push("Rutin durdurulamadı.", { tone: "danger" }),
-                          },
-                        );
-                      } else {
-                        patch.mutate(
-                          { recur: item.value },
-                          {
-                            onSuccess: () => toast.push(`Rutin güncellendi: ${item.label}`, { tone: "ok" }),
-                            onError: () => toast.push("Rutin güncellenemedi.", { tone: "danger" }),
-                          },
-                        );
-                      }
-                      setEditingRecur(false);
-                    }}
-                    className={cx(
-                      "rounded-control border px-2 py-0.5 text-micro transition",
-                      todo.recur === item.value
-                        ? "border-accent-border bg-accent-surface text-accent"
-                        : "border-subtle text-muted hover:border-strong",
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </span>
-            )}
-            {todo.project_title && (
-              <a
-                href={projectHref(todo)}
-                title={`${todo.project_title} projesi`}
-                className="flex items-center gap-1 rounded-full border border-accent-border bg-accent-surface px-2 py-0.5 text-micro leading-4 text-accent transition hover:brightness-95"
-              >
-                <FolderGit2 size={10} /> {todo.project_title}
-              </a>
-            )}
-            {todo.learning_topic_id && (
-              <a
-                href={`#/learning?focus=${encodeURIComponent(todo.learning_topic_id)}`}
-                title="Öğrenme konu ağacını aç"
-              >
-                <Chip tone="accent" icon={<GraduationCap size={10} />}>
-                  Öğrenme
-                </Chip>
-              </a>
-            )}
-            {todo.milestone_title && (
-              <a href={projectHref(todo)} title={`${todo.milestone_title} kilometre taşı`}>
-                <Chip icon={<MilestoneIcon size={10} />}>{todo.milestone_title}</Chip>
-              </a>
-            )}
-            {todo.subtask_total > 0 && (
-              <span className="flex items-center gap-1 rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
-                <ListTree size={10} /> {todo.subtask_done}/{todo.subtask_total}
-              </span>
-            )}
-            {todo.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-secondary"
-              >
-                #{tag}
-              </span>
-            ))}
-            {dropped && (
-              <span className="rounded-full border border-subtle px-2 py-0.5 text-micro leading-4 text-muted">
-                bırakıldı
-              </span>
-            )}
-          </div>
+          {editingRecur && todo.recur && (
+            <span className="mt-1 flex flex-wrap items-center gap-1">
+              {RECURRENCES.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={todo.recur === item.value}
+                  onClick={() => {
+                    patch.mutate(
+                      { recur: item.value },
+                      {
+                        onSuccess: () =>
+                          toast.push(
+                            item.value === ""
+                              ? "Rutin durduruldu — bu görev duruyor."
+                              : `Rutin güncellendi: ${item.label}`,
+                            { tone: "ok" },
+                          ),
+                        onError: () => toast.push("Rutin güncellenemedi.", { tone: "danger" }),
+                      },
+                    );
+                    setEditingRecur(false);
+                  }}
+                  className={cx(
+                    "rounded-control border px-2 py-0.5 text-micro transition",
+                    todo.recur === item.value
+                      ? "border-accent-border bg-accent-surface text-accent"
+                      : "border-subtle text-muted hover:border-strong",
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </span>
+          )}
         </div>
 
         <div
@@ -367,32 +397,6 @@ export function TodoRow({
               }}
             >
               <CalendarPlus size={14} />
-            </IconButton>
-          )}
-          {!done && !dropped && !compact && todo.recur && (
-            <IconButton
-              title="Rutini durdur"
-              disabled={!online || patch.isPending}
-              onClick={async () => {
-                const ok = await confirmDialog({
-                  title: "Rutin durdurulsun mu?",
-                  body:
-                    "Bu görev silinmez; yalnızca gelecekte yeni occurrence üretimi kapanır. " +
-                    "Geçmiş kayıtlar Activity'de kalır.",
-                  confirmLabel: "Rutini durdur",
-                });
-                if (ok) {
-                  patch.mutate(
-                    { recur: "" },
-                    {
-                      onSuccess: () => toast.push("Rutin durduruldu — bu görev duruyor.", { tone: "ok" }),
-                      onError: () => toast.push("Rutin durdurulamadı.", { tone: "danger" }),
-                    },
-                  );
-                }
-              }}
-            >
-              <Ban size={14} />
             </IconButton>
           )}
           {!done && !dropped && !compact && (

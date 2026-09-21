@@ -20,9 +20,10 @@ vi.mock("@/core/api", () => ({
 }));
 vi.mock("@/core/invalidation", () => ({ invalidateAfter: vi.fn() }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
+const harness = vi.hoisted(() => ({ params: new URLSearchParams("planned=today") }));
 vi.mock("@/app/router", () => ({
   navigate: vi.fn(),
-  useHashRoute: () => ({ path: "/todos", params: new URLSearchParams("planned=today") }),
+  useHashRoute: () => ({ path: "/todos", params: harness.params }),
 }));
 
 import { api } from "@/core/api";
@@ -86,5 +87,39 @@ describe("TodoPage ?planned=today", () => {
     expect(screen.queryByText("Görev c")).toBeNull();
     // Gecmis plan (backend donmese de) filtreye girmez.
     expect(screen.queryByText("Görev d")).toBeNull();
+  });
+});
+
+describe("TodoPage kayitli gorunumler (Faz 26)", () => {
+  function renderPage(params: string) {
+    harness.params = new URLSearchParams(params);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <TodoPage />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("eski ?saved=<id> baglantisi cokmez, yalnizca yok sayilir", async () => {
+    renderPage("saved=kayip-gorunum");
+
+    expect(await screen.findByText("Görev c")).toBeTruthy();
+    // Kayitli gorunum uclari artik Todo'dan cagrilmaz.
+    for (const [path] of apiGet.mock.calls) {
+      expect(String(path).startsWith("/views")).toBe(false);
+    }
+    // Secici (dugme + panel) yuzeyde yok.
+    expect(screen.queryByText("Görünümler")).toBeNull();
+    expect(screen.queryByLabelText("Kayıtlı görünümler")).toBeNull();
+  });
+
+  it("durum/etiket/rutin filtreleri rail'de kalir", async () => {
+    renderPage("saved=kayip-gorunum");
+
+    expect(await screen.findByText("Görev c")).toBeTruthy();
+    for (const label of ["açık", "devam", "tamam", "bırakılan", "tümü", "Rutinler"]) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
   });
 });

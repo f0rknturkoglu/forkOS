@@ -116,6 +116,14 @@ function DayColumn({
 export function WeeklyPlannerPage() {
   const [week, setWeek] = useState(() => monday());
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
+  /**
+   * Bu oturumda planlanan gorevler: `plan` sorgusu yanitini getirmeden gorevi
+   * "Planlanmamış" listesinden dusurur. Sunucu verisi geldiginde slot zaten
+   * `planned` kumesine girer; bu defter yalnizca arada kalan boslugu kapatir.
+   * Hafta degisince sifirlanir -- gorunmeyen haftanin yerlesimi backlog'u
+   * etkilememeli.
+   */
+  const [placed, setPlaced] = useState<ReadonlySet<string>>(new Set());
   const online = useOnline();
   const days = useMemo(
     () =>
@@ -138,8 +146,14 @@ export function WeeklyPlannerPage() {
       if (active.startsWith("slot:")) return api.patch(`/plan/${active.replace("slot:", "")}`, { day });
       return api.post("/plan", { entity_id: active.replace("todo:", ""), day });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       setSelectedTask(null);
+      // Gorev -> gun: kart hemen listeden dussun (kullanici ayni karti iki
+      // yerde gormesin); slot -> gun tasimasinin backlog'a etkisi yok.
+      if (variables.active.startsWith("todo:")) {
+        const id = variables.active.replace("todo:", "");
+        setPlaced((current) => new Set(current).add(id));
+      }
       invalidateAfter("plan.write");
     },
   });
@@ -147,11 +161,13 @@ export function WeeklyPlannerPage() {
     if (!event.over || !online) return;
     move.mutate({ active: String(event.active.id), target: String(event.over.id) });
   }
-  function shift(days: number) {
-    setWeek(addAppDays(week, days));
+  function showWeek(next: Date) {
+    setPlaced(new Set());
+    setSelectedTask(null);
+    setWeek(next);
   }
   const planned = new Set(slots.map((slot) => slot.entity_id));
-  const unplanned = todos.filter((todo) => !planned.has(todo.id));
+  const unplanned = todos.filter((todo) => !planned.has(todo.id) && !placed.has(todo.id));
   const selectedTitle = unplanned.find((todo) => todo.id === selectedTask)?.title;
   const weekLabel = `${formatTrDate(days[0], { day: "numeric", month: "short", timeZone: "UTC" })} – ${formatTrDate(days[6], { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}`;
   return (
@@ -189,13 +205,13 @@ export function WeeklyPlannerPage() {
             hint={`${slots.length} blok`}
             action={
               <span className="flex items-center gap-1">
-                <Button size="sm" variant="ghost" onClick={() => shift(-7)} title="Önceki hafta">
+                <Button size="sm" variant="ghost" onClick={() => showWeek(addAppDays(week, -7))} title="Önceki hafta">
                   <ChevronLeft size={14} />
                 </Button>
-                <Button size="sm" onClick={() => setWeek(monday())}>
+                <Button size="sm" onClick={() => showWeek(monday())}>
                   Bu hafta
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => shift(7)} title="Sonraki hafta">
+                <Button size="sm" variant="ghost" onClick={() => showWeek(addAppDays(week, 7))} title="Sonraki hafta">
                   <ChevronRight size={14} />
                 </Button>
               </span>

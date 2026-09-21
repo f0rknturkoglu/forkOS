@@ -28,7 +28,7 @@ vi.mock("@/core/dialog", () => ({
 
 import { api } from "@/core/api";
 
-import { todayKey, tomorrowKey } from "@/lib/date";
+import { appLocalToUtc, todayKey, tomorrowKey } from "@/lib/date";
 
 const apiPatch = vi.mocked(api.patch);
 
@@ -96,60 +96,29 @@ beforeEach(() => {
 });
 
 describe("rutin kontrolleri (Faz 24)", () => {
-  it("rutin gorev 'her gun' + sonraki tarih gosterir ve 'Rutini durdur' sunar", () => {
-    const todo = {
+  // Rutin tek yol: satirdaki rutin etiketi duzenleyiciyi acar. Ayri bir
+  // "rutini durdur" ikonu kaldirildi -- ayni isi iki yerden yapmak
+  // kullaniciya hangi yolun gecerli oldugunu sorduruyordu. Sonraki tarih
+  // satirda IKINCI kez yazilmaz (son tarih zaten yazili); ipucu tooltip'te.
+  it("rutin gorev 'her gun' yazar, sonraki tarih ipucunda kalir ve etiket duzenleyiciyi acar", () => {
+    const todo = baseTodo({
       id: "r1",
       title: "Su iç",
-      description: null,
-      priority: 2,
-      status: "open" as const,
       due_at: "2026-08-31T08:00:00Z",
-      reminder_at: null,
-      completed_at: null,
-      parent_id: null,
-      position: 0,
-      tags: [],
       recur: "daily",
-      planned_day: null,
-      planned_start_min: null,
-      project_id: null,
-      project_title: null,
-      milestone_id: null,
-      milestone_title: null,
-      subtask_total: 0,
-      subtask_done: 0,
-    };
+    });
     renderRow(todo);
     expect(screen.getByText("her gün")).toBeTruthy();
-    expect(screen.getByTitle(/Rutin — sonraki/)).toBeTruthy();
-    expect(screen.getByTitle("Rutini durdur")).toBeTruthy();
+    const chip = screen.getByTitle(/Rutin — sonraki/);
+    fireEvent.click(chip);
+    expect(screen.getByRole("button", { name: "tek seferlik" })).toBeTruthy();
   });
 
   it("rutini durdurma PATCH recur:'' ile olur (gorev silinmez)", async () => {
-    const todo = {
-      id: "r2",
-      title: "Koşu",
-      description: null,
-      priority: 2,
-      status: "open" as const,
-      due_at: "2026-08-31T08:00:00Z",
-      reminder_at: null,
-      completed_at: null,
-      parent_id: null,
-      position: 0,
-      tags: [],
-      recur: "weekly",
-      planned_day: null,
-      planned_start_min: null,
-      project_id: null,
-      project_title: null,
-      milestone_id: null,
-      milestone_title: null,
-      subtask_total: 0,
-      subtask_done: 0,
-    };
+    const todo = baseTodo({ id: "r2", title: "Koşu", due_at: "2026-08-31T08:00:00Z", recur: "weekly" });
     renderRow(todo);
-    fireEvent.click(screen.getByTitle("Rutini durdur"));
+    fireEvent.click(screen.getByTitle(/Rutin — sonraki/));
+    fireEvent.click(screen.getByRole("button", { name: "tek seferlik" }));
     await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/todos/r2", { recur: "" }));
   });
 });
@@ -215,7 +184,6 @@ describe("TodoRow kaynak entegrasyonlari", () => {
 
     const link = screen.getByRole("link", { name: "Git Temelleri" });
     expect(link.getAttribute("href")).toBe("#/learning?focus=topic-42");
-    expect(screen.getByText("Öğrenme")).toBeTruthy();
   });
 
   it("odak aksiyonu sayfa degistirmek yerine global Pomodoro'yu baglamla acar", () => {
@@ -229,5 +197,23 @@ describe("TodoRow kaynak entegrasyonlari", () => {
     fireEvent.click(screen.getByTitle("Odaklan — pomodoro seçeneklerini aç"));
     expect(detail).toEqual({ context: "todo-42", topic: "Git çalış" });
     window.removeEventListener(POMODORO_OPEN_EVENT, listener);
+  });
+});
+
+describe("sade meta satiri (Faz 31)", () => {
+  it("varsayilan oncelik yazilmaz, varsayilan disi oncelik tonuyla yazilir", () => {
+    const first = renderRow(baseTodo());
+    expect(screen.queryByText("orta")).toBeNull();
+    first.unmount();
+
+    renderRow(baseTodo({ priority: 3 }));
+    expect(screen.getByText("yüksek").className).toMatch(/text-danger/);
+  });
+
+  it("son tarih ve etiket cip degil duz metindir", () => {
+    renderRow(baseTodo({ due_at: appLocalToUtc(todayKey(), 12, 0), tags: ["ev"] }));
+
+    expect(screen.getByText(/^bugün/).className).not.toMatch(/rounded|border/);
+    expect(screen.getByText("#ev").className).not.toMatch(/rounded|border/);
   });
 });

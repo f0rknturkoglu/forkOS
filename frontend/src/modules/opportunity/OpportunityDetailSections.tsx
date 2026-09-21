@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { BookOpen, Check, ExternalLink, FileText, MailSearch, Plus, X } from "lucide-react";
 import { ApiError, api } from "@/core/api";
 import { VAULT_ITEM_KEY, getVaultItem, getVaultSearchUri, openObsidianUri, type VaultItem } from "@/core/obsidian";
+import { planDayForToday } from "@/core/tasks";
 import { Button, Chip, Input, SectionHeader, Select, Spinner, Textarea, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import type {
@@ -523,7 +524,12 @@ export function ReplyProcessorSection({ id, status, online }: { id: string; stat
     mutationFn: async () => {
       if (!analysis) return;
       if (analysis.suggested_todo_title) {
-        await api.post(`/opportunities/${id}/todos`, { title: analysis.suggested_todo_title });
+        // "Bugune al" tercihi ortak katmandan (Faz 31): JobDetail/AnnouncementDetail
+        // ile ayni sozlesme -- aksi halde oneri gorevi tercihi yok sayiyordu.
+        await api.post(`/opportunities/${id}/todos`, {
+          title: analysis.suggested_todo_title,
+          plan_day: planDayForToday(),
+        });
       }
       const target = analysis.suggested_status;
       if (!target || !REPLY_STATUS_SOURCES[target]?.includes(status)) return;
