@@ -784,12 +784,17 @@ export function CopyButton({
   ariaLabel,
   disabled,
   className,
+  toastLabel = "Kopyalandı.",
+  toastTone = "ok",
 }: {
   text: string;
   label?: string;
   ariaLabel?: string;
   disabled?: boolean;
   className?: string;
+  /** Basari bildirimi; baglam soyleyebilen cagri yerleri bunu ozelleştirir. */
+  toastLabel?: string;
+  toastTone?: "ok" | "warn";
 }) {
   const toast = useToast();
   const [copied, setCopied] = useState(false);
@@ -805,7 +810,7 @@ export function CopyButton({
     navigator.clipboard
       .writeText(text)
       .then(() => {
-        toast.push("Kopyalandı.", { tone: "ok" });
+        toast.push(toastLabel, { tone: toastTone });
         setCopied(true);
         window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
@@ -869,7 +874,8 @@ export function Kbd({ children }: { children: ReactNode }) {
    Gosterim
    ══════════════════════════════════════════════════════════════════════ */
 
-type ChipTone = "neutral" | "accent" | "ok" | "warn" | "danger";
+/** Durum tonu sözlüğü. `sourceStatus.ts` aynı kümeyi kullanır (tek sözlük). */
+export type ChipTone = "neutral" | "accent" | "ok" | "warn" | "danger";
 type ChipVariant = "soft" | "outline" | "solid";
 
 /** Semantik ton -> variant basina siniflar. Degerler STATIK dizi:

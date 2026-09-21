@@ -16,7 +16,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "@/core/api";
-import type { BackupStatus, SourceHealth, SystemStats } from "@/core/types";
+import type { BackupStatus, RssStats, SourceHealth, SystemStats } from "@/core/types";
 
 /** Kaynak sagligi: kabuktaki tek paylasilan anahtar. */
 export const SOURCE_HEALTH_QUERY_KEY = ["sources", "health", "all"] as const;
@@ -58,5 +58,19 @@ export function useBackupStatus() {
     queryKey: BACKUP_STATUS_QUERY_KEY,
     queryFn: () => api.get<BackupStatus>("/backup/status"),
     refetchInterval: BACKUP_STATUS_INTERVAL_MS,
+  });
+}
+
+/**
+ * RSS ozeti. Kabukta bes ayri yerde ayni uc ayni anahtarla soruluyordu;
+ * anahtar burada TEK yerde durur (bugun `["rss-stats"]` ile ayni, yarin
+ * degisirse tek noktadan degisir).
+ */
+const RSS_STATS_QUERY_KEY = ["rss-stats"] as const;
+
+export function useRssStats() {
+  return useQuery({
+    queryKey: RSS_STATS_QUERY_KEY,
+    queryFn: () => api.get<RssStats>("/rss/stats"),
   });
 }

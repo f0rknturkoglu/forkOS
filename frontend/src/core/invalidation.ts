@@ -186,6 +186,11 @@ export const AFTER = {
     "sources",
     "rss-stats",
     "activity",
+    // Katalog/kapsam/onbellek: kaynak cekimi bunlarin HEPSINI degistirir.
+    // Eksikken yenileme sonrasi saglik ozeti ve kapsam matrisi bayat kaliyordu.
+    "source-catalog",
+    "source-coverage",
+    "source-cache",
   ],
   "link.write": ["related", "backlinks", "activity"],
   // Bilgi artık Vault'ta yaşar: Vault yazması forkOS veritabanını

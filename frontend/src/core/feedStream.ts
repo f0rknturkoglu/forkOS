@@ -11,8 +11,9 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
+import { useRssStats } from "@/core/runtimeQueries";
 import { hostOf } from "@/core/ui";
-import type { FeedItem, RedditPost, RssStats } from "@/core/types";
+import type { FeedItem, RedditPost } from "@/core/types";
 
 export type FeedOrigin = "rss" | "reddit" | "hn" | "gh";
 export type FeedFilter = "all" | FeedOrigin;
@@ -95,10 +96,8 @@ export function useFeedStream(filter: FeedFilter): FeedStreamState {
     queryKey: ["items", "panel"],
     queryFn: () => api.get<FeedItem[]>(`/rss/items${qs({ limit: PAGE_SIZE.rss })}`),
   });
-  const statsQuery = useQuery({
-    queryKey: ["rss-stats"],
-    queryFn: () => api.get<RssStats>("/rss/stats"),
-  });
+  // RSS ozeti PAYLASILAN hook'tan gelir: ayni ucun ikinci bir anahtari olmaz.
+  const statsQuery = useRssStats();
   const redditQuery = useQuery({
     queryKey: ["reddit-news"],
     queryFn: () => api.get<RedditPost[]>(`/news/reddit${qs({ limit: PAGE_SIZE.reddit })}`),
