@@ -41,3 +41,41 @@ describe("responsive Today layout", () => {
     expect(source).toContain(".slice(0, STREAM_LIMIT)");
   });
 });
+
+describe("Home ızgara şablonu — boş sütun yer tutmaz", () => {
+  const page = (columns: { left?: boolean; center?: boolean; right?: boolean }) =>
+    renderToStaticMarkup(
+      <DashboardLayout
+        center={columns.center ? [<span key="c">merkez</span>] : []}
+        left={columns.left ? [<span key="l">sol</span>] : []}
+        right={columns.right ? [<span key="r">sağ</span>] : []}
+      />,
+    );
+
+  it("üç sütun görünürken plan/akış/durum düzeni korunur", () => {
+    const html = page({ left: true, center: true, right: true });
+    expect(html).toContain("--dash-cols:300px minmax(0, 1fr) 300px");
+    expect(html).toContain("--dash-areas:left main right");
+    expect(html).toContain('aria-label="Akış"');
+  });
+
+  it("orta sütun gizliyken plan genişler, boş sütun hiç çizilmez", () => {
+    const html = page({ left: true, right: true });
+    expect(html).toContain("--dash-cols:minmax(0, 1fr) 320px");
+    expect(html).toContain("--dash-areas:left right");
+    expect(html).not.toContain('aria-label="Akış"');
+  });
+
+  it("durum sütunu gizliyken plan ile akış yan yana kalır", () => {
+    const html = page({ left: true, center: true });
+    expect(html).toContain("--dash-cols:300px minmax(0, 1fr)");
+    expect(html).toContain("--dash-areas:left main");
+    expect(html).not.toContain('aria-label="Durum"');
+  });
+
+  it("tek sütun kaldığında tam genişlik kullanılır", () => {
+    const html = page({ left: true });
+    expect(html).toContain("--dash-cols:minmax(0, 1fr)");
+    expect(html).toContain("--dash-areas:left");
+  });
+});

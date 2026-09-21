@@ -300,19 +300,21 @@
   min-width: 0;
 }
 
+/* Şablonu Home sayfası görünür sütunlardan hesaplar (`--dash-*`): boş sütun
+   ne çizilir ne yer tutar (ürünleştirme sonrası varsayılan orta sütun gizli). */
 @media (min-width: 768px) and (max-width: 1279px) {
   .dashboard-grid {
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: var(--dash-cols-md, minmax(0, 1fr) 280px);
     /* Plan (left) once; akis (main) gorevin onune gecmez (Faz 20). */
-    grid-template-areas: "left main" "right main";
+    grid-template-areas: var(--dash-areas-md, "left main" "right main");
     align-items: start;
   }
 }
 
 @media (min-width: 1280px) {
   .dashboard-grid {
-    grid-template-columns: 300px minmax(0, 1fr) 300px;
-    grid-template-areas: "left main right";
+    grid-template-columns: var(--dash-cols, 300px minmax(0, 1fr) 300px);
+    grid-template-areas: var(--dash-areas, "left main right");
     align-items: start;
   }
 }
