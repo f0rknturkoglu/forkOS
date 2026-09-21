@@ -21,7 +21,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.execution import execution as execution_mod
@@ -90,6 +90,26 @@ async def _load_plan(session: AsyncSession, plan_row_id: int) -> ExecutionPlan:
     return plan
 
 
+async def _pending_decision_context(
+    session: AsyncSession, plan_id: uuid.UUID
+) -> dict[str, str]:
+    """Soy ağacındaki en yeni `draft`/`input_required` cevabını toplar (sınırlı)."""
+    row = (
+        await session.execute(
+            select(ExecutionPlan.input_answers)
+            .where(
+                ExecutionPlan.plan_id == plan_id,
+                ExecutionPlan.state.in_(("draft", "input_required")),
+            )
+            .order_by(ExecutionPlan.created_at.desc(), ExecutionPlan.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if not row or not isinstance(row, dict):
+        return {}
+    return {str(key): str(value) for key, value in row.items()}
+
+
 async def _latest_revision(session: AsyncSession, plan_id: uuid.UUID) -> str | None:
     return (
         await session.execute(
@@ -154,6 +174,11 @@ async def prepare(
     moment = now or datetime.now(UTC)
     lineage = plan_id or uuid.uuid4()
 
+    # Kullanıcı cevabı bekleyen bir revizyon varsa, o cevap YENİ revizyonun
+    # parçası olur: aynı içerikle tekrar hazırlama artık eski `draft` satırına
+    # dönmez, `awaiting_approval` bir revizyon üretir (H7.1/B).
+    decision_context = await _pending_decision_context(session, lineage)
+
     result = await validation_mod.validate_plan(
         session,
         title=title,
@@ -191,6 +216,7 @@ async def prepare(
         steps=step_payloads,
         source_refs=source_refs,
         evidence_refs=evidence_refs,
+        decision_context=decision_context,
     )
     revision = revision_mod.revision_of(normalized)
 
@@ -224,6 +250,10 @@ async def prepare(
         },
         source_refs=normalized["source_refs"],
         evidence_refs=normalized["evidence_refs"],
+        # Dogrulama ciktisi planla birlikte kalir: arayuz "dogrulanmis" ile
+        # "cozulemedi" ayrimini SONRADAN da gosterebilsin.
+        verified_refs=result.verified_refs,
+        unresolved_refs=result.unresolved_refs,
         validation_status="valid" if result.status == "valid" else "input_required",
         input_questions=result.questions,
         expires_at=moment + timedelta(hours=ttl_hours or DEFAULT_PLAN_TTL_HOURS),
@@ -466,15 +496,111 @@ async def execute(
     plan.final_status = outcome.final_status
     plan.failure_code = outcome.failure_code
     plan.execution_finished_at = datetime.now(UTC)
+    await _finish_audit(session, plan=plan, outcome=outcome, actor=actor)
+    await session.commit()
+    return plan, outcome
+
+
+async def recover(
+    session: AsyncSession,
+    *,
+    plan_row_id: int,
+    actor: str = "forkos_ui",
+    now: datetime | None = None,
+) -> tuple[ExecutionPlan, execution_mod.ExecutionOutcome]:
+    """ÇÖKMÜŞ bir yürütmeyi desteklenen yüzeyden kurtarır (H7.1).
+
+    Kurallar:
+
+    ```text
+    1. Yalnızca `executing` plan kurtarılabilir.
+    2. Lease TAZE ise sahiplik DEVRALINMAZ (canlı yürütücü korunur).
+    3. Devralma ATOMİKTİR: iki kurtarıcıdan yalnız biri sahip olur.
+    4. Devir denetim izine yazılır (execution_recovered + gerekçe).
+    5. Adım makbuzları önce incelenir: tamamlanan adım TEKRAR YÜRÜTÜLMEZ,
+       sonucu belirsiz adım MUTABAKAT GEREKTİRİR, hiç denenmemiş adım
+       güvenle sürdürülebilir.
+    6. Yeni onay İSTENMEZ: tam revizyon ve onay kaydı değişmemiştir (§28).
+       Adım bazlı tazelik kontrolü yine çalışır.
+    """
+    moment = now or datetime.now(UTC)
+    plan = await _load_plan(session, plan_row_id)
+    # Lease karari TAZE degerle verilir: oturumun kimlik haritasindaki bayat
+    # nesne "canli yurutucuyu" yanlislikla devralinabilir gosterirdi.
+    await session.refresh(plan)
+    if plan.state != "executing":
+        raise ExecutionPlanError(
+            "PLAN_NOT_RECOVERABLE", f"plan su anda kurtarilabilir degil: {plan.state}"
+        )
+    age = execution_mod.lease_age_seconds(plan, now=moment)
+    if not execution_mod.lease_is_stale(plan, now=moment):
+        raise ExecutionPlanError(
+            "PLAN_ACTIVE_EXECUTOR",
+            f"yurutucu lease'i hala canli ({int(age or 0)} sn); sahiplik devralinmaz",
+        )
+
+    from sqlalchemy import update
+
+    cutoff = moment - timedelta(seconds=execution_mod.EXECUTOR_STALE_AFTER_SECONDS)
+    reclaimed = await session.execute(
+        update(ExecutionPlan)
+        .where(
+            ExecutionPlan.id == plan.id,
+            ExecutionPlan.state == "executing",
+            ExecutionPlan.updated_at <= moment,
+            or_(
+                ExecutionPlan.execution_heartbeat_at.is_(None),
+                ExecutionPlan.execution_heartbeat_at < cutoff,
+            ),
+        )
+        .values(
+            executor_token=execution_mod.EXECUTOR_TOKEN,
+            execution_heartbeat_at=moment,
+            updated_at=moment,
+        )
+        .returning(ExecutionPlan.id)
+    )
+    if reclaimed.scalar_one_or_none() is None:
+        # Başka bir kurtarıcı bizden önce devraldı: sahiplik TEKİLDİR.
+        raise ExecutionPlanError("PLAN_ALREADY_RECOVERING", "sahiplik baska kurtariciya gecti")
+    await _audit(
+        session,
+        plan=plan,
+        plan_id=plan.plan_id,
+        kind="execution_recovered",
+        detail={"stale_seconds": int(age or 0), "threshold": execution_mod.EXECUTOR_STALE_AFTER_SECONDS},
+        actor=actor,
+        now=moment,
+    )
+    await session.commit()
+    plan = await _load_plan(session, plan_row_id)
+
+    outcome = await execution_mod.execute_plan(session, plan, now=moment)
+    plan = await _load_plan(session, plan_row_id)
+    plan.state = outcome.final_status
+    plan.final_status = outcome.final_status
+    plan.failure_code = outcome.failure_code
+    plan.execution_finished_at = datetime.now(UTC)
+    await _finish_audit(session, plan=plan, outcome=outcome, actor=actor)
+    await session.commit()
+    return plan, outcome
+
+
+async def _finish_audit(
+    session: AsyncSession,
+    *,
+    plan: ExecutionPlan,
+    outcome: execution_mod.ExecutionOutcome,
+    actor: str,
+) -> None:
     for step in outcome.steps:
-        if outcome.failure_code == "RECONCILIATION_REQUIRED" and step.status == "not_attempted":
-            # Makbuzsuz yarim adim: yurutme KORLEMESINE devam etmedi.
+        if step.status == "unresolved":
             await _audit(
                 session,
                 plan=plan,
                 plan_id=plan.plan_id,
                 kind="execution_blocked",
-                detail={"step_id": step.step_id, "reason": "RECONCILIATION_REQUIRED"},
+                detail={"step_id": step.step_id, "reason": step.error_code},
                 actor=actor,
                 now=datetime.now(UTC),
             )
@@ -497,8 +623,6 @@ async def execute(
         actor=actor,
         now=datetime.now(UTC),
     )
-    await session.commit()
-    return plan, outcome
 
 
 # ---------------------------------------------------------------------------
@@ -571,6 +695,9 @@ def _plan_view(plan: ExecutionPlan, *, receipts: list[ExecutionReceipt], is_curr
         "budget": plan.budget,
         "source_refs": plan.source_refs,
         "evidence_refs": plan.evidence_refs,
+        # Kanit durumu: yalnizca `entity:` referanslari GERCEKTEN dogrulanir.
+        "verified_refs": plan.verified_refs or [],
+        "unresolved_refs": plan.unresolved_refs or [],
         "validation_status": plan.validation_status,
         "validation_errors": plan.validation_errors,
         "input_questions": plan.input_questions,
@@ -579,6 +706,12 @@ def _plan_view(plan: ExecutionPlan, *, receipts: list[ExecutionReceipt], is_curr
         "approved_at": plan.approved_at.isoformat() if plan.approved_at else None,
         "expires_at": plan.expires_at.isoformat() if plan.expires_at else None,
         "decision_required": plan.state in {"awaiting_approval", "input_required"},
+        # Çökmüş yürütme: kullanıcı/ajan desteklenen kurtarma yolunu görebilsin.
+        "needs_recovery": plan.state == "executing"
+        and execution_mod.lease_is_stale(plan, now=datetime.now(UTC)),
+        "lease_age_seconds": int(execution_mod.lease_age_seconds(plan, now=datetime.now(UTC)) or 0)
+        if plan.state == "executing"
+        else None,
         "final_status": plan.final_status,
         "failure_code": plan.failure_code,
         "receipts": [
@@ -609,6 +742,7 @@ __all__ = [
     "get_plan",
     "list_plans",
     "prepare",
+    "recover",
     "reject",
     "respond",
 ]

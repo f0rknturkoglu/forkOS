@@ -99,6 +99,20 @@ async def cancel(
     return await service.get_plan(session, plan.id)
 
 
+@router.post("/execution/plans/{plan_row_id}/recover")
+async def recover(
+    plan_row_id: int, data: DecisionIn, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """Çökmüş yürütmeyi kurtarır; canlı yürütücü DEVRALINMAZ."""
+    try:
+        plan, outcome = await service.recover(session, plan_row_id=plan_row_id)
+    except (service.ExecutionPlanError, TransitionError) as exc:
+        raise _error(exc) from exc
+    view = await service.get_plan(session, plan.id)
+    view["final_status"] = outcome.final_status
+    return view
+
+
 @router.post("/execution/plans/{plan_row_id}/execute")
 async def execute(
     plan_row_id: int, data: DecisionIn, session: AsyncSession = Depends(get_session)

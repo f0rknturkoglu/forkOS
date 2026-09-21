@@ -36,7 +36,6 @@ import { Button, Chip, Field, Input, Modal, RowList, Section, SkeletonRows, rela
 /** Plan durumu -> rozet tonu. */
 const STATE_TONE: Record<ExecutionPlanState, "neutral" | "accent" | "ok" | "warn" | "danger"> = {
   draft: "neutral",
-  validating: "accent",
   input_required: "warn",
   awaiting_approval: "warn",
   approved: "accent",
@@ -264,9 +263,14 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
               <span className="text-muted">Kanıt referansı yok.</span>
             ) : (
               <span className="flex flex-wrap gap-1">
+                {/* Doğrulanmış ile yalnızca çözümlenemeyen referans AYNI
+                    görünmemeli: "kanıt" etiketi fazla şey vaat etmesin. */}
                 {[...plan.source_refs, ...plan.evidence_refs].map((ref) => (
                   <Chip key={ref} size="xs" title={ref}>
                     {shortRef(ref)}
+                    {/* Çözümlenemeyen referans "doğrulanmış kanıt" gibi
+                        görünmemeli: işaret görünür metinde taşınır. */}
+                    {(plan.unresolved_refs ?? []).includes(ref) ? " (çözülemedi)" : ""}
                   </Chip>
                 ))}
               </span>

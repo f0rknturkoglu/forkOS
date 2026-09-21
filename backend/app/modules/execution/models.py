@@ -87,14 +87,25 @@ DECISION_KINDS: tuple[str, ...] = (
     "cancelled",
     "expired",
     "execution_started",
+    "execution_recovered",
     "step_completed",
     "step_failed",
     "execution_finished",
     "execution_blocked",
 )
 
-#: Adim sonucu. `not_attempted`, "ilk hatadan sonra denenmedi" demektir.
-STEP_STATUSES: tuple[str, ...] = ("completed", "failed", "not_attempted")
+#: Adim sonucu. Iki "yapilmadi" hali AYRI degerdir:
+#:   not_attempted → hic denenmedi (onceki adim dustu; GUVENLE surdurulebilir)
+#:   unresolved    → denenmis OLABILIR, sonuc bilinmiyor (MUTABAKAT gerekir;
+#:                   ayrim `error_code=RECONCILIATION_REQUIRED` ile de tasinir)
+STEP_STATUSES: tuple[str, ...] = ("completed", "failed", "not_attempted", "unresolved")
+
+#: Yurutucu lease'i: bu kadar saniye kalp atisi gelmezse sahiplik BAYAT sayilir
+#: ve atomik olarak devralinabilir. Sure, tek bir adimin makul ust sinirindan
+#: buyuk secildi (Vault yazmalari dâhil).
+EXECUTOR_STALE_AFTER_SECONDS = 120
+#: Kalp atisi adim sinirlarinda yazilir (ekstra zamanlayici YOK).
+EXECUTOR_HEARTBEAT_INTERVAL_SECONDS = 30
 
 #: Plan sonucu (yuritme bittiginde). `cancelled` yalnizca yurutme baslamadan
 #: kapatilan planlar icin terminal durumdur.
@@ -156,6 +167,10 @@ class ExecutionPlan(Base):
     #: Kanıt soyu: H3/H5/H6 referansları (sınırlı liste).
     source_refs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     evidence_refs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    #: Dogrulama sonucu: hangi referans GERCEKTEN dogrulandi, hangisi yalnizca
+    #: sozdizimi olarak kabul edildi (H7 onu cozemez).
+    verified_refs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    unresolved_refs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
 
     validation_status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     validation_errors: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
@@ -175,6 +190,8 @@ class ExecutionPlan(Base):
     execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     execution_finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     executor_token: Mapped[str | None] = mapped_column(String(64))
+    #: Canli yurutucu izi. Bayatlarsa sahiplik devralinabilir (kurtarma).
+    execution_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     final_status: Mapped[str | None] = mapped_column(String(16))
     failure_code: Mapped[str | None] = mapped_column(String(48))
 

@@ -49,6 +49,10 @@ class ValidationResult:
     steps: list[ValidatedStep] = field(default_factory=list)
     errors: list[dict[str, Any]] = field(default_factory=list)
     questions: list[str] = field(default_factory=list)
+    #: `entity:<uuid>` referanslari GERCEKTEN dogrulanir; diger semalar sozdizimi
+    #: olarak kabul edilir ama H7 onlari cozemez (uydurma dogrulama YOK).
+    verified_refs: list[str] = field(default_factory=list)
+    unresolved_refs: list[str] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
@@ -200,9 +204,18 @@ async def validate_plan(
 
     # Kanıt soyağacı: entity referansları GERÇEK olmalı (uydurma provenance yasak).
     known = await _known_entities(session, [*clean_source, *clean_evidence])
+    verified_refs: list[str] = []
+    unresolved_refs: list[str] = []
     for ref in [*clean_source, *clean_evidence]:
-        if ref.startswith("entity:") and ref.split(":", 1)[1] not in known:
+        if not ref.startswith("entity:"):
+            # Sozdizimi gecerli ama H7 bu semayi COZEMEZ: "dogrulanmis" diye
+            # sunulmaz, "cozulemedi" olarak isaretlenir (§19-21).
+            unresolved_refs.append(ref)
+            continue
+        if ref.split(":", 1)[1] not in known:
             errors.append(_error("UNKNOWN_SOURCE_REF", f"kanıt referansı çözülemedi: {ref}"))
+            continue
+        verified_refs.append(ref)
 
     # Hedef varlığı + freshness damgası.
     stamps, target_errors = await _target_state(session, validated)
@@ -221,8 +234,24 @@ async def validate_plan(
         ]
 
     if errors:
-        return ValidationResult("invalid", validated, errors[:MAX_VALIDATION_ERRORS], questions)
+        return ValidationResult(
+            "invalid",
+            validated,
+            errors[:MAX_VALIDATION_ERRORS],
+            questions,
+            verified_refs=verified_refs,
+            unresolved_refs=unresolved_refs,
+        )
     if questions:
         # Eksik bilgi varsa "Approve" SUNULMAZ: önce kullanıcı cevabı gerekir.
-        return ValidationResult("input_required", validated, [], questions)
-    return ValidationResult("valid", validated, [], [])
+        return ValidationResult(
+            "input_required",
+            validated,
+            [],
+            questions,
+            verified_refs=verified_refs,
+            unresolved_refs=unresolved_refs,
+        )
+    return ValidationResult(
+        "valid", validated, [], [], verified_refs=verified_refs, unresolved_refs=unresolved_refs
+    )

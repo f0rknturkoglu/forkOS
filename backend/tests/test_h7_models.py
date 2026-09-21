@@ -32,8 +32,8 @@ def test_revision_is_deterministic_and_content_addressed() -> None:
         )
     )
     assert first == second
-    assert first.startswith("plan-v1:")
-    assert len(first) == len("plan-v1:") + 64
+    assert first.startswith(f"{revision_mod.REVISION_VERSION}:")
+    assert len(first) == len(revision_mod.REVISION_VERSION) + 1 + 64
 
 
 def test_revision_ignores_key_order_and_evidence_order() -> None:
@@ -203,3 +203,33 @@ def test_no_dead_helpers_remain() -> None:
     from app.modules.execution.models import STEP_STATUSES
 
     assert "skipped" not in STEP_STATUSES
+
+
+def test_decision_context_is_part_of_the_revision() -> None:
+    """H7.1/B: kullanıcı cevabı yeni revizyon üretir; cevapsız hâli idempotent kalır."""
+    base = revision_mod.normalized_plan(title="t", summary=None, reason=None, steps=_steps(1))
+    answered = revision_mod.normalized_plan(
+        title="t",
+        summary=None,
+        reason=None,
+        steps=_steps(1),
+        decision_context={"cv": "Backend CV"},
+    )
+    assert revision_mod.revision_of(base) != revision_mod.revision_of(answered)
+    # Aynı cevap her zaman AYNI revizyonu üretir (deterministik).
+    repeat = revision_mod.normalized_plan(
+        title="t", summary=None, reason=None, steps=_steps(1), decision_context={"cv": "Backend CV"}
+    )
+    assert revision_mod.revision_of(answered) == revision_mod.revision_of(repeat)
+    # Boş/whitespace cevap revizyona GİRMEZ.
+    empty = revision_mod.normalized_plan(
+        title="t", summary=None, reason=None, steps=_steps(1), decision_context={"cv": "   "}
+    )
+    assert revision_mod.revision_of(empty) == revision_mod.revision_of(base)
+
+
+def test_decision_context_values_are_bounded() -> None:
+    plan = revision_mod.normalized_plan(
+        title="t", summary=None, reason=None, steps=_steps(1), decision_context={"cv": "x" * 999}
+    )
+    assert len(plan["decision_context"]["cv"]) <= revision_mod.MAX_DECISION_VALUE

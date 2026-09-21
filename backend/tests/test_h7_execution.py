@@ -242,7 +242,8 @@ async def test_mutation_without_receipt_requires_reconciliation(
 
     assert outcome.final_status == "failed"
     assert outcome.failure_code == "RECONCILIATION_REQUIRED"
-    assert outcome.steps[0].status == "not_attempted"
+    # H7.1: "hiç denenmedi" ile "sonucu bilinmiyor" AYRI durumlardır.
+    assert outcome.steps[0].status == "unresolved"
     # Mutasyon TEKRARLANMADI.
     assert list((await db_session.execute(select(Todo))).scalars()) == []
 

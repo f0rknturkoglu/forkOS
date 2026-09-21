@@ -41,6 +41,7 @@ async def test_h7_tool_contract() -> None:
         "respond",
         "cancel",
         "execute",
+        "recover",
         "status",
     }
     wire = tool.annotations.model_dump(by_alias=True, exclude_none=True)

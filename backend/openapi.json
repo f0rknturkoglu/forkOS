@@ -18080,6 +18080,58 @@
         "summary": "Execute"
       }
     },
+    "/api/execution/plans/{plan_row_id}/recover": {
+      "post": {
+        "description": "Çökmüş yürütmeyi kurtarır; canlı yürütücü DEVRALINMAZ.",
+        "operationId": "recover_api_execution_plans__plan_row_id__recover_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_row_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recover Api Execution Plans  Plan Row Id  Recover Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recover"
+      }
+    },
     "/api/execution/plans/{plan_row_id}/reject": {
       "post": {
         "operationId": "reject_api_execution_plans__plan_row_id__reject_post",

@@ -89,6 +89,11 @@ PROACTIVITY_ANNOTATIONS = ToolAnnotations(
 
 #: H7 kontrol araci: plan/karar durumunu yazar; canonical mutasyon YALNIZCA
 #: onayli yurutmede ve H1 uzerinden olur. Yikici degil, tekrar cagrilabilir.
+#:
+#: Onay SINIRI (durustce): insan karari MCP host/istemci onay kapisinda
+#: uygulanir; forkOS o cagri sonucunda SUNUCU TARAFI kalici bir onay kaydi
+#: yazar ve kaydi olmayan revizyonu yurutmez. Sunucu, insan kimligini
+#: kriptografik olarak KANITLAMAZ.
 EXECUTION_ANNOTATIONS = ToolAnnotations(
     readOnlyHint=False,
     destructiveHint=False,
@@ -1306,7 +1311,8 @@ def _register_proactivity_tool(server: MCPServer) -> None:
 
 #: H7'nin KAPALI işlem kümesi: generic otomasyon yürütücüsü DEĞİL (§43).
 ExecutionOperation = Literal[
-    "prepare", "get", "list", "approve", "reject", "respond", "cancel", "execute", "status"
+    "prepare", "get", "list", "approve", "reject", "respond", "cancel", "execute", "recover",
+    "status",
 ]
 
 ExecutionPlanId = Annotated[int, Field(ge=1)]
@@ -1329,9 +1335,11 @@ def _register_execution_tool(server: MCPServer) -> None:
             "surface. Operations: prepare, get, list, approve, reject, respond, cancel, execute, "
             "status. Steps are a CLOSED set of H1 actions with H1-validated arguments - arbitrary "
             "tool names, shell, SQL, HTTP or delete operations are rejected. Approval is a "
-            "server-side record bound to the plan revision: this tool cannot approve on the "
-            "user's behalf, and executing a revision that was never approved returns "
-            "APPROVAL_REQUIRED. Execution is bounded (max 10 steps), revalidates every target "
+            "server-side record bound to the plan revision. Approval trust boundary: the human "
+            "decision is enforced by the MCP host/client approval boundary around this mutating "
+            "call, and a plan body or model field claiming approval has no authority - executing "
+            "a revision with no stored record returns APPROVAL_REQUIRED. The server does not "
+            "cryptographically verify a human identity. Execution is bounded (max 10 steps), revalidates every target "
             "before each mutation, stops at the first failure, never rolls back automatically, "
             "and leaves a durable per-step receipt. prepare/get/list/approve/reject/respond/"
             "cancel write only H7's own operational state; canonical mutation happens solely "
@@ -1436,6 +1444,17 @@ def _register_execution_tool(server: MCPServer) -> None:
                         )
                     plan, outcome = await execution_service.execute(
                         session, plan_row_id=plan_row_id, revision=revision, actor="mcp_client"
+                    )
+                    view = await execution_service.get_plan(session, plan.id)
+                    view["final_status"] = outcome.final_status
+                    return view
+                if operation == "recover":
+                    if plan_row_id is None:
+                        raise execution_service.ExecutionPlanError(
+                            "INVALID_ARGUMENT", "recover icin 'plan_row_id' gerekli"
+                        )
+                    plan, outcome = await execution_service.recover(
+                        session, plan_row_id=plan_row_id, actor="mcp_client"
                     )
                     view = await execution_service.get_plan(session, plan.id)
                     view["final_status"] = outcome.final_status

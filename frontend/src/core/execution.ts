@@ -24,7 +24,6 @@ const PENDING_PLAN_STATES = ["awaiting_approval", "input_required"];
 /** `PLAN_STATES` (models.py) ile ayni kume. */
 export type ExecutionPlanState =
   | "draft"
-  | "validating"
   | "input_required"
   | "awaiting_approval"
   | "approved"
@@ -82,6 +81,10 @@ export interface ExecutionPlanView {
   budget: Record<string, number>;
   source_refs: string[];
   evidence_refs: string[];
+  //: Kanıt durumu: yalnızca `entity:` referansları GERÇEKTEN doğrulanır.
+  //: Eski planlarda bulunmayabilir.
+  verified_refs?: string[];
+  unresolved_refs?: string[];
   validation_status: string;
   validation_errors: { code: string; message: string; step_id?: string | null }[];
   /** `input_required` durumunda kullaniciya sorulan sinirli sorular. */
@@ -104,8 +107,8 @@ export interface ExecutionPlanView {
  * vermek olur (or. `input_required` planina "Reddet" gostermek).
  */
 const ALLOWED_TRANSITIONS: Record<ExecutionPlanState, readonly ExecutionPlanState[]> = {
-  draft: ["validating", "input_required", "cancelled", "expired"],
-  validating: ["awaiting_approval", "input_required", "expired"],
+  // `draft` = cevap sonrası yeniden hazırlanmayı bekleyen revizyon.
+  draft: ["input_required", "cancelled", "expired"],
   input_required: ["draft", "cancelled", "expired"],
   awaiting_approval: ["approved", "rejected", "cancelled", "expired"],
   // Onaydan sonra revizyon DEGISMEZ: yalnizca yurutme ya da iptal.
@@ -122,7 +125,6 @@ const ALLOWED_TRANSITIONS: Record<ExecutionPlanState, readonly ExecutionPlanStat
 /** Durum etiketi (rozet ve baslik metinleri tek yerden). */
 export const PLAN_STATE_LABELS: Record<ExecutionPlanState, string> = {
   draft: "Taslak",
-  validating: "Doğrulanıyor",
   input_required: "Yanıt bekliyor",
   awaiting_approval: "Onay bekliyor",
   approved: "Onaylandı",

@@ -23,7 +23,11 @@ from typing import Any
 
 #: Hash formatı sürümü. Format değişirse sürüm ARTIRILIR; eski revizyonlar
 #: tarihsel olarak okunabilir kalır.
-REVISION_VERSION = "plan-v1"
+#: v2: karar girdisi (`decision_context`) revizyona dahil edildi (H7.1/B).
+REVISION_VERSION = "plan-v2"
+
+#: Karar girdisi değeri için üst sınır (sınırsız metin taşıma yok).
+MAX_DECISION_VALUE = 200
 
 
 def normalized_step(step: dict[str, Any], ordinal: int) -> dict[str, Any]:
@@ -48,8 +52,16 @@ def normalized_plan(
     steps: list[dict[str, Any]],
     source_refs: list[str] | None = None,
     evidence_refs: list[str] | None = None,
+    decision_context: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Revizyona giren kanonik plan gövdesi."""
+    """Revizyona giren kanonik plan gövdesi.
+
+    `decision_context`, kullanıcının `input_required` sorusuna verdiği SINIRLI
+    cevaptır (H7.1/B). Revizyona girer çünkü cevapsız hâliyle aynı içerik
+    "yeni karar alınmış" sayılmamalıdır: aksi halde `respond → prepare` eski
+    `draft` satırına çökerek akış kilitlenirdi. Serbest konuşma dökümü DEĞİL,
+    anahtar→sınırlı metin eşlemesidir.
+    """
     return {
         "version": REVISION_VERSION,
         "title": str(title or ""),
@@ -59,6 +71,12 @@ def normalized_plan(
         # Kanıt referansları sıralanır ve tekilleştirilir: sıra/kopya özeti bozmaz.
         "source_refs": sorted({str(ref) for ref in (source_refs or []) if ref}),
         "evidence_refs": sorted({str(ref) for ref in (evidence_refs or []) if ref}),
+        # Karar girdisi: anahtarlar sıralı, değerler sınırlı ve normalize.
+        "decision_context": {
+            str(key)[:64]: " ".join(str(value).split())[:MAX_DECISION_VALUE]
+            for key, value in sorted((decision_context or {}).items())
+            if str(value).strip()
+        },
     }
 
 

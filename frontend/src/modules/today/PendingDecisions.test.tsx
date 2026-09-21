@@ -69,6 +69,8 @@ function planView(overrides: Partial<ExecutionPlanView> = {}): ExecutionPlanView
     budget: { max_steps: 10, max_mutations: 10, steps: 1 },
     source_refs: [`entity:${TODO_ID}`],
     evidence_refs: [EVENT_REF],
+    verified_refs: [],
+    unresolved_refs: [],
     validation_status: "valid",
     validation_errors: [],
     input_questions: [],

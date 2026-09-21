@@ -25,12 +25,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
 from app.integrations.agent.write_registry import BY_NAME, run_action
-from app.modules.execution.models import MAX_RECEIPT_DETAIL, ExecutionPlan, ExecutionReceipt
+from app.modules.execution.models import (
+    EXECUTOR_STALE_AFTER_SECONDS,
+    MAX_RECEIPT_DETAIL,
+    ExecutionPlan,
+    ExecutionReceipt,
+)
 
 log = logging.getLogger("execution")
 
@@ -79,6 +84,7 @@ async def claim_plan(session: AsyncSession, plan_row: ExecutionPlan, *, now: dat
         .values(
             state="executing",
             execution_started_at=now,
+            execution_heartbeat_at=now,
             executor_token=EXECUTOR_TOKEN,
             updated_at=now,
         )
@@ -120,6 +126,40 @@ async def _fresh_target_stamp(
     if expected is not None and current != expected:
         return False, current
     return True, current
+
+
+def lease_is_stale(plan_row: ExecutionPlan, *, now: datetime) -> bool:
+    """Yürütücü lease'i bayat mı? Canlı bir süreç KORUNUR.
+
+    Kalp atışı adım sınırlarında yazılır; eşik tek bir adımın makul üst
+    sınırından büyük seçildi. Böylece "yavaş ama canlı" yürütücü sahiplikten
+    edilmez, çökmüş yürütücü ise SONSUZA DEK `executing` kalmaz.
+    """
+    heartbeat = plan_row.execution_heartbeat_at or plan_row.execution_started_at
+    if heartbeat is None:
+        return True
+    if heartbeat.tzinfo is None:
+        heartbeat = heartbeat.replace(tzinfo=UTC)
+    return (now - heartbeat).total_seconds() > EXECUTOR_STALE_AFTER_SECONDS
+
+
+def lease_age_seconds(plan_row: ExecutionPlan, *, now: datetime) -> float | None:
+    heartbeat = plan_row.execution_heartbeat_at or plan_row.execution_started_at
+    if heartbeat is None:
+        return None
+    if heartbeat.tzinfo is None:
+        heartbeat = heartbeat.replace(tzinfo=UTC)
+    return max((now - heartbeat).total_seconds(), 0.0)
+
+
+async def touch_heartbeat(session: AsyncSession, plan_row_id: int, *, now: datetime) -> None:
+    """Adım sınırlarında yürütücünün canlı olduğunu yazar (ayrı zamanlayıcı YOK)."""
+    await session.execute(
+        update(ExecutionPlan)
+        .where(ExecutionPlan.id == plan_row_id, ExecutionPlan.state == "executing")
+        .values(execution_heartbeat_at=now, updated_at=now)
+    )
+    await session.flush()
 
 
 async def execute_plan(
@@ -168,21 +208,33 @@ async def execute_plan(
                 StepOutcome(step_id, index, "failed", action, target_text, prior.error_code)
             )
             continue
-        if prior is not None and prior.status == "not_attempted":
-            # Makbuz yazıldı ama sonuç bilinmiyor: MUTABAKAT GEREKLİ (§21).
-            # Körlemesine tekrar denemek duplicate mutation riski taşır.
+        if prior is not None and prior.status == "not_attempted" and prior.claimed_by is None:
+            # Hiç DENENMEDİ (önceki adım düştü ya da yürütücü adıma sıra
+            # gelmeden öldü): GÜVENLE sürdürülür. Talep satırı yeniden
+            # açılmaz; var olan makbuz sahiplenilir (UNIQUE korunur).
+            claimed = prior
+        elif prior is not None and prior.status in {"not_attempted", "unresolved"}:
+            # Makbuz ALINDI ama sonuç bilinmiyor: mutasyon olmuş OLABİLİR.
+            # Körlemesine tekrar denemek duplicate mutation riski taşır; bu
+            # yüzden adım AYRI bir durumla işaretlenir (H7.1: "hiç denenmedi"
+            # ile "sonucu bilinmiyor" aynı değerde birleştirilmez).
+            prior.status = "unresolved"
+            prior.error_code = "RECONCILIATION_REQUIRED"
+            prior.claimed_by = prior.claimed_by or EXECUTOR_TOKEN
             blocked = True
             outcomes.append(
                 StepOutcome(
                     step_id,
                     index,
-                    "not_attempted",
+                    "unresolved",
                     action,
                     target_text,
                     "RECONCILIATION_REQUIRED",
                 )
             )
             continue
+        else:
+            claimed = None
 
         if failed or blocked:
             # İlk hatadan sonraki adımlar DENENMEZ (§16).
@@ -200,6 +252,9 @@ async def execute_plan(
             )
             outcomes.append(StepOutcome(step_id, index, "not_attempted", action, target_text))
             continue
+
+        # Uzun adımlarda (özellikle Vault yazmaları) lease tazelenir.
+        await touch_heartbeat(session, plan_row.id, now=datetime.now(UTC))
 
         if spec is None:
             session.add(
@@ -240,33 +295,56 @@ async def execute_plan(
             failed = True
             continue
 
-        receipt = ExecutionReceipt(
-            plan_row_id=plan_row.id,
-            step_id=step_id,
-            ordinal=index,
-            action=action,
-            target=target_text,
-            idempotency_key=f"{plan_row.revision}:{step_id}",
-            status="not_attempted",
-            started_at=moment,
-            claimed_by=EXECUTOR_TOKEN,
-        )
-        session.add(receipt)
+        if claimed is not None:
+            receipt = claimed
+            receipt.claimed_by = EXECUTOR_TOKEN
+            receipt.started_at = moment
+            receipt.status = "not_attempted"
+        else:
+            receipt = ExecutionReceipt(
+                plan_row_id=plan_row.id,
+                step_id=step_id,
+                ordinal=index,
+                action=action,
+                target=target_text,
+                idempotency_key=f"{plan_row.revision}:{step_id}",
+                # "SAHIPLENILDI" izi: bu satir varsa mutasyon olmus OLABILIR.
+                status="not_attempted",
+                started_at=moment,
+                claimed_by=EXECUTOR_TOKEN,
+            )
+            session.add(receipt)
         await session.flush()
+        if spec.side_effect_domain == "vault":
+            # Dosya sistemi yazmasi DB islemiyle AYNI atomik sinirda DEGILDIR.
+            # Talebi ONCE dayanikli kil: surec yazma ile makbuz arasinda olurse
+            # kurtarma "sonucu bilinmiyor" gorur ve KORLEMESINE tekrarlamaz.
+            await session.commit()
 
         try:
             data = spec.model(**arguments)
             result = await run_action(session, spec, data)
         except Exception as exc:  # noqa: BLE001 — H1 hataları sınırlı koda çevrilir
             log.warning("H7 adimi basarisiz: %s (%s)", action, type(exc).__name__)
-            receipt.status = "failed"
-            receipt.error_code = _error_code(exc)
+            # Vault (dosya sistemi) adımları DB işlemiyle AYNI atomik
+            # transaction'da DEĞİLDİR: yazma başarılı olup süreç ölürse sonuç
+            # belirsizdir. Bu yüzden yan etki alanı `vault` olan adımlar
+            # "mutabakat gerekli" işaretlenir, "failed" DENMEZ (§11-13).
+            if spec.side_effect_domain == "vault":
+                receipt.status = "unresolved"
+                receipt.error_code = "SIDE_EFFECT_UNCERTAIN"
+            else:
+                receipt.status = "failed"
+                receipt.error_code = _error_code(exc)
             receipt.detail = _receipt_detail(str(exc))
             receipt.completed_at = datetime.now(UTC)
             outcomes.append(
-                StepOutcome(step_id, index, "failed", action, target_text, receipt.error_code)
+                StepOutcome(step_id, index, receipt.status, action, target_text, receipt.error_code)
             )
-            failed = True
+            if receipt.status == "unresolved":
+                blocked = True
+            else:
+                failed = True
             continue
 
         entity_id = getattr(result, "entity_id", None) or getattr(result, "id", None)

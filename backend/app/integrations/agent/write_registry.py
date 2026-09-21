@@ -55,6 +55,13 @@ class WriteActionSpec:
     target_field: str | None = None
     #: Pozisyonel imzali aksiyonlar icin ince uyarlama gerekir (or. complete).
     positional: str | None = None
+    #: Yan etki alani: `db` (tek islem, canonical servis commit eder) ya da
+    #: `vault` (dosya sistemi; DB islemiyle AYNI atomik sinir DEGIL).
+    side_effect_domain: str = "db"
+    #: Kesinti sonrasi tekrar guvenligi: `safe` (yeni kayit degil, ayni
+    #: girdiyle idempotent), `detectable` (mevcut durumdan anlasilabilir),
+    #: `ambiguous` (sonuc belirsiz; MUTABAKAT gerekir).
+    replay_safety: str = "detectable"
 
 
 def runner_for(spec: WriteActionSpec) -> Callable[..., Awaitable[Any]]:
@@ -120,13 +127,23 @@ WRITE_ACTIONS: tuple[WriteActionSpec, ...] = (
     WriteActionSpec(
         "bookmark_update", "forkos_bookmark_update", BookmarkUpdateIn, "update_bookmark", "bookmark_id"
     ),
-    WriteActionSpec("brain_capture", "brain_capture", BrainCaptureIn, "capture_brain_note"),
+    # Vault yazmalari: kesintide sonuc BELIRSIZDIR (dosya sistemi atomik degil).
+    WriteActionSpec(
+        "brain_capture",
+        "brain_capture",
+        BrainCaptureIn,
+        "capture_brain_note",
+        side_effect_domain="vault",
+        replay_safety="ambiguous",
+    ),
     WriteActionSpec(
         "brain_save_to_entity",
         "brain_save_to_entity",
         BrainSaveToEntityIn,
         "save_to_entity_brain",
         "forkos_id",
+        side_effect_domain="vault",
+        replay_safety="ambiguous",
     ),
 )
 
@@ -134,6 +151,9 @@ BY_NAME: dict[str, WriteActionSpec] = {spec.name: spec for spec in WRITE_ACTIONS
 
 #: H7 adimlarinda kabul edilen eylem adlari.
 ACTION_NAMES: frozenset[str] = frozenset(BY_NAME)
+
+#: Yan etki alanlari.
+SIDE_EFFECT_DOMAINS: frozenset[str] = frozenset({"db", "vault"})
 
 #: Metin argumanlari icin ust sinir (sınırsız gövde tasima yok, §64).
 MAX_TEXT_ARGUMENT = 20000
