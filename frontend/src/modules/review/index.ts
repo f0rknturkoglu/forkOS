@@ -21,7 +21,6 @@ registerModule({
       id: "review.widget",
       title: "Değerlendirme",
       component: ReviewWidget,
-      region: "secondary",
       order: 80,
       defaultVisible: false,
     },

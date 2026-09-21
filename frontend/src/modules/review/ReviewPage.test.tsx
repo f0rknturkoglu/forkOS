@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 /**
- * ReviewPage temel akisi: adim ilerleme, karar state'i, kirli veri ile
- * ileri adim atlamanin engellenmesi ve kayit sonrasi rota guncellemesi.
+ * ReviewPage tek sayfa akışı: zorunlu sihirbaz/öncelik yok, not opsiyonel,
+ * açık görevler olduğu gibi kalır ve kaydedilmiş dönem yeniden yazılmaz.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DailyReviewPage } from "./ReviewPage";
 
@@ -14,29 +14,36 @@ vi.mock("@/core/api", () => ({
 }));
 vi.mock("@/core/invalidation", () => ({ invalidateAfter: vi.fn() }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
-vi.mock("@/app/router", () => ({
-  navigate: vi.fn(),
-  useHashRoute: () => ({ params: new URLSearchParams() }),
-}));
+vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
 
 import { api } from "@/core/api";
 import { navigate } from "@/app/router";
+import { todayKey } from "@/lib/date";
+import type { ReviewPreview } from "@/core/types";
 
 const apiGet = vi.mocked(api.get);
 const apiPost = vi.mocked(api.post);
 
-const preview = {
+interface HistoryRow {
+  id: string;
+  kind: string;
+  period_start: string;
+  period_end: string;
+  stats: unknown;
+  note: string | null;
+}
+
+const preview: ReviewPreview = {
   kind: "daily",
-  period_start: "2026-08-31",
-  period_end: "2026-08-31",
-  completed_todos: [{ id: "t1", title: "Bitirilen görev", completed_at: "2026-08-31T14:00:00Z", priority: 1 }],
+  period_start: todayKey(),
+  period_end: todayKey(),
+  completed_todos: [{ id: "t1", title: "Bitirilen görev", completed_at: "2026-08-31T14:00:00Z" }],
   unfinished_todos: [
-    { id: "u1", title: "Açık görev 1", due_at: "2026-09-01", priority: 3 },
+    { id: "u1", title: "Açık görev 1", due_at: "2026-09-01T12:00:00Z", priority: 3 },
     { id: "u2", title: "Açık görev 2", due_at: null, priority: 1 },
   ],
   stats: {
-    habits: {},
-    capture: { notes: 0, bookmarks: 0, rss_read: 0 },
+    todos: { completed: 1, created: 3, dropped: 0, overdue_now: 1 },
     focus: {
       minutes: 45,
       sessions: 1,
@@ -46,8 +53,9 @@ const preview = {
       best_day: null,
       best_day_minutes: 45,
     },
-    github: { commits: 0 },
-    flashcards: { reviewed: 42, decks: { Almanca: 42 } },
+    topics: [],
+    habits: {},
+    capture: { notes: 0, bookmarks: 0, rss_read: 0 },
     applications: {
       discovered: 0,
       shortlisted: 0,
@@ -59,11 +67,13 @@ const preview = {
       upcoming_deadlines: 0,
       career_prep: 0,
     },
-    study: {},
-    todos: { completed: 1 },
-    topics: [],
+    study: { minutes_by_area: {} },
+    flashcards: { reviewed: 42, decks: { Almanca: 42 } },
+    github: { commits: 0, repos: {} },
   },
 };
+
+let history: HistoryRow[] = [];
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -75,71 +85,100 @@ function renderPage() {
   return client;
 }
 
-describe("ReviewPage temel akis", () => {
+describe("ReviewPage tek sayfa akışı", () => {
   beforeEach(() => {
+    history = [];
     apiGet.mockReset();
     apiGet.mockImplementation(async (path: string) => {
       if (path.startsWith("/reviews/preview")) return preview;
+      if (path.startsWith("/reviews")) return history;
       return {};
     });
     apiPost.mockReset();
+    apiPost.mockResolvedValue({});
     vi.mocked(navigate).mockReset();
   });
   afterEach(cleanup);
 
-  it("adimlari ilerletir ve karar state'ini korur", async () => {
+  it("tek sayfada dört sinyal ve kapanış bölümlerini gösterir, adım sihirbazı yoktur", async () => {
     renderPage();
 
-    // Adim 1: Ozet
-    expect(await screen.findByRole("button", { name: "Açık işleri değerlendir" })).toBeTruthy();
+    expect(await screen.findByText("Tamamlanan iş")).toBeTruthy();
+    expect(screen.getByText("Odak süresi")).toBeTruthy();
+    expect(screen.getByText("Aktif gün")).toBeTruthy();
+    expect(screen.getByText("Devreden açık görev")).toBeTruthy();
 
-    // Adim 2: kararlar
-    fireEvent.click(screen.getByRole("button", { name: "Açık işleri değerlendir" }));
-    expect(screen.getByText("Açık görev 1")).toBeTruthy();
-    expect(screen.getByText("2 görev karar bekliyor")).toBeTruthy();
+    expect(screen.getByText("Neler oldu?")).toBeTruthy();
+    expect(screen.getByText("Açık kalanlar")).toBeTruthy();
+    expect(screen.getByText("Not")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Değerlendirme adımları" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Öncelikleri seç" })).toBeNull();
 
-    // Bir gorevi devret -> karar state'i guncellenir.
-    const carryButtons = screen.getAllByRole("button", { name: "Devret" });
-    fireEvent.click(carryButtons[0]);
-    expect(screen.getByText("1 görev karar bekliyor")).toBeTruthy();
-
-    // Karar state'i adim degisiminde kaybolmaz.
-    fireEvent.click(screen.getByRole("button", { name: "Öncelikleri seç" }));
-    expect(screen.getByPlaceholderText("1. öncelik")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Kararlara dön" }));
-    expect(screen.getByText("1 görev karar bekliyor")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Görevlere git/ }));
+    expect(navigate).toHaveBeenCalledWith("/todos");
   });
 
-  it("kirli veri varken ust ciple ileri atlama engellenir", async () => {
+  it("not ve karar olmadan kaydeder", async () => {
     renderPage();
-    await screen.findByRole("button", { name: "Açık işleri değerlendir" });
-    fireEvent.click(screen.getByRole("button", { name: "Açık işleri değerlendir" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Değerlendirmeyi kaydet/ }));
 
+    // Karar verilmemiş ve not yazılmamış: gövdede ikisi de yok, kayıt yine olur.
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/reviews", { kind: "daily", period_start: todayKey() }));
+  });
+
+  it("devretme opsiyoneldir: işaretlenirse gönderilir, not ile birlikte", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /Taşı veya bırak/ }));
     fireEvent.click(screen.getAllByRole("button", { name: "Devret" })[0]);
+    fireEvent.change(screen.getByPlaceholderText("Dönem hakkında kısa bir not"), {
+      target: { value: "Yarına taşındı" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Değerlendirmeyi kaydet/ }));
 
-    // Geri gitmek serbesttir.
-    const stepper = screen.getByRole("navigation", { name: "Değerlendirme adımları" });
-    fireEvent.click(within(stepper).getByRole("button", { name: /Özet/ }));
-
-    // Kirliyken ileri atlama: adim state'i korunur (Ozet'te kalir).
-    fireEvent.click(within(stepper).getByRole("button", { name: /Öncelikler/ }));
-    expect(screen.getByRole("button", { name: "Açık işleri değerlendir" })).toBeTruthy();
-    expect(screen.queryByPlaceholderText("1. öncelik")).toBeNull();
+    await waitFor(() =>
+      expect(apiPost).toHaveBeenCalledWith("/reviews", {
+        kind: "daily",
+        period_start: todayKey(),
+        note: "Yarına taşındı",
+        decisions: { carry_over: ["u1"], drop: [] },
+      }),
+    );
   });
 
-  it("kayittan sonra rotayi gunceller ve kapanis ekranini gosterir", async () => {
-    apiPost.mockResolvedValue({});
+  it("kaydedilmiş dönemde kaydetme kapanır ve kayıtlı not görünür", async () => {
+    history = [
+      {
+        id: "r1",
+        kind: "daily",
+        period_start: todayKey(),
+        period_end: todayKey(),
+        stats: {},
+        note: "Günü erken kapattım.",
+      },
+    ];
     renderPage();
-    await screen.findByRole("button", { name: "Açık işleri değerlendir" });
-    fireEvent.click(screen.getByRole("button", { name: "Açık işleri değerlendir" }));
-    fireEvent.click(screen.getByRole("button", { name: "Öncelikleri seç" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Değerlendirmeyi tamamla" }));
+    expect(await screen.findByText("Günü erken kapattım.")).toBeTruthy();
+    expect(screen.getByText("Bu dönemin değerlendirmesi kaydedildi")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Değerlendirmeyi kaydet/ })).toBeNull();
+  });
 
-    expect(
-      await screen.findByText("Kararların plana işlendi; seçtiğin öncelikler yeni haftanın başlangıcına eklendi."),
-    ).toBeTruthy();
-    expect(navigate).toHaveBeenCalledWith("/review/daily");
+  it("eski geçmiş kaydıyla değişimi gösterir", async () => {
+    // Eski kayıtta yalnız iki alan var: eksik alanlar karşılaştırılmaz.
+    history = [
+      {
+        id: "old",
+        kind: "daily",
+        period_start: "2020-01-06",
+        period_end: "2020-01-06",
+        stats: { todos: { completed: 4 }, focus: { minutes: 45 } },
+        note: null,
+      },
+    ];
+    renderPage();
+
+    expect(await screen.findByText("Önemli değişiklik")).toBeTruthy();
+    expect(screen.getByText("-3")).toBeTruthy();
+    expect(screen.getByText("değişmedi")).toBeTruthy();
   });
 });
