@@ -123,6 +123,9 @@ async def source_catalog(session: AsyncSession = Depends(get_session)):
             "opt_in": is_opt_in(source),
             "circuit_open": states.get(source.id, {}).get("open", False),
             "consecutive_failures": states.get(source.id, {}).get("consecutive_failures", 0),
+            #: Devre ACIKSA aga tekrar cikilacagi an; kapaliyken null. Deger
+            #: `runs.circuit_states` cikitisindan gelir (son hata + cooldown).
+            "retry_at": states.get(source.id, {}).get("retry_at"),
         }
         for source in sources
     ]
@@ -200,12 +203,20 @@ async def source_coverage(session: AsyncSession = Depends(get_session)):
                     round(sum(gaps) / len(gaps), 1) if gaps else None
                 ),
                 "consecutive_empty": consecutive_empty,
-                "last_error": (last.error if last and last.status == "error" else None),
+                #: Ham kolon DEGIL, temizleyiciden gecmis metin: kaynak
+                #: satirlari baska yollardan da yazilir (bkz. runs.py).
+                "last_error": (
+                    runs_service.error_message_of(last)
+                    if last and last.status == "error"
+                    else None
+                ),
                 "last_error_kind": (
                     runs_service.error_kind_of(last) if last and last.status == "error" else None
                 ),
                 "circuit_open": state.get("open", False),
                 "consecutive_failures": state.get("consecutive_failures", 0),
+                #: Devre ACIKSA aga tekrar cikilacagi an; kapaliyken null.
+                "retry_at": state.get("retry_at"),
                 "tracked": True,
             }
         )

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import runs as run_svc
 from app.core.events import log_event
 from app.core.models import SourceRun, SourceSyncBatch
 
@@ -463,7 +464,11 @@ async def current_status(session: AsyncSession, *, scope: str = "opportunity") -
             "started_at": latest[source_id].started_at if source_id in latest else None,
             "finished_at": latest[source_id].finished_at if source_id in latest else None,
             "items_found": latest[source_id].items_found if source_id in latest else 0,
-            "error": latest[source_id].error if source_id in latest else None,
+            #: Kolon ham metin tasiyabilir (media senkronu, eski satirlar);
+            #: `/sources/sync` her zaman temizlenmis metni gosterir.
+            "error": (
+                run_svc.error_message_of(latest[source_id]) if source_id in latest else None
+            ),
         }
         for source_id in batch.source_ids
     ]

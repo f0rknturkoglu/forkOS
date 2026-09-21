@@ -9,6 +9,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import events as event_svc
+from app.core import runs as run_svc
 from app.core.events import log_event
 from app.core.notifications import notify
 from app.core.time import local_today
@@ -82,13 +83,16 @@ async def create_backup(session: AsyncSession) -> Path:
     if folder and folder.value:
         error = await upload_drive(session, target, str(folder.value))
         if error:
+            #: Yukleme hatasi URL/token tasiyabilir ve bu metin hem Aktivite'ye
+            #: hem bildirime duser -- kullanici ikisini de kopyalayabilir.
+            detail = run_svc.sanitize_error(error)
             await log_event(session, verb=VERB_DRIVE_FAIL,
-                            payload={"file": target.name, "error": error})
+                            payload={"file": target.name, "error": detail})
             await notify(
                 session,
                 kind="backup_drive_failed",
                 title="Google Drive yedeği yüklenemedi",
-                body=f"{target.name}: {error[:150]}",
+                body=f"{target.name}: {detail[:150]}",
                 dedup_key=f"backup_drive_failed:{target.name}",
                 importance=2,
             )

@@ -96,7 +96,8 @@ async def add_feed(
                 favicon_url=favicon, category=data.category)
     session.add(feed)
     await log_event(session, verb="rss.feed_added", entity_id=entity.id,
-                    entity_type="feed", payload={"url": data.url, "category": data.category})
+                    entity_type="feed",
+                    payload={"url": run_svc.sanitize_error(data.url), "category": data.category})
     await session.commit()
     return feed, True
 
@@ -607,7 +608,8 @@ async def ingest(session: AsyncSession, feed: Feed, items: list[RawItem]) -> int
 
     if added:
         await log_event(session, verb="rss.items_added", entity_id=feed.id,
-                        entity_type="feed", payload={"count": added, "feed_url": feed.url})
+                        entity_type="feed",
+                        payload={"count": added, "feed_url": run_svc.sanitize_error(feed.url)})
     return added
 
 
@@ -621,16 +623,22 @@ async def record_fetch(session: AsyncSession, feed: Feed, result: FetchResult) -
 
     if result.status == ERROR:
         feed.error_count += 1
+        #: Feed URL'i ve ham istisna metni kullanici tarafindan kopyalanabilen
+        #: yuzeylere (Aktivite) duser; ikisi de sir tasiyabilir (ozel feed
+        #: URL'i `?token=` ya da `user:pass@` icerebilir, httpx metni istegin
+        #: URL'ini aynen yazar). Sir olmayan URL degismeden gecer.
+        url = run_svc.sanitize_error(feed.url)
         await log_event(session, verb="rss.feed_failed", entity_id=feed.id,
                         entity_type="feed",
-                        payload={"error": result.error, "count": feed.error_count,
-                                 "url": feed.url})
+                        payload={"error": run_svc.sanitize_error(result.error),
+                                 "count": feed.error_count,
+                                 "url": url})
         if feed.error_count >= MAX_ERRORS_BEFORE_DISABLE:
             feed.active = False
             await log_event(session, verb="rss.feed_disabled", entity_id=feed.id,
                             entity_type="feed",
-                            payload={"url": feed.url, "errors": feed.error_count,
-                                     "message": f"{feed.url}: {feed.error_count} hata, kapatildi"})
+                            payload={"url": url, "errors": feed.error_count,
+                                     "message": f"{url}: {feed.error_count} hata, kapatildi"})
         return
 
     feed.error_count = 0
@@ -667,7 +675,9 @@ async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
     await session.commit()
 
     if run_status == run_svc.EMPTY:
-        await run_svc.check_stalled(session, source_id, label=feed.url)
+        #: `label` bildirim basligina/govdesine ve event'e girer; feed URL'i
+        #: sir tasiyabilir -> temizlenmis haliyle gosterilir.
+        await run_svc.check_stalled(session, source_id, label=run_svc.sanitize_error(feed.url))
         await session.commit()
     return result.status, added
 

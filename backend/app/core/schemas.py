@@ -86,6 +86,14 @@ class SourceRunOut(BaseModel):
     error: str | None = None
     started_at: datetime
     finished_at: datetime | None = None
+    #: Hata sinifi (bkz. `runs.ERROR_KINDS`). `/sources/health` bunu zaten
+    #: hesapliyordu ama model alani olmadigi icin yanittan DUSUYORDU.
+    error_kind: str | None = None
+    #: Devre kesici: kaynak ardisik hatalardan sonra atlanıyor mu?
+    circuit_open: bool = False
+    consecutive_failures: int = 0
+    #: Yalnizca devre ACIKKEN dolu: aga tekrar cikilacagi an (ISO 8601).
+    retry_at: datetime | None = None
 
 
 class NotificationOut(BaseModel):

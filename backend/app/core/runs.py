@@ -159,8 +159,16 @@ def error_kind_of(run: SourceRun) -> str | None:
 
 
 def error_message_of(run: SourceRun) -> str | None:
-    """Sir temizlenmis hata metni; degistirilmis metinde `[kind]` oneki kalir."""
-    return getattr(run, "error", None)
+    """Sir temizlenmis hata metni; degistirilmemis metinde `[kind]` oneki kalir.
+
+    `finish_run` metni YAZARKEN temizler, ama `source_run.error` kolonuna
+    yazan tek yol o degildir (media senkronu ham istisna metnini yazar) ve
+    eski satirlar temizlikten once uretilmis olabilir. Bu yuzden temizlik
+    OKUMA aninda da tekrarlanir: `sanitize_error` idempotenttir, ayni metni
+    ikinci kez gecirmek ciktiyi degistirmez. API yuzeyleri (health/runs/
+    coverage) ham metni asla disari vermez.
+    """
+    return sanitize_error(getattr(run, "error", None)) or None
 
 
 # ---------------------------------------------------------------------------
@@ -496,6 +504,9 @@ async def health(
          "error": error_message_of(r), "error_kind": error_kind_of(r),
          "circuit_open": states.get(r.source, {}).get("open", False),
          "consecutive_failures": states.get(r.source, {}).get("consecutive_failures", 0),
+         # Devre kapaliyken null; acikken aga tekrar cikilacagi an. Ek sorgu
+         # YOK: `circuit_states` bu degeri zaten hesapliyor.
+         "retry_at": states.get(r.source, {}).get("retry_at"),
          "started_at": r.started_at, "finished_at": r.finished_at}
         for r in rows
     ]

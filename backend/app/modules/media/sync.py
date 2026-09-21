@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import runs as run_svc
 from app.core.entity import touch_entity
 from app.core.events import log_event
 from app.core.models import Entity, SourceRun
@@ -136,7 +137,9 @@ async def provider_statuses(session: AsyncSession) -> list[dict]:
                 "last_run_at": row.finished_at if row else None,
                 "last_status": row.status if row else None,
                 "last_items_found": row.items_found if row else None,
-                "last_error": row.error if row else None,
+                #: Kolon ham metin tasiyabilir (eski satirlar/alt yazarlar);
+                #: saglayici durumu her zaman temizlenmis metni gosterir.
+                "last_error": run_svc.error_message_of(row) if row else None,
             }
         )
     return output
@@ -168,7 +171,7 @@ async def item_sync_state(
     return MediaItemSyncOut(
         status=row.status,
         last_run_at=row.finished_at or row.started_at,
-        last_error=row.error,
+        last_error=run_svc.error_message_of(row),
         items_found=row.items_found,
     )
 
@@ -508,7 +511,10 @@ async def poll_media_source(source_id: str, *, batch_id: uuid.UUID | None = None
         except Exception as exc:
             await session.rollback()
             status = "error"
-            error = f"{type(exc).__name__}: {exc}"[:2000]
+            #: Ham istisna metni saglayici URL'i tasiyabilir (kullanici/parola,
+            #: ?api_key=...). Kolona temizlenmis hali yazilir; okuma sinirinda
+            #: (`runs.error_message_of`) ayrica temizlenir (eski satirlar).
+            error = run_svc.sanitize_error(f"{type(exc).__name__}: {exc}")[:2000]
             changed = 0
         run = await session.get(SourceRun, run_id)
         if run is None:

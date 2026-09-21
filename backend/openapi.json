@@ -12363,6 +12363,16 @@
       },
       "SourceRunOut": {
         "properties": {
+          "circuit_open": {
+            "default": false,
+            "title": "Circuit Open",
+            "type": "boolean"
+          },
+          "consecutive_failures": {
+            "default": 0,
+            "title": "Consecutive Failures",
+            "type": "integer"
+          },
           "error": {
             "anyOf": [
               {
@@ -12373,6 +12383,17 @@
               }
             ],
             "title": "Error"
+          },
+          "error_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Kind"
           },
           "finished_at": {
             "anyOf": [
@@ -12389,6 +12410,18 @@
           "items_found": {
             "title": "Items Found",
             "type": "integer"
+          },
+          "retry_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
           },
           "source": {
             "title": "Source",

@@ -8877,12 +8877,26 @@ export interface components {
         };
         /** SourceRunOut */
         SourceRunOut: {
+            /**
+             * Circuit Open
+             * @default false
+             */
+            circuit_open: boolean;
+            /**
+             * Consecutive Failures
+             * @default 0
+             */
+            consecutive_failures: number;
             /** Error */
             error?: string | null;
+            /** Error Kind */
+            error_kind?: string | null;
             /** Finished At */
             finished_at?: string | null;
             /** Items Found */
             items_found: number;
+            /** Retry At */
+            retry_at?: string | null;
             /** Source */
             source: string;
             /**
