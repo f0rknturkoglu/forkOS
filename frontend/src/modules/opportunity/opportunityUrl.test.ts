@@ -79,6 +79,19 @@ describe("opportunity url contract", () => {
     const parsed = parseOpportunityUrl(new URLSearchParams("tab=nope"), base);
     expect(parsed.tab).toBe("jobs");
   });
+
+  it("eski ?saved bağlantısını yok sayar ve adres çubuğuna geri yazmaz", () => {
+    const parsed = parseOpportunityUrl(new URLSearchParams("saved=bilinmeyen"), base);
+    const query = serializeOpportunityUrl({
+      tab: parsed.tab,
+      focus: parsed.focus,
+      story: parsed.story,
+      connection: parsed.connection,
+      filters: parsed.filters,
+      view: parsed.view,
+    });
+    expect(new URLSearchParams(query).get("saved")).toBeNull();
+  });
 });
 
 describe("opportunity url round-trip", () => {

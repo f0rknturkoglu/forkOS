@@ -27,8 +27,6 @@ interface FilterDescriptor {
   key: FilterKey;
   /** Hangi bölümlerde geçerli olduğu. */
   sections: readonly OpportunitySection[];
-  /** Kayıtlı görünüme yazılıp yazılmayacağı. */
-  saved?: boolean;
   /** Aktifken chip metni; pasifken undefined. */
   label?: (filters: OpportunityBrowseFilters) => string | undefined;
 }
@@ -60,25 +58,21 @@ const FILTER_DESCRIPTORS: readonly FilterDescriptor[] = [
   {
     key: "search",
     sections: ALL,
-    saved: true,
     label: (f) => (f.search?.trim() ? `Arama: ${f.search.trim()}` : undefined),
   },
   {
     key: "source",
     sections: ALL,
-    saved: true,
     label: (f) => (f.source ? `Kaynak: ${sourceLabel(f.source)}` : undefined),
   },
   {
     key: "status",
     sections: ALL,
-    saved: true,
     label: (f) => (f.status ? `Durum: ${statusLabel(f.status)}` : undefined),
   },
   {
     key: "source_status",
     sections: RESULTS,
-    saved: true,
     label: (f) => {
       if (f.source_status === "stale") return "Kaynakta bulunamıyor";
       if (f.source_status === "all") return "Tüm kaynak durumları";
@@ -88,44 +82,37 @@ const FILTER_DESCRIPTORS: readonly FilterDescriptor[] = [
   {
     key: "category",
     sections: JOBS,
-    saved: true,
     label: (f) => (f.category ? `Kategori: ${f.category}` : undefined),
   },
   {
     key: "region",
     sections: JOBS,
-    saved: true,
     label: (f) =>
       f.region ? `Konum: ${f.region === "TR" ? "Türkiye" : f.region === "EU" ? "Avrupa" : f.region}` : undefined,
   },
   {
     key: "remote",
     sections: JOBS,
-    saved: true,
     label: (f) => (f.remote ? `Çalışma: ${REMOTE_LABELS[f.remote as RemoteKind] ?? f.remote}` : undefined),
   },
   {
     key: "archetype",
     sections: JOBS,
-    saved: true,
     label: (f) => (f.archetype ? `Rol: ${archetypeLabel(f.archetype)}` : undefined),
   },
   {
     key: "recommendation",
     sections: JOBS,
-    saved: true,
     label: (f) => (f.recommendation ? `Karar: ${recommendationLabel(f.recommendation)}` : undefined),
   },
   {
     key: "skill",
     sections: JOBS,
-    saved: true,
     label: (f) => (f.skill?.trim() ? `Beceri: ${f.skill.trim()}` : undefined),
   },
   {
     key: "announcement_source",
     sections: ["announcements"],
-    saved: true,
     label: (f) => {
       if (!f.announcement_source) return undefined;
       const labels: Record<string, string> = { ylsy: "YLSY", osym: "ÖSYM", other: "Diğer" };
@@ -135,13 +122,11 @@ const FILTER_DESCRIPTORS: readonly FilterDescriptor[] = [
   {
     key: "period_days",
     sections: ["announcements"],
-    saved: true,
     label: (f) => (f.period_days ? (f.period_days === 365 ? "Son 1 yıl" : `Son ${f.period_days} gün`) : undefined),
   },
   {
     key: "year",
     sections: ["announcements"],
-    saved: true,
     label: (f) => (f.year ? `Yıl: ${f.year}` : undefined),
   },
 ];

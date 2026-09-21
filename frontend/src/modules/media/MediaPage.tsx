@@ -1,11 +1,9 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { MEDIA_COLLECTIONS_QUERY_KEY } from "./queries";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
-import { SavedViewPicker } from "@/core/SavedViewPicker";
-import { useAppliedSavedView } from "@/core/savedViews";
 import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import type { components } from "@/generated/api-schema";
@@ -114,34 +112,6 @@ function filterPatch(key: keyof MediaFilterValues, value: string | boolean): Rec
   return { [FILTER_PARAMS[key]]: typeof value === "boolean" ? (value ? "true" : null) : value || null };
 }
 
-/**
- * Kayıtlı görünüm sözleşmesi: filtreler URL parametre ADLARIYLA saklanır
- * (`kind`, `status`, `owned` ...). Böylece bir görünüm hem `?saved=<id>` hem de
- * doğrudan parametrelerle aynı sonucu verir.
- */
-function savedFilterPayload(values: MediaFilterValues): Record<string, unknown> {
-  const payload: Record<string, unknown> = {};
-  for (const [key, param] of Object.entries(FILTER_PARAMS) as [keyof MediaFilterValues, string][]) {
-    const value = values[key];
-    if (typeof value === "boolean") {
-      if (value) payload[param] = "true";
-      continue;
-    }
-    if (value) payload[param] = value;
-  }
-  return payload;
-}
-
-/** Kayıtlı filtreden URL yaması: tanınmayan anahtar yok sayılır. */
-function savedFilterPatch(filter: Record<string, unknown>): Record<string, string | null> {
-  const patch: Record<string, string | null> = {};
-  for (const param of Object.values(FILTER_PARAMS)) {
-    const value = filter[param];
-    patch[param] = typeof value === "string" && value ? value : null;
-  }
-  return patch;
-}
-
 /** Kütüphane isteği; backend parametre adları tek yerde derlenir. */
 function libraryPath(values: MediaFilterValues, query: string): string {
   const params = new URLSearchParams();
@@ -247,16 +217,6 @@ function MediaLibraryView() {
   }
 
   const [draftQuery, setDraftQuery] = useUrlTextField(query, (value) => writeParams({ q: value || null }, true));
-
-  const applySavedFilters = useCallback(
-    (filter: Record<string, unknown>, view?: { id: string }) => {
-      writeParams({ ...savedFilterPatch(filter), saved: view?.id ?? null });
-    },
-    // writeParams her render'da yeniden kurulur; davranis ayni oldugu icin
-    // bagimlilik listesi bos tutulur (uygulama `useAppliedSavedView` ile korunur).
-    [],
-  );
-  useAppliedSavedView("media", params, applySavedFilters);
 
   const requestPath = libraryPath(values, query);
   // Devam şeridi ve "N devam ediyor" sayısı API `total` değerinden gelir.
@@ -436,7 +396,6 @@ function MediaLibraryView() {
                 className="w-full pl-8"
               />
             </div>
-            <SavedViewPicker module="media" filters={savedFilterPayload(values)} onApply={applySavedFilters} />
             <Button
               aria-expanded={filtersOpen}
               onClick={() => setFiltersOpen((open) => !open)}

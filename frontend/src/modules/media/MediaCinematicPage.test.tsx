@@ -112,12 +112,8 @@ function responseFor(path: string, method: string): Response {
   if (path === "/api/sources/sync?scope=media")
     return json({ active: null, last_completed: null, running: [], sources: [] });
   if (path.startsWith("/api/entities")) return json([]);
-  if (path.startsWith("/api/views")) return json(savedViews);
   return json({});
 }
-
-/** Sabitlenmiş görünüm yanıtı; testler `?saved=<id>` derin bağlantısını kurar. */
-let savedViews: unknown[] = [];
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -136,7 +132,6 @@ function renderPage() {
 describe("cinematic MediaPage", () => {
   beforeEach(() => {
     location.hash = "#/media";
-    savedViews = [];
     calls = [];
     libraryShouldFail = false;
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
@@ -189,26 +184,16 @@ describe("cinematic MediaPage", () => {
     expect(within(menu).getByRole("menuitem", { name: "Çöpe taşı" })).toBeTruthy();
   });
 
-  it("sabitlenmiş görünümü (?saved) URL parametrelerine uygular ve kütüphaneyi filtreler", async () => {
-    savedViews = [
-      {
-        id: "v1",
-        name: "Okunacak kitaplar",
-        module: "media",
-        filter: { kind: "book", status: "planned" },
-        sort: null,
-        pinned: true,
-        position: 0,
-      },
-    ];
-    location.hash = "#/media?saved=v1";
+  it("kayıtlı görünüm yüzeyi sunmaz ve bilinmeyen ?saved bağlantısında çökmez", async () => {
+    location.hash = "#/media?saved=bilinmeyen";
     renderPage();
 
-    await waitFor(() => expect(calls.some((call) => call.path.includes("kind=book"))).toBe(true));
-    const library = calls.find((call) => call.path.startsWith("/api/media?") && call.path.includes("kind=book"));
-    expect(library?.path).toContain("status=planned");
-    // Görünüm kimliği URL'de kalır: satır vurgulu kalır ve bağlantı tekrar üretilebilir.
-    await waitFor(() => expect(location.hash).toContain("saved=v1"));
+    // Eski `?saved=` bağlantısı yok sayılır: kütüphane normal akışta yüklenir.
+    await waitFor(() => expect(calls.some((call) => call.path === "/api/media")).toBe(true));
+    expect((await screen.findAllByText("Arrival")).length).toBeGreaterThan(0);
+    // Saved-view soyutlaması arayüzden tamamen çıktı.
+    expect(screen.queryByRole("button", { name: "Kayıtlı görünümler" })).toBeNull();
+    expect(calls.some((call) => call.path.startsWith("/api/views"))).toBe(false);
   });
 
   it("moves every quick filter into the URL and requests it from the library", async () => {

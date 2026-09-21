@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const harness = vi.hoisted(() => ({
   get: vi.fn(),
+  params: new URLSearchParams(),
   query: null as null | { queryFn: (context: { pageParam: number }) => unknown },
 }));
 
@@ -45,7 +46,7 @@ vi.mock("@/core/api", () => ({
 }));
 vi.mock("@/app/router", () => ({
   navigate: vi.fn(),
-  useHashRoute: () => ({ params: new URLSearchParams() }),
+  useHashRoute: () => ({ params: harness.params }),
 }));
 vi.mock("@/core/SaveToLibrary", () => ({ useSaveToLibrary: () => ({ save: vi.fn() }) }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
@@ -61,6 +62,7 @@ import { OpportunityPage } from "./OpportunityPage";
 describe("opportunity page workspaces", () => {
   beforeEach(() => {
     harness.get.mockReset();
+    harness.params = new URLSearchParams();
     harness.query = null;
   });
 
@@ -82,5 +84,15 @@ describe("opportunity page workspaces", () => {
     const html = renderToStaticMarkup(<OpportunityPage />);
     expect(html).toContain("Skor:");
     expect(html).not.toContain("Minimum skor");
+  });
+
+  it("kayıtlı görünüm seçicisi sunmaz ve eski ?saved bağlantısını yok sayar", () => {
+    harness.params = new URLSearchParams("saved=bilinmeyen");
+    const html = renderToStaticMarkup(<OpportunityPage />);
+    // Kariyer yüzeyinde saved-view affordance'ı kalmadı.
+    expect(html).not.toContain("Kayıtlı görünümler");
+    expect(html).not.toContain("Görünümler");
+    // Bilinmeyen `?saved=` çökmeye yol açmaz: çalışma alanı normal çizilir.
+    expect(html).toContain("Keşfet");
   });
 });
