@@ -1,6 +1,6 @@
 import type { ClipboardEventHandler, DragEventHandler, KeyboardEventHandler, ReactNode, RefObject } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, X } from "lucide-react";
+import { Check, ChevronDown, Copy, X } from "lucide-react";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -825,6 +825,35 @@ export function CopyButton({
       {copied ? <Check size={14} /> : <Copy size={14} />}
       {copied ? "Kopyalandı" : label}
     </Button>
+  );
+}
+
+/**
+ * Katlanır ayrıntı: kritik durum AÇIK kalır, uzayabilecek ayrıntı katlanır.
+ * Ayarlar tanılama yüzeylerinde ve uzun koşu geçmişlerinde ortak desendir
+ * (ikinci bir aç/kapa yazılmasın diye burada durur). `aria-expanded` ile
+ * ekran okuyucuya durum bildirilir.
+ */
+export function Disclosure({
+  summary,
+  children,
+  defaultOpen = false,
+  className,
+}: {
+  summary: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={className}>
+      <Button variant="ghost" size="sm" ariaExpanded={open} onClick={() => setOpen(!open)}>
+        <ChevronDown size={13} className={cx("transition", open && "rotate-180")} />
+        {summary}
+      </Button>
+      {open && <div className="mt-2 space-y-2">{children}</div>}
+    </div>
   );
 }
 

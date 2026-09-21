@@ -47,7 +47,7 @@ import {
 } from "@/core/obsidian";
 import { PROACTIVITY_STATUS_KEY, proactivityStatus } from "@/core/proactivity";
 import { useSystemStats } from "@/core/runtimeQueries";
-import { Button, Chip, CopyButton, Section, Skeleton, cx, relativeTime, useToast } from "@/core/ui";
+import { Button, Chip, CopyButton, Disclosure, Section, Skeleton, cx, relativeTime, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { ProactivitySection } from "./ProactivitySection";
 
@@ -82,28 +82,6 @@ function StatusRow({
       <span className="w-28 shrink-0 text-meta text-secondary">{label}</span>
       <span className={cx("text-meta font-medium", TONE_TEXT[tone])}>{value}</span>
       {hint && <span className="text-micro text-muted">{hint}</span>}
-    </div>
-  );
-}
-
-/** Katlanır ayrıntı: kritik durum açık kalır, uzayabilecek ayrıntı katlanır. */
-function Disclosure({
-  summary,
-  children,
-  defaultOpen = false,
-}: {
-  summary: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="border-t border-subtle pt-2">
-      <Button variant="ghost" size="sm" ariaExpanded={open} onClick={() => setOpen(!open)}>
-        <ChevronDown size={13} className={cx("transition", open && "rotate-180")} />
-        {summary}
-      </Button>
-      {open && <div className="mt-2 space-y-2">{children}</div>}
     </div>
   );
 }

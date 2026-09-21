@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/core/ui";
+import type { ProactivityRun } from "@/core/proactivity";
 import { ProactivitySection } from "./ProactivitySection";
 
 interface Call {
@@ -19,6 +20,8 @@ interface Call {
 }
 
 let calls: Call[] = [];
+/** Test basina degistirilebilen kosu listesi; RUNS tanimindan sonra atanir. */
+let runs: ProactivityRun[];
 
 function json(value: unknown): Response {
   return new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -100,6 +103,8 @@ const RUNS = [
   },
 ];
 
+runs = RUNS;
+
 function renderSection() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -113,6 +118,7 @@ function renderSection() {
 
 beforeEach(() => {
   calls = [];
+  runs = RUNS;
   Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
   vi.stubGlobal(
     "fetch",
@@ -123,7 +129,7 @@ beforeEach(() => {
 
       if (url.pathname === "/api/proactivity/status") return json(STATUS);
       if (url.pathname === "/api/proactivity/rules") return json(RULES);
-      if (url.pathname === "/api/proactivity/history") return json(RUNS);
+      if (url.pathname === "/api/proactivity/history") return json(runs);
       if (url.pathname === "/api/proactivity/config" && method === "PUT") return json(STATUS);
       if (url.pathname.startsWith("/api/proactivity/rules/") && method === "PUT") return json(RULES[0]);
       if (url.pathname.endsWith("/snooze")) return json(RUNS);
@@ -157,6 +163,21 @@ describe("ProactivitySection", () => {
     expect(screen.getByRole("button", { name: "Bu koşuyu ertele" })).toBeTruthy();
     // Erteleme zaten varsa geri alma aksiyonu gosterilir.
     expect(screen.getByRole("button", { name: "Ertelemeyi kaldır" })).toBeTruthy();
+  });
+
+  it("uzun kosu gecmisini asamali acilimla sinirlar (kayit kaybi yok)", async () => {
+    runs = Array.from({ length: 7 }, (_, index) => ({ ...RUNS[0], id: 100 + index, why_now: `kosu ${index + 1}` }));
+    renderSection();
+    await screen.findByText("Son koşular");
+
+    // Ilk 5 satir acik; gerisi katlanir, ama sayisi gorunur kalir.
+    expect(screen.getByText("kosu 1")).toBeTruthy();
+    expect(screen.getByText("kosu 5")).toBeTruthy();
+    expect(screen.queryByText("kosu 6")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Tüm koşular \(7\)/ }));
+    expect(await screen.findByText("kosu 6")).toBeTruthy();
+    expect(screen.getByText("kosu 7")).toBeTruthy();
   });
 
   it("ana anahtar değişince PUT /proactivity/config çağırır", async () => {

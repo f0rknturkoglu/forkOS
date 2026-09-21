@@ -16,11 +16,12 @@ import {
   snoozeUntil,
   unsnoozeProactivityRun,
 } from "@/core/proactivity";
-import type { ProactivityConfigPatch, ProactivityRule } from "@/core/proactivity";
+import type { ProactivityConfigPatch, ProactivityRule, ProactivityRun } from "@/core/proactivity";
 import {
   Button,
   Checkbox,
   Chip,
+  Disclosure,
   Field,
   IconButton,
   Input,
@@ -84,6 +85,9 @@ const STATE_TONES: Record<string, "neutral" | "accent" | "ok" | "warn" | "danger
 };
 
 /** Python `weekday()` sirasi: 0 = Pazartesi .. 6 = Pazar. */
+/** Gecmis listesinde once gosterilen satir sayisi; kalani katlanir. */
+const VISIBLE_RUNS = 5;
+
 const WEEKDAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
 /** Gelecek bir an: `relativeTime` gecmis icin yazildigi icin ayri bicim. */
@@ -404,43 +408,18 @@ export function ProactivitySection({ online }: { online: boolean }) {
               oluşur.
             </p>
           ) : (
-            <ul className="divide-y divide-subtle">
-              {runs.map((run) => (
-                <li key={run.id} className="flex flex-wrap items-start gap-2 py-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-meta text-primary">
-                        {run.rule_kind ? (RULE_LABELS[run.rule_kind] ?? run.rule_kind) : "kural silinmiş"}
-                      </span>
-                      <Chip tone={STATE_TONES[run.state] ?? "neutral"}>{STATE_LABELS[run.state] ?? run.state}</Chip>
-                      {run.snoozed_until && <Chip tone="warn">{untilLabel(run.snoozed_until)}</Chip>}
-                    </div>
-                    {run.why_now && <p className="mt-0.5 text-meta text-muted">{run.why_now}</p>}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <span className="text-micro text-muted">{relativeTime(run.triggered_at)}</span>
-                    {run.snoozed_until ? (
-                      <IconButton
-                        title="Ertelemeyi kaldır"
-                        disabled={busy || unsnooze.isPending}
-                        onClick={() => unsnooze.mutate(run.id)}
-                      >
-                        <Undo2 size={14} />
-                      </IconButton>
-                    ) : (
-                      <ProactivitySnoozeButton
-                        runId={run.id}
-                        title="Bu koşuyu ertele"
-                        headline={
-                          run.why_now ??
-                          (run.rule_kind ? (RULE_LABELS[run.rule_kind] ?? run.rule_kind) : "proaktivite koşusu")
-                        }
-                      />
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-2">
+              <ul className="divide-y divide-subtle">
+                {runsList(runs.slice(0, VISIBLE_RUNS), busy, (id) => unsnooze.mutate(id), unsnooze.isPending)}
+              </ul>
+              {runs.length > VISIBLE_RUNS && (
+                <Disclosure summary={`Tüm koşular (${runs.length})`}>
+                  <ul className="divide-y divide-subtle">
+                    {runsList(runs.slice(VISIBLE_RUNS), busy, (id) => unsnooze.mutate(id), unsnooze.isPending)}
+                  </ul>
+                </Disclosure>
+              )}
+            </div>
           )}
           <p className="mt-1 text-meta text-muted">
             Koşular en fazla 90 gün tutulur; erteleme geri alınabilir, koşu silinmez.
@@ -464,4 +443,41 @@ export function ProactivitySection({ online }: { online: boolean }) {
       </div>
     </Section>
   );
+}
+
+/**
+ * Kosu satirlari. Iki liste ayni satiri cizer (ilk N + "tum kosular"),
+ * bu yuzden JSX TEK yerde durur.
+ */
+function runsList(items: ProactivityRun[], busy: boolean, onUnsnooze: (runId: number) => void, pending: boolean) {
+  return items.map((run) => (
+    <li key={run.id} className="flex flex-wrap items-start gap-2 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-meta text-primary">
+            {run.rule_kind ? (RULE_LABELS[run.rule_kind] ?? run.rule_kind) : "kural silinmiş"}
+          </span>
+          <Chip tone={STATE_TONES[run.state] ?? "neutral"}>{STATE_LABELS[run.state] ?? run.state}</Chip>
+          {run.snoozed_until && <Chip tone="warn">{untilLabel(run.snoozed_until)}</Chip>}
+        </div>
+        {run.why_now && <p className="mt-0.5 text-meta text-muted">{run.why_now}</p>}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <span className="text-micro text-muted">{relativeTime(run.triggered_at)}</span>
+        {run.snoozed_until ? (
+          <IconButton title="Ertelemeyi kaldır" disabled={busy || pending} onClick={() => onUnsnooze(run.id)}>
+            <Undo2 size={14} />
+          </IconButton>
+        ) : (
+          <ProactivitySnoozeButton
+            runId={run.id}
+            title="Bu koşuyu ertele"
+            headline={
+              run.why_now ?? (run.rule_kind ? (RULE_LABELS[run.rule_kind] ?? run.rule_kind) : "proaktivite koşusu")
+            }
+          />
+        )}
+      </div>
+    </li>
+  ));
 }

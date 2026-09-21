@@ -64,7 +64,8 @@ interface ProactivityStatus {
  * `state` backend'deki `RUN_STATES` kumesinden biridir. Tuketiciler adiyla
  * anmadigi icin disa acilmaz.
  */
-interface ProactivityRun {
+/** `GET /proactivity/history` satiri. Iki liste (ilk N + tumu) bunu anar. */
+export interface ProactivityRun {
   id: number;
   rule_kind: string | null;
   subject_type: string | null;
