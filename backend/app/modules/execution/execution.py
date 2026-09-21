@@ -39,8 +39,14 @@ from app.modules.execution.models import (
 
 log = logging.getLogger("execution")
 
-#: Yürütücü kimliği: süreç başına rastgele jeton (crash sonrası sahiplik izi).
-EXECUTOR_TOKEN = uuid.uuid4().hex[:16]
+def new_executor_token() -> str:
+    """Her YÜRÜTME DENEMESİ için yeni sahiplik jetonu (fencing nonce).
+
+    Süreç-global bir jeton YETKİ KAYNAĞI DEĞİLDİR: devralınan bir plan eski
+    süreci değil, o sürecin DENEMESİNİ geçersiz kılar. Jeton sır değildir;
+    yalnızca "hangi deneme sahip" sorusunu yanıtlar.
+    """
+    return uuid.uuid4().hex[:16]
 
 
 class ExecutionError(Exception):
@@ -70,12 +76,15 @@ class ExecutionOutcome:
     failure_code: str | None = None
 
 
-async def claim_plan(session: AsyncSession, plan_row: ExecutionPlan, *, now: datetime) -> bool:
-    """`approved → executing` geçişini ATOMİK sahiplenir (§22).
+async def claim_plan(
+    session: AsyncSession, plan_row: ExecutionPlan, *, now: datetime
+) -> str | None:
+    """`approved → executing` geçişini ATOMİK sahiplenir ve DENEME jetonunu döner.
 
-    İkinci eşzamanlı çağrı burada kaybeder ve `False` alır: aynı revizyon iki
+    İkinci eşzamanlı çağrı burada kaybeder ve `None` alır: aynı revizyon iki
     kez yürütülemez. Process-local kilit yeterli değildir.
     """
+    token = new_executor_token()
     from sqlalchemy import update
 
     result = await session.execute(
@@ -85,12 +94,12 @@ async def claim_plan(session: AsyncSession, plan_row: ExecutionPlan, *, now: dat
             state="executing",
             execution_started_at=now,
             execution_heartbeat_at=now,
-            executor_token=EXECUTOR_TOKEN,
+            executor_token=token,
             updated_at=now,
         )
         .returning(ExecutionPlan.id)
     )
-    return result.scalar_one_or_none() is not None
+    return token if result.scalar_one_or_none() is not None else None
 
 
 def _receipt_detail(value: Any) -> str | None:
@@ -152,22 +161,87 @@ def lease_age_seconds(plan_row: ExecutionPlan, *, now: datetime) -> float | None
     return max((now - heartbeat).total_seconds(), 0.0)
 
 
-async def touch_heartbeat(session: AsyncSession, plan_row_id: int, *, now: datetime) -> None:
-    """Adım sınırlarında yürütücünün canlı olduğunu yazar (ayrı zamanlayıcı YOK)."""
-    await session.execute(
+async def touch_heartbeat(
+    session: AsyncSession, plan_row_id: int, *, token: str, now: datetime
+) -> bool:
+    """Adım sınırlarında yürütücünün canlı olduğunu yazar (ayrı zamanlayıcı YOK).
+
+    Güncelleme JETONA bağlıdır: sahipliği kaybetmiş (devralınmış) bir yürütücü
+    yeni sahibin lease'ini TAZELEYEMEZ. `False` → EXECUTION_OWNERSHIP_LOST.
+    """
+    result = await session.execute(
         update(ExecutionPlan)
-        .where(ExecutionPlan.id == plan_row_id, ExecutionPlan.state == "executing")
+        .where(
+            ExecutionPlan.id == plan_row_id,
+            ExecutionPlan.state == "executing",
+            ExecutionPlan.executor_token == token,
+        )
         .values(execution_heartbeat_at=now, updated_at=now)
+        .returning(ExecutionPlan.id)
     )
+    updated = result.scalar_one_or_none() is not None
     await session.flush()
+    return updated
+
+
+async def assert_execution_owner(
+    session: AsyncSession, plan_row_id: int, *, token: str
+) -> bool:
+    """Sahiplik hâlâ bende mi? (her adımdan ÖNCE ve uzun adımdan SONRA)."""
+    owner = (
+        await session.execute(
+            select(ExecutionPlan.executor_token, ExecutionPlan.state).where(
+                ExecutionPlan.id == plan_row_id
+            )
+        )
+    ).first()
+    if owner is None:
+        return False
+    return owner.state == "executing" and owner.executor_token == token
+
+
+async def finalize_if_owner(
+    session: AsyncSession,
+    plan_row_id: int,
+    *,
+    token: str,
+    final_status: str,
+    failure_code: str | None,
+    now: datetime,
+) -> bool:
+    """Plan sonucu YALNIZCA güncel sahip tarafından yazılır (§7).
+
+    Yarışı kaybeden eski yürütücü kazananın nihai durumunu EZEMEZ.
+    """
+    result = await session.execute(
+        update(ExecutionPlan)
+        .where(
+            ExecutionPlan.id == plan_row_id,
+            ExecutionPlan.state == "executing",
+            ExecutionPlan.executor_token == token,
+        )
+        .values(
+            state=final_status,
+            final_status=final_status,
+            failure_code=failure_code,
+            execution_finished_at=now,
+            updated_at=now,
+        )
+        .returning(ExecutionPlan.id)
+    )
+    updated = result.scalar_one_or_none() is not None
+    await session.flush()
+    return updated
 
 
 async def execute_plan(
     session: AsyncSession,
     plan_row: ExecutionPlan,
     *,
+    token: str,
     now: datetime | None = None,
 ) -> ExecutionOutcome:
+    """`token` sahibi yürütücü tarafından çağrılır; sahiplik kaybedilirse DURUR."""
     """Onaylı planı adım adım yürütür. H1 dışında HİÇBİR yazma yapmaz."""
     moment = now or datetime.now(UTC)
     steps = list(plan_row.steps or [])
@@ -183,6 +257,12 @@ async def execute_plan(
     outcomes: list[StepOutcome] = []
     failed = False
     blocked = False
+    ownership_lost = False
+    if not await assert_execution_owner(session, plan_row.id, token=token):
+        # Sahiplik zaten devralınmış: HİÇBİR adım başlatılmaz, hiçbir şey yazılmaz.
+        return ExecutionOutcome(
+            final_status="failed", steps=[], failure_code="EXECUTION_OWNERSHIP_LOST"
+        )
 
     for index, raw_step in enumerate(steps):
         step_id = str(raw_step.get("step_id") or f"s{index + 1}")
@@ -220,7 +300,7 @@ async def execute_plan(
             # ile "sonucu bilinmiyor" aynı değerde birleştirilmez).
             prior.status = "unresolved"
             prior.error_code = "RECONCILIATION_REQUIRED"
-            prior.claimed_by = prior.claimed_by or EXECUTOR_TOKEN
+            prior.claimed_by = prior.claimed_by
             blocked = True
             outcomes.append(
                 StepOutcome(
@@ -253,8 +333,14 @@ async def execute_plan(
             outcomes.append(StepOutcome(step_id, index, "not_attempted", action, target_text))
             continue
 
-        # Uzun adımlarda (özellikle Vault yazmaları) lease tazelenir.
-        await touch_heartbeat(session, plan_row.id, now=datetime.now(UTC))
+        # Uzun adımlarda (özellikle Vault yazmaları) lease tazelenir. Kalp
+        # atışı JETONA bağlıdır: sahiplik devralındıysa bu adım BAŞLAMAZ.
+        if not await touch_heartbeat(session, plan_row.id, token=token, now=datetime.now(UTC)):
+            ownership_lost = True
+            outcomes.append(
+                StepOutcome(step_id, index, "not_attempted", action, target_text, "EXECUTION_OWNERSHIP_LOST")
+            )
+            break
 
         if spec is None:
             session.add(
@@ -297,7 +383,7 @@ async def execute_plan(
 
         if claimed is not None:
             receipt = claimed
-            receipt.claimed_by = EXECUTOR_TOKEN
+            receipt.claimed_by = token
             receipt.started_at = moment
             receipt.status = "not_attempted"
         else:
@@ -311,7 +397,7 @@ async def execute_plan(
                 # "SAHIPLENILDI" izi: bu satir varsa mutasyon olmus OLABILIR.
                 status="not_attempted",
                 started_at=moment,
-                claimed_by=EXECUTOR_TOKEN,
+                claimed_by=token,
             )
             session.add(receipt)
         await session.flush()
@@ -347,6 +433,18 @@ async def execute_plan(
                 failed = True
             continue
 
+        if not await assert_execution_owner(session, plan_row.id, token=token):
+            # H1 mutasyonu ÇALIŞIRKEN sahiplik devralındı. Geri alma YOK;
+            # makbuz dürüstçe işaretlenir ve DURULUR (sonraki adım başlamaz).
+            receipt.status = "unresolved"
+            receipt.error_code = "EXECUTION_OWNERSHIP_LOST"
+            receipt.completed_at = datetime.now(UTC)
+            outcomes.append(
+                StepOutcome(step_id, index, "unresolved", action, target_text, receipt.error_code)
+            )
+            ownership_lost = True
+            break
+
         entity_id = getattr(result, "entity_id", None) or getattr(result, "id", None)
         receipt.status = "completed"
         receipt.result_ref = str(entity_id) if entity_id else None
@@ -354,6 +452,14 @@ async def execute_plan(
         receipt.completed_at = datetime.now(UTC)
         outcomes.append(
             StepOutcome(step_id, index, "completed", action, target_text, None, receipt.result_ref)
+        )
+
+    if ownership_lost:
+        completed_now = [item for item in outcomes if item.status == "completed"]
+        return ExecutionOutcome(
+            final_status="partial" if completed_now else "failed",
+            steps=outcomes,
+            failure_code="EXECUTION_OWNERSHIP_LOST",
         )
 
     completed = [item for item in outcomes if item.status == "completed"]

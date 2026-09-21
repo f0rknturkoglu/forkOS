@@ -47,7 +47,7 @@ async def _plan(session: AsyncSession, steps: list[dict]) -> ExecutionPlan:
 
 async def _claim_only(session: AsyncSession, plan: ExecutionPlan) -> None:
     """Süreç, sahipliği aldıktan HEMEN sonra ölmüş gibi davran."""
-    assert await execution_mod.claim_plan(session, plan, now=NOW) is True
+    assert await execution_mod.claim_plan(session, plan, now=NOW) is not None
     await session.commit()
 
 
@@ -128,7 +128,7 @@ async def test_r4_completed_step_is_not_replayed_after_restart(
             status="completed",
             started_at=NOW,
             completed_at=NOW,
-            claimed_by=execution_mod.EXECUTOR_TOKEN,
+            claimed_by="token-a",
         )
     )
     db_session.add(
@@ -194,7 +194,7 @@ async def test_r6_recovery_continues_only_untouched_steps(db_session: AsyncSessi
             status="completed",
             started_at=NOW,
             completed_at=NOW,
-            claimed_by=execution_mod.EXECUTOR_TOKEN,
+            claimed_by="token-a",
         )
     )
     await db_session.commit()

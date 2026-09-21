@@ -208,7 +208,9 @@ async def test_completed_steps_are_not_repeated_on_resume(db_session: AsyncSessi
     assert plan_row is not None
     plan_row.state = "executing"
     await db_session.commit()
-    resumed = await execution_mod.execute_plan(db_session, plan_row, now=NOW + timedelta(minutes=1))
+    resumed = await execution_mod.execute_plan(
+        db_session, plan_row, token=plan_row.executor_token or "", now=NOW + timedelta(minutes=1)
+    )
     assert resumed.final_status == "completed"
     assert len(list((await db_session.execute(select(Todo))).scalars())) == before
 
@@ -224,6 +226,8 @@ async def test_mutation_without_receipt_requires_reconciliation(
     plan_row = await db_session.get(ExecutionPlan, plan.id)
     assert plan_row is not None
     plan_row.state = "executing"
+    plan_row.executor_token = "old-executor"
+    await db_session.commit()
     db_session.add(
         ExecutionReceipt(
             plan_row_id=plan.id,
@@ -238,7 +242,9 @@ async def test_mutation_without_receipt_requires_reconciliation(
     )
     await db_session.commit()
 
-    outcome = await execution_mod.execute_plan(db_session, plan_row, now=NOW + timedelta(minutes=1))
+    outcome = await execution_mod.execute_plan(
+        db_session, plan_row, token="old-executor", now=NOW + timedelta(minutes=1)
+    )
 
     assert outcome.final_status == "failed"
     assert outcome.failure_code == "RECONCILIATION_REQUIRED"

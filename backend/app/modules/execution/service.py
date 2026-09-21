@@ -472,7 +472,8 @@ async def execute(
     if latest != plan.revision:
         raise ExecutionPlanError("APPROVAL_STALE", "daha yeni bir revizyon var")
 
-    if not await execution_mod.claim_plan(session, plan, now=moment):
+    token = await execution_mod.claim_plan(session, plan, now=moment)
+    if token is None:
         await session.rollback()
         raise ExecutionPlanError("PLAN_ALREADY_EXECUTING", "yurutme sahipligi baska cagrida")
     await session.commit()
@@ -489,15 +490,28 @@ async def execute(
     )
     await session.commit()
 
-    outcome = await execution_mod.execute_plan(session, plan, now=moment)
+    outcome = await execution_mod.execute_plan(session, plan, token=token, now=moment)
 
+    # Finalizasyon JETONA bağlıdır: devralınmış bir yürütücü kazananın nihai
+    # durumunu EZEMEZ (§7).
+    finalized = await execution_mod.finalize_if_owner(
+        session,
+        plan_row_id,
+        token=token,
+        final_status=outcome.final_status,
+        failure_code=outcome.failure_code,
+        now=datetime.now(UTC),
+    )
     plan = await _load_plan(session, plan_row_id)
-    plan.state = outcome.final_status
-    plan.final_status = outcome.final_status
-    plan.failure_code = outcome.failure_code
-    plan.execution_finished_at = datetime.now(UTC)
-    await _finish_audit(session, plan=plan, outcome=outcome, actor=actor)
+    if finalized:
+        await _finish_audit(session, plan=plan, outcome=outcome, actor=actor)
     await session.commit()
+    if not finalized:
+        raise ExecutionPlanError(
+            "EXECUTION_OWNERSHIP_LOST", "sahiplik devralindi; sonuc yazilmadi"
+        )
+    # Kosullu UPDATE ORM kimlik haritasini tazelemez: yanit taze degerle doner.
+    await session.refresh(plan)
     return plan, outcome
 
 
@@ -542,6 +556,7 @@ async def recover(
     from sqlalchemy import update
 
     cutoff = moment - timedelta(seconds=execution_mod.EXECUTOR_STALE_AFTER_SECONDS)
+    recovery_token = execution_mod.new_executor_token()
     reclaimed = await session.execute(
         update(ExecutionPlan)
         .where(
@@ -554,7 +569,9 @@ async def recover(
             ),
         )
         .values(
-            executor_token=execution_mod.EXECUTOR_TOKEN,
+            # KURTARMA YENİ BİR DENEME JETONU ÜRETİR: eski yürütücü artık
+            # kalp atışı yazamaz, adım başlatamaz, planı finalize edemez.
+            executor_token=recovery_token,
             execution_heartbeat_at=moment,
             updated_at=moment,
         )
@@ -575,14 +592,24 @@ async def recover(
     await session.commit()
     plan = await _load_plan(session, plan_row_id)
 
-    outcome = await execution_mod.execute_plan(session, plan, now=moment)
+    outcome = await execution_mod.execute_plan(session, plan, token=recovery_token, now=moment)
+    finalized = await execution_mod.finalize_if_owner(
+        session,
+        plan_row_id,
+        token=recovery_token,
+        final_status=outcome.final_status,
+        failure_code=outcome.failure_code,
+        now=datetime.now(UTC),
+    )
     plan = await _load_plan(session, plan_row_id)
-    plan.state = outcome.final_status
-    plan.final_status = outcome.final_status
-    plan.failure_code = outcome.failure_code
-    plan.execution_finished_at = datetime.now(UTC)
-    await _finish_audit(session, plan=plan, outcome=outcome, actor=actor)
+    if finalized:
+        await _finish_audit(session, plan=plan, outcome=outcome, actor=actor)
     await session.commit()
+    if not finalized:
+        raise ExecutionPlanError(
+            "EXECUTION_OWNERSHIP_LOST", "kurtarma sirasinda sahiplik degisti"
+        )
+    await session.refresh(plan)
     return plan, outcome
 
 
@@ -601,6 +628,18 @@ async def _finish_audit(
                 plan_id=plan.plan_id,
                 kind="execution_blocked",
                 detail={"step_id": step.step_id, "reason": step.error_code},
+                actor=actor,
+                now=datetime.now(UTC),
+            )
+            continue
+        if step.status == "not_attempted":
+            # Hiç denenmeyen adım BAŞARISIZ değildir: sahte hata geçmişi yazılmaz.
+            await _audit(
+                session,
+                plan=plan,
+                plan_id=plan.plan_id,
+                kind="step_not_attempted",
+                detail={"step_id": step.step_id},
                 actor=actor,
                 now=datetime.now(UTC),
             )

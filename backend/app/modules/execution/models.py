@@ -90,6 +90,8 @@ DECISION_KINDS: tuple[str, ...] = (
     "execution_recovered",
     "step_completed",
     "step_failed",
+    #: Hic denenmeyen adim: BASARISIZ degildir (sahte hata gecmisi yazilmaz).
+    "step_not_attempted",
     "execution_finished",
     "execution_blocked",
 )

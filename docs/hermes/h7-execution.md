@@ -116,6 +116,28 @@ Kanıt: `test_h7_models.py::test_revision_ignores_key_order_and_evidence_order`,
 
 ---
 
+
+### Yürütücü fencing'i (H7 fencing hardening)
+
+```text
+jeton          her YÜRÜTME DENEMESİ kendi jetonunu üretir (normal claim ve her
+               kurtarma için AYRI). Süreç-global jeton YETKİ DEĞİLDİR.
+sahiplik       id = plan AND state = executing AND executor_token = benim_jetonum
+kalp atışı     jetonlu koşullu UPDATE; eşleşmezse yazılmaz
+adım öncesi    sahiplik + kalp atışı doğrulanır; kayıpsa adım BAŞLAMAZ
+adım sonrası   uzun H1 aksiyonu döndükten sonra sahiplik YENİDEN doğrulanır;
+               kayıpsa makbuz `unresolved` yazılır, sonraki adım başlamaz
+finalizasyon   YALNIZCA güncel jeton yazar (koşullu UPDATE): devralınmış
+               yürütücü kazananın nihai durumunu EZEMEZ
+hata kodu      EXECUTION_OWNERSHIP_LOST
+```
+
+**Ayrım önemlidir:** lease'in bayatlaması yalnızca *kurtarma uygunluğu* verir;
+sahiplik jetonla belirlenir. Canlı yürütücü asla devralınamaz
+(`PLAN_ACTIVE_EXECUTOR`), devralınan yürütücü ise eski denemeyi tümüyle keser.
+
+Kanıt: `tests/test_h7_fencing.py` (F1-F16) + canlı smoke (A-E).
+
 ## 4. Adım sözleşmesi
 
 ```text
