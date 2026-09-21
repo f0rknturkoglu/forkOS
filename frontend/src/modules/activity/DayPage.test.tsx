@@ -54,6 +54,7 @@ beforeEach(() => {
             payload: { count: 12 },
             occurred_at: `${DAY}T08:00:00+00:00`,
             kind: null,
+            is_alert: false,
           },
           {
             id: 3,
@@ -63,12 +64,23 @@ beforeEach(() => {
             payload: { count: 5 },
             occurred_at: `${DAY}T07:00:00+00:00`,
             kind: null,
+            is_alert: false,
+          },
+          {
+            id: 4,
+            entity_id: null,
+            entity_type: "feed",
+            verb: "rss.feed_failed",
+            payload: { message: "zaman aşımı" },
+            occurred_at: `${DAY}T06:00:00+00:00`,
+            kind: null,
+            is_alert: true,
           },
         ],
         kinds: { task: 1 },
         labels: { task: "görev" },
         total: 1,
-        other: 2,
+        other: 3,
       };
     }
     throw new Error(`beklenmeyen çağrı: ${path}`);
@@ -110,6 +122,16 @@ describe("DayPage", () => {
     expect(row).toBeTruthy();
     // Iki kayit tek satirda toplanir.
     expect(screen.getByText("2")).toBeTruthy();
+  });
+
+  it("uyarı taşıyan sistem kaydını vurgular (bayrak sunucudan gelir)", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: /göster/ }));
+
+    const alert = await screen.findByText("Besleme hata verdi");
+    expect(alert.className).toContain("text-warn");
+    expect(screen.getByText("Kaynak senkronizasyonu tamamlandı").className).not.toContain("text-warn");
   });
 
   it("saat ve gun gezinme baglantilari gun parametresini korur", async () => {

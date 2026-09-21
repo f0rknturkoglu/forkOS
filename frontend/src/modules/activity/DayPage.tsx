@@ -8,7 +8,7 @@ import { useHashRoute } from "@/app/router";
 import type { DayDetail } from "@/core/types";
 import { formatTrDate, formatTrDateTime, localDateKey } from "@/lib/date";
 import { typeLabel } from "@/core/entityRegistry";
-import { ALERT_VERBS, VERB_LABELS, describe } from "@/core/verbs";
+import { VERB_LABELS, describe } from "@/core/verbs";
 
 function shift(day: string, delta: number): string {
   const date = new Date(`${day}T12:00:00`); // ogle: yaz saati kaymasindan etkilenmez
@@ -43,13 +43,17 @@ export function DayPage() {
   // kayitlari ayri: gun sayfasi once "sen ne yaptin" sorusunu cevaplar.
   const mine = (data?.events ?? []).filter((event) => event.kind !== null);
   const system = (data?.events ?? []).filter((event) => event.kind === null);
+  // Uyari bilgisi SUNUCUDAN gelir (event.is_alert): istemci fiil listesi tutmaz.
   const grouped = Object.entries(
-    system.reduce<Record<string, number>>((acc, event) => {
-      acc[event.verb] = (acc[event.verb] ?? 0) + 1;
+    system.reduce<Record<string, { count: number; alert: boolean }>>((acc, event) => {
+      const row = acc[event.verb] ?? { count: 0, alert: false };
+      row.count += 1;
+      row.alert = row.alert || Boolean(event.is_alert);
+      acc[event.verb] = row;
       return acc;
     }, {}),
   )
-    .map(([verb, count]) => ({ verb, count }))
+    .map(([verb, row]) => ({ verb, ...row }))
     .sort((a, b) => b.count - a.count);
 
   return (
@@ -161,10 +165,7 @@ export function DayPage() {
                       {grouped.map((row) => (
                         <li key={row.verb} className="flex items-baseline justify-between gap-3 py-2">
                           <span
-                            className={cx(
-                              "min-w-0 truncate text-body",
-                              ALERT_VERBS.has(row.verb) ? "text-warn" : "text-secondary",
-                            )}
+                            className={cx("min-w-0 truncate text-body", row.alert ? "text-warn" : "text-secondary")}
                           >
                             {VERB_LABELS[row.verb] ?? row.verb}
                           </span>

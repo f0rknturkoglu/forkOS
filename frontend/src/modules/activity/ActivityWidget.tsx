@@ -3,7 +3,7 @@ import { api, qs } from "@/core/api";
 import { Empty, Section, cx, relativeTime } from "@/core/ui";
 import { navigate } from "@/app/router";
 import type { ActivityEvent } from "@/core/types";
-import { ALERT_VERBS, describe } from "@/core/verbs";
+import { describe } from "@/core/verbs";
 
 /**
  * Panelin en alt kosesindeki kucuk gunluk.
@@ -34,7 +34,7 @@ export function ActivityWidget() {
               key={event.id}
               className={cx(
                 "flex items-baseline gap-2 text-micro leading-5",
-                ALERT_VERBS.has(event.verb) ? "text-warn" : "text-muted",
+                event.is_alert ? "text-warn" : "text-muted",
               )}
             >
               <span className="min-w-0 flex-1 truncate">{describe(event.verb, event.payload)}</span>

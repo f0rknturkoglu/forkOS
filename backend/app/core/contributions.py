@@ -15,6 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.events import is_alert
 from app.core.time import local_today, streak_stats
 
 # Kategori -> o kategoriyi olusturan event fiilleri.
@@ -206,6 +207,9 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
             ),
         )
         event["kind"] = kind
+        # Uyari kurali tek kaynaktan (core/events.is_alert) gelir: gun sayfasi
+        # da istemcide "hangi fiil uyaridir" listesi TUTMAZ.
+        event["is_alert"] = is_alert(event["verb"], event["payload"])
         events.append(event)
         if kind:
             kinds[kind] = kinds.get(kind, 0) + 1

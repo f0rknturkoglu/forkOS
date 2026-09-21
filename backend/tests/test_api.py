@@ -1030,8 +1030,8 @@ async def test_media_roundtrip_preserves_meta_and_cover(client: AsyncClient):
     await client.delete(f"/api/media/{created['id']}")
 
 
-async def test_activity_category_filter_splits_human_work_from_system(client: AsyncClient):
-    """Kategori filtresi: harita kategorileri ile 'system' (worker gurultusu)."""
+async def test_activity_filter_splits_domains(client: AsyncClient):
+    """Alan filtresi: her kayit tek bir urun alanina duser."""
     suffix = uuid.uuid4().hex[:8]
     todo = (await client.post("/api/todos", json={"title": f"Kategori {suffix}"})).json()
     await client.post(f"/api/todos/{todo['id']}/complete")
@@ -1044,14 +1044,14 @@ async def test_activity_category_filter_splits_human_work_from_system(client: As
         },
     )
 
-    focus = (await client.get("/api/activity", params={"category": "focus", "limit": 500})).json()
-    tasks = (await client.get("/api/activity", params={"category": "task", "limit": 500})).json()
-    system = (await client.get("/api/activity", params={"category": "system", "limit": 500})).json()
+    focus = (await client.get("/api/activity", params={"filter": "focus", "limit": 500})).json()
+    tasks = (await client.get("/api/activity", params={"filter": "tasks", "limit": 500})).json()
+    system = (await client.get("/api/activity", params={"filter": "system", "limit": 500})).json()
 
-    assert all(event["verb"] == "pomodoro.completed" for event in focus)
+    assert all(event["verb"].startswith("pomodoro.") for event in focus)
     assert any(event["entity_id"] == todo["id"] for event in tasks)
     assert all(event["verb"] not in {"todo.completed", "bookmark.saved"} for event in system)
-    # Kategorisiz cagri hepsini doner (geriye donuk uyum).
+    # Filtresiz cagri hepsini doner (geriye donuk uyum).
     everything = (await client.get("/api/activity", params={"limit": 500})).json()
     assert len(everything) >= len(tasks)
 

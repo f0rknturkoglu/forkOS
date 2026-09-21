@@ -1,39 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSourceHealth } from "@/core/runtimeQueries";
-import { POMODORO_STATS_QUERY_KEY } from "@/modules/pomodoro/queries";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
   BookOpen,
   Briefcase,
-  CheckCircle2,
   ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
   ClipboardCheck,
   Flame,
+  ListChecks,
   Timer,
 } from "lucide-react";
 import { api, qs } from "@/core/api";
-import { SourceHealthAccordion } from "@/core/SourceHealthAccordion";
+import { entityRoute, typeLabel } from "@/core/entityRegistry";
+import { POMODORO_STATS_QUERY_KEY } from "@/modules/pomodoro/queries";
 import {
   Button,
-  Chip,
   Empty,
   Input,
   Metric,
   MetricStrip,
   PageFrame,
   Section,
+  SectionHeader,
   SkeletonRows,
   Tabs,
   cx,
-  relativeTime,
 } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import { useDebounced } from "@/lib/hooks";
-import { formatTrDate, localDateKey } from "@/lib/date";
-import { typeLabel } from "@/core/entityRegistry";
-import type { ActivityEvent, Heatmap as HeatmapData, PomodoroStats, SourceHealth } from "@/core/types";
-import { ALERT_VERBS, describe } from "@/core/verbs";
+import { formatTrDate, formatTrDateTime, localDateKey } from "@/lib/date";
+import type { ActivityEvent, PomodoroStats } from "@/core/types";
+import { describe, verbIcon } from "@/core/verbs";
 import { Heatmap } from "./Heatmap";
 import { RANGES, type RangeId as RangeIdSource } from "./ranges";
 import { MonthlyBars, monthTotal, useRhythmSummary } from "./RhythmWidget";
@@ -59,54 +58,53 @@ function dayLabel(iso: string): string {
   return formatTrDate(iso, { weekday: "long", day: "numeric", month: "long" });
 }
 
-function isAlert(event: ActivityEvent): boolean {
-  return (
-    ALERT_VERBS.has(event.verb) || (event.verb === "source_sync.completed" && Number(event.payload.errors ?? 0) > 0)
-  );
+/** Ilgili kaydin adresi: tip->rota kayit defterinden gelir (kural 13). */
+function entityLink(event: ActivityEvent): string | null {
+  if (!event.entity_id || !event.entity_type) return null;
+  const route = entityRoute(event.entity_type, event.entity_id);
+  return route === "#/" ? null : `#${route.replace(/^#/, "")}`;
 }
 
 // Zaman araligi secenekleri ortak kaynaktan gelir (Isı Haritası sayfasi ile ayni).
 type RangeId = RangeIdSource;
 
 /**
- * Akis filtreleri. "alerts" sunucuya GITMEZ (uyari listesi arayuzde yasar);
- * digerleri backend kategori filtresidir.
+ * Akis filtreleri: "bu kayit hangi alandan geldi?"
+ *
+ * Hepsi SUNUCUDA suzulur (backend/app/core/events.py ACTIVITY_FILTERS);
+ * "Uyarılar" da oyle -- istemci yalnizca cekilen sayfayi suzerse pencere
+ * disindaki uyari hic gorunmez.
  */
 const FEED_FILTERS = [
   { id: "all", label: "Tümü" },
-  { id: "alerts", label: "Sadece Uyarılar" },
-  { id: "task", label: "Görevler" },
+  { id: "tasks", label: "Görevler" },
   { id: "focus", label: "Odak" },
-  { id: "read", label: "Okuma & Not" },
+  { id: "learning", label: "Öğrenme" },
+  // "Okuma" yerine Kütüphane: kapsam tam olarak Kütüphane alanidir
+  // (yer imi + RSS + medya + not) ve kullanici bu adi sidebar'da goruyor.
+  { id: "reading", label: "Kütüphane" },
+  { id: "career", label: "Kariyer" },
   { id: "system", label: "Sistem" },
+  { id: "alerts", label: "Uyarılar" },
 ] as const;
 type FeedFilter = (typeof FEED_FILTERS)[number]["id"];
-
-/** Sunucu tarafi kategori karsiligi: "Okuma & Not" hem okuma hem not'u kapsar. */
-const SERVER_CATEGORY: Record<FeedFilter, string | undefined> = {
-  all: undefined,
-  alerts: undefined,
-  task: "task",
-  focus: "focus",
-  read: "read",
-  system: "system",
-};
 
 const PAGE_SIZE = 50;
 const MAX_LIMIT = 500;
 
 /**
- * Etkinlik & Ritim: (1) ritim seridi, (2) emek haritasi, (3) aylik trend,
- * (4) canli hareket akisi. Istatistikler modulu buraya birlesti; sayaclar
- * backend'de tek katalogdan gelir, iki ekran ayni gunu ayni sekilde anlatir.
+ * Etkinlik: (1) Ritim -- seri, bugunun sayilari ve emek haritasi,
+ * (2) Trend -- aylik ozet (ikincil), (3) Hareket akisi -- alan filtreleri,
+ * arama ve gun gruplari. Kaynak sagligi BURADA DEGIL: sahibi Ayarlar >
+ * Durum & Kaynaklar.
  */
 export function ActivityPage() {
   const [range, setRange] = useState<RangeId>("1y");
   const [filter, setFilter] = useState<FeedFilter>("all");
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [healthOpen, setHealthOpen] = useState(false);
   const [openDays, setOpenDays] = useState<Set<string>>(new Set());
+  const [historyOpen, setHistoryOpen] = useState(false);
   const query = useDebounced(search, 300);
 
   const { summary, monthly } = useRhythmSummary();
@@ -114,26 +112,20 @@ export function ActivityPage() {
     queryKey: POMODORO_STATS_QUERY_KEY,
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day"),
   });
-  const { data: heatmap } = useQuery({
-    queryKey: ["activity", "heatmap", 365],
-    queryFn: () => api.get<HeatmapData>(`/activity/heatmap${qs({ days: 365 })}`),
-    staleTime: 5 * 60_000,
-  });
   const { data = [], isLoading } = useQuery({
     queryKey: ["activity", "feed", filter, query, limit],
-    queryFn: () =>
-      api.get<ActivityEvent[]>(`/activity${qs({ limit, category: SERVER_CATEGORY[filter], q: query || undefined })}`),
+    queryFn: () => api.get<ActivityEvent[]>(`/activity${qs({ limit, filter, q: query || undefined })}`),
   });
-  const { data: health = [] } = useSourceHealth();
+  // Gecmis kapali gelir: acilinca cekilir (akis asil yuzey).
   const { data: reviews = [] } = useQuery({
     queryKey: ["reviews"],
     queryFn: () => api.get<ReviewOut[]>("/reviews?limit=10"),
+    enabled: historyOpen,
   });
 
-  const events = useMemo(() => (filter === "alerts" ? data.filter(isAlert) : data), [data, filter]);
   const dayEntries = useMemo(() => {
     const entries = new Map<string, { key: string; label: string; events: ActivityEvent[] }>();
-    for (const event of events) {
+    for (const event of data) {
       // Gruplama app gunune gore -- backend heatmap'i ile ayni gun.
       const key = localDateKey(new Date(event.occurred_at));
       const entry = entries.get(key) ?? { key, label: dayLabel(event.occurred_at), events: [] };
@@ -141,12 +133,11 @@ export function ActivityPage() {
       entries.set(key, entry);
     }
     return [...entries.values()];
-  }, [events]);
+  }, [data]);
   const dayKeys = useMemo(() => dayEntries.map(({ key }) => key), [dayEntries]);
   const allDaysOpen = dayKeys.length > 0 && dayKeys.every((day) => openDays.has(day));
   const canLoadMore = data.length === limit && limit < MAX_LIMIT;
 
-  const problems = health.filter((s) => s.status !== "ok");
   const counters = summary?.counters ?? {};
   const readToday = (counters.rss_read?.today ?? 0) + (counters.bookmarks?.today ?? 0);
   const activeRange = RANGES.find((item) => item.id === range) ?? RANGES[2];
@@ -174,34 +165,11 @@ export function ActivityPage() {
   return (
     <PageFrame>
       <Workspace>
-        <WorkspacePaneHeader
-          eyebrow="Sistem"
-          title="Etkinlik & Ritim"
-          hint={`${events.length}${canLoadMore ? "+" : ""} hareket`}
-          action={
-            <Button size="sm" variant="ghost" onClick={() => setLimit(PAGE_SIZE)} title="Akışı başa al">
-              sıfırla
-            </Button>
-          }
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <Tabs
-              value={filter}
-              onChange={(next) => setFilter(next)}
-              ariaLabel="Hareket filtresi"
-              items={FEED_FILTERS.map((item) => ({ id: item.id, label: item.label }))}
-            />
-            <Input
-              value={search}
-              onChange={setSearch}
-              placeholder="Hareketlerde ara…"
-              ariaLabel="Hareketlerde ara"
-              className="h-8 w-full text-meta sm:ml-auto sm:w-56"
-            />
-          </div>
-        </WorkspacePaneHeader>
+        <WorkspacePaneHeader eyebrow="Etkinlik" title="Etkinlik & Ritim" />
 
         <WorkspaceScrollArea className="space-y-4 p-3">
+          {/* Katman 1: Ritim -- bugun nerede oldugun ve son bir yilin. */}
+          <SectionHeader label="Ritim" />
           <MetricStrip>
             <Metric
               label="Kesintisiz seri"
@@ -227,7 +195,7 @@ export function ActivityPage() {
               label="Bugün görev"
               value={
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={15} className="text-ok" />
+                  <ListChecks size={15} className="text-ok" />
                   {counters.todos?.today ?? 0}
                 </span>
               }
@@ -255,159 +223,203 @@ export function ActivityPage() {
             />
           </MetricStrip>
 
-          {problems.length > 0 && (
-            <SourceHealthAccordion sources={problems} open={healthOpen} onOpenChange={setHealthOpen} />
-          )}
-
-          {/* Katman 2: interaktif emek haritasi. Kare tiklamasi gun sayfasina
-              gider (#/day?d=...); orada "bugun" ve "onceki gun" baglantilari var. */}
+          {/* Harita blogu: aralik secici YALNIZ haritayi etkiler, bu yuzden
+              haritanin kendi kontrol satirindadir -- sayfa filtresi degildir.
+              Kayit/aktif gun sayilari haritanin alt seridinde, secilen
+              aralikla tutarli olarak yasar (ikinci bir sorgu yok). */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="label-caps text-muted">Harita aralığı</span>
               <Tabs
                 value={range}
                 onChange={(next) => setRange(next)}
                 ariaLabel="Harita aralığı"
                 items={RANGES.map((item) => ({ id: item.id, label: item.label }))}
               />
-              <a href="#/activity/heatmap" className="shrink-0 text-meta text-accent hover:underline">
+              <a href="#/activity/heatmap" className="ml-auto shrink-0 text-meta text-accent hover:underline">
                 Haritayı ayrı aç →
               </a>
             </div>
             <Heatmap days={activeRange.days} />
           </div>
 
-          {/* Katman 3: aylik gelisim. Bar tooltip'i odak/görev/okuma/başvuru kirilimini tasir. */}
+          {/* Katman 2: aylik gelisim -- ikincil; kirilim tooltip'te. */}
           {monthly.length > 0 && (
-            <Section
-              title="Aylık gelişim"
-              hint={monthly.some((point) => point.applications > 0) ? "başvurular dahil" : undefined}
-              action={
-                heatmap ? (
-                  <span className="text-meta text-muted">
-                    {heatmap.total} kayıt · {heatmap.active_days} aktif gün
-                  </span>
-                ) : undefined
-              }
-            >
+            <Section title="Trend" hint="aylık özet" bodyClassName="space-y-2 px-3.5 py-3">
               <MonthlyBars points={monthly} />
-              <p className="mt-2 text-meta text-muted">
-                Toplam {monthly.reduce((sum, point) => sum + monthTotal(point), 0)} hareket · üzerine gelince kırılım
+              <p className="text-meta text-muted">
+                Son {monthly.length} ayda {monthly.reduce((sum, point) => sum + monthTotal(point), 0)} hareket
+                {monthly.some((point) => point.applications > 0) ? " · başvurular dahil" : ""} · üzerine gelince kırılım
                 görünür.
               </p>
             </Section>
           )}
 
-          {reviews.length > 0 && (
-            <Section title="Değerlendirmeler">
-              <ul className="space-y-1">
-                {reviews.map((review) => (
-                  <li key={review.id}>
-                    <a
-                      href={`#/review/${review.kind}`}
-                      className="flex items-center gap-2.5 rounded-control border border-subtle bg-surface px-3 py-2 text-body text-secondary transition hover:border-strong hover:text-primary"
-                    >
-                      <ClipboardCheck size={14} className="shrink-0 text-muted" />
-                      <span className="label-caps text-secondary">
-                        {review.kind === "weekly" ? "Haftalık" : "Günlük"}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-meta text-muted">
-                        {reviewLabel(review.period_start, review.period_end)}
-                      </span>
-                      {review.note && <span className="truncate text-meta">{review.note}</span>}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {/* Katman 4: canli denetim akisi. */}
-          {isLoading ? (
-            <SkeletonRows rows={6} />
-          ) : events.length === 0 ? (
-            <Empty>{query ? "Aramayla eşleşen hareket yok." : "Bu filtrede hareket yok."}</Empty>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
+          {/* Katman 3: hareket akisi -- sayfanin odagi. */}
+          <Section
+            title="Hareket akışı"
+            hint={`${data.length}${canLoadMore ? "+" : ""} hareket · ${dayKeys.length} gün`}
+            action={
+              <div className="flex items-center gap-1">
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => setOpenDays(new Set(allDaysOpen ? [] : dayKeys))}
                   disabled={dayKeys.length === 0}
                 >
-                  {allDaysOpen ? "Tümünü daralt" : "Tümünü genişlet"}
+                  <ChevronsUpDown size={13} />
+                  {allDaysOpen ? "Tümünü kapat" : "Tümünü aç"}
                 </Button>
-                <span className="text-meta text-muted">{dayKeys.length} gün</span>
+                {limit > PAGE_SIZE && (
+                  <Button size="sm" variant="ghost" onClick={() => setLimit(PAGE_SIZE)} title="Akışı ilk sayfaya al">
+                    başa al
+                  </Button>
+                )}
               </div>
+            }
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Tabs
+                value={filter}
+                onChange={(next) => setFilter(next)}
+                ariaLabel="Hareket filtresi"
+                items={FEED_FILTERS.map((item) => ({ id: item.id, label: item.label }))}
+              />
+              <Input
+                value={search}
+                onChange={setSearch}
+                placeholder="Hareketlerde ara…"
+                ariaLabel="Hareketlerde ara"
+                className="h-8 w-full text-meta sm:ml-auto sm:w-56"
+              />
+            </div>
 
-              {dayEntries.map(({ key, label, events: dayEvents }) => {
-                const alertCount = dayEvents.filter(isAlert).length;
-                const open = openDays.has(key);
-                return (
-                  <details
-                    key={key}
-                    data-activity-day
-                    open={open}
-                    onToggle={(event) => setDayOpen(key, event.currentTarget.open)}
-                    className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
-                  >
-                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none">
-                      <ChevronDown className={cx("transition-transform", open && "rotate-180")} size={15} />
-                      <span className="label-caps text-secondary">{label}</span>
-                      <span className="ml-auto text-meta text-muted">{dayEvents.length} hareket</span>
-                      {alertCount > 0 && <Chip tone="warn">{alertCount} uyarı</Chip>}
-                      <a
-                        href={`#/day?d=${key}`}
-                        title={`${label} gününü aç`}
-                        aria-label={`${label} gününü aç`}
-                        className="shrink-0 text-muted transition hover:text-primary"
+            <div className="mt-3 space-y-2">
+              {isLoading ? (
+                <SkeletonRows rows={6} />
+              ) : data.length === 0 ? (
+                <Empty>{query ? "Aramayla eşleşen hareket yok." : "Bu filtrede hareket yok."}</Empty>
+              ) : (
+                <>
+                  {dayEntries.map(({ key, label, events: dayEvents }) => {
+                    const alertCount = dayEvents.filter((event) => event.is_alert).length;
+                    const open = openDays.has(key);
+                    return (
+                      <details
+                        key={key}
+                        data-activity-day
+                        open={open}
+                        onToggle={(event) => setDayOpen(key, event.currentTarget.open)}
+                        className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
                       >
-                        <ArrowUpRight size={14} />
-                      </a>
-                    </summary>
-                    <div className="border-t border-subtle px-3.5 py-3">
-                      <ul className="relative ml-1 border-l border-strong">
-                        {dayEvents.map((event) => {
-                          const alert = isAlert(event);
-                          return (
-                            <li key={event.id} className="relative min-h-10 py-2 pl-5 text-body">
-                              <span className="absolute -left-[5px] top-[15px]" aria-hidden>
-                                <span
-                                  className={cx(
-                                    "block h-2.5 w-2.5 rounded-full ring-[3px] ring-canvas",
-                                    alert ? "bg-warn" : "bg-strong",
-                                  )}
+                        <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none">
+                          <ChevronDown
+                            className={cx("shrink-0 transition-transform", open && "rotate-180")}
+                            size={15}
+                          />
+                          <span className="label-caps truncate text-secondary">{label}</span>
+                          <span className="ml-auto shrink-0 text-meta text-muted">{dayEvents.length} hareket</span>
+                          {alertCount > 0 && (
+                            <span className="flex shrink-0 items-center gap-1.5 text-meta text-warn">
+                              <span className="h-1.5 w-1.5 rounded-full bg-warn" aria-hidden />
+                              {alertCount} uyarı
+                            </span>
+                          )}
+                          <a
+                            href={`#/day?d=${key}`}
+                            title={`${label} gününü aç`}
+                            aria-label={`${label} gününü aç`}
+                            className="shrink-0 text-muted transition hover:text-primary"
+                          >
+                            <ArrowUpRight size={14} />
+                          </a>
+                        </summary>
+                        <ul className="divide-y divide-subtle border-t border-subtle px-3.5">
+                          {dayEvents.map((event) => {
+                            const Icon = verbIcon(event.verb);
+                            const link = entityLink(event);
+                            return (
+                              <li key={event.id} className="flex items-start gap-2.5 py-2 text-body">
+                                <Icon
+                                  size={14}
+                                  className={cx("mt-1 shrink-0", event.is_alert ? "text-warn" : "text-icon")}
                                 />
-                              </span>
-                              <div className="min-w-0">
-                                <span className={cx(alert ? "text-warn" : "text-secondary")}>
+                                <span className={cx("min-w-0 flex-1", event.is_alert ? "text-warn" : "text-secondary")}>
                                   {describe(event.verb, event.payload)}
                                 </span>
-                                <span className="ml-2 text-meta text-muted">{relativeTime(event.occurred_at)}</span>
-                                {event.entity_type && (
-                                  <span className="ml-2">
-                                    <Chip>{typeLabel(event.entity_type)}</Chip>
-                                  </span>
+                                {link && (
+                                  <a
+                                    href={link}
+                                    className="mt-0.5 flex shrink-0 items-center gap-0.5 text-meta text-muted transition hover:text-accent"
+                                  >
+                                    {typeLabel(event.entity_type ?? "")}
+                                    <ArrowUpRight size={12} />
+                                  </a>
                                 )}
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  </details>
-                );
-              })}
+                                <span className="numeral mt-0.5 shrink-0 text-meta tabular-nums text-muted">
+                                  {formatTrDateTime(event.occurred_at, { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </details>
+                    );
+                  })}
 
-              {canLoadMore && (
-                <div className="flex justify-center pt-1">
-                  <Button onClick={() => setLimit((current) => Math.min(MAX_LIMIT, current + PAGE_SIZE))}>
-                    Daha fazla yükle
-                  </Button>
-                </div>
+                  {canLoadMore && (
+                    <div className="flex justify-center pt-1">
+                      <Button onClick={() => setLimit((current) => Math.min(MAX_LIMIT, current + PAGE_SIZE))}>
+                        Daha fazla yükle
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
+            </div>
+          </Section>
+
+          {/* Gecmis degerlendirmeler: akisin ALTINDA, kapali gelir -- Activity'nin
+              odagi akis; degerlendirmenin kendi sayfasi var. */}
+          <div className="rounded-card border border-subtle bg-surface shadow-card">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((value) => !value)}
+              aria-expanded={historyOpen}
+              className="flex w-full items-center gap-2 px-3.5 py-2 text-left"
+            >
+              {historyOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              <span className="label-caps text-secondary">Değerlendirme geçmişi</span>
+              <span className="ml-auto text-meta text-muted">{historyOpen ? "gizle" : "göster"}</span>
+            </button>
+            {historyOpen && (
+              <div className="border-t border-subtle px-3.5 py-2">
+                {reviews.length === 0 ? (
+                  <p className="py-2 text-meta text-muted">Kaydedilmiş değerlendirme yok.</p>
+                ) : (
+                  <ul className="divide-y divide-subtle">
+                    {reviews.map((review) => (
+                      <li key={review.id}>
+                        <a
+                          href={`#/review/${review.kind}`}
+                          className="flex items-center gap-2.5 py-2 text-body text-secondary transition hover:text-primary"
+                        >
+                          <ClipboardCheck size={14} className="shrink-0 text-icon" />
+                          <span className="shrink-0 text-meta text-muted">
+                            {review.kind === "weekly" ? "Haftalık" : "Günlük"}
+                          </span>
+                          <span className="shrink-0 text-meta">
+                            {reviewLabel(review.period_start, review.period_end)}
+                          </span>
+                          {review.note && <span className="min-w-0 flex-1 truncate text-meta">{review.note}</span>}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </WorkspaceScrollArea>
       </Workspace>
     </PageFrame>

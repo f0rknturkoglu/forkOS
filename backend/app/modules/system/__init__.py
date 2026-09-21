@@ -11,7 +11,12 @@ MODULE = ModuleSpec(
         "system.maintenance",
         "system.automation_profile",
         "settings.updated",
-        "backup.restored",
         "settings.reset",
+        # Yedek akisi (backup.py) bu fiilleri uretir; orada sabit adlarla
+        # yazildigi icin test_registry'nin literal tarayicisi goremiyordu.
+        "backup.created",
+        "backup.restored",
+        "backup.drive_uploaded",
+        "backup.drive_upload_failed",
     ],
 )

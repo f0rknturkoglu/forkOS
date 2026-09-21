@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import model_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -178,22 +179,39 @@ async def search(
     return await search_svc.search_entities(session, q, types=types, limit=limit)
 
 
-@router.get("/activity", response_model=list[EventOut])
+class ActivityEventOut(EventOut):
+    """Akis kaydi + sunucu tarafi uyari bayragi.
+
+    Uyari kurali istemcide TEKRARLANMAZ: hangi fiilin uyari oldugu tek
+    kaynaktan (core/events.ALERT_VERBS + payload kurali) burada isaretlenir.
+    """
+
+    is_alert: bool = False
+
+    @model_validator(mode="after")
+    def _mark_alert(self) -> "ActivityEventOut":
+        self.is_alert = event_svc.is_alert(self.verb, self.payload)
+        return self
+
+
+@router.get("/activity", response_model=list[ActivityEventOut])
 async def activity(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     since: datetime | None = None,
     verbs: list[str] | None = Query(None),
-    category: str | None = Query(None),
+    filter: event_svc.ActivityFilterId | None = Query(None),
     q: str | None = Query(None, max_length=200),
     session: AsyncSession = Depends(get_session),
 ):
     """Hareket akisi.
 
-    `category` emek haritasi kategorilerinden biri (read/task/focus/routine/
-    study/media) ya da "system" (haritada sayilmayan worker kayitlari).
-    `q` baslik/aciklama/verb icinde arar; `offset` ile "daha fazla yukle"
-    yapilir. Ayni kayit iki kez gelmesin diye sira (occurred_at, id) sabittir.
+    `filter` urun alanidir (tasks/focus/learning/reading/career/system);
+    ayrica "alerts" dikkat gerektiren kayitlari verir -- bu suzme SUNUCUDA
+    yapilir, istemci yalnizca ilk sayfayi suzmez. "all" ya da bos birakmak
+    filtre uygulamaz. `q` baslik/verb/payload icinde arar; `offset` ile
+    "daha fazla yukle" yapilir. Ayni kayit iki kez gelmesin diye sira
+    (occurred_at, id) sabittir.
     """
     return await event_svc.recent_events(
         session,
@@ -201,7 +219,7 @@ async def activity(
         offset=offset,
         since=since,
         verbs=verbs,
-        category=category,
+        filter=filter,
         q=q,
     )
 
