@@ -1,7 +1,16 @@
+/**
+ * Belgeler (Drive) — ÜRÜN YÜZEYİ DEĞİL.
+ *
+ * Drive belgeleri kendi başına bir modül değildir: CV ve gereksinim dosyaları
+ * fırsat/başvuru bağlamında yaşar, yükleme ve Drive senkronu arka planda
+ * çalışmaya devam eder. Bu yüzden sidebar satırı, Home widget'ı ve komutu
+ * KALDIRILDI; rota eski bağlantılar (ör. fırsat ekranındaki belge bağlantısı,
+ * `/documents?focus=<id>`) kırılmasın diye gizli olarak durur.
+ *
+ * Belge domain'i (tablo, uçlar, yerel depolama, kariyer ilişkileri) korunur.
+ */
 import { lazy } from "react";
 import { FileText } from "lucide-react";
-import { DocumentsWidget } from "./DocumentsWidget";
-import { navigate } from "@/app/router";
 import { registerModule } from "@/core/registry";
 
 const DocumentsPage = lazy(() => import("./DocumentsPage").then((module) => ({ default: module.DocumentsPage })));
@@ -11,16 +20,5 @@ registerModule({
   title: "Belgeler",
   description: "Drive belgelerini ara, önizle ve son açılanlara hızlıca dön.",
   icon: FileText,
-  routes: [{ path: "/documents", element: DocumentsPage }],
-  todayWidgets: [
-    {
-      id: "documents.recent",
-      title: "Belgeler",
-      component: DocumentsWidget,
-      region: "secondary",
-      order: 45,
-      defaultVisible: false,
-    },
-  ],
-  commands: [{ id: "documents.open", label: "Drive belgelerini aç", run: () => navigate("/documents") }],
+  routes: [{ path: "/documents", element: DocumentsPage, navigation: "hidden" }],
 });
