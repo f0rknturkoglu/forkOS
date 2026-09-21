@@ -2,13 +2,23 @@ import { invalidateAfter } from "@/core/invalidation";
 import { useBackupStatus, useSourceHealth } from "@/core/runtimeQueries";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BellRing, Blocks, Briefcase, DatabaseBackup, LayoutGrid, Plug, SlidersHorizontal } from "lucide-react";
+import {
+  BellRing,
+  Blocks,
+  BrainCircuit,
+  Briefcase,
+  DatabaseBackup,
+  LayoutGrid,
+  Plug,
+  SlidersHorizontal,
+} from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { confirmDialog } from "@/core/dialog";
 import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import type { LucideIcon } from "lucide-react";
-import { NumberInput, PageFrame, Section, Select, useToast } from "@/core/ui";
+import { Button, NumberInput, PageFrame, Section, Select, Skeleton, SkeletonRows, cx, useToast } from "@/core/ui";
+import { BrainAgentSection } from "./BrainAgentSection";
 import {
   Workspace,
   WorkspacePaneHeader,
@@ -19,7 +29,6 @@ import {
 } from "@/core/workspace/Workspace";
 import { TodayWidgetsSection } from "./TodayWidgetsSection";
 import { NotificationsSection } from "./NotificationsSection";
-import { ProactivitySection } from "./ProactivitySection";
 import {
   CareerProfileSection,
   DangerZoneSection,
@@ -34,7 +43,6 @@ import {
   IntegrationsSection,
   MediaProvidersSection,
   ModulesSection,
-  ObsidianVaultSection,
   SettingsSourceHealth,
   ThemePicker,
   WeatherSection,
@@ -54,9 +62,14 @@ const GROUP_LABELS: Record<SettingsGroup, string> = {
 };
 
 /**
- * Ray iki anlamsal gruba ayrılır: kullanıcı TERCİHLERİ ile sistem/entegrasyon
- * işleri aynı listede karışmaz. Sekme kimlikleri ve `?tab=` derin bağlantıları
- * sözleşmedir; yalnız etiket ve gruplama değişir.
+ * Ray iki anlamsal gruba ayrılır: kullanıcı TERCİHLERİ ile sistem işleri aynı
+ * listede karışmaz. Sekme kimlikleri ve `?tab=` derin bağlantıları sözleşmedir;
+ * yalnız etiket ve gruplama değişir.
+ *
+ * SİSTEM grubundaki ayrım bilinçlidir: "Entegrasyonlar" DIŞ sağlayıcıları
+ * (Google, GitHub, medya) barındırır; "Brain & Agent" ise zihin sınırlarını
+ * (Brain Interface, f0rknbrain, H4, H6, H7, Hermes tarifi) -- Obsidian Vault'u
+ * bu yüzden Entegrasyonlar altında değil orada yaşar.
  */
 const TABS: { id: string; label: string; icon: LucideIcon; group: SettingsGroup }[] = [
   { id: "general", label: "Genel & Görünüm", icon: SlidersHorizontal, group: "preferences" },
@@ -64,15 +77,20 @@ const TABS: { id: string; label: string; icon: LucideIcon; group: SettingsGroup 
   { id: "notifications", label: "Bildirimler & Çevre", icon: BellRing, group: "preferences" },
   { id: "modules", label: "Modüller", icon: Blocks, group: "preferences" },
   { id: "career", label: "Kariyer profili", icon: Briefcase, group: "preferences" },
+  { id: "brain", label: "Brain & Agent", icon: BrainCircuit, group: "system" },
   { id: "integrations", label: "Entegrasyonlar", icon: Plug, group: "system" },
-  { id: "backup", label: "Yedekleme & Sistem", icon: DatabaseBackup, group: "system" },
+  { id: "backup", label: "Sistem & Yedekleme", icon: DatabaseBackup, group: "system" },
 ];
 
 const TAB_IDS = new Set(TABS.map((tab) => tab.id));
 
-/** Ayarlar her sekmede ayni govde genisligini kullanir; uzun satirlar okunmaz. */
-function Pane({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto max-w-3xl space-y-4">{children}</div>;
+/**
+ * Ayarlar gövdesi. Tercih formları `form` genişliğinde kalır (uzun satır
+ * okunmaz); iki kolonlu tanılama yüzeyi `wide` varyantını kullanır. Tek
+ * varyant noktası burasıdır: sekme başına özel sarmalayıcı yazılmaz.
+ */
+function Pane({ children, width = "form" }: { children: React.ReactNode; width?: "form" | "wide" }) {
+  return <div className={cx("mx-auto space-y-4", width === "wide" ? "max-w-4xl" : "max-w-3xl")}>{children}</div>;
 }
 
 type AutomationState = {
@@ -114,16 +132,25 @@ export function SettingsPage() {
   const [mediaName, setMediaName] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
 
-  const { data: settings } = useQuery({
+  const settingsQuery = useQuery({
     queryKey: ["settings"],
     queryFn: () => api.get<AppSettings>("/settings"),
   });
+  const settings = settingsQuery.data;
   const { data: sources = [] } = useSourceHealth();
-  const { data: google } = useQuery({
+  const {
+    data: google,
+    isError: googleFailed,
+    refetch: refetchGoogle,
+  } = useQuery({
     queryKey: ["google-status"],
     queryFn: () => api.get<IntegrationStatus>("/auth/google/status"),
   });
-  const { data: github } = useQuery({
+  const {
+    data: github,
+    isError: githubFailed,
+    refetch: refetchGithub,
+  } = useQuery({
     queryKey: ["github-status"],
     queryFn: () => api.get<IntegrationStatus>("/auth/github/status"),
   });
@@ -241,29 +268,6 @@ export function SettingsPage() {
     }
   }
 
-  if (!settings) return <div className="p-6 text-body text-muted">Ayarlar yükleniyor…</div>;
-
-  const disabled = settings["modules.disabled"] ?? [];
-  const media = settings["media.links"] ?? [];
-  const subreddits = Array.isArray(settings["news.subreddits"]) ? (settings["news.subreddits"] as string[]) : [];
-  const career = (settings["opportunity.career_profile"] ?? {
-    current_location: "",
-    authorized_countries: [],
-    willing_to_relocate: false,
-  }) as CareerProfile;
-  const write = (key: string, value: unknown) => save.mutate({ key, value });
-  const toggleModule = (id: string) =>
-    write("modules.disabled", disabled.includes(id) ? disabled.filter((x) => x !== id) : [...disabled, id]);
-  const addLink = () => {
-    if (!mediaName || !mediaUrl) return;
-    write("media.links", [...media, { name: mediaName, url: mediaUrl }]);
-    setMediaName("");
-    setMediaUrl("");
-  };
-  const retention = retentionDays ?? Number(settings["rss.retention_days"] ?? 90);
-  const intervalMinutes = Number(settings["rss.interval_minutes"] ?? 30);
-  const upcoming = upcomingDays ?? Number(settings["media.upcoming_days"] ?? 30);
-  const syncInterval = syncIntervalHours ?? Number(settings["media.sync_interval_hours"] ?? 24);
   const go = (id: string) => navigate(`/settings?tab=${id}`);
 
   const rail = (
@@ -287,198 +291,262 @@ export function SettingsPage() {
     </WorkspaceRailContent>
   );
 
-  return (
+  /**
+   * Kabuk: ray ve sayfa başlığı veri beklerken de YERİNDE kalır. Önceki
+   * davranış tüm sayfayı tek bir "yükleniyor" satırıyla değiştiriyordu; sekme
+   * değiştirmek isteyen kullanıcı için bu her seferinde bir sıçramaydı.
+   */
+  const shell = (body: React.ReactNode) => (
     <PageFrame>
       <Workspace rail={rail}>
         <WorkspacePaneHeader eyebrow="Sistem" title="Ayarlar" hint={TABS.find((item) => item.id === tab)?.label} />
-        <WorkspaceScrollArea className="p-3">
-          {tab === "general" && (
-            <Pane>
-              <Section title="Tema">
-                <ThemePicker />
-              </Section>
-            </Pane>
-          )}
-
-          {tab === "modules" && (
-            <Pane>
-              <ModulesSection
-                online={online}
-                disabledModules={disabled}
-                onToggle={toggleModule}
-                automation={automation?.domains ?? {}}
-                onToggleAutomation={(domain, enabled) => write(`automation.${domain}.enabled`, enabled)}
-                profile={automation?.profile ?? "balanced"}
-                profiles={automation?.profiles ?? []}
-                onProfile={(profile) => setProfile.mutate(profile)}
-              />
-            </Pane>
-          )}
-
-          {tab === "today" && (
-            <Pane>
-              <TodayFlowSection
-                online={online}
-                autoSuggestions={settings["today.auto_suggestions"] !== false}
-                subreddits={subreddits}
-                onSave={write}
-              />
-              <TodayWidgetsSection
-                online={online}
-                onPersist={(orderIds, hiddenIds) => {
-                  write("today.widget_order", orderIds);
-                  write("today.widget_hidden", hiddenIds);
-                }}
-              />
-            </Pane>
-          )}
-
-          {tab === "notifications" && (
-            <Pane>
-              <NotificationsSection />
-              <ProactivitySection online={online} />
-              <WeatherSection
-                online={online}
-                weatherLoc={weatherLoc}
-                onWeatherLoc={setWeatherLoc}
-                location={settings["weather.location"] as string | undefined}
-                onSubmit={saveWeather}
-              />
-            </Pane>
-          )}
-
-          {tab === "career" && (
-            <Pane>
-              <CareerProfileSection online={online} profile={career} onSave={write} />
-            </Pane>
-          )}
-
-          {tab === "integrations" && (
-            <Pane>
-              <IntegrationsSection
-                online={online}
-                google={google}
-                github={github}
-                githubLogin={githubLogin}
-                onGithubLogin={setGithubLogin}
-                githubToken={githubToken}
-                onGithubToken={setGithubToken}
-                onConnectGithub={() => connectGithub.mutate()}
-                onDisconnectGithub={() => requestDisconnect("github")}
-                onDisconnectGoogle={() => requestDisconnect("google")}
-                busy={disconnect.isPending}
-              />
-              <ObsidianVaultSection online={online} />
-              <MediaProvidersSection
-                online={online}
-                keys={{
-                  "media.tmdb_key": String(settings["media.tmdb_key"] ?? ""),
-                  "media.igdb_client_id": String(settings["media.igdb_client_id"] ?? ""),
-                  "media.igdb_client_secret": String(settings["media.igdb_client_secret"] ?? ""),
-                  "media.google_books_key": String(settings["media.google_books_key"] ?? ""),
-                  ...keyDrafts,
-                }}
-                onKey={(key, value) => setKeyDrafts((current) => ({ ...current, [key]: value }))}
-                onSave={(key, value) => {
-                  setKeyDrafts((current) => {
-                    const next = { ...current };
-                    delete next[key];
-                    return next;
-                  });
-                  write(key, value);
-                }}
-                media={media}
-                onRemoveLink={(index) =>
-                  write(
-                    "media.links",
-                    media.filter((_, i) => i !== index),
-                  )
-                }
-                mediaName={mediaName}
-                onMediaName={setMediaName}
-                mediaUrl={mediaUrl}
-                onMediaUrl={setMediaUrl}
-                onAddLink={addLink}
-                upcomingDays={upcoming}
-                onUpcomingDays={setUpcomingDays}
-                onSaveUpcomingDays={() => {
-                  if (upcoming !== Number(settings["media.upcoming_days"] ?? 30))
-                    write("media.upcoming_days", upcoming);
-                }}
-                syncIntervalHours={syncInterval}
-                onSyncIntervalHours={setSyncIntervalHours}
-                onSaveSyncIntervalHours={() => {
-                  if (syncInterval !== Number(settings["media.sync_interval_hours"] ?? 24))
-                    write("media.sync_interval_hours", syncInterval);
-                }}
-                innerRef={mediaLinksRef}
-              />
-            </Pane>
-          )}
-
-          {tab === "backup" && (
-            <Pane>
-              <SystemDiagnosticsSection />
-              <StorageReportSection />
-              <BackupSection
-                online={online}
-                backupPending={backup.isPending}
-                onBackup={() => backup.mutate()}
-                backupData={backup.data}
-                backupStatus={backupStatus}
-                driveFolder={driveFolder ?? backupStatus?.drive_folder_id ?? ""}
-                onDriveFolder={setDriveFolder}
-                onSaveDriveFolder={(value) => write("backup.drive_folder_id", value)}
-              />
-              <Section title="RSS otomasyonu">
-                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
-                  <span>
-                    Arka planda ne sıklıkta yeni yazı çekilsin?
-                    <span className="ml-1 text-muted">· rss.interval_minutes</span>
-                  </span>
-                  <Select
-                    value={String(intervalMinutes)}
-                    onChange={(value) => write("rss.interval_minutes", Number(value))}
-                    ariaLabel="RSS güncelleme sıklığı"
-                    className="w-40"
-                  >
-                    {RSS_INTERVALS.map((option) => (
-                      <option key={option.minutes} value={option.minutes}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </Section>
-              <Section title="RSS saklama">
-                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
-                  <span>
-                    Okunmamış ve kaydedilmemiş eski yazılar bu süreden sonra silinir.
-                    <span className="ml-1 text-muted">· rss.retention_days</span>
-                  </span>
-                  <div
-                    onBlur={() => {
-                      const current = Number(settings["rss.retention_days"] ?? 90);
-                      if (retention !== current) write("rss.retention_days", retention);
-                    }}
-                  >
-                    <NumberInput
-                      value={retention}
-                      min={1}
-                      max={3650}
-                      ariaLabel="RSS saklama süresi (gün)"
-                      onChange={setRetentionDays}
-                      className="w-24"
-                    />
-                  </div>
-                </div>
-              </Section>
-              <SettingsSourceHealth sources={sources} />
-              <DangerZoneSection onReset={() => reset.mutate()} busy={reset.isPending} />
-            </Pane>
-          )}
-        </WorkspaceScrollArea>
+        <WorkspaceScrollArea className="p-3">{body}</WorkspaceScrollArea>
       </Workspace>
     </PageFrame>
+  );
+
+  const paneWidth = tab === "brain" ? "wide" : "form";
+
+  if (settingsQuery.isError) {
+    return shell(
+      <Pane>
+        <Section title="Ayarlar">
+          <p className="text-body text-warn">Ayarlar yüklenemedi.</p>
+          <p className="mt-1 text-meta text-muted">{settingsQuery.error.message}</p>
+          <Button className="mt-3" onClick={() => void settingsQuery.refetch()}>
+            Yeniden dene
+          </Button>
+        </Section>
+      </Pane>,
+    );
+  }
+
+  if (!settings) {
+    return shell(
+      <Pane width={paneWidth}>
+        <Skeleton className="h-24" />
+        <SkeletonRows rows={3} />
+      </Pane>,
+    );
+  }
+
+  const disabled = settings["modules.disabled"] ?? [];
+  const media = settings["media.links"] ?? [];
+  const subreddits = Array.isArray(settings["news.subreddits"]) ? (settings["news.subreddits"] as string[]) : [];
+  const career = (settings["opportunity.career_profile"] ?? {
+    current_location: "",
+    authorized_countries: [],
+    willing_to_relocate: false,
+  }) as CareerProfile;
+  const write = (key: string, value: unknown) => save.mutate({ key, value });
+  const toggleModule = (id: string) =>
+    write("modules.disabled", disabled.includes(id) ? disabled.filter((x) => x !== id) : [...disabled, id]);
+  const addLink = () => {
+    if (!mediaName || !mediaUrl) return;
+    write("media.links", [...media, { name: mediaName, url: mediaUrl }]);
+    setMediaName("");
+    setMediaUrl("");
+  };
+  const retention = retentionDays ?? Number(settings["rss.retention_days"] ?? 90);
+  const intervalMinutes = Number(settings["rss.interval_minutes"] ?? 30);
+  const upcoming = upcomingDays ?? Number(settings["media.upcoming_days"] ?? 30);
+  const syncInterval = syncIntervalHours ?? Number(settings["media.sync_interval_hours"] ?? 24);
+
+  return shell(
+    <>
+      {tab === "general" && (
+        <Pane>
+          <Section title="Tema">
+            <ThemePicker />
+          </Section>
+        </Pane>
+      )}
+
+      {tab === "modules" && (
+        <Pane>
+          <ModulesSection
+            online={online}
+            disabledModules={disabled}
+            onToggle={toggleModule}
+            automation={automation?.domains ?? {}}
+            onToggleAutomation={(domain, enabled) => write(`automation.${domain}.enabled`, enabled)}
+            profile={automation?.profile ?? "balanced"}
+            profiles={automation?.profiles ?? []}
+            onProfile={(profile) => setProfile.mutate(profile)}
+          />
+        </Pane>
+      )}
+
+      {tab === "today" && (
+        <Pane>
+          <TodayFlowSection
+            online={online}
+            autoSuggestions={settings["today.auto_suggestions"] !== false}
+            subreddits={subreddits}
+            onSave={write}
+          />
+          <TodayWidgetsSection
+            online={online}
+            onPersist={(orderIds, hiddenIds) => {
+              write("today.widget_order", orderIds);
+              write("today.widget_hidden", hiddenIds);
+            }}
+          />
+        </Pane>
+      )}
+
+      {tab === "notifications" && (
+        <Pane>
+          <NotificationsSection />
+          <WeatherSection
+            online={online}
+            weatherLoc={weatherLoc}
+            onWeatherLoc={setWeatherLoc}
+            location={settings["weather.location"] as string | undefined}
+            onSubmit={saveWeather}
+          />
+        </Pane>
+      )}
+
+      {tab === "brain" && (
+        <Pane width={paneWidth}>
+          <BrainAgentSection />
+        </Pane>
+      )}
+
+      {tab === "career" && (
+        <Pane>
+          <CareerProfileSection online={online} profile={career} onSave={write} />
+        </Pane>
+      )}
+
+      {tab === "integrations" && (
+        <Pane>
+          <IntegrationsSection
+            online={online}
+            google={google}
+            github={github}
+            githubLogin={githubLogin}
+            onGithubLogin={setGithubLogin}
+            githubToken={githubToken}
+            onGithubToken={setGithubToken}
+            onConnectGithub={() => connectGithub.mutate()}
+            onDisconnectGithub={() => requestDisconnect("github")}
+            onDisconnectGoogle={() => requestDisconnect("google")}
+            busy={disconnect.isPending}
+            statusFailed={googleFailed || githubFailed}
+            onRetryStatus={() => {
+              void refetchGoogle();
+              void refetchGithub();
+            }}
+          />
+          <MediaProvidersSection
+            online={online}
+            keys={{
+              "media.tmdb_key": String(settings["media.tmdb_key"] ?? ""),
+              "media.igdb_client_id": String(settings["media.igdb_client_id"] ?? ""),
+              "media.igdb_client_secret": String(settings["media.igdb_client_secret"] ?? ""),
+              "media.google_books_key": String(settings["media.google_books_key"] ?? ""),
+              ...keyDrafts,
+            }}
+            onKey={(key, value) => setKeyDrafts((current) => ({ ...current, [key]: value }))}
+            onSave={(key, value) => {
+              setKeyDrafts((current) => {
+                const next = { ...current };
+                delete next[key];
+                return next;
+              });
+              write(key, value);
+            }}
+            media={media}
+            onRemoveLink={(index) =>
+              write(
+                "media.links",
+                media.filter((_, i) => i !== index),
+              )
+            }
+            mediaName={mediaName}
+            onMediaName={setMediaName}
+            mediaUrl={mediaUrl}
+            onMediaUrl={setMediaUrl}
+            onAddLink={addLink}
+            upcomingDays={upcoming}
+            onUpcomingDays={setUpcomingDays}
+            onSaveUpcomingDays={() => {
+              if (upcoming !== Number(settings["media.upcoming_days"] ?? 30)) write("media.upcoming_days", upcoming);
+            }}
+            syncIntervalHours={syncInterval}
+            onSyncIntervalHours={setSyncIntervalHours}
+            onSaveSyncIntervalHours={() => {
+              if (syncInterval !== Number(settings["media.sync_interval_hours"] ?? 24))
+                write("media.sync_interval_hours", syncInterval);
+            }}
+            innerRef={mediaLinksRef}
+          />
+        </Pane>
+      )}
+
+      {tab === "backup" && (
+        <Pane>
+          <SystemDiagnosticsSection />
+          <StorageReportSection />
+          <BackupSection
+            online={online}
+            backupPending={backup.isPending}
+            onBackup={() => backup.mutate()}
+            backupData={backup.data}
+            backupStatus={backupStatus}
+            driveFolder={driveFolder ?? backupStatus?.drive_folder_id ?? ""}
+            onDriveFolder={setDriveFolder}
+            onSaveDriveFolder={(value) => write("backup.drive_folder_id", value)}
+          />
+          <Section title="RSS otomasyonu">
+            <div className="flex items-center justify-between gap-3 text-meta text-secondary">
+              <span>
+                Arka planda ne sıklıkta yeni yazı çekilsin?
+                <span className="ml-1 text-muted">· rss.interval_minutes</span>
+              </span>
+              <Select
+                value={String(intervalMinutes)}
+                onChange={(value) => write("rss.interval_minutes", Number(value))}
+                ariaLabel="RSS güncelleme sıklığı"
+                className="w-40"
+              >
+                {RSS_INTERVALS.map((option) => (
+                  <option key={option.minutes} value={option.minutes}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </Section>
+          <Section title="RSS saklama">
+            <div className="flex items-center justify-between gap-3 text-meta text-secondary">
+              <span>
+                Okunmamış ve kaydedilmemiş eski yazılar bu süreden sonra silinir.
+                <span className="ml-1 text-muted">· rss.retention_days</span>
+              </span>
+              <div
+                onBlur={() => {
+                  const current = Number(settings["rss.retention_days"] ?? 90);
+                  if (retention !== current) write("rss.retention_days", retention);
+                }}
+              >
+                <NumberInput
+                  value={retention}
+                  min={1}
+                  max={3650}
+                  ariaLabel="RSS saklama süresi (gün)"
+                  onChange={setRetentionDays}
+                  className="w-24"
+                />
+              </div>
+            </div>
+          </Section>
+          <SettingsSourceHealth sources={sources} />
+          <DangerZoneSection onReset={() => reset.mutate()} busy={reset.isPending} />
+        </Pane>
+      )}
+    </>,
   );
 }

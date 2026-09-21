@@ -1,7 +1,7 @@
 import type { FormEvent, RefObject } from "react";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLink, Eye, EyeOff, X } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, RefreshCw, X } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { allModules } from "@/core/registry";
@@ -22,7 +22,6 @@ import {
   useToast,
 } from "@/core/ui";
 import { BackupMergeControl } from "@/core/BackupMergeControl";
-import { getVaultStatus, refreshVaultIndex } from "@/core/obsidian";
 import { EXPORT_MODULE } from "@/modules/finance";
 import type { Theme } from "@/core/ui";
 
@@ -343,6 +342,8 @@ export function IntegrationsSection({
   onDisconnectGithub,
   onDisconnectGoogle,
   busy,
+  statusFailed,
+  onRetryStatus,
 }: {
   online: boolean;
   google?: IntegrationStatus;
@@ -355,9 +356,34 @@ export function IntegrationsSection({
   onDisconnectGithub: () => void;
   onDisconnectGoogle: () => void;
   busy: boolean;
+  /**
+   * Durum isteği düştüyse "bağlı değil" demek YANLIŞ olur: bağlantı
+   * bilinmiyordur. İki hâl ayrı gösterilir ve yeniden denenebilir.
+   */
+  statusFailed?: boolean;
+  onRetryStatus?: () => void;
 }) {
+  /** Bağlantı durumu bilinmiyorsa rozet bunu söyler, "bağlı değil" demez. */
+  const connectionChip = (status?: IntegrationStatus) =>
+    statusFailed ? (
+      <Chip tone="warn">durum alınamadı</Chip>
+    ) : status?.connected ? (
+      <Chip tone="ok">bağlı</Chip>
+    ) : (
+      <Chip tone="danger">bağlı değil</Chip>
+    );
+
   return (
-    <Section title="Entegrasyonlar">
+    <Section
+      title="Bulut & Geliştirici"
+      action={
+        statusFailed && onRetryStatus ? (
+          <Button variant="ghost" size="sm" onClick={onRetryStatus}>
+            <RefreshCw size={13} /> Yeniden dene
+          </Button>
+        ) : undefined
+      }
+    >
       <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3">
         <div className="min-w-0">
           <p className="text-body text-primary">Google Drive</p>
@@ -366,14 +392,14 @@ export function IntegrationsSection({
         </div>
         {google?.connected ? (
           <div className="flex shrink-0 items-center gap-2">
-            <Chip tone="ok">bağlı</Chip>
+            {connectionChip(google)}
             <Button variant="danger" disabled={!online || busy} onClick={onDisconnectGoogle}>
               kes
             </Button>
           </div>
         ) : (
           <div className="flex shrink-0 items-center gap-2">
-            <Chip tone="danger">bağlı değil</Chip>
+            {connectionChip(google)}
             <Button
               disabled={!online}
               onClick={() => {
@@ -394,13 +420,13 @@ export function IntegrationsSection({
           </div>
           {github?.connected ? (
             <div className="flex shrink-0 items-center gap-2">
-              <Chip tone="ok">bağlı</Chip>
+              {connectionChip(github)}
               <Button variant="danger" disabled={!online || busy} onClick={onDisconnectGithub}>
                 kes
               </Button>
             </div>
           ) : (
-            <Chip tone="danger">bağlı değil</Chip>
+            connectionChip(github)
           )}
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
@@ -416,88 +442,6 @@ export function IntegrationsSection({
             kaydet
           </Button>
         </div>
-      </div>
-    </Section>
-  );
-}
-
-export function ObsidianVaultSection({ online }: { online: boolean }) {
-  const toast = useToast();
-  const query = useQuery({
-    queryKey: ["obsidian-status"],
-    queryFn: () => getVaultStatus(),
-  });
-
-  const refreshMutation = useMutation({
-    mutationFn: () => refreshVaultIndex(),
-    onSuccess: () => {
-      void query.refetch();
-      toast.push("Obsidian indeksi yenilendi.", { tone: "ok" });
-    },
-    onError: (err: Error) => {
-      toast.push(`İndeks yenilenemedi: ${err.message}`, { tone: "danger" });
-    },
-  });
-
-  const status = query.data;
-
-  return (
-    <Section title="Obsidian Vault">
-      <div className="space-y-3">
-        <p className="text-body text-secondary">
-          forkOS operasyonel verileri yönetir. Notlar ve uzun süreli bilgi Obsidian Vault&apos;ta tutulabilir.
-        </p>
-
-        {query.isLoading ? (
-          <p className="text-meta text-muted">Vault durumu yükleniyor...</p>
-        ) : (
-          <div className="space-y-3 rounded-control border border-subtle bg-surface p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle pb-3">
-              <div className="min-w-0">
-                <p className="text-body font-medium text-primary">
-                  {status?.vault_name ? `Vault: ${status.vault_name}` : "Obsidian Bağlantısı"}
-                </p>
-                {status?.diagnostic && <p className="mt-0.5 text-meta text-muted">{status.diagnostic}</p>}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {status?.configured ? <Chip tone="ok">yapılandırıldı</Chip> : <Chip tone="warn">yapılandırılmadı</Chip>}
-                {status?.available ? <Chip tone="ok">erişilebilir</Chip> : <Chip tone="danger">dizin yok</Chip>}
-                {status?.available &&
-                  (status.writable ? <Chip tone="ok">yazılabilir</Chip> : <Chip tone="warn">salt okunur</Chip>)}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <div className="text-meta text-secondary">
-                <span>{status?.managed_files ?? 0} yönetilen not indekslendi</span>
-                {status?.conflicts ? <span className="ml-2 text-danger">({status.conflicts} çakışma)</span> : null}
-              </div>
-
-              <Button
-                variant="ghost"
-                disabled={!online || !status?.available || refreshMutation.isPending}
-                onClick={() => refreshMutation.mutate()}
-              >
-                {refreshMutation.isPending ? "Yenileniyor..." : "İndeksi Yenile"}
-              </Button>
-            </div>
-
-            {status?.conflicts && status.conflicts > 0 && status.conflict_details ? (
-              <div className="mt-2 rounded-control border border-danger-border bg-danger-surface p-2.5">
-                <p className="mb-1 text-meta font-medium text-danger">
-                  Çakışan Notlar (Aynı forkOS ID birden fazla dosyada):
-                </p>
-                <div className="space-y-1">
-                  {Object.entries(status.conflict_details).map(([id, paths]) => (
-                    <div key={id} className="text-micro text-danger">
-                      <span className="font-mono">{id.slice(0, 8)}... :</span> {paths.join(", ")}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
       </div>
     </Section>
   );

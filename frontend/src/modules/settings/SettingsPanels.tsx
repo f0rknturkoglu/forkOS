@@ -380,7 +380,13 @@ export function DangerZoneSection({ onReset, busy }: { onReset: () => void; busy
   async function confirmReset() {
     const ok = await confirmDialog({
       title: "Ayarlar varsayılana dönsün mü?",
-      body: "Modül tercihleri, Home düzeni, hava durumu konumu, medya API anahtarları ve yedekleme klasörü silinir. Verileriniz (notlar, görevler, fırsatlar) etkilenmez; bağlı hesaplar bağlı kalır.",
+      body:
+        "Sıfırlananlar: modül tercihleri, Home düzeni, bildirim ve hava durumu ayarları, kariyer profili, " +
+        "medya API anahtarları ve hızlı bağlantılar, yedekleme klasörü ve proaktivite genel tercihleri " +
+        "(açık/kapalı, sessiz saatler, özet saati).\n\n" +
+        "Dokunulmayanlar: operasyonel kayıtların (görev, proje, fırsat, medya, RSS …), f0rknbrain Vault'u, " +
+        "proaktivite kural/koşu geçmişi, H7 karar ve yürütme geçmişi, bağlı hesaplar (Google/GitHub). " +
+        "Hermes'in kendi yapılandırması forkOS'tan yönetilmez; bu işlemden etkilenmez.",
       confirmLabel: "Ayarları sıfırla",
       tone: "danger",
     });
@@ -392,7 +398,7 @@ export function DangerZoneSection({ onReset, busy }: { onReset: () => void; busy
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-start gap-2 text-meta text-muted">
           <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warn" />
-          Yalnızca tercihleri siler; kayıtlarınıza dokunmaz.
+          Yalnız tercihleri siler; kayıtlarına, Vault&apos;a, H7 geçmişine ve bağlı hesaplara dokunmaz.
         </p>
         <Button variant="danger" disabled={busy} onClick={confirmReset}>
           Ayarları varsayılana döndür

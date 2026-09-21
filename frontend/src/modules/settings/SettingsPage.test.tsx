@@ -39,8 +39,41 @@ function postBody(path: string): Record<string, unknown> | undefined {
 
 let calls: Call[] = [];
 let settings: Record<string, unknown> = {};
+let settingsFailed = false;
 let githubStatus: { connected: boolean; login?: string | null } = { connected: false };
 let googleStatus: { connected: boolean } = { connected: false };
+/** Brain & Agent kartlarinin okudugu tanilama govdesi (dar tutulur). */
+let agentStatus = {
+  brain: {
+    server_name: "forkos-brain",
+    endpoint: "http://127.0.0.1:8787/mcp",
+    transport: "streamable_http",
+    loopback_only: true,
+    tool_count: 29,
+    families: [
+      { id: "H0", label: "Operasyonel okuma", summary: "okuma", tool_count: 8 },
+      { id: "H1", label: "Güvenli yazma", summary: "yazma", tool_count: 11 },
+      { id: "H2", label: "Sıcak bellek", summary: "bellek", tool_count: 5 },
+      { id: "H3", label: "Kanıt", summary: "kanıt", tool_count: 1 },
+      { id: "H4", label: "Yerel biliş", summary: "yerel", tool_count: 1 },
+      { id: "H5", label: "İnceleme zekâsı", summary: "inceleme", tool_count: 1 },
+      { id: "H6", label: "Proaktivite", summary: "dikkat", tool_count: 1 },
+      { id: "H7", label: "Dayanıklı yürütme", summary: "plan", tool_count: 1 },
+    ],
+  },
+  local_cognition: {
+    enabled: false,
+    provider: "ollama",
+    endpoint_class: "loopback",
+    configured: false,
+    reachable: null,
+    state: "disabled",
+    small: { configured: false, available: false },
+    medium: { configured: false, available: false },
+    detail: null,
+  },
+};
+
 let obsidianStatus = {
   configured: false,
   available: false,
@@ -130,8 +163,14 @@ function openTab(label: string) {
 beforeEach(() => {
   calls = [];
   settings = baseSettings();
+  settingsFailed = false;
   githubStatus = { connected: false };
   googleStatus = { connected: false };
+  agentStatus = {
+    ...agentStatus,
+    brain: { ...agentStatus.brain, loopback_only: true, tool_count: 29 },
+    local_cognition: { ...agentStatus.local_cognition, state: "disabled", enabled: false, reachable: null },
+  };
   obsidianStatus = {
     configured: false,
     available: false,
@@ -161,7 +200,10 @@ beforeEach(() => {
       const body: Record<string, unknown> | undefined = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ method, path: url.pathname, body });
 
-      if (url.pathname === "/api/settings" && method === "GET") return json(settings);
+      if (url.pathname === "/api/settings" && method === "GET") {
+        if (settingsFailed) return new Response(JSON.stringify({ detail: "ayarlar okunamadı" }), { status: 500 });
+        return json(settings);
+      }
       if (url.pathname.startsWith("/api/settings/") && method === "PUT") {
         const key = decodeURIComponent(url.pathname.slice("/api/settings/".length));
         settings[key] = body?.["value"];
@@ -174,6 +216,8 @@ beforeEach(() => {
       if (url.pathname === "/api/auth/github/status") return json(githubStatus);
       if (url.pathname === "/api/auth/google/status") return json(googleStatus);
       if (url.pathname === "/api/obsidian/status") return json(obsidianStatus);
+      if (url.pathname === "/api/agent/status") return json(agentStatus);
+      if (url.pathname === "/api/execution/plans") return json([]);
       if (url.pathname === "/api/obsidian/index/refresh" && method === "POST") {
         obsidianStatus = { ...obsidianStatus, managed_files: obsidianStatus.managed_files + 1 };
         return json(obsidianStatus);
@@ -441,7 +485,7 @@ describe("SettingsPage entegrasyonlari", () => {
     );
   });
 
-  it("Obsidian Vault durumunu gosterir ve indeksi yeniler", async () => {
+  it("Vault durumunu Brain & Agent sekmesinde gosterir ve indeksi yeniler", async () => {
     obsidianStatus = {
       configured: true,
       available: true,
@@ -453,24 +497,25 @@ describe("SettingsPage entegrasyonlari", () => {
       conflict_details: {},
       diagnostic: null,
     };
-    location.hash = "#/settings?tab=integrations";
+    location.hash = "#/settings?tab=brain";
     renderPage();
     await ready();
 
-    expect(await screen.findByText("Vault: PersonalVault")).toBeTruthy();
-    expect(screen.getByText("yapılandırıldı")).toBeTruthy();
-    expect(screen.getByText("erişilebilir")).toBeTruthy();
+    // f0rknbrain artik BIR DIS SAGLAYICI degil, bilgi sahibi olarak burada yasar.
+    expect((await screen.findAllByText("Bağlı ve hazır")).length).toBeGreaterThan(0);
+    expect(screen.getByText("PersonalVault")).toBeTruthy();
+    expect(screen.getByText("42 yönetilen not")).toBeTruthy();
+    expect(screen.getByText("okunabilir")).toBeTruthy();
     expect(screen.getByText("yazılabilir")).toBeTruthy();
-    expect(screen.getByText(/42 yönetilen not indekslendi/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "İndeksi Yenile" }));
     await waitFor(() =>
       expect(calls.some((call) => call.method === "POST" && call.path === "/api/obsidian/index/refresh")).toBe(true),
     );
-    expect(await screen.findByText("Obsidian indeksi yenilendi.")).toBeTruthy();
+    expect(await screen.findByText("Vault indeksi yenilendi.")).toBeTruthy();
   });
 
-  it("Obsidian Vault cakismalarini listeler", async () => {
+  it("Vault cakismalarini Brain & Agent kartinda listeler", async () => {
     obsidianStatus = {
       configured: true,
       available: true,
@@ -484,13 +529,15 @@ describe("SettingsPage entegrasyonlari", () => {
       },
       diagnostic: null,
     };
-    location.hash = "#/settings?tab=integrations";
+    location.hash = "#/settings?tab=brain";
     renderPage();
     await ready();
 
-    expect(await screen.findByText("(1 çakışma)")).toBeTruthy();
-    expect(screen.getByText(/Çakışan Notlar/)).toBeTruthy();
-    expect(screen.getByText(/20 Projects\/Project A\.md, 20 Projects\/Project B\.md/)).toBeTruthy();
+    expect(await screen.findByText("1 çakışma")).toBeTruthy();
+    expect(screen.getByText(/Aynı forkOS kimliği birden fazla Vault dosyasında bulunuyor/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Çakışan kayıtlar \(1\)/ }));
+    expect(screen.getByText("20 Projects/Project A.md")).toBeTruthy();
+    expect(screen.getByText("20 Projects/Project B.md")).toBeTruthy();
   });
 });
 
@@ -533,15 +580,96 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
     // "Sistem" hem ray grubu hem bir bolum basligi olabilir: ray grubunu ara.
     expect(screen.getAllByText("Sistem").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Genel & Görünüm" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Yedekleme & Sistem" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sistem & Yedekleme" })).toBeTruthy();
 
     // Genel sekmesi yalnız kullanıcı tercihi taşır: CPU/RAM/diskten söz etmez.
     expect(screen.queryByText("%12")).toBeNull();
     expect(screen.queryByText("Depolama")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Yedekleme & Sistem" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sistem & Yedekleme" }));
     expect(await screen.findByText("%12")).toBeTruthy();
     expect(screen.getByText("Depolama")).toBeTruthy();
+  });
+
+  it("Brain & Agent sekmesini Sistem grubunda sunar ve derin baglantiyla acar", async () => {
+    location.hash = "#/settings?tab=brain";
+    renderPage();
+    await ready();
+
+    expect(screen.getByRole("button", { name: "Brain & Agent" })).toBeTruthy();
+    // Sekme govdesi: sahiplik notu + genel durum + kartlar.
+    expect(await screen.findByText("Genel durum")).toBeTruthy();
+    expect(screen.getByText(/akıl yürütür ve orkestre eder/)).toBeTruthy();
+    expect(screen.getByText("forkos-brain")).toBeTruthy();
+    expect(screen.getByText("H7 · Kararlar")).toBeTruthy();
+  });
+
+  it("Obsidian'i Entegrasyonlar'dan cikarir; orada yalniz dis saglayicilar kalir", async () => {
+    obsidianStatus = {
+      configured: true,
+      available: true,
+      writable: true,
+      readable: true,
+      vault_name: "PersonalVault",
+      managed_files: 5,
+      conflicts: 0,
+      conflict_details: {},
+      diagnostic: null,
+    };
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    expect(screen.getByText("Bulut & Geliştirici")).toBeTruthy();
+    expect(screen.getByText("Google Drive")).toBeTruthy();
+    expect(screen.getByText("GitHub")).toBeTruthy();
+    // Vault'a ait hicbir iz bu sekmede yoktur.
+    expect(screen.queryByText("PersonalVault")).toBeNull();
+    expect(screen.queryByText(/yönetilen not/)).toBeNull();
+  });
+
+  it("Proaktiviteyi Bildirimler'den cikarip Brain & Agent'a tasir", async () => {
+    location.hash = "#/settings?tab=notifications";
+    renderPage();
+    await ready();
+
+    expect(screen.getByText("Hava durumu")).toBeTruthy();
+    expect(screen.queryByText("Sessizlik başarılı bir sonuçtur.")).toBeNull();
+    expect(screen.queryByText("Proaktivite")).toBeNull();
+
+    cleanup();
+    location.hash = "#/settings?tab=brain";
+    renderPage();
+    await ready();
+    expect(await screen.findByText("Sessizlik başarılı bir sonuçtur.")).toBeTruthy();
+  });
+
+  it("Ayarlar istegi dustugunde sayfa cokmez; hata ve yeniden dene sunar", async () => {
+    settingsFailed = true;
+    location.hash = "#/settings?tab=general";
+    renderPage();
+    await ready();
+
+    // Paylasilan istemci tek kez yeniden dener (retry: 1): hatayi bekleyerek olcelim.
+    expect(await screen.findByText("Ayarlar yüklenemedi.", {}, { timeout: 5000 })).toBeTruthy();
+    expect(screen.getByText("ayarlar okunamadı")).toBeTruthy();
+    // Ray kaybolmaz: kullanici baska sekmeye gecebilir.
+    expect(screen.getByRole("button", { name: "Brain & Agent" })).toBeTruthy();
+
+    settingsFailed = false;
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
+    expect(await screen.findByText("Tema")).toBeTruthy();
+  });
+
+  it("entegrasyon durumu alinamazsa 'bagli degil' demez", async () => {
+    location.hash = "#/settings?tab=integrations";
+    renderPage();
+    await ready();
+
+    // Kurgu: github/google uclari bos govde doner -> baglanti BILINMIYOR degil,
+    // "bagli degil" denir; hata halinde ise ayri metin beklenir.
+    expect(await screen.findByText("Bulut & Geliştirici")).toBeTruthy();
+    expect(screen.getAllByText("bağlı değil").length).toBe(2);
   });
 
   it("depolama raporu ve bakim durumunu Sistem sekmesinde gosterir", async () => {
