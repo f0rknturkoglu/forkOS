@@ -112,10 +112,10 @@ export function TodayFlowSection({
           checked={autoSuggestions}
           disabled={!online}
           onChange={(value) => onSave("today.auto_suggestions", value)}
-          label="Bugün akışında akıllı görev ve RSS önerilerini göster"
+          label="Home akışında akıllı görev ve RSS önerilerini göster"
         />
         <p className="mt-1 pl-6 text-meta text-muted">
-          Kapanınca Bugün yalnızca kendi planını ve widget'larını gösterir; hiçbir veri silinmez.
+          Kapanınca Home yalnızca kendi planını ve bileşenlerini gösterir; hiçbir veri silinmez.
         </p>
       </div>
       <p className="mb-1 text-meta text-secondary">Takip edilen subreddit'ler</p>
@@ -124,7 +124,7 @@ export function TodayFlowSection({
         onChange={(next) => onSave("news.subreddits", next)}
         disabled={!online}
         placeholder="rust"
-        emptyLabel="Liste boş — Bugün akışı varsayılan subreddit'leri kullanır."
+        emptyLabel="Liste boş — Home akışı varsayılan subreddit'leri kullanır."
         ariaLabel="Subreddit adı"
       />
     </Section>
@@ -380,7 +380,7 @@ export function DangerZoneSection({ onReset, busy }: { onReset: () => void; busy
   async function confirmReset() {
     const ok = await confirmDialog({
       title: "Ayarlar varsayılana dönsün mü?",
-      body: "Modül tercihleri, Bugün düzeni, hava durumu konumu, medya API anahtarları ve yedekleme klasörü silinir. Verileriniz (notlar, görevler, fırsatlar) etkilenmez; bağlı hesaplar bağlı kalır.",
+      body: "Modül tercihleri, Home düzeni, hava durumu konumu, medya API anahtarları ve yedekleme klasörü silinir. Verileriniz (notlar, görevler, fırsatlar) etkilenmez; bağlı hesaplar bağlı kalır.",
       confirmLabel: "Ayarları sıfırla",
       tone: "danger",
     });

@@ -220,7 +220,7 @@ describe("SettingsPage sekmeleri", () => {
     expect((await screen.findAllByText("Modüller")).length).toBeGreaterThan(0);
     expect(await screen.findByText("Arka plan güncellemesi")).toBeTruthy();
     expect(
-      await screen.findByText(/Kapatılan modülün rotası, Bugün widget'ları ve komutları devre dışı kalır/),
+      await screen.findByText(/Kapatılan modülün rotası, Home bileşenleri ve komutları devre dışı kalır/),
     ).toBeTruthy();
 
     openTab("Kariyer profili");
@@ -298,7 +298,7 @@ describe("SettingsPage yazmalari", () => {
 
     fireEvent.click(
       await screen.findByRole("checkbox", {
-        name: "Bugün akışında akıllı görev ve RSS önerilerini göster",
+        name: "Home akışında akıllı görev ve RSS önerilerini göster",
       }),
     );
     await waitFor(() => expect(lastWrite("today.auto_suggestions")).toBe(false));

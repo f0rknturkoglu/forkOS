@@ -38,11 +38,15 @@ const INITIAL_FILTERS: OpportunityBrowseFilters = {
   limit: PAGE,
 };
 
+/**
+ * Kariyer çalışma alanının bölümleri. Sekme KİMLİKLERİ sözleşmedir
+ * (`?tab=` derin bağlantıları); etiketler ürün dilidir.
+ */
 const TAB_LABELS: Record<OpportunityTab, string> = {
-  jobs: "İşler",
+  jobs: "Keşfet",
   applications: "Başvurular",
   announcements: "Duyurular",
-  career: "Kariyer",
+  career: "Profil",
   sources: "Kaynaklar",
 };
 

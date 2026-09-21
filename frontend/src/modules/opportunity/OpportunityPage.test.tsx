@@ -66,10 +66,12 @@ describe("opportunity page workspaces", () => {
 
   it("renders the five workspaces and uses the paginated browse endpoint", async () => {
     const html = renderToStaticMarkup(<OpportunityPage />);
-    for (const label of ["İşler", "Başvurular", "Duyurular", "Kariyer", "Kaynaklar"]) {
+    // Sekme KIMLIKLERI sozlesme (?tab=), etiketler urun dili.
+    for (const label of ["Keşfet", "Başvurular", "Duyurular", "Profil", "Kaynaklar"]) {
       expect(html).toContain(label);
     }
     expect(html).not.toContain("İş alanı");
+    expect(html).not.toContain("İşler");
     await harness.query?.queryFn({ pageParam: 60 });
     expect(harness.get).toHaveBeenCalledWith(expect.stringContaining("/opportunities/browse?"));
     expect(harness.get).toHaveBeenCalledWith(expect.stringContaining("offset=60"));

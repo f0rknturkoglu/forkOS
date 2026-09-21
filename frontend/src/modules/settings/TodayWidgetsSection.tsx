@@ -84,7 +84,7 @@ export function TodayWidgetsSection({
   }
 
   return (
-    <Section title="Bugün widget'ları">
+    <Section title="Home bileşenleri">
       <p className="mb-2 text-meta text-muted">
         Widget'ları gizle, sırala. Sıra ve görünürlük kalıcıdır; modül rotaları ve komutları bundan etkilenmez. Modül
         kapatılırsa o modülün bütün widget'ları da kapanır.

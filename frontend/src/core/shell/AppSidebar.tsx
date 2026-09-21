@@ -1,27 +1,40 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, LayoutGrid, PanelLeftClose, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, LayoutGrid, PanelLeftClose, Search, Star } from "lucide-react";
 import { findRouteMatch } from "@/app/router";
 import { openCommandPalette } from "@/core/CommandPalette";
-import { moduleTarget, navigationGroups } from "@/core/navigation";
+import {
+  areaForPath,
+  areaIsActive,
+  areaRows,
+  areaShape,
+  areasAt,
+  moduleLanding,
+  rowIsActive,
+  type NavigationRow,
+  type ProductArea,
+  type ProductAreaId,
+} from "@/core/navigation";
 import { requestNavigation } from "@/core/navigationGuard";
-import { navigationModules } from "@/core/registry";
-import type { ModuleGroup, ModuleSpec } from "@/core/types";
+import { enabledModules } from "@/core/registry";
+import { usePinnedSavedViews } from "@/core/savedViews";
+import type { ModuleSpec } from "@/core/types";
 import { cx } from "@/core/ui";
 
-const OPEN_GROUPS_KEY = "forkos.sidebar.groups";
+const OPEN_AREAS_KEY = "forkos.sidebar.areas";
 
-function initialOpenGroups(): Set<ModuleGroup> {
+/** Varsayılan: alt satırı olan birincil alanlar açık; uzun kuyruk kapalı. */
+function initialOpenAreas(modules: readonly ModuleSpec[]): Set<ProductAreaId> {
   try {
-    const raw = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY) ?? "null");
-    if (Array.isArray(raw)) return new Set(raw as ModuleGroup[]);
+    const raw = JSON.parse(localStorage.getItem(OPEN_AREAS_KEY) ?? "null");
+    if (Array.isArray(raw)) return new Set(raw as ProductAreaId[]);
   } catch {
     // Bozuk gorunum tercihi navigasyonu kitlemesin; guvenli varsayilana don.
   }
-  return new Set<ModuleGroup>(["capture", "do", "track"]);
-}
-
-function moduleIsActive(module: ModuleSpec, path: string): boolean {
-  return Boolean(findRouteMatch(module.routes, path));
+  return new Set(
+    areasAt("primary")
+      .filter((area) => areaShape(area, modules) === "section")
+      .map((area) => area.id),
+  );
 }
 
 function SidebarLink({
@@ -83,45 +96,154 @@ function SidebarLink({
   );
 }
 
+/** Katlanır alan başlığı: etiket hedefe gider, oklu düğme yalnız açar/kapar. */
+function AreaHeader({
+  area,
+  rows,
+  open,
+  collapsed,
+  path,
+  params,
+  modules,
+  onToggle,
+  onNavigate,
+}: {
+  area: ProductArea;
+  rows: NavigationRow[];
+  open: boolean;
+  collapsed: boolean;
+  path: string;
+  params: URLSearchParams;
+  modules: readonly ModuleSpec[];
+  onToggle: () => void;
+  onNavigate: () => void;
+}) {
+  const active = areaIsActive(area, path, modules);
+  const landing = area.landing;
+  const AreaIcon = area.icon ?? LayoutGrid;
+  return (
+    <div className="flex min-w-0 items-center">
+      {landing ? (
+        <div className="min-w-0 flex-1">
+          <SidebarLink
+            href={landing}
+            label={area.label}
+            icon={area.icon}
+            // Urun alani vurgusu: alt rotalardan biri aktifse alan da aktiftir.
+            active={active}
+            collapsed={collapsed}
+            onNavigate={onNavigate}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          title={collapsed ? area.label : undefined}
+          className={cx(
+            "group flex h-9 min-w-0 flex-1 items-center rounded-control text-body transition-colors",
+            collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
+            active ? "bg-surface-selected font-medium text-primary" : "text-secondary hover:bg-surface-hover hover:text-primary",
+          )}
+        >
+          <AreaIcon size={16} className="shrink-0 text-icon group-hover:text-primary" />
+          <span className={cx("min-w-0 flex-1 truncate text-left", collapsed && "md:hidden")}>{area.label}</span>
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={`sidebar-area-${area.id}`}
+        aria-label={`${area.label} alt satırları ${open ? "kapat" : "aç"}`}
+        className={cx(
+          "flex h-7 w-6 shrink-0 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary",
+          collapsed && "md:hidden",
+        )}
+      >
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+      </button>
+    </div>
+  );
+}
+
 export function AppSidebar({
   path,
+  params,
   collapsed,
   mobileOpen,
   onToggleCollapsed,
   onCloseMobile,
 }: {
   path: string;
+  params: URLSearchParams;
   collapsed: boolean;
   mobileOpen: boolean;
   onToggleCollapsed: () => void;
   onCloseMobile: () => void;
 }) {
-  const groups = navigationGroups(navigationModules());
-  const [openGroups, setOpenGroups] = useState(initialOpenGroups);
-  const activeGroup = groups.find((group) => group.modules.some((module) => moduleIsActive(module, path)))?.id;
+  const modules = enabledModules();
+  const primary = areasAt("primary");
+  const longtail = areasAt("longtail");
+  const system = areasAt("system");
+  const activeArea = areaForPath(path, modules);
+  const [openAreas, setOpenAreas] = useState(() => initialOpenAreas(modules));
+  const { data: pinnedViews = [] } = usePinnedSavedViews();
 
   useEffect(() => {
-    if (!activeGroup || activeGroup === "pinned") return;
-    setOpenGroups((current) => {
-      if (current.has(activeGroup)) return current;
-      const next = new Set(current).add(activeGroup);
-      localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify([...next]));
+    // Hangi alan aktifse onu ac: kullanici rotayi dogrudan acsa bile alt
+    // satirlar gorunur olur (uzun kuyruk dahil).
+    if (!activeArea) return;
+    setOpenAreas((current) => {
+      if (current.has(activeArea.id)) return current;
+      const next = new Set(current).add(activeArea.id);
+      localStorage.setItem(OPEN_AREAS_KEY, JSON.stringify([...next]));
       return next;
     });
-  }, [activeGroup]);
+  }, [activeArea]);
 
-  function toggleGroup(group: ModuleGroup) {
-    setOpenGroups((current) => {
+  function toggleArea(area: ProductArea) {
+    setOpenAreas((current) => {
       const next = new Set(current);
-      if (next.has(group)) next.delete(group);
-      else next.add(group);
-      localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify([...next]));
+      if (next.has(area.id)) next.delete(area.id);
+      else next.add(area.id);
+      localStorage.setItem(OPEN_AREAS_KEY, JSON.stringify([...next]));
       return next;
     });
   }
 
-  const pinned = groups.find((group) => group.id === "pinned")?.modules ?? [];
-  const sections = groups.filter((group) => group.id !== "pinned");
+  function renderRows(area: ProductArea, open: boolean) {
+    const rows = areaRows(area, modules);
+    return (
+      <div id={`sidebar-area-${area.id}`} className={cx("space-y-0.5", !open && "hidden")}>
+        {rows
+          // Alanın hedefi zaten başlık satırıdır; alt listede TEKRAR etmez.
+          .filter((row) => row.path !== area.landing)
+          .map((row) => {
+            const rowActive = rowIsActive(row, path, params);
+            const nested = rowActive && rows.some((other) => other.child && rowIsActive(other, path, params));
+            const ModuleSidebar = modules.find((module) => module.id === row.moduleId)?.sidebar;
+            return (
+              <div key={`${row.moduleId}-${row.path}-${row.query ?? ""}`}>
+                <SidebarLink
+                  href={row.query ? `${row.path}?${row.query}` : row.path}
+                  label={row.label}
+                  icon={row.icon}
+                  active={rowActive && !nested}
+                  collapsed={collapsed}
+                  onNavigate={onCloseMobile}
+                />
+                {rowActive && ModuleSidebar && (
+                  <div className={cx(collapsed && "md:hidden")}>
+                    <ModuleSidebar collapsed={collapsed} onNavigate={onCloseMobile} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -151,7 +273,7 @@ export function AppSidebar({
           <a
             href="#/"
             onClick={onCloseMobile}
-            aria-label="forkOS Bugün"
+            aria-label="forkOS Home"
             className={cx("flex min-w-0 items-center gap-2.5", collapsed ? "md:justify-center" : "flex-1")}
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-primary text-heading text-canvas">
@@ -197,92 +319,128 @@ export function AppSidebar({
 
         <nav className={cx("min-h-0 flex-1 overflow-y-auto py-3", collapsed ? "md:px-2" : "px-2.5")}>
           <div className="space-y-1">
-            {pinned.map((module) => (
-              <SidebarLink
-                key={module.id}
-                href={moduleTarget(module)}
-                label={module.title}
-                icon={module.icon}
-                active={moduleIsActive(module, path)}
-                collapsed={collapsed}
-                onNavigate={onCloseMobile}
-              />
-            ))}
-          </div>
-
-          <div className="mt-4 space-y-4">
-            {sections.map((group) => {
-              const open = openGroups.has(group.id);
+            {primary.map((area) => {
+              const rows = areaRows(area, modules);
+              const shape = areaShape(area, modules);
+              if (shape === "link") {
+                return (
+                  <SidebarLink
+                    key={area.id}
+                    href={area.landing ?? "/"}
+                    label={area.label}
+                    icon={area.icon}
+                    active={areaIsActive(area, path, modules)}
+                    collapsed={collapsed}
+                    onNavigate={onCloseMobile}
+                  />
+                );
+              }
+              const open = openAreas.has(area.id);
               return (
-                <section key={group.id} aria-labelledby={`sidebar-${group.id}`}>
-                  <div className={cx("mx-2 mb-2 h-px bg-subtle", collapsed ? "hidden md:block" : "hidden")} />
-                  <button
-                    type="button"
-                    id={`sidebar-${group.id}`}
-                    onClick={() => toggleGroup(group.id)}
-                    aria-expanded={open}
-                    className={cx(
-                      "mb-1 flex h-7 w-full items-center gap-1 px-2 text-left text-micro font-medium uppercase tracking-[0.16em] text-muted transition hover:text-primary",
-                      collapsed && "md:hidden",
-                    )}
-                  >
-                    {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    <span>{group.label}</span>
-                  </button>
-                  <div className={cx("space-y-1", !open && "hidden", collapsed && "md:block")}>
-                    {group.modules.map((module) => {
-                      const active = moduleIsActive(module, path);
-                      const children = module.routes.filter((route) => route.navigation === "child");
-                      const childActive = children.some((route) => Boolean(findRouteMatch([route], path)));
-                      const ModuleSidebar = module.sidebar;
-                      return (
-                        <div key={module.id}>
-                          <SidebarLink
-                            href={moduleTarget(module)}
-                            label={module.title}
-                            icon={module.icon}
-                            active={active && !childActive}
-                            collapsed={collapsed}
-                            onNavigate={onCloseMobile}
-                          />
-                          {open && children.length > 0 && (
-                            <div className={cx("mt-0.5 space-y-0.5", collapsed && "md:hidden")}>
-                              {children.map((route) => (
-                                <SidebarLink
-                                  key={route.path}
-                                  href={route.path}
-                                  label={route.title ?? module.title}
-                                  icon={route.icon}
-                                  active={Boolean(findRouteMatch([route], path))}
-                                  collapsed={collapsed}
-                                  child
-                                  onNavigate={onCloseMobile}
-                                />
-                              ))}
-                            </div>
-                          )}
-                          {open && active && ModuleSidebar && (
-                            <div className={cx(collapsed && "md:hidden")}>
-                              <ModuleSidebar collapsed={collapsed} onNavigate={onCloseMobile} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
+                <div key={area.id}>
+                  <AreaHeader
+                    area={area}
+                    rows={rows}
+                    open={open}
+                    collapsed={collapsed}
+                    path={path}
+                    params={params}
+                    modules={modules}
+                    onToggle={() => toggleArea(area)}
+                    onNavigate={onCloseMobile}
+                  />
+                  {renderRows(area, open)}
+                </div>
               );
             })}
           </div>
+
+          {pinnedViews.length > 0 && (
+            <section className="mt-5" aria-labelledby="sidebar-pinned">
+              <p
+                id="sidebar-pinned"
+                className={cx(
+                  "mb-1 px-2 text-micro font-medium uppercase tracking-[0.16em] text-muted",
+                  collapsed && "md:hidden",
+                )}
+              >
+                Sabitlenenler
+              </p>
+              <div className="space-y-1">
+                {pinnedViews.map((view) => {
+                  const target = moduleLanding(modules, view.module);
+                  if (!target) {
+                    // Hedef modul kapali/silinmis: satir kalir ama tiklanmaz.
+                    return (
+                      <span
+                        key={view.id}
+                        title="Hedef modül kapalı"
+                        className={cx(
+                          "flex h-9 min-w-0 items-center gap-2.5 rounded-control px-2.5 text-body text-muted opacity-60",
+                          collapsed && "md:justify-center md:px-0",
+                        )}
+                      >
+                        <Star size={16} className="shrink-0 text-icon" />
+                        <span className={cx("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>{view.name}</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <SidebarLink
+                      key={view.id}
+                      href={`${target}?saved=${view.id}`}
+                      label={view.name}
+                      icon={Star}
+                      active={params.get("saved") === view.id}
+                      collapsed={collapsed}
+                      onNavigate={onCloseMobile}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {longtail.map((area) => {
+            const open = openAreas.has(area.id);
+            return (
+              <div key={area.id} className="mt-5">
+                <AreaHeader
+                  area={area}
+                  rows={areaRows(area, modules)}
+                  open={open}
+                  collapsed={collapsed}
+                  path={path}
+                  params={params}
+                  modules={modules}
+                  onToggle={() => toggleArea(area)}
+                  onNavigate={onCloseMobile}
+                />
+                {renderRows(area, open)}
+              </div>
+            );
+          })}
         </nav>
 
-        <div
-          className={cx(
-            "shrink-0 border-t border-subtle py-2 text-meta text-muted",
-            collapsed ? "md:px-2 md:text-center" : "px-4",
-          )}
-        >
-          <span className="block truncate">{collapsed ? "1.0" : "Yerel çalışma alanı"}</span>
+        <div className={cx("shrink-0 border-t border-subtle py-2", collapsed ? "md:px-2" : "px-2.5")}>
+          <div className="space-y-1">
+            {system.map((area) =>
+              areaRows(area, modules).map((row) => (
+                <SidebarLink
+                  key={`${area.id}-${row.path}`}
+                  href={row.path}
+                  label={row.label}
+                  icon={row.icon}
+                  active={Boolean(findRouteMatch([{ path: row.path }], path))}
+                  collapsed={collapsed}
+                  onNavigate={onCloseMobile}
+                />
+              )),
+            )}
+          </div>
+          <p className={cx("mt-1 px-2.5 text-meta text-muted truncate", collapsed && "md:hidden")}>
+            Yerel çalışma alanı
+          </p>
         </div>
       </aside>
     </>

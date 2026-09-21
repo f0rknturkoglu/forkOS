@@ -256,7 +256,7 @@ export function ModulesSection({
       </Section>
       <Section title="Modüller">
         <p className="mb-3 text-meta text-muted">
-          Kapatılan modülün rotası, Bugün widget'ları ve komutları devre dışı kalır; verisi silinmez ve arka plan
+          Kapatılan modülün rotası, Home bileşenleri ve komutları devre dışı kalır; verisi silinmez ve arka plan
           güncellemesi bundan etkilenmez. Ayarlar her zaman açıktır.
         </p>
         <ul className="divide-y divide-subtle rounded-card border border-subtle">

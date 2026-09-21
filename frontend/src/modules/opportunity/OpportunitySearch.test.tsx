@@ -194,7 +194,7 @@ describe("opportunity search input", () => {
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Filtreler/ }));
-      fireEvent.click(screen.getByRole("tab", { name: /^İşler/ }));
+      fireEvent.click(screen.getByRole("tab", { name: /^Keşfet/ }));
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Çöp/ }));

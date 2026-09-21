@@ -1,39 +1,253 @@
-import { MODULE_GROUPS } from "./types";
-import type { ModuleGroup, ModuleSpec } from "./types";
+/**
+ * Ürün navigasyonu: modül envanteri değil, ürün ALANLARI.
+ *
+ * Sidebar'ın tek kaynağı burasıdır. Modül registry'si teknik kayıt defteridir
+ * (rota, widget, komut, entité tipi); kullanıcı navigasyonu ondan TÜREMEZ.
+ * Bir modül çalışıyor olabilir ama birincil sidebar'da satır tutmayabilir:
+ *
+ *   inbox   triyaj akışıdır; girişi Home'daki gelen kutusu yüzeyidir
+ *   review  uzun kuyrukta ("Daha fazla") durur
+ *   media   Kütüphane altında bir satırdır, kendi başına birincil hedef değil
+ *
+ * Kural: rota → ürün alanı eşleşmesi BAŞKA HİÇBİR YERDE yazılmaz. Başlık ve
+ * ikon için modül aramaya devam eden `moduleForPath` bundan ayrıdır; ikisi
+ * farklı soruları yanıtlar.
+ *
+ * Alan satırları registry rotalarından türetilir:
+ *   - modülün birincil rotası (child/hidden olmayan ilk statik rota) → modül satırı
+ *   - `navigation: "child"` işaretli rotalar → modülün altında alt satır
+ *   - `links` → rota tablosunda karşılığı olmayan alan-içi görünümler (ör. ?view=review)
+ */
 import { findRouteMatch } from "@/app/router";
+import { BookOpen, CalendarRange, Compass, Ellipsis, GraduationCap, Home, Layers, Library } from "lucide-react";
+import type { ModuleSpec } from "./types";
 
-export interface NavigationGroup {
-  id: ModuleGroup;
+/** Alanın sidebar'daki yeri: birincil / uzun kuyruk / sistem. */
+export type NavigationPlacement = "primary" | "longtail" | "system";
+
+export type ProductAreaId = "home" | "plan" | "projects" | "career" | "learning" | "library" | "longtail" | "system";
+
+/** Bir alanın altındaki tek satır: mevcut bir rota ya da alan-içi derin görünüm. */
+export interface NavigationRow {
+  /** Satırın sahibi modül (modül sidebar'ı ve aktiflik için). */
+  moduleId: string;
+  path: string;
   label: string;
-  modules: ModuleSpec[];
+  icon?: ModuleSpec["icon"];
+  /** Derin görünüm sorgusu; yalnız alan `links`'lerinde bulunur. */
+  query?: string;
+  /**
+   * Modülün alt rotası mı. Üst satır, alt rotalardan biri aktifken kendini
+   * pasif gösterir: `/habits` açıkken "Görevler" de vurgulu kalmasın.
+   */
+  child: boolean;
 }
 
-export function navigationGroups(modules: ModuleSpec[]): NavigationGroup[] {
-  const pinned = modules.filter((module) => module.group === "pinned");
-  const grouped = MODULE_GROUPS.map((group) => ({
-    ...group,
-    modules: modules.filter((module) => (module.group ?? "system") === group.id),
-  })).filter((group) => group.modules.length > 0);
-
-  return [{ id: "pinned", label: "Bugün", modules: pinned }, ...grouped];
+export interface ProductArea {
+  id: ProductAreaId;
+  label: string;
+  icon: ModuleSpec["icon"];
+  placement: NavigationPlacement;
+  /**
+   * Alana ait modüller; SIRA satır sırasını belirler. Kayıtlı olmayan
+   * (kapatılmış) modüller sessizce atlanır: kapatılan modül rotasını da
+   * getirmez, satır da bırakmaz.
+   */
+  moduleIds: readonly string[];
+  /** Etikete tıklamak buraya gider. Yoksa alan yalnızca katlanır/açılır. */
+  landing?: string;
+  /** Satır etiketi modül başlığından farklı olacaksa (ör. Sağlık → Sistem Durumu). */
+  labels?: Readonly<Record<string, string>>;
+  /** Registry'de rotası olmayan alan-içi görünümler. */
+  links?: readonly { path: string; label: string; query?: string; icon?: ModuleSpec["icon"] }[];
 }
 
-export function activeNavigationGroup(path: string, groups: NavigationGroup[]): NavigationGroup {
-  const candidates = groups.flatMap((group) =>
-    group.modules.flatMap((module) => module.routes.map((route) => ({ path: route.path, group }))),
-  );
-  return findRouteMatch(candidates, path)?.group ?? groups[0];
+/**
+ * ÜRÜN HARİTASI. Buradaki sıra kullanıcının gördüğü sıradır.
+ *
+ * Domain/backend modülleri burada birleştirilmez: Plan altındaki `todo`,
+ * `calendar` ve `pomodoro` ayrı servisler olarak kalır; yalnız tek bir zihinsel
+ * çalışma alanında sunulur.
+ */
+export const PRODUCT_AREAS: readonly ProductArea[] = [
+  {
+    id: "home",
+    label: "Home",
+    icon: Home,
+    placement: "primary",
+    moduleIds: ["today"],
+    landing: "/",
+  },
+  {
+    id: "plan",
+    label: "Plan",
+    icon: CalendarRange,
+    placement: "primary",
+    moduleIds: ["todo", "calendar", "pomodoro"],
+    landing: "/todos",
+  },
+  {
+    id: "projects",
+    label: "Projeler",
+    icon: Layers,
+    placement: "primary",
+    moduleIds: ["projects"],
+    landing: "/projects",
+  },
+  {
+    id: "career",
+    label: "Kariyer",
+    icon: Compass,
+    placement: "primary",
+    moduleIds: ["opportunity"],
+    landing: "/opportunities",
+  },
+  {
+    id: "learning",
+    label: "Öğrenme",
+    icon: GraduationCap,
+    placement: "primary",
+    moduleIds: ["learning", "flashcard"],
+    landing: "/learning",
+    links: [{ path: "/learning", label: "Tekrar", query: "view=review" }],
+  },
+  {
+    id: "library",
+    label: "Kütüphane",
+    icon: Library,
+    placement: "primary",
+    // Bilgi (Vault köprüsü) da kütüphanenin parçasıdır: kaydettiğin, okuduğun
+    // ve bilgiye dönüştürdüğün içerik aynı zihinsel rafta durur.
+    moduleIds: ["bookmarks", "documents", "rss", "media", "knowledge"],
+    landing: "/bookmarks",
+  },
+  {
+    id: "longtail",
+    label: "Daha fazla",
+    icon: Ellipsis,
+    placement: "longtail",
+    moduleIds: ["finance", "activity", "review"],
+  },
+  {
+    id: "system",
+    label: "Sistem",
+    icon: BookOpen,
+    placement: "system",
+    moduleIds: ["health", "settings"],
+    labels: { health: "Sistem Durumu" },
+  },
+];
+
+function isDynamic(path: string): boolean {
+  return path.split("/").some((part) => part.startsWith(":"));
 }
 
-/** Navigation never targets a path pattern when the module has a concrete page. */
-export function moduleTarget(module: ModuleSpec): string {
+/** Modülün sidebar satırı olan rotası: child/hidden olmayan ilk statik rota. */
+function primaryRoute(module: ModuleSpec) {
   return (
-    module.routes.find((route) => !route.path.split("/").some((part) => part.startsWith(":")))?.path ??
-    module.routes[0]?.path ??
-    "/"
+    module.routes.find(
+      (route) => route.navigation !== "child" && route.navigation !== "hidden" && !isDynamic(route.path),
+    ) ?? module.routes[0]
   );
 }
 
-export function groupTarget(group: NavigationGroup): string {
-  return group.modules[0] ? moduleTarget(group.modules[0]) : "/";
+function areaModules(area: ProductArea, modules: readonly ModuleSpec[]): ModuleSpec[] {
+  return area.moduleIds.flatMap((id) => {
+    const module = modules.find((candidate) => candidate.id === id);
+    return module ? [module] : [];
+  });
+}
+
+/** Alanın altındaki satırlar (modül sırası + modülün alt rota sırası). */
+export function areaRows(area: ProductArea, modules: readonly ModuleSpec[]): NavigationRow[] {
+  const rows: NavigationRow[] = [];
+  for (const module of areaModules(area, modules)) {
+    const primary = primaryRoute(module);
+    if (primary) {
+      rows.push({
+        moduleId: module.id,
+        path: primary.path,
+        label: area.labels?.[module.id] ?? module.title,
+        icon: module.icon,
+        child: false,
+      });
+    }
+    for (const route of module.routes) {
+      if (route.navigation !== "child") continue;
+      rows.push({
+        moduleId: module.id,
+        path: route.path,
+        label: route.title ?? module.title,
+        icon: route.icon,
+        child: true,
+      });
+    }
+  }
+  for (const link of area.links ?? []) {
+    rows.push({
+      moduleId: area.moduleIds[0] ?? area.id,
+      path: link.path,
+      label: link.label,
+      icon: link.icon ?? area.icon,
+      query: link.query,
+      child: true,
+    });
+  }
+  return rows;
+}
+
+/**
+ * Alanın sahip olduğu TÜM rotalar (aktiflik için). Gizli ve dinamik rotalar da
+ * dahildir: `/statistics`, `/study`, `/media/stats` gibi yollar doğru alanı
+ * işaretlemelidir.
+ */
+export function areaRoutes(area: ProductArea, modules: readonly ModuleSpec[]): string[] {
+  const paths = areaModules(area, modules).flatMap((module) => module.routes.map((route) => route.path));
+  if (area.landing) paths.push(area.landing);
+  for (const link of area.links ?? []) paths.push(link.path);
+  return paths;
+}
+
+/** Path'in ait olduğu ürün alanı (tam eşleşme global olarak kazanır). */
+export function areaForPath(path: string, modules: readonly ModuleSpec[]): ProductArea | undefined {
+  const candidates = PRODUCT_AREAS.flatMap((area) => areaRoutes(area, modules).map((route) => ({ path: route, area })));
+  return findRouteMatch(candidates, path)?.area;
+}
+
+export function areasAt(placement: NavigationPlacement): ProductArea[] {
+  return PRODUCT_AREAS.filter((area) => area.placement === placement);
+}
+
+/** Satır aktif mi: rota eşleşmesi + varsa derin görünüm sorgusu. */
+export function rowIsActive(row: NavigationRow, path: string, params: URLSearchParams): boolean {
+  if (!findRouteMatch([{ path: row.path }], path)) return false;
+  if (!row.query) return true;
+  for (const [key, value] of new URLSearchParams(row.query)) {
+    if (params.get(key) !== value) return false;
+  }
+  return true;
+}
+
+/** Alanın kendi satırı aktif mi (alan içindeki herhangi bir rota). */
+export function areaIsActive(area: ProductArea, path: string, modules: readonly ModuleSpec[]): boolean {
+  return Boolean(findRouteMatch(areaRoutes(area, modules).map((route) => ({ path: route })), path));
+}
+
+/** Bir modülün birincil rota yolu; sidebar dışı satırlar (ör. sabitlenmiş görünüm) için. */
+export function moduleLanding(modules: readonly ModuleSpec[], moduleId: string): string | undefined {
+  const module = modules.find((candidate) => candidate.id === moduleId);
+  return module ? primaryRoute(module)?.path : undefined;
+}
+
+/**
+ * Alanın sidebar satırı olarak nasıl çizileceği:
+ *   "link"    → tek hedefi var (Home, Projeler); alt satır yok
+ *   "section" → hedefi var, altında satırlar var (Plan, Öğrenme, Kütüphane)
+ *   "group"   → hedefi yok; yalnız satırlarını gruplar (Daha fazla)
+ */
+export function areaShape(area: ProductArea, modules: readonly ModuleSpec[]): "link" | "section" | "group" {
+  const rows = areaRows(area, modules);
+  if (!area.landing) return "group";
+  if (rows.length <= 1 && rows[0]?.path === area.landing) return "link";
+  return "section";
 }

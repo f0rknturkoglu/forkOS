@@ -12,7 +12,6 @@ registerModule({
   title: "Değerlendirme",
   description: "Günlük ve haftalık değerlendirmelerle ilerlemeni gözden geçir.",
   icon: ClipboardCheck,
-  hidden: true,
   routes: [
     { path: "/review/weekly", element: WeeklyReviewPage },
     { path: "/review/daily", element: DailyReviewPage },

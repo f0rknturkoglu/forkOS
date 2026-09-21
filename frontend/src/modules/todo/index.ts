@@ -19,8 +19,9 @@ registerModule({
   group: "do",
   routes: [
     { path: "/todos", element: TodoPage },
-    { path: "/habits", element: TodoPage, title: "Rutinler", icon: Repeat, navigation: "child" },
+    // Sidebar cocuk sirasi (Plan alani): haftalik plan once, rutinler sonra.
     { path: "/planner", element: WeeklyPlannerPage, title: "Haftalık plan", icon: CalendarRange, navigation: "child" },
+    { path: "/habits", element: TodoPage, title: "Rutinler", icon: Repeat, navigation: "child" },
   ],
   todayWidgets: [
     {

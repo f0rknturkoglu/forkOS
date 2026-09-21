@@ -104,7 +104,7 @@ function SourceAlert() {
 /* ── Kabuk ───────────────────────────────────────────────────────────── */
 
 export default function App() {
-  const { path } = useHashRoute();
+  const { path, params } = useHashRoute();
   const online = useOnline();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("forkos.sidebar.collapsed") === "1",
@@ -145,6 +145,7 @@ export default function App() {
       <div className="flex min-h-dvh bg-canvas text-primary">
         <AppSidebar
           path={path}
+          params={params}
           collapsed={sidebarCollapsed}
           mobileOpen={sidebarOpen}
           onToggleCollapsed={toggleSidebar}

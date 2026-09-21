@@ -1,69 +1,158 @@
-import { describe, expect, it } from "vitest";
-import type { ModuleSpec } from "./types";
-import { activeNavigationGroup, groupTarget, navigationGroups } from "./navigation";
+// @vitest-environment jsdom
+/**
+ * Ürün navigasyonu sözleşmesi: rota → alan eşleşmesi ve sidebar satırları.
+ *
+ * Bu testler GERÇEK registry'yi kullanır (`@/modules`): alan haritası modül
+ * kimlikleriyle yazılır, dolayısıyla modül kimliği değişirse test düşer.
+ */
+import "@/modules";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { areaForPath, areaRows, areaShape, areasAt, moduleLanding, rowIsActive } from "./navigation";
+import { enabledModules } from "./registry";
 
-const Page = () => null;
-const modules: ModuleSpec[] = [
-  {
-    id: "today",
-    title: "Bugün",
-    group: "pinned",
-    routes: [{ path: "/", element: Page }],
-  },
-  {
-    id: "rss",
-    title: "RSS",
-    group: "capture",
-    routes: [{ path: "/rss", element: Page }],
-  },
-  {
-    id: "opportunity",
-    title: "Fırsatlar",
-    group: "track",
-    routes: [
-      { path: "/opportunities", element: Page },
-      { path: "/sources", element: Page },
-    ],
-  },
-  {
-    id: "media",
-    title: "Medya",
-    group: "track",
-    routes: [
-      { path: "/media/:id", element: Page },
-      { path: "/media", element: Page },
-    ],
-  },
-];
+vi.hoisted(() => {
+  const store = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+    },
+  });
+});
 
-describe("navigation model", () => {
-  const groups = navigationGroups(modules);
+const modules = () => enabledModules();
 
-  it("derives the active group from secondary routes", () => {
-    expect(activeNavigationGroup("/sources", groups).id).toBe("track");
+describe("ürün navigasyonu — rota → alan", () => {
+  beforeEach(() => localStorage.clear());
+
+  it.each([
+    ["/", "home"],
+    ["/todos", "plan"],
+    ["/habits", "plan"],
+    ["/planner", "plan"],
+    ["/calendar", "plan"],
+    ["/pomodoro", "plan"],
+    ["/projects", "projects"],
+    ["/opportunities", "career"],
+    ["/learning", "learning"],
+    ["/study", "learning"],
+    ["/flashcard", "learning"],
+    ["/bookmarks", "library"],
+    ["/documents", "library"],
+    ["/rss", "library"],
+    ["/media", "library"],
+    ["/media/library", "library"],
+    ["/media/collections", "library"],
+    ["/media/upcoming", "library"],
+    ["/notes", "library"],
+  ])("%s → %s", (path, areaId) => {
+    expect(areaForPath(path, modules())?.id).toBe(areaId);
   });
 
-  it("uses the first module route as group target", () => {
-    expect(groupTarget(groups.find((group) => group.id === "capture")!)).toBe("/rss");
+  it("dinamik ve eski (compat) rotalar doğru alanı işaretler", () => {
+    expect(areaForPath("/media/abc-123", modules())?.id).toBe("library");
+    expect(areaForPath("/media/collections/abc-123", modules())?.id).toBe("library");
+    expect(areaForPath("/media/stats", modules())?.id).toBe("library");
+    // Statik eşleşme global olarak kazanır: /media/stats detay rotasına düşmez.
+    expect(areaForPath("/media/trash", modules())?.id).toBe("library");
+    expect(areaForPath("/statistics", modules())?.id).toBe("longtail");
+    expect(areaForPath("/day", modules())?.id).toBe("longtail");
+    expect(areaForPath("/review/weekly", modules())?.id).toBe("longtail");
+    expect(areaForPath("/health", modules())?.id).toBe("system");
+    expect(areaForPath("/sources", modules())?.id).toBe("system");
+    expect(areaForPath("/settings", modules())?.id).toBe("system");
   });
 
-  it("shows only the active group's modules in secondary navigation", () => {
-    const active = activeNavigationGroup("/sources", groups);
-    expect(active.modules.map((module) => module.id)).toEqual(["opportunity", "media"]);
+  it("hiçbir alana ait olmayan yüzeyler (triyaj akışı) satır tutmaz", () => {
+    expect(areaForPath("/inbox", modules())).toBeUndefined();
+    expect(areaForPath("/bilinmeyen", modules())).toBeUndefined();
   });
 
-  it("keeps a dynamic detail in its module group and targets the concrete index", () => {
-    const active = activeNavigationGroup("/media/media-1", groups);
-    expect(active.id).toBe("track");
-    expect(groupTarget(active)).toBe("/opportunities");
+  it("her modül rotası en fazla bir alana bağlıdır", () => {
+    const owners = new Map<string, string>();
+    for (const area of [...areasAt("primary"), ...areasAt("longtail"), ...areasAt("system")]) {
+      for (const module of modules().filter((m) => area.moduleIds.includes(m.id))) {
+        for (const route of module.routes) {
+          const previous = owners.get(route.path);
+          expect(previous === undefined || previous === area.id).toBe(true);
+          owners.set(route.path, area.id);
+        }
+      }
+    }
   });
+});
 
-  it("prefers a static route's group over an earlier dynamic match", () => {
-    const competing = navigationGroups([
-      modules[0],
-      { id: "dynamic", title: "Dinamik", group: "capture", routes: [{ path: "/media/:id", element: Page }] },
-      { id: "stats", title: "İstatistik", group: "system", routes: [{ path: "/media/stats", element: Page }] },
+describe("ürün navigasyonu — satırlar", () => {
+  const area = (id: string) => areasAt("primary").find((candidate) => candidate.id === id)!;
+
+  it("Plan satırları: görevler, haftalık plan, rutinler, takvim, odak", () => {
+    expect(areaRows(area("plan"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
+      "Görevler=/todos",
+      "Haftalık plan=/planner",
+      "Rutinler=/habits",
+      "Takvim=/calendar",
+      "Odak=/pomodoro",
     ]);
-    expect(activeNavigationGroup("/media/stats", competing).id).toBe("system");
+  });
+
+  it("Kütüphane satırları kendi domainlerini korur", () => {
+    expect(areaRows(area("library"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
+      "Yer İmleri=/bookmarks",
+      "Belgeler=/documents",
+      "RSS=/rss",
+      "Medya=/media",
+      "Bilgi=/notes",
+    ]);
+  });
+
+  it("Öğrenme alanı kartları ve tekrar görünümünü içerir", () => {
+    const rows = areaRows(area("learning"), modules());
+    expect(rows.map((row) => `${row.label}=${row.path}${row.query ? `?${row.query}` : ""}`)).toEqual([
+      "Öğrenme=/learning",
+      "Kartlar=/flashcard",
+      "Tekrar=/learning?view=review",
+    ]);
+  });
+
+  it("sistem alanı Sağlık modülünü Sistem Durumu olarak sunar", () => {
+    const system = areasAt("system")[0];
+    expect(areaRows(system, modules()).map((row) => row.label)).toEqual(["Sistem Durumu", "Kaynaklar", "Ayarlar"]);
+  });
+
+  it("kapalı modül satır ve rota bırakmaz", () => {
+    const withoutCalendar = modules().filter((module) => module.id !== "calendar");
+    expect(areaRows(area("plan"), withoutCalendar).some((row) => row.path === "/calendar")).toBe(false);
+    expect(areaForPath("/calendar", withoutCalendar)).toBeUndefined();
+  });
+
+  it("kapatılmış rotalar satır olmaz, gizli rotalar da alan sahipliğini korur", () => {
+    const planPaths = areaRows(area("plan"), modules()).map((row) => row.path);
+    expect(planPaths).not.toContain("/study");
+    expect(areaRows(area("learning"), modules()).map((row) => row.path)).not.toContain("/study");
+  });
+
+  it("alan biçimi: tek hedefli alan bağlantı, çok hedefli alan katlanır bölüm", () => {
+    expect(areaShape(area("home"), modules())).toBe("link");
+    expect(areaShape(area("projects"), modules())).toBe("link");
+    expect(areaShape(area("career"), modules())).toBe("link");
+    expect(areaShape(area("plan"), modules())).toBe("section");
+    expect(areaShape(area("library"), modules())).toBe("section");
+    expect(areaShape(areasAt("longtail")[0], modules())).toBe("group");
+  });
+
+  it("modül hedefi dinamik rotaya düşmez; sabitlenmiş görünüm satırı bunu kullanır", () => {
+    expect(moduleLanding(modules(), "media")).toBe("/media");
+    expect(moduleLanding(modules(), "opportunity")).toBe("/opportunities");
+    expect(moduleLanding(modules(), "yok-boyle-modul")).toBeUndefined();
+  });
+
+  it("derin görünüm satırı sorguyla eşleşir", () => {
+    const tekrar = areaRows(area("learning"), modules()).find((row) => row.label === "Tekrar")!;
+    expect(rowIsActive(tekrar, "/learning", new URLSearchParams("view=review"))).toBe(true);
+    expect(rowIsActive(tekrar, "/learning", new URLSearchParams())).toBe(false);
+    expect(rowIsActive(tekrar, "/flashcard", new URLSearchParams("view=review"))).toBe(false);
   });
 });

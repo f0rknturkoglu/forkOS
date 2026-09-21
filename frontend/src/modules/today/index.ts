@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Sun } from "lucide-react";
+import { Home } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
 import { DailyRhythmWidget } from "./DailyRhythmWidget";
@@ -11,9 +11,11 @@ const TodayPage = lazy(() => import("./TodayPage").then((module) => ({ default: 
 
 registerModule({
   id: "today",
-  title: "Bugün",
-  description: "Günün planını, akışını ve hızlı bağlantılarını tek ekranda gör.",
-  icon: Sun,
+  // Gorunen ad Home; teknik ad alani (`today`, `today.*` ayarlari, widget
+  // kimlikleri) sozlesme olarak DEGISMEZ (bkz. docs/product-navigation.md).
+  title: "Home",
+  description: "Günün planını, dikkat isteyen işleri ve bekleyen kararları tek ekranda gör.",
+  icon: Home,
   group: "pinned",
   routes: [{ path: "/", element: TodayPage }],
   // Saat + hava ust seritte (TodayHero); sunucu ve saglik ust seritteki

@@ -48,7 +48,7 @@ import {
 const TABS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "general", label: "Genel & Görünüm", icon: SlidersHorizontal },
   { id: "modules", label: "Modüller", icon: Blocks },
-  { id: "today", label: "Bugün & Akış", icon: LayoutGrid },
+  { id: "today", label: "Home", icon: LayoutGrid },
   { id: "notifications", label: "Bildirimler & Çevre", icon: BellRing },
   { id: "career", label: "Kariyer profili", icon: Briefcase },
   { id: "integrations", label: "Entegrasyonlar", icon: Plug },

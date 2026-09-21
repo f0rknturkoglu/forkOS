@@ -29,7 +29,11 @@ export function registerModule(spec: ModuleSpec): void {
 
 export const allModules = (): ModuleSpec[] => [...registry.values()];
 
-function enabledModules(): ModuleSpec[] {
+/**
+ * ACIK moduller. Kapatilan modul rota, widget ve komut getirmez; navigasyon da
+ * (bkz. core/navigation) yalnizca bu listeden satir uretir.
+ */
+export function enabledModules(): ModuleSpec[] {
   const disabled = new Set<string>(JSON.parse(readStored("disabledModules") ?? "[]"));
   return allModules().filter((m) => !disabled.has(m.id));
 }
