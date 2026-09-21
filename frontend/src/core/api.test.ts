@@ -75,11 +75,44 @@ describe("api ağ hataları", () => {
     expect((error as ApiError).message).toBe("Not Found");
   });
 
-  it("N4: çevrimdışı yazma davranışı değişmedi", async () => {
+  it("N4a: çevrimdışıyken YEREL yazma engellenmez (görev, yedek, ayar)", async () => {
+    // navigator.onLine=false "internet yok" demektir, "yerel API kapalı"
+    // DEĞİLDİR: yerel API aynı makinede olduğu için bu yazmalar geçer.
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, value: false });
+    // Her istek taze bir govde almali: ayni Response iki kez okunamaz.
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ ok: true })));
+
+    await expect(api.post("/todos", { title: "x" })).resolves.toEqual({ ok: true });
+    await expect(api.post("/backup")).resolves.toEqual({ ok: true });
+    await expect(api.put("/settings/theme", { value: "dark" })).resolves.toEqual({ ok: true });
+    await expect(api.post("/sources/cache/prune")).resolves.toEqual({ ok: true });
+    // "refresh" kelimesi yerel işi dış yapmaz: Vault indeksi yerel taranır.
+    await expect(api.post("/obsidian/index/refresh", {})).resolves.toEqual({ ok: true });
+    // Yerel dosya yüklemesi (belge, OPML) internetsiz de geçer.
+    await expect(api.upload("/documents/upload", new File(["x"], "x.txt"))).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+  });
+
+  it("N4b: çevrimdışıyken DIŞ yazma OfflineWriteError verir ve hiç istek çıkmaz", async () => {
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: false });
 
-    await expect(api.post("/todos", { title: "x" })).rejects.toBeInstanceOf(OfflineWriteError);
+    await expect(api.post("/sources/refresh", {})).rejects.toBeInstanceOf(OfflineWriteError);
+    await expect(api.post("/sources/osym/refresh")).rejects.toBeInstanceOf(OfflineWriteError);
+    await expect(api.post("/rss/refresh-all")).rejects.toBeInstanceOf(OfflineWriteError);
+    await expect(api.post("/rss/feeds/f1/refresh")).rejects.toBeInstanceOf(OfflineWriteError);
+    // Sorgu dizesi dış kararını değiştirmez.
+    await expect(api.post("/media/sync?item_id=abc")).rejects.toBeInstanceOf(OfflineWriteError);
+    await expect(api.post("/projects/p1/github/issues", { number: 3 })).rejects.toBeInstanceOf(OfflineWriteError);
+    await expect(api.post("/auth/github")).rejects.toBeInstanceOf(OfflineWriteError);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("N4c: çevrimdışıyken DIŞ yazma mesajı Türkçe kalır (aynı hata tipi)", async () => {
+    Object.defineProperty(window.navigator, "onLine", { configurable: true, value: false });
+
+    const error = await api.post("/system/refresh").catch((thrown: unknown) => thrown);
+    expect((error as OfflineWriteError).name).toBe("OfflineWriteError");
+    expect((error as Error).message).toBe("Çevrimdışıyken değişiklik yapılamaz; bağlantı gelince tekrar dene.");
   });
 
   it("başarılı GET gövdeyi döndürür", async () => {

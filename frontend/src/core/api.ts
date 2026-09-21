@@ -27,8 +27,40 @@ export class OfflineWriteError extends Error {
 
 const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
 
-function assertOnlineWrite(): void {
-  if (!isOnline()) throw new OfflineWriteError();
+/**
+ * Çevrimdışı yazma guard'ı YALNIZCA GERÇEKTEN DIŞARIYA ÇIKAN uçları engeller.
+ *
+ * `navigator.onLine === false` "internet yok" demektir; "yerel forkOS API'si
+ * kapalı" demek DEĞİLDİR. Yerel API aynı makinede çalıştığı için internetsiz
+ * de ayakta olabilir: yedek almak, önbellek bakımı yapmak, ayar kaydetmek,
+ * Obsidian indeksini tazelemek, görev/fırsat yazmak YEREL işlerdir ve
+ * çevrimdışıyken de çalışmalıdır. Guard bu yüzden HTTP metoduna değil, UCA
+ * bakar: aşağıdaki desenler dış servislere (GitHub, Google, feed/kaynak
+ * siteleri, sağlayıcı API'leri) istek atan uçlardır; liste dışındaki her yol
+ * çevrimdışıyken de geçer.
+ */
+const EXTERNAL_WRITE_PATHS: readonly RegExp[] = [
+  /^\/auth\//, // GitHub OAuth akışı (dış servis)
+  /^\/system\/refresh$/, // arka plan senkronu: kaynak + RSS + medya
+  /^\/sources\/refresh$/, // toplu kaynak çekimi (source_ids ile tek kaynak dahil)
+  /^\/sources\/[^/]+\/refresh$/, // tek kaynak çekimi
+  /^\/sources\/sync$/, // kaynak senkron batch'i (dış siteleri çeker)
+  /^\/rss\/refresh-all$/, // tüm beslemeleri çek
+  /^\/rss\/feeds\/[^/]+\/refresh$/, // tek beslemeyi çek
+  /^\/weather\/geocode$/, // konum adı çözümü (yalnız GET olsa da burada durur)
+  /^\/media\/sync$/, // sağlayıcı üst verisi (TMDB vb.)
+  /^\/calendar\/sync$/, // Google Takvim çekimi
+  /^\/documents\/sync$/, // Drive klasörü
+  /^\/projects\/[^/]+\/github\/issues$/, // GitHub'da issue açar
+  /^\/plan\/[^/]+\/push$/, // planı Google Takvim'e iter
+];
+
+/** Yerel yazmalar çevrimdışıyken de geçer; yalnız dış uçlar reddedilir. */
+function assertOnlineWrite(path: string): void {
+  if (isOnline()) return;
+  // Sorgu dizesi kararı değiştirmez: `/media/sync?item_id=...` de dış uçtur.
+  const endpoint = path.split("?")[0];
+  if (EXTERNAL_WRITE_PATHS.some((pattern) => pattern.test(endpoint))) throw new OfflineWriteError();
 }
 
 /**
@@ -75,7 +107,8 @@ async function errorParts(res: Response): Promise<[string, string | null]> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method ?? "GET";
-  if (method !== "GET") assertOnlineWrite();
+  // Okumalar hiç engellenmez: çevrimdışıyken yerel API'den okumak serbesttir.
+  if (method !== "GET") assertOnlineWrite(path);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), method === "GET" ? GET_TIMEOUT_MS : WRITE_TIMEOUT_MS);
   let res: Response;
@@ -106,7 +139,8 @@ export const api = {
     request<void>(p, { method: "DELETE", ...(body ? { body: JSON.stringify(body) } : {}) }),
   /** multipart -- Content-Type'i tarayici koysun, elle yazma. */
   upload: async <T>(p: string, file: File, field = "file") => {
-    assertOnlineWrite();
+    // Yüklemeler yerel dosya içeriğidir (OPML, CSV); çevrimdışı da geçer.
+    assertOnlineWrite(p);
     const form = new FormData();
     form.append(field, file);
     const controller = new AbortController();
