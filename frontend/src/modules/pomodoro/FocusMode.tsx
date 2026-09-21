@@ -1,11 +1,11 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Minimize2, Pause, Play, X } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
-import type { PomodoroSession } from "@/core/types";
+import { useActivePomodoro, usePomodoroClock } from "./queries";
 import { clock, remaining } from "./time";
 import { focusPreferences } from "./preferences";
 
@@ -19,31 +19,18 @@ import { focusPreferences } from "./preferences";
  * hesap), yani bu katman sadece bir gorunum; sekme kapansa da seans surer.
  */
 export function FocusMode({ onClose }: { onClose: () => void }) {
-  const [now, setNow] = useState(Date.now());
   const online = useOnline();
+  const { data: active = null } = useActivePomodoro();
+  const now = usePomodoroClock(active);
 
   useEffect(() => {
     if (!focusPreferences().amoled) return;
     const alreadyApplied = document.documentElement.dataset.focusAmoled === "true";
     document.documentElement.dataset.focusAmoled = "true";
-    useEffect(() => {
-      // Tik yalniz calisan oturumda; odak modu bos ekranda da cizilebilir.
-      setNow(Date.now());
-      if (!active || active.paused_at) return;
-      const timer = window.setInterval(() => setNow(Date.now()), 1000);
-      return () => window.clearInterval(timer);
-    }, [active?.id, active?.paused_at]);
-
     return () => {
       if (!alreadyApplied) delete document.documentElement.dataset.focusAmoled;
     };
   }, []);
-
-  const { data: active = null } = useQuery({
-    queryKey: ["pomodoro-active"],
-    queryFn: () => api.get<PomodoroSession | null>("/pomodoro/active"),
-    refetchInterval: 30_000,
-  });
 
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),

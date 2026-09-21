@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { POMODORO_STATS_QUERY_KEY } from "./queries";
+import { POMODORO_STATS_QUERY_KEY, useActivePomodoro, usePomodoroClock } from "./queries";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, FileText, ListChecks, Maximize2, Pause, Play, Plus, StickyNote, Timer, X } from "lucide-react";
 import { api } from "@/core/api";
@@ -25,7 +25,6 @@ export function QuickActionDock() {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<DockView>("menu");
   const [focusMode, setFocusMode] = useState(false);
-  const [now, setNow] = useState(Date.now());
   const [preferences, setPreferences] = useState<FocusPreferences>(focusPreferences);
   const [minutes, setMinutes] = useState(preferences.focusMinutes);
   const [topic, setTopic] = useState("");
@@ -55,22 +54,12 @@ export function QuickActionDock() {
     };
   }, []);
 
-  const { data: active = null } = useQuery({
-    queryKey: ["pomodoro-active"],
-    queryFn: () => api.get<PomodoroSession | null>("/pomodoro/active"),
-    refetchInterval: 30_000,
-  });
+  const { data: active = null } = useActivePomodoro();
+  const now = usePomodoroClock(active);
   const { data: stats } = useQuery({
     queryKey: POMODORO_STATS_QUERY_KEY,
     queryFn: () => api.get<PomodoroStats>("/pomodoro/stats?range=day"),
   });
-
-  useEffect(() => {
-    setNow(Date.now());
-    if (!active || active.paused_at) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [active?.id, active?.paused_at]);
 
   const refresh = () => invalidateAfter("pomodoro.write");
   const start = useMutation({

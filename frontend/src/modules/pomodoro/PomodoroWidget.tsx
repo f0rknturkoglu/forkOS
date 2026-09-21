@@ -1,6 +1,6 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { POMODORO_STATS_QUERY_KEY } from "./queries";
-import { useEffect, useState } from "react";
+import { POMODORO_STATS_QUERY_KEY, useActivePomodoro, usePomodoroClock } from "./queries";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Maximize2, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
@@ -16,25 +16,14 @@ import { openPomodoro } from "./dock";
  * yarida kes, elle isle, sil. Panelden Pomodoro sayfasina gitmek gerekmiyor.
  */
 export function PomodoroWidget() {
-  const [now, setNow] = useState(Date.now());
   const [focusMode, setFocusMode] = useState(false);
   const [adding, setAdding] = useState(false);
   const online = useOnline();
   const toast = useToast();
 
-  const { data: active } = useQuery({
-    queryKey: ["pomodoro-active"],
-    queryFn: () => api.get<PomodoroSession | null>("/pomodoro/active"),
-    refetchInterval: 30_000,
-  });
-  useEffect(() => {
-    // Saniyelik tik YALNIZ calisan bir oturumda: bosta pomodoro paneli
-    // gereksiz yere her saniye yeniden render ediliyordu.
-    setNow(Date.now());
-    if (!active || active.paused_at) return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [active?.id, active?.paused_at]);
+  const { data: active = null } = useActivePomodoro();
+  // Saniyelik tik YALNIZ calisan oturumda kurulur (bkz. queries.ts).
+  const now = usePomodoroClock(active);
 
   const { data: stats } = useQuery({
     queryKey: POMODORO_STATS_QUERY_KEY,
@@ -46,7 +35,6 @@ export function PomodoroWidget() {
   });
 
   const refresh = () => invalidateAfter("pomodoro.write");
-  const refreshTimeline = () => invalidateAfter("pomodoro.write");
 
   const start = useMutation({
     mutationFn: (kind: "focus" | "short_break") =>
@@ -59,7 +47,7 @@ export function PomodoroWidget() {
   });
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),
-    onSuccess: refreshTimeline,
+    onSuccess: refresh,
   });
   const togglePause = useMutation({
     mutationFn: () => api.post(`/pomodoro/${active?.id}/${active?.paused_at ? "resume" : "pause"}`),

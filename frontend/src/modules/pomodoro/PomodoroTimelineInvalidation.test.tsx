@@ -103,7 +103,9 @@ describe("pomodoro project timeline refresh", () => {
 
   it("refreshes the project timeline after page stops and contextual manual entries", () => {
     const preferences = { focusMinutes: 50, breakMinutes: 10, amoled: true };
-    render(PomodoroPage, ["focus", "week", preferences, Date.now(), false, 50, "", ""]);
+    // Durum sirasi bilesenin hook sirasidir: sekme, aralik, tercihler, tam ekran,
+    // sure, konu, baglam, sonra paylasilan saat hook'u (queries.ts).
+    render(PomodoroPage, ["focus", "week", preferences, false, 50, "", "", Date.now()]);
 
     const stop = findPostMutation("/pomodoro/pomo-1/stop", false);
     expect(stop).toBeDefined();
@@ -116,11 +118,11 @@ describe("pomodoro project timeline refresh", () => {
       "stats",
       "week",
       preferences,
-      Date.now(),
       false,
       50,
       "",
       "",
+      Date.now(),
       true,
       "2026-01-01T09:00",
       50,
@@ -135,7 +137,8 @@ describe("pomodoro project timeline refresh", () => {
   });
 
   it("refreshes the project timeline after widget and focus-mode stops, but not pause", () => {
-    render(PomodoroWidget, [Date.now(), false, false]);
+    // Widget durum sirasi: tam ekran, elle ekleme formu, sonra paylasilan saat hook'u.
+    render(PomodoroWidget, [false, false, Date.now()]);
     const widgetStop = findPostMutation("/pomodoro/pomo-1/stop", true);
     expect(widgetStop).toBeDefined();
     widgetStop?.onSuccess?.();

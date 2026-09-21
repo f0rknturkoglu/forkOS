@@ -36,6 +36,7 @@ import { useOnline } from "@/lib/hooks";
 import { ContextChip, ContextPicker } from "./ContextPicker";
 import { FocusMode } from "./FocusMode";
 import { BREAK_MIN, FOCUS_MIN, focusPreferences, setFocusPreferences, type FocusPreferences } from "./preferences";
+import { useActivePomodoro, usePomodoroClock } from "./queries";
 import { clock, remaining } from "./time";
 
 type FocusTab = "focus" | "stats" | "settings";
@@ -89,7 +90,6 @@ export function PomodoroPage() {
   const [tab, setTab] = useState<FocusTab>("focus");
   const [range, setRange] = useState<AnalyticsRange>("week");
   const [preferences, setPreferencesState] = useState<FocusPreferences>(focusPreferences);
-  const [now, setNow] = useState(Date.now());
   const [focusMode, setFocusMode] = useState(false);
   const [minutes, setMinutes] = useState(preferences.focusMinutes);
   const [topic, setTopic] = useState(params.get("title") ?? params.get("topic") ?? "");
@@ -99,11 +99,8 @@ export function PomodoroPage() {
 
   useAmoled(preferences.amoled);
 
-  const { data: active = null } = useQuery({
-    queryKey: ["pomodoro-active"],
-    queryFn: () => api.get<PomodoroSession | null>("/pomodoro/active"),
-    refetchInterval: 30_000,
-  });
+  const { data: active = null } = useActivePomodoro();
+  const now = usePomodoroClock(active);
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["pomodoro-analytics", range],
     queryFn: () => api.get<PomodoroAnalytics>(`/pomodoro/analytics?range=${range}`),
@@ -112,13 +109,6 @@ export function PomodoroPage() {
     queryKey: ["pomodoro-sessions"],
     queryFn: () => api.get<PomodoroSession[]>("/pomodoro/sessions?limit=80"),
   });
-
-  useEffect(() => {
-    setNow(Date.now());
-    if (!active || active.paused_at) return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [active?.id, active?.paused_at]);
 
   const refresh = () => invalidateAfter("pomodoro.write");
   const start = useMutation({
