@@ -17,7 +17,6 @@ registerModule({
       id: "calendar.events",
       title: "Takvim",
       component: CalendarWidget,
-      region: "secondary",
       order: 35,
       defaultVisible: false,
     },

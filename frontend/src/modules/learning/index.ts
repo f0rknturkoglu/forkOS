@@ -18,12 +18,12 @@ registerModule({
   ],
   todayWidgets: [
     {
+      // P2 §19: ogrenme Home'un CEKIRDEK yuzeyi (sol kolon, planin altinda).
       id: "learning.widget",
       title: "Öğrenme",
       component: LearningWidget,
-      region: "secondary",
-      order: 65,
-      defaultVisible: false,
+      core: "left",
+      order: 60,
     },
   ],
   commands: [

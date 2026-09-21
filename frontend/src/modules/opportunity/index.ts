@@ -12,7 +12,8 @@ registerModule({
   description: "İşleri keşfet, başvuruları ve duyuruları takip et, kariyer profilini yönet.",
   icon: Target,
   routes: [{ path: "/opportunities", element: OpportunityPage }],
-  // Son tarih/takip/bildirim Home'da artik TEK "Dikkat" yuzeyinde toplanir
-  // (`today.attention`); bu modul kendi basina ayri widget tutmaz.
+  // Son tarihler, takipler ve kariyer bildirimleri Home'da IKI ayri hedefli
+  // yuzeyde toplanir (`today.deadlines` + `today.career`); bu modul kendi
+  // basina ayri widget tutmaz.
   commands: [{ id: "opportunity.open", label: "Fırsatları aç", run: () => navigate("/opportunities") }],
 });

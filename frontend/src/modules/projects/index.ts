@@ -17,7 +17,6 @@ registerModule({
       id: "projects.widget",
       title: "Projeler",
       component: ProjectsWidget,
-      region: "secondary",
       order: 55,
       defaultVisible: false,
     },

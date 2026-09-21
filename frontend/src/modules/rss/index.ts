@@ -17,9 +17,9 @@ registerModule({
   icon: Rss,
   routes: [
     { path: "/rss", element: RssPage },
-    // Okuma akisi: RSS + Reddit + Hacker News + GitHub tek listede
-    // (Kütüphane > Okuma Akışı). Veri katmani Home bileseniyle ayni.
-    { path: "/feed", element: FeedPage, title: "Okuma Akışı", icon: Newspaper, navigation: "child" },
+    // Okuma akisi: RSS + Reddit + Hacker News + GitHub tek listede. Home'un ve
+    // RSS sayfasinin parcasidir; Kutuphane'de AYRI satir tutmaz (rota durur).
+    { path: "/feed", element: FeedPage, title: "Okuma Akışı", icon: Newspaper, navigation: "hidden" },
   ],
   todayStats: [RssStats],
   commands: [

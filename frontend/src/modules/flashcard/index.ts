@@ -19,7 +19,6 @@ registerModule({
       id: "flashcard.due",
       title: "Kart tekrarı",
       component: TodayFlashcardWidget,
-      region: "secondary",
       order: 25,
       defaultVisible: false,
     },

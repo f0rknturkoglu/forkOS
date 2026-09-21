@@ -17,7 +17,6 @@ registerModule({
       id: "bookmarks.queue",
       title: "Okuma kuyruğu",
       component: ReadingQueueWidget,
-      region: "secondary",
       order: 50,
       defaultVisible: false,
     },

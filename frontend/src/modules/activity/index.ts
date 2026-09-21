@@ -3,7 +3,7 @@ import { Activity, Flame } from "lucide-react";
 import { registerModule } from "@/core/registry";
 import { navigate } from "@/app/router";
 import { ActivityWidget } from "./ActivityWidget";
-import { Heatmap } from "./Heatmap";
+import { HomeHeatmap } from "./Heatmap";
 import { RhythmWidget } from "./RhythmWidget";
 
 const ActivityPage = lazy(() => import("./ActivityPage").then((module) => ({ default: module.ActivityPage })));
@@ -32,27 +32,25 @@ registerModule({
     { path: "/statistics", element: StatisticsRedirect, title: "İstatistikler", navigation: "hidden" },
     // Emek haritasi karesinin hedefi: #/day?d=YYYY-MM-DD
     { path: "/day", element: DayPage, title: "Gün" },
-    // Haritanin kendi yuzeyi: Etkinlik sayfasinda asagi kaydirmadan acilir
-    // (sidebar: Daha fazla > Etkinlik & Ritim > Isı Haritası).
-    { path: "/activity/heatmap", element: HeatmapPage, title: "Isı Haritası", icon: Flame, navigation: "child" },
+    // Harita artik Etkinlik sayfasinin ICINDE yasar (aralik secici de orada).
+    // Kendi sayfasi yalniz eski baglantilar icin durur; sidebar satiri tutmaz.
+    { path: "/activity/heatmap", element: HeatmapPage, title: "Isı Haritası", icon: Flame, navigation: "hidden" },
   ],
   todayWidgets: [
-    // Harita akisin altinda: gunun listesi once, ritim ozeti hemen ardindan.
     {
+      // P2 §18/§80: isi haritasi Home'un CEKIRDEK yuzeyi (orta kolon).
+      // Home kompakt surumu kullanir: ayni bilesen, ayni sorgu anahtari --
+      // tam tur kirilimi ve aralik secimi Etkinlik sayfasinda kalir.
       id: "activity.heatmap",
-      title: "Emek haritası",
-      component: Heatmap,
-      region: "secondary",
-      order: 30,
-      // Analitik Home'un varsayilan yuku degil: Etkinlik & Ritim kendi
-      // calisma alaninda yasar (Ayarlar > Home'dan geri acilabilir).
-      defaultVisible: false,
+      title: "Isı haritası",
+      component: HomeHeatmap,
+      core: "center",
+      order: 70,
     },
     {
       id: "activity.rhythm",
       title: "Ritim",
       component: RhythmWidget,
-      region: "secondary",
       order: 31,
       defaultVisible: false,
     },
@@ -60,7 +58,6 @@ registerModule({
       id: "activity.widget",
       title: "Etkinlik",
       component: ActivityWidget,
-      region: "secondary",
       order: 90,
       defaultVisible: false,
     },
