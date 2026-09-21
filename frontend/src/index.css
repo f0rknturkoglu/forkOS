@@ -280,54 +280,10 @@
   }
 }
 
-/* ── Home bölgeleri ────────────────────────────────────────────────────────
-   Yerleşim içerikten türetilir: boş bölge ne çizilir ne yer tutar. Eskiden
-   sabit üç sütun vardı (Plan/Akış/Durum); varsayılan Home'da orta sütun boş
-   kaldığı için ekranın ortasında delik oluşuyordu. Şablon artık Home
-   sayfasının hesapladığı CSS değişkenlerinden gelir (`--home-cols`). */
-.home-regions {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.home-priority,
-.home-main,
-.home-rail,
-.home-secondary {
-  min-width: 0;
-}
-
-/* Ana bölge + durum şeridi: mobilde alt alta, geniş ekranda yan yana. */
-.home-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
-}
-
-@media (min-width: 1024px) {
-  .home-split {
-    grid-template-columns: var(--home-cols, minmax(0, 1fr));
-    align-items: start;
-  }
-}
-
-/* İkincil yüzeyler: ana çalışma bölgesinin ALTINDA, mobilde tek sütun. */
-.home-secondary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.25rem;
-  /* Akış/harita gibi yüzeyler kendi kartlarını çizer: bölge yalnız dizer.
-     Ayırıcı çizgi tasarım tokenıyla sayfada verilir (border-subtle). */
-  padding-top: 0.25rem;
-}
-
-@media (min-width: 768px) {
-  .home-secondary {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    align-items: start;
-  }
-}
+/* ── Home iskeleti ─────────────────────────────────────────────────────────
+   Yerleşim `TodayPage`'de Tailwind ile kurulur: masaüstünde üç kolon
+   (`grid-auto-flow: row dense`), dar ekranda tek kolon. Eski `.home-*` bölge
+   kuralları kaldırıldı -- ikinci bir yerleşim kaynağı bırakılmadı. */
 
 @layer components {
   /* Bolum basligi: "BEKLEYENLER" gibi kucuk kapitaller. */

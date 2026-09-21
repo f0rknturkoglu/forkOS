@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, RotateCcw } from "lucide-react";
 import {
   allTodayWidgetViews,
@@ -6,40 +5,44 @@ import {
   resetTodayWidgetPrefs,
   setTodayWidgetHidden,
   setTodayWidgetOrder,
-  type TodayWidgetView,
+  useTodayWidgetViewsIncludingHidden,
 } from "@/core/registry";
-import { focusedConfig, overviewConfig, PRESET_LABELS, type TodayPreset } from "@/core/todayPresets";
+import type { TodayWidgetView } from "@/core/registry";
+import { focusedConfig, overviewConfig, PRESET_LABELS } from "@/core/todayPresets";
+import type { TodayPreset } from "@/core/todayPresets";
 import { Button, Section, cx } from "@/core/ui";
-import type { TodayRegion } from "@/core/types";
+import type { TodayPlacement } from "@/core/types";
 
-/** Home bölgeleri: kullanıcı widget'ın nerede duracağını buradan okur. */
-const REGION_LABELS: Record<TodayRegion, string> = {
-  priority: "Karar bekleyen",
-  main: "Gün",
-  rail: "Dikkat",
-  secondary: "Bağlamsal",
+/** Çekirdek yüzeyin nerede durduğu: kullanıcı iskeleti buradan okur. */
+const PLACEMENT_LABELS: Record<TodayPlacement, string> = {
+  priority: "Üst şerit",
+  left: "Sol kolon",
+  center: "Orta kolon",
+  right: "Sağ kolon",
 };
 
 /**
- * Mevcut ETKIN durumu acik tercihe cevirir: gorunur widget'lar sira,
- * gorunmeyenler (varsayilan-gizli + kullanici-gizli) gizli listesine.
- * Ilk etkilesimde varsayilan odakli duzen bozulmaz (Faz 20).
+ * Mevcut ETKIN durumu acik tercihe cevirir: gorunur istege bagli yuzeyler sira,
+ * gorunmeyenler gizli listesine. Cekirdek yuzeyler yazilmaz -- gizlenemezler.
  */
 function currentConfig(): { order: string[]; hidden: string[] } {
-  const visible = allTodayWidgetViews();
-  const all = allTodayWidgetViewsIncludingHidden();
-  const visibleIds = new Set(visible.map((view) => view.id));
+  const optional = allTodayWidgetViewsIncludingHidden().filter((view) => !view.widget.core);
+  const visible = new Set(allTodayWidgetViews().map((view) => view.id));
   return {
-    order: visible.map((view) => view.id),
-    hidden: all.filter((view) => !visibleIds.has(view.id)).map((view) => view.id),
+    order: optional.filter((view) => visible.has(view.id)).map((view) => view.id),
+    hidden: optional.filter((view) => !visible.has(view.id)).map((view) => view.id),
   };
 }
 
 /**
- * Bugun widget yonetimi (Faz 19/20): gizle/goster, yukari/asagi, preset,
- * varsayilana don. Degisiklik localStorage + backend `today.widget_order` /
- * `today.widget_hidden` ayarlarina yazilir. Widget gizlemek modul rotasini
- * veya Command Palette komutlarini kapatmaz; `modules.disabled` ayri kalir.
+ * Home widget yonetimi (Faz 19/20): İSTEĞE BAĞLI yüzeyleri gizle/göster ve
+ * sırala. Çekirdek yüzeyler iskeleti kurar: listede görünürler ama
+ * gizlenemez/sıralanamazlar (§17). Değişiklik localStorage + backend
+ * `today.widget_order` / `today.widget_hidden` ayarlarına yazılır; Home aynı
+ * oturumda yenilenir (registry reaktif store yayınlar).
+ *
+ * Widget gizlemek modül rotasını veya Command Palette komutlarını kapatmaz;
+ * `modules.disabled` ayrı kalır.
  */
 export function TodayWidgetsSection({
   online,
@@ -48,17 +51,18 @@ export function TodayWidgetsSection({
   online: boolean;
   onPersist: (order: string[], hidden: string[]) => void;
 }) {
-  const [version, setVersion] = useState(0);
-  const views: TodayWidgetView[] = allTodayWidgetViewsIncludingHidden();
+  const views: TodayWidgetView[] = useTodayWidgetViewsIncludingHidden();
   const config = currentConfig();
   const hidden = new Set(config.hidden);
   const order = config.order;
+
+  const coreViews = views.filter((view) => view.widget.core);
+  const optionalViews = views.filter((view) => !view.widget.core);
 
   function commit(nextOrder: string[], nextHidden: string[]) {
     setTodayWidgetOrder(nextOrder);
     setTodayWidgetHidden(nextHidden);
     onPersist(nextOrder, nextHidden);
-    setVersion((value) => value + 1);
   }
 
   function move(id: string, delta: -1 | 1) {
@@ -82,7 +86,6 @@ export function TodayWidgetsSection({
   function reset() {
     resetTodayWidgetPrefs();
     onPersist([], []);
-    setVersion((value) => value + 1);
   }
 
   function applyPreset(preset: TodayPreset) {
@@ -93,8 +96,8 @@ export function TodayWidgetsSection({
   return (
     <Section title="Home bileşenleri">
       <p className="mb-2 text-meta text-muted">
-        Widget'ları gizle, sırala. Sıra ve görünürlük kalıcıdır; modül rotaları ve komutları bundan etkilenmez. Modül
-        kapatılırsa o modülün bütün widget'ları da kapanır.
+        Çekirdek yüzeyler Home iskeletini kurar; her zaman görünürler. İsteğe bağlı yüzeyleri gizleyip sıralayabilirsin.
+        Sıra ve görünürlük kalıcıdır; modül rotaları ve komutları bundan etkilenmez.
       </p>
       <div className="mb-3 flex items-center gap-2">
         <span className="text-meta text-muted">Hazır düzen:</span>
@@ -110,8 +113,23 @@ export function TodayWidgetsSection({
           </Button>
         ))}
       </div>
+
       <ul className="divide-y divide-subtle rounded-card border border-subtle">
-        {views.map((view) => {
+        {coreViews.map((view) => (
+          <li key={view.id} className="flex items-center gap-2 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-body text-primary">{view.title}</p>
+              <p className="text-meta text-muted">
+                {view.moduleId} · {PLACEMENT_LABELS[view.widget.core ?? "center"]} · çekirdek
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mb-2 mt-4 text-meta text-muted">İsteğe bağlı yüzeyler</p>
+      <ul className="divide-y divide-subtle rounded-card border border-subtle">
+        {optionalViews.map((view) => {
           const isHidden = hidden.has(view.id);
           const position = order.indexOf(view.id);
           return (
@@ -121,7 +139,7 @@ export function TodayWidgetsSection({
                   {view.title}
                 </p>
                 <p className="text-meta text-muted">
-                  {view.moduleId} · {REGION_LABELS[view.widget.region ?? "secondary"]} · #{view.widget.order}
+                  {view.moduleId}
                   {isHidden && " · gizli"}
                 </p>
               </div>
@@ -165,7 +183,6 @@ export function TodayWidgetsSection({
         <Button size="sm" variant="ghost" disabled={!online} onClick={reset} title="Varsayılana dön">
           <RotateCcw size={13} /> Varsayılana dön
         </Button>
-        <span className="ml-2 text-meta text-muted">{version > 0 ? "Kaydedildi." : ""}</span>
       </div>
     </Section>
   );

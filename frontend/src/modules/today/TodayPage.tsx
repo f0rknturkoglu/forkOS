@@ -1,55 +1,42 @@
-import type { ReactNode } from "react";
-import { allTodayStats, allTodayWidgetViews } from "@/core/registry";
-import { Empty, PageFrame } from "@/core/ui";
-import type { TodayRegion } from "@/core/types";
+import { allTodayStats, useTodayWidgetViews } from "@/core/registry";
+import type { TodayWidgetView } from "@/core/registry";
+import { Empty, PageFrame, cx } from "@/core/ui";
+import type { TodayPlacement } from "@/core/types";
 import { TodayHero } from "./TodayHero";
 
 /**
  * Home = günün yürütme ekranı.
  *
- * Yerleşim artık eski "Plan / Akış / Durum" ÜÇ SÜTUN modeline göre değil,
- * içeriğe göre kurulur (bkz. `core/types.ts` → `TodayRegion`):
+ * İskelet sabittir ve TEK kaynaktan gelir (`core/types.ts` → `TodayPlacement`):
+ * hero, ardından bekleyen kararlar şeridi ve masaüstünde üç kolon
  *
- *   priority   karar bekleyen işler — tam genişlik, en üstte (boşken çizilmez)
- *   main       ana çalışma bölgesi: şimdi/sırada + günün planı
- *   rail       ana bölgenin yanındaki durum şeridi: dikkat
- *   secondary  ana bölgenin ALTINDA akan ikincil yüzeyler
+ *   sol    bugünün planı + öğrenme
+ *   orta   okuma akışı + ısı haritası (görsel çapa)
+ *   sağ    son tarihler + kariyer
  *
- * Boş bölge ne çizilir ne yer tutar: varsayılan Home'da orta sütun diye bir
- * kavram olmadığı için ekranın ortasında delik oluşmaz. Sütunlar registry'den
- * beslenir; burası hiçbir modülün adını bilmez.
+ * Dar ekranda ızgara tek kolona düşer ve DOM sırası okunur: bekleyen kararlar →
+ * bugünün planı → son tarihler → kariyer → okuma akışı → öğrenme → ısı haritası.
+ * Yani kaydırma sırası, ekran okuyucu sırası ve masaüstü kolonları AYNI
+ * sözleşmeden türer; ikinci bir "mobil düzen" yok.
+ *
+ * Widget'ları Home bilmez: hangi yüzeyin çekirdek olduğunu ve hangi kolona
+ * düştüğünü modül kaydı söyler (`TodayWidget.core`). Çekirdek olmayan yüzeyler
+ * iskeletin ALTINDA akar.
  */
 
-/** Bölgelerin görünen sırası. */
-const REGION_ORDER: TodayRegion[] = ["priority", "main", "rail", "secondary"];
-
-/** Bölge başlıkları — yalnız birden fazla bölge doluyken gösterilir. */
-const REGION_LABELS: Record<TodayRegion, string> = {
-  priority: "Karar bekleyen",
-  main: "Gün",
-  rail: "Dikkat",
-  secondary: "Bağlamsal",
+/** Kolon yerleşimi: masaüstünde açık kolon, dar ekranda tek kolon (DOM sırası). */
+const PLACEMENT_CLASS: Record<TodayPlacement, string> = {
+  priority: "lg:col-span-full",
+  left: "lg:col-start-1",
+  center: "lg:col-start-2",
+  right: "lg:col-start-3",
 };
-
-function renderWidgets(views: { id: string; widget: { component: React.ComponentType } }[], region: TodayRegion) {
-  return views
-    .filter((view) => (view.widget as { region?: TodayRegion }).region === region)
-    .map((view) => {
-      const Widget = view.widget.component;
-      return <Widget key={view.id} />;
-    });
-}
 
 export function TodayPage() {
   const stats = allTodayStats();
-  const views = allTodayWidgetViews();
-  const byRegion = Object.fromEntries(REGION_ORDER.map((region) => [region, renderWidgets(views, region)])) as Record<
-    TodayRegion,
-    ReactNode[]
-  >;
-  const empty = stats.length + views.length === 0;
+  const views = useTodayWidgetViews();
 
-  if (empty) {
+  if (stats.length + views.length === 0) {
     return (
       <PageFrame>
         <TodayHero />
@@ -67,62 +54,33 @@ export function TodayPage() {
           <Tile key={index} />
         ))}
       />
-      <HomeRegions byRegion={byRegion} />
+      <HomeGrid views={views} />
     </PageFrame>
   );
 }
 
 /**
- * Bölgeleri tek bir ızgaraya dizer. Şablon GÖRÜNÜR bölgelerden hesaplanır
- * (CSS değişkenleri): boş bölge yer tutmaz, kalan bölge genişler.
+ * İskelet ızgarası. Masaüstünde üç kolon (`grid-auto-flow: row dense`):
+ * her yüzey kendi kolonuna yerleşir, sırası `order` ile sabittir. Dar ekranda
+ * tek kolon; sıra değişmez.
+ *
+ * Kendini çizmeyen yüzey (veri yokken null dönen kart) ızgarada yer TUTMAZ:
+ * `empty:hidden` boş sarmalayıcıyı düşürür, kalanlar boşluğu kapatır.
  */
-export function HomeRegions({ byRegion }: { byRegion: Record<TodayRegion, ReactNode[]> }) {
-  const hasMain = byRegion.main.length > 0;
-  const hasRail = byRegion.rail.length > 0;
-  const hasSecondary = byRegion.secondary.length > 0;
-  const showLabels = [hasMain, hasRail, hasSecondary].filter(Boolean).length > 1;
-
-  const style = {
-    // Ana bölge esnek, şerit dar; şerit boşsa ana bölge tam genişlik.
-    "--home-cols": hasMain && hasRail ? "minmax(0, 1fr) minmax(280px, 340px)" : "minmax(0, 1fr)",
-    "--home-areas": hasMain && hasRail ? '"main rail"' : hasMain ? '"main"' : '"rail"',
-  } as React.CSSProperties;
-
+export function HomeGrid({ views }: { views: TodayWidgetView[] }) {
   return (
-    <div className="home-regions" style={style}>
-      {byRegion.priority.length > 0 && (
-        <section className="home-priority space-y-4" aria-label={REGION_LABELS.priority}>
-          {byRegion.priority}
-        </section>
-      )}
-
-      {(hasMain || hasRail) && (
-        <div className="home-split">
-          {hasMain && (
-            <section className="home-main space-y-5" aria-label={REGION_LABELS.main}>
-              {showLabels && <ColumnLabel>{REGION_LABELS.main}</ColumnLabel>}
-              {byRegion.main}
-            </section>
-          )}
-          {hasRail && (
-            <aside className="home-rail space-y-5" aria-label={REGION_LABELS.rail}>
-              {showLabels && <ColumnLabel>{REGION_LABELS.rail}</ColumnLabel>}
-              {byRegion.rail}
-            </aside>
-          )}
-        </div>
-      )}
-
-      {hasSecondary && (
-        <section className="home-secondary border-t border-subtle pt-3" aria-label={REGION_LABELS.secondary}>
-          {byRegion.secondary}
-        </section>
-      )}
+    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(13rem,0.9fr)_minmax(0,1.5fr)_minmax(13rem,0.9fr)] lg:[grid-auto-flow:row_dense]">
+      {views.map((view) => {
+        const Widget = view.widget.component;
+        return (
+          <div
+            key={view.id}
+            className={cx("min-w-0 empty:hidden", view.widget.core && PLACEMENT_CLASS[view.widget.core])}
+          >
+            <Widget />
+          </div>
+        );
+      })}
     </div>
   );
-}
-
-/** Bölge başlığı — sadece bölgeler ayrıştığında görünür. */
-function ColumnLabel({ children }: { children: ReactNode }) {
-  return <p className="label-caps hidden border-b border-subtle pb-1.5 md:block">{children}</p>;
 }

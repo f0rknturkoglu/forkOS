@@ -2,19 +2,25 @@
 /**
  * Home bileşen sözleşmesi (Productization P2).
  *
- * Home artık "her modülden biraz göster" panosu değil: temiz kurulumda yalnız
- * yürütmeyle ilgili yüzeyler görünür, geri kalanı kayıtlı ama ikincil kalır.
+ * Home artık "her modülden biraz göster" panosu değil: iki katmanı var.
+ *
+ *   ÇEKİRDEK (`TodayWidget.core`) → Home iskeleti. Her zaman görünür,
+ *     gizlenemez/sıralanamaz; DOM sırası dar ekranda okuma sırasıdır.
+ *   İSTEĞE BAĞLI (core yok) → Ayarlar'dan gizlenir/sıralanır, iskeletin
+ *     altında akar.
  *
  * Kapsam:
- *   - benzersiz kalıcı widget kimlikleri,
- *   - temiz kurulumda görünen TAM set (sakin varsayılan),
- *   - ikincil yüzeylerin varsayılan gizliliği ve Ayarlar'dan geri açılabilmesi,
- *   - kullanıcı sırası/gizleme tercihinin korunması,
- *   - eski (Faz 5) modül sırasının widget sırasına göçü.
+ *   - benzersiz kalıcı widget kimlikleri ve iki katmanın tam ayrımı,
+ *   - çekirdek iskeletin SABİT sırası; eski gizleme kayıtlarının işlememesi,
+ *   - isteğe bağlı yüzeylerin gizlenmesi/sıralanması ve preset'ler,
+ *   - tercih değişiminin AYNI oturumda render'a yansıması (reaktivite),
+ *   - sunucu anlık görüntüsünün yerel tercihi ezmemesi.
  *
  * `today` teknik ad alanı bilinçli olarak korunur; yalnız görünen ad Home'dur.
  */
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { createElement } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@/modules"; // registerModule cagrilari
 import {
   allTodayWidgetViews,
@@ -22,28 +28,35 @@ import {
   allTodayWidgetViewsIncludingHidden,
   allRoutes,
   allGlobalSurfaces,
+  hydrateSettings,
   setTodayWidgetHidden,
   setTodayWidgetOrder,
+  useTodayWidgetViews,
 } from "./registry";
 import { focusedConfig, overviewConfig } from "./todayPresets";
 
-/** Temiz kurulumda görünen yüzeyler: yürütme odaklı, bilinçli olarak az. */
-const FOCUSED_HOME = ["today.pending-decisions", "today.attention", "today.now-next", "today.agenda"];
-
-/** İkincil: kayıtlı ve açılabilir, ama varsayılan Home'da görünmez. */
-const SECONDARY_HOME = [
+/** Çekirdek iskelet: DOM sırası = dar ekranda okuma sırası. */
+const CORE_HOME = [
+  "today.pending-decisions",
+  "today.agenda",
+  "today.deadlines",
+  "today.career",
   "today.feed-stream",
+  "learning.widget",
+  "activity.heatmap",
+];
+
+/** İsteğe bağlı yüzeyler: kayıtlı, kullanıcı tercihine açık, iskeletin altında. */
+const OPTIONAL_HOME = [
+  "today.now-next",
   "today.rhythm",
   "today.quick-links",
-  "activity.heatmap",
   "activity.rhythm",
   "activity.widget",
   "inbox.widget",
-  "learning.widget",
   "flashcard.due",
   "bookmarks.queue",
   "calendar.events",
-  "documents.recent",
   "finance.recurring",
   "health.sources",
   "media.continue",
@@ -53,126 +66,179 @@ const SECONDARY_HOME = [
   "todo.overdue",
 ];
 
-const store = new Map<string, string>();
-
-beforeAll(() => {
+/** jsdom ortaminda localStorage yok: tercih katmani icin Map tabanli taklit. */
+const store = vi.hoisted(() => {
+  const values = new Map<string, string>();
   Object.defineProperty(globalThis, "localStorage", {
-    value: {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => {
-        store.set(k, v);
-      },
-      removeItem: (k: string) => {
-        store.delete(k);
-      },
-      clear: () => {
-        store.clear();
-      },
-      key: () => null,
-      get length() {
-        return store.size;
-      },
-    },
     configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+      clear: () => values.clear(),
+    },
   });
+  return values;
 });
 
-beforeEach(() => {
-  store.clear();
-});
+function ids(views: { id: string }[]): string[] {
+  return views.map((view) => view.id);
+}
+
+function HomeProbe() {
+  const widgets = useTodayWidgetViews();
+  return createElement(
+    "ul",
+    null,
+    widgets.map((view) => createElement("li", { key: view.id }, view.id)),
+  );
+}
 
 describe("Home bileşen sözleşmesi", () => {
+  beforeEach(() => store.clear());
+  afterEach(cleanup);
+
   it("hızlı işlem dock'unu her rotada tek global yüzey olarak kaydeder", () => {
     expect(allGlobalSurfaces().some((Surface) => Surface.name === "QuickActionDock")).toBe(true);
   });
 
-  it("benzersiz kalıcı kimlikler ve kalıcı başlıklar taşır", () => {
+  it("benzersiz kalıcı kimlikler taşır", () => {
     const widgets = allTodayWidgets();
-    const ids = widgets.map((widget) => widget.id);
-    expect(ids.length).toBeGreaterThanOrEqual(14);
-    expect(new Set(ids).size).toBe(ids.length);
+    const widgetIds = widgets.map((widget) => widget.id);
+    expect(widgetIds.length).toBeGreaterThanOrEqual(14);
+    expect(new Set(widgetIds).size).toBe(widgetIds.length);
     for (const widget of widgets) {
       expect(widget.id).toMatch(/^[a-z0-9.-]+$/);
       expect(widget.title.length).toBeGreaterThan(0);
     }
   });
 
-  it("temiz kurulumda yalnız yürütme odaklı yüzeyler görünür", () => {
-    expect(allTodayWidgetViews().map((view) => view.id)).toEqual(FOCUSED_HOME);
-  });
-
-  it("ikincil yüzeylerin hepsi kayıtlı, varsayılan gizli ve geri açılabilir", () => {
-    const visible = new Set(allTodayWidgetViews().map((view) => view.id));
-    const registered = new Set(allTodayWidgets().map((widget) => widget.id));
-    for (const id of SECONDARY_HOME) {
-      expect(registered.has(id)).toBe(true);
-      expect(visible.has(id)).toBe(false);
+  it("kayıtlı widget'lar çekirdek/isteğe bağlı ayrımına tam oturur", () => {
+    expect(new Set(allTodayWidgets().map((widget) => widget.id))).toEqual(new Set([...CORE_HOME, ...OPTIONAL_HOME]));
+    // `core` alanı Home iskeletini TEK başına belirler: ayrım başka yerde tutulmaz.
+    for (const widget of allTodayWidgets()) {
+      expect(Boolean(widget.core)).toBe(CORE_HOME.includes(widget.id));
     }
-    // Ayarlar > Home: gizliler listede görünür ki geri açılabilsin.
-    const includable = new Set(allTodayWidgetViewsIncludingHidden().map((view) => view.id));
-    for (const id of SECONDARY_HOME) expect(includable.has(id)).toBe(true);
+  });
 
-    // Kullanıcı açıkça isterse hepsi yeniden görünür (güç kullanıcı yolu).
+  it("temiz kurulumda çekirdek iskelet sabit sırada görünür", () => {
+    const visible = ids(allTodayWidgetViews());
+    expect(visible.slice(0, CORE_HOME.length)).toEqual(CORE_HOME);
+    // Varsayılan görünür isteğe bağlı yüzey: yalnız "Şimdi ve sırada".
+    expect(visible.slice(CORE_HOME.length)).toEqual(["today.now-next"]);
+  });
+
+  it("çekirdek yüzeyler gizlenemez ve kullanıcı sırasıyla değişmez", () => {
+    setTodayWidgetHidden([...CORE_HOME, ...OPTIONAL_HOME]);
+    expect(ids(allTodayWidgetViews()).slice(0, CORE_HOME.length)).toEqual(CORE_HOME);
+
+    setTodayWidgetOrder([...OPTIONAL_HOME].reverse());
+    expect(ids(allTodayWidgetViews()).slice(0, CORE_HOME.length)).toEqual(CORE_HOME);
+  });
+
+  it("isteğe bağlı yüzeyler gizlenebilir ve kullanıcı sırasına uyar", () => {
+    setTodayWidgetHidden(OPTIONAL_HOME);
+    expect(ids(allTodayWidgetViews())).toEqual(CORE_HOME);
+
+    // Açık tercih yazıldıktan sonra görünürlüğü kullanıcı belirler.
     setTodayWidgetHidden([]);
-    const reopened = new Set(allTodayWidgetViews().map((view) => view.id));
-    for (const id of SECONDARY_HOME) expect(reopened.has(id)).toBe(true);
+    expect(new Set(ids(allTodayWidgetViews()))).toEqual(new Set([...CORE_HOME, ...OPTIONAL_HOME]));
+
+    setTodayWidgetOrder([...OPTIONAL_HOME].reverse());
+    expect(ids(allTodayWidgetViews()).slice(CORE_HOME.length)).toEqual([...OPTIONAL_HOME].reverse());
   });
 
-  it("kullanici sirasi render sirasini degistirir", () => {
-    const order = allTodayWidgetViews().map((view) => view.id);
-    // Ayarlar ekrani sirayi ve gizlemeyi BIRLIKTE yazar (tek tercih nesnesi).
-    setTodayWidgetHidden(SECONDARY_HOME);
-    setTodayWidgetOrder([...order].reverse());
-    expect(allTodayWidgetViews().map((view) => view.id)).toEqual([...order].reverse());
+  it("sıfırlama varsayılan düzene döner", () => {
+    setTodayWidgetHidden(["today.now-next"]);
+    const hiddenNow = ids(allTodayWidgetViews());
+    expect(hiddenNow).not.toContain("today.now-next");
+    // Açık tercih yazıldığında görünürlüğü liste belirler (Faz 20 kuralı).
+    expect(hiddenNow).toContain("todo.overdue");
+
+    store.clear();
+    expect(ids(allTodayWidgetViews())).toEqual([...CORE_HOME, "today.now-next"]);
   });
 
-  it("gizlenen widget render edilmez ama modul rotasi acik kalir", () => {
-    const target = allTodayWidgets()[0];
-    setTodayWidgetHidden([target.id]);
-    expect(allTodayWidgetViews().map((view) => view.id)).not.toContain(target.id);
-    expect(allRoutes().length).toBeGreaterThan(0);
-  });
-
-  it("bilinmeyen id uygulamayi bozmaz", () => {
-    setTodayWidgetHidden([...SECONDARY_HOME, "bilinmeyen.widget"]);
-    setTodayWidgetOrder(["bilinmeyen.widget", "ayrıca.yok"]);
-    expect([...allTodayWidgetViews().map((view) => view.id)].sort()).toEqual([...FOCUSED_HOME].sort());
-  });
-
-  it("presetler: odaklı ikincilleri gizler, genel bakış hepsini açar", () => {
+  it("presetler yalnız isteğe bağlı yüzeylere dokunur", () => {
     const focused = focusedConfig();
-    expect(focused.hidden).toContain("today.feed-stream");
-    expect(focused.hidden).toContain("activity.heatmap");
+    expect(new Set(focused.hidden)).toEqual(new Set(OPTIONAL_HOME));
     expect(focused.hidden).not.toContain("today.agenda");
     setTodayWidgetHidden(focused.hidden);
     setTodayWidgetOrder(focused.order);
-    expect([...allTodayWidgetViews().map((view) => view.id)].sort()).toEqual([...FOCUSED_HOME].sort());
+    expect(ids(allTodayWidgetViews())).toEqual(CORE_HOME);
 
     const overview = overviewConfig();
-    expect(overview.hidden).toEqual([]);
+    expect(overview).toEqual({ order: [], hidden: [] });
     setTodayWidgetHidden(overview.hidden);
     setTodayWidgetOrder(overview.order);
-    expect(allTodayWidgetViews().length).toBeGreaterThan(FOCUSED_HOME.length);
-    expect(allTodayWidgetViews().some((view) => view.id === "today.feed-stream")).toBe(true);
+    expect(new Set(ids(allTodayWidgetViews()))).toEqual(new Set([...CORE_HOME, ...OPTIONAL_HOME]));
   });
 
-  it("eski varsayilan gizleme kaydini yok sayar ama acik kullanici tercihini korur", () => {
-    store.set("lifeos.todayWidgetHidden", JSON.stringify(["today.agenda"]));
-    // Dokunulmamış tercih: yeni varsayılan kazanır.
-    expect(allTodayWidgetViews().some((view) => view.id === "today.agenda")).toBe(true);
-
-    // Kullanıcı açıkça gizlerse saygı görür (varsayılanı açık olsa bile).
-    setTodayWidgetHidden(["today.agenda"]);
-    expect(allTodayWidgetViews().some((view) => view.id === "today.agenda")).toBe(false);
+  it("bilinmeyen id uygulamayı bozmaz", () => {
+    setTodayWidgetHidden(["bilinmeyen.widget"]);
+    setTodayWidgetOrder(["bilinmeyen.widget", "ayrıca.yok"]);
+    expect(new Set(ids(allTodayWidgetViews()))).toEqual(new Set([...CORE_HOME, ...OPTIONAL_HOME]));
   });
 
-  it("eski modul ID sirasi widget id'lerine goc eder", () => {
-    store.set("lifeos.widgetOrder", JSON.stringify(["today"]));
-    const todayWidgetIds = allTodayWidgetViewsIncludingHidden()
-      .filter((view) => view.moduleId === "today")
-      .map((view) => view.id);
-    expect(todayWidgetIds.length).toBe(7);
-    // Modül sırası göç eder; temiz kurulum varsayılanı yine yürütme odaklıdır.
-    expect([...allTodayWidgetViews().map((view) => view.id)].sort()).toEqual([...FOCUSED_HOME].sort());
+  it("gizlenen widget render edilmez ama modül rotası açık kalır", () => {
+    setTodayWidgetHidden(["today.now-next"]);
+    expect(ids(allTodayWidgetViews())).not.toContain("today.now-next");
+    expect(allRoutes().length).toBeGreaterThan(0);
+  });
+
+  it("eski modül ID sırası widget sırasına göç eder", () => {
+    localStorage.setItem("lifeos.widgetOrder", JSON.stringify(["today"]));
+    const todayWidgetIds = ids(allTodayWidgetViewsIncludingHidden().filter((view) => view.moduleId === "today"));
+    expect(new Set(todayWidgetIds)).toEqual(
+      new Set([
+        "today.pending-decisions",
+        "today.agenda",
+        "today.deadlines",
+        "today.career",
+        "today.feed-stream",
+        "today.now-next",
+        "today.rhythm",
+        "today.quick-links",
+      ]),
+    );
+    // Göç yalnız isteğe bağlı sırayı etkiler; iskelet sırası sabittir.
+    expect(ids(allTodayWidgetViews()).slice(0, CORE_HOME.length)).toEqual(CORE_HOME);
+  });
+
+  it("tercih değişimi aynı oturumda render'ı günceller (reload yok)", () => {
+    render(createElement(HomeProbe));
+    expect(screen.getByText("today.now-next")).toBeTruthy();
+
+    act(() => setTodayWidgetHidden(["today.now-next"]));
+    expect(screen.queryByText("today.now-next")).toBeNull();
+
+    act(() => setTodayWidgetHidden([]));
+    expect(screen.getByText("today.now-next")).toBeTruthy();
+  });
+
+  it("başka sekmenin yazımı (storage olayı) render'ı tazeler", () => {
+    render(createElement(HomeProbe));
+    expect(screen.getByText("today.now-next")).toBeTruthy();
+
+    // Başka sekme localStorage'a yazdı: bu sekmede yalnız `storage` olayı düşer.
+    localStorage.setItem("forkos.todayPrefsTouched", "1");
+    localStorage.setItem("forkos.todayWidgetHidden", JSON.stringify(["today.now-next"]));
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "forkos.todayWidgetHidden", newValue: '["today.now-next"]' }),
+      );
+    });
+    expect(screen.queryByText("today.now-next")).toBeNull();
+  });
+
+  it("sunucu anlık görüntüsü yerel tercihi EZMEZ, yalnız dokunulmamışken tohumlar", () => {
+    // 1) Bu cihazda tercih yok: sunucudaki gizleme tohumlanır ve geçerli olur.
+    hydrateSettings({ "today.widget_order": ["today.now-next"], "today.widget_hidden": ["today.now-next"] });
+    expect(ids(allTodayWidgetViews())).not.toContain("today.now-next");
+
+    // 2) Kullanıcı yerelde widget'ı açtı: sunucudaki eski liste artık kazanamaz.
+    setTodayWidgetHidden([]);
+    hydrateSettings({ "today.widget_order": [], "today.widget_hidden": ["today.now-next"] });
+    expect(ids(allTodayWidgetViews())).toContain("today.now-next");
   });
 });

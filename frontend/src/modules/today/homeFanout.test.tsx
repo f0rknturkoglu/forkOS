@@ -1,25 +1,20 @@
 // @vitest-environment jsdom
 /**
- * Home istek sözleşmesi (P4 §38/§40).
+ * Home istek sözleşmesi (P4 §38/§40, P2 §13-§19).
  *
- * Home'un temiz kurulumdaki yüzeyleri KÜÇÜK ve öngörülebilir bir uç kümesi
- * kullanmalıdır: aynı uç farklı parametrelerle iki kez çağrılmaz ve sayfa
- * açılışı sınırlı sayıda istek üretir. Bu test fan-out'un sessizce geri
- * gelmesini engeller.
+ * Home'un çekirdek yüzeyleri KÜÇÜK ve öngörülebilir bir uç kümesi kullanır:
+ * aynı uç farklı parametrelerle iki kez çağrılmaz ve sayfa açılışı sınırlı
+ * sayıda istek üretir. Bu test fan-out'un sessizce geri gelmesini engeller.
  *
  * Ölçüm gerçek render üzerinden yapılır (fetch kaydı); statik tahmin değildir.
- *
- * Ürünleştirme öncesi aynı ölçüm 22 ayrı uç gösteriyordu (akış, emek haritası,
- * ritim, kart, gelen kutusu, öğrenme, üç fırsat widget'ı ...). Home v2 sonrası
- * temiz kurulumda çağrılan uçlar:
- *   /api/execution/plans, /api/today/agenda, /api/todos, /api/plan,
- *   /api/activity, /api/reviews, /api/deadlines, /api/opportunities/followups,
- *   /api/notifications, /api/bookmarks/stats, /api/rss/stats
+ * Çekirdek iskelet: bekleyen kararlar, bugünün planı, son tarihler, kariyer,
+ * okuma akışı, öğrenme ve ısı haritası.
  */
 import "@/modules";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { allTodayWidgets, setTodayWidgetHidden } from "@/core/registry";
 import { ToastProvider } from "@/core/ui";
 import { TodayPage } from "./TodayPage";
 
@@ -45,7 +40,31 @@ let calls: Recorded[] = [];
 
 const AGENDA = {
   day: "2026-01-01",
-  timed: [],
+  timed: [
+    {
+      kind: "todo",
+      source: "planned",
+      id: "timed-1",
+      slot_id: "slot-1",
+      title: "Sıradaki iş",
+      completed: false,
+      action: "complete_todo",
+      read_only: false,
+      context_only: false,
+      starts_at: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+      duration_min: 30,
+      parent_id: null,
+      project_title: null,
+      feed_title: null,
+      url: null,
+      recur: null,
+      media_kind: null,
+      media_status: null,
+      progress_label: null,
+      cover_url: null,
+      children: [],
+    },
+  ],
   checklist: [],
   completed: [],
   auto_suggestions: true,
@@ -59,9 +78,28 @@ function bodyFor(path: string): unknown {
   return [];
 }
 
+/** Çekirdek yüzeylerin dokunduğu uçlar: biri düşerse Home eksik kalır. */
+const CORE_ENDPOINTS = [
+  "/api/execution/plans",
+  "/api/today/agenda",
+  "/api/todos",
+  "/api/plan",
+  "/api/deadlines",
+  "/api/opportunities/followups",
+  "/api/notifications",
+  "/api/rss/items",
+  "/api/news/reddit",
+  "/api/news/hacker-news",
+  "/api/news/github-trending",
+  "/api/courses",
+  "/api/study/stale",
+  "/api/activity/heatmap",
+];
+
 describe("Home istek sözleşmesi", () => {
   beforeEach(() => {
     calls = [];
+    localStorage.clear();
     Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
     vi.stubGlobal(
       "fetch",
@@ -77,9 +115,12 @@ describe("Home istek sözleşmesi", () => {
     );
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
-  it("temiz kurulumda sınırlı sayıda uç çağırır ve aynı isteği tekrarlamaz", async () => {
+  it("çekirdek yüzeyleri yükler, aynı isteği tekrarlamaz", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -91,23 +132,43 @@ describe("Home istek sözleşmesi", () => {
 
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     // Sorgular yerleşene kadar kısa bir pencere bekle.
-    await waitFor(() => expect(new Set(calls.map((call) => call.path)).size).toBeGreaterThan(3));
+    await waitFor(() => expect(new Set(calls.map((call) => call.path)).size).toBeGreaterThan(8));
 
     const gets = calls.filter((call) => call.method === "GET");
     const uniquePaths = new Set(gets.map((call) => call.path));
     // Aynı yol+parametre iki kez istenmez (paylaşılan anahtar sözleşmesi).
     expect(gets.length).toBe(uniquePaths.size);
-    // Temiz kurulum Home'u bounded kalır: 4 yüzey + hero sayaçları.
-    expect(uniquePaths.size).toBeLessThanOrEqual(12);
-    // Dört yürütme yüzeyi gerçekten yüklü: biri sessizce düşerse test kırılır.
-    for (const prefix of [
-      "/api/execution/plans",
-      "/api/today/agenda",
-      "/api/deadlines",
-      "/api/opportunities/followups",
-      "/api/notifications",
-    ]) {
+    // Çekirdek iskelet bounded kalır: 7 yüzey + hero sayaçları.
+    expect(uniquePaths.size).toBeLessThanOrEqual(20);
+    for (const prefix of CORE_ENDPOINTS) {
       expect([...uniquePaths].some((path) => path.startsWith(prefix))).toBe(true);
     }
+  });
+
+  it("widget tercihi değişince Home aynı oturumda güncellenir (reload yok)", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <TodayPage />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+
+    // İsteğe bağlı yüzey görünür: "Şimdi ve sırada".
+    await waitFor(() => expect(screen.queryByText("Şimdi ve sırada")).toBeTruthy());
+
+    // Ayarlar > Home aynı anda yazar; Home yeniden mount edilmeden güncellenir.
+    act(() => setTodayWidgetHidden(["today.now-next"]));
+    await waitFor(() => expect(screen.queryByText("Şimdi ve sırada")).toBeNull());
+
+    // Çekirdek yüzeyler gizleme listesinden etkilenmez: isteğe bağlı katman
+    // tamamen gizlense bile iskelet ayakta kalır.
+    const optionalIds = allTodayWidgets()
+      .filter((widget) => !widget.core)
+      .map((widget) => widget.id);
+    act(() => setTodayWidgetHidden([...optionalIds, "today.agenda"]));
+    expect(screen.queryByText("Bugünün planı")).toBeTruthy();
+    expect(screen.queryByText("Şimdi ve sırada")).toBeNull();
   });
 });

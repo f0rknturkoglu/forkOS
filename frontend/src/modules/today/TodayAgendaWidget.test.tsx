@@ -266,7 +266,7 @@ describe("unified Today agenda", () => {
     expect(harness.queries[0].queryKey).toEqual(["today-agenda", localDateKey(new Date())]);
   });
 
-  it("uses the existing owners for completion, planning, removal and settings", async () => {
+  it("uses the existing owners for completion, removal and planning", async () => {
     renderToStaticMarkup(<TodayAgendaWidget />);
 
     const complete = mutationNamed("today-complete");
@@ -276,26 +276,13 @@ describe("unified Today agenda", () => {
     await complete?.mutationFn?.(rssRow as never);
     expect(harness.apiPost).toHaveBeenCalledWith("/rss/items/rss-1/read");
 
-    const schedule = mutationNamed("today-schedule");
-    await schedule?.mutationFn?.({
-      row: { ...todoRow, id: "suggested-1" },
-      day: agenda.day,
-      start: "10:15",
-      duration: "45",
-    } as never);
-    expect(schedule).toBeDefined();
-    expect(harness.apiPost).toHaveBeenCalledWith("/plan", {
-      entity_id: "suggested-1",
-      day: agenda.day,
-      start_min: 615,
-      duration_min: 45,
-    });
     const remove = mutationNamed("today-remove");
     await remove?.mutationFn?.(rssRow as never);
     expect(harness.apiDel).toHaveBeenCalledWith("/plan/slot-rss");
-    const toggleAuto = mutationNamed("today-auto");
-    await toggleAuto?.mutationFn?.(false as never);
-    expect(harness.apiPut).toHaveBeenCalledWith("/settings/today.auto_suggestions", { value: false });
+
+    // Otomatik mod kaldirildi (§20): ayar ucu UI'dan cagrilmaz.
+    expect(mutationNamed("today-auto")).toBeUndefined();
+    expect(mutationNamed("today-schedule")).toBeUndefined();
 
     complete?.onSuccess?.();
     expect(harness.invalidate).toHaveBeenCalledWith(
@@ -307,6 +294,16 @@ describe("unified Today agenda", () => {
     );
   });
 
+  it("shows no automatic suggestion surface", () => {
+    const markup = renderToStaticMarkup(<TodayAgendaWidget />);
+
+    expect(markup).not.toContain("Öneriler");
+    expect(markup).not.toContain("Devam edenler");
+    expect(markup).not.toContain("oto ");
+    expect(markup).not.toContain("Birinci öneri");
+    expect(markup).not.toContain("Tekrar edilecek konu");
+  });
+
   it("links planned media to its logging target without treating it as a todo", () => {
     const markup = renderToStaticMarkup(<TodayAgendaWidget />);
 
@@ -315,13 +312,8 @@ describe("unified Today agenda", () => {
     expect(markup).not.toContain("Dune tamamla");
   });
 
-  it("does not duplicate open todos in suggestions and keeps completed rows collapsed", () => {
+  it("keeps completed rows collapsed until asked", () => {
     render(<TodayAgendaWidget />);
-
-    expect(screen.queryByText("Birinci öneri")).toBeNull();
-    expect(screen.queryByText("İkinci öneri")).toBeNull();
-    expect(screen.getByText("Üçüncü öneri")).toBeTruthy();
-    expect(screen.getByText("Tekrar edilecek konu")).toBeTruthy();
 
     const completedToggle = screen.getByRole("button", { name: /Tamamlananlar/ });
     expect(completedToggle.getAttribute("aria-expanded")).toBe("false");
@@ -332,50 +324,8 @@ describe("unified Today agenda", () => {
     expect(screen.getByText("Biten görev")).toBeTruthy();
   });
 
-  it("keeps in-progress media visible when automatic suggestions are disabled", () => {
-    const originalAuto = agenda.auto_suggestions;
-    const originalMedia = agenda.suggestions.media;
-    agenda.auto_suggestions = false;
-    agenda.suggestions.media = [{ ...mediaRow, id: "continue-media", title: "Devam eden kitap", source: "suggestion" }];
-
-    try {
-      const markup = renderToStaticMarkup(<TodayAgendaWidget />);
-      expect(markup).toContain("Devam edenler");
-      expect(markup).toContain("Devam eden kitap");
-      expect(markup).not.toContain("Tekrar edilecek konu");
-    } finally {
-      agenda.auto_suggestions = originalAuto;
-      agenda.suggestions.media = originalMedia;
-    }
-  });
-
-  it("preserves flashcard-before-media suggestion precedence when automatic suggestions are enabled", () => {
-    const originalFlashcards = agenda.suggestions.flashcards;
-    const originalMedia = agenda.suggestions.media;
-    agenda.suggestions.flashcards = [
-      {
-        ...todoRow,
-        kind: "flashcard",
-        id: "flash-1",
-        title: "Önce tekrar",
-        source: "suggestion",
-        read_only: true,
-        action: null,
-      },
-    ];
-    agenda.suggestions.media = [{ ...mediaRow, id: "continue-1", title: "Sonra medya", source: "suggestion" }];
-    try {
-      const markup = renderToStaticMarkup(<TodayAgendaWidget />);
-      expect(markup.indexOf("Önce tekrar")).toBeLessThan(markup.indexOf("Sonra medya"));
-    } finally {
-      agenda.suggestions.flashcards = originalFlashcards;
-      agenda.suggestions.media = originalMedia;
-    }
-  });
-
-  it("uses entity navigation targets for study and interview rows and labels tomorrow", () => {
+  it("uses entity navigation targets for interview rows and labels tomorrow", () => {
     const originalTimed = agenda.timed;
-    const originalStudy = agenda.suggestions.study;
     hydrateEntityRegistry([
       {
         type: "opportunity",
@@ -383,15 +333,6 @@ describe("unified Today agenda", () => {
         label_plural: "Fırsatlar",
         route: "/opportunities?focus={id}",
         icon: "Target",
-        searchable: true,
-        linkable: true,
-      },
-      {
-        type: "study_topic",
-        label: "Konu",
-        label_plural: "Konular",
-        route: "/learning?focus={id}",
-        icon: "BookOpen",
         searchable: true,
         linkable: true,
       },
@@ -410,29 +351,13 @@ describe("unified Today agenda", () => {
         starts_at: appLocalToUtc(tomorrowKey(), 9, 0),
       },
     ];
-    agenda.suggestions.study = [
-      {
-        ...todoRow,
-        kind: "study",
-        id: "study-row",
-        entity_id: "study-target",
-        entity_type: "study_topic",
-        title: "Çalışma konusu",
-        source: "suggestion",
-        read_only: true,
-        action: null,
-      },
-    ];
     try {
       const markup = renderToStaticMarkup(<TodayAgendaWidget />);
       expect(markup).toContain('href="#/opportunities?focus=opportunity-target"');
-      expect(markup).toContain('href="#/learning?focus=study-target"');
       expect(markup).not.toContain("focus=interview-row");
-      expect(markup).not.toContain("focus=study-row");
       expect(markup).toContain("Yarın 09:00");
     } finally {
       agenda.timed = originalTimed;
-      agenda.suggestions.study = originalStudy;
       hydrateEntityRegistry([]);
     }
   });
@@ -447,7 +372,7 @@ describe("unified Today agenda", () => {
     await waitFor(() => expect(harness.apiPost).toHaveBeenCalledWith("/todos/todo-1/complete"));
   });
 
-  it("creates a todo with plan_day=today directly from the inline composer", async () => {
+  it("creates a todo through the canonical createTask path with plan_day=today", async () => {
     render(<TodayAgendaWidget />);
 
     const input = screen.getByPlaceholderText("Bugüne hızlı görev ekle... (Enter ile kaydet)");
@@ -464,6 +389,9 @@ describe("unified Today agenda", () => {
       plan_day: localDateKey(new Date()),
       priority: 2,
     });
+
+    createMutation?.onSuccess?.();
+    expect(harness.invalidate).toHaveBeenCalledWith("todo.write", "plan.write");
   });
 
   it("deletes a todo directly from the agenda row", async () => {

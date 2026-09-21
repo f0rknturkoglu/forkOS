@@ -1,12 +1,12 @@
 import { allTodayWidgets } from "./registry";
 
 /**
- * Bugun hazir preset'leri (Faz 20).
+ * Home hazır düzenleri (Faz 20).
  *
- * Preset secmek kullanici ayarini ACIKCA degistirir: siralamayi ve
- * gizlemeyi birebir yazar (gizli sihirli davranis yok). Odakli, gorevi
- * one cikarir: akis/ikincil durum widget'lari gizlidir ama ayarlardan
- * acilabilir. Genel bakis her seyi varsayilan duzende gosterir.
+ * Çekirdek iskelet her düzende AYNIdır: çekirdek yüzeyler gizlenemez ve
+ * sıralanamaz (bkz. `TodayWidget.core`). Preset seçmek kullanıcı tercihini
+ * açıkça değiştirir ve yalnız İSTEĞE BAĞLI yüzeylere dokunur -- sihirli
+ * davranış yok.
  */
 
 export type TodayPreset = "focused" | "overview";
@@ -16,16 +16,20 @@ interface TodayPresetConfig {
   hidden: string[];
 }
 
-/** Odakli: ikincil (defaultVisible=false) widget'lar gizli, kalanlar varsayilan order. */
-export function focusedConfig(): TodayPresetConfig {
-  const widgets = allTodayWidgets();
-  return {
-    order: widgets.map((widget) => widget.id),
-    hidden: widgets.filter((widget) => widget.defaultVisible === false).map((widget) => widget.id),
-  };
+/** İsteğe bağlı yüzeylerin kimlikleri (kayıt sırasında). */
+function optionalIds(): string[] {
+  return allTodayWidgets()
+    .filter((widget) => !widget.core)
+    .map((widget) => widget.id);
 }
 
-/** Genel bakis: hicbir tercih yok -- her sey varsayilan slot/order'da gorunur. */
+/** Odaklı: çekirdek iskelet kalır, isteğe bağlı yüzeylerin hepsi gizlenir. */
+export function focusedConfig(): TodayPresetConfig {
+  const optional = optionalIds();
+  return { order: optional, hidden: optional };
+}
+
+/** Genel bakış: bütün isteğe bağlı yüzeyler görünür (varsayılan düzen). */
 export function overviewConfig(): TodayPresetConfig {
   return { order: [], hidden: [] };
 }

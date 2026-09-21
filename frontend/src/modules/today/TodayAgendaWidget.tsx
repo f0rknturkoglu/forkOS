@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -26,6 +26,7 @@ import { navigate } from "@/app/router";
 import { api, qs } from "@/core/api";
 import { entityRoute } from "@/core/entityRegistry";
 import { invalidateAfter } from "@/core/invalidation";
+import { createTask, invalidateTaskWrite } from "@/core/tasks";
 import type { ActivityEvent, AgendaRow, PlanSlot, TodayAgenda, Todo } from "@/core/types";
 import {
   Button,
@@ -50,13 +51,6 @@ const RECUR_LABELS: Record<NonNullable<AgendaRow["recur"]>, string> = {
   weekly: "her hafta",
   monthly: "her ay",
 };
-
-function startMinute(value: string): number | null {
-  if (!value) return null;
-  const [hour, minute] = value.split(":").map(Number);
-  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
-  return hour * 60 + minute;
-}
 
 function clockLabel(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -175,15 +169,13 @@ export function TodayAgendaWidget() {
 
   const createTodo = useMutation({
     mutationKey: ["today-create-todo"],
-    mutationFn: (title: string) =>
-      api.post<Todo>("/todos", {
-        title,
-        plan_day: day,
-        priority: 2,
-      }),
+    // KANONIK yol (Faz 17): satir ici ekleme de `createTask`'tan gecer, boylece
+    // plan_day/due_at sozlesmesi ve invalidation tek yerde kalir. Gun bu
+    // widget'in gunudur ("Bugunun plani"), bu yuzden acikca verilir.
+    mutationFn: (title: string) => createTask({ title, plan_day: day, priority: 2 }),
     onSuccess: () => {
       setDraft("");
-      refreshed();
+      invalidateTaskWrite();
       toast.push("Görev bugünün planına eklendi.", { tone: "ok" });
     },
     onError: failed,
@@ -210,32 +202,6 @@ export function TodayAgendaWidget() {
     onError: failed,
   });
 
-  const schedule = useMutation({
-    mutationKey: ["today-schedule"],
-    mutationFn: ({
-      row,
-      day: targetDay,
-      start: targetStart,
-      duration: targetDuration,
-    }: {
-      row: AgendaRow;
-      day: string;
-      start: string;
-      duration: string;
-    }) => {
-      const minute = startMinute(targetStart);
-      const minutes = targetDuration ? Number(targetDuration) : null;
-      return api.post("/plan", {
-        entity_id: row.id,
-        day: targetDay,
-        ...(minute == null ? {} : { start_min: minute }),
-        ...(!minutes || minutes < 1 ? {} : { duration_min: minutes }),
-      });
-    },
-    onSuccess: refreshed,
-    onError: failed,
-  });
-
   const remove = useMutation({
     mutationKey: ["today-remove"],
     mutationFn: (row: AgendaRow) => api.del(`/plan/${row.slot_id}`),
@@ -253,13 +219,6 @@ export function TodayAgendaWidget() {
     onError: () => toast.push("Taşıma başarısız — hiçbir slot değişmedi.", { tone: "danger" }),
   });
 
-  const toggleAuto = useMutation({
-    mutationKey: ["today-auto"],
-    mutationFn: (enabled: boolean) => api.put("/settings/today.auto_suggestions", { value: enabled }),
-    onSuccess: refreshed,
-    onError: failed,
-  });
-
   const { phase, phaseLabel, plannedTodos, overdue, reviewDone, weeklyReviewDue, conflictCount } = deriveTodayState({
     day,
     now,
@@ -274,32 +233,6 @@ export function TodayAgendaWidget() {
   const routineRows = agenda ? [...agenda.timed, ...agenda.checklist].filter(hasRoutine) : [];
   const timedRows = agenda ? agenda.timed.filter((row) => !hasRoutine(row)) : [];
   const checklistRows = agenda ? agenda.checklist.filter((row) => !hasRoutine(row)) : [];
-
-  const suggestions = agenda
-    ? [
-        ...(agenda.auto_suggestions
-          ? [
-              ...agenda.suggestions.flashcards,
-              // Mevcut kategori onceligi korunur; study yeni bir eklemedir.
-              ...agenda.suggestions.media,
-              ...(todosQuery.isError ? agenda.suggestions.todos : []),
-              ...agenda.suggestions.rss,
-              ...agenda.suggestions.study,
-              // Kariyer aksiyonlari (gonderilecek basvuru, kisa liste, kritik duyuru).
-              ...agenda.suggestions.career,
-            ]
-          : agenda.suggestions.media),
-      ].slice(0, 4)
-    : [];
-
-  const busy =
-    createTodo.isPending ||
-    complete.isPending ||
-    deleteTodo.isPending ||
-    schedule.isPending ||
-    remove.isPending ||
-    carryOver.isPending ||
-    toggleAuto.isPending;
 
   const phaseIcon = phase === "morning" ? Sunrise : phase === "evening" ? Sunset : Sun;
   const PhaseIcon = phaseIcon;
@@ -316,22 +249,6 @@ export function TodayAgendaWidget() {
       title="Bugünün planı"
       hint={agenda ? `${agenda.timed.length + agenda.checklist.length + openTodos.length} öğe` : undefined}
       bodyClassName="space-y-4"
-      action={
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-pressed={agenda?.auto_suggestions ?? true}
-            disabled={!online || busy || !agenda}
-            onClick={() => agenda && toggleAuto.mutate(!agenda.auto_suggestions)}
-            className={cx(
-              "rounded-full border px-2 py-0.5 text-micro transition",
-              agenda?.auto_suggestions ? "border-ok-border bg-ok-surface text-ok" : "border-subtle text-muted",
-            )}
-          >
-            oto {agenda?.auto_suggestions ? "açık" : "kapalı"}
-          </button>
-        </div>
-      }
     >
       {!online && (
         <p className="border-b border-subtle pb-3 text-meta text-warn">
@@ -458,43 +375,6 @@ export function TodayAgendaWidget() {
             )}
           </div>
 
-          {suggestions.length > 0 && (
-            <div>
-              <SectionHeader
-                label={agenda.auto_suggestions ? "Öneriler" : "Devam edenler"}
-                hint={agenda.auto_suggestions ? "planına yazılmadı" : undefined}
-              />
-              <RowList>
-                {suggestions.map((row) => (
-                  <AgendaLine
-                    key={`${row.kind}:${row.id}`}
-                    row={row}
-                    online={online}
-                    complete={() => {}}
-                    remove={() => {}}
-                    deleteTodo={() => {}}
-                    suggestionAction={
-                      row.kind === "flashcard" ? (
-                        <Button size="sm" variant="ghost" onClick={() => navigate(`/flashcard?deck=${row.id}`)}>
-                          Çalış
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={!online || schedule.isPending}
-                          onClick={() => schedule.mutate({ row, day, start: "", duration: "" })}
-                        >
-                          Bugüne ekle
-                        </Button>
-                      )
-                    }
-                  />
-                ))}
-              </RowList>
-            </div>
-          )}
-
           {agenda.completed.length > 0 && (
             <div className="opacity-70">
               <button
@@ -534,7 +414,6 @@ export function TodayAgendaWidget() {
           {agenda.timed.length === 0 &&
             agenda.checklist.length === 0 &&
             openTodos.length === 0 &&
-            suggestions.length === 0 &&
             agenda.completed.length === 0 && <Empty>Bugün için henüz bir şey yok.</Empty>}
         </>
       )}
@@ -583,7 +462,6 @@ function AgendaLine({
   complete,
   remove,
   deleteTodo,
-  suggestionAction,
   nested = false,
 }: {
   row: AgendaRow;
@@ -591,7 +469,6 @@ function AgendaLine({
   complete: (row: AgendaRow) => void;
   remove: (row: AgendaRow) => void;
   deleteTodo: (id: string) => void;
-  suggestionAction?: ReactNode;
   nested?: boolean;
 }) {
   const time = timeLabel(row.starts_at);
@@ -676,7 +553,6 @@ function AgendaLine({
             <ExternalLink size={14} />
           </a>
         )}
-        {suggestionAction}
         {interactive && (
           <IconButton title="Tamamla" disabled={!online} onClick={() => complete(row)}>
             <Check size={14} />

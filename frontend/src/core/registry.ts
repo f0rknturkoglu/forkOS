@@ -5,6 +5,7 @@
  * Router, Today ekrani, Command Palette ve Settings BU LISTEDEN beslenir.
  * Bu dosyalarin disinda hicbir yere modul adi yazma.
  */
+import { useSyncExternalStore } from "react";
 import type { ComponentType } from "react";
 import type { Command, ModuleSpec, TodayWidget } from "./types";
 import { findRouteMatch } from "@/app/router";
@@ -45,8 +46,21 @@ export function hydrateSettings(settings: Record<string, unknown>): void {
   writeStored("disabledModules", JSON.stringify(disabled));
   writeStored("widgetOrder", JSON.stringify(order));
   // Faz 19: widget kimlikli siralama + gizleme (modul ID sirasi legacy kalir).
-  writeStored("todayWidgetOrder", JSON.stringify(order));
-  writeStored("todayWidgetHidden", JSON.stringify(widgetHidden));
+  //
+  // Sunucu anlik goruntusu YEREL tercihin uzerine yazmaz: kullanici bugun
+  // duzeni degistirdiyse ve iki PUT'tan biri henuz ulasmadiysa (ya da dustuyse)
+  // sunucudaki eski liste Home'u geri alirdi. Sunucu yalnizca bu cihazda hic
+  // dokunulmamisken TOHUMLAR; tohumlayinca tercih bu cihazin tercihi olur ve
+  // sonraki anlik goruntuler onu ezemez. Sunucu bos ise dokunulmaz: varsayilan
+  // sozlesme (defaultVisible) gecerli kalir.
+  const seeded = order.length > 0 || widgetHidden.length > 0;
+  if (seeded && readStored("todayPrefsTouched") !== "1") {
+    const before = prefsSignature();
+    writeStored("todayWidgetOrder", JSON.stringify(order));
+    writeStored("todayWidgetHidden", JSON.stringify(widgetHidden));
+    writeStored("todayPrefsTouched", "1");
+    if (prefsSignature() !== before) notifyPrefsChanged();
+  }
   const lat = Number(settings["weather.lat"] ?? 0);
   const lon = Number(settings["weather.lon"] ?? 0);
   if (lat || lon) {
@@ -85,6 +99,48 @@ export interface TodayWidgetView {
   moduleId: string;
 }
 
+/**
+ * Widget tercihlerinin reaktif katmani.
+ *
+ * Tercih localStorage'da durur ama React onu render aninda imperative okuyamaz:
+ * Ayarlar'dan acilan bir widget Home'a ancak yeniden mount ile yansirdi. Burada
+ * tercihler tek bir "store" olarak yayinlanir:
+ *   - ayni sekmede yazan her yol `forkos:today-prefs` olayini yayar,
+ *   - diger sekmelerin yazimi `storage` olayiyla yakalanir.
+ * `useTodayWidgetViews()` bu kaynaga abone olur; sayfa yenilemesi gerekmez.
+ */
+const PREFS_EVENT = "forkos:today-prefs";
+
+/** Anlik goruntuyu ureten anahtarlar: bunlardan biri degisirse store tazelenir. */
+const PREF_KEYS = ["todayPrefsTouched", "todayWidgetOrder", "todayWidgetHidden", "widgetOrder", "disabledModules"];
+/** `storage` olayi TAM anahtar tasir; yalniz bu yazimlar tercih sayilir. */
+const PREF_STORAGE_KEYS: Record<string, true> = Object.fromEntries(PREF_KEYS.map((key) => [`forkos.${key}`, true]));
+
+function prefsSignature(): string {
+  return PREF_KEYS.map((key) => readStored(key) ?? "").join("\u0000");
+}
+
+let viewsCache: { signature: string; visible: TodayWidgetView[]; all: TodayWidgetView[] } | null = null;
+
+function notifyPrefsChanged(): void {
+  viewsCache = null;
+  window.dispatchEvent(new Event(PREFS_EVENT));
+}
+
+function onStorageWrite(event: StorageEvent): void {
+  if (event.key === null || PREF_STORAGE_KEYS[event.key]) notifyPrefsChanged();
+}
+
+/** `useSyncExternalStore` sozlesmesi: abone ol, degisimde haber ver. */
+function subscribeTodayWidgetPrefs(listener: () => void): () => void {
+  window.addEventListener(PREFS_EVENT, listener);
+  window.addEventListener("storage", onStorageWrite);
+  return () => {
+    window.removeEventListener(PREFS_EVENT, listener);
+    window.removeEventListener("storage", onStorageWrite);
+  };
+}
+
 /** Kullanicinin widget tercihleri (Faz 19): sirala + gizle. */
 function readWidgetPrefs(): { order: string[]; hidden: Set<string>; touched: boolean } {
   const known = new Set(allTodayWidgets().map((w) => w.id));
@@ -109,11 +165,16 @@ function readWidgetPrefs(): { order: string[]; hidden: Set<string>; touched: boo
 }
 
 /**
- * Panelde gorunecek widget'lar, kullanici sirasi + gizleme uygulanmis.
- * Kullanici sirasindaki widget'lar once gelir; sirasizlar varsayilan
- * slot/order'a duser. Bilinmeyen id'ler guvenle yok sayilir.
+ * Home'u iki katmana ayirir:
+ *   - ÇEKİRDEK: `core` alani verilmis yuzeyler. Home iskeleti; her zaman
+ *     gorunur, gizlenemez ve `order` ile SABIT sirada dizilir. Kullanici
+ *     sirasi/gizlemesi burada uygulanmaz (eski gizleme kayitlari cekirdegi
+ *     gizleyemez).
+ *   - İSTEĞE BAĞLI: kalanlar. Gizleme + kullanici sirasi burada gecerli;
+ *     iskeletin ALTINDA akar.
+ * Bilinmeyen id'ler guvenle yok sayilir.
  */
-export function allTodayWidgetViews(): TodayWidgetView[] {
+function buildWidgetViews(includeHidden: boolean): TodayWidgetView[] {
   const { order, hidden, touched } = readWidgetPrefs();
   const userIndex = new Map(order.map((id, i) => [id, i]));
   const views: TodayWidgetView[] = [];
@@ -122,52 +183,75 @@ export function allTodayWidgetViews(): TodayWidgetView[] {
       views.push({ id: widget.id, title: widget.title, widget, moduleId: module.id });
     }
   }
-  // Tercih yoksa (temiz kurulum) defaultVisible uygulanir = odakli varsayilan;
-  // kullanici/preset tercih yazdiysa ACIK liste gecerli olur (Faz 20).
-  return views
-    .filter((view) => !hidden.has(view.id) && (touched || view.widget.defaultVisible !== false))
+  const core = views
+    .filter((view) => view.widget.core)
+    .sort((a, b) => a.widget.order - b.widget.order || a.id.localeCompare(b.id));
+  const optional = views
+    .filter(
+      (view) =>
+        !view.widget.core &&
+        (includeHidden || (!hidden.has(view.id) && (touched || view.widget.defaultVisible !== false))),
+    )
     .sort((a, b) => {
       const ai = userIndex.has(a.id) ? userIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
       const bi = userIndex.has(b.id) ? userIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;
       if (ai !== bi) return ai - bi;
       return a.widget.order - b.widget.order || a.id.localeCompare(b.id);
     });
+  return [...core, ...optional];
+}
+
+/** Anlik goruntuyu imzaya gore onbellekler: referans kararli kalmali. */
+function widgetViews(includeHidden: boolean): TodayWidgetView[] {
+  const signature = prefsSignature();
+  if (!viewsCache || viewsCache.signature !== signature) {
+    viewsCache = { signature, visible: buildWidgetViews(false), all: buildWidgetViews(true) };
+  }
+  return includeHidden ? viewsCache.all : viewsCache.visible;
 }
 
 /**
- * Panel sutunundaki widget'lar (kullanici sirasi + gizleme uygulanir).
- * Esitlikte varsayilan order korunur (Array#sort kararli).
+ * Home'da gorunecek widget'lar (cekirdek iskelet + gorunur istege bagli
+ * yuzeyler). Saf okuma yolu: test ve preset'ler icin.
  */
-/**
- * Ayarlar ekrani icin: gizliler DAHIL tum widget'lar (siralama uygulanir).
- * Gizli bir widget listede gorunur ki geri gosterilebilsin.
- */
+export function allTodayWidgetViews(): TodayWidgetView[] {
+  return widgetViews(false);
+}
+
+/** Ayarlar ekrani icin: gizliler DAHIL tum widget'lar (siralama uygulanir). */
 export function allTodayWidgetViewsIncludingHidden(): TodayWidgetView[] {
-  const { order } = readWidgetPrefs();
-  const userIndex = new Map(order.map((id, i) => [id, i]));
-  const views: TodayWidgetView[] = [];
-  for (const module of enabledModules()) {
-    for (const widget of module.todayWidgets ?? []) {
-      views.push({ id: widget.id, title: widget.title, widget, moduleId: module.id });
-    }
-  }
-  return views.sort((a, b) => {
-    const ai = userIndex.has(a.id) ? userIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
-    const bi = userIndex.has(b.id) ? userIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;
-    if (ai !== bi) return ai - bi;
-    return a.widget.order - b.widget.order || a.id.localeCompare(b.id);
-  });
+  return widgetViews(true);
+}
+
+/** Home'un canli gorunumu: tercih degisince sayfa yenilenmeden tazelenir. */
+export function useTodayWidgetViews(): TodayWidgetView[] {
+  return useSyncExternalStore(
+    subscribeTodayWidgetPrefs,
+    () => widgetViews(false),
+    () => widgetViews(false),
+  );
+}
+
+/** Ayarlar'in canli gorunumu: gizliler dahil (gizli olani geri acabilmek icin). */
+export function useTodayWidgetViewsIncludingHidden(): TodayWidgetView[] {
+  return useSyncExternalStore(
+    subscribeTodayWidgetPrefs,
+    () => widgetViews(true),
+    () => widgetViews(true),
+  );
 }
 
 /** Ayarlar ekrani: siralamayi kaydeder (backend'e yazma cagiran taraf). */
 export function setTodayWidgetOrder(ids: string[]): void {
   writeStored("todayPrefsTouched", "1");
   writeStored("todayWidgetOrder", JSON.stringify(ids));
+  notifyPrefsChanged();
 }
 
 export function setTodayWidgetHidden(ids: string[]): void {
   writeStored("todayPrefsTouched", "1");
   writeStored("todayWidgetHidden", JSON.stringify(ids));
+  notifyPrefsChanged();
 }
 
 /** Varsayilana don: kullanici sirasi/gizleme temizlenir. */
@@ -175,6 +259,7 @@ export function resetTodayWidgetPrefs(): void {
   removeStored("todayPrefsTouched");
   removeStored("todayWidgetOrder");
   removeStored("todayWidgetHidden");
+  notifyPrefsChanged();
 }
 
 export const allTodayStats = () => orderedModules().flatMap((m) => m.todayStats ?? []);

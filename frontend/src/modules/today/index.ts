@@ -6,8 +6,9 @@ import { DailyRhythmWidget } from "./DailyRhythmWidget";
 import { FeedStreamWidget } from "./widgets/FeedStreamWidget";
 import { PendingDecisions } from "./PendingDecisions";
 import { QuickLinksWidget } from "./widgets/QuickLinksWidget";
-import { AttentionWidget } from "./AttentionWidget";
 import { NowNextWidget } from "./NowNextWidget";
+import { DeadlinesWidget } from "./DeadlinesWidget";
+import { CareerWidget } from "./CareerWidget";
 
 const TodayPage = lazy(() => import("./TodayPage").then((module) => ({ default: module.TodayPage })));
 
@@ -21,7 +22,11 @@ registerModule({
   routes: [{ path: "/", element: TodayPage }],
   // Saat + hava ust seritte (TodayHero); sunucu ve saglik ust seritteki
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.
-  // orta = akis, sag = durum. Sira icin bkz. TodayWidget.order.
+  //
+  // `core` alani Home iskeletini kurar: cekirdek yuzeyler her zaman gorunur,
+  // gizlenemez ve `order` ile SABIT sirada dizilir (DOM sirasi = dar ekranda
+  // okuma sirasi). `core` almayanlar istege bagli yuzeylerdir: Ayarlar'dan
+  // gizlenir/acilir ve iskeletin altinda akarlar.
   todayWidgets: [
     {
       // H7 karar yuzeyi: bekleyen planlar gunun isine girmeden once gorulur.
@@ -29,50 +34,63 @@ registerModule({
       id: "today.pending-decisions",
       title: "Bekleyen kararlar",
       component: PendingDecisions,
-      // Karar yuzeyi ana icerikten ONCE, tam genislikte (bosken hic cizilmez).
-      region: "priority",
-      order: 1,
+      core: "priority",
+      order: 10,
+    },
+    {
+      // P2 §13: sol kolon "bugunun plani" ile acilir.
+      id: "today.agenda",
+      title: "Bugünün planı",
+      component: TodayAgendaWidget,
+      core: "left",
+      order: 20,
+    },
+    {
+      // P2 §22: gercek son tarihler listesi; kariyer son tarihleri asagidaki
+      // Kariyer kartinda baglamiyla gosterilir (ayni kayit iki kez cizilmez).
+      id: "today.deadlines",
+      title: "Son tarihler",
+      component: DeadlinesWidget,
+      core: "right",
+      order: 30,
+    },
+    {
+      // P2 §24: takipler + kariyer bildirimleri + firsat son tarihleri.
+      // Genel bildirimler ust seritteki panelde kalir.
+      id: "today.career",
+      title: "Kariyer",
+      component: CareerWidget,
+      core: "right",
+      order: 40,
+    },
+    {
+      // P2 §15: okuma akisi Home'un cekirdek yuzeyi (orta kolon).
+      id: "today.feed-stream",
+      title: "Akış",
+      component: FeedStreamWidget,
+      core: "center",
+      order: 50,
+    },
+    {
+      // P2 §21: "sira" sorusunu yanitlar; gunun planiyla ayni sorguyu paylasir.
+      // Cekirdek degil: saatli isi olmayan gunlerde kendini cizmez.
+      id: "today.now-next",
+      title: "Şimdi ve sırada",
+      component: NowNextWidget,
+      order: 8,
     },
     {
       id: "today.rhythm",
       title: "Gün özeti",
       component: DailyRhythmWidget,
-      region: "secondary",
-      order: 5,
+      order: 90,
       defaultVisible: false,
-    },
-    {
-      // P2: Home once "sira" sorusunu yanitlar, sonra gunun plani gelir.
-      id: "today.now-next",
-      title: "Şimdi ve sırada",
-      component: NowNextWidget,
-      region: "main",
-      order: 8,
-    },
-    { id: "today.agenda", title: "Bugünün planı", component: TodayAgendaWidget, region: "main", order: 10 },
-    {
-      // Akis ikincil: varsayilan Home'da dikkat calmaz, Ayarlar > Home'dan acilir.
-      id: "today.feed-stream",
-      title: "Akış",
-      component: FeedStreamWidget,
-      region: "secondary",
-      order: 10,
-      defaultVisible: false,
-    },
-    {
-      // P2 §23: tek dikkat yuzeyi; son tarihler + takipler + okunmamis bildirimler.
-      id: "today.attention",
-      title: "Dikkat",
-      component: AttentionWidget,
-      region: "rail",
-      order: 2,
     },
     {
       id: "today.quick-links",
       title: "Hızlı bağlantılar",
       component: QuickLinksWidget,
-      region: "secondary",
-      order: 80,
+      order: 95,
       defaultVisible: false,
     },
   ],

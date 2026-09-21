@@ -32,6 +32,11 @@ export interface ActivityEvent {
   verb: string;
   payload: Record<string, unknown>;
   occurred_at: string;
+  /**
+   * Uyarı mı? SUNUCUDAN gelir (backend `core/events.is_alert` + payload
+   * kuralı). İstemci "hangi fiil uyarıdır" listesi TUTMAZ.
+   */
+  is_alert?: boolean;
 }
 
 /** Emek haritasinin bir gunu. */
@@ -1149,18 +1154,17 @@ export interface Command {
 }
 
 /**
- * Home bölgesi. Eski "left/center/right" sütun modeli ÜRÜNLEŞTİRME sonrası
- * geçersiz: varsayılan Home'da orta sütun boş kalıyor ve ekranın ortasında
- * delik oluşuyordu. Yeni model içeriğe göre konumlanır:
+ * Home'da çekirdek bir yüzeyin yeri.
  *
- *   priority  → tam genişlik, ana içerikten ÖNCE (bekleyen kararlar)
- *   main      → ana çalışma bölgesi (şimdi/sırada, günün planı)
- *   rail      → ana bölgenin yanındaki dar durum şeridi (dikkat)
- *   secondary → ana bölgenin ALTINDA akan ikincil yüzeyler
+ *   priority → tam genişlik şerit, kolonların ÜSTÜNDE (bekleyen kararlar)
+ *   left     → sol kolon: bugünün planı ve öğrenme
+ *   center   → orta kolon, görsel çapa: okuma akışı ve ısı haritası
+ *   right    → sağ kolon: son tarihler ve kariyer
  *
- * Boş bölge ne çizilir ne yer tutar.
+ * Çekirdek yüzeyler `order` ile sabit sırada dizilir; dar ekranda aynı sıra
+ * tek kolonda okunur (DOM sırası = okuma sırası).
  */
-export type TodayRegion = "priority" | "main" | "rail" | "secondary";
+export type TodayPlacement = "priority" | "left" | "center" | "right";
 
 export interface TodayWidget {
   /**
@@ -1172,14 +1176,19 @@ export interface TodayWidget {
   /** Ayarlar ekraninda gorunen ad. */
   title: string;
   component: ComponentType;
-  /** Home bölgesi; verilmezse "secondary". Bkz. TodayRegion. */
-  region?: TodayRegion;
   /**
-   * Sutun icindeki varsayilan sira; kucuk once. ZORUNLU: verilmezse
-   * cakisma uretir (eski varsayilan 50 kaldirildi).
+   * Verilirse widget ÇEKİRDEKTİR: Home iskeletinde her zaman görünür,
+   * gizlenemez ve `order` ile sabit sırada durur. Verilmezse widget
+   * İSTEĞE BAĞLIDIR: `defaultVisible` + kullanıcı tercihi geçerlidir ve
+   * iskeletin altında akar.
+   */
+  core?: TodayPlacement;
+  /**
+   * Cekirdek iskeletteki sira; kucuk once. ZORUNLU: verilmezse cakisma
+   * uretir (eski varsayilan 50 kaldirildi).
    */
   order: number;
-  /** Varsayilan gorunurluk; verilmezse gorunur. */
+  /** İsteğe bağlı yüzeyin varsayılan görünürlüğü; verilmezse görünür. */
   defaultVisible?: boolean;
 }
 

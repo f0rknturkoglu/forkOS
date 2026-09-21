@@ -38,7 +38,7 @@ function tooltip(entry: HeatmapDay, labels: Record<string, string>): string {
   return `${date} — ${parts.join(" · ")}`;
 }
 
-export function Heatmap({ days = 365 }: { days?: number }) {
+export function Heatmap({ days = 365, compact = false }: { days?: number; compact?: boolean }) {
   const scroller = useRef<HTMLDivElement>(null);
   const { data } = useQuery({
     queryKey: ["activity", "heatmap", days],
@@ -57,6 +57,16 @@ export function Heatmap({ days = 365 }: { days?: number }) {
     return (
       <Section title="Emek haritası">
         <Skeleton className="h-24 w-full" />
+      </Section>
+    );
+  }
+
+  // Bos/bozuk gun listesi haritayi cizemez: Home'un tamamini cokertmek
+  // yerine durust bir bos durum gosterilir.
+  if (!Array.isArray(data.days) || data.days.length === 0) {
+    return (
+      <Section title="Emek haritası">
+        <p className="py-4 text-center text-meta text-muted">Haritada gösterilecek gün yok.</p>
       </Section>
     );
   }
@@ -132,7 +142,7 @@ export function Heatmap({ days = 365 }: { days?: number }) {
         </span>
       </div>
 
-      {Object.keys(data.totals).length > 0 && (
+      {!compact && Object.keys(data.totals).length > 0 && (
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-meta text-muted">
           {Object.entries(data.totals)
             .sort((a, b) => b[1] - a[1])
@@ -145,6 +155,14 @@ export function Heatmap({ days = 365 }: { days?: number }) {
       )}
     </Section>
   );
+}
+
+/**
+ * Home'daki kompakt sürüm: AYNI bileşen, AYNI sorgu anahtarı (ikinci istek
+ * doğmaz), yalnız tür kırılımı listesi gizlenir -- Home bir kart, rapor değil.
+ */
+export function HomeHeatmap() {
+  return <Heatmap compact />;
 }
 
 /** Ay adlarini basladiklari haftanin ustune yerlestirir. */
