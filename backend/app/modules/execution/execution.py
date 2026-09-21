@@ -401,11 +401,39 @@ async def execute_plan(
             )
             session.add(receipt)
         await session.flush()
-        if spec.side_effect_domain == "vault":
-            # Dosya sistemi yazmasi DB islemiyle AYNI atomik sinirda DEGILDIR.
-            # Talebi ONCE dayanikli kil: surec yazma ile makbuz arasinda olurse
-            # kurtarma "sonucu bilinmiyor" gorur ve KORLEMESINE tekrarlamaz.
+
+        # --- ADIM NIYETI: yan etkiden ONCE DAYANIKLI olmali (final gate) ----
+        #
+        # Neden TUM aksiyonlarda: `flush()` baska bir transaction'a GORUNMEZ.
+        # Niyet commit edilmezse, bayat lease'i devralan kurtarici adimi "hic
+        # talep edilmedi" sanabilir. Ayrica bu commit adim satirindaki kilidi
+        # BIRAKIR: aksi halde uzun bir aksiyon surerken `recover()` cagrisi
+        # kilitte bekler ve kurtarma pratikte yapilamaz hale gelir.
+        #
+        # Guvenlik tercihi: niyet yazildiktan SONRA cokme, hic mutasyon
+        # olmamis olsa bile "mutabakat gerekli" uretir. Bu KABUL EDILIR:
+        # belirsizken durmak, belirsizken tekrar denemekten her zaman iyidir.
+        await session.commit()
+        await session.refresh(receipt)
+
+        # Commit siniri transaction'i degistirdi: H1'e GIRMEDEN once sahipligi
+        # YENIDEN dogrula (devralma tam bu arada olabilir).
+        if not await assert_execution_owner(session, plan_row.id, token=token):
+            ownership_lost = True
+            outcomes.append(
+                StepOutcome(
+                    step_id,
+                    index,
+                    # Niyet duruyor ama aksiyon HIC cagrilmadi: tarihsel
+                    # sahiplik korunur, durum "kurtarilabilir" kalir.
+                    "not_attempted",
+                    action,
+                    target_text,
+                    "EXECUTION_OWNERSHIP_LOST",
+                )
+            )
             await session.commit()
+            break
 
         try:
             data = spec.model(**arguments)

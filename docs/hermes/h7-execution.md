@@ -353,3 +353,35 @@ otomatik crash kurtarma worker'ı gözetim / kendiliğinden tetikleme
 - [H6 Proaktivite](h6-proactivity.md) — "ne zaman dokunmalıyız?" sorusunun
   cevabı (H7 ondan sonra başlar).
 - [Yol Haritası](roadmap.md) — H7'nin serideki yeri.
+
+### Adım niyeti yan etkiden ÖNCE dayanıklıdır (son dayanıklılık sınırı)
+
+```text
+sahiplik doğrula → kalp atışı → tazelik → makbuz (status=not_attempted,
+claimed_by=<deneme jetonu>) → COMMIT (adım niyeti) → sahiplik YENİDEN doğrula
+→ H1 aksiyonu → sahiplik yeniden doğrula → sonucu yaz
+```
+
+Neden `commit` (yalnızca `flush` değil): `flush()` başka bir transaction'a
+GÖRÜNMEZ. Niyet commit edilmezse, bayat lease'i devralan kurtarıcı adımı "hiç
+talep edilmedi" sanıp yürütebilirdi. Commit ayrıca adım satırındaki kilidi
+BIRAKIR; aksi halde uzun bir aksiyon sürerken `recover()` çağrısı kilitte
+bekler ve kurtarma pratikte yapılamaz hale gelir.
+
+```text
+claimed receipt  !=  confirmed canonical mutation
+```
+
+`status=not_attempted` + `claimed_by=<jeton>`, "mutasyon BAŞLAMIŞ OLABİLİR"
+demektir; kurtarma körlemesine **tekrar etmez**, `unresolved` +
+`RECONCILIATION_REQUIRED` üretir. `claimed_by=NULL` ise adım hiç talep
+edilmemiştir ve kurtarma onu güvenle sahiplenip bir kez yürütür.
+
+**Bilinçli güvenlik tercihi:** niyet yazıldıktan hemen sonra çökme, hiç
+mutasyon olmamış olsa bile gereksiz bir mutabakat turu doğurabilir. Bu kabul
+edilmiştir: *belirsizken durmak*, *belirsizken tekrar denemekten* her zaman
+daha güvenlidir. Bu nedenle sistem "exactly once" iddia ETMEZ; söylenen şudur:
+**dayanıklı talepten sonra en fazla bir otomatik yürütme denemesi** ve belirsiz
+sonuçta **fail-closed**.
+
+Kanıt: `tests/test_h7_step_intent.py` (bağımsız oturumlarla gerçek PostgreSQL).
