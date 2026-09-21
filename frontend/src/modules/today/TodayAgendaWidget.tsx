@@ -339,63 +339,6 @@ export function TodayAgendaWidget() {
         </p>
       )}
 
-      {/* Gün Özeti ve Ritim Durumu */}
-      <div className="rounded-card border border-subtle bg-surface-hover/30 p-3 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-muted">
-          <div className="flex items-center gap-1.5">
-            <PhaseIcon size={14} className="shrink-0 text-icon" />
-            <span className="font-semibold text-primary">{phaseLabel}</span>
-            <span>·</span>
-            <span>
-              Bugün <strong className="font-medium text-primary">{plannedTodos.length}</strong> planlı
-            </span>
-            <span>·</span>
-            <span className={overdue > 0 ? "font-medium text-warn" : ""}>
-              <strong className="font-medium">{overdue}</strong> geciken
-            </span>
-          </div>
-
-          {phase === "evening" && plannedTodos.length > 0 && (
-            <Button size="sm" disabled={!online || carryOver.isPending} onClick={() => carryOver.mutate()}>
-              {carryOver.isPending ? "Taşınıyor…" : "Yarına taşı"}
-            </Button>
-          )}
-        </div>
-
-        {conflictCount > 0 && (
-          <p className="flex items-center gap-1.5 text-meta text-warn">
-            <AlertTriangle size={13} /> {conflictCount} takvim çakışması
-          </p>
-        )}
-
-        {phase === "evening" && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-subtle">
-            {reviewDone ? (
-              <span className="flex items-center gap-1 text-meta text-ok">
-                <CheckCircle2 size={13} /> Günü değerlendirdin
-              </span>
-            ) : (
-              <>
-                <span className="flex items-center gap-1 text-meta text-muted">
-                  <Moon size={13} className="shrink-0" /> Gün sonu değerlendirmesi bekliyor
-                </span>
-                <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/daily")}>
-                  <ArrowRight size={13} /> Değerlendirmeye git
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-
-        {weeklyReviewDue && (
-          <div className="pt-1 border-t border-subtle">
-            <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/weekly")}>
-              <ArrowRight size={13} /> Haftalık değerlendirme bekliyor
-            </Button>
-          </div>
-        )}
-      </div>
-
       {/* Tek Satırlık Hızlı Görev Ekleme Formu */}
       <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
         <Input
@@ -457,6 +400,63 @@ export function TodayAgendaWidget() {
             remove={(row) => remove.mutate(row)}
             deleteTodo={(id) => deleteTodo.mutate(id)}
           />
+
+      {/* Gün Özeti ve Ritim Durumu */}
+      <div className="rounded-card border border-subtle bg-surface-hover/30 p-3 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-muted">
+          <div className="flex items-center gap-1.5">
+            <PhaseIcon size={14} className="shrink-0 text-icon" />
+            <span className="font-semibold text-primary">{phaseLabel}</span>
+            <span>·</span>
+            <span>
+              Bugün <strong className="font-medium text-primary">{plannedTodos.length}</strong> planlı
+            </span>
+            <span>·</span>
+            <span className={overdue > 0 ? "font-medium text-warn" : ""}>
+              <strong className="font-medium">{overdue}</strong> geciken
+            </span>
+          </div>
+
+          {phase === "evening" && plannedTodos.length > 0 && (
+            <Button size="sm" disabled={!online || carryOver.isPending} onClick={() => carryOver.mutate()}>
+              {carryOver.isPending ? "Taşınıyor…" : "Yarına taşı"}
+            </Button>
+          )}
+        </div>
+
+        {conflictCount > 0 && (
+          <p className="flex items-center gap-1.5 text-meta text-warn">
+            <AlertTriangle size={13} /> {conflictCount} takvim çakışması
+          </p>
+        )}
+
+        {phase === "evening" && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-subtle">
+            {reviewDone ? (
+              <span className="flex items-center gap-1 text-meta text-ok">
+                <CheckCircle2 size={13} /> Günü değerlendirdin
+              </span>
+            ) : (
+              <>
+                <span className="flex items-center gap-1 text-meta text-muted">
+                  <Moon size={13} className="shrink-0" /> Gün sonu değerlendirmesi bekliyor
+                </span>
+                <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/daily")}>
+                  <ArrowRight size={13} /> Değerlendirmeye git
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {weeklyReviewDue && (
+          <div className="pt-1 border-t border-subtle">
+            <Button size="sm" variant="secondary" disabled={!online} onClick={() => navigate("/review/weekly")}>
+              <ArrowRight size={13} /> Haftalık değerlendirme bekliyor
+            </Button>
+          </div>
+        )}
+      </div>
 
           {suggestions.length > 0 && (
             <div>

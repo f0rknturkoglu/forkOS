@@ -17,7 +17,16 @@ registerModule({
     { path: "/learning", element: LearningPage },
     { path: "/study", element: LearningPage, navigation: "hidden" },
   ],
-  todayWidgets: [{ id: "learning.widget", title: "Öğrenme", component: LearningWidget, slot: "left", order: 65 }],
+  todayWidgets: [
+    {
+      id: "learning.widget",
+      title: "Öğrenme",
+      component: LearningWidget,
+      slot: "left",
+      order: 65,
+      defaultVisible: false,
+    },
+  ],
   commands: [
     { id: "learning.open", label: "Öğrenmeyi aç — konular, kurslar, kuyruk", run: () => navigate("/learning") },
     // Tekrar kuyrugu ayri gorunum: dogrudan `?view=review` deep-link'i.

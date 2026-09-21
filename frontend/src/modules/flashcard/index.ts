@@ -22,7 +22,7 @@ registerModule({
       component: TodayFlashcardWidget,
       slot: "right",
       order: 25,
-      defaultVisible: true,
+      defaultVisible: false,
     },
   ],
   commands: [

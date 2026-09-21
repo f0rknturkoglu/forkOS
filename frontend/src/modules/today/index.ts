@@ -6,6 +6,8 @@ import { DailyRhythmWidget } from "./DailyRhythmWidget";
 import { FeedStreamWidget } from "./widgets/FeedStreamWidget";
 import { PendingDecisions } from "./PendingDecisions";
 import { QuickLinksWidget } from "./widgets/QuickLinksWidget";
+import { AttentionWidget } from "./AttentionWidget";
+import { NowNextWidget } from "./NowNextWidget";
 
 const TodayPage = lazy(() => import("./TodayPage").then((module) => ({ default: module.TodayPage })));
 
@@ -39,14 +41,31 @@ registerModule({
       order: 5,
       defaultVisible: false,
     },
+    {
+      // P2: Home once "sira" sorusunu yanitlar, sonra gunun plani gelir.
+      id: "today.now-next",
+      title: "Şimdi ve sırada",
+      component: NowNextWidget,
+      slot: "left",
+      order: 8,
+    },
     { id: "today.agenda", title: "Bugünün planı", component: TodayAgendaWidget, slot: "left", order: 10 },
     {
+      // Akis ikincil: varsayilan Home'da dikkat calmaz, Ayarlar > Home'dan acilir.
       id: "today.feed-stream",
       title: "Akış",
       component: FeedStreamWidget,
       slot: "center",
       order: 10,
-      defaultVisible: true,
+      defaultVisible: false,
+    },
+    {
+      // P2 §23: tek dikkat yuzeyi; son tarihler + takipler + okunmamis bildirimler.
+      id: "today.attention",
+      title: "Dikkat",
+      component: AttentionWidget,
+      slot: "right",
+      order: 2,
     },
     {
       id: "today.quick-links",

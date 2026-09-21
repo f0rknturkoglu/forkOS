@@ -17,7 +17,18 @@ registerModule({
   hidden: true,
   routes: [{ path: "/inbox", element: InboxPage }],
   todayStats: [InboxStats],
-  todayWidgets: [{ id: "inbox.widget", title: "Gelen kutusu", component: InboxTodayWidget, slot: "right", order: 40 }],
+  // Gelen kutusu triyaj akisidir: varsayilan Home'da yer kaplamaz, triyaj
+  // yuzeyi Home'daki akis/komutlardan acilir (Ayarlar > Home'dan kalici acilir).
+  todayWidgets: [
+    {
+      id: "inbox.widget",
+      title: "Gelen kutusu",
+      component: InboxTodayWidget,
+      slot: "right",
+      order: 40,
+      defaultVisible: false,
+    },
+  ],
   commands: [
     { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/today?triage=inbox") },
     {

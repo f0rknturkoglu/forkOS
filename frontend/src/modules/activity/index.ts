@@ -41,7 +41,9 @@ registerModule({
       component: Heatmap,
       slot: "center",
       order: 30,
-      defaultVisible: true,
+      // Analitik Home'un varsayilan yuku degil: Etkinlik & Ritim kendi
+      // calisma alaninda yasar (Ayarlar > Home'dan geri acilabilir).
+      defaultVisible: false,
     },
     {
       id: "activity.rhythm",
@@ -49,7 +51,7 @@ registerModule({
       component: RhythmWidget,
       slot: "center",
       order: 31,
-      defaultVisible: true,
+      defaultVisible: false,
     },
     {
       id: "activity.widget",
