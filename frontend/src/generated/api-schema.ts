@@ -10,10 +10,12 @@ export interface paths {
          * Activity
          * @description Hareket akisi.
          *
-         *     `category` emek haritasi kategorilerinden biri (read/task/focus/routine/
-         *     study/media) ya da "system" (haritada sayilmayan worker kayitlari).
-         *     `q` baslik/aciklama/verb icinde arar; `offset` ile "daha fazla yukle"
-         *     yapilir. Ayni kayit iki kez gelmesin diye sira (occurred_at, id) sabittir.
+         *     `filter` urun alanidir (tasks/focus/learning/reading/career/system);
+         *     ayrica "alerts" dikkat gerektiren kayitlari verir -- bu suzme SUNUCUDA
+         *     yapilir, istemci yalnizca ilk sayfayi suzmez. "all" ya da bos birakmak
+         *     filtre uygulamaz. `q` baslik/verb/payload icinde arar; `offset` ile
+         *     "daha fazla yukle" yapilir. Ayni kayit iki kez gelmesin diye sira
+         *     (occurred_at, id) sabittir.
          */
         get: operations["activity_api_activity_get"];
         put?: never;
@@ -4623,6 +4625,37 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActivityEventOut
+         * @description Akis kaydi + sunucu tarafi uyari bayragi.
+         *
+         *     Uyari kurali istemcide TEKRARLANMAZ: hangi fiilin uyari oldugu tek
+         *     kaynaktan (core/events.ALERT_VERBS + payload kurali) burada isaretlenir.
+         */
+        ActivityEventOut: {
+            /** Entity Id */
+            entity_id: string | null;
+            /** Entity Type */
+            entity_type: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Is Alert
+             * @default false
+             */
+            is_alert: boolean;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Verb */
+            verb: string;
+        };
         /** AgendaRow */
         AgendaRow: {
             /** Action */
@@ -5882,26 +5915,6 @@ export interface components {
             name: string;
             /** Terms */
             terms?: string[];
-        };
-        /** EventOut */
-        EventOut: {
-            /** Entity Id */
-            entity_id: string | null;
-            /** Entity Type */
-            entity_type: string | null;
-            /** Id */
-            id: number;
-            /**
-             * Occurred At
-             * Format: date-time
-             */
-            occurred_at: string;
-            /** Payload */
-            payload: {
-                [key: string]: unknown;
-            };
-            /** Verb */
-            verb: string;
         };
         /** ExpenseIn */
         ExpenseIn: {
@@ -10132,7 +10145,7 @@ export interface operations {
                 offset?: number;
                 since?: string | null;
                 verbs?: string[] | null;
-                category?: string | null;
+                filter?: ("all" | "tasks" | "focus" | "learning" | "reading" | "career" | "system" | "alerts") | null;
                 q?: string | null;
             };
             header?: never;
@@ -10147,7 +10160,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventOut"][];
+                    "application/json": components["schemas"]["ActivityEventOut"][];
                 };
             };
             /** @description Validation Error */
@@ -10445,6 +10458,7 @@ export interface operations {
         parameters: {
             query: {
                 code: string;
+                state?: string | null;
             };
             header?: never;
             path?: never;

@@ -1,6 +1,67 @@
 {
   "components": {
     "schemas": {
+      "ActivityEventOut": {
+        "description": "Akis kaydi + sunucu tarafi uyari bayragi.\n\nUyari kurali istemcide TEKRARLANMAZ: hangi fiilin uyari oldugu tek\nkaynaktan (core/events.ALERT_VERBS + payload kurali) burada isaretlenir.",
+        "properties": {
+          "entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_alert": {
+            "default": false,
+            "title": "Is Alert",
+            "type": "boolean"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "verb": {
+            "title": "Verb",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entity_id",
+          "entity_type",
+          "verb",
+          "payload",
+          "occurred_at"
+        ],
+        "title": "ActivityEventOut",
+        "type": "object"
+      },
       "AgendaRow": {
         "properties": {
           "action": {
@@ -3555,61 +3616,6 @@
           "evidence"
         ],
         "title": "EvaluationRequirementOut",
-        "type": "object"
-      },
-      "EventOut": {
-        "properties": {
-          "entity_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Entity Id"
-          },
-          "entity_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Entity Type"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "occurred_at": {
-            "format": "date-time",
-            "title": "Occurred At",
-            "type": "string"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "title": "Payload",
-            "type": "object"
-          },
-          "verb": {
-            "title": "Verb",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "entity_id",
-          "entity_type",
-          "verb",
-          "payload",
-          "occurred_at"
-        ],
-        "title": "EventOut",
         "type": "object"
       },
       "ExpenseIn": {
@@ -15371,7 +15377,7 @@
   "paths": {
     "/api/activity": {
       "get": {
-        "description": "Hareket akisi.\n\n`category` emek haritasi kategorilerinden biri (read/task/focus/routine/\nstudy/media) ya da \"system\" (haritada sayilmayan worker kayitlari).\n`q` baslik/aciklama/verb icinde arar; `offset` ile \"daha fazla yukle\"\nyapilir. Ayni kayit iki kez gelmesin diye sira (occurred_at, id) sabittir.",
+        "description": "Hareket akisi.\n\n`filter` urun alanidir (tasks/focus/learning/reading/career/system);\nayrica \"alerts\" dikkat gerektiren kayitlari verir -- bu suzme SUNUCUDA\nyapilir, istemci yalnizca ilk sayfayi suzmez. \"all\" ya da bos birakmak\nfiltre uygulamaz. `q` baslik/verb/payload icinde arar; `offset` ile\n\"daha fazla yukle\" yapilir. Ayni kayit iki kez gelmesin diye sira\n(occurred_at, id) sabittir.",
         "operationId": "activity_api_activity_get",
         "parameters": [
           {
@@ -15435,18 +15441,28 @@
           },
           {
             "in": "query",
-            "name": "category",
+            "name": "filter",
             "required": false,
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "all",
+                    "tasks",
+                    "focus",
+                    "learning",
+                    "reading",
+                    "career",
+                    "system",
+                    "alerts"
+                  ],
                   "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Category"
+              "title": "Filter"
             }
           },
           {
@@ -15473,7 +15489,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/EventOut"
+                    "$ref": "#/components/schemas/ActivityEventOut"
                   },
                   "title": "Response Activity Api Activity Get",
                   "type": "array"
@@ -15873,6 +15889,22 @@
             "schema": {
               "title": "Code",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
             }
           }
         ],
