@@ -244,7 +244,7 @@ export function OpportunityPage() {
     <PageFrame>
       <Workspace>
         <WorkspacePaneHeader
-          eyebrow="Takip"
+          eyebrow="Kariyer"
           title="Fırsatlar"
           hint={
             tab === "jobs"

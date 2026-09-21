@@ -495,7 +495,9 @@ describe("SettingsPage entegrasyonlari", () => {
 });
 
 describe("SettingsPage teshis ve tehlikeli bolge", () => {
-  it("sistem teshisini gosterir ve elle senkronu tetikler", async () => {
+  it("sistem teshisini Sistem sekmesinde gosterir ve elle senkronu tetikler", async () => {
+    // Teshis artik bir TERCIH degil: Yedekleme & Sistem sekmesinde yasar.
+    location.hash = "#/settings?tab=backup";
     renderPage();
     await ready();
 
@@ -521,7 +523,29 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
     );
   });
 
-  it("depolama raporu ve bakim durumunu gosterir", async () => {
+  it("ray tercihleri ve sistemi ayirir; teshis Genel sekmesinde yer almaz", async () => {
+    location.hash = "#/settings?tab=general";
+    renderPage();
+    await ready();
+
+    // Ray iki anlamsal grup: kullanıcı tercihleri ile sistem işleri karışmaz.
+    expect(screen.getByText("Tercihler")).toBeTruthy();
+    // "Sistem" hem ray grubu hem bir bolum basligi olabilir: ray grubunu ara.
+    expect(screen.getAllByText("Sistem").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Genel & Görünüm" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Yedekleme & Sistem" })).toBeTruthy();
+
+    // Genel sekmesi yalnız kullanıcı tercihi taşır: CPU/RAM/diskten söz etmez.
+    expect(screen.queryByText("%12")).toBeNull();
+    expect(screen.queryByText("Depolama")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Yedekleme & Sistem" }));
+    expect(await screen.findByText("%12")).toBeTruthy();
+    expect(screen.getByText("Depolama")).toBeTruthy();
+  });
+
+  it("depolama raporu ve bakim durumunu Sistem sekmesinde gosterir", async () => {
+    location.hash = "#/settings?tab=backup";
     renderPage();
     await ready();
 

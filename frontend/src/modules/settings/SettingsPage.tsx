@@ -45,14 +45,26 @@ import {
  * baglanti paylasilabilir. Eski `?section=media-links` derin baglantisi da
  * karsilanir -- Entegrasyonlar sekmesini acip medya panelini odaklar.
  */
-const TABS: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "general", label: "Genel & Görünüm", icon: SlidersHorizontal },
-  { id: "modules", label: "Modüller", icon: Blocks },
-  { id: "today", label: "Home", icon: LayoutGrid },
-  { id: "notifications", label: "Bildirimler & Çevre", icon: BellRing },
-  { id: "career", label: "Kariyer profili", icon: Briefcase },
-  { id: "integrations", label: "Entegrasyonlar", icon: Plug },
-  { id: "backup", label: "Yedekleme & Sistem", icon: DatabaseBackup },
+type SettingsGroup = "preferences" | "system";
+
+const GROUP_LABELS: Record<SettingsGroup, string> = {
+  preferences: "Tercihler",
+  system: "Sistem",
+};
+
+/**
+ * Ray iki anlamsal gruba ayrılır: kullanıcı TERCİHLERİ ile sistem/entegrasyon
+ * işleri aynı listede karışmaz. Sekme kimlikleri ve `?tab=` derin bağlantıları
+ * sözleşmedir; yalnız etiket ve gruplama değişir.
+ */
+const TABS: { id: string; label: string; icon: LucideIcon; group: SettingsGroup }[] = [
+  { id: "general", label: "Genel & Görünüm", icon: SlidersHorizontal, group: "preferences" },
+  { id: "today", label: "Home", icon: LayoutGrid, group: "preferences" },
+  { id: "notifications", label: "Bildirimler & Çevre", icon: BellRing, group: "preferences" },
+  { id: "modules", label: "Modüller", icon: Blocks, group: "preferences" },
+  { id: "career", label: "Kariyer profili", icon: Briefcase, group: "preferences" },
+  { id: "integrations", label: "Entegrasyonlar", icon: Plug, group: "system" },
+  { id: "backup", label: "Yedekleme & Sistem", icon: DatabaseBackup, group: "system" },
 ];
 
 const TAB_IDS = new Set(TABS.map((tab) => tab.id));
@@ -240,20 +252,22 @@ export function SettingsPage() {
 
   const rail = (
     <WorkspaceRailContent className="max-h-72 lg:max-h-workspace-body">
-      <WorkspaceRailGroup label="Ayarlar">
-        {TABS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <WorkspaceRailButton
-              key={item.id}
-              label={item.label}
-              icon={<Icon size={13} />}
-              active={tab === item.id}
-              onClick={() => go(item.id)}
-            />
-          );
-        })}
-      </WorkspaceRailGroup>
+      {(["preferences", "system"] as const).map((group) => (
+        <WorkspaceRailGroup key={group} label={GROUP_LABELS[group]}>
+          {TABS.filter((item) => item.group === group).map((item) => {
+            const Icon = item.icon;
+            return (
+              <WorkspaceRailButton
+                key={item.id}
+                label={item.label}
+                icon={<Icon size={13} />}
+                active={tab === item.id}
+                onClick={() => go(item.id)}
+              />
+            );
+          })}
+        </WorkspaceRailGroup>
+      ))}
     </WorkspaceRailContent>
   );
 
@@ -266,51 +280,6 @@ export function SettingsPage() {
             <Pane>
               <Section title="Tema">
                 <ThemePicker />
-              </Section>
-              <SystemDiagnosticsSection />
-              <StorageReportSection />
-              <Section title="RSS güncelleme">
-                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
-                  <span>
-                    Arka planda ne sıklıkta yeni yazı çekilsin?
-                    <span className="ml-1 text-muted">· rss.interval_minutes</span>
-                  </span>
-                  <Select
-                    value={String(intervalMinutes)}
-                    onChange={(value) => write("rss.interval_minutes", Number(value))}
-                    ariaLabel="RSS güncelleme sıklığı"
-                    className="w-40"
-                  >
-                    {RSS_INTERVALS.map((option) => (
-                      <option key={option.minutes} value={option.minutes}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </Section>
-              <Section title="RSS saklama">
-                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
-                  <span>
-                    Okunmamış ve kaydedilmemiş eski yazılar bu süreden sonra silinir.
-                    <span className="ml-1 text-muted">· rss.retention_days</span>
-                  </span>
-                  <div
-                    onBlur={() => {
-                      const current = Number(settings["rss.retention_days"] ?? 90);
-                      if (retention !== current) write("rss.retention_days", retention);
-                    }}
-                  >
-                    <NumberInput
-                      value={retention}
-                      min={1}
-                      max={3650}
-                      ariaLabel="RSS saklama süresi (gün)"
-                      onChange={setRetentionDays}
-                      className="w-24"
-                    />
-                  </div>
-                </div>
               </Section>
             </Pane>
           )}
@@ -433,6 +402,8 @@ export function SettingsPage() {
 
           {tab === "backup" && (
             <Pane>
+              <SystemDiagnosticsSection />
+              <StorageReportSection />
               <BackupSection
                 online={online}
                 backupPending={backup.isPending}
@@ -443,6 +414,49 @@ export function SettingsPage() {
                 onDriveFolder={setDriveFolder}
                 onSaveDriveFolder={(value) => write("backup.drive_folder_id", value)}
               />
+              <Section title="RSS otomasyonu">
+                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
+                  <span>
+                    Arka planda ne sıklıkta yeni yazı çekilsin?
+                    <span className="ml-1 text-muted">· rss.interval_minutes</span>
+                  </span>
+                  <Select
+                    value={String(intervalMinutes)}
+                    onChange={(value) => write("rss.interval_minutes", Number(value))}
+                    ariaLabel="RSS güncelleme sıklığı"
+                    className="w-40"
+                  >
+                    {RSS_INTERVALS.map((option) => (
+                      <option key={option.minutes} value={option.minutes}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </Section>
+              <Section title="RSS saklama">
+                <div className="flex items-center justify-between gap-3 text-meta text-secondary">
+                  <span>
+                    Okunmamış ve kaydedilmemiş eski yazılar bu süreden sonra silinir.
+                    <span className="ml-1 text-muted">· rss.retention_days</span>
+                  </span>
+                  <div
+                    onBlur={() => {
+                      const current = Number(settings["rss.retention_days"] ?? 90);
+                      if (retention !== current) write("rss.retention_days", retention);
+                    }}
+                  >
+                    <NumberInput
+                      value={retention}
+                      min={1}
+                      max={3650}
+                      ariaLabel="RSS saklama süresi (gün)"
+                      onChange={setRetentionDays}
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+              </Section>
               <SettingsSourceHealth sources={sources} />
               <DangerZoneSection onReset={() => reset.mutate()} busy={reset.isPending} />
             </Pane>
