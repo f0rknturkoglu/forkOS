@@ -6,6 +6,7 @@ import { navigate } from "@/app/router";
 import { openCommandPalette } from "@/core/CommandPalette";
 import { invalidateAfter } from "@/core/invalidation";
 import { NotificationPanel } from "@/core/NotificationPanel";
+import { ActiveFocusIndicator } from "@/modules/pomodoro/ActiveFocusIndicator";
 import { moduleForPath, titleForPath } from "@/core/registry";
 import { useSourceSync } from "@/core/SyncProgress";
 import { StatusLed } from "@/core/StatusLed";
@@ -281,6 +282,7 @@ export function WorkspaceHeader({
         >
           <Search size={15} />
         </button>
+        <ActiveFocusIndicator />
         <NotificationPanel />
         <button
           type="button"

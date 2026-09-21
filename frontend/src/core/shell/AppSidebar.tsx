@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, LayoutGrid, PanelLeftClose, Search, Star } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  LayoutGrid,
+  PanelLeftClose,
+  Star,
+} from "lucide-react";
 import { findRouteMatch } from "@/app/router";
-import { openCommandPalette } from "@/core/CommandPalette";
 import {
   areaForPath,
   areaIsActive,
@@ -97,83 +104,57 @@ function SidebarLink({
         )}
       />
       <span className={cx("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>{label}</span>
-      {active && (
-        <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full bg-accent", collapsed && "md:hidden")} aria-hidden />
-      )}
     </a>
   );
 }
 
-/** Katlanır alan başlığı: etiket hedefe gider, oklu düğme yalnız açar/kapar. */
+/**
+ * Katlanır alan başlığı (Plan, Öğrenme, Kütüphane).
+ *
+ * Satırın TAMAMI açar/kapar ve AYRICA gezinmez: "etikete basınca mı, oka
+ * basınca mı" belirsizliği böylece ortadan kalkar. Ok yalnız durumu söyler.
+ * Geometri tek parça: h-9 satır, içinde ayrı bir tıklama dikdörtgeni YOK.
+ */
 function AreaHeader({
   area,
-  rows,
   open,
   collapsed,
   path,
-  params,
   modules,
   onToggle,
-  onNavigate,
 }: {
   area: ProductArea;
-  rows: NavigationRow[];
   open: boolean;
   collapsed: boolean;
   path: string;
-  params: URLSearchParams;
   modules: readonly ModuleSpec[];
   onToggle: () => void;
-  onNavigate: () => void;
 }) {
   const active = areaIsActive(area, path, modules);
-  const landing = area.landing;
   const AreaIcon = area.icon ?? LayoutGrid;
   return (
-    <div className="flex min-w-0 items-center">
-      {landing ? (
-        <div className="min-w-0 flex-1">
-          <SidebarLink
-            href={landing}
-            label={area.label}
-            icon={area.icon}
-            // Urun alani vurgusu: alt rotalardan biri aktifse alan da aktiftir.
-            active={active}
-            collapsed={collapsed}
-            onNavigate={onNavigate}
-          />
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onToggle}
-          title={collapsed ? area.label : undefined}
-          className={cx(
-            "group flex h-9 min-w-0 flex-1 items-center rounded-control text-body transition-colors",
-            collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
-            active
-              ? "bg-surface-selected font-medium text-primary"
-              : "text-secondary hover:bg-surface-hover hover:text-primary",
-          )}
-        >
-          <AreaIcon size={16} className="shrink-0 text-icon group-hover:text-primary" />
-          <span className={cx("min-w-0 flex-1 truncate text-left", collapsed && "md:hidden")}>{area.label}</span>
-        </button>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={`sidebar-area-${area.id}`}
+      title={collapsed ? area.label : undefined}
+      className={cx(
+        "group flex h-9 w-full min-w-0 items-center rounded-control text-body transition-colors",
+        collapsed ? "md:justify-center md:px-0" : "gap-2.5 px-2.5",
+        active
+          ? "bg-surface-selected font-medium text-primary"
+          : "text-secondary hover:bg-surface-hover hover:text-primary",
       )}
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={`sidebar-area-${area.id}`}
-        aria-label={`${area.label} alt satırları ${open ? "kapat" : "aç"}`}
-        className={cx(
-          "flex h-7 w-6 shrink-0 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary",
-          collapsed && "md:hidden",
-        )}
-      >
-        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-      </button>
-    </div>
+    >
+      <AreaIcon size={16} className="shrink-0 text-icon group-hover:text-primary" />
+      <span className={cx("min-w-0 flex-1 truncate text-left", collapsed && "md:hidden")}>{area.label}</span>
+      <ChevronDown
+        size={15}
+        aria-hidden
+        className={cx("shrink-0 text-muted transition-transform", collapsed && "md:hidden", open && "rotate-180")}
+      />
+    </button>
   );
 }
 
@@ -194,15 +175,17 @@ export function AppSidebar({
 }) {
   const modules = enabledModules();
   const primary = areasAt("primary");
-  const longtail = areasAt("longtail");
   const system = areasAt("system");
   const activeArea = areaForPath(path, modules);
   const [openAreas, setOpenAreas] = useState(initialOpenAreas);
   const { data: pinnedViews = [] } = usePinnedSavedViews();
+  // Yalnız alt satırı olan alanlar katlanır; tek hedefli alanlar zaten düz satır.
+  const collapsibleAreas = primary.filter((area) => areaShape(area, modules) === "section");
+  const allExpanded = collapsibleAreas.length > 0 && collapsibleAreas.every((area) => openAreas.has(area.id));
 
   useEffect(() => {
     // Hangi alan aktifse onu ac: kullanici rotayi dogrudan acsa bile alt
-    // satirlar gorunur olur (uzun kuyruk dahil).
+    // satirlar gorunur olur.
     if (!activeArea) return;
     setOpenAreas((current) => {
       if (current.has(activeArea.id)) return current;
@@ -212,14 +195,27 @@ export function AppSidebar({
     });
   }, [activeArea]);
 
+  function storeOpenAreas(next: Set<ProductAreaId>) {
+    localStorage.setItem(OPEN_AREAS_KEY, JSON.stringify([...next]));
+    return next;
+  }
+
   function toggleArea(area: ProductArea) {
     setOpenAreas((current) => {
       const next = new Set(current);
       if (next.has(area.id)) next.delete(area.id);
       else next.add(area.id);
-      localStorage.setItem(OPEN_AREAS_KEY, JSON.stringify([...next]));
-      return next;
+      return storeOpenAreas(next);
     });
+  }
+
+  /** Tek kompakt kontrol: hepsi açıksa kapat, değilse hepsini aç. */
+  function toggleAllAreas() {
+    setOpenAreas(() =>
+      allExpanded
+        ? storeOpenAreas(new Set<ProductAreaId>())
+        : storeOpenAreas(new Set(collapsibleAreas.map((area) => area.id))),
+    );
   }
 
   function renderRows(area: ProductArea, open: boolean) {
@@ -310,28 +306,32 @@ export function AppSidebar({
           )}
         </div>
 
-        <div className={cx("shrink-0 space-y-1 border-y border-subtle py-2", collapsed ? "md:px-2" : "px-2.5")}>
+        {/* Komut aramasi TEK yerde: WorkspaceHeader. Sidebar kopyasi kaldirildi;
+            yerine alt satirlari topluca acan/kapatan kompakt kontrol durur. */}
+        <div className={cx("shrink-0 border-b border-subtle py-1.5", collapsed ? "md:px-2" : "px-2.5")}>
           <button
             type="button"
-            onClick={openCommandPalette}
-            title={collapsed ? "Ara veya komut" : undefined}
+            onClick={toggleAllAreas}
+            title={allExpanded ? "Tümünü daralt" : "Tümünü genişlet"}
             className={cx(
-              "flex h-9 w-full items-center rounded-control text-secondary transition hover:bg-surface-hover hover:text-primary",
-              collapsed ? "md:justify-center" : "gap-2.5 px-2.5",
+              "flex h-8 w-full items-center rounded-control text-meta text-muted transition hover:bg-surface-hover hover:text-primary",
+              collapsed ? "md:justify-center md:px-0" : "gap-2 px-2.5",
             )}
           >
-            <Search size={16} className="shrink-0 text-icon" />
-            <span className={cx("min-w-0 flex-1 truncate text-left text-body", collapsed && "md:hidden")}>
-              Ara veya komut
+            {allExpanded ? (
+              <ChevronsDownUp size={15} className="shrink-0 text-icon" aria-hidden />
+            ) : (
+              <ChevronsUpDown size={15} className="shrink-0 text-icon" aria-hidden />
+            )}
+            <span className={cx("min-w-0 flex-1 truncate text-left", collapsed && "md:hidden")}>
+              {allExpanded ? "Tümünü daralt" : "Tümünü genişlet"}
             </span>
-            <span className={cx("text-meta text-muted", collapsed && "md:hidden")}>⌘K</span>
           </button>
         </div>
 
         <nav className={cx("min-h-0 flex-1 overflow-y-auto py-3", collapsed ? "md:px-2" : "px-2.5")}>
           <div className="space-y-1">
             {primary.map((area) => {
-              const rows = areaRows(area, modules);
               const shape = areaShape(area, modules);
               if (shape === "link") {
                 return (
@@ -351,14 +351,11 @@ export function AppSidebar({
                 <div key={area.id}>
                   <AreaHeader
                     area={area}
-                    rows={rows}
                     open={open}
                     collapsed={collapsed}
                     path={path}
-                    params={params}
                     modules={modules}
                     onToggle={() => toggleArea(area)}
-                    onNavigate={onCloseMobile}
                   />
                   {renderRows(area, open)}
                 </div>
@@ -411,26 +408,6 @@ export function AppSidebar({
               </div>
             </section>
           )}
-
-          {longtail.map((area) => {
-            const open = openAreas.has(area.id);
-            return (
-              <div key={area.id} className="mt-5">
-                <AreaHeader
-                  area={area}
-                  rows={areaRows(area, modules)}
-                  open={open}
-                  collapsed={collapsed}
-                  path={path}
-                  params={params}
-                  modules={modules}
-                  onToggle={() => toggleArea(area)}
-                  onNavigate={onCloseMobile}
-                />
-                {renderRows(area, open)}
-              </div>
-            );
-          })}
         </nav>
 
         <div className={cx("shrink-0 border-t border-subtle py-2", collapsed ? "md:px-2" : "px-2.5")}>

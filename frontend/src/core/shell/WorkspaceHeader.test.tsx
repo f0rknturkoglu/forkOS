@@ -61,6 +61,8 @@ describe("WorkspaceHeader yenileme kapsamı", () => {
       if (path.startsWith("/sources/sync"))
         return Promise.resolve({ active: null, last_completed: null, running: [], sources: [] });
       if (path.startsWith("/sources/health")) return Promise.resolve([]);
+      // Başlıktaki aktif odak göstergesi oturum yokken çizilmez.
+      if (path === "/pomodoro/active") return Promise.resolve(null);
       return Promise.resolve({});
     });
     apiMock.post.mockReset();
@@ -182,5 +184,101 @@ describe("WorkspaceHeader kenar cubugu dugmesi", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Kenar çubuğunu genişlet" })).toBeNull();
+  });
+});
+
+const ACTIVE_SESSION = {
+  id: "pomo-1",
+  started_at: new Date().toISOString(),
+  ended_at: null,
+  planned_min: 50,
+  actual_min: null,
+  kind: "focus",
+  context_entity_id: null,
+  context_title: null,
+  context_type: null,
+  topic: "Derin çalışma",
+  interrupted: false,
+  paused_at: null,
+  paused_s: 0,
+};
+
+describe("WorkspaceHeader aktif odak göstergesi", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    apiMock.get.mockReset().mockImplementation((path: string) => {
+      if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      if (path.startsWith("/sources/sync"))
+        return Promise.resolve({ active: null, last_completed: null, running: [], sources: [] });
+      if (path === "/pomodoro/active") return Promise.resolve(null);
+      return Promise.resolve([]);
+    });
+  });
+  afterEach(cleanup);
+
+  it("oturum yokken gösterge çizilmez", async () => {
+    renderHeader();
+
+    await screen.findByRole("button", { name: /Kaynakları yenile/ });
+    expect(screen.queryByRole("button", { name: /^Aktif odak:/ })).toBeNull();
+  });
+
+  it("çalışan oturumda kalan süreyi gösterir", async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      if (path.startsWith("/sources/sync"))
+        return Promise.resolve({ active: null, last_completed: null, running: [], sources: [] });
+      if (path === "/pomodoro/active") return Promise.resolve(ACTIVE_SESSION);
+      return Promise.resolve([]);
+    });
+    renderHeader();
+
+    const indicator = await screen.findByRole("button", {
+      name: /^Aktif odak: Derin çalışma, \d\d:\d\d, çalışıyor$/,
+    });
+    expect(indicator.textContent).toContain("Derin çalışma");
+  });
+});
+
+/**
+ * §90: üst şeritte TEK görsel taban çizgisi. İkon kontrolleri 32x32; komut
+ * besteleyicisi 32px yüksek ama kasıtlı olarak kare değil. Sınıf adı üzerinden
+ * ölçülür çünkü jsdom stil hesaplamaz -- amaç geometri regresyonunu yakalamak.
+ * (StatusLed ve NotificationPanel bu dosyada stub'lanır; 32px tetikleyicileri
+ * kendi bileşen testlerinde doğrulanır.)
+ */
+describe("WorkspaceHeader üst şerit hizası", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    apiMock.get.mockReset().mockImplementation((path: string) => {
+      if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      if (path.startsWith("/sources/sync"))
+        return Promise.resolve({ active: null, last_completed: null, running: [], sources: [] });
+      if (path === "/pomodoro/active") return Promise.resolve(ACTIVE_SESSION);
+      return Promise.resolve([]);
+    });
+  });
+  afterEach(cleanup);
+
+  it("ikon kontrolleri 32x32, komut besteleyicisi h-8 ama kare değil", async () => {
+    renderHeader();
+
+    const squares = [
+      await screen.findByRole("button", { name: /Kaynakları yenile/ }),
+      screen.getByRole("button", { name: "Yenileme kapsamı ve durumu" }),
+      screen.getByRole("button", { name: "Ara" }),
+      screen.getByRole("button", { name: "Temayı değiştir" }),
+    ];
+    for (const button of squares) {
+      expect(button.className.split(/\s+/)).toEqual(expect.arrayContaining(["h-8", "w-8"]));
+    }
+
+    const composer = screen.getByRole("button", { name: /Ara veya komut/ });
+    const composerClasses = composer.className.split(/\s+/);
+    expect(composerClasses).toContain("h-8");
+    expect(composerClasses).not.toContain("w-8");
+
+    // Aktif odak göstergesi de şeridin taban çizgisini bozmaz.
+    expect((await screen.findByRole("button", { name: /^Aktif odak:/ })).className.split(/\s+/)).toContain("h-8");
   });
 });

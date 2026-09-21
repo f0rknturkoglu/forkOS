@@ -41,7 +41,6 @@ describe("ürün navigasyonu — rota → alan", () => {
     ["/study", "learning"],
     ["/flashcard", "learning"],
     ["/bookmarks", "library"],
-    ["/documents", "library"],
     ["/rss", "library"],
     ["/media", "library"],
     ["/media/library", "library"],
@@ -49,7 +48,11 @@ describe("ürün navigasyonu — rota → alan", () => {
     ["/media/upcoming", "library"],
     ["/notes", "library"],
     ["/feed", "library"],
-    ["/activity/heatmap", "longtail"],
+    ["/finance", "finance"],
+    ["/activity", "activity"],
+    ["/activity/heatmap", "activity"],
+    ["/review/weekly", "review"],
+    ["/review/daily", "review"],
   ])("%s → %s", (path, areaId) => {
     expect(areaForPath(path, modules())?.id).toBe(areaId);
   });
@@ -60,17 +63,19 @@ describe("ürün navigasyonu — rota → alan", () => {
     expect(areaForPath("/media/stats", modules())?.id).toBe("library");
     // Statik eşleşme global olarak kazanır: /media/stats detay rotasına düşmez.
     expect(areaForPath("/media/trash", modules())?.id).toBe("library");
-    expect(areaForPath("/statistics", modules())?.id).toBe("longtail");
-    expect(areaForPath("/day", modules())?.id).toBe("longtail");
-    expect(areaForPath("/review/weekly", modules())?.id).toBe("longtail");
-    expect(areaForPath("/health", modules())?.id).toBe("system");
-    expect(areaForPath("/sources", modules())?.id).toBe("system");
+    expect(areaForPath("/statistics", modules())?.id).toBe("activity");
+    expect(areaForPath("/day", modules())?.id).toBe("activity");
     expect(areaForPath("/settings", modules())?.id).toBe("system");
   });
 
-  it("hiçbir alana ait olmayan yüzeyler (triyaj akışı) satır tutmaz", () => {
+  it("hiçbir alana ait olmayan yüzeyler (triyaj akışı, sağlık, belgeler) satır tutmaz", () => {
     expect(areaForPath("/inbox", modules())).toBeUndefined();
     expect(areaForPath("/bilinmeyen", modules())).toBeUndefined();
+    // Kaynaklar/Sistem Durumu Ayarlar'ın altındadır, kendi sidebar satırı yok.
+    expect(areaForPath("/health", modules())).toBeUndefined();
+    expect(areaForPath("/sources", modules())).toBeUndefined();
+    // Belgeler standalone ürün yüzeyi değil (rota compat için durur).
+    expect(areaForPath("/documents", modules())).toBeUndefined();
   });
 
   it("alana girmeyen modül kayıtlı kalır: rota, komut ve başlık çalışır", () => {
@@ -82,7 +87,7 @@ describe("ürün navigasyonu — rota → alan", () => {
 
   it("her modül rotası en fazla bir alana bağlıdır", () => {
     const owners = new Map<string, string>();
-    for (const area of [...areasAt("primary"), ...areasAt("longtail"), ...areasAt("system")]) {
+    for (const area of [...areasAt("primary"), ...areasAt("system")]) {
       for (const module of modules().filter((m) => area.moduleIds.includes(m.id))) {
         for (const route of module.routes) {
           const previous = owners.get(route.path);
@@ -107,23 +112,24 @@ describe("ürün navigasyonu — satırlar", () => {
     ]);
   });
 
-  it("Kütüphane satırları kendi domainlerini korur", () => {
+  it("Kütüphane satırları kendi domainlerini korur; Belgeler artık ürün yüzeyi değil", () => {
     expect(areaRows(area("library"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
       "Yer İmleri=/bookmarks",
-      "Belgeler=/documents",
       "RSS=/rss",
-      "Okuma Akışı=/feed",
       "Medya=/media",
       "Bilgi=/notes",
     ]);
+    // Okuma Akışı hâlâ çalışır ama ayrı bir sidebar satırı tutmaz: akış Home'un
+    // ve RSS sayfasının parçasıdır.
+    expect(allRoutes().some((route) => route.path === "/feed")).toBe(true);
   });
 
-  it("uzun kuyrukta Finans, Etkinlik & Ritim, Isı Haritası ve Değerlendirme var", () => {
-    const rows = areaRows(areasAt("longtail")[0], modules());
-    expect(rows.map((row) => `${row.label}=${row.path}`)).toEqual([
-      "Finans=/finance",
-      "Etkinlik & Ritim=/activity",
-      "Isı Haritası=/activity/heatmap",
+  it("Finans, Etkinlik ve Değerlendirme artık kök hedefler (uzun kuyruk yok)", () => {
+    expect(areaRows(area("finance"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual(["Finans=/finance"]);
+    expect(areaRows(area("activity"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
+      "Etkinlik=/activity",
+    ]);
+    expect(areaRows(area("review"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
       "Değerlendirme=/review/weekly",
     ]);
   });
@@ -135,8 +141,6 @@ describe("ürün navigasyonu — satırlar", () => {
     expect(byLabel("Haftalık plan").depth).toBe(2);
     expect(byLabel("Rutinler").depth).toBe(2);
     expect(byLabel("Takvim").depth).toBe(1);
-    const longtail = areaRows(areasAt("longtail")[0], modules());
-    expect(longtail.find((row) => row.label === "Isı Haritası")!.depth).toBe(2);
   });
 
   it("Öğrenme alanı kartları ve tekrar görünümünü içerir", () => {
@@ -148,9 +152,14 @@ describe("ürün navigasyonu — satırlar", () => {
     ]);
   });
 
-  it("sistem alanı Sağlık modülünü Sistem Durumu olarak sunar", () => {
+  it("sistem alanı TEK satır tutar: Ayarlar", () => {
     const system = areasAt("system")[0];
-    expect(areaRows(system, modules()).map((row) => row.label)).toEqual(["Sistem Durumu", "Kaynaklar", "Ayarlar"]);
+    expect(areaRows(system, modules()).map((row) => row.label)).toEqual(["Ayarlar"]);
+    // Kaynaklar ve Sistem Durumu rotaları yaşar, sidebar satırı tutmaz.
+    expect(allRoutes().some((route) => route.path === "/health")).toBe(true);
+    expect(allRoutes().some((route) => route.path === "/sources")).toBe(true);
+    expect(allCommands().some((command) => command.id === "health.open")).toBe(true);
+    expect(allCommands().some((command) => command.id === "sources.open")).toBe(true);
   });
 
   it("kapalı modül satır ve rota bırakmaz", () => {
@@ -165,13 +174,13 @@ describe("ürün navigasyonu — satırlar", () => {
     expect(areaRows(area("learning"), modules()).map((row) => row.path)).not.toContain("/study");
   });
 
-  it("alan biçimi: tek hedefli alan bağlantı, çok hedefli alan katlanır bölüm", () => {
-    expect(areaShape(area("home"), modules())).toBe("link");
-    expect(areaShape(area("projects"), modules())).toBe("link");
-    expect(areaShape(area("career"), modules())).toBe("link");
-    expect(areaShape(area("plan"), modules())).toBe("section");
-    expect(areaShape(area("library"), modules())).toBe("section");
-    expect(areaShape(areasAt("longtail")[0], modules())).toBe("group");
+  it("alan biçimi: tek hedefli alan bağlantı, alt satırlı alan katlanır bölüm", () => {
+    for (const id of ["home", "projects", "career", "finance", "activity", "review"]) {
+      expect(areaShape(area(id), modules())).toBe("link");
+    }
+    for (const id of ["plan", "library", "learning"]) {
+      expect(areaShape(area(id), modules())).toBe("section");
+    }
   });
 
   it("modül hedefi dinamik rotaya düşmez; sabitlenmiş görünüm satırı bunu kullanır", () => {

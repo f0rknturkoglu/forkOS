@@ -100,13 +100,15 @@ export function NotificationPanel() {
         aria-expanded={open}
         title="Bildirimler"
         className={cx(
-          "relative flex h-9 w-9 items-center justify-center rounded-control border transition",
+          // Ust seritte TEK kontrol olcusu: 32x32 (IconButton ile ayni kutu).
+          // Bildirim dugmesi 36px oldugunda butun serit hizasiz duruyordu.
+          "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-control border transition",
           open
             ? "border-strong bg-surface-sunken text-primary"
             : "border-subtle bg-surface text-muted hover:bg-surface-hover hover:text-primary",
         )}
       >
-        <Bell size={16} />
+        <Bell size={15} />
         {unread > 0 && (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-micro font-medium leading-none text-canvas">
             {unread > 9 ? "9+" : unread}

@@ -118,6 +118,14 @@ afterEach(() => {
 });
 
 describe("NotificationPanel erteleme", () => {
+  it("tetikleyici dugmesi ust serit taban cizgisinde: 32x32", async () => {
+    renderPanel();
+
+    const trigger = await screen.findByRole("button", { name: /^Bildirimler/ });
+    // Bildirim dugmesi 36px oldugunda ust serit hizasiz duruyordu; olcu IconButton ile ayni.
+    expect(trigger.className.split(/\s+/)).toEqual(expect.arrayContaining(["h-8", "w-8"]));
+  });
+
   it("yalnız eşleşen koşusu olan H6 bildiriminde erteleme menüsü sunar", async () => {
     renderPanel();
 

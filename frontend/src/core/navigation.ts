@@ -5,9 +5,11 @@
  * (rota, widget, komut, entité tipi); kullanıcı navigasyonu ondan TÜREMEZ.
  * Bir modül çalışıyor olabilir ama birincil sidebar'da satır tutmayabilir:
  *
- *   inbox   triyaj akışıdır; girişi Home'daki gelen kutusu yüzeyidir
- *   review  uzun kuyrukta ("Daha fazla") durur
- *   media   Kütüphane altında bir satırdır, kendi başına birincil hedef değil
+ *   inbox     triyaj akışıdır; girişi Home'daki gelen kutusu yüzeyidir
+ *   health    sağlık ve kaynak operasyonları Ayarlar'ın altındadır
+ *   sources   aynı sahiplik: rota durur, satır tutmaz
+ *   documents Drive belgeleri kariyer bağlamında yaşar, ürün yüzeyi değildir
+ *   media     Kütüphane altında bir satırdır, kendi başına birincil hedef değil
  *
  * Kural: rota → ürün alanı eşleşmesi BAŞKA HİÇBİR YERDE yazılmaz. Başlık ve
  * ikon için modül aramaya devam eden `moduleForPath` bundan ayrıdır; ikisi
@@ -19,13 +21,25 @@
  *   - `links` → rota tablosunda karşılığı olmayan alan-içi görünümler (ör. ?view=review)
  */
 import { findRouteMatch } from "@/app/router";
-import { BookOpen, CalendarRange, Compass, Ellipsis, GraduationCap, Home, Layers, Library } from "lucide-react";
+import {
+  Activity,
+  CalendarRange,
+  ClipboardCheck,
+  Compass,
+  GraduationCap,
+  Home,
+  Layers,
+  Library,
+  SlidersHorizontal,
+  Wallet,
+} from "lucide-react";
 import type { ModuleSpec } from "./types";
 
-/** Alanın sidebar'daki yeri: birincil / uzun kuyruk / sistem. */
-type NavigationPlacement = "primary" | "longtail" | "system";
+/** Alanın sidebar'daki yeri: gövde (birincil) ya da alt bölüm (sistem). */
+type NavigationPlacement = "primary" | "system";
 
-export type ProductAreaId = "home" | "plan" | "projects" | "career" | "learning" | "library" | "longtail" | "system";
+export type ProductAreaId =
+  "home" | "plan" | "projects" | "career" | "learning" | "library" | "finance" | "activity" | "review" | "system";
 
 /** Bir alanın altındaki tek satır: mevcut bir rota ya da alan-içi derin görünüm. */
 export interface NavigationRow {
@@ -67,6 +81,10 @@ export interface ProductArea {
 
 /**
  * ÜRÜN HARİTASI. Buradaki sıra kullanıcının gördüğü sıradır.
+ *
+ * Uzun kuyruk YOK: Finans, Etkinlik ve Değerlendirme eskiden "Daha fazla"
+ * başlığı altında saklanıyordu; kullanıcı bu kavramı okumak zorunda kalıyordu.
+ * Artık hepsi sıradan birer hedef.
  *
  * Domain/backend modülleri burada birleştirilmez: Plan altındaki `todo`,
  * `calendar` ve `pomodoro` ayrı servisler olarak kalır; yalnız tek bir zihinsel
@@ -120,26 +138,46 @@ const PRODUCT_AREAS: readonly ProductArea[] = [
     icon: Library,
     placement: "primary",
     // Bilgi (Vault köprüsü) da kütüphanenin parçasıdır: kaydettiğin, okuduğun
-    // ve bilgiye dönüştürdüğün içerik aynı zihinsel rafta durur.
-    moduleIds: ["bookmarks", "documents", "rss", "media", "knowledge"],
+    // ve bilgiye dönüştürdüğün içerik aynı zihinsel rafta durur. Belgeler
+    // BURADA DEĞİL: Drive belgeleri kariyer/başvuru bağlamında yaşar, kendi
+    // başına bir ürün yüzeyi değildir (rota compat için durur).
+    moduleIds: ["bookmarks", "rss", "media", "knowledge"],
     landing: "/bookmarks",
   },
   {
-    id: "longtail",
-    label: "Daha fazla",
-    icon: Ellipsis,
-    placement: "longtail",
-    moduleIds: ["finance", "activity", "review"],
+    id: "finance",
+    label: "Finans",
+    icon: Wallet,
+    placement: "primary",
+    moduleIds: ["finance"],
+    landing: "/finance",
+  },
+  {
+    id: "activity",
+    label: "Etkinlik",
+    icon: Activity,
+    placement: "primary",
+    moduleIds: ["activity"],
+    landing: "/activity",
+    labels: { activity: "Etkinlik" },
+  },
+  {
+    id: "review",
+    label: "Değerlendirme",
+    icon: ClipboardCheck,
+    placement: "primary",
+    moduleIds: ["review"],
+    landing: "/review/weekly",
   },
   {
     id: "system",
     label: "Sistem",
-    icon: BookOpen,
+    icon: SlidersHorizontal,
     placement: "system",
-    // "sources" kendi modülüdür (rota + kaynak operasyonları yüzeyi); sidebar
-    // satırı modül başlığından gelir ve sıra burada belirlenir.
-    moduleIds: ["health", "sources", "settings"],
-    labels: { health: "Sistem Durumu" },
+    // Sistem girişi TEK: Ayarlar. Kaynaklar ve Sistem Durumu kendi rotalarını
+    // korur (bildirimler, eski bağlantılar) ama sidebar satırı tutmaz; sahibi
+    // Ayarlar > Durum & Kaynaklar'dır. Rakip bir giriş noktası bırakılmaz.
+    moduleIds: ["settings"],
   },
 ];
 
@@ -251,13 +289,12 @@ export function moduleLanding(modules: readonly ModuleSpec[], moduleId: string):
 
 /**
  * Alanın sidebar satırı olarak nasıl çizileceği:
- *   "link"    → tek hedefi var (Home, Projeler); alt satır yok
- *   "section" → hedefi var, altında satırlar var (Plan, Öğrenme, Kütüphane)
- *   "group"   → hedefi yok; yalnız satırlarını gruplar (Daha fazla)
+ *   "link"    → tek hedefi var (Home, Projeler); alt satır yok, satır hedefe gider
+ *   "section" → hedefi var, altında satırlar var (Plan, Öğrenme, Kütüphane);
+ *               satırın TAMAMI katlanır/açılır, ayrıca gezinmez
  */
-export function areaShape(area: ProductArea, modules: readonly ModuleSpec[]): "link" | "section" | "group" {
+export function areaShape(area: ProductArea, modules: readonly ModuleSpec[]): "link" | "section" {
   const rows = areaRows(area, modules);
-  if (!area.landing) return "group";
   if (rows.length <= 1 && rows[0]?.path === area.landing) return "link";
   return "section";
 }
