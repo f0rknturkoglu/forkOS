@@ -11,8 +11,8 @@ from app.modules.execution.models import PLAN_STATES, TERMINAL_PLAN_STATES
 
 #: İzinli geçişler. Anahtar: kaynak durum.
 ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
-    "draft": frozenset({"validating", "input_required", "cancelled", "expired"}),
-    "validating": frozenset({"awaiting_approval", "input_required", "expired"}),
+    # `draft` = cevap sonrasi yeniden hazirlanmayi bekleyen revizyon.
+    "draft": frozenset({"input_required", "cancelled", "expired"}),
     "input_required": frozenset({"draft", "cancelled", "expired"}),
     "awaiting_approval": frozenset({"approved", "rejected", "cancelled", "expired"}),
     # Onaydan sonra plan revizyonu DEĞİŞEMEZ; yalnızca yürütme ya da iptal.
@@ -44,7 +44,3 @@ def ensure_transition(current: str, target: str) -> None:
         raise TransitionError("PLAN_TERMINAL", f"plan terminal durumda: {current}")
     if target not in ALLOWED_TRANSITIONS[current]:
         raise TransitionError("INVALID_TRANSITION", f"{current} → {target} izinli değil")
-
-
-def can_execute(state: str) -> bool:
-    return state == "approved"

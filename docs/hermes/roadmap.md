@@ -321,7 +321,7 @@ eklenmedi**, mimari korundu.
 
 **Soru:** *Kullanıcı sormadan ne zaman devreye girmeli?*
 
-- **Tek araç:** `forkos_proactivity` (yüzey 28) — yedi işlem: `status`,
+- **Tek araç:** `forkos_proactivity` (H6 sonrası yüzey 28; H7 ile 29) — yedi işlem: `status`,
   `configure`, `rule_set`, `snooze`, `unsnooze`, `history`, `evaluate_now`.
   Hermes hangi kararı istediğini söyler; H6 kural seçmez.
 - **Opt-in:** ana anahtar `proactivity.enabled` varsayılan **false**. Kapalıyken
@@ -367,9 +367,66 @@ eklenmedi**, mimari korundu.
   oynatılır).
 - Ayrıntı: `h6-proactivity.md`, `h6-policy.md`, `h6-tool-contract.md`.
 
-**H7 başlatılmadı.** H6 sonrası faz (bildirim kanalları, Today/terminal brifing
-sunumu ve çok adımlı otonom yürütme) bu sürümde ele alınmaz; H6 bilinçli olarak
-"ne zaman dokunmalıyız?" sorusunda durur.
+**H7 bu sürümde ele alınmadı**; H6 bilinçli olarak "ne zaman dokunmalıyız?"
+sorusunda durur.
+
+---
+
+## H7 — Durable Decision & Bounded Execution ✅ Tamamlandı
+
+**Soru:** *Onaylanan bir planı, yarıda kesilse bile doğru şekilde nasıl
+yürütürüm?*
+
+- **Tek araç:** `forkos_execution` (yüzey 29) — dokuz işlem: `prepare`, `get`,
+  `list`, `approve`, `reject`, `respond`, `cancel`, `execute`, `status`.
+  Hermes hangi adımı istediğini söyler; H7 plan seçmez, adım uydurmaz.
+- **Zincir:** kanıt (H3/H5/H6) → öneri (Hermes) → plan → doğrulama → **insan
+  kararı** → yürütme → makbuz. Halkalardan hiçbiri atlanamaz; modelin
+  "approved" demesi bir halka değildir.
+- **Sahiplik:** Hermes önerir, H7 doğrular/karar verir/yürütür, H1 mutasyon
+  yapar. Adımlar H1'in **KAPALI** 11 eylem sözlüğünden seçilir ve argümanlar
+  H1'in kendi Pydantic modelleriyle doğrulanır: serbest araç adı, shell, SQL,
+  keyfî HTTP ve silme reddedilir (`app/integrations/agent/write_registry.py`).
+- **Onay sunucu tarafıdır ve IMMUTABLE revizyona bağlanır:** revizyon
+  `plan-v1:<sha256>` kanonik JSON'un özetidir (adımlar ordinal sıralı, argüman
+  anahtarları sıralı, kanıt referansları sıralı + tekil; `created_at`, `state`
+  ve onay alanları özete GİRMEZ). Model `approved=true` iddia etse bile kayıt
+  yoksa yürütme `APPROVAL_REQUIRED` döner; plan değişirse eski onay
+  `APPROVAL_STALE` olur.
+- **Dört karar:** APPROVE, EDIT (aynı soy ağacında yeni revizyon; eski satır ve
+  onayı tarihsel kayıt olarak kalır), REJECT, RESPOND (`input_required` →
+  `draft`; cevap mutasyon ÜRETMEZ) + CANCEL. TTL 72 saattir: süresi geçen plan
+  onaylanamaz (`PLAN_EXPIRED`).
+- **Sınırlı yürütme:** `approved → executing` geçişi DB-destekli CAS ile
+  sahiplenilir (ikinci eşzamanlı çağrı kaybeder); adımlar ordinal sırayla
+  yürür; her adım öncesi hedef `updated_at` damgası yeniden doğrulanır; ilk
+  hatada **DURULUR**; otomatik rollback/compensation YOKTUR; sonuç dürüstçe
+  `partial` olabilir.
+- **Idempotans ve crash:** `execution_receipt` içinde `(plan_row_id, step_id)`
+  UNIQUE'tir; tamamlanmış adım restart sonrası tekrar yürütülmez. Makbuz
+  yazıldıktan sonra sonuç bilinmiyorsa adım körlemesine tekrarlanmaz:
+  `RECONCILIATION_REQUIRED`.
+- **Kalıcılık:** üç tablo (`execution_plan`, `execution_receipt`,
+  `execution_decision`; migration `0061_execution`). Bunlar
+  `source_run`/`proactivity_run` ile aynı sınıftır (operasyonel ajan/iş akışı
+  kaydı) ve bilinçli olarak entity FK'si taşımaz.
+- **Yürütme modele bağlı değildir:** plan hazır ve onaylıysa yürütme
+  deterministiktir; hiçbir yerel veya uzak model çağrılmaz.
+- **Sınırlar:** 10 adım, 10 mutasyon, 8192 bayt argüman, 20 kaynak/kanıt
+  referansı, 10 doğrulama hatası, 50 liste limiti, 3 soru.
+- Kanıt: `test_h7_models.py` (revizyon determinizmi, durum makinesi, adım
+  doğrulama), `test_h7_approval.py` (onay, TTL, hedef tazeleme, red, mükerrer
+  prepare), `test_h7_execution.py` (yürütme, durma, kısmi sonuç, eşzamanlılık,
+  mutabakat, modelsiz yürütme); değerlendirme seti
+  `docs/hermes/evals/h7-execution.yaml` (36 sentetik vaka).
+- Ayrıntı: `h7-execution.md`, `h7-state-machine.md`, `h7-approval-policy.md`,
+  `h7-tool-contract.md`.
+
+**H8 başlatılmadı.** Dış bildirim/haberleşme kanalları (e-posta, SMS, webhook),
+bugün/terminal brifing sunumu ve yürütmenin kendiliğinden başlatılması bu
+sürümde ele alınmaz: **external channels sonraki fazın konusudur.** H7 yürütmeyi
+yalnızca açık bir çağrıyla başlatır; yürütmenin *ne zaman* başlayacağı sorusu
+H6'nın karar alanıdır ve H6 canonical mutasyon yapmaz.
 
 ---
 

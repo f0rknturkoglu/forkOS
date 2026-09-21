@@ -57,7 +57,7 @@ H1       → mutasyon         todo/project/opportunity/bookmark/brain yazmaları
   (`app/integrations/agent/write_registry.py:88-136`; 11 aksiyon).
 - **Argümanlar H1'in kendi Pydantic modelleridir**: ikinci bir doğrulama
   yazılmaz, plan H1'in gördüğü şeyin aynısıdır
-  (`app/modules/execution/steps.py:100-114`).
+  (`app/modules/execution/steps.py:88-95`).
 - **H7 kendi mutasyonunu yapmaz:** plan/karar durumu H7'nin operasyonel
   tablolarında yaşar; canonical domain'e dokunma yalnızca `execute` sırasında
   ve H1 üzerinden olur (`app/modules/execution/execution.py:151-157`).
@@ -70,7 +70,7 @@ Kanıt: `backend/tests/test_h7_approval.py::test_prepare_does_not_mutate_canonic
 ## 3. Plan nesnesi
 
 Bir satır = **bir immutable revizyon**. Aynı `plan_id` altındaki satırlar bir
-soy ağacıdır (`ExecutionPlan`, `models.py:121-182`).
+soy ağacıdır (`ExecutionPlan`, `models.py:121-181`).
 
 | Alan | Anlam |
 |---|---|
@@ -101,7 +101,7 @@ kanıt referansları  sıralanır ve TEKİLLEŞTİRİLİR (sıra/kopya özeti bo
 metinler         title/summary/reason normalize edilir
 ```
 
-Özete **girmez** (`revision.py:14-22`): `created_at`/`updated_at`, satır `id`,
+Özete **girmez** (`revision.py:7-14`): `created_at`/`updated_at`, satır `id`,
 `plan_id`, `input_answers`, `state`, onay ve yürütme alanları. Yani aynı içerik
 her zaman aynı revizyonu üretir; akışkan alanlar "onay" anlamı taşımaz.
 
@@ -209,7 +209,7 @@ kanıt gövdesi. Makbuz `detail` alanı ≤400 karakterdir
 
 ## 7. Sınırlı yürütme
 
-`execution.py:151-324` + `service.py:402-480`. Yedi kural:
+`execution.py:151-324` + `service.py:402-476`. Yedi kural:
 
 **7.1 Claim DB-desteklidir (CAS).** `approved → executing` yalnızca koşullu
 `UPDATE ... WHERE state = 'approved' ... RETURNING id` ile alınır
@@ -258,12 +258,12 @@ failure_code                 → ilk hatanın kodu (or. STEP_STALE, NOT_FOUND,
 
 H1 hataları **sınırlı koda** indirgenir ve yığın izi dışarı sızmaz:
 `INVALID_INPUT`, `NOT_FOUND`, `STALE`, `EXPIRED`, `CONFLICT`, `ACTION_ERROR`,
-`FORBIDDEN`; tanınmayan hata `ACTION_FAILED` olur (`execution.py:327-343`).
+`FORBIDDEN`; tanınmayan hata `ACTION_FAILED` olur (`execution.py:327-342`).
 
 ### 7.2 Yürütme modele bağlı değildir
 
 Plan hazır ve onaylıysa yürütme **deterministiktir**: hiçbir yerel veya uzak
-model çağrılmaz (`execution.py:36-41`). Kanıt:
+model çağrılmaz (`execution.py:17`). Kanıt:
 `test_h7_execution.py::test_execution_requires_no_model` (yerel biliş servisi
 patlatılmış haldeyken plan yine tamamlanır).
 

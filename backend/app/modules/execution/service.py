@@ -33,6 +33,7 @@ from app.modules.execution.models import (
     MAX_INPUT_ANSWER,
     MAX_LIST_LIMIT,
     MAX_PLAN_MUTATIONS,
+    MAX_VALIDATION_ERRORS,
     ExecutionDecision,
     ExecutionPlan,
     ExecutionReceipt,
@@ -165,6 +166,18 @@ async def prepare(
     )
     if result.status == "invalid":
         # Onaya hazır olmayan plan KAYDEDİLMEZ: kullanıcıya gosterilmez (§9).
+        # Yine de SINIRLI bir denetim kaydı bırakılır (plan satırı OLMAYARAK):
+        # "bu öneri neden reddedildi" sorusu cevaplanabilir kalır.
+        await _audit(
+            session,
+            plan=None,
+            plan_id=lineage,
+            kind="validation_failed",
+            detail={"codes": [item["code"] for item in result.errors[:MAX_VALIDATION_ERRORS]]},
+            actor=actor,
+            now=moment,
+        )
+        await session.commit()
         raise ExecutionPlanError(
             "PLAN_VALIDATION_FAILED",
             "; ".join(item["code"] for item in result.errors[:3]) or "gecersiz plan",
@@ -454,6 +467,18 @@ async def execute(
     plan.failure_code = outcome.failure_code
     plan.execution_finished_at = datetime.now(UTC)
     for step in outcome.steps:
+        if outcome.failure_code == "RECONCILIATION_REQUIRED" and step.status == "not_attempted":
+            # Makbuzsuz yarim adim: yurutme KORLEMESINE devam etmedi.
+            await _audit(
+                session,
+                plan=plan,
+                plan_id=plan.plan_id,
+                kind="execution_blocked",
+                detail={"step_id": step.step_id, "reason": "RECONCILIATION_REQUIRED"},
+                actor=actor,
+                now=datetime.now(UTC),
+            )
+            continue
         await _audit(
             session,
             plan=plan,

@@ -96,9 +96,6 @@ def test_invalid_transitions_are_rejected(current: str, target: str) -> None:
 @pytest.mark.parametrize(
     ("current", "target"),
     [
-        ("draft", "validating"),
-        ("validating", "awaiting_approval"),
-        ("validating", "input_required"),
         ("input_required", "draft"),
         ("awaiting_approval", "approved"),
         ("awaiting_approval", "rejected"),
@@ -171,3 +168,38 @@ def test_valid_steps_normalize_through_h1_model() -> None:
     assert step.arguments["priority"] == 3
     # H1 modelinin doldurduğu varsayılanlar da saklanır: plan H1'in gördüğüdür.
     assert "tags" in step.arguments
+
+
+def test_every_declared_state_and_code_has_a_production_path() -> None:
+    """Ölü sözleşme yok: tanımlı her değer kodda ÜRETİLİYOR olmalı."""
+    import pathlib
+    import re
+
+    from app.modules.execution.models import DECISION_KINDS, PLAN_STATES, STEP_STATUSES
+
+    source = "\n".join(
+        item.read_text(encoding="utf-8")
+        for item in pathlib.Path("app/modules/execution").glob("*.py")
+        if item.name not in {"models.py", "state.py"}
+    )
+    # Durumlar: state ataması ya da geçiş hedefi olarak geçmeli.
+    dynamic = {"input_required", "cancelled", "expired", "completed", "partial", "failed", "rejected", "draft"}
+    for state in PLAN_STATES:
+        if state in dynamic:
+            continue
+        assert re.search(rf'"{state}"', source), f"üretilmeyen durum: {state}"
+    for kind in DECISION_KINDS:
+        assert re.search(rf'"{kind}"', source), f"üretilmeyen karar türü: {kind}"
+    for status in STEP_STATUSES:
+        assert re.search(rf'"{status}"', source), f"üretilmeyen adım durumu: {status}"
+
+
+def test_no_dead_helpers_remain() -> None:
+    """Kullanılmayan yardımcı/ölü değer bırakılmaz."""
+    from app.modules.execution import state as state_mod
+
+    assert not hasattr(state_mod, "can_execute")
+    assert "validating" not in state_mod.ALLOWED_TRANSITIONS
+    from app.modules.execution.models import STEP_STATUSES
+
+    assert "skipped" not in STEP_STATUSES

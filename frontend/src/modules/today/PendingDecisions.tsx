@@ -180,6 +180,15 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
   // Hermes `input_answers`'i okurken soruyu cevapla eslestirebilsin.
   const answered = (plan?.input_questions ?? []).every((question) => (answers[question] ?? "").trim().length > 0);
 
+  // Karar butonlari SUNUCUNUN durum makinesinden turetilir: terminal planda
+  // hicbiri cizilmez, footer da bos bir serit olarak kalmaz.
+  const canApprove = plan ? canTransition(plan.state, "approved") : false;
+  const canExecute = plan ? canTransition(plan.state, "executing") : false;
+  const canRespond = plan ? canTransition(plan.state, "draft") : false;
+  const canReject = plan ? canTransition(plan.state, "rejected") : false;
+  const canCancel = plan ? canTransition(plan.state, "cancelled") : false;
+  const canDecide = canApprove || canExecute || canRespond || canReject || canCancel;
+
   return (
     <Modal
       open
@@ -188,9 +197,10 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
       hint={plan ? `${plan.step_count} adım · ${plan.mutation_count} mutasyon` : undefined}
       className="sm:max-w-lg"
       footer={
+        canDecide &&
         plan && (
           <div className="flex flex-wrap items-center gap-2">
-            {canTransition(plan.state, "approved") && (
+            {canApprove && (
               <Button
                 variant="primary"
                 disabled={decide.isPending || expired}
@@ -199,7 +209,7 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
                 Onayla
               </Button>
             )}
-            {canTransition(plan.state, "executing") && (
+            {canExecute && (
               <Button
                 variant="primary"
                 disabled={decide.isPending || expired}
@@ -214,7 +224,7 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
                 {decide.isPending ? "Yürütülüyor…" : "Yürüt"}
               </Button>
             )}
-            {canTransition(plan.state, "draft") && (
+            {canRespond && (
               <Button
                 variant="primary"
                 disabled={decide.isPending || !answered}
@@ -223,25 +233,21 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
                 Yanıtla
               </Button>
             )}
-            {canTransition(plan.state, "approved") && (
+            {canApprove && (
               <Button onClick={() => setRevisionHint((current) => !current)} ariaExpanded={revisionHint}>
                 Düzenle
               </Button>
             )}
-            {canTransition(plan.state, "rejected") && (
+            {canReject && (
               <Button disabled={decide.isPending} onClick={() => decide.mutate({ kind: "reject" })}>
                 Reddet
               </Button>
             )}
-            {canTransition(plan.state, "cancelled") && (
+            {canCancel && (
               <Button variant="danger" disabled={decide.isPending} onClick={() => decide.mutate({ kind: "cancel" })}>
                 İptal
               </Button>
             )}
-            <span className="flex-1" />
-            <Button variant="ghost" onClick={onClose}>
-              Kapat
-            </Button>
           </div>
         )
       }
@@ -288,14 +294,15 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
 
           {expired && (
             <Note tone="warn" icon={<AlertTriangle size={13} />}>
-              Planın karar süresi doldu: bu revizyon artık yürütülemez. Aynı iş için Hermes'ten yeni bir revizyon isteyin.
+              Planın karar süresi doldu: bu revizyon artık yürütülemez. Aynı iş için Hermes'ten yeni bir revizyon
+              isteyin.
             </Note>
           )}
           {revisionHint && (
             <Note tone="neutral" icon={<PencilLine size={13} />}>
               Plan içeriği doğrudan düzenlenemez: onaylanan şey tam olarak bu revizyondur. Değişiklik için Hermes'e yeni
-              revizyon hazırlat (Hermes kanalında "bu planı şu değişiklikle yeniden hazırla"). Yeni revizyon yeniden onay
-              ister; eski onay yeni içeriğe geçmez.
+              revizyon hazırlat (Hermes kanalında "bu planı şu değişiklikle yeniden hazırla"). Yeni revizyon yeniden
+              onay ister; eski onay yeni içeriğe geçmez.
             </Note>
           )}
           {plan.state === "input_required" && plan.input_questions.length > 0 && (
@@ -330,7 +337,9 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
                       </Chip>
                       {stepTarget(step) && <span className="text-meta text-muted">{`hedef ${stepTarget(step)}`}</span>}
                     </span>
-                    {step.description && <span className="mt-1 block text-body text-secondary">{step.description}</span>}
+                    {step.description && (
+                      <span className="mt-1 block text-body text-secondary">{step.description}</span>
+                    )}
                   </span>
                 </li>
               ))}
@@ -356,7 +365,9 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
                         <Chip size="xs" tone={RECEIPT_TONE[receipt.status] ?? "neutral"}>
                           {receipt.status}
                         </Chip>
-                        {receipt.error_code && <span className="numeral text-meta text-danger">{receipt.error_code}</span>}
+                        {receipt.error_code && (
+                          <span className="numeral text-meta text-danger">{receipt.error_code}</span>
+                        )}
                       </span>
                       {receipt.result_ref && (
                         <span className="mt-0.5 block truncate text-meta text-muted" title={receipt.result_ref}>

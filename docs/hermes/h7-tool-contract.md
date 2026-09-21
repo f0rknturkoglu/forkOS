@@ -61,7 +61,7 @@ model · prompt · system_prompt · temperature · api_key
   (`write_registry.py:88-136`); bilinmeyen eylem `UNKNOWN_ACTION` ile planı
   reddeder (`steps.py:76-81`).
 - `steps` serbest JSON **değildir**: her argüman H1'in Pydantic modelinden
-  geçer (`steps.py:100-114`).
+  geçer (`steps.py:88-95`).
 - Onay bir **alan değildir**: `approved: true` diye bir girdi yoktur; onay
   ayrı bir işlemdir ve sunucu tarafında kayıt üretir (`tools.py:99-102`).
 
@@ -83,7 +83,7 @@ model · prompt · system_prompt · temperature · api_key
 
 İşlem yönlendirmesi tek bir servis katmanına gider (`service.py`); araç kendi
 ikinci durum kopyasını tutmaz. MCP ile REST **aynı** `_plan_view()` çıktısını
-üretir (`service.py:532-577`).
+üretir (`service.py:532-574`).
 
 ### 2.1 Kaydedilen aktör
 
@@ -100,7 +100,7 @@ kaydeder. Yetki her zaman `approve()` içinde üretilir.
 
 ## 3. Plan görünümü şeması
 
-`_plan_view()` (`service.py:532-577`) — `get`, `approve`, `reject`, `respond`,
+`_plan_view()` (`service.py:532-574`) — `get`, `approve`, `reject`, `respond`,
 `cancel`, `execute`, `prepare` aynı şemayı döner:
 
 ```text
@@ -126,7 +126,7 @@ created_at · updated_at                ISO-8601
 `receipts[]`: `step_id`, `ordinal`, `action`, `target`, `status`
 (`completed|failed|skipped|not_attempted`), `error_code`, `result_ref`,
 `completed_at`. Tam H1 yanıt gövdesi **taşınmaz**; `result_ref` yalnızca
-sınırlı bir referanstır (`models.py:184-215`).
+sınırlı bir referanstır (`models.py:184-214`).
 
 ---
 
@@ -156,7 +156,7 @@ Hata zarfı sızdırmazdır: yığın izi, SQL veya dosya yolu taşınmaz
 (`tools.py:1456-1461`). Adım düzeyindeki H1 hataları çağırana değil, **makbuza**
 yazılır ve sınırlı koda indirgenir: `INVALID_INPUT`, `NOT_FOUND`, `STALE`,
 `EXPIRED`, `CONFLICT`, `ACTION_ERROR`, `FORBIDDEN`, aksi halde `ACTION_FAILED`
-(`execution.py:327-343`).
+(`execution.py:327-342`).
 
 ---
 

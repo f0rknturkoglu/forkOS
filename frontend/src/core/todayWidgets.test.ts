@@ -135,12 +135,13 @@ describe("Bugun widget sozlesmesi", () => {
   });
 
   it("eski modul ID sirasi widget id'lerine goc eder", () => {
-    // Faz 5 legacy: modul id'leri. Bugun modulunun 4 widget'i var (Faz 25 ritim dahil).
+    // Faz 5 legacy: modul id'leri. Bugun modulunun 5 widget'i var (Faz 25
+    // ritim ve H7 bekleyen kararlar dahil).
     store.set("lifeos.widgetOrder", JSON.stringify(["today"]));
     const todayWidgetIds = allTodayWidgetViewsIncludingHidden()
       .filter((view) => view.moduleId === "today")
       .map((view) => view.id);
-    expect(todayWidgetIds.length).toBe(4);
+    expect(todayWidgetIds.length).toBe(5);
     // Kullanici sirasi yokken: migration modul sirasini widget sirasina acar;
     // odakli varsayilan yine uygulanir (tercih yok).
     expect(allTodayWidgetViews().length).toBeGreaterThanOrEqual(8);

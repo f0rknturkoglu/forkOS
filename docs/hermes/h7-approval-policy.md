@@ -129,12 +129,12 @@ Kanıt: `test_h7_approval.py::test_new_revision_invalidates_previous_approval`.
 ```text
 reject()   yalnızca awaiting_approval'dan         service.py:318-331
 respond()  yalnızca input_required'dan            service.py:334-367
-cevap boş  → INVALID_INPUT_RESPONSE               service.py:347-348
-cevap anahtarı ≤64, değeri ≤1000 karakter          models.py:117-118
+cevap boş  → INVALID_INPUT_RESPONSE               service.py:352-353
+cevap anahtarı ≤64, değeri ≤1000 karakter          service.py:351 / models.py:118
 ```
 
 `respond()` **mutasyon üretmez**: cevap yeni bir eylem olamaz; plan `draft`'a
-döner ve yeniden hazırlanır (`service.py:340-345`). Kanıt:
+döner ve yeniden hazırlanır (`service.py:344-345`). Kanıt:
 `test_h7_approval.py::test_respond_returns_plan_to_draft_without_mutation`.
 
 ---
@@ -183,7 +183,7 @@ Yürütme başladıktan sonra TTL uygulanmaz: `executing` bir karar beklemez.
 
 ```text
 doğrulama soru üretirse plan input_required'a girer   validation.py:225-227
-sorular sınırlıdır (≤3) ve 200 karaktere kırpılır      validation.py:180-187
+sorular sınırlıdır (≤3) ve 200 karaktere kırpılır      validation.py:181-188
 "Approve" bu durumda SUNULMAZ                          validation.py:226
 onay denemesi → PLAN_NOT_APPROVABLE                    service.py:284-285
 respond() → draft (yeni revizyon, yeni onay gerekir)   service.py:334-367

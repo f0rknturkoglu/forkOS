@@ -30,12 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
 from app.integrations.agent.write_registry import BY_NAME, run_action
-from app.modules.execution.models import (
-    MAX_RECEIPT_DETAIL,
-    ExecutionDecision,
-    ExecutionPlan,
-    ExecutionReceipt,
-)
+from app.modules.execution.models import MAX_RECEIPT_DETAIL, ExecutionPlan, ExecutionReceipt
 
 log = logging.getLogger("execution")
 
@@ -90,27 +85,6 @@ async def claim_plan(session: AsyncSession, plan_row: ExecutionPlan, *, now: dat
         .returning(ExecutionPlan.id)
     )
     return result.scalar_one_or_none() is not None
-
-
-async def _decision(
-    session: AsyncSession,
-    *,
-    plan: ExecutionPlan,
-    kind: str,
-    detail: dict[str, Any] | None = None,
-    now: datetime,
-) -> None:
-    session.add(
-        ExecutionDecision(
-            plan_id=plan.plan_id,
-            plan_row_id=plan.id,
-            kind=kind,
-            revision=plan.revision,
-            detail=detail or {},
-            actor="h7",
-            at=now,
-        )
-    )
 
 
 def _receipt_detail(value: Any) -> str | None:

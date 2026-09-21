@@ -42,9 +42,12 @@ from app.core.models import Base
 # ---------------------------------------------------------------------------
 
 #: Plan yasam dongusu. `state.py` bu kumenin DISINA cikilmasina izin vermez.
+#: NOT: doğrulama AYRI bir plan durumu DEĞİLDİR — satır yazılmadan ÖNCE
+#: çalışır ve sonucu denetim izine (`validated` / `validation_failed`) düşer.
+#: Böylece "tanımlı ama hiç üretilmeyen durum" oluşmaz (§57 ayrımı korunur:
+#: doğrulama ile karar ayrı adımlardır).
 PLAN_STATES: tuple[str, ...] = (
     "draft",
-    "validating",
     "input_required",
     "awaiting_approval",
     "approved",
@@ -67,8 +70,9 @@ DECISION_REQUIRED_STATES: frozenset[str] = frozenset(
     {"awaiting_approval", "input_required"}
 )
 
-#: Dogrulama sonucu.
-VALIDATION_STATUSES: tuple[str, ...] = ("pending", "valid", "invalid", "input_required")
+#: Dogrulama sonucu. Gecersiz plan KAYDEDILMEZ; bu yuzden yalnizca iki deger
+#: kalici plan satirinda gorulur.
+VALIDATION_STATUSES: tuple[str, ...] = ("valid", "input_required")
 
 #: Karar kaydi turleri (append-only denetim izi).
 DECISION_KINDS: tuple[str, ...] = (
@@ -89,10 +93,11 @@ DECISION_KINDS: tuple[str, ...] = (
     "execution_blocked",
 )
 
-#: Adim sonucu.
-STEP_STATUSES: tuple[str, ...] = ("completed", "failed", "skipped", "not_attempted")
+#: Adim sonucu. `not_attempted`, "ilk hatadan sonra denenmedi" demektir.
+STEP_STATUSES: tuple[str, ...] = ("completed", "failed", "not_attempted")
 
-#: Plan sonucu (yuritme bittiginde).
+#: Plan sonucu (yuritme bittiginde). `cancelled` yalnizca yurutme baslamadan
+#: kapatilan planlar icin terminal durumdur.
 FINAL_STATUSES: tuple[str, ...] = ("completed", "partial", "failed", "cancelled")
 
 #: Onay verilebilir azami plan yasi (saat). Sinirsiz plan YOKTUR.

@@ -63,7 +63,7 @@ Notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notla
 
 ### Ajan Entegrasyonu ve Hermes
 
-forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Yüzey toplam **28 bounded araçtır**:
+forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Yüzey toplam **29 bounded araçtır**:
 
 | Katman | Araç | Kapsam |
 | --- | --- | --- |
@@ -74,6 +74,7 @@ forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay ze
 | **H4** | 1 | **yerel biliş** router'ı: sınıflandırma, sözleşmeli çıkarım, sorgu yeniden yazımı (`forkos_local_cognition`) |
 | **H5** | 1 | **gözden geçirme zekâsı**: süreklilik, gün kapanışı, haftalık gözden geçirme, dönem deltası, konsolidasyon (`forkos_review_intelligence`) |
 | **H6** | 1 | **proaktif dikkat kontrolü**: kapalı kural kümesi, koşu durumu, konfigürasyon ve kullanıcı override'ı (`forkos_proactivity`) |
+| **H7** | 1 | **kalıcı karar ve sınırlı yürütme**: kanıta dayanan plan revizyonu, sunucu tarafı onay, adım başına durable makbuz ve kesintiye dayanıklı, H1 üzerinden yürütme (`forkos_execution`) |
 
 Yazma araçları `readOnlyHint=false` taşır; önerilen istemci güveni `untrusted`dır ve kullanıcı onayı istemci/harness tarafından yönetilir.
 

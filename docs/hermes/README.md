@@ -4,7 +4,7 @@ Hermes ve forkOS arasındaki resmi entegrasyon katmanı. Kişisel işletim siste
 (forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka
 ajanlarına **bounded** bir MCP yüzeyiyle açar.
 
-Yüzey **H0 → H6** boyunca büyüdü ve bugün toplam **28** araçtır:
+Yüzey **H0 → H7** boyunca büyüdü ve bugün toplam **29** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
@@ -16,6 +16,8 @@ H5   1 araç   GÖZDEN GEÇİRME zekâsı: süreklilik, gün kapanışı, haftal
               dönem deltası ve konsolidasyon adayları (forkos_review_intelligence)
 H6   1 araç   PROAKTİF dikkat kontrolü: kural/koşu durumu, konfigürasyon ve
               kullanıcı override'ı (forkos_proactivity)
+H7   1 araç   KALICI karar ve SINIRLI yürütme: plan revizyonu, sunucu tarafı
+              onay, adım makbuzu ve kesintiye dayanıklı yürütme (forkos_execution)
 ```
 
 > Bu dokümanın eski başlığı "Brain Interface Foundation (H0)" idi; H0 artık
@@ -39,7 +41,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │      28 Bounded MCP Tools      │
+                       │      29 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐
@@ -76,13 +78,13 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 
 ---
 
-## 3. Sağlanan MCP Araçları (28)
+## 3. Sağlanan MCP Araçları (29)
 
-Arayüz toplam **28** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+Arayüz toplam **29** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 (H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3) + **1 yerel biliş**
-(H4) + **1 gözden geçirme** (H5) + **1 proaktif dikkat** (H6). Yazma araçları
-`readOnlyHint=false` taşır ve `trust: untrusted` bir istemcide kullanıcı onayı
-gerektirir.
+(H4) + **1 gözden geçirme** (H5) + **1 proaktif dikkat** (H6) + **1 kalıcı
+karar/yürütme** (H7). Yazma araçları `readOnlyHint=false` taşır ve
+`trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
 
 ### Okuma araçları (H0)
 
@@ -147,6 +149,12 @@ gerektirir.
 | --- | --- | --- |
 | **Dikkat** | `forkos_proactivity` | H6'nın **ne zaman** devreye gireceğini inceler ve ayarlar: `status`, `configure`, `rule_set`, `snooze`, `unsnooze`, `history`, `evaluate_now`. Kural kümesi **kapalıdır** (`morning_continuity`, `daily_close`, `weekly_review`, `deadline_staircase`, `continuity_gap`, `project_stalled`); serbest ifade/cron/SQL/prompt reddedilir. Sessizlik başarılı bir sonuçtur: tetik yalnızca "şimdi değerlendir" demektir. `snooze` saat dilimli mutlak bir zamandır ve otomasyonun her zaman saygı duyduğu açık kullanıcı override'ıdır. Yalnızca H6 konfigürasyonunu ve override durumunu yazar; Todo/Project/Opportunity/Review/Vault/Sıcak Hafıza mutasyonu yapmaz ve arka plan worker'ı canonical mutasyon gerçekleştirmez. |
 
+### Karar ve yürütme aracı (H7)
+
+| Kategori | Araç Adı | Açıklama |
+| --- | --- | --- |
+| **Karar** | `forkos_execution` | Kanıta dayanan planı **kalıcı bir karara** ve **sınırlı yürütmeye** çevirir: `prepare`, `get`, `list`, `approve`, `reject`, `respond`, `cancel`, `execute`, `status`. Adımlar H1'in **kapalı** 11 eylem sözlüğünden seçilir ve argümanlar H1'in kendi modelleriyle doğrulanır; serbest araç adı, shell, SQL, keyfî HTTP ve silme reddedilir. Onay **sunucu tarafı** bir kayıttır ve immutable revizyona bağlanır: model onaylayamaz, onaysız yürütme `APPROVAL_REQUIRED` döner. Yürütme DB-destekli CAS ile tek sahiplik alır, her adım öncesi hedef damgasını yeniden doğrular, ilk hatada **durur**, otomatik rollback yapmaz ve adım başına tek durable makbuz bırakır. Canonical mutasyon yalnızca `execute` sırasında ve H1 üzerinden olur. |
+
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [Onay modeli](h1-safe-actions.md) ·
 [H2 Sıcak Hafıza](h2-hot-memory.md) ·
@@ -164,7 +172,11 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [H5 Kaynak ve Konsolidasyon Politikası](h5-source-and-consolidation-policy.md) ·
 [H6 Proaktivite](h6-proactivity.md) ·
 [H6 Karar Politikası](h6-policy.md) ·
-[H6 Araç Sözleşmesi](h6-tool-contract.md)
+[H6 Araç Sözleşmesi](h6-tool-contract.md) ·
+[H7 Karar ve Yürütme](h7-execution.md) ·
+[H7 Durum Makinesi](h7-state-machine.md) ·
+[H7 Karar ve Onay Politikası](h7-approval-policy.md) ·
+[H7 Araç Sözleşmesi](h7-tool-contract.md)
 
 ---
 
@@ -185,4 +197,8 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [H6 Proaktivite ve Dikkat Kontrolü](h6-proactivity.md): ürün kimliği (H6 = WHEN), boru hattı, kural aileleri, sessizlik felsefesi ve "Neler YOK".
 - [H6 Karar Politikası](h6-policy.md): karar sırası, kategoriler, kuiet saatleri, cooldown ≠ debounce, neden-şimdi ve sınırlar.
 - [H6 Araç Sözleşmesi](h6-tool-contract.md): `forkos_proactivity` imzası, işlem tablosu, REST uçları, hata kodları ve örnek çıktılar.
-- [H-Serisi Yol Haritası (H0 → H6)](roadmap.md): Beyin arayüzünün H0 temelinden H6 tam otonom eşlikçiye evrilme planı.
+- [H7 Karar ve Yürütme](h7-execution.md): zincir (kanıt → öneri → plan → doğrulama → karar → yürütme → makbuz), sorumluluk ayrımı, plan nesnesi, adım sözleşmesi, sınırlı yürütme, crash/resume modeli ve "Neler YOK".
+- [H7 Durum Makinesi](h7-state-machine.md): 12 durum, birebir izinli geçiş tablosu, terminal durumlar, geçersiz geçiş örnekleri ve MCP Tasks eşlemesi.
+- [H7 Karar ve Onay Politikası](h7-approval-policy.md): beş ayrım (akıl yürütme ≠ yetki … kısmi ≠ tamam), dört karar türü, replay koruması, TTL ve değişmez tablosu.
+- [H7 Araç Sözleşmesi](h7-tool-contract.md): `forkos_execution` imzası, işlem tablosu, plan görünümü şeması, REST uçları, hata kodları ve örnek çıktılar.
+- [H-Serisi Yol Haritası (H0 → H7)](roadmap.md): Beyin arayüzünün H0 temelinden H7 kalıcı karar ve sınırlı yürütmeye evrilme planı.

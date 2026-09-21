@@ -6,20 +6,21 @@ durumdan çıkış **yoktur** (`completed → approved` imkânsızdır)
 (`backend/app/modules/execution/state.py:1-6`).
 
 ```text
-draft ──► validating ──► awaiting_approval ──► approved ──► executing ──► completed
-  │            │                  │                │             │
-  │            │                  ├──► rejected    ├──► cancelled └──► partial
-  │            │                  │                │              └──► failed
-  └────────────┴──► input_required │                │
-                     │            └──► expired ◄────┘
-                     └──► draft
+awaiting_approval ──► approved ──► executing ──► completed
+       │                  │             │        └──► partial
+       ├──► rejected      ├──► cancelled└───────────► failed
+       └──► expired ◄─────┘
+input_required ──► draft   (cevap sonrası yeniden hazırlık durağı)
 ```
+
+Doğrulama AYRI bir durum DEĞİLDİR: plan satırı yazılmadan ÖNCE çalışır ve
+sonucu denetim izine düşer (`validated` / `validation_failed`).
 
 Diyagram bir **özet**tir; bağlayıcı olan §2'de birebir verilen tablodur.
 
 ---
 
-## 1. Durumlar (12)
+## 1. Durumlar (11)
 
 `PLAN_STATES` (`models.py:45-58`) — `state.py` bu kümenin dışına çıkılmasına
 izin vermez; DB'de de check constraint vardır
@@ -27,8 +28,7 @@ izin vermez; DB'de de check constraint vardır
 
 | Durum | Anlam | Karar bekler? |
 |---|---|---|
-| `draft` | doğrulama/karar için hazırlanmış taslak (cevap sonrası dönüş durağı) | — |
-| `validating` | doğrulama aşaması (bkz. §7) | — |
+| `draft` | cevap sonrası yeniden hazırlanmayı bekleyen revizyon | — |
 | `input_required` | eksik bilgi var; "Approve" sunulmaz | ✅ |
 | `awaiting_approval` | kullanıcı kararı bekleniyor | ✅ |
 | `approved` | onay **sunucu tarafında** kayıtlı; revizyon kilitli | — |
@@ -55,10 +55,9 @@ FINAL_STATUSES = {completed, partial, failed, cancelled}                        
 
 `state.ALLOWED_TRANSITIONS` (`state.py:13-27`) — anahtar kaynak durumdur:
 
-| Kaynak | İzinli hedefler | Tipik üretici |
+| Kaynak | İzinli hedefler | Üreten yol |
 |---|---|---|
-| `draft` | `validating`, `input_required`, `cancelled`, `expired` | `prepare`, `respond`, `cancel`, TTL |
-| `validating` | `awaiting_approval`, `input_required`, `expired` | doğrulama sonucu |
+| `draft` | `input_required`, `cancelled`, `expired` | `respond` (cevap sonrası dönüş), `cancel`, TTL |
 | `input_required` | `draft`, `cancelled`, `expired` | `respond`, `cancel`, TTL |
 | `awaiting_approval` | `approved`, `rejected`, `cancelled`, `expired` | `approve`, `reject`, `cancel`, TTL |
 | `approved` | `executing`, `cancelled`, `expired` | `execute` (claim), `cancel`, TTL |
@@ -70,11 +69,15 @@ FINAL_STATUSES = {completed, partial, failed, cancelled}                        
 | `cancelled` | — | terminal |
 | `expired` | — | terminal |
 
+"TTL" satırları `expire_due_plans()`'in kapsadığı durumlardır
+(`awaiting_approval`, `input_required`, `approved`); `draft` bu taramanın
+dışındadır — karar bekleyen bir plan değildir (`service.py:expire_due_plans`).
+
 Kritik özellikler:
 
 ```text
 onaydan sonra revizyon DEĞİŞEMEZ   approved → yalnızca executing/cancelled/expired
-canonical yürütmenin TEK kapısı    approved → executing  (state.can_execute:49-50)
+canonical yürütmenin TEK kapısı    approved → executing  (yalnızca CAS claim ile)
 terminal durumdan çıkış            ALLOWED_TRANSITIONS[terminal] == frozenset()
 küme ile durum listesi birebir     set(ALLOWED_TRANSITIONS) == set(PLAN_STATES)
 ```
@@ -115,7 +118,7 @@ Servis düzeyinde aynı kurallar daha **spesifik** koda çevrilebilir: örneğin
 `approve()` terminal bir plana `PLAN_NOT_APPROVABLE`, reddedilmiş plana
 `PLAN_REJECTED`, süresi geçmişe `PLAN_EXPIRED` der (`service.py:280-285`) —
 ama hiçbiri geçişi zorlamaz; `ensure_transition` her zaman son sözü söyler
-(`service.py:305`).
+(`service.py:303`).
 
 ---
 
@@ -202,21 +205,32 @@ onaylamıştım?" sorusu tarihsel olarak cevaplanabilir kalır.
 
 ---
 
-## 7. Tanımlı ama üretilmeyen değerler (dürüstlük notu)
+## 7. Ölü sözleşme yok — denetim sonucu
 
-Bu fazda aşağıdaki değerler sözleşmede tanımlıdır ancak mevcut servis
-yollarında **üretilmez**; kod okunurken yanıltmasınlar diye açıkça yazılır:
+H7.0 taslağında tanımlı olup hiçbir yolda üretilmeyen değerler denetimde
+bulundu ve **kapatıldı**: ya gerçek bir üretim yoluna bağlandı ya kaldırıldı.
 
-| Değer | Durum |
-|---|---|
-| `validating` | `prepare()` doğrulamayı satır içi yapar ve doğrudan `awaiting_approval`/`input_required` yazar (`service.py:164-200`); `draft → validating` geçişini üreten bir yol yoktur |
-| `validation_failed` (karar türü) | geçersiz plan kaydedilmediği için denetim satırı açılmaz; hata `PLAN_VALIDATION_FAILED` olarak çağırana döner (`service.py:166-172`) |
-| `execution_blocked` (karar türü) | mutabakat durumu `step_failed` + `RECONCILIATION_REQUIRED` ile raporlanır (`execution.py:197-211`) |
-| `skipped` (adım sonucu) | hiç denenmeyen adım `not_attempted` işaretlenir (`execution.py:213-222`) |
-| `pending` / `invalid` (`validation_status`) | kaydedilen plan ya `valid` ya `input_required`'dır (`service.py:213-215`) |
+```text
+BAĞLANDI
+  validation_failed   prepare() geçersiz öneriyi kaydetmez ama denetim izine
+                      sınırlı bir kayıt bırakır (plan satırı OLMADAN):
+                      "bu öneri neden reddedildi" cevaplanabilir kalır.
+  execution_blocked   mutabakat gerektiren yarıda kalmış adım, `execution_blocked`
+                      kararı olarak yazılır (step_failed ile birlikte).
 
-Bu değerler "ölü sözleşme"dir: ya gerçek bir üretim yoluna bağlanmalı ya da
-kaldırılmalıdır. Doküman şu anki davranışı anlatır, olmayan üretimi anlatmaz.
+KALDIRILDI (üretim yolu yoktu)
+  validating (durum)          → doğrulama satır yazılmadan ÖNCE çalışır; ayrı bir
+                                durum, gözlemlenemeyen ölü bir düğüm olurdu.
+  skipped (adım sonucu)       → hiç denenmeyen adım `not_attempted`tır.
+  pending / invalid (validation_status)
+                              → geçersiz plan kaydedilmediği için kalıcı satırda
+                                yalnızca `valid` ve `input_required` görülür.
+  state.can_execute()         → yürütme kapısı CAS claim'dir; yardımcı ölüydü.
+  execution._decision()       → denetim yazımı tek yerde: service._audit().
+```
+
+Kilit: `tests/test_h7_models.py::test_every_declared_state_and_code_has_a_production_path`
+ve `test_no_dead_helpers_remain`.
 
 ---
 
