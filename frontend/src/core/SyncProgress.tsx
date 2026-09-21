@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Loader2 } from "lu
 import { navigate } from "@/app/router";
 import { api } from "@/core/api";
 import { sourceLabel } from "@/core/labels";
+import { runStateView, type StatusTone } from "@/core/sourceStatus";
 import type { SourceSyncStatus } from "@/core/types";
 import { Button, Chip, cx } from "@/core/ui";
 
@@ -29,10 +30,10 @@ export function sourceSyncHistoryQueryKey(scope: SourceSyncScope): readonly stri
   return scope === "media" ? ["source-sync-history", "media"] : ["source-sync-history"];
 }
 
-/** Cekim surerken yoklama araligi (ilerleme gorunur kalsin). */
-export const SOURCE_SYNC_ACTIVE_MS = 2_000;
-/** Bosta yoklama araligi. Ayni anahtari kullanan herkes BUNU kullanir. */
-export const SOURCE_SYNC_IDLE_MS = 15_000;
+/** Cekim surerken yoklama araligi (ilerleme gorunur kalsin). Dosya ici. */
+const SOURCE_SYNC_ACTIVE_MS = 2_000;
+/** Bosta yoklama araligi; bu bilesenin TEK yoklama ritmi. */
+const SOURCE_SYNC_IDLE_MS = 15_000;
 
 export function useSourceSync(scope: SourceSyncScope = "opportunity") {
   return useQuery({
@@ -44,25 +45,16 @@ export function useSourceSync(scope: SourceSyncScope = "opportunity") {
 
 type SyncItemStatus = SourceSyncStatus["sources"][number]["status"];
 
-const STATUS_LABELS: Record<SyncItemStatus, string> = {
-  queued: "kuyrukta",
-  running: "çekiliyor",
-  ok: "tamamlandı",
-  partial: "kısmi",
-  empty: "yeni kayıt yok",
-  error: "hata",
-};
-
-export function sourceSyncStatusLabel(status: SyncItemStatus): string {
-  return STATUS_LABELS[status];
+/**
+ * Etiket ve ton TEK sozlukten gelir (@/core/sourceStatus). Burada ayri bir
+ * tablo tutulmaz: ayni durum baska bir yuzeyde baska turlu yazilamaz.
+ */
+function sourceSyncStatusLabel(status: SyncItemStatus): string {
+  return runStateView(status).label;
 }
 
-export function sourceSyncStatusTone(status: SyncItemStatus): "accent" | "danger" | "neutral" | "ok" | "warn" {
-  if (status === "running") return "accent";
-  if (status === "ok") return "ok";
-  if (status === "partial" || status === "empty") return "warn";
-  if (status === "error") return "danger";
-  return "neutral";
+function sourceSyncStatusTone(status: SyncItemStatus): StatusTone {
+  return runStateView(status).tone;
 }
 
 export function SyncProgress({

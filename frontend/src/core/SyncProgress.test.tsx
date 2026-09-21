@@ -113,6 +113,7 @@ describe("SyncProgress", () => {
 
     expect(screen.getByText("kısmi")).not.toBeNull();
     expect(screen.getByText("çekiliyor")).not.toBeNull();
-    expect(screen.getByText("kuyrukta")).not.toBeNull();
+    // Etiket tek sozlukten (@/core/sourceStatus): queued -> "sırada".
+    expect(screen.getByText("sırada")).not.toBeNull();
   });
 });

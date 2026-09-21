@@ -1,52 +1,85 @@
-import { useQuery } from "@tanstack/react-query";
-import { useSourceHealth } from "@/core/runtimeQueries";
 import { AlertTriangle } from "lucide-react";
-import { api } from "@/core/api";
-import { Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast } from "@/core/ui";
-import { Copy } from "lucide-react";
-import type { SourceHealth } from "@/core/types";
+import { useMemo } from "react";
+import { useSourceHealth } from "@/core/runtimeQueries";
+import { SectionFallback, dataState } from "@/core/DataState";
+import { formatSourceDiagnostics, type SourceProblemDiagnostic } from "@/core/diagnostics";
+import { runStateView } from "@/core/sourceStatus";
+import { Chip, CopyButton, Empty, MiniStat, Section, relativeTime } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
+import type { SourceHealth } from "@/core/types";
 
-/** Tum scraper/feed kaynaklarinin son kosum durumu (RSS dahil -- source_run). */
+/** `/sources/health` satiri bir kosu kaydidir; kapsam alanlari varsa tasinir. */
+function toDiagnostic(run: SourceHealth): SourceProblemDiagnostic {
+  const scope = run as SourceHealth & {
+    error_kind?: string | null;
+    circuit_open?: boolean | null;
+    consecutive_failures?: number | null;
+  };
+  return {
+    source: run.source,
+    label: sourceLabel(run.source),
+    status: run.status,
+    error_kind: scope.error_kind ?? null,
+    circuit_open: scope.circuit_open ?? null,
+    consecutive_failures: scope.consecutive_failures ?? null,
+    last_run_at: run.started_at,
+    last_error: run.error,
+  };
+}
+
+/**
+ * Tum scraper/feed kaynaklarinin son kosum durumu (RSS dahil -- source_run).
+ *
+ * Durustluk: sorgu duserken/yuklenirken bu kart "saglikli" DEMEZ ve sahte sifir
+ * gostermez. Tek `empty` kosu bilgilendirmedir, `disabled` notr; ikisi de
+ * "ilgi isteyen" sayilmaz (bkz. @/core/sourceStatus).
+ */
 export function SourceHealthWidget() {
   // Kabuktaki paylasilan saglik sorgusu (bkz. core/runtimeQueries).
-  const { data = [] } = useSourceHealth();
+  const query = useSourceHealth();
+  const state = dataState(query);
+  const runs = query.data ?? [];
 
-  const tally = { ok: 0, empty: 0, error: 0 };
-  for (const run of data) {
-    if (run.status in tally) tally[run.status as keyof typeof tally] += 1;
-  }
-  const broken = data.filter((run) => run.status === "error");
-  const toast = useToast();
+  const healthy = runs.filter((run) => run.status === "ok").length;
+  // Ilgi isteyen = hata / kismi / yarim kaldi. Bos kosu ve kapali kaynak degil.
+  const attention = runs.filter((run) => runStateView(run.status).attention);
+  const empty = runs.filter((run) => run.status === "empty").length;
+  const disabled = runs.filter((run) => run.status === "disabled").length;
+  // Tanilama paketi yalniz BILINEN durumda kaynak sayisi yazar; hata/hazirlikta
+  // "unknown sections" listelenir, uydurma sayi verilmez.
+  const known = state === "ready" || state === "empty";
 
-  /** Agent'a yapistirmak icin hata satirlarini TSV olarak panoya kopyala. */
-  async function copyErrors() {
-    const text = broken
-      .map((run) =>
-        [sourceLabel(run.source), run.status, run.error ?? "", new Date(run.started_at).toISOString()].join("	"),
-      )
-      .join("\n");
-    try {
-      await navigator.clipboard.writeText(text || "hata yok");
-      toast.push(`${broken.length} hata panoya kopyalandı`, { tone: "ok" });
-    } catch {
-      toast.push("Pano erişilemedi — tarayıcı izni gerekiyor.", { tone: "warn" });
-    }
-  }
+  /**
+   * Agent'a yapistirilacak Markdown tanilama paketi (@/core/diagnostics).
+   * Panoya yazma paylasilan CopyButton primitifinin isidir: burada yalniz
+   * icerik ve baglama ozgu bildirim metni uretilir.
+   */
+  // Damga mount basina sabittir: her render'da degisen bir paket kopyalanmasin.
+  const generatedAt = useMemo(() => new Date().toISOString(), []);
+  const bundle = formatSourceDiagnostics({
+    generated_at: generatedAt,
+    scope: "kaynak sağlığı (son koşular, /sources/health)",
+    source_count: known ? runs.length : null,
+    problems: attention.map(toDiagnostic),
+    unknown: known ? [] : ["sources"],
+  });
+  const bundleToast = known
+    ? `${attention.length} kaynak sorunu panoya kopyalandı.`
+    : "Kaynak sağlığı bilinmiyor: bilinmeyen durumu işaretleyen tanılama paketi kopyalandı.";
 
   return (
     <Section
       title="Kaynak Sağlığı"
       action={
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            size="sm"
-            onClick={copyErrors}
-            disabled={broken.length === 0}
-            title="Hata satırlarını panoya kopyala (agent a yapistirmak icin)"
-          >
-            <Copy size={13} /> Hataları kopyala
-          </Button>
+          <CopyButton
+            text={bundle}
+            label="Tanılamayı kopyala"
+            ariaLabel="Tanılamayı kopyala"
+            disabled={state === "loading"}
+            toastLabel={bundleToast}
+            toastTone={known ? "ok" : "warn"}
+          />
           <a href="#/sources" className="text-meta text-accent hover:underline">
             tüm kaynaklar →
           </a>
@@ -54,38 +87,69 @@ export function SourceHealthWidget() {
       }
       bodyClassName="space-y-4"
     >
-      <div className="grid grid-cols-3 gap-3">
-        <MiniStat label="Kaynak" value={data.length} />
-        <MiniStat label="Sağlıklı" value={tally.ok} tone="ok" />
-        <MiniStat label="Hata" value={tally.error} tone="danger" />
-      </div>
+      {state === "ready" ? (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <MiniStat label="Kaynak" value={runs.length} />
+            <MiniStat label="Sağlıklı" value={healthy} tone="ok" />
+            <MiniStat label="İlgi isteyen" value={attention.length} tone={attention.length > 0 ? "warn" : undefined} />
+          </div>
 
-      {broken.length === 0 ? (
-        <Empty>Bütün kaynaklar son koşumda sağlıklı görünüyor.</Empty>
+          {attention.length === 0 ? (
+            <Empty>
+              {healthy === runs.length ? "Bütün kaynaklar son koşumda sağlıklı görünüyor." : "İlgi isteyen kaynak yok."}
+            </Empty>
+          ) : (
+            <div>
+              <p className="mb-2 text-meta text-secondary">
+                <strong className="font-medium text-warn">{attention.length}</strong> kaynak ilgi istiyor:
+              </p>
+              <ul className="space-y-2">
+                {attention.slice(0, 8).map((run) => {
+                  const view = runStateView(run.status);
+                  return (
+                    <li
+                      key={`${run.source}-${run.started_at}`}
+                      className="flex items-start gap-2.5 border-b border-danger-border bg-danger-surface px-3 py-2 last:border-b-0"
+                    >
+                      <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0 text-danger" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-body text-primary">{sourceLabel(run.source)}</span>
+                          <Chip tone={view.tone}>{view.label}</Chip>
+                        </div>
+                        {run.error && <p className="mt-0.5 truncate text-meta text-danger">{run.error}</p>}
+                        <p className="mt-0.5 text-meta text-muted">{relativeTime(run.started_at)}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {(empty > 0 || disabled > 0) && (
+            <p className="text-meta text-muted">
+              {[
+                empty > 0 ? `${empty} kaynak son koşumda yeni kayıt bulamadı` : null,
+                disabled > 0 ? `${disabled} kaynak kapalı` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              {" — bilgilendirme, sorun değil."}
+            </p>
+          )}
+        </>
+      ) : state === "empty" ? (
+        <SectionFallback state="empty" what="Kaynak sağlığı" emptyLabel="Kaynak koşu kaydı yok." />
       ) : (
-        <div>
-          <p className="mb-2 text-meta text-secondary">
-            <strong className="font-medium text-danger">{broken.length}</strong> kaynak son koşumda hata verdi:
-          </p>
-          <ul className="space-y-2">
-            {broken.slice(0, 8).map((run) => (
-              <li
-                key={run.source}
-                className="flex items-start gap-2.5 border-b border-danger-border bg-danger-surface px-3 py-2 last:border-b-0"
-              >
-                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-danger" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-body text-primary">{sourceLabel(run.source)}</span>
-                    <Chip tone="danger">hata</Chip>
-                  </div>
-                  {run.error && <p className="mt-0.5 truncate text-meta text-danger">{run.error}</p>}
-                  <p className="mt-0.5 text-meta text-muted">{relativeTime(run.started_at)}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <SectionFallback
+          state={state}
+          what="Kaynak sağlığı"
+          onRetry={() => {
+            void query.refetch();
+          }}
+        />
       )}
     </Section>
   );

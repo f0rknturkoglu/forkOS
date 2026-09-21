@@ -4,6 +4,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Eye, EyeOff, RefreshCw, X } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
+import { dataState } from "@/core/DataState";
+import { runStateView } from "@/core/sourceStatus";
 import { allModules } from "@/core/registry";
 import type { BackupStatus, SourceHealth } from "@/core/types";
 import type { components } from "@/generated/api-schema";
@@ -17,6 +19,7 @@ import {
   NumberInput,
   Section,
   Select,
+  cx,
   relativeTime,
   useTheme,
   useToast,
@@ -31,13 +34,34 @@ export type SaveFn = (key: string, value: unknown) => void;
 export type IntegrationStatus = { connected: boolean; login?: string | null };
 type MediaLink = { name: string; url: string; icon?: string };
 
-/** Ayarlar sayfasinin alt seridi: bozuk kaynak ozeti + saglik sayfasi linki. */
-export function SettingsSourceHealth({ sources }: { sources: SourceHealth[] }) {
-  const broken = sources.filter((source) => source.status === "error").length;
+/**
+ * Ayarlar alt seridi: kaynak sagligi ozeti + saglik sayfasi linki.
+ *
+ * Sorgu nesnesi DISARIDAN verilir; cunku "saglikli" demek icin veri sart:
+ * yuklenirken iskelet, hata halinde "alinamadi" yazilir. `data = []`
+ * varsayilaniyla "Tum kaynaklar saglikli" demek yalan olurdu.
+ */
+export function SettingsSourceHealth({
+  query,
+}: {
+  query: { data?: SourceHealth[]; isLoading: boolean; isError: boolean };
+}) {
+  const state = dataState(query);
+  const sources = query.data ?? [];
+  const attention = sources.filter((run) => runStateView(run.status).attention).length;
+  const tone = state === "error" || attention > 0 ? "text-warn" : "text-primary";
   return (
     <div className="flex items-center justify-between gap-3 rounded-card border border-subtle bg-surface px-4 py-3">
-      <span className="text-body text-primary">
-        {broken === 0 ? "Tüm kaynaklar sağlıklı" : `${broken} kaynak hata veriyor`}
+      <span className={cx("text-body", tone)}>
+        {state === "loading"
+          ? "Kaynak durumu okunuyor…"
+          : state === "error"
+            ? "Kaynak durumu alınamadı — bu, sorun olmadığı anlamına gelmez."
+            : state === "empty"
+              ? "Henüz kaynak koşusu yok."
+              : attention === 0
+                ? `${sources.length} kaynak sağlıklı`
+                : `${attention} kaynak ilgi istiyor`}
       </span>
       <a href="#/health" className="shrink-0 text-meta text-accent hover:underline">
         kaynak sağlığı

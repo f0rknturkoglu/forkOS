@@ -137,7 +137,7 @@ export function SettingsPage() {
     queryFn: () => api.get<AppSettings>("/settings"),
   });
   const settings = settingsQuery.data;
-  const { data: sources = [] } = useSourceHealth();
+  const sourceHealth = useSourceHealth();
   const {
     data: google,
     isError: googleFailed,
@@ -543,7 +543,7 @@ export function SettingsPage() {
               </div>
             </div>
           </Section>
-          <SettingsSourceHealth sources={sources} />
+          <SettingsSourceHealth query={sourceHealth} />
           <DangerZoneSection onReset={() => reset.mutate()} busy={reset.isPending} />
         </Pane>
       )}

@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { useSourceHealth, useSystemStats } from "@/core/runtimeQueries";
-import { AlertTriangle, CheckCircle2, Clock4, Cpu, HardDrive, MemoryStick, X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/core/api";
-import { Popover, cx } from "@/core/ui";
-import type { RssStats, SourceHealth, SystemStats } from "@/core/types";
+import { useRssStats, useSourceHealth, useSystemStats } from "@/core/runtimeQueries";
+import { AlertTriangle, Clock4, Cpu, HardDrive, MemoryStick, X } from "lucide-react";
+import { dataState } from "@/core/DataState";
+import { runStateView } from "@/core/sourceStatus";
+import { Chip, Popover, cx } from "@/core/ui";
+import type { ChipTone } from "@/core/ui";
+import type { SystemStats } from "@/core/types";
 
 type Tone = "ok" | "warn" | "danger" | "muted";
 
@@ -85,6 +86,26 @@ function Bar({
   );
 }
 
+/** Panel satiri: renk tek basina anlam tasimaz, chip metni de durumu yazar. */
+function StatusRow({ label, text, tone }: { label: string; text: string; tone: ChipTone }) {
+  return (
+    <li className="flex items-center justify-between gap-2">
+      <span className="text-meta text-secondary">{label}</span>
+      <Chip size="xs" tone={tone}>
+        {text}
+      </Chip>
+    </li>
+  );
+}
+
+/** Worker durumu (kaynak: /system/stats). `disabled` bir hata DEGILDIR. */
+function workerView(worker: SystemStats["worker"] | undefined): { text: string; tone: ChipTone } {
+  if (!worker || worker.status === "unknown") return { text: "bilinmiyor", tone: "neutral" };
+  if (worker.status === "disabled") return { text: "kapalı", tone: "neutral" };
+  if (worker.status === "stale") return { text: "bayat", tone: "warn" };
+  return { text: "sağlıklı", tone: "ok" };
+}
+
 /**
  * Ust seritteki durum isigi.
  *
@@ -94,26 +115,45 @@ function Bar({
  * seridi ve bildirim rozeti var, surekli sari yanan bir isik bir sure sonra
  * hic bakilmayan bir isik oluyor.
  *
- * Saglik ozeti buraya tasindi: Bugun panelinde ayri bir widget olarak
- * durdugunda her gun "her sey yolunda" yazan bir kutuyu bosuna tasiyorduk.
+ * Panel DURUSTTUR: bir sorgu dusmus ya da hala yukleniyorsa o satir
+ * "bilinmiyor" der; hicbir kosulda "her sey saglikli" cumlesi kurulmaz.
  */
 export function StatusLed() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const { data, isError } = useSystemStats();
-  const { data: sources = [] } = useSourceHealth();
-  const { data: rss } = useQuery({
-    queryKey: ["rss-stats"],
-    queryFn: () => api.get<RssStats>("/rss/stats"),
-  });
+  const statsQuery = useSystemStats();
+  const sourcesQuery = useSourceHealth();
+  const rssQuery = useRssStats();
+  const data = statsQuery.data;
+  const { isError } = statsQuery;
 
   const memUsed = data?.mem_total_kb ? 1 - (data.mem_available_kb ?? 0) / data.mem_total_kb : null;
   const diskUsed = data?.disk ? 1 - data.disk.free / data.disk.total : null;
   const cpuUsed = data?.cpu_pct === null || data?.cpu_pct === undefined ? null : data.cpu_pct / 100;
 
-  const sourceErrors = sources.filter((s) => s.status === "error").length;
-  const feedProblems = rss?.failing_feeds ?? 0;
+  // Ilgi isteyen kosular: hata/kismi/yarim kaldi. `empty` ve `disabled` DEGIL.
+  const sourceAttention = (sourcesQuery.data ?? []).filter((run) => runStateView(run.status).attention).length;
+  const sourceState = dataState(sourcesQuery);
+  const rssState = dataState(rssQuery);
+  const failingFeeds = rssQuery.data?.failing_feeds ?? 0;
+
+  const apiView: { text: string; tone: ChipTone } =
+    dataState(statsQuery) === "ready" ? { text: "sağlıklı", tone: "ok" } : { text: "bilinmiyor", tone: "neutral" };
+  const sourcesView: { text: string; tone: ChipTone } =
+    sourceState === "ready"
+      ? sourceAttention > 0
+        ? { text: `${sourceAttention} ilgi istiyor`, tone: "warn" }
+        : { text: "sorun yok", tone: "ok" }
+      : sourceState === "empty"
+        ? { text: "kayıt yok", tone: "neutral" }
+        : { text: "bilinmiyor", tone: "neutral" };
+  const rssView: { text: string; tone: ChipTone } =
+    rssState === "ready"
+      ? failingFeeds > 0
+        ? { text: `${failingFeeds} sorunlu`, tone: "warn" }
+        : { text: "sağlıklı", tone: "ok" }
+      : { text: "bilinmiyor", tone: "neutral" };
 
   const over = (value: number | null, limit: number) => value !== null && value > limit;
   const tone: Tone = isError
@@ -169,30 +209,17 @@ export function StatusLed() {
         </div>
 
         <div className="space-y-2 border-b border-subtle px-4 py-3">
-          {isError ? (
+          {isError && (
             <p className="flex items-center gap-2 text-body text-danger">
-              <AlertTriangle size={15} className="shrink-0" /> Yerel API'ye ulaşılamıyor.
+              <AlertTriangle size={15} aria-hidden className="shrink-0" /> Yerel API'ye ulaşılamıyor.
             </p>
-          ) : sourceErrors === 0 && feedProblems === 0 ? (
-            <p className="flex items-center gap-2 text-body text-ok">
-              <CheckCircle2 size={15} className="shrink-0" /> Kaynaklar ve beslemeler sağlıklı.
-            </p>
-          ) : (
-            <>
-              {sourceErrors > 0 && (
-                <p className="flex items-center gap-2 text-body text-danger">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  {sourceErrors} kaynak son koşumda hata verdi
-                </p>
-              )}
-              {feedProblems > 0 && (
-                <p className="flex items-center gap-2 text-body text-warn">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  {feedProblems} besleme sorunlu
-                </p>
-              )}
-            </>
           )}
+          <ul className="space-y-1.5">
+            <StatusRow label="Yerel API" {...apiView} />
+            <StatusRow label="Kaynaklar" {...sourcesView} />
+            <StatusRow label="RSS" {...rssView} />
+            <StatusRow label="Worker" {...workerView(data?.worker)} />
+          </ul>
           <a href="#/health" className="inline-block text-meta text-accent hover:underline">
             Sağlık paneli →
           </a>

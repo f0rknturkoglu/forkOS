@@ -13,6 +13,7 @@ import { hydrateEntityRegistry } from "@/core/entityRegistry";
 import type { EntityTypeSpec } from "@/core/entityRegistry";
 import { api } from "@/core/api";
 import { sourceLabel } from "@/core/labels";
+import { runStateView } from "@/core/sourceStatus";
 import { Kbd, ToastProvider, applyTheme, cx, readTheme } from "@/core/ui";
 import { AppSidebar, WorkspaceHeader } from "@/core/shell";
 import type { AppSettings, SourceHealth } from "@/core/types";
@@ -82,17 +83,33 @@ function SourceAlert() {
   const [dismissed, setDismissed] = useState(false);
   // Kaynak sagligi kabukta TEK anahtarla tutulur (bkz. core/runtimeQueries):
   // ayri anahtar ayni ucu ikinci kez yoklardi.
-  const { data = [] } = useSourceHealth();
-  const broken = data.filter((s) => s.status === "error");
-  if (broken.length === 0 || dismissed) return null;
-  const names = broken
+  const query = useSourceHealth();
+  const sources = query.data ?? [];
+  const attention = sources.filter((run) => runStateView(run.status).attention);
+  if (dismissed) return null;
+
+  // "Sorun yok" demek icin VERI gerekir: sorgu dustugunde sessiz kalmak
+  // saglikli gorunmek olurdu. O yuzden bilinmeyen durum ayrica bildirilir.
+  if (query.isError && sources.length === 0) {
+    return (
+      <Banner tone="warn" icon={<AlertTriangle size={15} />} onDismiss={() => setDismissed(true)}>
+        Kaynak durumu alınamadı — bu, sorun olmadığı anlamına gelmez.{" "}
+        <a href="#/sources" className="border-b border-warn-border">
+          kaynak sağlığına git
+        </a>
+      </Banner>
+    );
+  }
+
+  if (attention.length === 0) return null;
+  const names = attention
     .slice(0, 3)
-    .map((s) => sourceLabel(s.source))
+    .map((run) => sourceLabel(run.source))
     .join(", ");
   return (
     <Banner tone="warn" icon={<AlertTriangle size={15} />} onDismiss={() => setDismissed(true)}>
-      {broken.length} kaynak hata veriyor: <strong className="font-medium">{names}</strong>
-      {broken.length > 3 && ` +${broken.length - 3}`}
+      {attention.length} kaynak ilgi istiyor: <strong className="font-medium">{names}</strong>
+      {attention.length > 3 && ` +${attention.length - 3}`}
       {" — "}
       <a href="#/sources" className="border-b border-warn-border">
         kaynak sağlığına git
