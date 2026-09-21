@@ -75,7 +75,9 @@ export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
           <div
             className={cx(
               "grid w-full shrink-0 grid-cols-2 gap-x-6 gap-y-3 border-t border-subtle pt-3.5",
-              "sm:ml-auto sm:w-auto sm:grid-cols-4 sm:border-t-0 sm:pt-0",
+              // 4 sütun yalnız hero'nun gerçekten geniş olduğu yerde: 640-1023
+              // arasında 4×104px + boşluklar taşıp sayfayı yatay kaydırıyordu.
+              "lg:grid-cols-4 lg:border-t-0 lg:pt-0 sm:ml-auto sm:w-auto",
               "[&>*]:min-w-[104px] [&>*]:px-0 [&>*]:py-0 [&_.numeral]:text-title",
             )}
           >
