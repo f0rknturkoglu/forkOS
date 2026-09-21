@@ -1,30 +1,41 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Circle, X } from "lucide-react";
+import { Check, Circle, HelpCircle, X } from "lucide-react";
 import { api } from "@/core/api";
-import { getVaultStatus } from "@/core/obsidian";
+import { getVaultStatus, VAULT_STATUS_KEY } from "@/core/obsidian";
 import { PROACTIVITY_STATUS_KEY } from "@/core/proactivity";
-import { Section, cx } from "@/core/ui";
+import { Chip, Disclosure, Section, cx } from "@/core/ui";
 import type { AppSettings } from "@/core/types";
 
 /**
- * Kurulum kontrol listesi (P6 §53).
+ * Kurulum kontrol listesi (§87).
  *
- * Karmaşık bir onboarding SİHİRBAZI değildir: yalnız eksik olanı gösterir.
- * Kurulum tamamlanmış kullanıcı (bu uygulamanın gerçek kullanıcısı) bu yüzeyi
- * HİÇ görmez; günlük akışa karışmaz. Yeni bir kurulumda Sistem Durumu
- * sayfasında yol gösterir, tamamlanınca veya kapatılınca kaybolur.
+ * Karmaşık bir onboarding SİHİRBAZI değildir ve "her şey açık olmalı" DEMEZ.
+ * İki ayrı katman vardır:
  *
- * Tüm durumlar mevcut uçlardan okunur; yeni bir "setup" ucu yoktur.
+ *   Çekirdek  — yerel çalışma alanı (API + veritabanı) ve bilgi kasası.
+ *               Bunlardan biri eksikse liste görünür.
+ *   İsteğe bağlı — GitHub, Google (Drive), kariyer profili, proaktivite.
+ *               Bunların eksik olması "kurulum tamamlanmadı" DEĞİLDİR; bu
+ *               yüzden listeyi açmazlar, yalnız katlanmış bir notta anılırlar.
+ *
+ * Bu yüzden kurulumu tamamlanmış kullanıcı (bu uygulamanın gerçek kullanıcısı)
+ * yüzeyi hiç görmez; entegrasyon bağlamamış olmak da onu rahatsız etmez.
+ *
+ * Tüm durumlar mevcut uçlardan ve PAYLAŞILAN anahtarlardan okunur; yeni bir
+ * "setup" ucu yoktur.
  */
 
 const DISMISS_KEY = "forkos.setup.dismissed";
 
+/** Bilinmiyor ≠ eksik: okunamayan bir adım "doğrulanamadı" der, "eksik" demez. */
+type StepState = "ready" | "missing" | "unknown";
+
 interface SetupStep {
   id: string;
   label: string;
-  done: boolean;
-  /** Eksikse gidilecek yer. */
+  state: StepState;
+  /** Eksik adımın gidilecek yeri. */
   href: string;
 }
 
@@ -39,11 +50,19 @@ function dismissedInStorage(): boolean {
 
 export function SetupChecklist() {
   const [dismissed, setDismissed] = useState(dismissedInStorage);
+  // Kabuğun da çektiği anahtar: yerel API'nin (ve dolayısıyla veritabanının)
+  // ayakta olduğunun tek kanıtı gelen yanıttır.
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.get<AppSettings>("/settings"),
+    retry: false,
+  });
   const vault = useQuery({
-    queryKey: ["obsidian-status"],
+    queryKey: [VAULT_STATUS_KEY],
     queryFn: getVaultStatus,
     retry: false,
   });
+  /* Kariyer profili ayarlarda saklanır: kabuğun zaten çektiği anahtar. */
   const github = useQuery({
     queryKey: ["github-status"],
     queryFn: () => api.get<{ connected: boolean }>("/auth/github/status"),
@@ -54,58 +73,80 @@ export function SetupChecklist() {
     queryFn: () => api.get<{ connected: boolean }>("/auth/google/status"),
     retry: false,
   });
-  // Kariyer profili ayarlarda saklanır: kabuğun zaten çektiği anahtarı kullanır.
-  const settings = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => api.get<AppSettings>("/settings"),
-    retry: false,
-  });
   const proactivity = useQuery({
     queryKey: [PROACTIVITY_STATUS_KEY],
     queryFn: () => api.get<{ enabled: boolean }>("/proactivity/status"),
     retry: false,
   });
 
+  // Yanıt gelmeden hiçbir şey söylenmez: yükleme sırasında "eksik" göstermek
+  // yanlış olurdu.
+  if (settings.isLoading) return null;
+
   const profile = settings.data?.["opportunity.career_profile"] as
     { current_location?: string; authorized_countries?: string[] } | undefined;
 
-  // Yerel veritabanı: bu sayfa render edildiyse API ayakta demektir.
-  const steps: SetupStep[] = [
-    { id: "database", label: "Yerel veritabanı", done: true, href: "#/health" },
+  const coreSteps: SetupStep[] = [
+    {
+      id: "workspace",
+      label: "Yerel çalışma alanı (API + veritabanı)",
+      state: settings.isError ? "unknown" : "ready",
+      href: "#/health",
+    },
     {
       id: "vault",
       label: "Bilgi kasası (Vault)",
-      done: Boolean(vault.data?.configured && vault.data.available && vault.data.readable),
+      state: vault.isError
+        ? "unknown"
+        : vault.data?.configured && vault.data.available && vault.data.readable
+          ? "ready"
+          : "missing",
       href: "#/notes",
     },
-    { id: "github", label: "GitHub", done: Boolean(github.data?.connected), href: "#/settings?tab=integrations" },
+  ];
+
+  const optionalSteps: SetupStep[] = [
+    {
+      id: "github",
+      label: "GitHub",
+      state: github.isError ? "unknown" : github.data?.connected ? "ready" : "missing",
+      href: "#/settings?tab=integrations",
+    },
     {
       id: "google",
       label: "Google (Drive)",
-      done: Boolean(google.data?.connected),
+      state: google.isError ? "unknown" : google.data?.connected ? "ready" : "missing",
       href: "#/settings?tab=integrations",
     },
     {
       id: "career",
       label: "Kariyer profili",
-      done: Boolean(profile?.current_location || (profile?.authorized_countries?.length ?? 0) > 0),
+      state: !settings.data
+        ? "unknown"
+        : profile?.current_location || (profile?.authorized_countries?.length ?? 0) > 0
+          ? "ready"
+          : "missing",
       href: "#/settings?tab=career",
     },
     {
       id: "proactivity",
       label: "Proaktivite",
-      done: Boolean(proactivity.data?.enabled),
+      state: proactivity.isError ? "unknown" : proactivity.data?.enabled ? "ready" : "missing",
       href: "#/settings?tab=notifications",
     },
   ];
 
-  const remaining = steps.filter((step) => !step.done);
-  if (dismissed || remaining.length === 0) return null;
+  const coreReady = coreSteps.filter((step) => step.state === "ready").length;
+  const optionalReady = optionalSteps.filter((step) => step.state === "ready").length;
+
+  // Liste yalnız ÇEKİRDEK bir adım eksikse çizilir; isteğe bağlı entegrasyon
+  // eksikliği tek başına bu yüzeyi açmaz.
+  if (dismissed || coreReady === coreSteps.length) return null;
 
   return (
     <Section
       title="Kurulum"
-      hint={`${steps.length - remaining.length}/${steps.length}`}
+      hint={`${coreReady}/${coreSteps.length} çekirdek adım`}
       action={
         <button
           type="button"
@@ -120,28 +161,55 @@ export function SetupChecklist() {
           }}
           className="text-muted transition hover:text-primary"
         >
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       }
+      bodyClassName="space-y-3"
     >
+      <p className="text-meta text-muted">
+        Çekirdek adımlar forkOS&apos;un çalışması için gerekir. Entegrasyonlar isteğe bağlıdır — eksik olmaları sorun
+        değildir.
+      </p>
+
       <ul className="space-y-1.5">
-        {steps.map((step) => (
+        {coreSteps.map((step) => (
           <li key={step.id} className="flex items-center gap-2 text-meta">
-            {step.done ? (
+            {step.state === "ready" ? (
               <Check size={14} className="shrink-0 text-ok" aria-hidden="true" />
+            ) : step.state === "unknown" ? (
+              <HelpCircle size={14} className="shrink-0 text-muted" aria-hidden="true" />
             ) : (
               <Circle size={14} className="shrink-0 text-muted" aria-hidden="true" />
             )}
-            {step.done ? (
+            {step.state === "ready" ? (
               <span className="text-secondary">{step.label}</span>
             ) : (
               <a href={step.href} className={cx("text-primary hover:text-accent")}>
                 {step.label}
               </a>
             )}
+            {step.state === "unknown" && <Chip>doğrulanamadı</Chip>}
           </li>
         ))}
       </ul>
+
+      <Disclosure
+        summary={`İsteğe bağlı entegrasyonlar (${optionalReady}/${optionalSteps.length} bağlı) — kurulum için gerekli değil`}
+      >
+        <ul className="space-y-1">
+          {optionalSteps.map((step) => (
+            <li key={step.id} className="flex items-center gap-2 text-meta">
+              <span className="w-36 shrink-0 text-secondary">{step.label}</span>
+              <Chip tone={step.state === "ready" ? "ok" : "neutral"}>
+                {step.state === "ready" ? "bağlı" : step.state === "unknown" ? "bilinmiyor" : "bağlı değil"}
+              </Chip>
+              <a href={step.href} className="text-meta text-accent hover:underline">
+                Ayarlar →
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Disclosure>
     </Section>
   );
 }

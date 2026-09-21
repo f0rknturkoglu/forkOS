@@ -1,65 +1,114 @@
-import { useQuery } from "@tanstack/react-query";
 import { useBackupStatus, useSystemStats } from "@/core/runtimeQueries";
 import { Activity, DatabaseBackup } from "lucide-react";
-import { api } from "@/core/api";
-import { Chip, Empty, Section, relativeTime } from "@/core/ui";
-import type { BackupStatus, SystemStats } from "@/core/types";
+import { runStateView, type StatusTone } from "@/core/sourceStatus";
+import { dataState, SectionFallback } from "@/core/DataState";
+import { Chip, Section, relativeTime } from "@/core/ui";
 
 const STALE_BACKUP_HOURS = 48;
 
+/** Bir servis satırının okunabilir durumu: etiket + ton + (varsa) açıklama. */
+export interface ServiceStateView {
+  label: string;
+  tone: StatusTone;
+  attention: boolean;
+  hint: string | null;
+}
+
 /**
- * Servis guvenilirlik karti (Faz 26): worker heartbeat + yedek bayatligi.
- * Her ikisi de mevcut endpoint'lerden turetilir; yeni uc yok.
+ * `kapalı` / `bilinmiyor` etiketleri kaynak durumu sözlüğünden gelir (tek
+ * sözlük): ikisi de KIRMIZI DEĞİLDİR.
+ */
+function neutralState(state: "disabled" | "unknown", hint: string): ServiceStateView {
+  const view = runStateView(state);
+  return { label: view.label, tone: view.tone, attention: view.attention, hint };
+}
+
+/**
+ * Worker durumu (§57). Üç ayrı şey AYRI söylenir:
+ *   - `disabled` : kullanıcı worker'ı bilerek kapatmıştır → nötr "kapalı".
+ *   - `unknown`  : worker açık ama kalp atışı kaydı yok (henüz başlamamış
+ *                  olabilir) → nötr "bilinmiyor", hata değil.
+ *   - `stale`    : kalp atışı bayatladı → gerçekten durmuş, kırmızı.
+ * Bu ayrımı hem bu kart hem sayfanın "Genel bakış" özeti kullanır.
+ */
+export function workerStatusView(status: string | null | undefined): ServiceStateView {
+  if (status === "healthy") return { label: "çalışıyor", tone: "ok", attention: false, hint: null };
+  if (status === "stale") {
+    return { label: "durdu — arka plan işleri çalışmıyor", tone: "danger", attention: true, hint: null };
+  }
+  if (status === "disabled") {
+    return neutralState("disabled", "Arka plan işleri bilerek kapalı: elle yenileme kullanılıyor.");
+  }
+  if (status === "unknown") {
+    return neutralState("unknown", "Worker açık ama kayıtlı kalp atışı yok — henüz başlamamış olabilir.");
+  }
+  if (!status) return neutralState("unknown", "Worker durumu bildirilmedi.");
+  // Tanımadığımız bir değer: uydurma etiket yok, olduğu gibi ve nötr gösterilir.
+  return { label: status, tone: "neutral", attention: false, hint: null };
+}
+
+/**
+ * Servis güvenilirlik kartı (Faz 26): worker heartbeat + yedek bayatlığı.
+ *
+ * Her satır KENDİ sorgusunun durumunu taşır: biri düştüğünde yalnız o satır
+ * "alınamadı" der, diğeri konuşmaya devam eder. Okunamayan bir yedek durumu
+ * "henüz yedek yok" OLARAK gösterilmez (bilinmiyor ≠ yok).
  */
 export function ServiceHealthWidget() {
-  const { data: stats } = useSystemStats();
-  const { data: backup } = useBackupStatus();
+  const stats = useSystemStats();
+  const backup = useBackupStatus();
 
-  const workerHealthy = stats?.worker.status === "healthy";
-  const lastBackupAt = backup?.last_backup?.at ? new Date(backup.last_backup.at).getTime() : null;
-  // Anlamli veri degismediyse zamanlanmis yedek BILEREK atlanir: eski tarih
-  // tek basina sorun degildir, yalnizca bekleyen degisiklik varsa uyarir.
-  const changesPending = backup?.changes_since_backup ?? false;
+  const workerState = dataState(stats);
+  const backupState = dataState(backup);
+  const worker = workerStatusView(stats.data?.worker.status);
+
+  const lastBackupAt = backup.data?.last_backup?.at ? new Date(backup.data.last_backup.at).getTime() : null;
+  // Anlamlı veri değişmediyse zamanlanmış yedek BİLEREK atlanır: eski tarih
+  // tek başına sorun değildir, yalnızca bekleyen değişiklik varsa uyarır.
+  const changesPending = backup.data?.changes_since_backup ?? false;
   const backupStale =
     lastBackupAt !== null && changesPending && Date.now() - lastBackupAt > STALE_BACKUP_HOURS * 3_600_000;
 
-  if (!stats && !backup) return <Empty>Servis durumu yükleniyor…</Empty>;
-
   return (
-    <Section title="Servis sağlığı">
-      <div className="space-y-2 text-meta">
-        <p className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-muted">
-            <Activity size={13} className="text-icon" /> Worker
-          </span>
-          {workerHealthy ? (
-            <Chip tone="ok">çalışıyor</Chip>
-          ) : stats?.worker.status === "disabled" ? (
-            <Chip>kapalı · elle yenileme</Chip>
-          ) : stats?.worker.status === "stale" ? (
-            <Chip tone="danger">durdu — arka plan işleri çalışmıyor</Chip>
-          ) : (
-            <Chip tone="warn">bilinmiyor</Chip>
+    <Section title="Servis sağlığı" hint="worker kalp atışı · yedek tazeliği" bodyClassName="space-y-3">
+      {workerState !== "ready" ? (
+        <SectionFallback state={workerState} what="Worker durumu" onRetry={() => void stats.refetch()} />
+      ) : (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2 text-meta">
+            <span className="flex items-center gap-1.5 text-muted">
+              <Activity size={13} className="text-icon" aria-hidden="true" /> Worker
+            </span>
+            <Chip tone={worker.tone}>{worker.label}</Chip>
+          </div>
+          {worker.hint && <p className="text-meta text-muted">{worker.hint}</p>}
+          {stats.data?.worker.heartbeat_at && (
+            <p className="text-meta text-muted">Son kalp atışı: {relativeTime(stats.data.worker.heartbeat_at)}</p>
           )}
-        </p>
-        {stats?.worker.heartbeat_at && (
-          <p className="text-muted">Son kalp atışı: {relativeTime(stats.worker.heartbeat_at)}</p>
-        )}
+        </div>
+      )}
 
-        <p className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-muted">
-            <DatabaseBackup size={13} className="text-icon" /> Yedek
-          </span>
-          {backupStale ? (
-            <Chip tone="warn">eski — {STALE_BACKUP_HOURS} saatten uzun süredir yok</Chip>
-          ) : lastBackupAt !== null ? (
-            <Chip tone="ok">{changesPending ? "güncel" : "güncel · değişiklik yok"}</Chip>
-          ) : (
-            <Chip tone="warn">henüz yok</Chip>
+      {backupState !== "ready" ? (
+        <SectionFallback state={backupState} what="Yedek durumu" onRetry={() => void backup.refetch()} />
+      ) : (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2 text-meta">
+            <span className="flex items-center gap-1.5 text-muted">
+              <DatabaseBackup size={13} className="text-icon" aria-hidden="true" /> Yedek
+            </span>
+            {backupStale ? (
+              <Chip tone="warn">eski — {STALE_BACKUP_HOURS} saatten uzun süredir yok</Chip>
+            ) : lastBackupAt !== null ? (
+              <Chip tone="ok">{changesPending ? "güncel" : "güncel · değişiklik yok"}</Chip>
+            ) : (
+              <Chip>henüz yedek yok</Chip>
+            )}
+          </div>
+          {backup.data?.last_backup?.at && (
+            <p className="text-meta text-muted">Son yedek: {relativeTime(backup.data.last_backup.at)}</p>
           )}
-        </p>
-        {backup?.last_backup?.at && <p className="text-muted">Son yedek: {relativeTime(backup.last_backup.at)}</p>}
-      </div>
+        </div>
+      )}
     </Section>
   );
 }
