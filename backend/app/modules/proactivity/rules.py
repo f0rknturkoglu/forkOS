@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
+from typing import Literal
 from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import func, select
@@ -79,6 +80,11 @@ class Candidate:
     cooldown_hours: int | None = None
     #: Teslim aninda kurulacak H5 baglami (varsa).
     h5_mode: str | None = None
+
+
+#: Kimlik cozumlemesinin uc hali. `indeterminate`, "tarama siniri yuzunden
+#: goremedim" demektir ve ASLA "yok" olarak yorumlanmaz.
+IdentityStatus = Literal["found", "not_found", "indeterminate"]
 
 
 @dataclass(frozen=True)
@@ -524,70 +530,93 @@ async def revalidate(
     rule: ProactivityRule,
     logical_trigger_key: str,
     now: datetime,
-) -> bool:
-    """Kosul HALA gecerli mi? `False` ise kosu iptal edilir.
+) -> IdentityStatus:
+    """Kosul HALA gecerli mi? Uclu sonuc: found / not_found / indeterminate.
 
     Tetikleyici payload'una ASLA guvenilmez: ertelenen bir teslim, kosul
-    ortadan kalktiysa iptal edilir (§48/§49).
+    ortadan kalktiysa iptal edilir (§48/§49). Kapsam belirsizse (`indeterminate`)
+    ne teslim edilir ne cozulur: "goremedim" != "yok".
     """
     try:
         if rule.kind == "deadline_staircase":
             return await _revalidate_deadline(session, logical_trigger_key, now=now)
         if rule.kind == "project_stalled":
-            return await _revalidate_project(session, logical_trigger_key, rule, now=now)
+            found = await _revalidate_project(session, logical_trigger_key, rule, now=now)
+            return "found" if found else "not_found"
         if rule.kind == "continuity_gap":
             threshold = int(rule.config.get("threshold_hours") or 48)
             last = await last_meaningful_activity_at(session)
             if last is None:
-                return False
+                return "not_found"
             if last.tzinfo is None:
                 last = last.replace(tzinfo=UTC)
             gap = (now - last).total_seconds() / 3600.0
-            return gap >= threshold and bool(await _continuity_facts(session, now=now))
+            alive = gap >= threshold and bool(await _continuity_facts(session, now=now))
+            return "found" if alive else "not_found"
         if rule.kind in {"morning_continuity", "daily_close", "weekly_review"}:
-            return bool(await _ritual_facts(session, rule.kind, now=now))
+            facts = await _ritual_facts(session, rule.kind, now=now)
+            return "found" if facts else "not_found"
     except Exception:  # noqa: BLE001 — yeniden dogrulama basarisizsa teslim ETME
         log.exception("proaktivite yeniden dogrulamasi coktu: %s", rule.kind)
-        return False
-    return True
+        return "indeterminate"
+    return "found"
 
 
 async def current_condition_row(session: AsyncSession, identity: str) -> dict | None:
-    """Kosul kimligini GUNCEL kanonik satira cozer (H6.1).
+    """Kosul kimligini GUNCEL kanonik satira cozer (H6.1) — bulunamazsa None.
 
     `first row where entity_id == subject` yaklasimi KULLANILMAZ: ayni entity
     uzerinde birden fazla bagimsiz son tarih oldugunda yanlis satiri secer.
     """
-    for row in await _all_deadline_rows(session):
-        if condition_identity(row) == identity:
-            return row
-    return None
+    status, row = await resolve_identity(session, identity)
+    return row if status == "found" else None
 
 
-async def _all_deadline_rows(session: AsyncSession) -> list[dict]:
+async def _all_deadline_rows(session: AsyncSession) -> tuple[list[dict], bool]:
+    """(satirlar, kirpildi_mi). Kirpilma bilgisi kimlik cozumlemesi icin SARTTIR.
+
+    Kesif bounded kalir; ama "listedeye girmedi" != "artik yok".
+    """
     from app.core.deadlines import collect_deadlines
     from app.modules.opportunity.service import pending_follow_up_rows
 
-    rows = [*await collect_deadlines(session, limit=MAX_DEADLINE_ROWS)]
+    rows = [*await collect_deadlines(session, limit=MAX_DEADLINE_ROWS + 1)]
+    truncated = len(rows) > MAX_DEADLINE_ROWS
+    rows = rows[:MAX_DEADLINE_ROWS]
     rows.extend(await pending_follow_up_rows(session))
-    return rows
+    return rows, truncated
+
+
+async def resolve_identity(
+    session: AsyncSession, identity: str
+) -> tuple[IdentityStatus, dict | None]:
+    """Bilinen bir kosul kimligini TAM olarak cozer.
+
+    Bulunamadiysa ve tarama KIRPILDIYSA `indeterminate` doner: kosul hala
+    var olabilir, bu yuzden cagiran "cozuldu" karari VEREMEZ.
+    """
+    rows, truncated = await _all_deadline_rows(session)
+    for row in rows:
+        if condition_identity(row) == identity:
+            return "found", row
+    return ("indeterminate" if truncated else "not_found"), None
 
 
 async def _revalidate_deadline(
     session: AsyncSession, logical_trigger_key: str, *, now: datetime
-) -> bool:
+) -> IdentityStatus:
     identity = identity_of_key(logical_trigger_key)
     revision = revision_of_key(logical_trigger_key)
     if identity is None or revision is None:
-        return False
-    row = await current_condition_row(session, identity)
-    if row is None:
-        return False
+        return "not_found"
+    status, row = await resolve_identity(session, identity)
+    if status != "found" or row is None:
+        return status
     due = row.get("due_at")
     if due is None or due < now:
-        return False
+        return "not_found"
     # Kosul hala ayni revizyonda mi? Tarih (veya saat) degistiyse bu kosu bayat.
-    return temporal_revision(due) == revision
+    return "found" if temporal_revision(due) == revision else "not_found"
 
 
 async def _revalidate_project(

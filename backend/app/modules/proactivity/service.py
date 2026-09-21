@@ -527,12 +527,16 @@ async def _process_candidate(
         return
 
     # Kosul hala gecerli mi? Tetikleyici payload'una GUVENILMEZ.
-    if not await rules.revalidate(
+    status = await rules.revalidate(
         session, rule=rule, logical_trigger_key=candidate.logical_trigger_key, now=now
-    ):
+    )
+    if status == "not_found":
         if run.state in ACTIVE_RUN_STATES:
             await resolve_run(session, run, now=now)
             result.cancelled += 1
+        return
+    if status == "indeterminate":
+        # Tarama siniri yuzunden goremedik: ne teslim ne cozum (§0.2).
         return
 
     if run.state == "snoozed" and run.snoozed_until is not None and run.snoozed_until <= now:
@@ -597,6 +601,28 @@ async def _process_candidate(
     await _deliver_now(session, run=run, rule=rule, candidate=candidate, decision=decision, now=now, result=result)
 
 
+#: Teslim edilebilir (henuz terminal olmayan) durumlar.
+DELIVERABLE_RUN_STATES: frozenset[str] = frozenset(
+    {"candidate", "deferred", "digest_queued", "suppressed", "snoozed"}
+)
+
+
+async def _lock_run(session: AsyncSession, run_id: int) -> ProactivityRun | None:
+    """Kosuyu satir kilidiyle yeniden okur (H6 PART-0 concurrency guard).
+
+    Worker turu ile elle/MCP degerlendirmesi AYRI PROCESS'lerde calisabilir;
+    bu yuzden koruma process-local olamaz. `SELECT ... FOR UPDATE` ikinci
+    transaction'i birincinin commit'ine kadar bekletir ve ardindan GUNCEL
+    durumu gosterir. Bildirim dedup'i ikinci savunma hattidir; lifecycle
+    dogrulugu yalniz ona bagli DEGILDIR.
+    """
+    return (
+        await session.execute(
+            select(ProactivityRun).where(ProactivityRun.id == run_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+
+
 async def _deliver_now(
     session: AsyncSession,
     *,
@@ -607,9 +633,21 @@ async def _deliver_now(
     now: datetime,
     result: TickResult,
 ) -> None:
-    if not await rules.revalidate(
+    # Yarisi kaybeden transaction burada bekler ve taze durumu gorur.
+    locked = await _lock_run(session, run.id)
+    if locked is None or locked.state not in DELIVERABLE_RUN_STATES:
+        # Baska bir degerlendirme bu kosuyu zaten ilerletmis: GERIYE DUSURME YOK.
+        return
+    run = locked
+    if run.state == "delivered":
+        return
+    status = await rules.revalidate(
         session, rule=rule, logical_trigger_key=run.logical_trigger_key, now=now
-    ):
+    )
+    if status == "indeterminate":
+        # Kapsam belirsiz: ne teslim et ne coz (fail-closed, §60).
+        return
+    if status == "not_found":
         await resolve_run(session, run, now=now)
         result.cancelled += 1
         return
@@ -634,9 +672,8 @@ async def _deliver_now(
         now=now,
     )
     if notification_id is None:
-        run.state = "suppressed"
-        run.reason_codes = ["DUPLICATE_TRIGGER"]
-        result.suppressed += 1
+        # Bildirim zaten var: bu kosuyu BIR BASKASI teslim etti. Kosu durumunu
+        # geriye dusurmeyiz; sahibi olan transaction karari vermistir.
         return
     run.state = "delivered"
     run.delivery_count += 1
@@ -675,9 +712,12 @@ async def _flush_pending(
         rule = next((item for item in rules_by_kind.values() if item.id == run.rule_id), None)
         if rule is None:
             continue
-        if not await rules.revalidate(
+        status = await rules.revalidate(
             session, rule=rule, logical_trigger_key=run.logical_trigger_key, now=now
-        ):
+        )
+        if status == "indeterminate":
+            continue
+        if status == "not_found":
             await resolve_run(session, run, now=now)
             result.cancelled += 1
             continue
@@ -755,9 +795,12 @@ async def _flush_digest(
         if rule is None:
             continue
         # Uye bazli yeniden dogrulama: bayat madde digest'e GIRMEZ (§76).
-        if not await rules.revalidate(
+        status = await rules.revalidate(
             session, rule=rule, logical_trigger_key=run.logical_trigger_key, now=now
-        ):
+        )
+        if status == "indeterminate":
+            continue
+        if status == "not_found":
             await resolve_run(session, run, now=now)
             result.cancelled += 1
             continue
