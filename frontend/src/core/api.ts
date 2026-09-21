@@ -105,17 +105,28 @@ async function errorParts(res: Response): Promise<[string, string | null]> {
   return [body || fallback, body];
 }
 
+/**
+ * Yazma gövdesini kodlar. FormData multipart'tır: `JSON.stringify` onu "{}"
+ * yapar ve `Content-Type: application/json` yazar; FastAPI'nin `File(...)`
+ * alanları boş kalır. Bu yüzden FormData olduğu gibi taşınır (Content-Type'ı
+ * multipart sınırıyla tarayıcı koyar), diğer gövdeler JSON olur.
+ */
+function encodeBody(body: unknown): BodyInit {
+  return body instanceof FormData ? body : JSON.stringify(body ?? {});
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method ?? "GET";
   // Okumalar hiç engellenmez: çevrimdışıyken yerel API'den okumak serbesttir.
   if (method !== "GET") assertOnlineWrite(path);
+  const multipart = init?.body instanceof FormData;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), method === "GET" ? GET_TIMEOUT_MS : WRITE_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
-      headers: { "Content-Type": "application/json" },
       ...init,
+      headers: multipart ? undefined : { "Content-Type": "application/json" },
       signal: controller.signal,
     });
   } catch (error) {
@@ -132,9 +143,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   get: <T>(p: string) => request<T>(p),
-  post: <T>(p: string, body?: unknown) => request<T>(p, { method: "POST", body: JSON.stringify(body ?? {}) }),
-  patch: <T>(p: string, body?: unknown) => request<T>(p, { method: "PATCH", body: JSON.stringify(body ?? {}) }),
-  put: <T>(p: string, body?: unknown) => request<T>(p, { method: "PUT", body: JSON.stringify(body ?? {}) }),
+  post: <T>(p: string, body?: unknown) => request<T>(p, { method: "POST", body: encodeBody(body) }),
+  patch: <T>(p: string, body?: unknown) => request<T>(p, { method: "PATCH", body: encodeBody(body) }),
+  put: <T>(p: string, body?: unknown) => request<T>(p, { method: "PUT", body: encodeBody(body) }),
   del: (p: string, body?: unknown) =>
     request<void>(p, { method: "DELETE", ...(body ? { body: JSON.stringify(body) } : {}) }),
   /** multipart -- Content-Type'i tarayici koysun, elle yazma. */

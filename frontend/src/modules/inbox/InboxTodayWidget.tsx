@@ -13,12 +13,11 @@ export function InboxTodayWidget() {
   const [triageOpen, setTriageOpen] = useState(false);
   const route = useHashRoute();
 
-  // URL'de ?triage=inbox varsa veya /inbox rotasi cagrildiysa triage modalini ac
+  // Home derin baglantisi `#/?triage=inbox` odak modunu acar. `/inbox` sayfasi
+  // triyaj tahtasinin kendisidir; bu widget orada mount edilmez.
   useEffect(() => {
-    if (route.params.get("triage") === "inbox" || route.path === "/inbox") {
-      setTriageOpen(true);
-    }
-  }, [route.params, route.path]);
+    if (route.params.get("triage") === "inbox") setTriageOpen(true);
+  }, [route.params]);
 
   const { data: stats } = useQuery({
     queryKey: ["bookmark-stats"],

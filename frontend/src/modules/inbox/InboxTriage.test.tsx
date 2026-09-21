@@ -23,7 +23,7 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("@/app/router", () => ({
-  useHashRoute: () => ({ path: "/today", params: new URLSearchParams() }),
+  useHashRoute: () => ({ path: "/", params: new URLSearchParams() }),
   navigate: vi.fn(),
 }));
 

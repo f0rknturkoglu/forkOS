@@ -1,3 +1,4 @@
+import { navigate } from "@/app/router";
 import { invalidateAfter } from "@/core/invalidation";
 import { useEffect, useRef, useState } from "react";
 import { Download, FileText, Link2, ListChecks } from "lucide-react";
@@ -11,8 +12,8 @@ import { useOnline } from "@/lib/hooks";
  *
  * Ayrimi birakilan icerik yapar, kullaniciya soru sorulmaz:
  *   baglanti -> gelen kutusuna yer imi (/capture, client_uuid ile idempotent)
- *   duz metin -> gorev (/todos)
- *   dosya     -> yerel belge olarak yuklenir (/documents/upload)
+ *   duz metin -> yakalama kutusu (turu kullanici secer)
+ *   dosya     -> yerel belge olarak kaydedilir (/documents/upload)
  *
  * Offline'da yazma kapali (plan bolum 7), o yuzden katman hic acilmaz.
  */
@@ -88,16 +89,20 @@ export function DropCapture() {
             const form = new FormData();
             form.append("file", dropped.file);
             form.append("category", "other");
-            const res = await api.post<{ title?: string }>("/documents/upload", form);
+            const uploaded = await api.post<{ title?: string; web_view_link?: string | null }>(
+              "/documents/upload",
+              form,
+            );
             invalidateAfter("document.write");
-            toast.push(`"${res?.title || dropped.value}" belgelere eklendi.`, {
+            // Belge standalone yuzeyi emekli (bkz. modules/documents/index.ts):
+            // "belgelere git" aksiyonu artik olmayan bir ekrana soz verirdi.
+            // Yukleme yaniti yerel dosyanin acilabilir adresini (web_view_link)
+            // donduruyor -> aksiyon dosyanin KENDISINI acar; adres yoksa
+            // aksiyon hic gosterilmez.
+            const fileUrl = uploaded?.web_view_link || null;
+            toast.push(`"${uploaded?.title || dropped.value}" kaydedildi.`, {
               tone: "ok",
-              action: {
-                label: "aç",
-                run: () => {
-                  location.hash = "/documents";
-                },
-              },
+              action: fileUrl ? { label: "aç", run: () => window.open(fileUrl, "_blank", "noreferrer") } : undefined,
             });
           } catch {
             toast.push(`"${dropped.value}" yüklenemedi.`, { tone: "danger" });
@@ -124,9 +129,9 @@ export function DropCapture() {
             tone: result.duplicate ? "warn" : "ok",
             action: {
               label: "aç",
-              run: () => {
-                location.hash = "/today?triage=inbox";
-              },
+              // Kanonik triyaj yuzeyi: `/inbox` rotasi (InboxPage). Eski
+              // `/today?triage=inbox` hedefi hicbir rotaya karsilik gelmiyordu.
+              run: () => navigate("/inbox"),
             },
           });
         } else {
@@ -168,10 +173,10 @@ export function DropCapture() {
             <Link2 size={13} className="text-icon" /> Bağlantı → gelen kutusu
           </li>
           <li className="flex items-center justify-center gap-1.5">
-            <ListChecks size={13} className="text-icon" /> Metin → görev
+            <ListChecks size={13} className="text-icon" /> Metin → yakalama kutusu
           </li>
           <li className="flex items-center justify-center gap-1.5">
-            <FileText size={13} className="text-icon" /> Dosya → belgeler
+            <FileText size={13} className="text-icon" /> Dosya → kaydedilir
           </li>
         </ul>
       </div>

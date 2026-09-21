@@ -119,4 +119,19 @@ describe("api ağ hataları", () => {
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
     await expect(api.get("/health")).resolves.toEqual({ ok: true });
   });
+
+  it("FormData gövdesi JSON'a çevrilmez: multipart Content-Type'ı tarayıcı koyar", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: "doc-1" }));
+    const form = new FormData();
+    form.append("file", new File(["x"], "rapor.pdf"));
+    form.append("category", "other");
+
+    await expect(api.post("/documents/upload", form)).resolves.toEqual({ id: "doc-1" });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/documents/upload");
+    // JSON.stringify(FormData) "{}" üretir ve alanlar sunucuya hiç ulaşmazdı.
+    expect(init.body).toBe(form);
+    expect(init.headers).toBeUndefined();
+  });
 });

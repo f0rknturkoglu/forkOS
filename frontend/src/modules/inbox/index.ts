@@ -23,13 +23,14 @@ registerModule({
       id: "inbox.widget",
       title: "Gelen kutusu",
       component: InboxTodayWidget,
-      region: "secondary",
       order: 40,
       defaultVisible: false,
     },
   ],
   commands: [
-    { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/today?triage=inbox") },
+    // Kanonik triyaj yuzeyi `/inbox` rotasidir (InboxPage). Eski
+    // `/today?triage=inbox` hedefinin karsiligi olan bir rota hic olmadi.
+    { id: "inbox.open", label: "Gelen kutusunu aç", run: () => navigate("/inbox") },
     {
       id: "inbox.capture",
       label: "Bağlantı kaydet",
@@ -43,7 +44,7 @@ registerModule({
           client_uuid: crypto.randomUUID(),
         });
         invalidateAfter("bookmark.write");
-        navigate("/today?triage=inbox");
+        navigate("/inbox");
       },
     },
   ],
