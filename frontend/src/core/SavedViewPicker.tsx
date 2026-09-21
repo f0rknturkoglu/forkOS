@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bookmark, Star, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
+import { confirmDialog } from "@/core/dialog";
 import { savedViewsKey } from "@/core/savedViews";
 import { Button, IconButton, Input, Popover, cx } from "@/core/ui";
 
@@ -81,6 +82,16 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
     mutationFn: (id: string) => api.del(`/views/${id}`),
     onSuccess: refresh,
   });
+
+  /** Görünüm silme geri alınamaz (çöp kutusu yok): onay ister (§54). */
+  async function requestRemove(view: SavedViewRow) {
+    const ok = await confirmDialog({
+      title: `"${view.name}" görünümü silinsin mi?`,
+      body: "Kayıtlı filtre silinir; aynı filtreyi yeniden kaydetmen gerekir.",
+      confirmLabel: "Görünümü sil",
+    });
+    if (ok) removeView.mutate(view.id);
+  }
 
   const activeFilter = JSON.stringify(cleanFilters(filters));
 
@@ -164,7 +175,7 @@ export function SavedViewPicker({ module, filters, onApply }: SavedViewPickerPro
                     title={`"${view.name}" görünümünü sil`}
                     tone="danger"
                     disabled={removeView.isPending}
-                    onClick={() => removeView.mutate(view.id)}
+                    onClick={() => void requestRemove(view)}
                   >
                     <Trash2 size={14} />
                   </IconButton>

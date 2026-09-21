@@ -12,6 +12,9 @@ import type { ComponentProps } from "react";
 import { SavedViewPicker } from "./SavedViewPicker";
 import type { SavedViewRow } from "./SavedViewPicker";
 
+const confirmDialog = vi.fn().mockResolvedValue(true);
+vi.mock("@/core/dialog", () => ({ confirmDialog: (...args: unknown[]) => confirmDialog(...args) }));
+
 vi.mock("@/core/api", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn() },
   qs: vi.fn(() => ""),
@@ -122,13 +125,29 @@ describe("SavedViewPicker", () => {
     await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/views/v1", { pinned: true }));
   });
 
-  it("görünümü siler ve views.write invalidate eder", async () => {
+  it("görünümü onaydan SONRA siler ve views.write invalidate eder", async () => {
     renderPicker();
 
     await userEvent.click(await screen.findByRole("button", { name: "Kayıtlı görünümler" }));
     await userEvent.click(screen.getByRole("button", { name: '"Okunmamış" görünümünü sil' }));
 
+    // Geri alınamaz işlem: silme, onaydan SONRA ve yalnız onayla olur (§54).
+    await waitFor(() =>
+      expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ confirmLabel: "Görünümü sil" })),
+    );
     await waitFor(() => expect(apiDel).toHaveBeenCalledWith("/views/v1"));
+    expect(confirmDialog.mock.invocationCallOrder[0]).toBeLessThan(apiDel.mock.invocationCallOrder[0]);
     await waitFor(() => expect(invalidateAfter).toHaveBeenCalledWith("views.write"));
+  });
+
+  it("onay reddedilirse görünüm silinmez", async () => {
+    confirmDialog.mockResolvedValueOnce(false);
+    renderPicker();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Kayıtlı görünümler" }));
+    await userEvent.click(screen.getByRole("button", { name: '"Okunmamış" görünümünü sil' }));
+
+    await waitFor(() => expect(confirmDialog).toHaveBeenCalled());
+    expect(apiDel).not.toHaveBeenCalled();
   });
 });

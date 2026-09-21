@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { BellRing, Blocks, Briefcase, DatabaseBackup, LayoutGrid, Plug, SlidersHorizontal } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
+import { confirmDialog } from "@/core/dialog";
 import { api } from "@/core/api";
 import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
 import type { LucideIcon } from "lucide-react";
@@ -188,6 +189,21 @@ export function SettingsPage() {
     },
     onError: (error) => toast.push(`Bağlantı kesilemedi: ${error.message}`, { tone: "danger" }),
   });
+  /**
+   * Bağlantı kesme GERİ ALINAMAZ: kayıtlı OAuth jetonu silinir ve yeniden
+   * bağlanmak gerekir. Bu yüzden tek tıkla çalışmaz; açık onay ister (§54).
+   */
+  async function requestDisconnect(provider: "github" | "google") {
+    const label = provider === "github" ? "GitHub" : "Google";
+    const ok = await confirmDialog({
+      title: `${label} bağlantısı kesilsin mi?`,
+      body: `Kayıtlı ${label} erişimi silinir. Bağlı özellikler (Drive/GitHub) durur; yeniden bağlanman gerekir.`,
+      confirmLabel: "Bağlantıyı kes",
+    });
+    if (!ok) return;
+    disconnect.mutate(provider);
+  }
+
   const backup = useMutation({
     mutationFn: () => api.post<{ path: string; size: number }>("/backup"),
     onSuccess: () => invalidateAfter("backup.write"),
@@ -348,8 +364,8 @@ export function SettingsPage() {
                 githubToken={githubToken}
                 onGithubToken={setGithubToken}
                 onConnectGithub={() => connectGithub.mutate()}
-                onDisconnectGithub={() => disconnect.mutate("github")}
-                onDisconnectGoogle={() => disconnect.mutate("google")}
+                onDisconnectGithub={() => requestDisconnect("github")}
+                onDisconnectGoogle={() => requestDisconnect("google")}
                 busy={disconnect.isPending}
               />
               <ObsidianVaultSection online={online} />
