@@ -1,22 +1,26 @@
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/core/api";
 import { Metric } from "@/core/ui";
-import type { RssStats as RssStatsData } from "@/core/types";
+import { useRssStats } from "@/core/runtimeQueries";
 
+/**
+ * Bugun sayfasindaki RSS ozeti.
+ *
+ * Durustluk: sorgu gelmeden sahte sifir gosterilmez ("0 aktif besleme"
+ * yaniltirdi); deger gelene kadar "–" yazilir. Backend'in `failing_feeds`
+ * alani hata biriktiren YA DA kapatilmis beslemeleri sayar; etiket bunu
+ * acikca soyler (kapatilmis besleme "sorunlu" diye damgalanmaz).
+ */
 export function RssStats() {
-  const { data } = useQuery({
-    queryKey: ["rss-stats"],
-    queryFn: () => api.get<RssStatsData>("/rss/stats"),
-  });
+  // Paylasilan uç: anahtar `core/runtimeQueries`'te tek yerde durur (§78).
+  const { data } = useRssStats();
   return (
     <>
       <Metric
         label="Okunmamış RSS"
         value={data?.unread ?? "–"}
-        hint={`${data?.active_feeds ?? 0} aktif besleme`}
+        hint={data ? `${data.active_feeds} aktif besleme` : undefined}
         href="#/rss"
       />
-      <Metric label="Sorunlu besleme" value={data?.failing_feeds ?? "–"} href="#/health" />
+      <Metric label="Hata / kapalı besleme" value={data?.failing_feeds ?? "–"} href="#/health" />
     </>
   );
 }

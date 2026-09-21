@@ -1,37 +1,45 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { api } from "@/core/api";
 import { Button, Chip, Empty, MiniStat, Section, cx, relativeTime, useToast } from "@/core/ui";
-import { confirmDialog } from "@/core/dialog";
+import { SectionFallback, dataState } from "@/core/DataState";
+import { useRssStats } from "@/core/runtimeQueries";
+import { feedStateView, healthSummaryLabel } from "@/core/sourceStatus";
 import { useOnline } from "@/lib/hooks";
-import type { Feed, RssStats } from "@/core/types";
+import type { Feed } from "@/core/types";
 
-function problemBadges(feed: Feed): { label: string; tone: "warn" | "danger" }[] {
-  const badges: { label: string; tone: "warn" | "danger" }[] = [];
-  if (feed.error_count > 0) badges.push({ label: `${feed.error_count} hata`, tone: "danger" });
-  if (!feed.active) badges.push({ label: "kapatıldı", tone: "danger" });
-  if (feed.last_status === "empty") badges.push({ label: "boş döndü", tone: "warn" });
-  if (!feed.last_fetched_at) badges.push({ label: "çekilmedi", tone: "warn" });
-  return badges;
-}
+/** Durum tonuna gore siralama: ilgi isteyenler ustte. */
+const TONE_RANK = { danger: 0, warn: 1, accent: 2, neutral: 3, ok: 4 } as const;
 
-/** RSS feed sagligi: sorunlu/kapatilmis/hic cekilmemis beslemeler + aksiyonlar. */
+/**
+ * RSS besleme sagligi: durum dokumu + tazeleme aksiyonlari.
+ *
+ * Sinirlar (durustluk kurallari):
+ *  - Teshis EDER, kaydi YONETMEZ: silme/duzenleme RSS modulunun isidir; burada
+ *    toplu silme yoktur, RSS modulune derin baglanti vardir.
+ *  - Durum sozlugu tek kaynaktan gelir (`@/core/sourceStatus`): bilerek kapatilan
+ *    besleme "kapali"dir (notr), bozuk degildir; tek bos kosu sorun sayilmaz.
+ *  - Sorgu dustugunde/eksik oldugunda "hepsi saglikli" DENMEZ; bilinmeyen durum
+ *    acikca yazilir (`SectionFallback`).
+ */
 export function RssHealthWidget() {
   const online = useOnline();
   const toast = useToast();
 
-  const { data: feeds = [] } = useQuery({
+  const feedsQuery = useQuery({
     queryKey: ["feeds"],
     queryFn: () => api.get<Feed[]>("/rss/feeds"),
   });
-  const { data: stats } = useQuery({
-    queryKey: ["rss-stats"],
-    queryFn: () => api.get<RssStats>("/rss/stats"),
-  });
+  // Paylasilan uç: anahtar/aralik `core/runtimeQueries`'te tek yerde durur.
+  const statsQuery = useRssStats();
 
-  // Sorunlu feed'ler: hata, kapatilmis, bos donmus ya da hic cekilmemis.
-  const problems = feeds.filter((f) => problemBadges(f).length > 0);
+  const feeds = feedsQuery.data;
+  const stats = statsQuery.data;
+  const feedsState = dataState(feedsQuery);
+  const statsState = dataState(statsQuery);
+  /** YESIL cumle yalniz BILINEN durumda kurulur: NO DATA != HEALTHY. */
+  const known = feedsState === "ready" && statsState === "ready";
 
   const refreshAll = useMutation({
     mutationFn: () => api.post<{ started: number }>("/rss/refresh-all"),
@@ -47,119 +55,107 @@ export function RssHealthWidget() {
     mutationFn: (id: string) => api.post(`/rss/feeds/${id}/refresh`),
     onSuccess: () => invalidateAfter("rss.write"),
   });
-  // "Cevap vermeyen" feed'ler: hata biriktirmis ya da kapatilmis.
-  const dead = feeds.filter((f) => f.error_count > 0 || !f.active);
-  const deleteDead = useMutation({
-    mutationFn: async () => {
-      let removed = 0;
-      for (const feed of dead) {
-        try {
-          await api.del(`/rss/feeds/${feed.id}`);
-          removed += 1;
-        } catch {
-          // tek tek devam et; sonucta kullanici toplami gorur
-        }
-      }
-      return removed;
-    },
-    onSuccess: (removed) => {
-      invalidateAfter("rss.write");
-      toast.push(removed > 0 ? removed + " yanıt vermeyen besleme silindi." : "Silinecek besleme yok.", {
-        tone: removed > 0 ? "ok" : "neutral",
-      });
-    },
-    onError: (error: Error) => toast.push("Silme başarısız: " + error.message, { tone: "danger" }),
-  });
 
-  async function confirmDeleteDead() {
-    if (dead.length === 0) {
-      toast.push("Yanıt vermeyen besleme yok.", { tone: "neutral" });
-      return;
-    }
-    const ok = await confirmDialog({
-      title: "Yanıt vermeyen beslemeler silinsin mi?",
-      body: (
-        <>
-          <strong className="font-medium text-primary">{dead.length}</strong> besleme (hata biriktirmiş veya kapatılmış)
-          ve bağlı yazıları listeden kalkar. Geri alınamaz.
-        </>
-      ),
-      confirmLabel: "Sil",
-      tone: "danger",
-    });
-    if (ok) deleteDead.mutate();
-  }
+  // Durum tek sozlukten okunur; siralama yalnizca gosterim icin.
+  const rows = (feeds ?? [])
+    .map((feed) => ({ feed, view: feedStateView(feed) }))
+    .sort((a, b) => TONE_RANK[a.view.tone] - TONE_RANK[b.view.tone]);
+  const healthy = rows.filter((row) => row.view.tone === "ok").length;
+  const attention = rows.filter((row) => row.view.attention).length;
+  /** Raporlanacak satirlar: saglikli olanlar listede tekrar edilmez. */
+  const listed = rows.filter((row) => row.view.tone !== "ok");
 
   return (
     <Section
       title="RSS Sağlığı"
       action={
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            disabled={!online || deleteDead.isPending}
-            onClick={confirmDeleteDead}
-            title="Hata biriktiren veya kapatılmış beslemeleri sil"
-          >
-            <Trash2 size={13} />
-            {dead.length > 0 ? `${dead.length} sorunlu sil` : "Sorunlu yok"}
-          </Button>
+          {/* Kaydi yonetmek RSS modulunun isidir; saglik yuzeyi yalniz baglantilar. */}
+          <a href="#/rss" title="Beslemeleri RSS modülünde yönet" className="text-meta text-accent hover:underline">
+            RSS&apos;i yönet →
+          </a>
           <Button size="sm" disabled={!online || refreshAll.isPending} onClick={() => refreshAll.mutate()}>
-            <RefreshCw size={13} className={refreshAll.isPending ? "animate-spin" : undefined} />
+            <RefreshCw size={13} className={refreshAll.isPending ? "animate-spin" : undefined} aria-hidden />
             Tümünü tazele
           </Button>
         </div>
       }
       bodyClassName="space-y-4"
     >
-      <div className="grid grid-cols-4 gap-3">
-        <MiniStat label="Besleme" value={stats?.feeds ?? 0} />
-        <MiniStat label="Aktif" value={stats?.active_feeds ?? 0} tone="ok" />
-        <MiniStat label="Sorunlu" value={stats?.failing_feeds ?? 0} tone="danger" />
-        <MiniStat label="Okunmamış" value={stats?.unread ?? 0} />
-      </div>
-
-      {problems.length === 0 ? (
-        <Empty>Bütün beslemeler sağlıklı — hata yok, hepsi çekilmiş.</Empty>
-      ) : (
-        <div>
-          <p className="mb-2 text-meta text-secondary">
-            <strong className="font-medium text-danger">{problems.length}</strong> besleme ilgi istiyor:
-          </p>
-          <ul className="space-y-1.5">
-            {problems.slice(0, 10).map((feed) => (
-              <li key={feed.id} className="flex items-center gap-2.5 border-b border-subtle px-1 py-2 last:border-b-0">
-                <AlertTriangle size={13} className="shrink-0 text-warn" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="max-w-[260px] truncate text-body text-primary">{feed.title}</span>
-                    {problemBadges(feed).map((b) => (
-                      <Chip key={b.label} tone={b.tone}>
-                        {b.label}
-                      </Chip>
-                    ))}
-                  </div>
-                  <p className="mt-0.5 text-meta text-muted">
-                    {feed.last_fetched_at ? `son çekim ${relativeTime(feed.last_fetched_at)}` : "hiç çekilmedi"}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  disabled={!online || refreshOne.isPending}
-                  onClick={() => refreshOne.mutate(feed.id)}
-                  title="Bu beslemeyi şimdi çek"
-                >
-                  <RefreshCw size={13} /> Çek
-                </Button>
-              </li>
-            ))}
-          </ul>
-          {problems.length > 10 && (
-            <p className="mt-2 text-meta text-muted">
-              +{problems.length - 10} besleme daha — tümünü tazele ile düzeltebilirsin.
-            </p>
-          )}
+      {stats ? (
+        <div className="grid grid-cols-4 gap-3">
+          <MiniStat label="Besleme" value={stats.feeds} />
+          <MiniStat label="Aktif" value={stats.active_feeds} tone="ok" />
+          {/* Backend `failing_feeds` = hata biriktiren YA DA kapatilmis beslemeler. */}
+          <MiniStat label="Hata / kapalı" value={stats.failing_feeds} tone="warn" />
+          <MiniStat label="Okunmamış" value={stats.unread} />
         </div>
+      ) : (
+        <SectionFallback
+          state={statsState === "ready" ? "error" : statsState}
+          what="RSS özeti"
+          onRetry={() => void statsQuery.refetch()}
+        />
+      )}
+
+      {feeds ? (
+        feeds.length === 0 ? (
+          <Empty>Kayıtlı besleme yok — RSS modülünden ekleyebilirsin.</Empty>
+        ) : known && listed.length === 0 ? (
+          <Empty>Bütün beslemeler sağlıklı — hata yok, hepsi çekilmiş.</Empty>
+        ) : listed.length > 0 ? (
+          <div>
+            {known && (
+              <p className="mb-2 text-meta text-secondary">
+                {healthSummaryLabel({ total: feeds.length, healthy, attention })}
+              </p>
+            )}
+            <ul className="space-y-1.5">
+              {listed.slice(0, 10).map(({ feed, view }) => (
+                <li
+                  key={feed.id}
+                  className="flex items-center gap-2.5 border-b border-subtle px-1 py-2 last:border-b-0"
+                >
+                  {view.tone !== "neutral" && (
+                    <AlertTriangle
+                      size={13}
+                      aria-hidden
+                      className={cx("shrink-0", view.tone === "danger" ? "text-danger" : "text-warn")}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="max-w-[260px] truncate text-body text-primary">{feed.title}</span>
+                      <Chip tone={view.tone}>{view.label}</Chip>
+                    </div>
+                    {feed.last_fetched_at && (
+                      <p className="mt-0.5 text-meta text-muted">son çekim {relativeTime(feed.last_fetched_at)}</p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!online || refreshOne.isPending}
+                    onClick={() => refreshOne.mutate(feed.id)}
+                    title="Bu beslemeyi şimdi çek"
+                  >
+                    <RefreshCw size={13} aria-hidden /> Çek
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {listed.length > 10 && (
+              <p className="mt-2 text-meta text-muted">
+                +{listed.length - 10} besleme daha — tümünü tazele ile düzeltebilirsin.
+              </p>
+            )}
+          </div>
+        ) : null
+      ) : (
+        <SectionFallback
+          state={feedsState === "ready" ? "error" : feedsState}
+          what="Besleme listesi"
+          onRetry={() => void feedsQuery.refetch()}
+        />
       )}
     </Section>
   );

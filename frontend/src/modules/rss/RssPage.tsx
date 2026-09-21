@@ -19,8 +19,11 @@ import {
 } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
-import { navigate, useHashRoute } from "@/app/router";
-import type { Bookmark, Collection, Feed, FeedItem, RssStats } from "@/core/types";
+import { SectionFallback, dataState } from "@/core/DataState";
+import { useRssStats } from "@/core/runtimeQueries";
+import { feedStateView, type StatusTone } from "@/core/sourceStatus";
+import { navigate } from "@/app/router";
+import type { Bookmark, Collection, Feed, FeedItem } from "@/core/types";
 import { appDayUtc } from "@/lib/date";
 import { RssReadingPane } from "./RssReadingPane";
 
@@ -156,6 +159,15 @@ function FeedAvatar({ feed, size = 16 }: { feed?: Feed | null; size?: number }) 
   );
 }
 
+/** Durum tonu -> durum led'i rengi (etiketler/tonlar `@/core/sourceStatus`'tan). */
+const LED_CLASS: Record<StatusTone, string> = {
+  ok: "bg-ok",
+  warn: "bg-warn",
+  danger: "bg-danger",
+  accent: "bg-accent",
+  neutral: "bg-icon",
+};
+
 function FeedRow({
   feed,
   selected,
@@ -170,7 +182,8 @@ function FeedRow({
   onRemove: () => void;
 }) {
   const online = useOnline();
-  const broken = feed.error_count > 0 || !feed.active;
+  // Durum sozlugu tek kaynaktan: bilerek kapatilan besleme "kapali"dir, bozuk degil.
+  const view = feedStateView(feed);
   return (
     <li className="group flex items-center gap-1">
       <button
@@ -185,11 +198,10 @@ function FeedRow({
         <span className="truncate">{feed.title}</span>
         {feed.unread > 0 && <span className="numeral ml-auto shrink-0 text-meta text-accent">{feed.unread}</span>}
         <span
-          className={cx(
-            "ml-auto h-1.5 w-1.5 shrink-0 rounded-full",
-            broken ? "bg-danger" : feed.last_status ? "bg-ok" : "bg-icon",
-          )}
-          title={broken ? "hata" : feed.last_status ? "sağlıklı" : "henüz çekilmedi"}
+          role="img"
+          aria-label={view.label}
+          title={view.label}
+          className={cx("ml-auto h-1.5 w-1.5 shrink-0 rounded-full", LED_CLASS[view.tone])}
         />
       </button>
       {/* Hover aksiyonlari — fareyle gelince gorunur */}
@@ -269,15 +281,15 @@ export function RssPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
 
-  const { data: feeds = [] } = useQuery({
+  const feedsQuery = useQuery({
     queryKey: ["feeds"],
     queryFn: () => api.get<Feed[]>("/rss/feeds"),
   });
+  const feeds = feedsQuery.data ?? [];
+  const feedsState = dataState(feedsQuery);
 
-  const { data: stats } = useQuery({
-    queryKey: ["rss-stats"],
-    queryFn: () => api.get<RssStats>("/rss/stats"),
-  });
+  // Paylasilan uç: anahtar/aralik `core/runtimeQueries`'te tek yerde durur (§78).
+  const { data: stats } = useRssStats();
 
   const itemParams: Record<string, string | number | boolean | undefined | null> = { limit: 100 };
   if (feedId) {
@@ -297,7 +309,12 @@ export function RssPage() {
     itemParams.saved_only = true;
   }
 
-  const { data: items = [], isLoading } = useQuery({
+  const {
+    data: items = [],
+    isLoading,
+    isError: itemsFailed,
+    refetch: retryItems,
+  } = useQuery({
     queryKey: ["items", itemParams],
     queryFn: () => api.get<FeedItem[]>(`/rss/items${qs(itemParams)}`),
   });
@@ -621,7 +638,15 @@ export function RssPage() {
             })}
           </div>
 
-          {feeds.length === 0 && <Empty>Henüz besleme yok. Aşağıdan URL ekle ya da OPML dosyanı içeri aktar.</Empty>}
+          {feedsState !== "ready" && (
+            /* Yukleniyor/hata/bos ayri soylenir: sorgu hatasi "besleme yok" DEGILDIR. */
+            <SectionFallback
+              state={feedsState}
+              what="Besleme listesi"
+              onRetry={() => void feedsQuery.refetch()}
+              emptyLabel="Henüz besleme yok. Aşağıdan URL ekle ya da OPML dosyanı içeri aktar."
+            />
+          )}
 
           <div className="mt-4 border-t border-subtle pt-3">
             <button
@@ -676,6 +701,9 @@ export function RssPage() {
           <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
             {isLoading ? (
               <SkeletonRows rows={5} className="h-9" />
+            ) : itemsFailed ? (
+              /* Sorgu hatasi BOSLUK degildir: "yazi yok" demek yanlis olurdu. */
+              <SectionFallback state="error" what="Yazılar" onRetry={() => void retryItems()} />
             ) : items.length === 0 ? (
               <Empty>
                 {smart === "unread" && !feedId ? "Okunacak yazı yok — hepsi yakalandı." : "Bu görünümde yazı yok."}
