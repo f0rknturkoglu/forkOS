@@ -34,25 +34,84 @@ import {
   VAULT_ITEM_KEY,
   VAULT_STATUS_KEY,
 } from "@/core/obsidian";
-import { Button, Chip, Input, PageFrame, Section, Spinner, useToast } from "@/core/ui";
+import { Button, Chip, Input, PageFrame, Section, Spinner, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 
 /** Cakisma/gecersiz kayit uyarilarinda gosterilen en fazla satir. */
 const WARNING_ROWS = 3;
 
 export function KnowledgePage() {
+  const [searchQuery, setSearchQuery] = useState("");
   const route = useHashRoute();
   const focus = route.params.get("focus") ?? "";
   const online = useOnline();
   const toast = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
+  /**
+   * Vault durumu TEK bir "kullanılamıyor" mesajına sıkıştırılmaz (§28):
+   * yapılandırılmamış / erişilemiyor / salt okunur / sağlıklı ayrı ayrı söylenir
+   * ve her birinin kendi eylemi vardır. Kullanıcının gördüğü "Vault
+   * yapılandırılmamış" mesajı çoğu zaman runtime'ın Vault mount'u olmadan
+   * başlatıldığı anlamına gelir (`make up` yerine `make up-obsidian`).
+   */
+  function describeVault(
+    status:
+      | {
+          configured?: boolean;
+          available?: boolean;
+          writable?: boolean;
+          readable?: boolean;
+          diagnostic?: string | null;
+        }
+      | undefined,
+    isError: boolean,
+  ): {
+    kind: "ready" | "read_only" | "not_configured" | "unavailable" | "unreadable";
+    chip: string;
+    hint: string | null;
+  } {
+    if (isError) {
+      return {
+        kind: "unreadable",
+        chip: "Vault durumu okunamadı",
+        hint: "Yerel forkOS sunucusuna ulaşılamıyor olabilir; servisleri kontrol et.",
+      };
+    }
+    if (!status) {
+      return { kind: "unreadable", chip: "Vault durumu okunamadı", hint: null };
+    }
+    if (!status.configured) {
+      return {
+        kind: "not_configured",
+        chip: "Vault yapılandırılmamış",
+        hint:
+          "forkOS'u Obsidian Vault runtime'ı ile başlat: `.env` içine OBSIDIAN_VAULT_HOST_PATH yaz, sonra " +
+          "`make up-obsidian`. Vault olmadan bilgi köprüsü (notlar, günlükler) kapalı kalır.",
+      };
+    }
+    if (!status.available) {
+      return {
+        kind: "unavailable",
+        chip: "Vault erişilemiyor",
+        hint: status.diagnostic ?? "Vault yolu erişilemiyor: bind mount yolunu ve dizin izinlerini kontrol et.",
+      };
+    }
+    if (status.writable === false) {
+      return {
+        kind: "read_only",
+        chip: "Vault bağlı · salt okunur",
+        hint: "Vault bağlı ama yazılamıyor: okuma çalışır, yakalama ve günlük not yazma kapalı.",
+      };
+    }
+    return { kind: "ready", chip: "Vault bağlı ✓", hint: null };
+  }
 
   const statusQuery = useQuery({
     queryKey: [VAULT_STATUS_KEY],
     queryFn: getVaultStatus,
   });
   const status = statusQuery.data;
-  const vaultReady = Boolean(status?.configured && status?.available);
+  const vaultState = describeVault(status, statusQuery.isError);
+  const vaultReady = vaultState.kind === "ready" || vaultState.kind === "read_only";
   const invalidFiles = status?.invalid_files ?? [];
   const conflicts = Object.entries(status?.conflict_details ?? {});
 
@@ -137,8 +196,12 @@ export function KnowledgePage() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2 text-meta text-secondary">
                   <span>{status?.managed_files ?? 0} yönetilen not</span>
-                  {vaultReady ? <Chip tone="ok">Vault bağlı ✓</Chip> : <Chip tone="danger">Vault kullanılamıyor</Chip>}
-                  {status?.writable === false && vaultReady ? <Chip tone="warn">salt okunur</Chip> : null}
+                  {vaultState.kind === "ready" && <Chip tone="ok">{vaultState.chip}</Chip>}
+                  {vaultState.kind === "read_only" && <Chip tone="warn">{vaultState.chip}</Chip>}
+                  {(vaultState.kind === "not_configured" || vaultState.kind === "unavailable") && (
+                    <Chip tone="danger">{vaultState.chip}</Chip>
+                  )}
+                  {vaultState.kind === "unreadable" && <Chip tone="danger">{vaultState.chip}</Chip>}
                   <span className="flex-1" />
                   <Button
                     variant="ghost"
@@ -149,12 +212,9 @@ export function KnowledgePage() {
                   </Button>
                 </div>
 
-                {!vaultReady ? (
-                  <p className="text-meta text-danger">
-                    {statusQuery.isError
-                      ? "Vault durumu okunamadı — yerel sunucuya ulaşılamıyor olabilir."
-                      : (status?.diagnostic ??
-                        "Vault yapılandırılmamış ya da dizini erişilemiyor. Ayarlar › Obsidian Vault bölümünden kontrol et.")}
+                {vaultState.hint ? (
+                  <p className={cx("text-meta", vaultState.kind === "read_only" ? "text-warn" : "text-danger")}>
+                    {vaultState.hint}
                   </p>
                 ) : null}
 

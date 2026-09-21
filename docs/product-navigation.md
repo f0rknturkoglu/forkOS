@@ -22,16 +22,20 @@ Plan            /todos                Görevler · Haftalık plan · Rutinler ·
 Projeler        /projects
 Kariyer         /opportunities        Keşfet · Başvurular · Duyurular · Profil · Kaynaklar
 Öğrenme         /learning             Öğrenme · Kartlar · Tekrar
-Kütüphane       /bookmarks            Yer İmleri · Belgeler · RSS · Medya · Bilgi
+Kütüphane       /bookmarks            Yer İmleri · Belgeler · RSS · Okuma Akışı (/feed) · Medya · Bilgi
 ────────────────────────────────────────────────────────────────────────────
 Sabitlenenler   (kullanıcının sabitlediği kayıtlı görünümler)
-Daha fazla      Finans · Etkinlik & Ritim · Değerlendirme
+Daha fazla      Finans · Etkinlik & Ritim → Isı Haritası (/activity/heatmap) · Değerlendirme
 ────────────────────────────────────────────────────────────────────────────
 Sistem          Sistem Durumu (/health, /sources) · Ayarlar (/settings)
 ```
 
 Kurallar:
 
+- Temiz kurulumda yalnız kök alanlar açıktır; alt satırlar kapalı başlar ve
+  aktif rota kendi alanını otomatik açar (katlanma tercihi
+  `forkos.sidebar.areas`). Ağaç görsel olarak konuşur: kök satır `h-9`/16px
+  ikon, alan hedefi `h-8`/14px, hedefin alt rotası `h-7`/13px + daha derin girinti.
 - Bir modül **çalışıyor olabilir** ama birincil navigasyonda satır tutmaz
   (ör. `inbox` bir triyaj akışıdır; girişi Home'daki gelen kutusu yüzeyidir).
   Bu, modülü devre dışı bırakmak DEĞİLDİR: rota, widget'lar ve komutlar aynen
@@ -68,6 +72,19 @@ Bekleyen kararlar   (H7; boşken hiç çizilmez)
 Dikkat              (son tarihler + takipler + okunmamış bildirimler; ≤ 5 satır)
 Bugünün planı
 ```
+
+Home bölgeleri (widget kimlikleri ve kullanıcı tercihleri DEĞİŞMEDİ):
+
+```text
+priority   Bekleyen kararlar (varsa tam genişlik; yoksa çizilmez)
+main       Şimdi ve sırada · Bugünün planı
+rail       Dikkat (+ Geciken görevler açılırsa)
+secondary  Akış · Isı haritası · Ritim · Kartlar · Öğrenme · Medya · ...
+```
+
+Boş bölge ne çizilir ne yer tutar: main boşsa rail tek başına, rail boşsa main
+tam genişlik. Eski "Plan/Akış/Durum" üç sütun modeli kaldırıldı; onun yerine
+içerikten türeyen bölge şablonu var (`--home-cols`).
 
 Yüzey sayısı bilinçli olarak azdır: Home "her modülden biraz" panosu değil,
 "şu an ne yapıyorum, ne dikkat istiyor, benden hangi karar bekleniyor"

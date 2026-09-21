@@ -142,7 +142,7 @@ describe("KnowledgePage", () => {
     expect(harness.invalidate).toHaveBeenCalledWith("obsidian.write");
   });
 
-  it("Vault kullanılamıyorsa teshisi gösterir ve açma eylemlerini kapatır", async () => {
+  it("Vault yapılandırılmamışsa runtime talimatı verir ve eylemleri kapatır", async () => {
     harness.status = {
       ...healthyStatus,
       configured: false,
@@ -151,7 +151,7 @@ describe("KnowledgePage", () => {
       readable: false,
       vault_name: "",
       managed_files: 0,
-      diagnostic: "Obsidian dizini bulunamadı: /Users/x/f0rknbrain",
+      diagnostic: null,
       open_uri: null,
       inbox_uri: null,
       daily_uri: null,
@@ -159,11 +159,40 @@ describe("KnowledgePage", () => {
     renderPage();
     await ready();
 
-    expect(screen.getByText("Vault kullanılamıyor")).toBeTruthy();
-    expect(screen.getByText("Obsidian dizini bulunamadı: /Users/x/f0rknbrain")).toBeTruthy();
+    // "Yapılandırılmamış" ile "erişilemiyor" AYRI söylenir (§28).
+    expect(screen.getByText("Vault yapılandırılmamış")).toBeTruthy();
+    expect(screen.getByText(/make up-obsidian/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Obsidian'ı Aç/ }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Inbox" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: /İndeksi yenile/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("yapılandırılmış ama erişilemeyen Vault'ta teşhisi ve ayrı mesajı gösterir", async () => {
+    harness.status = {
+      ...healthyStatus,
+      configured: true,
+      available: false,
+      writable: false,
+      readable: false,
+      diagnostic: "Obsidian dizini bulunamadı: /Users/x/f0rknbrain",
+    };
+    renderPage();
+    await ready();
+
+    expect(screen.getByText("Vault erişilemiyor")).toBeTruthy();
+    expect(screen.getByText("Obsidian dizini bulunamadı: /Users/x/f0rknbrain")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /İndeksi yenile/ }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("salt okunur Vault'ta okuma açık, yazma kapalı olarak anlatılır", async () => {
+    harness.status = { ...healthyStatus, writable: false };
+    renderPage();
+    await ready();
+
+    expect(screen.getByText("Vault bağlı · salt okunur")).toBeTruthy();
+    expect(screen.getByText(/yakalama ve günlük not yazma kapalı/)).toBeTruthy();
+    // Okuma eylemleri açık kalır.
+    expect(screen.getByRole("button", { name: /İndeksi yenile/ }).hasAttribute("disabled")).toBe(false);
   });
 
   it("kimlik çakışmasını uyarı tonunda listeler", async () => {

@@ -31,6 +31,29 @@ function assertOnlineWrite(): void {
   if (!isOnline()) throw new OfflineWriteError();
 }
 
+/**
+ * Taşıma katmanı hataları KULLANICIYA HAM GÖSTERİLMEZ.
+ *
+ * `fetch` başarısız olduğunda tarayıcı "Failed to fetch" / "NetworkError" gibi
+ * İngilizce, teknik bir metin üretir; API kapalıyken nginx ise bir HTML hata
+ * sayfası döndürür. İkisi de ürün dili değildir. Burada tek yerde, sınırlı ve
+ * Türkçe bir mesaja çevrilir (HTTP durum kodlu sunucu mesajları korunur).
+ */
+export const API_UNAVAILABLE_MESSAGE = "Yerel forkOS API'sine ulaşılamadı. Servislerin çalıştığını kontrol et.";
+export const API_TIMEOUT_MESSAGE = "İstek zaman aşımına uğradı.";
+
+function isAbortError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { name?: string }).name === "AbortError";
+}
+
+/** HTML gövde (ör. nginx 502 sayfası) mesaj olarak gösterilmez. */
+function looksLikeMarkup(body: string): boolean {
+  const head = body.trimStart().slice(0, 40).toLowerCase();
+  return (
+    head.startsWith("<!doctype") || head.startsWith("<html") || head.startsWith("<head") || head.startsWith("<center")
+  );
+}
+
 /** Hata govdesinden hem gosterilecek metni hem ham govdeyi cikarir.
  *  FastAPI hata govdesi {"detail": ...} — detail string ise o gosterilir,
  *  degilse seri hali; detail yoksa ham govde (eski davranis) korunur. */
@@ -43,7 +66,9 @@ async function errorParts(res: Response): Promise<[string, string | null]> {
     if (typeof parsed.detail === "string") return [parsed.detail, body];
     if (parsed.detail !== undefined) return [JSON.stringify(parsed.detail), body];
   } catch {
-    // body JSON degilse ham metin hem mesaj hem rawBody olur
+    // body JSON degil: HTML ise (proxy hata sayfasi) sinirli mesaj, duz metin
+    // ise (ornek: "Not Found") sunucunun kendi metni gosterilir.
+    if (looksLikeMarkup(body)) return [fallback, body];
   }
   return [body || fallback, body];
 }
@@ -60,6 +85,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       signal: controller.signal,
     });
+  } catch (error) {
+    throw new ApiError(0, isAbortError(error) ? API_TIMEOUT_MESSAGE : API_UNAVAILABLE_MESSAGE);
   } finally {
     clearTimeout(timer);
   }
@@ -87,6 +114,8 @@ export const api = {
     let res: Response;
     try {
       res = await fetch(`${BASE}${p}`, { method: "POST", body: form, signal: controller.signal });
+    } catch (error) {
+      throw new ApiError(0, isAbortError(error) ? API_TIMEOUT_MESSAGE : API_UNAVAILABLE_MESSAGE);
     } finally {
       clearTimeout(timer);
     }

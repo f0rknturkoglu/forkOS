@@ -111,10 +111,17 @@ Ardından:
 - OpenAPI: [http://127.0.0.1:8787/docs](http://127.0.0.1:8787/docs)
 - PostgreSQL: `127.0.0.1:5433`
 
-Bilgi köprüsünü (Notlar, günlükler, proje günlükleri) de açmak için `.env` içinde
-`OBSIDIAN_VAULT_HOST_PATH` (host yolu) ve `OBSIDIAN_VAULT_NAME` değerlerini verip
-`make up-obsidian CO="docker compose"` ile başlat. Vault mount'u yalnızca `api`
-servisine verilir; `web` container'ı Vault'u görmez.
+```text
+make up            → yalnız çekirdek forkOS (Vault bağlı DEĞİL)
+make up-obsidian   → forkOS + f0rknbrain Obsidian Vault   ← günlük önerilen runtime
+```
+
+Bilgi köprüsü (Notlar, günlükler, proje günlükleri) Vault mount'u gerektirir:
+`.env` içine `OBSIDIAN_VAULT_HOST_PATH` (host yolu) ve `OBSIDIAN_VAULT_NAME`
+değerlerini yaz, sonra `make up-obsidian CO="docker compose"` ile başlat. Vault
+mount'u yalnızca `api` servisine verilir; `web` container'ı Vault'u görmez ve
+Vault dosyaları forkOS yedeğine girmez. `make up` sessizce farklı davranmaz:
+hangi runtime'ı istediğini komut söyler.
 
 `Makefile` varsayılan olarak `podman compose` kullanır. Podman kullanıyorsan `CO` parametresini yazmana gerek yoktur.
 
