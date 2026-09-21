@@ -22,28 +22,33 @@ import { cx } from "@/core/ui";
 
 const OPEN_AREAS_KEY = "forkos.sidebar.areas";
 
-/** Varsayılan: alt satırı olan birincil alanlar açık; uzun kuyruk kapalı. */
-function initialOpenAreas(modules: readonly ModuleSpec[]): Set<ProductAreaId> {
+/**
+ * Temiz kurulumda SADECE kök alanlar görünür: alt satırlar kapalı başlar
+ * (sakin varsayılan). Aktif rota kendi alanını yine otomatik açar, kullanıcının
+ * aç/kapa tercihi `forkos.sidebar.areas` altında saklanır.
+ */
+function initialOpenAreas(): Set<ProductAreaId> {
   try {
     const raw = JSON.parse(localStorage.getItem(OPEN_AREAS_KEY) ?? "null");
     if (Array.isArray(raw)) return new Set(raw as ProductAreaId[]);
   } catch {
     // Bozuk gorunum tercihi navigasyonu kitlemesin; guvenli varsayilana don.
   }
-  return new Set(
-    areasAt("primary")
-      .filter((area) => areaShape(area, modules) === "section")
-      .map((area) => area.id),
-  );
+  return new Set<ProductAreaId>();
 }
 
+/**
+ * Navigasyon satiri. Kök alan satırı tam ağırlıkta; alt satırlar hafif küçük
+ * ve girintili (ağaç okunur olsun diye ağırlık farkı, okunamayacak kadar
+ * küçültme DEĞİL).
+ */
 function SidebarLink({
   href,
   label,
   active,
   icon: Icon,
   collapsed,
-  child = false,
+  depth = 0,
   onNavigate,
 }: {
   href: string;
@@ -51,7 +56,8 @@ function SidebarLink({
   active: boolean;
   icon?: ModuleSpec["icon"];
   collapsed: boolean;
-  child?: boolean;
+  /** 0 = kök alan satırı, 1 = alan hedefi, 2 = hedefin alt rotası. */
+  depth?: 0 | 1 | 2;
   onNavigate: () => void;
 }) {
   const LinkIcon = Icon ?? LayoutGrid;
@@ -68,24 +74,26 @@ function SidebarLink({
         onNavigate();
       }}
       className={cx(
-        "group flex h-9 min-w-0 items-center rounded-control text-body transition-colors",
-        child
-          ? collapsed
-            ? "justify-center px-0"
-            : "gap-2.5 pl-6 pr-2.5 text-meta"
-          : collapsed
-            ? "justify-center px-0"
-            : "gap-2.5 px-2.5",
+        "group flex min-w-0 items-center rounded-control transition-colors",
+        collapsed
+          ? "h-9 justify-center px-0"
+          : depth === 0
+            ? "h-9 gap-2.5 px-2.5 text-body"
+            : depth === 1
+              ? "h-8 gap-2.5 pl-6 pr-2.5 text-meta"
+              : "h-7 gap-2 pl-10 pr-2.5 text-meta",
         active
           ? "bg-surface-selected font-medium text-primary"
-          : "text-secondary hover:bg-surface-hover hover:text-primary",
+          : depth === 0
+            ? "text-secondary hover:bg-surface-hover hover:text-primary"
+            : "text-muted hover:bg-surface-hover hover:text-primary",
       )}
     >
       <LinkIcon
-        size={child ? 14 : 16}
+        size={depth === 0 ? 16 : depth === 1 ? 14 : 13}
         className={cx(
           "shrink-0 transition-colors",
-          child ? "text-muted group-hover:text-primary" : "text-icon group-hover:text-primary",
+          depth === 0 ? "text-icon group-hover:text-primary" : "text-muted group-hover:text-primary",
         )}
       />
       <span className={cx("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>{label}</span>
@@ -189,7 +197,7 @@ export function AppSidebar({
   const longtail = areasAt("longtail");
   const system = areasAt("system");
   const activeArea = areaForPath(path, modules);
-  const [openAreas, setOpenAreas] = useState(() => initialOpenAreas(modules));
+  const [openAreas, setOpenAreas] = useState(initialOpenAreas);
   const { data: pinnedViews = [] } = usePinnedSavedViews();
 
   useEffect(() => {
@@ -223,7 +231,7 @@ export function AppSidebar({
           .filter((row) => row.path !== area.landing)
           .map((row) => {
             const rowActive = rowIsActive(row, path, params);
-            const nested = rowActive && rows.some((other) => other.child && rowIsActive(other, path, params));
+            const nested = rowActive && rows.some((other) => other.depth === 2 && rowIsActive(other, path, params));
             const ModuleSidebar = modules.find((module) => module.id === row.moduleId)?.sidebar;
             return (
               <div key={`${row.moduleId}-${row.path}-${row.query ?? ""}`}>
@@ -233,6 +241,7 @@ export function AppSidebar({
                   icon={row.icon}
                   active={rowActive && !nested}
                   collapsed={collapsed}
+                  depth={row.depth}
                   onNavigate={onCloseMobile}
                 />
                 {rowActive && ModuleSidebar && (

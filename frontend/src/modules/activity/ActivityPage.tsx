@@ -35,6 +35,7 @@ import { typeLabel } from "@/core/entityRegistry";
 import type { ActivityEvent, Heatmap as HeatmapData, PomodoroStats, SourceHealth } from "@/core/types";
 import { ALERT_VERBS, describe } from "@/core/verbs";
 import { Heatmap } from "./Heatmap";
+import { RANGES, type RangeId as RangeIdSource } from "./ranges";
 import { MonthlyBars, monthTotal, useRhythmSummary } from "./RhythmWidget";
 
 /** Geçmiş değerlendirmeler -- GET /reviews ucu. Etiket döneme gore. */
@@ -64,13 +65,8 @@ function isAlert(event: ActivityEvent): boolean {
   );
 }
 
-/** Zaman araligi secenekleri: heatmap gun sayisina cevrilir. */
-const RANGES = [
-  { id: "3m", label: "Son 3 ay", days: 90 },
-  { id: "6m", label: "Son 6 ay", days: 180 },
-  { id: "1y", label: "Son 1 yıl", days: 365 },
-] as const;
-type RangeId = (typeof RANGES)[number]["id"];
+// Zaman araligi secenekleri ortak kaynaktan gelir (Isı Haritası sayfasi ile ayni).
+type RangeId = RangeIdSource;
 
 /**
  * Akis filtreleri. "alerts" sunucuya GITMEZ (uyari listesi arayuzde yasar);
@@ -266,12 +262,17 @@ export function ActivityPage() {
           {/* Katman 2: interaktif emek haritasi. Kare tiklamasi gun sayfasina
               gider (#/day?d=...); orada "bugun" ve "onceki gun" baglantilari var. */}
           <div className="space-y-2">
-            <Tabs
-              value={range}
-              onChange={(next) => setRange(next)}
-              ariaLabel="Harita aralığı"
-              items={RANGES.map((item) => ({ id: item.id, label: item.label }))}
-            />
+            <div className="flex items-center justify-between gap-2">
+              <Tabs
+                value={range}
+                onChange={(next) => setRange(next)}
+                ariaLabel="Harita aralığı"
+                items={RANGES.map((item) => ({ id: item.id, label: item.label }))}
+              />
+              <a href="#/activity/heatmap" className="shrink-0 text-meta text-accent hover:underline">
+                Haritayı ayrı aç →
+              </a>
+            </div>
             <Heatmap days={activeRange.days} />
           </div>
 

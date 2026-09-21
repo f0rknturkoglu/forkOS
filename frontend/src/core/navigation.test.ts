@@ -48,6 +48,8 @@ describe("ürün navigasyonu — rota → alan", () => {
     ["/media/collections", "library"],
     ["/media/upcoming", "library"],
     ["/notes", "library"],
+    ["/feed", "library"],
+    ["/activity/heatmap", "longtail"],
   ])("%s → %s", (path, areaId) => {
     expect(areaForPath(path, modules())?.id).toBe(areaId);
   });
@@ -110,9 +112,31 @@ describe("ürün navigasyonu — satırlar", () => {
       "Yer İmleri=/bookmarks",
       "Belgeler=/documents",
       "RSS=/rss",
+      "Okuma Akışı=/feed",
       "Medya=/media",
       "Bilgi=/notes",
     ]);
+  });
+
+  it("uzun kuyrukta Finans, Etkinlik & Ritim, Isı Haritası ve Değerlendirme var", () => {
+    const rows = areaRows(areasAt("longtail")[0], modules());
+    expect(rows.map((row) => `${row.label}=${row.path}`)).toEqual([
+      "Finans=/finance",
+      "Etkinlik & Ritim=/activity",
+      "Isı Haritası=/activity/heatmap",
+      "Değerlendirme=/review/weekly",
+    ]);
+  });
+
+  it("satır derinliği ağacı ifade eder: hedef 1, hedefin alt rotası 2", () => {
+    const plan = areaRows(area("plan"), modules());
+    const byLabel = (label: string) => plan.find((row) => row.label === label)!;
+    expect(byLabel("Görevler").depth).toBe(1);
+    expect(byLabel("Haftalık plan").depth).toBe(2);
+    expect(byLabel("Rutinler").depth).toBe(2);
+    expect(byLabel("Takvim").depth).toBe(1);
+    const longtail = areaRows(areasAt("longtail")[0], modules());
+    expect(longtail.find((row) => row.label === "Isı Haritası")!.depth).toBe(2);
   });
 
   it("Öğrenme alanı kartları ve tekrar görünümünü içerir", () => {

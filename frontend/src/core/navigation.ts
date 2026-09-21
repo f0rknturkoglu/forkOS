@@ -37,10 +37,13 @@ export interface NavigationRow {
   /** Derin görünüm sorgusu; yalnız alan `links`'lerinde bulunur. */
   query?: string;
   /**
-   * Modülün alt rotası mı. Üst satır, alt rotalardan biri aktifken kendini
-   * pasif gösterir: `/habits` açıkken "Görevler" de vurgulu kalmasın.
+   * Ağaçtaki derinlik: 1 = alanın doğrudan hedefi (modül satırı),
+   * 2 = o hedefin alt rotası (`/planner`, `/activity/heatmap`).
+   * Sidebar yalnız görsel ağırlığı değiştirir; üst satır, alt rotalardan biri
+   * aktifken kendini pasif gösterir: `/habits` açıkken "Görevler" vurgulu
+   * kalmasın diye.
    */
-  child: boolean;
+  depth: 1 | 2;
 }
 
 export interface ProductArea {
@@ -169,7 +172,7 @@ export function areaRows(area: ProductArea, modules: readonly ModuleSpec[]): Nav
         path: primary.path,
         label: area.labels?.[module.id] ?? module.title,
         icon: module.icon,
-        child: false,
+        depth: 1,
       });
     }
     for (const route of module.routes) {
@@ -179,7 +182,7 @@ export function areaRows(area: ProductArea, modules: readonly ModuleSpec[]): Nav
         path: route.path,
         label: route.title ?? module.title,
         icon: route.icon,
-        child: true,
+        depth: 2,
       });
     }
   }
@@ -190,7 +193,7 @@ export function areaRows(area: ProductArea, modules: readonly ModuleSpec[]): Nav
       label: link.label,
       icon: link.icon ?? area.icon,
       query: link.query,
-      child: true,
+      depth: 1,
     });
   }
   return rows;

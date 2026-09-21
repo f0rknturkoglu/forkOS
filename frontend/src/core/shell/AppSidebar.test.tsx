@@ -76,13 +76,80 @@ describe("AppSidebar — ürün navigasyonu", () => {
     expect(screen.getByRole("link", { name: "Kariyer" }).getAttribute("href")).toBe("#/opportunities");
   });
 
-  it("varsayılan açık alanların alt satırlarını ve sistem bölümünü render eder", () => {
+  it("temiz kurulumda SADECE kök alanlar açık: alt satırlar kapalı başlar", () => {
     renderSidebar("/");
 
-    expect(screen.getByRole("link", { name: "Haftalık plan" }).getAttribute("href")).toBe("#/planner");
-    expect(screen.getByRole("link", { name: "Rutinler" }).getAttribute("href")).toBe("#/habits");
-    expect(screen.getByRole("link", { name: "Medya" }).getAttribute("href")).toBe("#/media");
+    // Kök alanlar her zaman görünür.
+    for (const label of ["Home", "Plan", "Projeler", "Kariyer", "Öğrenme", "Kütüphane"]) {
+      expect(screen.getByRole("link", { name: label })).toBeTruthy();
+    }
+    // Alt satırlar kapalı: sakin varsayılan. Satırlar DOM'da durur ama
+    // bölgeleri `hidden`dır (klavye erişimi dışında).
+    for (const [areaId, label] of [
+      ["plan", "Plan"],
+      ["library", "Kütüphane"],
+      ["learning", "Öğrenme"],
+      ["longtail", "Daha fazla"],
+    ] as const) {
+      expect(screen.getByRole("button", { name: `${label} alt satırları aç` }).getAttribute("aria-expanded")).toBe(
+        "false",
+      );
+      expect(document.getElementById(`sidebar-area-${areaId}`)?.className).toContain("hidden");
+    }
+  });
+
+  it("aktif rota kendi alanını otomatik açar", async () => {
+    renderSidebar("/calendar");
+    expect(await screen.findByRole("link", { name: "Takvim" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Plan alt satırları kapat" }).getAttribute("aria-expanded")).toBe("true");
+
+    cleanup();
+    renderSidebar("/media");
+    expect(await screen.findByRole("link", { name: "Medya" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Kütüphane alt satırları kapat" })).toBeTruthy();
+
+    cleanup();
+    renderSidebar("/activity/heatmap");
+    expect(await screen.findByRole("link", { name: "Isı Haritası" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Daha fazla alt satırları kapat" })).toBeTruthy();
+  });
+
+  it("kütüphane altında Okuma Akışı ve Bilgi, uzun kuyrukta Isı Haritası var", async () => {
+    renderSidebar("/media");
+    expect(await screen.findByRole("link", { name: "Okuma Akışı" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Okuma Akışı" }).getAttribute("href")).toBe("#/feed");
     expect(screen.getByRole("link", { name: "Bilgi" }).getAttribute("href")).toBe("#/notes");
+
+    cleanup();
+    renderSidebar("/activity");
+    const heatmap = await screen.findByRole("link", { name: "Isı Haritası" });
+    expect(heatmap.getAttribute("href")).toBe("#/activity/heatmap");
+  });
+
+  it("alt satırlar kök satırdan hafif küçük ve girintili", async () => {
+    renderSidebar("/media");
+    const root = screen.getByRole("link", { name: "Kütüphane" });
+    const child = await screen.findByRole("link", { name: "Medya" });
+
+    // Kök: h-9 + 16px ikon; alt satır: h-8 + girinti + 14px ikon.
+    expect(root.className).toContain("h-9");
+    expect(root.querySelector("svg")?.getAttribute("width")).toBe("16");
+    expect(child.className).toContain("h-8");
+    expect(child.className).toContain("pl-6");
+    expect(child.querySelector("svg")?.getAttribute("width")).toBe("14");
+    // Ağırlık farkı okunabilirliği bozmaz: alt satır hâlâ text-meta.
+    expect(child.className).toContain("text-meta");
+  });
+
+  it("üçüncü seviye (modülün alt rotası) daha derin girintili", async () => {
+    renderSidebar("/planner");
+    const grandchild = await screen.findByRole("link", { name: "Haftalık plan" });
+    expect(grandchild.className).toContain("h-7");
+    expect(grandchild.className).toContain("pl-10");
+  });
+
+  it("sistem bölümü kök satır olarak kalır", () => {
+    renderSidebar("/");
     expect(screen.getByRole("link", { name: "Sistem Durumu" }).getAttribute("href")).toBe("#/health");
     expect(screen.getByRole("link", { name: "Ayarlar" }).getAttribute("href")).toBe("#/settings");
   });
@@ -107,9 +174,13 @@ describe("AppSidebar — ürün navigasyonu", () => {
     expect(screen.getByRole("link", { name: "Finans" }).getAttribute("aria-current")).toBe("page");
   });
 
-  it("kapatılan alanı tercih olarak saklar", () => {
+  it("aç/kapa tercihini saklar (temiz kurulumda kapalı)", () => {
     renderSidebar("/");
-    fireEvent.click(screen.getByRole("button", { name: /Plan alt satırları/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Plan alt satırları aç" }));
+    expect(localStorage.getItem("forkos.sidebar.areas")).toContain("plan");
+    expect(screen.getByRole("button", { name: "Plan alt satırları kapat" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Plan alt satırları kapat" }));
     expect(localStorage.getItem("forkos.sidebar.areas")).not.toContain("plan");
   });
 
