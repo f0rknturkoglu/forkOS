@@ -4,6 +4,8 @@ import { Check, Plus, Trash2, X } from "lucide-react";
 import { api } from "@/core/api";
 import { confirmDialog } from "@/core/dialog";
 import { invalidateAfter } from "@/core/invalidation";
+import { useOnline } from "@/lib/hooks";
+import { LinkedInProfilesEditor } from "./LinkedInProfilesEditor";
 import {
   Button,
   Checkbox,
@@ -23,15 +25,6 @@ import {
 interface JobhunterConfig {
   scoring: Record<string, unknown>;
   balance: Record<string, unknown>;
-}
-
-interface LinkedProfile {
-  term: string;
-  location?: string;
-  results_wanted?: number;
-  hours_old?: number;
-  is_remote?: boolean;
-  fetch_description?: boolean;
 }
 
 interface CareerProfile {
@@ -139,17 +132,13 @@ function TokenListField({
  *  gömülü olarak çizilir. */
 export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
   const toast = useToast();
+  const online = useOnline();
   const [section, setSection] = useState<"profile" | "linkedin" | "env" | "maintenance">("profile");
 
   const { data: config } = useQuery({
     queryKey: ["jobhunter-config"],
     queryFn: () => api.get<JobhunterConfig>("/sources/jobhunter/config"),
   });
-  const profilesQuery = useQuery({
-    queryKey: ["jobhunter-linkedin"],
-    queryFn: () => api.get<LinkedProfile[]>("/sources/jobhunter/linkedin-profiles"),
-  });
-  const profiles = profilesQuery.data ?? [];
   const { data: env } = useQuery({
     queryKey: ["jobhunter-env"],
     queryFn: () => api.get<{ linkein_allow_direct: string; proxies_file: string }>("/sources/jobhunter/env"),
@@ -243,20 +232,6 @@ export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
     onError: (error: Error) => toast.push(`Kaydedilemedi: ${error.message}`, { tone: "danger" }),
   });
 
-  /* ── LinkedIn profilleri formu ── */
-  const [editing, setEditing] = useState<LinkedProfile[]>([]);
-  useEffect(() => {
-    if (profilesQuery.data) setEditing(profilesQuery.data);
-  }, [profilesQuery.data]);
-  const saveProfiles = useMutation({
-    mutationFn: () => api.put("/sources/jobhunter/linkedin-profiles", editing),
-    onSuccess: () => {
-      invalidateAfter("jobhunter.write");
-      toast.push(`${editing.length} LinkedIn profili kaydedildi.`, { tone: "ok" });
-    },
-    onError: (error: Error) => toast.push(`Profiller kaydedilemedi: ${error.message}`, { tone: "danger" }),
-  });
-
   /* ── Veri temizliği (iki adımlı: önizleme + onay) ── */
   const [prunePreview, setPrunePreview] = useState<{
     candidates: number;
@@ -302,10 +277,6 @@ export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
       tone: "danger",
     });
     if (ok) pruneMutation.mutate(prunePreview.confirm_token);
-  }
-
-  function patchProfile(index: number, patch: Partial<LinkedProfile>) {
-    setEditing((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   const body = (
@@ -493,67 +464,7 @@ export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
         </div>
       )}
 
-      {section === "linkedin" && (
-        <Section title="LinkedIn arama profilleri">
-          <p className="mb-2 text-meta text-muted">
-            Varsayılan profiller portallarla birleşir; seninkiler en sona eklenir ve senkron turlarında çalışır.
-          </p>
-          <div className="space-y-2">
-            {editing.map((row, index) => (
-              <div
-                key={index}
-                className="grid gap-1.5 rounded-control border border-subtle p-2 sm:grid-cols-[1fr_1fr_5rem_4rem_auto]"
-              >
-                <Input
-                  value={row.term}
-                  onChange={(term) => patchProfile(index, { term })}
-                  placeholder="Arama terimi"
-                  className="w-full"
-                />
-                <Input
-                  value={row.location ?? ""}
-                  onChange={(location) => patchProfile(index, { location })}
-                  placeholder="Konum (ops.)"
-                  className="w-full"
-                />
-                <NumberInput
-                  value={row.results_wanted ?? 50}
-                  onChange={(results_wanted) => patchProfile(index, { results_wanted })}
-                  ariaLabel="Sonuç sayısı"
-                  className="w-full"
-                />
-                <Checkbox
-                  checked={Boolean(row.is_remote)}
-                  onChange={(is_remote) => patchProfile(index, { is_remote })}
-                  label="Uzak"
-                  className="text-meta text-muted"
-                />
-                <IconButton
-                  title="Profili sil"
-                  tone="danger"
-                  onClick={() => setEditing((prev) => prev.filter((_, i) => i !== index))}
-                >
-                  <Trash2 size={13} />
-                </IconButton>
-              </div>
-            ))}
-            {editing.length === 0 && <Empty>Henüz profil yok — ekle.</Empty>}
-          </div>
-          <div className="mt-3 flex items-center justify-between">
-            <Button size="sm" onClick={() => setEditing((prev) => [...prev, { term: "" }])}>
-              <Plus size={13} /> Profil ekle
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={editing.some((row) => !row.term.trim()) || saveProfiles.isPending}
-              onClick={() => saveProfiles.mutate()}
-            >
-              <Check size={13} /> Kaydet
-            </Button>
-          </div>
-        </Section>
-      )}
+      {section === "linkedin" && <LinkedInProfilesEditor online={online} />}
 
       {section === "env" && (
         <Section title="Ortam (container env)">
