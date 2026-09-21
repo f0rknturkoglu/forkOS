@@ -297,12 +297,12 @@ describe("Sistem Durumu — bilgi mimarisi", () => {
     expect(markup).toContain("devre açık");
   });
 
-  it("H6 kapalıyken nötr söyler ve Hermes iddiası kurmaz", () => {
+  it("proaktivite kapalıyken nötr söyler ve Hermes iddiası kurmaz", () => {
     const state = healthyState();
     state["proactivity-status"] = { data: { enabled: false } };
     const markup = render(state);
 
-    expect(markup).toContain("H6 · proaktivite");
+    expect(markup).toContain("Proaktivite");
     expect(markup).toContain("kapalı");
     expect(markup).toContain("Kapalı olması hata değil");
     expect(markup).not.toContain("Hermes bağlı");

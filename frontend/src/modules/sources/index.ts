@@ -1,9 +1,10 @@
 /**
  * Kaynak operasyonları modülü.
  *
- * `/sources` rotası Sistem alanında "Kaynaklar" satırı olarak görünür
- * (`core/navigation.ts` → system.moduleIds). Aynı yüzeyi Kariyer > Kaynaklar
- * sekmesi de "career" çerçevesiyle kullanır; ikinci bir uygulama yoktur.
+ * Kenar çubuğunda kendi satırı YOKTUR: birincil giriş Ayarlar → "Durum &
+ * Kaynaklar" sekmesindeki "Kaynak operasyonları →" bağlantısıdır. `/sources`
+ * rotası derin bağlantı olarak yaşar; aynı yüzeyi Kariyer > Kaynaklar sekmesi
+ * de "career" çerçevesiyle kullanır (ikinci bir uygulama yoktur).
  */
 import { lazy } from "react";
 import { Radio } from "lucide-react";

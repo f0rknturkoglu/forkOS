@@ -86,6 +86,9 @@ let obsidianStatus = {
   diagnostic: null as string | null,
 };
 
+/** `GET /sources/jobhunter/linkedin-profiles` gövdesi (Kariyer Profili sekmesi). */
+const LINKEDIN_PROFILES = [{ term: "backend developer", location: "Berlin", results_wanted: 25, is_remote: true }];
+
 function json(value: unknown): Response {
   return new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
 }
@@ -211,6 +214,12 @@ beforeEach(() => {
       }
       if (url.pathname === "/api/settings/reset") return json({ removed: 3 });
       if (url.pathname === "/api/sources/health") return json([]);
+      if (url.pathname === "/api/sources/coverage") return json([]);
+      if (url.pathname === "/api/sources/jobhunter/linkedin-profiles") return json(LINKEDIN_PROFILES);
+      if (url.pathname === "/api/rss/feeds") return json([]);
+      if (url.pathname === "/api/rss/stats")
+        return json({ feeds: 0, active_feeds: 0, failing_feeds: 0, unread: 0, today: 0, saved: 0 });
+      if (url.pathname === "/api/proactivity/status") return json({ enabled: false });
       if (url.pathname === "/api/backup/status")
         return json({ last_backup: null, drive_folder_id: null, last_drive_upload: null, last_drive_error: null });
       if (url.pathname === "/api/auth/github/status") return json(githubStatus);
@@ -267,9 +276,9 @@ describe("SettingsPage sekmeleri", () => {
       await screen.findByText(/Kapatılan modülün rotası, Home bileşenleri ve komutları devre dışı kalır/),
     ).toBeTruthy();
 
-    openTab("Kariyer profili");
+    openTab("Kariyer Profili");
     await waitFor(() => expect(location.hash).toBe("#/settings?tab=career"));
-    expect(await screen.findByRole("heading", { name: "Kariyer profili" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Kariyer Profili" })).toBeTruthy();
   });
 
   it("eski ?section=media-links baglantisi Entegrasyonlar sekmesini acar", async () => {
@@ -335,17 +344,10 @@ describe("SettingsPage yazmalari", () => {
     await waitFor(() => expect(careerProfile()?.authorized_countries).toEqual(["Türkiye", "Almanya"]));
   });
 
-  it("bugun onerilerini kapatir ve subreddit listesini gunceller", async () => {
+  it("subreddit listesini ekler ve kaldirir", async () => {
     location.hash = "#/settings?tab=today";
     renderPage();
     await ready();
-
-    fireEvent.click(
-      await screen.findByRole("checkbox", {
-        name: "Home akışında akıllı görev ve RSS önerilerini göster",
-      }),
-    );
-    await waitFor(() => expect(lastWrite("today.auto_suggestions")).toBe(false));
 
     fireEvent.change(screen.getByLabelText("Subreddit adı"), { target: { value: "rust" } });
     fireEvent.click(screen.getAllByRole("button", { name: "ekle" }).at(-1)!);
@@ -485,7 +487,7 @@ describe("SettingsPage entegrasyonlari", () => {
     );
   });
 
-  it("Vault durumunu Brain & Agent sekmesinde gosterir ve indeksi yeniler", async () => {
+  it("Vault durumunu Agent & Bilgi sekmesinde gosterir ve indeksi yeniler", async () => {
     obsidianStatus = {
       configured: true,
       available: true,
@@ -515,7 +517,7 @@ describe("SettingsPage entegrasyonlari", () => {
     expect(await screen.findByText("Vault indeksi yenilendi.")).toBeTruthy();
   });
 
-  it("Vault cakismalarini Brain & Agent kartinda listeler", async () => {
+  it("Vault cakismalarini Agent & Bilgi kartinda listeler", async () => {
     obsidianStatus = {
       configured: true,
       available: true,
@@ -591,17 +593,17 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
     expect(screen.getByText("Depolama")).toBeTruthy();
   });
 
-  it("Brain & Agent sekmesini Sistem grubunda sunar ve derin baglantiyla acar", async () => {
+  it("Agent & Bilgi sekmesini Sistem grubunda sunar ve derin baglantiyla acar", async () => {
     location.hash = "#/settings?tab=brain";
     renderPage();
     await ready();
 
-    expect(screen.getByRole("button", { name: "Brain & Agent" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Agent & Bilgi" })).toBeTruthy();
     // Sekme govdesi: sahiplik notu + genel durum + kartlar.
     expect(await screen.findByText("Genel durum")).toBeTruthy();
     expect(screen.getByText(/akıl yürütür ve orkestre eder/)).toBeTruthy();
     expect(screen.getByText("forkos-brain")).toBeTruthy();
-    expect(screen.getByText("H7 · Kararlar")).toBeTruthy();
+    expect(screen.getAllByText("Bekleyen kararlar").length).toBeGreaterThan(0);
   });
 
   it("Obsidian'i Entegrasyonlar'dan cikarir; orada yalniz dis saglayicilar kalir", async () => {
@@ -628,7 +630,7 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
     expect(screen.queryByText(/yönetilen not/)).toBeNull();
   });
 
-  it("Proaktiviteyi Bildirimler'den cikarip Brain & Agent'a tasir", async () => {
+  it("Proaktiviteyi Bildirimler'den cikarip Agent & Bilgi'ye tasir", async () => {
     location.hash = "#/settings?tab=notifications";
     renderPage();
     await ready();
@@ -654,7 +656,7 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
     expect(await screen.findByText("Ayarlar yüklenemedi.", {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.getByText("ayarlar okunamadı")).toBeTruthy();
     // Ray kaybolmaz: kullanici baska sekmeye gecebilir.
-    expect(screen.getByRole("button", { name: "Brain & Agent" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Agent & Bilgi" })).toBeTruthy();
 
     settingsFailed = false;
     fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
@@ -680,5 +682,44 @@ describe("SettingsPage teshis ve tehlikeli bolge", () => {
     expect(await screen.findByText("Depolama")).toBeTruthy();
     expect(screen.getByText("Otomatik hafif bakım")).toBeTruthy();
     expect(screen.getByText(/Sonraki: her gün 04:00 \/ açılışta/)).toBeTruthy();
+  });
+});
+
+describe("SettingsPage Durum & Kaynaklar ve Kariyer Profili", () => {
+  it("Durum & Kaynaklar sekmesinde saglik ozetini ve kaynak operasyonlari baglantisini gosterir", async () => {
+    location.hash = "#/settings?tab=status";
+    renderPage();
+    await ready();
+
+    // Saglik/Kaynaklar icin ikinci bir uygulama yok: ozet ve tanilama paketi
+    // Sistem Durumu sayfasinin bilesenleridir.
+    expect(await screen.findByText("Genel bakış")).toBeTruthy();
+    expect(screen.getByText("İlgi gerekenler")).toBeTruthy();
+    expect(screen.getByText("Kaynak sağlığı")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Teşhisi kopyala" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Kaynak operasyonları →" }).getAttribute("href")).toBe("#/sources");
+
+    // Özet kullanıcı dilinde kalır: iç katman kodları ekrana basılmaz.
+    expect(screen.getByText("Agent bağlantısı")).toBeTruthy();
+    expect(screen.getAllByText("Bekleyen kararlar").length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toMatch(/\bH[0-7]\b/);
+  });
+
+  it("Kariyer Profili sekmesinde LinkedIn arama profillerini kaydeder", async () => {
+    location.hash = "#/settings?tab=career";
+    renderPage();
+    await ready();
+
+    expect(await screen.findByText("LinkedIn arama profilleri")).toBeTruthy();
+    const term = screen.getByDisplayValue("backend developer");
+    fireEvent.change(term, { target: { value: "data engineer" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+
+    await waitFor(() => {
+      const put = calls.find(
+        (call) => call.method === "PUT" && call.path === "/api/sources/jobhunter/linkedin-profiles",
+      );
+      expect(put?.body).toEqual([{ term: "data engineer", location: "Berlin", results_wanted: 25, is_remote: true }]);
+    });
   });
 });

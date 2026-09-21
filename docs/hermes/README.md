@@ -65,12 +65,12 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
 
 ---
 
-## 1b. Bağlantı Tarifi (Ayarlar → Brain & Agent)
+## 1b. Bağlantı Tarifi (Ayarlar → Agent & Bilgi)
 
 forkOS kendi MCP sunucusunun hazır olduğunu bilir; **Hermes istemcisinin bağlı
 olduğunu, seçtiği modeli veya trust ayarını bilemez ve böyle bir durum
 göstermez.** Bu yüzden bağlantı bir "durum" değil, bir tariftir ve Ayarlar →
-**Brain & Agent** sekmesinde verilir: canlı MCP adresi + kopyalanabilir önerilen
+**Agent & Bilgi** sekmesinde verilir: canlı MCP adresi + kopyalanabilir önerilen
 istemci ayarı.
 
 ```yaml

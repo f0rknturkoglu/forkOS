@@ -44,7 +44,7 @@ mcp_servers:
 ```
 
 *Not: Gerçek bağlanma adresi her zaman `http://127.0.0.1:8787/mcp` yoludur
-(resmi Streamable HTTP endpoint'i); aynı tarif Ayarlar → **Brain & Agent**
+(resmi Streamable HTTP endpoint'i); aynı tarif Ayarlar → **Agent & Bilgi**
 sekmesinde kopyalanabilir olarak da durur. `trust: untrusted` istemci tarafında
 yazma onayı ister ve forkOS bu ayarı doğrulayamaz.*
 

@@ -1,5 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
-import { useBackupStatus, useSourceHealth } from "@/core/runtimeQueries";
+import { useBackupStatus } from "@/core/runtimeQueries";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -8,6 +8,7 @@ import {
   BrainCircuit,
   Briefcase,
   DatabaseBackup,
+  HeartPulse,
   LayoutGrid,
   Plug,
   SlidersHorizontal,
@@ -15,7 +16,9 @@ import {
 import { navigate, useHashRoute } from "@/app/router";
 import { confirmDialog } from "@/core/dialog";
 import { api } from "@/core/api";
-import type { AppSettings, BackupStatus, SourceHealth } from "@/core/types";
+import type { AppSettings, BackupStatus } from "@/core/types";
+import { SystemStatusPanel } from "@/modules/health/SystemStatus";
+import { LinkedInProfilesEditor } from "@/modules/opportunity/LinkedInProfilesEditor";
 import type { LucideIcon } from "lucide-react";
 import { Button, NumberInput, PageFrame, Section, Select, Skeleton, SkeletonRows, cx, useToast } from "@/core/ui";
 import { BrainAgentSection } from "./BrainAgentSection";
@@ -43,7 +46,6 @@ import {
   IntegrationsSection,
   MediaProvidersSection,
   ModulesSection,
-  SettingsSourceHealth,
   ThemePicker,
   WeatherSection,
   type IntegrationStatus,
@@ -67,18 +69,21 @@ const GROUP_LABELS: Record<SettingsGroup, string> = {
  * yalnız etiket ve gruplama değişir.
  *
  * SİSTEM grubundaki ayrım bilinçlidir: "Entegrasyonlar" DIŞ sağlayıcıları
- * (Google, GitHub, medya) barındırır; "Brain & Agent" ise zihin sınırlarını
- * (Brain Interface, f0rknbrain, H4, H6, H7, Hermes tarifi) -- Obsidian Vault'u
- * bu yüzden Entegrasyonlar altında değil orada yaşar.
+ * (Google, GitHub, medya) barındırır; "Agent & Bilgi" ise ajan sınırlarını
+ * (agent bağlantısı, f0rknbrain, yerel model, proaktivite, bekleyen kararlar,
+ * Hermes tarifi) -- Obsidian Vault'u bu yüzden Entegrasyonlar altında değil
+ * orada yaşar. "Durum & Kaynaklar" teşhis girişidir; ayrıntılı kartlar kanonik
+ * `#/health`, kaynak kataloğu `#/sources` sayfasında kalır.
  */
 const TABS: { id: string; label: string; icon: LucideIcon; group: SettingsGroup }[] = [
   { id: "general", label: "Genel & Görünüm", icon: SlidersHorizontal, group: "preferences" },
   { id: "today", label: "Home", icon: LayoutGrid, group: "preferences" },
   { id: "notifications", label: "Bildirimler & Çevre", icon: BellRing, group: "preferences" },
   { id: "modules", label: "Modüller", icon: Blocks, group: "preferences" },
-  { id: "career", label: "Kariyer profili", icon: Briefcase, group: "preferences" },
-  { id: "brain", label: "Brain & Agent", icon: BrainCircuit, group: "system" },
+  { id: "career", label: "Kariyer Profili", icon: Briefcase, group: "preferences" },
+  { id: "brain", label: "Agent & Bilgi", icon: BrainCircuit, group: "system" },
   { id: "integrations", label: "Entegrasyonlar", icon: Plug, group: "system" },
+  { id: "status", label: "Durum & Kaynaklar", icon: HeartPulse, group: "system" },
   { id: "backup", label: "Sistem & Yedekleme", icon: DatabaseBackup, group: "system" },
 ];
 
@@ -137,7 +142,6 @@ export function SettingsPage() {
     queryFn: () => api.get<AppSettings>("/settings"),
   });
   const settings = settingsQuery.data;
-  const sourceHealth = useSourceHealth();
   const {
     data: google,
     isError: googleFailed,
@@ -305,7 +309,9 @@ export function SettingsPage() {
     </PageFrame>
   );
 
-  const paneWidth = tab === "brain" ? "wide" : "form";
+  // İki kolonlu tanılama yüzeyleri `wide` ister; form sekmeleri okunabilir
+  // genişlikte kalır.
+  const paneWidth = tab === "brain" || tab === "status" ? "wide" : "form";
 
   if (settingsQuery.isError) {
     return shell(
@@ -379,12 +385,7 @@ export function SettingsPage() {
 
       {tab === "today" && (
         <Pane>
-          <TodayFlowSection
-            online={online}
-            autoSuggestions={settings["today.auto_suggestions"] !== false}
-            subreddits={subreddits}
-            onSave={write}
-          />
+          <TodayFlowSection online={online} subreddits={subreddits} onSave={write} />
           <TodayWidgetsSection
             online={online}
             onPersist={(orderIds, hiddenIds) => {
@@ -417,6 +418,13 @@ export function SettingsPage() {
       {tab === "career" && (
         <Pane>
           <CareerProfileSection online={online} profile={career} onSave={write} />
+          <LinkedInProfilesEditor online={online} />
+        </Pane>
+      )}
+
+      {tab === "status" && (
+        <Pane width={paneWidth}>
+          <SystemStatusPanel />
         </Pane>
       )}
 
@@ -543,7 +551,6 @@ export function SettingsPage() {
               </div>
             </div>
           </Section>
-          <SettingsSourceHealth query={sourceHealth} />
           <DangerZoneSection onReset={() => reset.mutate()} busy={reset.isPending} />
         </Pane>
       )}

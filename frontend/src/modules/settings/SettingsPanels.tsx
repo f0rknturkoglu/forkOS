@@ -54,7 +54,7 @@ export function CareerProfileSection({
   const commit = (next: Partial<CareerProfile>) => onSave("opportunity.career_profile", { ...profile, ...next });
 
   return (
-    <Section title="Kariyer profili">
+    <Section title="Kariyer Profili">
       <p className="mb-3 text-meta text-muted">
         Fırsat değerlendirmesi ve eşleşme skoru bu profili kullanır; ilanları senin konumuna ve çalışma iznine göre
         yorumlar.
@@ -96,28 +96,18 @@ export function CareerProfileSection({
 
 export function TodayFlowSection({
   online,
-  autoSuggestions,
   subreddits,
   onSave,
 }: {
   online: boolean;
-  autoSuggestions: boolean;
   subreddits: string[];
   onSave: SaveFn;
 }) {
   return (
-    <Section title="Akış ve öneriler">
-      <div className="mb-3">
-        <Checkbox
-          checked={autoSuggestions}
-          disabled={!online}
-          onChange={(value) => onSave("today.auto_suggestions", value)}
-          label="Home akışında akıllı görev ve RSS önerilerini göster"
-        />
-        <p className="mt-1 pl-6 text-meta text-muted">
-          Kapanınca Home yalnızca kendi planını ve bileşenlerini gösterir; hiçbir veri silinmez.
-        </p>
-      </div>
+    <Section title="Okuma akışı">
+      {/* "Otomatik öneri" anahtarı kaldırıldı: Home artık kullanıcının planını
+          ve açık işlerini gösterir, kendi başına ek iş önermez. Ayar anahtarı
+          (today.auto_suggestions) backend'de durur ama yok sayılır. */}
       <p className="mb-1 text-meta text-secondary">Takip edilen subreddit'ler</p>
       <ChipListEditor
         values={subreddits}
@@ -385,7 +375,7 @@ export function DangerZoneSection({ onReset, busy }: { onReset: () => void; busy
         "medya API anahtarları ve hızlı bağlantılar, yedekleme klasörü ve proaktivite genel tercihleri " +
         "(açık/kapalı, sessiz saatler, özet saati).\n\n" +
         "Dokunulmayanlar: operasyonel kayıtların (görev, proje, fırsat, medya, RSS …), f0rknbrain Vault'u, " +
-        "proaktivite kural/koşu geçmişi, H7 karar ve yürütme geçmişi, bağlı hesaplar (Google/GitHub). " +
+        "proaktivite kural/koşu geçmişi, karar ve yürütme geçmişi, bağlı hesaplar (Google/GitHub). " +
         "Hermes'in kendi yapılandırması forkOS'tan yönetilmez; bu işlemden etkilenmez.",
       confirmLabel: "Ayarları sıfırla",
       tone: "danger",
@@ -398,7 +388,7 @@ export function DangerZoneSection({ onReset, busy }: { onReset: () => void; busy
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-start gap-2 text-meta text-muted">
           <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warn" />
-          Yalnız tercihleri siler; kayıtlarına, Vault&apos;a, H7 geçmişine ve bağlı hesaplara dokunmaz.
+          Yalnız tercihleri siler; kayıtlarına, Vault&apos;a, karar geçmişine ve bağlı hesaplara dokunmaz.
         </p>
         <Button variant="danger" disabled={busy} onClick={confirmReset}>
           Ayarları varsayılana döndür

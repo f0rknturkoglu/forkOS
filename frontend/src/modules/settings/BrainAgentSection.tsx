@@ -1,10 +1,10 @@
 /**
- * Brain & Agent — forkOS'un zihin sınırlarının kontrol merkezi.
+ * Agent & Bilgi — ajan sınırlarının kontrol merkezi.
  *
  * Bu yüzey dört soruyu yanıtlar: forkOS sağlıklı mı, f0rknbrain bağlı mı,
- * Brain Interface hazır mı, ajan davranışını hangi güvenli sınırlar kontrol
- * ediyor? Tanılamadır + yapılandırmadır; KARAR YÜZEYİ DEĞİLDİR: H7 planlarını
- * onaylamak/yürütmek için tek yer Home → Bekleyen kararlar'dır.
+ * agent bağlantısı hazır mı, ajan davranışını hangi güvenli sınırlar kontrol
+ * ediyor? Tanılamadır + yapılandırmadır; KARAR YÜZEYİ DEĞİLDİR: bekleyen
+ * kararları onaylamak/yürütmek için tek yer Home → Bekleyen kararlar'dır.
  *
  * Dürüstlük kuralı: forkOS kendi MCP sunucusunun hazır olduğunu bilir; Hermes
  * istemcisinin bağlı olduğunu, modelini veya trust ayarını BİLEMEZ. Bu yüzeyde
@@ -140,8 +140,12 @@ const BRAIN_READINESS: Record<BrainReadiness, { label: string; tone: Tone }> = {
   unavailable: { label: "ulaşılamıyor", tone: "danger" },
 };
 
-const H4_STATE: Record<LocalCognitionState, { label: string; tone: Tone; hint: string }> = {
-  disabled: { label: "kapalı", tone: "neutral", hint: "İsteğe bağlı katman: H4 olmadan forkOS normal çalışır." },
+const LOCAL_MODEL_STATE: Record<LocalCognitionState, { label: string; tone: Tone; hint: string }> = {
+  disabled: {
+    label: "kapalı",
+    tone: "neutral",
+    hint: "İsteğe bağlı katman: yerel model olmadan forkOS normal çalışır.",
+  },
   not_configured: { label: "yapılandırılmadı", tone: "warn", hint: "Model kimlikleri ayarlanmamış." },
   provider_unreachable: {
     label: "sağlayıcı erişilemiyor",
@@ -208,7 +212,7 @@ function ReadinessSummary() {
 
   const vaultState = describeVaultState(vault.data, vault.isError);
   const brain = BRAIN_READINESS[brainReadiness(agent.data?.brain, agent.isError)];
-  const h4 = H4_STATE[agent.data?.local_cognition.state ?? "disabled"];
+  const h4 = LOCAL_MODEL_STATE[agent.data?.local_cognition.state ?? "disabled"];
   const summary: ExecutionSummary = summarizeExecutionPlans(executions.data ?? []);
 
   const forkos = system.isError
@@ -230,35 +234,35 @@ function ReadinessSummary() {
       <div className="divide-y divide-subtle">
         <StatusRow label="forkOS" value={forkos.label} tone={forkos.tone} />
         <StatusRow
-          label="Brain Interface"
+          label="Agent bağlantısı"
           value={brain.label}
           tone={brain.tone}
           hint={agent.data ? `${agent.data.brain.tool_count} araç` : undefined}
         />
         <StatusRow label="f0rknbrain" value={VAULT_HEADLINE[vaultState.kind]} tone={VAULT_TONE[vaultState.kind]} />
-        <StatusRow label="H4 · yerel biliş" value={h4.label} tone={h4.tone} />
-        <StatusRow label="H6 · proaktivite" value={proactivityState.label} tone={proactivityState.tone} />
-        <StatusRow label="H7 · kararlar" value={h7.label} tone={h7.tone} />
+        <StatusRow label="Yerel model" value={h4.label} tone={h4.tone} />
+        <StatusRow label="Proaktivite" value={proactivityState.label} tone={proactivityState.tone} />
+        <StatusRow label="Bekleyen kararlar" value={h7.label} tone={h7.tone} />
       </div>
     </Section>
   );
 }
 
-/* ── Brain Interface ─────────────────────────────────────────────────── */
+/* ── Agent bağlantısı ────────────────────────────────────────────────── */
 
 const TRANSPORT_LABEL: Record<string, string> = { streamable_http: "Streamable HTTP" };
 
-function BrainInterfaceCard() {
+function AgentConnectionCard() {
   const query = useAgentStatusQuery();
   const brain: BrainStatusView | undefined = query.data?.brain;
   const readiness = BRAIN_READINESS[brainReadiness(brain, query.isError)];
 
   return (
-    <Section title="Brain Interface" action={<Chip tone={readiness.tone}>{readiness.label}</Chip>}>
+    <Section title="Agent bağlantısı" action={<Chip tone={readiness.tone}>{readiness.label}</Chip>}>
       <CardBody
         isLoading={query.isLoading}
         isError={query.isError}
-        errorLabel="Brain Interface durumu"
+        errorLabel="Agent bağlantısı durumu"
         onRetry={() => void query.refetch()}
       >
         {brain && (
@@ -266,7 +270,7 @@ function BrainInterfaceCard() {
             <div className="divide-y divide-subtle">
               <StatusRow label="Sunucu" value={brain.server_name} />
               <StatusRow label="Taşıma" value={TRANSPORT_LABEL[brain.transport] ?? brain.transport} />
-              <StatusRow label="Araç yüzeyi" value={`${brain.tool_count} sınırlı araç`} hint="H0 → H7" />
+              <StatusRow label="Araç yüzeyi" value={`${brain.tool_count} sınırlı araç`} />
               <StatusRow
                 label="Yerel sınır"
                 value={brain.loopback_only ? "yalnız 127.0.0.1" : "yerel sınır dışında"}
@@ -286,7 +290,6 @@ function BrainInterfaceCard() {
               <div className="space-y-1">
                 {brain.families.map((family: BrainFamilyView) => (
                   <div key={family.id} className="flex items-baseline gap-2">
-                    <span className="w-8 shrink-0 font-mono text-micro text-muted">{family.id}</span>
                     <span className="text-meta text-primary">{family.label}</span>
                     <span className="ml-auto shrink-0 text-meta text-secondary">{family.tool_count}</span>
                   </div>
@@ -447,7 +450,7 @@ function VaultCard({ online }: { online: boolean }) {
   );
 }
 
-/* ── H4 yerel biliş ──────────────────────────────────────────────────── */
+/* ── Yerel model ─────────────────────────────────────────────────────── */
 
 function ModelSlotRow({ label, slot }: { label: string; slot: LocalCognitionSlotView | undefined }) {
   const configured = Boolean(slot?.configured);
@@ -455,23 +458,23 @@ function ModelSlotRow({ label, slot }: { label: string; slot: LocalCognitionSlot
   return <StatusRow label={label} value={value} tone={!configured ? "neutral" : slot?.available ? "ok" : "warn"} />;
 }
 
-function LocalCognitionCard() {
+function LocalModelCard() {
   const query = useAgentStatusQuery();
   const h4: LocalCognitionView | undefined = query.data?.local_cognition;
-  const state = H4_STATE[h4?.state ?? "disabled"];
+  const state = LOCAL_MODEL_STATE[h4?.state ?? "disabled"];
 
   return (
-    <Section title="Yerel Biliş (H4)" action={<Chip tone={state.tone}>{state.label}</Chip>}>
+    <Section title="Yerel model" action={<Chip tone={state.tone}>{state.label}</Chip>}>
       <CardBody
         isLoading={query.isLoading}
         isError={query.isError}
-        errorLabel="H4 durumu"
+        errorLabel="Yerel model durumu"
         onRetry={() => void query.refetch()}
       >
         <div className="space-y-2">
           <p className="text-meta text-secondary">
-            forkOS&apos;un sınırlı classify/extract/query-rewrite işleri için kullandığı opsiyonel yerel model
-            katmanıdır.
+            forkOS&apos;un sınıflandırma, çıkarım ve sorgu yeniden yazma gibi küçük işleri için kullandığı isteğe bağlı
+            yerel model.
           </p>
           <p className="text-meta text-muted">Hermes&apos;in sohbet modeli bundan bağımsızdır.</p>
 
@@ -491,7 +494,7 @@ function LocalCognitionCard() {
               {h4.detail && <p className="text-micro text-muted">{h4.detail}</p>}
               {h4.state !== "disabled" && (
                 <p className="text-micro text-muted">
-                  H4 yapılandırması ortam/yapılandırma dosyasından gelir; buradan değiştirilmez.
+                  Yerel model yapılandırması ortam/yapılandırma dosyasından gelir; buradan değiştirilmez.
                 </p>
               )}
             </>
@@ -502,7 +505,7 @@ function LocalCognitionCard() {
   );
 }
 
-/* ── H7 kararlar: salt okunur özet ───────────────────────────────────── */
+/* ── Bekleyen kararlar: salt okunur özet ─────────────────────────────── */
 
 function DecisionsCard() {
   const query = useRecentExecutions();
@@ -514,11 +517,11 @@ function DecisionsCard() {
   const resultValue = result ? result.label : plans.length === 0 ? "kayıt yok" : "sonuçlanmış plan yok";
 
   return (
-    <Section title="H7 · Kararlar" hint="salt okunur özet">
+    <Section title="Bekleyen kararlar" hint="salt okunur özet">
       <CardBody
         isLoading={query.isLoading}
         isError={query.isError}
-        errorLabel="H7 özeti"
+        errorLabel="Karar özeti"
         onRetry={() => void query.refetch()}
       >
         <div className="space-y-2">
@@ -580,7 +583,7 @@ function HermesCard() {
 
   return (
     <Section
-      title="Hermes"
+      title="Hermes bağlantısı"
       action={
         <Chip tone="neutral" icon={<ShieldCheck size={12} />}>
           yapılandırma Hermes tarafında
@@ -589,8 +592,7 @@ function HermesCard() {
     >
       <div className="space-y-2.5">
         <p className="text-meta text-secondary">
-          Hermes forkOS&apos;un dışında çalışır. forkOS Brain Interface&apos;i sunar; Hermes bu arayüze MCP üzerinden
-          bağlanır.
+          Hermes forkOS&apos;un dışında çalışır ve bu arayüze MCP üzerinden bağlanır.
         </p>
 
         <CardBody
@@ -605,11 +607,11 @@ function HermesCard() {
                 <p className="text-micro text-muted">Hermes&apos;e verilecek MCP adresi</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <code className="min-w-0 flex-1 break-all font-mono text-meta text-primary">{endpoint}</code>
-                  <CopyButton text={endpoint} ariaLabel="MCP adresini kopyala" />
+                  <CopyButton text={endpoint} label="MCP adresini kopyala" />
                 </div>
               </div>
 
-              <Disclosure summary="Önerilen Hermes ayarı">
+              <Disclosure summary="Gelişmiş ayarlar">
                 <div className="rounded-control border border-subtle bg-surface-sunken px-2.5 py-2">
                   <pre className="overflow-x-auto font-mono text-micro leading-relaxed text-secondary">{snippet}</pre>
                 </div>
@@ -621,15 +623,15 @@ function HermesCard() {
                 </p>
               </Disclosure>
 
-              <Disclosure summary="Hermes Skills · Hot Memory (H2) · f0rknbrain">
+              <Disclosure summary="Katmanlar: Hermes Skills · Agent hafızası · f0rknbrain">
                 <div className="space-y-1 text-micro text-secondary">
                   <p>
                     <span className="font-medium text-primary">Hermes Skills</span> → Hermes&apos;in bir sistemi NASIL
                     kullanacağını öğrendiği prosedürler.
                   </p>
                   <p>
-                    <span className="font-medium text-primary">forkOS Hot Memory (H2)</span> → küratürlü, güncel
-                    operasyonel hatırlatmalar.
+                    <span className="font-medium text-primary">Agent hafızası</span> → küratürlü, güncel operasyonel
+                    hatırlatmalar.
                   </p>
                   <p>
                     <span className="font-medium text-primary">f0rknbrain</span> → kalıcı insan bilgisi.
@@ -645,8 +647,8 @@ function HermesCard() {
         </CardBody>
 
         <p className="border-t border-subtle pt-2 text-micro text-muted">
-          Hermes&apos;in sağlayıcısı, modeli, trust modu ve skill&apos;leri forkOS&apos;tan yönetilmez; bu bölüm yalnız
-          bağlantı tarifini verir.
+          Hermes&apos;in sağlayıcısı, modeli ve skill&apos;leri forkOS&apos;tan yönetilmez; bu bölüm yalnız bağlantı
+          tarifini verir.
         </p>
       </div>
     </Section>
@@ -662,18 +664,18 @@ export function BrainAgentSection() {
       <OwnershipNote />
       <ReadinessSummary />
       <div className="grid gap-4 lg:grid-cols-2">
-        <BrainInterfaceCard />
+        <AgentConnectionCard />
         <VaultCard online={online} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <LocalCognitionCard />
+        <LocalModelCard />
         <DecisionsCard />
       </div>
       <HermesCard />
       <div className="space-y-0.5">
         <p className="text-meta text-secondary">Sessizlik başarılı bir sonuçtur.</p>
         <p className="text-micro text-muted">
-          H6 yalnız dikkat gerektiren durumlarda konuşur; sessiz kalmak bir hata değil, beklenen sonuçtur.
+          Proaktivite yalnız dikkat gerektiren durumlarda konuşur; sessiz kalmak bir hata değil, beklenen sonuçtur.
         </p>
       </div>
       <ProactivitySection online={online} />

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 /**
- * Brain & Agent yüzeyi sözleşmesi.
+ * Agent & Bilgi yüzeyi sözleşmesi.
  *
  * Bu dosya ÜRÜN DÜRÜSTLÜĞÜNÜ test eder: yüzeyin söylediği her şey forkOS'un
  * gerçekten bilebileceği bir şey olmalı. Özellikle "Hermes bağlı" gibi bir
@@ -234,7 +234,7 @@ function renderSection() {
   );
 }
 
-describe("Brain Interface kartı", () => {
+describe("Agent bağlantısı kartı", () => {
   it("sunucu, taşıma, araç sayısı ve yerel sınırı gerçek değerlerle gösterir", async () => {
     renderSection();
     await ready();
@@ -246,7 +246,7 @@ describe("Brain Interface kartı", () => {
     expect(screen.getAllByText("http://127.0.0.1:8787/mcp").length).toBeGreaterThan(0);
   });
 
-  it("H0–H7 ailelerini istendiğinde sayılarıyla listeler", async () => {
+  it("yetenek ailelerini istendiğinde sayılarıyla listeler", async () => {
     renderSection();
     await ready();
 
@@ -255,6 +255,19 @@ describe("Brain Interface kartı", () => {
     expect(screen.getByText("Güvenli yazma")).toBeTruthy();
     expect(screen.getByText("Dayanıklı yürütme")).toBeTruthy();
     expect(screen.getByText("11")).toBeTruthy();
+  });
+
+  it("iç katman kodlarını (H0…H7) kullanıcıya göstermez", async () => {
+    const { container } = renderSection();
+    await ready();
+
+    // Aile kimlikleri backend'den gelir ama ekrana basılmaz: yüzey insan dili
+    // etiketleri ve araç sayılarını gösterir. Katlanır bölümler açıldığında da
+    // kod sızmaz.
+    for (const name of [/Yetenek aileleri \(8\)/, /Gelişmiş ayarlar/, /Katmanlar: Hermes Skills/]) {
+      fireEvent.click(await screen.findByRole("button", { name }));
+    }
+    expect(container.textContent).not.toMatch(/\bH[0-7]\b/);
   });
 
   it("MCP adresini kopyalanabilir sunar", async () => {
@@ -271,7 +284,7 @@ describe("Brain Interface kartı", () => {
     renderSection();
     await ready();
 
-    expect(await screen.findByText(/Brain Interface durumu alınamadı/)).toBeTruthy();
+    expect(await screen.findByText(/Agent bağlantısı durumu alınamadı/)).toBeTruthy();
     // Vault kartı kendi verisiyle çalışmaya devam eder (§40).
     expect(screen.getAllByText("Bağlı ve hazır").length).toBeGreaterThan(0);
   });
@@ -299,7 +312,7 @@ describe("Hermes kartı", () => {
     renderSection();
     await ready();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Önerilen Hermes ayarı/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Gelişmiş ayarlar/ }));
 
     expect(screen.getAllByText(/trust: untrusted/).length).toBeGreaterThan(0);
     expect(screen.getByText(/url: "http:\/\/127\.0\.0\.1:8787\/mcp"/)).toBeTruthy();
@@ -313,7 +326,7 @@ describe("Hermes kartı", () => {
     renderSection();
     await ready();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Önerilen Hermes ayarı/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Gelişmiş ayarlar/ }));
     fireEvent.click(screen.getByRole("button", { name: "Hermes ayar örneğini kopyala" }));
 
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());
@@ -325,11 +338,11 @@ describe("Hermes kartı", () => {
     expect(copied).toContain("trust: untrusted");
   });
 
-  it("Hermes Skills, H2 ve Vault ayrımını açıklar; eşitleme düğmesi sunmaz", async () => {
+  it("Hermes Skills, agent hafızası ve Vault ayrımını açıklar; eşitleme düğmesi sunmaz", async () => {
     renderSection();
     await ready();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Hermes Skills · Hot Memory/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Katmanlar: Hermes Skills · Agent hafızası/ }));
     expect(screen.getByText(/NASIL kullanacağını öğrendiği prosedürler/)).toBeTruthy();
     expect(screen.getByText(/kalıcı insan bilgisi/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /eşitle|sync/i })).toBeNull();
@@ -453,7 +466,7 @@ describe("f0rknbrain kartı", () => {
   });
 });
 
-describe("H4 kartı", () => {
+describe("Yerel model kartı", () => {
   const setH4 = (h4: Record<string, unknown>) => {
     agentStatus = makeAgentStatus({ h4 });
   };
@@ -463,7 +476,7 @@ describe("H4 kartı", () => {
     await ready();
 
     expect((await screen.findAllByText("kapalı")).length).toBeGreaterThan(0);
-    expect(screen.getByText(/opsiyonel yerel model katmanıdır/)).toBeTruthy();
+    expect(screen.getByText(/isteğe bağlı yerel model/)).toBeTruthy();
     expect(screen.getByText(/Hermes'in sohbet modeli bundan bağımsızdır/)).toBeTruthy();
     expect(screen.getByText("yoklanmadı")).toBeTruthy();
   });
@@ -521,7 +534,7 @@ describe("H4 kartı", () => {
   });
 });
 
-describe("H7 özeti", () => {
+describe("Bekleyen kararlar özeti", () => {
   it("bekleyen karar yokken bunu nötr söyler", async () => {
     renderSection();
     await ready();
@@ -570,12 +583,12 @@ describe("H7 özeti", () => {
     expect(navigateSpy).toHaveBeenCalledWith("/");
   });
 
-  it("H7 isteği düştüğünde yalnız o kartı bozar", async () => {
+  it("karar isteği düştüğünde yalnız o kartı bozar", async () => {
     plansFailed = true;
     renderSection();
     await ready();
 
-    expect(await screen.findByText(/H7 özeti alınamadı/)).toBeTruthy();
+    expect(await screen.findByText(/Karar özeti alınamadı/)).toBeTruthy();
     expect(screen.getAllByText("Bağlı ve hazır").length).toBeGreaterThan(0);
   });
 });
@@ -587,7 +600,7 @@ describe("çevrimdışı davranış", () => {
     renderSection();
     await ready();
 
-    // Brain Interface, Vault durumu, H4 ve H7 özeti görünür kalır.
+    // Agent bağlantısı, Vault durumu, yerel model ve karar özeti görünür kalır.
     expect(await screen.findByText("forkos-brain")).toBeTruthy();
     expect(screen.getAllByText("Bağlı ve hazır").length).toBeGreaterThan(0);
     expect(screen.getByText(/Hermes'in sohbet modeli bundan bağımsızdır/)).toBeTruthy();
