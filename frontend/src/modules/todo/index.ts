@@ -16,7 +16,6 @@ registerModule({
   title: "Görevler",
   description: "Görev ve rutinlerini planla, haftalık planda gecikenleri yakala.",
   icon: ListChecks,
-  group: "do",
   routes: [
     { path: "/todos", element: TodoPage },
     // Sidebar cocuk sirasi (Plan alani): haftalik plan once, rutinler sonra.

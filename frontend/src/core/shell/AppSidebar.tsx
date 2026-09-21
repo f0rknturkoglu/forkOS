@@ -143,7 +143,9 @@ function AreaHeader({
           className={cx(
             "group flex h-9 min-w-0 flex-1 items-center rounded-control text-body transition-colors",
             collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
-            active ? "bg-surface-selected font-medium text-primary" : "text-secondary hover:bg-surface-hover hover:text-primary",
+            active
+              ? "bg-surface-selected font-medium text-primary"
+              : "text-secondary hover:bg-surface-hover hover:text-primary",
           )}
         >
           <AreaIcon size={16} className="shrink-0 text-icon group-hover:text-primary" />

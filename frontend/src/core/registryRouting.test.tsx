@@ -7,7 +7,6 @@ const Page = () => null;
 registerModule({
   id: "dynamic-routing-test",
   title: "Medya",
-  group: "track",
   routes: [
     { path: "/route-test/:id", element: Page, title: "Medya detayı" },
     { path: "/route-test", element: Page },
@@ -16,7 +15,6 @@ registerModule({
 registerModule({
   id: "static-routing-test",
   title: "İstatistikler",
-  group: "system",
   routes: [{ path: "/route-test/stats", element: Page, title: "Statik istatistik" }],
 });
 

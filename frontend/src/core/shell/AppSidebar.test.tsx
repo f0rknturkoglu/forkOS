@@ -114,9 +114,7 @@ describe("AppSidebar — ürün navigasyonu", () => {
   });
 
   it("sabitlenmiş görünümleri hedef çalışma alanına bağlar", async () => {
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path === "/views" ? [PINNED_VIEW] : []),
-    );
+    apiGet.mockImplementation((path: string) => Promise.resolve(path === "/views" ? [PINNED_VIEW] : []));
     renderSidebar("/");
 
     const pinned = await screen.findByRole("link", { name: "Remote EU Backend" });

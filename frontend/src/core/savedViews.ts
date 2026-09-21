@@ -20,10 +20,10 @@ import type { SavedViewRow } from "./SavedViewPicker";
 /** Sayfa sorgu anahtarı; `SavedViewPicker` ile aynı olmalı (tek istek). */
 export const savedViewsKey = (module: string) => ["views", module] as const;
 /** Sidebar anahtarı: tüm modüllerin sabitlenmiş görünümleri. */
-export const PINNED_VIEWS_KEY = ["views", "pinned"] as const;
+const PINNED_VIEWS_KEY = ["views", "pinned"] as const;
 
 /** Modülün kayıtlı görünümleri (picker ile paylaşılan anahtar). */
-export function useSavedViews(module: string) {
+function useSavedViews(module: string) {
   return useQuery({
     queryKey: savedViewsKey(module),
     queryFn: () => api.get<SavedViewRow[]>(`/views?module=${encodeURIComponent(module)}`),

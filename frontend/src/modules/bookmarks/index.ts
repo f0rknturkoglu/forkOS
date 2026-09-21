@@ -11,7 +11,6 @@ registerModule({
   title: "Yer İmleri",
   description: "Bağlantıları kaydet, etiketle ve okuma listende topla.",
   icon: Bookmark,
-  group: "capture",
   routes: [{ path: "/bookmarks", element: BookmarksPage }],
   todayWidgets: [
     {

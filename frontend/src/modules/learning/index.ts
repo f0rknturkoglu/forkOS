@@ -11,7 +11,6 @@ registerModule({
   title: "Öğrenme",
   description: "Konu, kurs ve çalışma kuyruğunu yöneterek öğrenmeni ilerlet.",
   icon: GraduationCap,
-  group: "track",
   // Faz 12: eski study rotasi ayni sayfaya gider (kurlma yok).
   routes: [
     { path: "/learning", element: LearningPage },

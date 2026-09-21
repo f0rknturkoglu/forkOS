@@ -109,4 +109,3 @@ describe("paylasilan runtime sorgulari", () => {
     expect(defaults?.staleTime).toBe(30_000);
   });
 });
-

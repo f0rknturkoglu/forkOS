@@ -11,7 +11,6 @@ registerModule({
   title: "Takvim",
   description: "Etkinliklerini takvimde planla, gün ve hafta görünümünde izle.",
   icon: Calendar,
-  group: "do",
   routes: [{ path: "/calendar", element: CalendarPage }],
   todayWidgets: [
     {

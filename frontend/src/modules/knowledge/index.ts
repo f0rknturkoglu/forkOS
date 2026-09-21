@@ -20,7 +20,6 @@ registerModule({
   title: "Bilgi",
   description: "Notlar ve uzun süreli bilgi f0rknbrain Obsidian Vault'ta yaşar; buradan aç ve ara.",
   icon: BookOpen,
-  group: "capture",
   routes: [{ path: "/notes", element: KnowledgePage }],
   commands: [
     { id: "knowledge.open", label: "Bilgi kasasını aç", run: () => navigate("/notes") },

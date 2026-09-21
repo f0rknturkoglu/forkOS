@@ -4,7 +4,7 @@
  * (kurlma yok), modul kaydi tekil ve nav'da tek giris var.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { allModules, moduleForPath, navigationModules } from "./registry";
+import { allModules, moduleForPath } from "./registry";
 import "./../modules/learning/index";
 
 beforeAll(() => {
@@ -21,6 +21,6 @@ describe("birlesik ogrenme modulu (Faz 12)", () => {
     expect(moduleForPath("/learning")?.id).toBe("learning");
     expect(moduleForPath("/study")?.id).toBe("learning");
     // Eski study modulu ayri bir nav girisini artik tutmuyor.
-    expect(navigationModules().some((m) => m.id === "study")).toBe(false);
+    expect(allModules().some((module) => module.id === "study")).toBe(false);
   });
 });

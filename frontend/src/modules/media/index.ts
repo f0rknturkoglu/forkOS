@@ -24,7 +24,6 @@ registerModule({
   title: "Medya",
   description: "Film, dizi, anime, manga, kitap, sesli kitap, podcast, müzik ve oyunlarını tek kütüphanede takip et.",
   icon: Film,
-  group: "track",
   sidebar: MediaSidebar,
   routes: [
     { path: "/media", element: MediaPage },

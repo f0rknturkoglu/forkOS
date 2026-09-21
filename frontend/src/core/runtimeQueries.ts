@@ -23,7 +23,7 @@ export const SOURCE_HEALTH_QUERY_KEY = ["sources", "health", "all"] as const;
 /** Bosta yoklama araligi. Aksiyon sonrasi tazelik invalidation ile gelir. */
 export const SOURCE_HEALTH_INTERVAL_MS = 5 * 60_000;
 /** Cekim surerken (bir kaynak `running`) daha sik yoklanir. */
-export const SOURCE_HEALTH_ACTIVE_MS = 5_000;
+const SOURCE_HEALTH_ACTIVE_MS = 5_000;
 
 /** /sources/health?limit=2000 -- tum kaynaklarin son durumu. */
 export function useSourceHealth() {
@@ -38,8 +38,8 @@ export function useSourceHealth() {
 }
 
 /** Sistem istatistikleri (CPU/RAM/disk/worker). */
-export const SYSTEM_STATS_QUERY_KEY = ["system-stats"] as const;
-export const SYSTEM_STATS_INTERVAL_MS = 60_000;
+const SYSTEM_STATS_QUERY_KEY = ["system-stats"] as const;
+const SYSTEM_STATS_INTERVAL_MS = 60_000;
 
 export function useSystemStats() {
   return useQuery({
@@ -50,8 +50,8 @@ export function useSystemStats() {
 }
 
 /** Yedek durumu (son yedek, Drive gecmisi, degisiklik durumu). */
-export const BACKUP_STATUS_QUERY_KEY = ["backup-status"] as const;
-export const BACKUP_STATUS_INTERVAL_MS = 60_000;
+const BACKUP_STATUS_QUERY_KEY = ["backup-status"] as const;
+const BACKUP_STATUS_INTERVAL_MS = 60_000;
 
 export function useBackupStatus() {
   return useQuery({

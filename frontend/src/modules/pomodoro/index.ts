@@ -12,8 +12,6 @@ registerModule({
   title: "Odak",
   description: "Odak seanslarını başlat, zamanını incele ve çalışma bahçeni büyüt.",
   icon: Timer,
-  group: "do",
-  hidden: false,
   routes: [{ path: "/pomodoro", element: PomodoroPage }],
   todayWidgets: [
     {

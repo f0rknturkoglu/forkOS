@@ -84,7 +84,7 @@ Activity, ritim/ısı haritası, review özetleri ve bazı proje zaman akışlar
 `frontend/src/modules/index.ts`, her frontend modülünü bir kez import eder. Modülün `index.ts` dosyası `registerModule(...)` ile şunları kaydeder:
 
 - route'lar
-- sidebar hiyerarşisi
+- sidebar hiyerarşisi (ürün alanları: bkz. `docs/product-navigation.md`)
 - komut paleti eylemleri
 - Today widget'ları
 
@@ -319,7 +319,7 @@ forkOS tek kullanıcılı, yerel öncelikli (local-first) bir sistemdir. Sistem 
 
 ### 12.2 Otomasyon profilleri ve modül ayrımı
 
-- **Görünürlük vs. Otomasyon:** Ayarlar → Modüller ekranında bir modülü gizlemek arayüz rotasını ve Bugün widget'larını kapatır; arka plan ağ trafiğini kesmez. Arka plan trafiği ayrı olarak `automation.<domain>.enabled` (veya `rss.interval_minutes = 0`) ile yönetilir.
+- **Görünürlük vs. Otomasyon:** Ayarlar → Modüller ekranında bir modülü gizlemek arayüz rotasını ve Home bileşenlerini kapatır; arka plan ağ trafiğini kesmez. Arka plan trafiği ayrı olarak `automation.<domain>.enabled` (veya `rss.interval_minutes = 0`) ile yönetilir.
 - **Çalışma profilleri:**
   - `Manual`: Dış ağ otomasyonu kapalıdır; yalnızca yerel hafif bakım ve açık manuel yenilemeler çalışır.
   - `Balanced` (varsayılan): RSS 60 dk, fırsat 30 dk, takvim 60 dk, GitHub 3 sa, medya 24 sa.
@@ -361,4 +361,4 @@ Worker açıkken her gece 04:00'te; worker kapalıyken API açılışında arka 
 
 - TanStack Query: `refetchOnWindowFocus: false` ve `refetchIntervalInBackground: false` ile arka plan sekmelerinde ve pencere odak değişimlerinde istek fırtınası engellenir.
 - Paylaşılan runtime sorguları: Sistem istatistikleri, kaynak sağlığı ve yedek durumu tek anahtar üzerinden sorgulanır; bileşenler arası mükerrer polling yapılmaz.
-- Bugün paneli: Gizli widget'lar tamamen unmount edilir ve ağ isteği çıkarmaz; analog saat saniyelik render yerine dakika sınırına kilitlidir.
+- Home paneli (`today` modülü, görünen ad Home): Gizli widget'lar tamamen unmount edilir ve ağ isteği çıkarmaz; analog saat saniyelik render yerine dakika sınırına kilitlidir.

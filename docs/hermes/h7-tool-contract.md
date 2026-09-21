@@ -15,7 +15,8 @@ yürütme yalnızca **onaylanmış tam bir revizyon** üzerinde çalışır
 ```text
 forkos_execution(
     operation:       "prepare" | "get" | "list" | "approve" | "reject"
-                   | "respond" | "cancel" | "execute" | "status",   # ZORUNLU
+                   | "respond" | "cancel" | "execute" | "recover"
+                   | "status",                                    # ZORUNLU
     title:           str | None = None,   # prepare; ≤ 160
     steps:           list[dict] | None = None,   # prepare; kapalı H1 adım kümesi
     summary:         str | None = None,   # prepare; ≤ 400
@@ -23,7 +24,7 @@ forkos_execution(
     source_refs:     list[str] | None = None,   # prepare; ≤ 20
     evidence_refs:   list[str] | None = None,   # prepare; ≤ 20
     input_questions: list[str] | None = None,   # prepare; ≤ 3
-    plan_row_id:     int | None = None,   # get/approve/reject/respond/cancel/execute; ≥ 1
+    plan_row_id:     int | None = None,   # get/approve/reject/respond/cancel/execute/recover; ≥ 1
     plan_id:         str | None = None,   # prepare; aynı soy ağacına yeni revizyon
     revision:        str | None = None,   # approve/execute; ≤ 80, `plan-v1:<sha256>`
     answers:         dict | None = None,   # respond
@@ -79,7 +80,14 @@ model · prompt · system_prompt · temperature · api_key
 | `respond` | `plan_row_id`, `answers` | — | plan görünümü | `PLAN_NOT_AWAITING_INPUT`, `INVALID_INPUT_RESPONSE` |
 | `cancel` | `plan_row_id` | — | plan görünümü | `INVALID_TRANSITION`, `PLAN_TERMINAL` |
 | `execute` | `plan_row_id` | `revision` | plan görünümü + `final_status` | `APPROVAL_REQUIRED`, `APPROVAL_STALE`, `PLAN_EXPIRED`, `PLAN_ALREADY_EXECUTING`, `PLAN_TERMINAL` |
+| `recover` | `plan_row_id` | — | plan görünümü + `final_status` | `PLAN_NOT_FOUND`, `PLAN_NOT_RECOVERABLE`, `PLAN_ACTIVE_EXECUTOR`, `PLAN_ALREADY_RECOVERING` |
 | `status` | — | `limit` | `{"pending_decisions": [...], "recent": [...]}` | `EXECUTION_FAILED` |
+
+`recover` çökmüş bir yürütmeyi devralır ve **fail-closed** çalışır: yalnızca
+`claimed_by` boş adımlar yürütülür. Dayanıklı talebi (`status=not_attempted` +
+`claimed_by`) görünen adım otomatik TEKRARLANMAZ; sonuç `unresolved` +
+`RECONCILIATION_REQUIRED` olur. Ayrıntı: `h7-execution.md` (adım niyeti
+dayanıklılık sınırı).
 
 İşlem yönlendirmesi tek bir servis katmanına gider (`service.py`); araç kendi
 ikinci durum kopyasını tutmaz. MCP ile REST **aynı** `_plan_view()` çıktısını
@@ -88,8 +96,8 @@ ikinci durum kopyasını tutmaz. MCP ile REST **aynı** `_plan_view()` çıktıs
 ### 2.1 Kaydedilen aktör
 
 ```text
-MCP  approve/reject/respond/cancel/execute  → actor = "mcp_client"   tools.py:1402-1438
-REST approve/reject/respond/cancel/execute  → actor = "forkos_ui"    service.py:274/319/339/371/407
+MCP  approve/reject/respond/cancel/execute/recover  → actor = "mcp_client"   tools.py:1402-1457
+REST approve/reject/respond/cancel/execute/recover  → actor = "forkos_ui"    service.py:274/319/339/371/407/518
 sistem kaynaklı süre dolumu                 → actor = "system"        service.py:122
 ```
 

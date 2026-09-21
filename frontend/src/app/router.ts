@@ -55,7 +55,11 @@ function read(pattern?: string): Route {
   return { path: resolvedPath, params };
 }
 
-/** Basit hash router. TanStack Router'a gecis Faz 2'de. */
+/**
+ * Basit hash router. Uygulama bilincli olarak kutuphane router kullanmaz:
+ * derin baglanti, parametre, geri/ileri ve rota eslesmesi burada karsilanir
+ * (bkz. `findRouteMatch` ve `core/navigation.ts`).
+ */
 export function useHashRoute(pattern?: string): Route {
   const [route, setRoute] = useState<Route>(() => read(pattern));
   useEffect(() => {

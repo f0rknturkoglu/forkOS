@@ -11,7 +11,6 @@ registerModule({
   title: "Ayarlar",
   description: "Tema, modüller, entegrasyonlar ve yedekleme tercihlerini yönet.",
   icon: SlidersHorizontal,
-  group: "system",
   routes: [{ path: "/settings", element: SettingsPage }],
   commands: [
     { id: "settings.open", label: "Ayarları aç", run: () => navigate("/settings") },

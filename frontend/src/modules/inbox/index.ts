@@ -14,7 +14,6 @@ registerModule({
   title: "Gelen Kutusu",
   description: "Gelen bağlantı ve notları tek kuyrukta topla, sonra düzenle.",
   icon: Inbox,
-  hidden: true,
   routes: [{ path: "/inbox", element: InboxPage }],
   todayStats: [InboxStats],
   // Gelen kutusu triyaj akisidir: varsayilan Home'da yer kaplamaz, triyaj

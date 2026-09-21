@@ -8,7 +8,7 @@
 import "@/modules";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { areaForPath, areaRows, areaShape, areasAt, moduleLanding, rowIsActive } from "./navigation";
-import { enabledModules } from "./registry";
+import { allCommands, allRoutes, enabledModules, moduleForPath } from "./registry";
 
 vi.hoisted(() => {
   const store = new Map<string, string>();
@@ -69,6 +69,13 @@ describe("ürün navigasyonu — rota → alan", () => {
   it("hiçbir alana ait olmayan yüzeyler (triyaj akışı) satır tutmaz", () => {
     expect(areaForPath("/inbox", modules())).toBeUndefined();
     expect(areaForPath("/bilinmeyen", modules())).toBeUndefined();
+  });
+
+  it("alana girmeyen modül kayıtlı kalır: rota, komut ve başlık çalışır", () => {
+    // Navigasyonda satır tutmamak, modülü devre dışı bırakmak DEĞİLDİR.
+    expect(allRoutes().some((route) => route.path === "/inbox")).toBe(true);
+    expect(allCommands().some((command) => command.id === "inbox.open")).toBe(true);
+    expect(moduleForPath("/inbox")?.id).toBe("inbox");
   });
 
   it("her modül rotası en fazla bir alana bağlıdır", () => {

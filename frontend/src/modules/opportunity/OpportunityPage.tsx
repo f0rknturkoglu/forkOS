@@ -100,7 +100,6 @@ export function OpportunityPage() {
     setSavedView(parsed.saved ?? null);
   }, [params]);
 
-
   const urlState = useMemo(
     () => serializeOpportunityUrl({ tab, focus: selected, story, connection, filters, view, saved: savedView }),
     [tab, selected, story, connection, filters, view, savedView],
@@ -125,15 +124,12 @@ export function OpportunityPage() {
    * Sabitlenmiş görünümün filtresini uygular: yalnız tanınan alanlar geçer,
    * bilinmeyen anahtar yok sayılır.
    */
-  const applySavedFilters = useCallback(
-    (saved: Record<string, unknown>, view?: { id: string }) => {
-      const next = sanitizeOpportunityFilters(saved, INITIAL_FILTERS);
-      setFilters(next);
-      setSearchDraft(next.search ?? "");
-      if (view?.id) setSavedView(view.id);
-    },
-    [],
-  );
+  const applySavedFilters = useCallback((saved: Record<string, unknown>, view?: { id: string }) => {
+    const next = sanitizeOpportunityFilters(saved, INITIAL_FILTERS);
+    setFilters(next);
+    setSearchDraft(next.search ?? "");
+    if (view?.id) setSavedView(view.id);
+  }, []);
 
   // Sabitlenmiş görünüm: rota `?saved=` taşıyorsa filtre bir kez uygulanır.
   useAppliedSavedView("opportunity", params, applySavedFilters);

@@ -11,7 +11,7 @@
  * `Date`'lerle yapılır: `keyToUtc` bir anahtarı UTC gece yarısı olarak
  * temsil eder, böylece yaz saati / tarayıcı diliminden bağımsız kalır.
  */
-export const APP_TIME_ZONE = "Europe/Istanbul";
+const APP_TIME_ZONE = "Europe/Istanbul";
 
 export function localDateKey(value: Date, timeZone = APP_TIME_ZONE): string {
   const parts = new Intl.DateTimeFormat("en-CA", {

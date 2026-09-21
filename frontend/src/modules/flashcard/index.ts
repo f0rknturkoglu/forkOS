@@ -12,7 +12,6 @@ registerModule({
   title: "Kartlar",
   description: "Kart desteleriyle aralıklı tekrar yap, bilgiyi kalıcı hale getir.",
   icon: Layers,
-  group: "track",
   routes: [{ path: "/flashcard", element: FlashcardPage }],
   todayWidgets: [
     // Sag sutun: gunun odak/plan blogunun yaninda "bugun tekrar" hatirlaticisi.

@@ -19,11 +19,11 @@ import type { GithubIssue, GithubRepoPanel, Project } from "@/core/types";
 import { Button, Chip, Empty, Metric, MetricStrip, RowList, Section, cx, relativeTime, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 
-export type GithubActivityFilter = "all" | "issue" | "pull" | "commit";
+type GithubActivityFilter = "all" | "issue" | "pull" | "commit";
 
 type GithubCommit = GithubRepoPanel["commits"][number];
 
-export type GithubActivity =
+type GithubActivity =
   | {
       key: string;
       kind: "issue" | "pull";
@@ -61,7 +61,7 @@ function commitsThisWeek(commits: GithubRepoPanel["commits"]): number {
   }).length;
 }
 
-export function githubActivities(data: GithubRepoPanel): GithubActivity[] {
+function githubActivities(data: GithubRepoPanel): GithubActivity[] {
   const issues: GithubActivity[] = data.issues.map((issue) => ({
     key: `issue:${issue.number}`,
     kind: "issue",

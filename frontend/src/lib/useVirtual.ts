@@ -7,7 +7,7 @@ interface VirtualOptions {
   getScrollElement: () => HTMLElement | null;
 }
 
-export interface VirtualItem {
+interface VirtualItem {
   index: number;
   start: number;
   size: number;

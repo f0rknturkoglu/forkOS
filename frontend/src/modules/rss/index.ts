@@ -14,7 +14,6 @@ registerModule({
   title: "RSS",
   description: "RSS aboneliklerini takip et, yeni yazıları oku ve okundu işaretle.",
   icon: Rss,
-  group: "capture",
   routes: [{ path: "/rss", element: RssPage }],
   todayStats: [RssStats],
   commands: [

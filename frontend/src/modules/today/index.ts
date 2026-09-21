@@ -18,7 +18,6 @@ registerModule({
   title: "Home",
   description: "Günün planını, dikkat isteyen işleri ve bekleyen kararları tek ekranda gör.",
   icon: Home,
-  group: "pinned",
   routes: [{ path: "/", element: TodayPage }],
   // Saat + hava ust seritte (TodayHero); sunucu ve saglik ust seritteki
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.

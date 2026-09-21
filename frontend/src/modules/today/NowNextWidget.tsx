@@ -72,7 +72,9 @@ function Row({ label, item, tone }: { label: string; item: TimedItem; tone: "now
     <>
       <span className="w-11 shrink-0 tabular-nums text-meta text-muted">{clockLabel(item.startMin)}</span>
       <span className="min-w-0 flex-1 truncate text-body text-primary">{item.title}</span>
-      <span className={`shrink-0 text-micro uppercase tracking-[0.12em] ${tone === "now" ? "text-accent" : "text-muted"}`}>
+      <span
+        className={`shrink-0 text-micro uppercase tracking-[0.12em] ${tone === "now" ? "text-accent" : "text-muted"}`}
+      >
         {label}
       </span>
     </>

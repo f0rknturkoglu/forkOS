@@ -25,7 +25,6 @@ registerModule({
   title: "Etkinlik & Ritim",
   description: "Emek haritanı, serini ve aylık ritmini tek ekranda incele.",
   icon: Activity,
-  group: "system",
   routes: [
     { path: "/activity", element: ActivityPage },
     // Eski istatistik rotasi: kalici yonlendirme (yer imleri kirilmasin).

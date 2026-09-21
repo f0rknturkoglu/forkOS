@@ -23,7 +23,7 @@ import { BookOpen, CalendarRange, Compass, Ellipsis, GraduationCap, Home, Layers
 import type { ModuleSpec } from "./types";
 
 /** Alanın sidebar'daki yeri: birincil / uzun kuyruk / sistem. */
-export type NavigationPlacement = "primary" | "longtail" | "system";
+type NavigationPlacement = "primary" | "longtail" | "system";
 
 export type ProductAreaId = "home" | "plan" | "projects" | "career" | "learning" | "library" | "longtail" | "system";
 
@@ -69,7 +69,7 @@ export interface ProductArea {
  * `calendar` ve `pomodoro` ayrı servisler olarak kalır; yalnız tek bir zihinsel
  * çalışma alanında sunulur.
  */
-export const PRODUCT_AREAS: readonly ProductArea[] = [
+const PRODUCT_AREAS: readonly ProductArea[] = [
   {
     id: "home",
     label: "Home",
@@ -201,7 +201,7 @@ export function areaRows(area: ProductArea, modules: readonly ModuleSpec[]): Nav
  * dahildir: `/statistics`, `/study`, `/media/stats` gibi yollar doğru alanı
  * işaretlemelidir.
  */
-export function areaRoutes(area: ProductArea, modules: readonly ModuleSpec[]): string[] {
+function areaRoutes(area: ProductArea, modules: readonly ModuleSpec[]): string[] {
   const paths = areaModules(area, modules).flatMap((module) => module.routes.map((route) => route.path));
   if (area.landing) paths.push(area.landing);
   for (const link of area.links ?? []) paths.push(link.path);
@@ -230,7 +230,12 @@ export function rowIsActive(row: NavigationRow, path: string, params: URLSearchP
 
 /** Alanın kendi satırı aktif mi (alan içindeki herhangi bir rota). */
 export function areaIsActive(area: ProductArea, path: string, modules: readonly ModuleSpec[]): boolean {
-  return Boolean(findRouteMatch(areaRoutes(area, modules).map((route) => ({ path: route })), path));
+  return Boolean(
+    findRouteMatch(
+      areaRoutes(area, modules).map((route) => ({ path: route })),
+      path,
+    ),
+  );
 }
 
 /** Bir modülün birincil rota yolu; sidebar dışı satırlar (ör. sabitlenmiş görünüm) için. */

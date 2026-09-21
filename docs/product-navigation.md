@@ -1,0 +1,155 @@
+# Ürün Navigasyonu (Productization)
+
+Bu doküman, forkOS'un **kullanıcıya görünen** bilgi mimarisini tanımlar.
+Teknik modül envanteri ile ürün navigasyonu aynı şey değildir:
+
+```text
+backend module  !=  sidebar destination
+frontend module !=  primary navigation item
+capability      !=  permanently visible UI
+```
+
+Tek kaynak: `frontend/src/core/navigation.ts` (`PRODUCT_AREAS`). Rota → ürün
+alanı eşleşmesi BAŞKA hiçbir yerde yazılmaz.
+
+---
+
+## 1. Ürün alanları
+
+```text
+Home            /                     (bugünün planı, dikkat, kararlar)
+Plan            /todos                Görevler · Haftalık plan · Rutinler · Takvim · Odak
+Projeler        /projects
+Kariyer         /opportunities        Keşfet · Başvurular · Duyurular · Profil · Kaynaklar
+Öğrenme         /learning             Öğrenme · Kartlar · Tekrar
+Kütüphane       /bookmarks            Yer İmleri · Belgeler · RSS · Medya · Bilgi
+────────────────────────────────────────────────────────────────────────────
+Sabitlenenler   (kullanıcının sabitlediği kayıtlı görünümler)
+Daha fazla      Finans · Etkinlik & Ritim · Değerlendirme
+────────────────────────────────────────────────────────────────────────────
+Sistem          Sistem Durumu (/health, /sources) · Ayarlar (/settings)
+```
+
+Kurallar:
+
+- Bir modül **çalışıyor olabilir** ama birincil navigasyonda satır tutmaz
+  (ör. `inbox` bir triyaj akışıdır; girişi Home'daki gelen kutusu yüzeyidir).
+  Bu, modülü devre dışı bırakmak DEĞİLDİR: rota, widget'lar ve komutlar aynen
+  çalışır.
+- Domain/backend modülleri birleştirilmez. Plan altındaki `todo`, `calendar` ve
+  `pomodoro` ayrı servislerdir; yalnız aynı zihinsel çalışma alanında sunulur.
+- Alan satırları registry'den türetilir: modülün birincil rotası + `navigation:
+  "child"` işaretli rotalar + alan `links`'leri. Yeni bir alt rota eklemek için
+  modül kaydına yazmak yeterlidir.
+
+## 2. Home adlandırma sözleşmesi
+
+Kullanıcıya görünen yüzeyin adı **Home**'dur. Teknik ad alanı `today` olarak
+KALIR (isim değişikliği sözleşmeyi kırmaz):
+
+| Katman | Ad | Not |
+|---|---|---|
+| Modül kimliği | `today` | Değişmez |
+| Ayar anahtarları | `today.widget_order`, `today.widget_hidden`, `today.auto_suggestions` | Değişmez |
+| Backend uçları | `/api/today/agenda` | Değişmez |
+| Widget kimlikleri | `today.agenda`, `today.attention`, ... | Değişmez (kullanıcı tercihlerinin anahtarı) |
+| localStorage | `lifeos.todayWidgetOrder`, `lifeos.todayWidgetHidden` | Değişmez |
+| Görünen ad | **Home** | Sidebar, sekme, başlık |
+
+Zamansal Türkçe ifadeler normal kalır: "Bugünün planı", "Bugün 3 görev",
+"Bugüne ekle", "Bugün tekrar".
+
+## 3. Home bileşenleri (temiz kurulum)
+
+```text
+Hero
+Bekleyen kararlar   (H7; boşken hiç çizilmez)
+Şimdi ve sırada     (süren kayıt + en fazla 3 sıradaki)
+Dikkat              (son tarihler + takipler + okunmamış bildirimler; ≤ 5 satır)
+Bugünün planı
+```
+
+Yüzey sayısı bilinçli olarak azdır: Home "her modülden biraz" panosu değil,
+"şu an ne yapıyorum, ne dikkat istiyor, benden hangi karar bekleniyor"
+ekranıdır. İkincil yüzeyler (Akış, emek haritası, ritim, kart tekrarı, gelen
+kutusu, öğrenme, medya devam, gecikenler, hızlı bağlantılar, belgeler, takvim,
+finans, proje, kaynak sağlığı, değerlendirme) **kayıtlıdır** ve Ayarlar > Home
+üzerinden tek tek açılabilir; Odaklı/Genel bakış presetleri korunur.
+
+Kurallar:
+
+- Bir uç hata verirse yalnız o kaynak düşer; Dikkat yüzeyi kalanı gösterir ve
+  "Bazı kaynaklara ulaşılamadı" der. Hiçbir kaynak veri vermezse yüzey hiç
+  çizilmez (sessizlik başarıdır).
+- `Home render` canonical mutation TETİKLEMEZ: sayfa açılışı hiçbir ajan
+  eylemi başlatmaz.
+- Home'un temiz kurulum fan-out'u `modules/today/homeFanout.test.tsx` ile
+  sabitlenmiştir (≤ 12 uç, tekrar yok).
+- Briefing yüzeyi **ertelendi**: H5 review intelligence bugün yalnız ajan/MCP
+  yüzeyinde (`forkos_review_intelligence`, `forkos_briefing`) var; HTTP sunumu
+  yok. H5 çıktısının bir kısmı H6 proaktif bildirimlerine katlanıp Dikkat
+  yüzeyine düşer. Yeni bir uç yazmak yerine bu bağlantı noktası korundu.
+
+## 4. Sabitlenmiş görünümler
+
+- Kaydetme/sabitleme/silme: `frontend/src/core/SavedViewPicker.tsx`
+  (`GET|POST /views`, `PATCH|DELETE /views/{id}`).
+- Sidebar "Sabitlenenler" bölümü sunucu sırasını korur
+  (`pinned` → `position` → `id`).
+- Derin bağlantı sözleşmesi: `#/<rota>?saved=<gorunum-id>`. Kenar çubuğu
+  satırı bu bağlantıyı üretir; sayfa kimliği çözer ve filtreyi BİR KEZ uygular.
+- Bağlı çalışma alanları: **Kariyer** (`opportunity`), **Medya** (`media`),
+  **Yer İmleri** (`bookmarks`), **Görevler** (`todo`).
+- Modül kimliği = frontend registry kimliği. Backend bu alanı opak taşır.
+- Bilinmeyen/eski kimlik, hedefi kapalı modül ve bozuk yanıt **sessizce yok
+  sayılır**: sidebar veya çalışma alanı çökmez.
+- Filtre sözleşmesi modül başına kapalıdır; tanınmayan anahtar uygulanmaz
+  (Kariyer: `sanitizeOpportunityFilters`, Medya: URL parametre adları,
+  Yer İmleri/`todo`: alan bazlı eşleme).
+
+## 5. Ayarlar
+
+Ray iki anlamsal gruba ayrılır:
+
+```text
+Tercihler   Genel & Görünüm · Home · Bildirimler & Çevre · Modüller · Kariyer profili
+Sistem      Entegrasyonlar · Yedekleme & Sistem
+```
+
+- Sistem teşhisi (CPU/RAM/diskten) ve depolama raporu **Yedekleme & Sistem**
+  altındadır; tema gibi kullanıcı tercihleriyle aynı yerde durmaz.
+- RSS güncelleme/saklama ayarları "RSS otomasyonu" başlığıyla Sistem
+  sekmesindedir (kaynak otomasyonu bir tercih değil, işletim ayarıdır).
+- Sekme kimlikleri (`?tab=general|today|modules|notifications|career|
+  integrations|backup`) ve `?section=media-links` derin bağlantısı korunur.
+
+## 6. Route uyumluluğu (KEEP_COMPAT)
+
+Aşağıdaki rotalar bilinçli olarak korunur; eski kayıtlar, yer imleri, olay
+geçmişi ve tarayıcı geçmişi kırılmaz:
+
+| Rota | Durum | Gerekçe |
+|---|---|---|
+| `/notes` | KEEP_COMPAT | Eski Aktivite kayıtları ve `?focus=<uuid>` derin bağlantıları Bilgi köprüsüne gelir |
+| `/statistics` | KEEP_COMPAT | `/activity`'ye kalıcı yönlendirme |
+| `/study` | KEEP_COMPAT | Öğrenme modülünün eski yolu |
+| `/inbox` | KEEP_COMPAT | Triyaj akışı; Home'dan `?triage=inbox` ile açılır |
+| `/review/daily`, `/review/weekly` | KEEP_COMPAT | Uzun kuyrukta ("Daha fazla"); widget/komut girişleri durur |
+| `/media/...` alt rotaları | KEEP_COMPAT | Koleksiyon, istatistik, çöp, yaklaşan görünümleri |
+| `/today?triage=...` | KEEP_COMPAT | Eski Home derin bağlantıları (`/` ile aynı sayfa) |
+| `/habits`, `/planner` | Aktif | Plan alanının alt satırları |
+| `/opportunities?tab=...&focus=...` | Aktif | Sekme kimlikleri ve filtre parametreleri sözleşmedir |
+
+## 7. Değişmeyen sınırlar
+
+- Router kütüphanesi YOKTUR ve eklenmez: mevcut hash router derin bağlantı,
+  parametre, geri/ileri ve rota eşleşmesini karşılar (`app/router.ts`).
+- Tasarım sistemi değişmedi: renk, tipografi, boyut ve yarıçap tokenlardan gelir
+  (`@/core/ui`).
+- Komut paleti ikincil navigasyondur: sidebar'dan kalkan her capability en az
+  bir yoldan erişilebilir kalır (Cmd/Ctrl+K, alt rota, Sabitlenenler, Daha
+  fazla veya bağlamsal eylem).
+- Workspace deseni ortak kalır: 28 yüzeyin 24'ü `Workspace` /
+  `WorkspaceRail*` / `WorkspaceScrollArea` primitiflerini kullanır. Bilinçli
+  istisnalar: Home (pano), Odak (zamanlayıcı), Bilgi (Vault köprüsü), RSS
+  (kendi iki panelli düzeni).

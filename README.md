@@ -8,14 +8,17 @@ forkOS; yakalama, planlama, odaklanma, öğrenme, medya takibi, iş fırsatları
 
 ## Neler sunuyor?
 
-| Alan | Yetenekler |
+Navigasyon ürün alanlarına göre kurulur (tek kaynak: `docs/product-navigation.md`):
+
+| Ürün alanı | Yetenekler |
 | --- | --- |
-| **Yakala** | Evrensel gelen kutusu, web yer imleri, tam metin RSS okuyucu, yerel belgeler ve hızlı yakalama |
-| **Düşün** | Bilgi köprüsü: hızlı yakalama ve `Vault'ta ara` / `Obsidian'da aç`; notlar, günlükler ve wiki bağları f0rknbrain Vault'unda yaşar |
-| **Yap** | Görevler, alt görevler, tekrarlayan rutinler, haftalık plan, takvim, Pomodoro ve günlük/haftalık değerlendirme |
-| **Takip et** | Öğrenme ağacı ve SRS, medya kütüphanesi, flashcard'lar, projeler, GitHub etkinliği ve finans |
-| **Fırsatları izle** | İş ilanı keşfi, CV uyumu, başvuru CRM'i, mülakat hafızası, YLSY/ÖSYM ve kamu duyuruları |
-| **Koru** | Append-only aktivite geçmişi, kaynak sağlığı, dışa aktarma, sıkıştırılmış yedek ve felaket kurtarma akışı |
+| **Home** | Günün planı, tek **Dikkat** yüzeyi (son tarihler, takipler, bildirimler), şimdi/sırada, bekleyen kararlar |
+| **Plan** | Görevler, alt görevler, tekrarlayan rutinler, haftalık plan, takvim, Pomodoro |
+| **Projeler** | Proje aşamaları, ilerleme, GitHub etkinliği, proje günlüğü |
+| **Kariyer** | İş ilanı keşfi, CV uyumu, başvuru CRM'i, mülakat hafızası, YLSY/ÖSYM ve kamu duyuruları |
+| **Öğrenme** | Öğrenme ağacı ve SRS, flashcard'lar |
+| **Kütüphane** | Yer imleri, evrensel gelen kutusu, tam metin RSS okuyucu, yerel belgeler, medya kütüphanesi, bilgi köprüsü |
+| **Sistem** | Aktivite/ritim, finans, değerlendirme, kaynak sağlığı, yedekleme, ayarlar |
 
 ### Fırsatlardaki üç skor
 
@@ -199,7 +202,7 @@ altına **kopyalanır** (silinmez).
 ### Göster ve arka planda güncelleme ayrıdır
 
 Bir modülü gizlemek (Ayarlar → Modüller) yalnızca **arayüzü** kapatır: rota,
-Bugün widget'ları ve komutlar gizlenir; verisi silinmez. Arka planda dış
+Home bileşenleri ve komutlar gizlenir; verisi silinmez. Arka planda dış
 kaynağa çıkıp çıkmamak **ayrı** bir karardır ve Ayarlar → Modüller ekranındaki
 "Arka plan güncellemesi" bölümünden yönetilir.
 

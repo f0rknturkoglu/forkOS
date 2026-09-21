@@ -15,7 +15,6 @@ registerModule({
   title: "Sağlık",
   description: "Sunucu, servis ve veri kaynaklarının sağlık durumunu izle.",
   icon: HeartPulse,
-  group: "system",
   routes: [
     { path: "/health", element: HealthPage, title: "Sağlık" },
     { path: "/sources", element: SourceHealthPage, title: "Kaynaklar", icon: Radio, navigation: "child" },

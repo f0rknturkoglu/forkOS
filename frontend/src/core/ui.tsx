@@ -1137,7 +1137,7 @@ export function SkeletonRows({ rows = 5, className }: { rows?: number; className
 
 /** WAI-ARIA tablist. Sol/sag ok ile gecis; badge sayisi saga yazilir.
  *  Serit dar ekranda YATAY KAYAR: sekmeler sikismaz/kirpilmaz. */
-export interface TabItem {
+interface TabItem {
   id: string;
   label: string;
   badge?: number;

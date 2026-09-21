@@ -73,20 +73,22 @@ function followupItems(rows: Followup[]): AttentionItem[] {
 }
 
 function notificationItems(rows: Notification[], mutedFromDeadlines: Set<string>): AttentionItem[] {
-  return rows
-    .filter((row) => row.read_at === null)
-    // Aynı kaydın son tarihi zaten listede: bildirim tekrarı gösterilmez.
-    .filter((row) => !(row.entity_id && mutedFromDeadlines.has(row.entity_id)))
-    .map((row) => ({
-      key: `notification:${row.id}`,
-      title: row.title,
-      meta: relativeTime(row.created_at),
-      tone: row.importance >= 2 ? "warn" : "neutral",
-      href: row.entity_id && row.entity_type ? entityRoute(row.entity_type, row.entity_id) : null,
-      bucket: 2,
-      at: new Date(row.created_at).getTime(),
-      icon: Bell,
-    }));
+  return (
+    rows
+      .filter((row) => row.read_at === null)
+      // Aynı kaydın son tarihi zaten listede: bildirim tekrarı gösterilmez.
+      .filter((row) => !(row.entity_id && mutedFromDeadlines.has(row.entity_id)))
+      .map((row) => ({
+        key: `notification:${row.id}`,
+        title: row.title,
+        meta: relativeTime(row.created_at),
+        tone: row.importance >= 2 ? "warn" : "neutral",
+        href: row.entity_id && row.entity_type ? entityRoute(row.entity_type, row.entity_id) : null,
+        bucket: 2,
+        at: new Date(row.created_at).getTime(),
+        icon: Bell,
+      }))
+  );
 }
 
 const TONE_CLASS = {
@@ -117,9 +119,11 @@ export function AttentionWidget() {
   const notificationRows = Array.isArray(notifications.data) ? notifications.data : [];
 
   const mutedIds = new Set(deadlineRows.map((row) => row.entity_id));
-  const items = [...deadlineItems(deadlineRows), ...followupItems(followupRows), ...notificationItems(notificationRows, mutedIds)].sort(
-    (a, b) => a.bucket - b.bucket || a.at - b.at,
-  );
+  const items = [
+    ...deadlineItems(deadlineRows),
+    ...followupItems(followupRows),
+    ...notificationItems(notificationRows, mutedIds),
+  ].sort((a, b) => a.bucket - b.bucket || a.at - b.at);
 
   // Hiçbir kaynak veri vermediyse (boş ya da hepsi hata) yüzey çizilmez.
   if (items.length === 0) return null;

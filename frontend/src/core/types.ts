@@ -1149,22 +1149,6 @@ export interface Command {
 }
 
 /** Sol menudeki gruplar. "pinned" gruplarin ustunde tek basina durur. */
-export type ModuleGroup = "pinned" | "capture" | "do" | "track" | "system";
-
-/**
- * Sidebar gruplari. Kisa eylem adlari çalışma alanını hızlı taratır.
- *   Yakala — disaridan gelen malzeme (gelen kutusu, yer imleri, RSS, belge)
- *   Planla — zamana bagli is (takvim, gorevler, pomodoro, projeler)
- *   Takip     — duzenli bakilan alanlar (alistirma, finans, firsat, ogrenme)
- *   Sistem    — uygulamanin kendisi (etkinlik, saglik, ayarlar)
- */
-export const MODULE_GROUPS: { id: ModuleGroup; label: string }[] = [
-  { id: "capture", label: "Yakala" },
-  { id: "do", label: "Planla" },
-  { id: "track", label: "Takip" },
-  { id: "system", label: "Sistem" },
-];
-
 export interface TodayWidget {
   /**
    * Moduller arasi benzersiz ve KALICI kimlik (Faz 19). Kullanicinin
@@ -1196,15 +1180,12 @@ export interface ModuleSpec {
   description?: string;
   /** Lucide ikonu ya da ayni props'lari alan kendi bilesenin. */
   icon?: LucideIcon | ComponentType<{ size?: number | string; className?: string }>;
-  /** Grup verilmezse modul "Sistem" altina duser. */
-  group?: ModuleGroup;
   /**
-   * Nav'da GORUNMEYEN modul. Rotalar, Today widget'lari ve Command Palette
-   * calismaya devam eder; yalniz sidebar girisini gizler. Ozellikle sik
-   * kullanilmayan ama veri yazan akislar icin (ornek: review) -- birinci
-   * giris noktasi Bugun widget'i, nav'da kalici yer tutmasin.
+   * Navigasyon burada TANIMLANMAZ: bir modulun sidebar'da satir tutup
+   * tutmadigini `core/navigation.ts` icindeki urun alani tablosu belirler.
+   * Modul kayitli ama hicbir alanda anilmamis olabilir (ornek: `inbox` bir
+   * triyaj akisidir) -- rotasi, widget'lari ve komutlari yine calisir.
    */
-  hidden?: boolean;
   /** title verilmezse çalışma alanı başlığında modülün adı görünür. */
   routes: {
     path: string;
