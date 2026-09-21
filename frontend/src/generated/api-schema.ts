@@ -64,6 +64,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Agent Status
+         * @description Ajan yetenek haritasi + yerel bilis durumu (salt okunur teshis).
+         *
+         *     Adres gercek baglanma portundan kurulur (`scope["server"]`), Host
+         *     basligindan DEGIL: arayuz hangi adresten baglanacagini boylece dogru
+         *     ogrenir. H4 kapaliyken hicbir ag cagrisi yapilmaz.
+         */
+        get: operations["agent_status_api_agent_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/applications": {
         parameters: {
             query?: never;
@@ -4683,6 +4707,14 @@ export interface components {
             /** Todos */
             todos?: components["schemas"]["AgendaRow"][];
         };
+        /**
+         * AgentStatusOut
+         * @description `GET /api/agent/status` govdesi.
+         */
+        AgentStatusOut: {
+            brain: components["schemas"]["BrainStatusOut"];
+            local_cognition: components["schemas"]["LocalCognitionOut"];
+        };
         /** AncestorOut */
         AncestorOut: {
             /**
@@ -5170,6 +5202,24 @@ export interface components {
             tags?: string[] | null;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * BrainStatusOut
+         * @description MCP Brain Interface kimligi ve yetenek haritasi.
+         */
+        BrainStatusOut: {
+            /** Endpoint */
+            endpoint: string;
+            /** Families */
+            families: components["schemas"]["FamilyOut"][];
+            /** Loopback Only */
+            loopback_only: boolean;
+            /** Server Name */
+            server_name: string;
+            /** Tool Count */
+            tool_count: number;
+            /** Transport */
+            transport: string;
         };
         /** CacheClearIn */
         CacheClearIn: {
@@ -5896,6 +5946,20 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /**
+         * FamilyOut
+         * @description Bir Hermes fazinin (H0–H7) disa vurulan ozeti.
+         */
+        FamilyOut: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Summary */
+            summary: string;
+            /** Tool Count */
+            tool_count: number;
+        };
         /** FeedIn */
         FeedIn: {
             /** Category */
@@ -6437,6 +6501,34 @@ export interface components {
              * Format: uuid
              */
             to_id: string;
+        };
+        /**
+         * LocalCognitionOut
+         * @description H4 yerel bilis durumu. `reachable` yalnizca prob atildiysa doludur.
+         */
+        LocalCognitionOut: {
+            /** Configured */
+            configured: boolean;
+            /** Detail */
+            detail: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Endpoint Class
+             * @enum {string}
+             */
+            endpoint_class: "loopback" | "invalid";
+            medium: components["schemas"]["SlotOut"];
+            /** Provider */
+            provider: string;
+            /** Reachable */
+            reachable: boolean | null;
+            small: components["schemas"]["SlotOut"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "disabled" | "not_configured" | "provider_unreachable" | "model_missing" | "ready";
         };
         /**
          * ManualRefreshIn
@@ -8728,6 +8820,16 @@ export interface components {
             missing: string[];
         };
         /**
+         * SlotOut
+         * @description Tek yerel model slotunun yapilandirma/kurulum durumu.
+         */
+        SlotOut: {
+            /** Available */
+            available: boolean;
+            /** Configured */
+            configured: boolean;
+        };
+        /**
          * SnoozeIn
          * @description Saat dilimli MUTLAK zaman; serbest metin cozumleme backend'de YOK (§108).
          */
@@ -10104,6 +10206,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_status_api_agent_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentStatusOut"];
                 };
             };
         };

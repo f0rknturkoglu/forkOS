@@ -108,7 +108,12 @@ _APPROVAL_NOTE = (
 
 
 def register_agent_tools(server: MCPServer) -> None:
-    """Register all 8 read-only H0 Brain Interface tools."""
+    """Register the full public Brain Interface tool surface (H0–H7).
+
+    Aile/yetki metadatasının TEK kaynağı `capabilities.py`'dir; burası yalnızca
+    gerçek kaydı yapar. Kayıt sırası ve adlar capabilities.FAMILIES ile birebir
+    aynı olmak ZORUNDADIR -- tutarlılık testlerle zorlanır.
+    """
 
     @server.tool(
         name="forkos_briefing",

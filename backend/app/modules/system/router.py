@@ -7,7 +7,16 @@ from datetime import datetime
 from typing import Any, Literal
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -19,6 +28,7 @@ from app.core.heartbeat import WORKER_HEARTBEAT_KEY, heartbeat_is_fresh
 from app.core.models import SavedView
 from app.core.schemas import SavedViewCreate, SavedViewOut, SavedViewPatch
 from app.db import get_session
+from app.integrations.agent import status as agent_status_svc
 from app.modules.system import (
     automation,
     backup,
@@ -500,3 +510,79 @@ async def weather_forecast(lat: float, lon: float):
             return response.json()
     except (httpx.HTTPError, ValueError) as exc:
         raise HTTPException(502, f"Hava durumu alinamadi: {exc}") from exc
+
+
+# ── Ajan (MCP) durumu ───────────────────────────────────────────────────
+# Ayarlar ekraninin H0–H7 yetenek haritasini ve yerel bilis sagligini tek
+# okumada gormesi icin SALT OKUNUR teshis ucu. Hicbir sey yazilmaz, DB'ye
+# dokunulmaz; aga yalnizca H4 acikken sinirli loopback Ollama probu cikar.
+# Is mantigi `app.integrations.agent.status` icindedir -- burada yalnizca
+# sekil (typed response model) ve gercek baglanma portu tasinir.
+
+
+class FamilyOut(BaseModel):
+    """Bir Hermes fazinin (H0–H7) disa vurulan ozeti."""
+
+    id: str
+    label: str
+    summary: str
+    tool_count: int
+
+
+class BrainStatusOut(BaseModel):
+    """MCP Brain Interface kimligi ve yetenek haritasi."""
+
+    server_name: str
+    endpoint: str
+    transport: str
+    loopback_only: bool
+    tool_count: int
+    families: list[FamilyOut]
+
+
+class SlotOut(BaseModel):
+    """Tek yerel model slotunun yapilandirma/kurulum durumu."""
+
+    configured: bool
+    available: bool
+
+
+class LocalCognitionOut(BaseModel):
+    """H4 yerel bilis durumu. `reachable` yalnizca prob atildiysa doludur."""
+
+    enabled: bool
+    provider: str
+    #: Yapilandirilmis adresin sinifi: `invalid` ise loopback kurali ihlal
+    #: edilmis demektir -- bu, arayuzde gorunmesi gereken bir guvenlik olayidir.
+    endpoint_class: Literal["loopback", "invalid"]
+    configured: bool
+    reachable: bool | None
+    state: Literal[
+        "disabled",
+        "not_configured",
+        "provider_unreachable",
+        "model_missing",
+        "ready",
+    ]
+    small: SlotOut
+    medium: SlotOut
+    detail: str | None
+
+
+class AgentStatusOut(BaseModel):
+    """`GET /api/agent/status` govdesi."""
+
+    brain: BrainStatusOut
+    local_cognition: LocalCognitionOut
+
+
+@router.get("/agent/status", response_model=AgentStatusOut)
+async def agent_status(request: Request) -> AgentStatusOut:
+    """Ajan yetenek haritasi + yerel bilis durumu (salt okunur teshis).
+
+    Adres gercek baglanma portundan kurulur (`scope["server"]`), Host
+    basligindan DEGIL: arayuz hangi adresten baglanacagini boylece dogru
+    ogrenir. H4 kapaliyken hicbir ag cagrisi yapilmaz.
+    """
+    payload = await agent_status_svc.agent_status_payload(server=request.scope.get("server"))
+    return AgentStatusOut.model_validate(payload)

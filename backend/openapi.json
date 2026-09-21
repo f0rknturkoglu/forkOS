@@ -311,6 +311,23 @@
         "title": "AgendaSuggestions",
         "type": "object"
       },
+      "AgentStatusOut": {
+        "description": "`GET /api/agent/status` govdesi.",
+        "properties": {
+          "brain": {
+            "$ref": "#/components/schemas/BrainStatusOut"
+          },
+          "local_cognition": {
+            "$ref": "#/components/schemas/LocalCognitionOut"
+          }
+        },
+        "required": [
+          "brain",
+          "local_cognition"
+        ],
+        "title": "AgentStatusOut",
+        "type": "object"
+      },
       "AncestorOut": {
         "properties": {
           "id": {
@@ -1606,6 +1623,48 @@
           }
         },
         "title": "BookmarkUpdate",
+        "type": "object"
+      },
+      "BrainStatusOut": {
+        "description": "MCP Brain Interface kimligi ve yetenek haritasi.",
+        "properties": {
+          "endpoint": {
+            "title": "Endpoint",
+            "type": "string"
+          },
+          "families": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyOut"
+            },
+            "title": "Families",
+            "type": "array"
+          },
+          "loopback_only": {
+            "title": "Loopback Only",
+            "type": "boolean"
+          },
+          "server_name": {
+            "title": "Server Name",
+            "type": "string"
+          },
+          "tool_count": {
+            "title": "Tool Count",
+            "type": "integer"
+          },
+          "transport": {
+            "title": "Transport",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_name",
+          "endpoint",
+          "transport",
+          "loopback_only",
+          "tool_count",
+          "families"
+        ],
+        "title": "BrainStatusOut",
         "type": "object"
       },
       "CacheClearIn": {
@@ -3711,6 +3770,35 @@
         "title": "ExpensePatch",
         "type": "object"
       },
+      "FamilyOut": {
+        "description": "Bir Hermes fazinin (H0–H7) disa vurulan ozeti.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tool_count": {
+            "title": "Tool Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "summary",
+          "tool_count"
+        ],
+        "title": "FamilyOut",
+        "type": "object"
+      },
       "FeedIn": {
         "properties": {
           "category": {
@@ -5139,6 +5227,83 @@
           "to_id"
         ],
         "title": "LinkIn",
+        "type": "object"
+      },
+      "LocalCognitionOut": {
+        "description": "H4 yerel bilis durumu. `reachable` yalnizca prob atildiysa doludur.",
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "endpoint_class": {
+            "enum": [
+              "loopback",
+              "invalid"
+            ],
+            "title": "Endpoint Class",
+            "type": "string"
+          },
+          "medium": {
+            "$ref": "#/components/schemas/SlotOut"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reachable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reachable"
+          },
+          "small": {
+            "$ref": "#/components/schemas/SlotOut"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "not_configured",
+              "provider_unreachable",
+              "model_missing",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "provider",
+          "endpoint_class",
+          "configured",
+          "reachable",
+          "state",
+          "small",
+          "medium",
+          "detail"
+        ],
+        "title": "LocalCognitionOut",
         "type": "object"
       },
       "ManualRefreshIn": {
@@ -12075,6 +12240,25 @@
         "title": "SkillMatchOut",
         "type": "object"
       },
+      "SlotOut": {
+        "description": "Tek yerel model slotunun yapilandirma/kurulum durumu.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "configured",
+          "available"
+        ],
+        "title": "SlotOut",
+        "type": "object"
+      },
       "SnoozeIn": {
         "description": "Saat dilimli MUTLAK zaman; serbest metin cozumleme backend'de YOK (§108).",
         "properties": {
@@ -15367,6 +15551,28 @@
         "summary": "Activity Heatmap",
         "tags": [
           "core"
+        ]
+      }
+    },
+    "/api/agent/status": {
+      "get": {
+        "description": "Ajan yetenek haritasi + yerel bilis durumu (salt okunur teshis).\n\nAdres gercek baglanma portundan kurulur (`scope[\"server\"]`), Host\nbasligindan DEGIL: arayuz hangi adresten baglanacagini boylece dogru\nogrenir. H4 kapaliyken hicbir ag cagrisi yapilmaz.",
+        "operationId": "agent_status_api_agent_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Agent Status",
+        "tags": [
+          "system"
         ]
       }
     },

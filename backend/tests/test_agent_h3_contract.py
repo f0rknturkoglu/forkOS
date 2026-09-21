@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.models import Entity
 from app.db import SessionLocal
+from app.integrations.agent import capabilities
 from app.integrations.agent import evidence as ev
 from app.integrations.agent.evidence_models import (
     DEFAULT_EVIDENCE_DEPTH,
@@ -35,41 +36,17 @@ from tests.agent_test_utils import (
     legacy_notes_counts,
 )
 
-H0_TOOLS = {
-    "forkos_briefing",
-    "forkos_search",
-    "forkos_entity_context",
-    "forkos_project_context",
-    "forkos_recent_activity",
-    "brain_status",
-    "brain_search",
-    "brain_read",
-}
-H1_TOOLS = {
-    "forkos_todo_create",
-    "forkos_todo_update",
-    "forkos_todo_complete",
-    "forkos_todo_plan",
-    "forkos_project_update",
-    "forkos_opportunity_transition",
-    "forkos_application_transition",
-    "forkos_bookmark_capture",
-    "forkos_bookmark_update",
-    "brain_capture",
-    "brain_save_to_entity",
-}
-H2_TOOLS = {
-    "hot_memory_context",
-    "hot_memory_list",
-    "hot_memory_store",
-    "hot_memory_update",
-    "hot_memory_retire",
-}
-H3_TOOLS = {"forkos_evidence"}
-H4_TOOLS = {"forkos_local_cognition"}
-H5_TOOLS = {"forkos_review_intelligence"}
-H6_TOOLS = {"forkos_proactivity"}
-H7_TOOLS = {"forkos_execution"}
+H0_TOOLS = capabilities.family_tools("H0")
+H1_TOOLS = capabilities.family_tools("H1")
+H2_TOOLS = capabilities.family_tools("H2")
+H3_TOOLS = capabilities.family_tools("H3")
+H4_TOOLS = capabilities.family_tools("H4")
+H5_TOOLS = capabilities.family_tools("H5")
+H6_TOOLS = capabilities.family_tools("H6")
+H7_TOOLS = capabilities.family_tools("H7")
+
+#: Aile adları TEK kaynaktan (`capabilities`) gelir; burada yinelenmez.
+ALL_FAMILY_TOOLS = H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS
 
 #: Yasak alan adları: sahte kesinlik ve yanıt üretimi sözleşmeye SIZAMAZ.
 FORBIDDEN_FIELD_NAMES = (
@@ -134,8 +111,9 @@ async def test_tool_surface_is_exactly_26_with_one_h3_tool() -> None:
     tools = await _tools()
     assert len(tools) == 29
     assert set(tools) & H3_TOOLS == H3_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS
+    assert set(tools) == ALL_FAMILY_TOOLS == capabilities.all_tools()
     assert len(H0_TOOLS) == 8 and len(H1_TOOLS) == 11 and len(H2_TOOLS) == 5
+    assert len(ALL_FAMILY_TOOLS) == capabilities.tool_count() == 29
 
 
 async def test_h0_h1_h2_tools_are_unchanged() -> None:
