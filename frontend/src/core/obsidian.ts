@@ -15,10 +15,10 @@ import { api, qs } from "@/core/api";
 
 /**
  * `GET /obsidian/status` yanıtı. Uçların sözleşmesi burada ve `VaultItem` ile
- * birlikte tanımlıdır; bugün hiçbir tüketici tipi adıyla anmadığı için dışa
- * AÇILMAZ (ölü export bırakmama kuralı). İhtiyaç doğarsa export etmek yeterli.
+ * birlikte tanımlıdır; Ayarlar ve Bilgi Kasası yüzeyleri bu tipi adıyla
+ * kullandığı için dışa açıktır.
  */
-interface VaultStatus {
+export interface VaultStatus {
   configured: boolean;
   available: boolean;
   writable: boolean;
@@ -33,6 +33,68 @@ interface VaultStatus {
   open_uri: string | null;
   inbox_uri: string | null;
   daily_uri: string | null;
+}
+
+/**
+ * Vault durumunun TEK sözlüğü. "Kullanılamıyor" tek bir mesaja sıkıştırılmaz:
+ * yapılandırılmamış / erişilemiyor / salt okunur / okunamadı ayrı ayrı
+ * söylenir, çünkü her birinin kullanıcıya verdiği eylem farklıdır.
+ */
+export type VaultStateKind = "ready" | "read_only" | "not_configured" | "unavailable" | "unreadable";
+
+/** Ekranda gösterilecek karşılık: kısa etiket (chip) + tek cümlelik yönlendirme. */
+export interface VaultState {
+  kind: VaultStateKind;
+  chip: string;
+  hint: string | null;
+}
+
+/**
+ * Durum yanıtını kullanıcı diline çevirir. Öncelik sırası (yukarıdan aşağıya
+ * ilk uyan kazanır): okuma hatası → yanıt yok → yapılandırılmamış →
+ * erişilemiyor → salt okunur → sağlıklı.
+ *
+ * Bu fonksiyon Bilgi Kasası ve Ayarlar yüzeylerinin ortak kararıdır; iki yerde
+ * ayrı ayrı yazılırsa aynı Vault iki farklı cümle söyler.
+ */
+export function describeVaultState(
+  status: Pick<VaultStatus, "configured" | "available" | "writable" | "readable" | "diagnostic"> | undefined,
+  isError: boolean,
+): VaultState {
+  if (isError) {
+    return {
+      kind: "unreadable",
+      chip: "Vault durumu okunamadı",
+      hint: "Yerel forkOS sunucusuna ulaşılamıyor olabilir; servisleri kontrol et.",
+    };
+  }
+  if (!status) {
+    return { kind: "unreadable", chip: "Vault durumu okunamadı", hint: null };
+  }
+  if (!status.configured) {
+    return {
+      kind: "not_configured",
+      chip: "Vault yapılandırılmamış",
+      hint:
+        "forkOS'u Obsidian Vault runtime'ı ile başlat: `.env` içine OBSIDIAN_VAULT_HOST_PATH yaz, sonra " +
+        "`make up-obsidian`. Vault olmadan bilgi köprüsü (notlar, günlükler) kapalı kalır.",
+    };
+  }
+  if (!status.available) {
+    return {
+      kind: "unavailable",
+      chip: "Vault erişilemiyor",
+      hint: status.diagnostic ?? "Vault yolu erişilemiyor: bind mount yolunu ve dizin izinlerini kontrol et.",
+    };
+  }
+  if (status.writable === false) {
+    return {
+      kind: "read_only",
+      chip: "Vault bağlı · salt okunur",
+      hint: "Vault bağlı ama yazılamıyor: okuma çalışır, yakalama ve günlük not yazma kapalı.",
+    };
+  }
+  return { kind: "ready", chip: "Vault bağlı ✓", hint: null };
 }
 
 export interface VaultItem {

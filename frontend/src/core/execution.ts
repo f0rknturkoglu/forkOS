@@ -146,6 +146,46 @@ export function canTransition(current: ExecutionPlanState, target: ExecutionPlan
 export const pendingExecutionPlans = () =>
   api.get<ExecutionPlanView[]>(`/execution/plans${qs({ states: PENDING_PLAN_STATES.join(",") })}`);
 
+/**
+ * `GET /execution/plans?limit=`: son planlar (TUM durumlar). Settings'teki
+ * salt-okunur H7 ozeti bunu kullanir; karar yuzeyi `pendingExecutionPlans`
+ * ile ayni kalir. Sunucu `updated_at desc` dondurur (service.list_plans).
+ */
+export const recentExecutionPlans = (limit = 20) => api.get<ExecutionPlanView[]>(`/execution/plans${qs({ limit })}`);
+
+/** Sonuclanmis durumlar: "son yürütme" yalniz bunlara bakar. */
+const RESULT_STATES = ["completed", "partial", "failed"] as const;
+export type ExecutionResultState = (typeof RESULT_STATES)[number];
+
+/** Settings H7 ozeti: bekleyen karar sayisi + en son yürütme sonucu. */
+export interface ExecutionSummary {
+  pending: number;
+  last_result: ExecutionResultState | null;
+  last_title: string | null;
+}
+
+/**
+ * Son planlardan ozeti cikarir.
+ *
+ * Iki kural onemli: (1) ayni planin revizyonlari TEK karar sayilir
+ * (`is_current_revision`); (2) "son sonuc" listedeki sirada ilk sonuclanmis
+ * plandir. `partial` KISMI sonuctur ve burada da kismi kalir -- cagiran onu
+ * basari gibi gostermemelidir.
+ */
+export function summarizeExecutionPlans(plans: ExecutionPlanView[]): ExecutionSummary {
+  const pendingIds = new Set<string>();
+  let last: ExecutionPlanView | null = null;
+  for (const plan of plans) {
+    if (plan.is_current_revision && PENDING_PLAN_STATES.includes(plan.state)) pendingIds.add(plan.plan_id);
+    if (!last && (RESULT_STATES as readonly string[]).includes(plan.state)) last = plan;
+  }
+  return {
+    pending: pendingIds.size,
+    last_result: (last?.state as ExecutionResultState | undefined) ?? null,
+    last_title: last?.title ?? null,
+  };
+}
+
 /** `GET /execution/plans/{id}` — makbuzlar ve nihai durum yalniz burada gelir. */
 export const fetchExecutionPlan = (planRowId: number) => api.get<ExecutionPlanView>(`/execution/plans/${planRowId}`);
 

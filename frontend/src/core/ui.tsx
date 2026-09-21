@@ -1,6 +1,6 @@
 import type { ClipboardEventHandler, DragEventHandler, KeyboardEventHandler, ReactNode, RefObject } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -763,6 +763,70 @@ export const FileInput = forwardRef<
     />
   );
 });
+
+/** Düğme üzerindeki "Kopyalandı" geri bildirimi bu süre kalır. */
+const COPIED_MS = 1600;
+
+/** Pano erişilemediğinde gösterilen tek cümle: ham istisna metni asla sızmaz. */
+const COPIED_WARN = "Pano erişilemedi — tarayıcı izni gerekiyor.";
+
+/**
+ * Kopyalama düğmesi. Metni kopyalar, başarıyı hem bildirimle hem de
+ * düğmenin kendi üzerinde kısa süreli "Kopyalandı" durumuyla gösterir.
+ *
+ * Pano API'si yoksa ya da izin reddedilirse İSTİSNA SIZMAZ: ham hata metni
+ * kullanıcıya gösterilmez, tek cümlelik uyarı verilir. Bu yüzden her çağıran
+ * kendi try/catch'ini yazmak zorunda kalmaz.
+ */
+export function CopyButton({
+  text,
+  label = "Kopyala",
+  ariaLabel,
+  disabled,
+  className,
+}: {
+  text: string;
+  label?: string;
+  ariaLabel?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const toast = useToast();
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  const copy = () => {
+    if (typeof navigator?.clipboard?.writeText !== "function") {
+      toast.push(COPIED_WARN, { tone: "warn" });
+      return;
+    }
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        toast.push("Kopyalandı.", { tone: "ok" });
+        setCopied(true);
+        window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
+      })
+      .catch(() => toast.push(COPIED_WARN, { tone: "warn" }));
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      disabled={disabled || !text}
+      onClick={copy}
+      ariaLabel={ariaLabel ?? label}
+      className={className}
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+      {copied ? "Kopyalandı" : label}
+    </Button>
+  );
+}
 
 export function Kbd({ children }: { children: ReactNode }) {
   return (
