@@ -6,15 +6,21 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DailyReviewPage } from "./ReviewPage";
+import { DailyReviewPage, MonthlyReviewPage, YearlyReviewPage } from "./ReviewPage";
+
+const routeHarness = vi.hoisted(() => ({ period: "" }));
 
 vi.mock("@/core/api", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn(), put: vi.fn() },
-  qs: vi.fn(() => ""),
+  qs: (params: Record<string, string | number>) =>
+    `?${new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)]))}`,
 }));
 vi.mock("@/core/invalidation", () => ({ invalidateAfter: vi.fn() }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
-vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
+vi.mock("@/app/router", () => ({
+  navigate: vi.fn(),
+  useHashRoute: () => ({ params: new URLSearchParams(routeHarness.period ? `period=${routeHarness.period}` : "") }),
+}));
 
 import { api } from "@/core/api";
 import { navigate } from "@/app/router";
@@ -75,11 +81,11 @@ const preview: ReviewPreview = {
 
 let history: HistoryRow[] = [];
 
-function renderPage() {
+function renderPage(Page = DailyReviewPage) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <DailyReviewPage />
+      <Page />
     </QueryClientProvider>,
   );
   return client;
@@ -87,6 +93,7 @@ function renderPage() {
 
 describe("ReviewPage tek sayfa akışı", () => {
   beforeEach(() => {
+    routeHarness.period = "";
     history = [];
     apiGet.mockReset();
     apiGet.mockImplementation(async (path: string) => {
@@ -110,7 +117,7 @@ describe("ReviewPage tek sayfa akışı", () => {
 
     expect(screen.getByText("Neler oldu?")).toBeTruthy();
     expect(screen.getByText("Açık kalanlar")).toBeTruthy();
-    expect(screen.getByText("Not")).toBeTruthy();
+    expect(screen.getByText("Kendi notum")).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "Değerlendirme adımları" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Öncelikleri seç" })).toBeNull();
 
@@ -152,15 +159,21 @@ describe("ReviewPage tek sayfa akışı", () => {
         kind: "daily",
         period_start: todayKey(),
         period_end: todayKey(),
-        stats: {},
+        stats: preview.stats,
         note: "Günü erken kapattım.",
       },
     ];
     renderPage();
 
-    expect(await screen.findByText("Günü erken kapattım.")).toBeTruthy();
+    expect(await screen.findByDisplayValue("Günü erken kapattım.")).toBeTruthy();
     expect(screen.getByText("Bu dönemin değerlendirmesi kaydedildi")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Değerlendirmeyi kaydet/ })).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText("Dönem hakkında kısa bir not"), {
+      target: { value: "Düzeltilmiş not" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Notu kaydet" }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/reviews/r1", { note: "Düzeltilmiş not" }));
   });
 
   it("eski geçmiş kaydıyla değişimi gösterir", async () => {
@@ -180,5 +193,32 @@ describe("ReviewPage tek sayfa akışı", () => {
     expect(await screen.findByText("Önemli değişiklik")).toBeTruthy();
     expect(screen.getByText("-3")).toBeTruthy();
     expect(screen.getByText("değişmedi")).toBeTruthy();
+  });
+
+  it("aylık ve yıllık dönemleri URL ile açar; önceki dönem bağlantısı üretir", async () => {
+    routeHarness.period = "2026-03-01";
+    renderPage(MonthlyReviewPage);
+    expect(await screen.findByText("Aylık değerlendirme")).toBeTruthy();
+    expect(apiGet).toHaveBeenCalledWith(expect.stringContaining("kind=monthly"));
+    fireEvent.click(screen.getByRole("button", { name: /Önceki dönem/ }));
+    expect(navigate).toHaveBeenCalledWith("/review/monthly?period=2026-02-01");
+    cleanup();
+    renderPage(YearlyReviewPage);
+    expect(await screen.findByText("Yıllık değerlendirme")).toBeTruthy();
+  });
+
+  it("kaydedilmiş dönemin sayısını canlı preview yerine snapshot'tan okur", async () => {
+    history = [
+      {
+        id: "snap",
+        kind: "daily",
+        period_start: todayKey(),
+        period_end: todayKey(),
+        stats: { ...preview.stats, todos: { ...preview.stats.todos, completed: 999 } },
+        note: null,
+      },
+    ];
+    renderPage();
+    expect(await screen.findByText("999")).toBeTruthy();
   });
 });

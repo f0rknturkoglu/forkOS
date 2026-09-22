@@ -61,7 +61,7 @@ ACTIVITY_FILTERS: dict[str, tuple[str, ...]] = {
         "study.area_archived", "study.area_created", "study.area_deleted", "study.area_reopened",
         "study.confidence_changed", "study.mastery_changed", "study.reviewed", "study.topic_completed",
         "study.topic_created", "study.topic_deleted", "study.topic_moved", "study.topic_renamed",
-        "study.topic_reopened", "study.topic_started", "review.completed",
+        "study.topic_reopened", "study.topic_started", "review.completed", "review.note_updated",
     ),
     "reading": (
         "bookmark.deleted", "bookmark.favorited", "bookmark.highlighted", "bookmark.moved",

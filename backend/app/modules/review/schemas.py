@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TodoReviewStats(BaseModel):
@@ -98,7 +98,7 @@ class CompletedTodo(BaseModel):
 
 
 class ReviewPreview(BaseModel):
-    kind: Literal["daily", "weekly"]
+    kind: Literal["daily", "weekly", "monthly", "yearly"]
     period_start: date
     period_end: date
     stats: ReviewStats
@@ -107,7 +107,7 @@ class ReviewPreview(BaseModel):
 
 
 class ReviewIn(BaseModel):
-    kind: Literal["daily", "weekly"]
+    kind: Literal["daily", "weekly", "monthly", "yearly"]
     period_start: date
     decisions: dict = {}
     note: str | None = None
@@ -115,9 +115,14 @@ class ReviewIn(BaseModel):
 
 class ReviewOut(BaseModel):
     id: uuid.UUID
-    kind: Literal["daily", "weekly"]
+    kind: Literal["daily", "weekly", "monthly", "yearly"]
     period_start: date
     period_end: date
     stats: dict
     decisions: dict
+    note: str | None
+
+
+class ReviewNotePatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     note: str | None

@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, CheckCircle2, Clock3, Sparkles, Target } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Target } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api, qs } from "@/core/api";
 import {
@@ -15,14 +15,16 @@ import {
   RowList,
   Section,
   SectionHeader,
+  Select,
+  Tabs,
   Textarea,
   cx,
   useToast,
 } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import type { ReviewPreview } from "@/core/types";
-import { navigate } from "@/app/router";
-import { appWeekStartKey, formatTrDate, formatTrDateTime, todayKey } from "@/lib/date";
+import { navigate, useHashRoute } from "@/app/router";
+import { appWeekStartKey, formatTrDate, formatTrDateTime, localDateKey, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { buildReviewDigest } from "./reviewDigest";
 import { reviewChangeRows, reviewMetricRows, reviewSecondarySignals } from "./reviewMetrics";
@@ -30,7 +32,7 @@ import { reviewChangeRows, reviewMetricRows, reviewSecondarySignals } from "./re
 /** Kayıtlı değerlendirme satırı. `stats` eski kayıtlarda eksik alan taşıyabilir. */
 interface SavedReviewRow {
   id: string;
-  kind: "daily" | "weekly";
+  kind: "daily" | "weekly" | "monthly" | "yearly";
   period_start: string;
   period_end: string;
   stats: unknown;
@@ -51,12 +53,36 @@ function dayLabel(value?: string | null): string {
  * göreve karar verme töreni YOKTUR. Açık işler yalnızca kullanıcı isterse
  * "gelişmiş" katmanında taşınır/bırakılır; seçilmeyenler Todo olarak kalır.
  */
-function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
+type ReviewKind = SavedReviewRow["kind"];
+
+function currentPeriod(kind: ReviewKind): string {
+  const today = todayKey();
+  if (kind === "weekly") return appWeekStartKey();
+  if (kind === "monthly") return `${today.slice(0, 7)}-01`;
+  if (kind === "yearly") return `${today.slice(0, 4)}-01-01`;
+  return today;
+}
+
+function adjacentPeriod(kind: ReviewKind, period: string, delta: number): string {
+  const date = new Date(`${period}T12:00:00Z`);
+  if (kind === "yearly") date.setUTCFullYear(date.getUTCFullYear() + delta);
+  else if (kind === "monthly") date.setUTCMonth(date.getUTCMonth() + delta);
+  else date.setUTCDate(date.getUTCDate() + delta * (kind === "weekly" ? 7 : 1));
+  return localDateKey(date);
+}
+
+function ReviewFlow({ kind }: { kind: ReviewKind }) {
+  const { params } = useHashRoute();
   const [note, setNote] = useState("");
   const [decisions, setDecisions] = useState<Record<string, "carry" | "drop">>({});
   const online = useOnline();
   const toast = useToast();
-  const period = useMemo(() => (kind === "weekly" ? appWeekStartKey() : todayKey()), [kind]);
+  const requested = params.get("period");
+  const period = useMemo(
+    () => (requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : currentPeriod(kind)),
+    [kind, requested],
+  );
+  const goPeriod = (next: string) => navigate(`/review/${kind}?period=${next}`);
 
   const { data, isLoading } = useQuery({
     queryKey: ["review-preview", kind, period],
@@ -67,11 +93,21 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
   // önceki dönem kaydı varsa "neler değişti" ondan hesaplanır.
   const { data: rawHistory = [] } = useQuery({
     queryKey: ["reviews", "history", kind],
-    queryFn: () => api.get<SavedReviewRow[]>(`/reviews${qs({ kind, limit: 5 })}`),
+    queryFn: () => api.get<SavedReviewRow[]>(`/reviews${qs({ kind, limit: 100 })}`),
   });
   const history = Array.isArray(rawHistory) ? rawHistory : [];
   const saved = history.find((row) => row.period_start === period) ?? null;
   const previous = history.find((row) => row.period_start < period) ?? null;
+  useEffect(() => setNote(saved?.note ?? ""), [saved?.id, saved?.note]);
+
+  const updateNote = useMutation({
+    mutationFn: () => api.patch(`/reviews/${saved?.id}`, { note }),
+    onSuccess: () => {
+      invalidateAfter("review.write");
+      toast.push("Not güncellendi.", { tone: "ok" });
+    },
+    onError: () => toast.push("Not güncellenemedi.", { tone: "danger" }),
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -103,21 +139,24 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
 
   if (isLoading || !data) return <p className="p-6 text-body text-muted">Değerlendirme hesaplanıyor…</p>;
 
-  const stats = data.stats;
-  const open = data.unfinished_todos;
-  const periodRange = `${shortDate(data.period_start)} → ${shortDate(data.period_end)}`;
+  // Kayıtlı dönemin sayıları snapshot'tan gelir; canlı preview onları değiştirmez.
+  const stats = (saved?.stats ?? data.stats) as ReviewPreview["stats"];
+  const snapshot = { ...data, stats };
+  const open = saved && period !== currentPeriod(kind) ? [] : data.unfinished_todos;
+  const inclusiveEnd = adjacentPeriod("daily", data.period_end, -1);
+  const periodRange = `${shortDate(data.period_start)} → ${shortDate(inclusiveEnd)}`;
   const topics = [...stats.topics].sort((left, right) => right.minutes - left.minutes);
   const maxTopic = Math.max(...topics.map((topic) => topic.minutes), 1);
   const signals = reviewSecondarySignals(stats);
   const changes = previous ? reviewChangeRows(stats, previous.stats) : [];
-  const digest = buildReviewDigest(data, saved ? (saved.note ?? "") : note);
+  const digest = buildReviewDigest(snapshot, note);
 
   return (
     <PageFrame>
       <Workspace>
         <WorkspacePaneHeader
           eyebrow="Değerlendirme"
-          title={kind === "weekly" ? "Haftalık değerlendirme" : "Günlük değerlendirme"}
+          title={`${kind === "weekly" ? "Haftalık" : kind === "monthly" ? "Aylık" : kind === "yearly" ? "Yıllık" : "Günlük"} değerlendirme`}
           hint={periodRange}
           action={
             <div className="flex items-center gap-2">
@@ -132,10 +171,51 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
         />
         <WorkspaceScrollArea className="p-3">
           <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2 border-b border-subtle pb-3">
+              <Tabs
+                value={kind === "daily" ? "weekly" : kind}
+                onChange={(value) => navigate(`/review/${value}`)}
+                ariaLabel="Değerlendirme dönemi"
+                items={[
+                  { id: "weekly", label: "Haftalık" },
+                  { id: "monthly", label: "Aylık" },
+                  { id: "yearly", label: "Yıllık" },
+                ]}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Önceki dönem"
+                onClick={() => goPeriod(adjacentPeriod(kind, period, -1))}
+              >
+                <ChevronLeft size={14} /> Önceki
+              </Button>
+              <span className="text-meta text-secondary">{periodRange}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Sonraki dönem"
+                onClick={() => goPeriod(adjacentPeriod(kind, period, 1))}
+              >
+                Sonraki <ChevronRight size={14} />
+              </Button>
+              <Select
+                value={history.some((row) => row.period_start === period) ? period : ""}
+                onChange={goPeriod}
+                ariaLabel="Değerlendirme geçmişi"
+              >
+                <option value="">Geçmiş kayıtlar</option>
+                {history.map((row) => (
+                  <option key={row.id} value={row.period_start}>
+                    {shortDate(row.period_start)} · {row.note?.trim() || "Not yok"}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <div className="space-y-3">
               <SectionHeader label="Dönem özeti" />
               <MetricStrip className="grid-cols-2 lg:grid-cols-4">
-                {reviewMetricRows(data).map((row) => (
+                {reviewMetricRows(snapshot).map((row) => (
                   <Metric key={row.label} label={row.label} value={row.value} hint={row.hint} href={row.href} />
                 ))}
               </MetricStrip>
@@ -170,15 +250,10 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
                 </Section>
 
                 <Section
-                  title={kind === "weekly" ? "Haftanın ritmi" : "Günün ritmi"}
+                  title="İstatistikler"
                   hint={stats.focus.minutes ? `${stats.focus.minutes} dk odak` : undefined}
                 >
                   <div className="space-y-3">
-                    <Signal
-                      icon={<Sparkles size={15} />}
-                      label="Üretken gün"
-                      value={`${stats.focus.active_days} gün`}
-                    />
                     <Signal icon={<Target size={15} />} label="En iyi gün" value={dayLabel(stats.focus.best_day)} />
                     <Signal
                       icon={<Clock3 size={15} />}
@@ -303,18 +378,21 @@ function ReviewFlow({ kind }: { kind: "daily" | "weekly" }) {
               )}
             </Section>
 
-            <Section title="Not" hint="opsiyonel">
-              {saved ? (
-                <p className="whitespace-pre-wrap text-body text-secondary">
-                  {saved.note?.trim() || "Bu dönem için not yazılmamış."}
-                </p>
-              ) : (
-                <Textarea
-                  value={note}
-                  onChange={setNote}
-                  placeholder="Dönem hakkında kısa bir not"
-                  className="min-h-24"
-                />
+            <Section title="Kendi notum" hint="opsiyonel">
+              <Textarea
+                value={note}
+                onChange={setNote}
+                placeholder="Dönem hakkında kısa bir not"
+                className="min-h-24"
+              />
+              {saved && (
+                <Button
+                  size="sm"
+                  disabled={!online || updateNote.isPending || note === (saved.note ?? "")}
+                  onClick={() => updateNote.mutate()}
+                >
+                  Notu kaydet
+                </Button>
               )}
             </Section>
 
@@ -359,4 +437,12 @@ export function WeeklyReviewPage() {
 
 export function DailyReviewPage() {
   return <ReviewFlow kind="daily" />;
+}
+
+export function MonthlyReviewPage() {
+  return <ReviewFlow kind="monthly" />;
+}
+
+export function YearlyReviewPage() {
+  return <ReviewFlow kind="yearly" />;
 }

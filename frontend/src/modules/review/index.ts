@@ -6,6 +6,8 @@ import { ReviewWidget } from "./ReviewWidget";
 
 const DailyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.DailyReviewPage })));
 const WeeklyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.WeeklyReviewPage })));
+const MonthlyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.MonthlyReviewPage })));
+const YearlyReviewPage = lazy(() => import("./ReviewPage").then((module) => ({ default: module.YearlyReviewPage })));
 
 registerModule({
   id: "review",
@@ -14,6 +16,8 @@ registerModule({
   icon: ClipboardCheck,
   routes: [
     { path: "/review/weekly", element: WeeklyReviewPage },
+    { path: "/review/monthly", element: MonthlyReviewPage, navigation: "hidden" },
+    { path: "/review/yearly", element: YearlyReviewPage, navigation: "hidden" },
     { path: "/review/daily", element: DailyReviewPage },
   ],
   todayWidgets: [

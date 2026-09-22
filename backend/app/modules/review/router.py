@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.time import local_today
 from app.db import get_session
 from app.modules.review import service
-from app.modules.review.schemas import ReviewIn, ReviewOut, ReviewPreview
+from app.modules.review.schemas import ReviewIn, ReviewNotePatch, ReviewOut, ReviewPreview
 
 router = APIRouter(tags=["review"])
 
@@ -36,3 +37,12 @@ async def create_review(body: ReviewIn, session: AsyncSession = Depends(get_sess
 async def list_reviews(kind: str | None = None, limit: int = Query(20, ge=1, le=100),
                        session: AsyncSession = Depends(get_session)):
     return await service.list_reviews(session, kind, limit)
+
+
+@router.patch("/reviews/{review_id}", response_model=ReviewOut)
+async def patch_review_note(review_id: uuid.UUID, body: ReviewNotePatch,
+                            session: AsyncSession = Depends(get_session)):
+    result = await service.update_note(session, review_id, body.note)
+    if result is None:
+        raise HTTPException(404, "değerlendirme bulunamadı")
+    return result

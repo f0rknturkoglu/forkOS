@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import Integer, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity
+from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity, Event
 from app.core.time import local_datetime, local_day_bounds, local_zone
@@ -24,10 +24,16 @@ from app.modules.todo.schemas import PlanSlotIn, TodoIn, TodoUpdate
 def period_bounds(kind: str, start: date) -> tuple[date, date]:
     if kind == "daily":
         return start, start + timedelta(days=1)
-    if kind != "weekly":
-        raise ValueError("review kind daily veya weekly olmali")
-    monday = start - timedelta(days=start.weekday())
-    return monday, monday + timedelta(days=7)
+    if kind == "weekly":
+        monday = start - timedelta(days=start.weekday())
+        return monday, monday + timedelta(days=7)
+    if kind == "monthly":
+        month = start.replace(day=1)
+        return month, (month.replace(year=month.year + 1, month=1) if month.month == 12 else month.replace(month=month.month + 1))
+    if kind == "yearly":
+        year = start.replace(month=1, day=1)
+        return year, year.replace(year=year.year + 1)
+    raise ValueError("review kind daily, weekly, monthly veya yearly olmali")
 
 
 async def _event_count(session: AsyncSession, verb: str, start: datetime, end: datetime) -> int:
@@ -451,3 +457,15 @@ async def list_reviews(session: AsyncSession, kind: str | None, limit: int) -> l
     if kind:
         stmt = stmt.where(Review.kind == kind)
     return [_out(item) for item in (await session.execute(stmt)).scalars()]
+
+
+async def update_note(session: AsyncSession, review_id: uuid.UUID, note: str | None) -> ReviewOut | None:
+    review = await session.get(Review, review_id)
+    if review is None:
+        return None
+    review.note = note
+    await touch_entity(session, review_id, search_text=note or "")
+    await log_event(session, verb="review.note_updated", entity_id=review_id,
+                    entity_type="review", payload={"kind": review.kind})
+    await session.commit()
+    return _out(review)

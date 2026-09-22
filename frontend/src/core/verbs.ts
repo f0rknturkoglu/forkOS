@@ -83,6 +83,7 @@ export const VERB_LABELS: Record<string, string> = {
   "pomodoro.deleted": "Odak seansı silindi",
   // Değerlendirme
   "review.completed": "Değerlendirme tamamlandı",
+  "review.note_updated": "Değerlendirme notu güncellendi",
   // Çalışma, kurs ve öğrenme kaynakları
   "study.area_created": "Çalışma alanı oluşturuldu",
   "study.area_archived": "Çalışma alanı arşivlendi",

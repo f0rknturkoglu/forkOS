@@ -63,3 +63,26 @@ async def test_review_reports_flashcard_reviews(client: AsyncClient) -> None:
 
     assert preview["stats"]["flashcards"]["reviewed"] == 2
     assert preview["stats"]["flashcards"]["decks"] == {"Almanca": 2}
+
+
+@pytest.mark.parametrize("kind,start,end", [
+    ("monthly", "2026-02-18", "2026-03-01"),
+    ("yearly", "2026-09-23", "2027-01-01"),
+])
+async def test_long_period_review_snapshot_and_editable_note(
+    client: AsyncClient, kind: str, start: str, end: str,
+) -> None:
+    preview = await client.get("/api/reviews/preview", params={"kind": kind, "period_start": start})
+    assert preview.status_code == 200
+    assert preview.json()["period_end"] == end
+    saved = await client.post("/api/reviews", json={"kind": kind, "period_start": start, "note": "ilk not"})
+    assert saved.status_code == 201
+    before = saved.json()["stats"]
+    review_id = saved.json()["id"]
+
+    edited = await client.patch(f"/api/reviews/{review_id}", json={"note": "sonraki not"})
+    assert edited.status_code == 200
+    assert edited.json()["note"] == "sonraki not"
+    assert edited.json()["stats"] == before
+    assert edited.json()["period_start"] == saved.json()["period_start"]
+    assert (await client.patch(f"/api/reviews/{review_id}", json={"stats": {}})).status_code == 422
