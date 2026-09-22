@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -109,6 +109,93 @@ function SidebarLink({
 }
 
 /**
+ * U2 Collapsed Area Flyout.
+ * Daraltılmış ray modunda (56px) alt rotaların kaybolmasını engeller.
+ * Hem tıklama (click) hem klavye (Enter / Space / ArrowRight / Tab) ile erişilebilir.
+ */
+function CollapsedAreaFlyout({
+  area,
+  modules,
+  path,
+  params,
+  onNavigate,
+  onClose,
+  triggerRef,
+}: {
+  area: ProductArea;
+  modules: readonly ModuleSpec[];
+  path: string;
+  params: URLSearchParams;
+  onNavigate: () => void;
+  onClose: () => void;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const rows = areaRows(area, modules);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    firstLinkRef.current?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+        triggerRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose, triggerRef]);
+
+  return (
+    <div
+      role="menu"
+      id={`sidebar-area-flyout-${area.id}`}
+      aria-label={`${area.label} menüsü`}
+      className="absolute left-[calc(100%+0.375rem)] top-0 z-popover min-w-[13.5rem] rounded-control border border-subtle bg-surface p-1.5 shadow-overlay"
+    >
+      <div className="mb-1 border-b border-subtle px-2 py-1">
+        <p className="text-micro font-medium uppercase tracking-[0.16em] text-muted">{area.label}</p>
+      </div>
+      <div className="space-y-0.5">
+        {rows.map((row, index) => {
+          const rowActive = rowIsActive(row, path, params);
+          const RowIcon = row.icon ?? LayoutGrid;
+          const href = row.query ? `${row.path}?${row.query}` : row.path;
+          return (
+            <a
+              key={`${row.moduleId}-${row.path}-${row.query ?? ""}`}
+              ref={index === 0 ? firstLinkRef : undefined}
+              role="menuitem"
+              href={`#${href}`}
+              aria-current={rowActive ? "page" : undefined}
+              onClick={(event) => {
+                if (!requestNavigation(href)) {
+                  event.preventDefault();
+                  return;
+                }
+                onClose();
+                onNavigate();
+              }}
+              className={cx(
+                "flex h-8 w-full items-center gap-2 rounded-control px-2 text-meta transition-colors",
+                rowActive
+                  ? "bg-surface-selected font-medium text-primary"
+                  : "text-secondary hover:bg-surface-hover hover:text-primary",
+              )}
+            >
+              <RowIcon size={14} className={cx("shrink-0", rowActive ? "text-primary" : "text-muted")} />
+              <span className="truncate">{row.label}</span>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Katlanır alan başlığı (Plan, Öğrenme, Kütüphane).
  *
  * Satırın TAMAMI açar/kapar ve AYRICA gezinmez: "etikete basınca mı, oka
@@ -122,6 +209,9 @@ function AreaHeader({
   path,
   modules,
   onToggle,
+  flyoutOpen = false,
+  onToggleFlyout,
+  buttonRef,
 }: {
   area: ProductArea;
   open: boolean;
@@ -129,16 +219,34 @@ function AreaHeader({
   path: string;
   modules: readonly ModuleSpec[];
   onToggle: () => void;
+  flyoutOpen?: boolean;
+  onToggleFlyout?: () => void;
+  buttonRef?: (el: HTMLButtonElement | null) => void;
 }) {
   const active = areaIsActive(area, path, modules);
   const AreaIcon = area.icon ?? LayoutGrid;
   return (
     <button
+      ref={buttonRef}
       type="button"
-      onClick={onToggle}
-      aria-expanded={open}
-      aria-controls={`sidebar-area-${area.id}`}
+      onClick={collapsed ? onToggleFlyout : onToggle}
+      onKeyDown={(event) => {
+        if (collapsed && (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onToggleFlyout?.();
+        }
+      }}
+      aria-expanded={collapsed ? flyoutOpen : open}
+      aria-haspopup={collapsed ? "menu" : undefined}
+      aria-controls={
+        collapsed
+          ? flyoutOpen
+            ? `sidebar-area-flyout-${area.id}`
+            : undefined
+          : `sidebar-area-${area.id}`
+      }
       title={collapsed ? area.label : undefined}
+      aria-label={collapsed ? area.label : undefined}
       className={cx(
         "group flex h-9 w-full min-w-0 items-center rounded-control text-body transition-colors",
         collapsed ? "md:justify-center md:px-0" : "gap-2.5 px-2.5",
@@ -178,10 +286,46 @@ export function AppSidebar({
   const system = areasAt("system");
   const activeArea = areaForPath(path, modules);
   const [openAreas, setOpenAreas] = useState(initialOpenAreas);
+  const [flyoutArea, setFlyoutArea] = useState<ProductAreaId | null>(null);
+  const flyoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const { data: pinnedViews = [] } = usePinnedSavedViews();
   // Yalnız alt satırı olan alanlar katlanır; tek hedefli alanlar zaten düz satır.
   const collapsibleAreas = primary.filter((area) => areaShape(area, modules) === "section");
   const allExpanded = collapsibleAreas.length > 0 && collapsibleAreas.every((area) => openAreas.has(area.id));
+
+  const clearFlyoutTimer = () => {
+    if (flyoutTimerRef.current) {
+      clearTimeout(flyoutTimerRef.current);
+      flyoutTimerRef.current = null;
+    }
+  };
+
+  const scheduleCloseFlyout = () => {
+    clearFlyoutTimer();
+    flyoutTimerRef.current = setTimeout(() => {
+      setFlyoutArea(null);
+    }, 180);
+  };
+
+  useEffect(() => {
+    if (!flyoutArea) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(`[data-area-flyout="${flyoutArea}"]`)) {
+        setFlyoutArea(null);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      clearFlyoutTimer();
+    };
+  }, [flyoutArea]);
+
+  useEffect(() => {
+    if (!collapsed) setFlyoutArea(null);
+  }, [collapsed]);
 
   useEffect(() => {
     // Hangi alan aktifse onu ac: kullanici rotayi dogrudan acsa bile alt
@@ -266,7 +410,7 @@ export function AppSidebar({
         id="app-sidebar"
         aria-label="Ana navigasyon"
         className={cx(
-          "fixed inset-y-0 left-0 z-drawer flex w-sidebar -translate-x-full flex-col border-r border-subtle bg-sidebar transition-[width,transform] duration-300 ease-in-out md:sticky md:top-0 md:h-dvh md:translate-x-0",
+          "fixed inset-y-0 left-0 z-drawer flex w-sidebar -translate-x-full flex-col border-r border-subtle bg-sidebar transition-[width,transform] duration-150 ease-out motion-reduce:transition-none md:sticky md:top-0 md:h-dvh md:transform-none",
           mobileOpen && "translate-x-0",
           collapsed ? "md:w-rail" : "md:w-sidebar",
         )}
@@ -329,7 +473,12 @@ export function AppSidebar({
           </button>
         </div>
 
-        <nav className={cx("min-h-0 flex-1 overflow-y-auto py-3", collapsed ? "md:px-2" : "px-2.5")}>
+        <nav
+          className={cx(
+            "min-h-0 flex-1 py-3",
+            collapsed ? "md:overflow-visible md:px-2" : "overflow-y-auto px-2.5",
+          )}
+        >
           <div className="space-y-1">
             {primary.map((area) => {
               const shape = areaShape(area, modules);
@@ -347,17 +496,61 @@ export function AppSidebar({
                 );
               }
               const open = openAreas.has(area.id);
+              const isFlyoutOpen = collapsed && flyoutArea === area.id;
               return (
-                <div key={area.id}>
+                <div
+                  key={area.id}
+                  className="relative"
+                  data-area-flyout={area.id}
+                  onMouseEnter={() => {
+                    if (collapsed) {
+                      clearFlyoutTimer();
+                      setFlyoutArea(area.id);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (collapsed) {
+                      scheduleCloseFlyout();
+                    }
+                  }}
+                >
                   <AreaHeader
                     area={area}
                     open={open}
                     collapsed={collapsed}
+                    flyoutOpen={isFlyoutOpen}
                     path={path}
                     modules={modules}
                     onToggle={() => toggleArea(area)}
+                    onToggleFlyout={() => {
+                      clearFlyoutTimer();
+                      setFlyoutArea((curr) => (curr === area.id ? null : area.id));
+                    }}
+                    buttonRef={(el) => {
+                      triggerRefs.current[area.id] = el;
+                    }}
                   />
-                  {renderRows(area, open)}
+                  {isFlyoutOpen ? (
+                    <div onMouseEnter={clearFlyoutTimer} onMouseLeave={scheduleCloseFlyout}>
+                      <CollapsedAreaFlyout
+                        area={area}
+                        modules={modules}
+                        path={path}
+                        params={params}
+                        onNavigate={() => {
+                          setFlyoutArea(null);
+                          onCloseMobile();
+                        }}
+                        onClose={() => setFlyoutArea(null)}
+                        triggerRef={{
+                          get current() {
+                            return triggerRefs.current[area.id] ?? null;
+                          },
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  {!collapsed && renderRows(area, open)}
                 </div>
               );
             })}

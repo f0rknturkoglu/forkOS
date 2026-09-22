@@ -336,4 +336,38 @@ describe("AppSidebar — ürün navigasyonu", () => {
     expect(onCloseMobile).not.toHaveBeenCalled();
     window.removeEventListener("forkos:before-navigation", preventNavigation);
   });
+
+  it("daraltılmış ray modunda katlanır alana tıklayınca flyout menü açılır", () => {
+    renderSidebar("/", "", { collapsed: true });
+    const planBtn = screen.getByRole("button", { name: "Plan" });
+
+    expect(screen.queryByRole("menu", { name: "Plan menüsü" })).toBeNull();
+    fireEvent.click(planBtn);
+
+    const menu = screen.getByRole("menu", { name: "Plan menüsü" });
+    expect(menu).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Görevler" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Haftalık plan" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Takvim" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Odak" })).toBeTruthy();
+  });
+
+  it("daraltılmış ray modunda klavye (Enter / Escape) ile flyout kontrol edilir", () => {
+    renderSidebar("/", "", { collapsed: true });
+    const planBtn = screen.getByRole("button", { name: "Plan" });
+
+    // Enter ile aç
+    fireEvent.keyDown(planBtn, { key: "Enter" });
+    expect(screen.getByRole("menu", { name: "Plan menüsü" })).toBeTruthy();
+
+    // Escape ile kapat
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: "Plan menüsü" })).toBeNull();
+  });
+
+  it("daraltılmış ray modunda aktif alt rota alan butonunu vurgular", () => {
+    renderSidebar("/calendar", "", { collapsed: true });
+    const planBtn = screen.getByRole("button", { name: "Plan" });
+    expect(planBtn.className).toContain("bg-surface-selected");
+  });
 });
