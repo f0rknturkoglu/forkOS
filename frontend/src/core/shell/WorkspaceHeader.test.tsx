@@ -267,7 +267,6 @@ describe("WorkspaceHeader üst şerit hizası", () => {
       await screen.findByRole("button", { name: /Kaynakları yenile/ }),
       screen.getByRole("button", { name: "Yenileme kapsamı ve durumu" }),
       screen.getByRole("button", { name: "Ara" }),
-      screen.getByRole("button", { name: "Temayı değiştir" }),
     ];
     for (const button of squares) {
       expect(button.className.split(/\s+/)).toEqual(expect.arrayContaining(["h-8", "w-8"]));
@@ -280,5 +279,40 @@ describe("WorkspaceHeader üst şerit hizası", () => {
 
     // Aktif odak göstergesi de şeridin taban çizgisini bozmaz.
     expect((await screen.findByRole("button", { name: /^Aktif odak:/ })).className.split(/\s+/)).toContain("h-8");
+
+    // Tema değiştirici taşma menüsü içinde yer alır
+    fireEvent.click(screen.getByRole("button", { name: "Yenileme kapsamı ve durumu" }));
+    expect(screen.getByRole("button", { name: "Temayı değiştir" })).toBeTruthy();
+  });
+});
+
+describe("WorkspaceHeader v2 bağlamsal kimlik ve sessiz durum", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    apiMock.get.mockReset().mockImplementation((path: string) => {
+      if (path.startsWith("/system/refresh")) return Promise.resolve(IDLE);
+      if (path.startsWith("/sources/sync"))
+        return Promise.resolve({ active: null, last_completed: null, running: [], sources: [] });
+      return Promise.resolve([]);
+    });
+  });
+  afterEach(cleanup);
+
+  it("normal durumda header sessizdir: kalıcı sağlıklı/senkronize rozeti içermez", async () => {
+    renderHeader();
+    await screen.findByRole("button", { name: /Kaynakları yenile/ });
+
+    // Header normal durumda kalıcı yeşil rozet veya telemetry chip basmaz
+    expect(screen.queryByText(/yerel sunucu çalışıyor/i)).toBeNull();
+    expect(screen.queryByText(/her şey sağlıklı/i)).toBeNull();
+  });
+
+  it("taşma menüsünde sistem durumu, kaynaklar ve ayarlar hızlı bağlantıları bulunur", async () => {
+    renderHeader();
+    fireEvent.click(await screen.findByRole("button", { name: "Yenileme kapsamı ve durumu" }));
+
+    expect(screen.getByRole("button", { name: "Sistem durumu paneli" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Kaynak sağlığı ve akışlar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ayarlar" })).toBeTruthy();
   });
 });

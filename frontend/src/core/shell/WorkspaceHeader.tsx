@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, Menu, Moon, PanelLeftOpen, RefreshCw, Search, Sun } from "lucide-react";
+import {
+  Activity,
+  Layers,
+  Menu,
+  Moon,
+  MoreHorizontal,
+  PanelLeftOpen,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Sun,
+} from "lucide-react";
 import { api } from "@/core/api";
 import { navigate } from "@/app/router";
 import { openCommandPalette } from "@/core/CommandPalette";
 import { invalidateAfter } from "@/core/invalidation";
 import { NotificationPanel } from "@/core/NotificationPanel";
 import { ActiveFocusIndicator } from "@/modules/pomodoro/ActiveFocusIndicator";
-import { moduleForPath, titleForPath } from "@/core/registry";
+import { enabledModules, moduleForPath, titleForPath } from "@/core/registry";
+import { areaForPath } from "@/core/navigation";
 import { useSourceSync } from "@/core/SyncProgress";
 import { StatusLed } from "@/core/StatusLed";
 import type { ManualRefreshStatus } from "@/core/types";
@@ -70,8 +82,10 @@ export function WorkspaceHeader({
   const toast = useToast();
   const startedHere = useRef(false);
   const [scope, setScope] = useState<RefreshScope>(storedScope);
-  const [scopeOpen, setScopeOpen] = useState(false);
-  const scopeAnchor = useRef<HTMLSpanElement>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowAnchor = useRef<HTMLSpanElement>(null);
+  const modules = enabledModules();
+  const area = areaForPath(path, modules);
   const module = moduleForPath(path);
   const title = titleForPath(path) ?? "forkOS";
   const Icon = module?.icon;
@@ -98,7 +112,7 @@ export function WorkspaceHeader({
   const start = (next: RefreshScope) => {
     setScope(next);
     if (typeof window !== "undefined") window.localStorage.setItem(SCOPE_STORAGE_KEY, next);
-    setScopeOpen(false);
+    setOverflowOpen(false);
     refresh.mutate(next);
   };
 
@@ -148,16 +162,51 @@ export function WorkspaceHeader({
         </button>
       )}
 
+      {/* Sol: Bağlamsal Sayfa Kimliği (Page Identity & Context) */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {Icon && <Icon size={15} className="shrink-0 text-icon" />}
-        <span className="truncate text-heading text-primary">{title}</span>
-        {module && title !== module.title && (
+        {Icon && <Icon size={16} className="shrink-0 text-icon" />}
+        {area && area.label && area.label !== title ? (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="shrink-0 text-meta text-secondary">{area.label}</span>
+            <span className="shrink-0 text-meta text-muted">/</span>
+            <span className="truncate text-heading text-primary">{title}</span>
+          </div>
+        ) : (
+          <span className="truncate text-heading text-primary">{title}</span>
+        )}
+        {module && title !== module.title && (!area || area.label !== module.title) && (
           <span className="hidden truncate text-meta text-muted sm:inline">{module.title}</span>
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
-        <StatusLed />
+      {/* Sağ: Sıkı Eylem Bütçesi (Action Budget) */}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <StatusLed hideWhenHealthy />
+
+        {/* 1. Arama / Komut Tetikleyicisi */}
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className="hidden h-8 w-48 items-center gap-2 rounded-control border border-subtle bg-surface px-2.5 text-left text-meta text-muted transition hover:bg-surface-hover hover:text-primary lg:flex"
+        >
+          <Search size={14} />
+          <span className="flex-1 truncate">Ara veya komut…</span>
+          <Kbd>Ctrl K</Kbd>
+        </button>
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          title="Ara"
+          aria-label="Ara"
+          className="flex h-8 w-8 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary lg:hidden"
+        >
+          <Search size={15} />
+        </button>
+
+        {/* 2. Aktif Odak Göstergesi (yalnızca oturum varsa çizilir) */}
+        <ActiveFocusIndicator />
+
+        {/* 3. Birincil Eylem: Kaynakları Yenile */}
         <span className="relative inline-flex">
           <IconButton
             title={
@@ -183,33 +232,66 @@ export function WorkspaceHeader({
             </Chip>
           )}
         </span>
-        <span className="relative inline-flex" ref={scopeAnchor}>
+
+        {/* 4. Bildirim Paneli */}
+        <NotificationPanel />
+
+        {/* 5. Taşma Menüsü (Overflow): Tema, Kapsam ve Seyrek Araçlar */}
+        <span className="relative inline-flex" ref={overflowAnchor}>
           <IconButton
             title="Yenileme kapsamı ve durumu"
-            ariaExpanded={scopeOpen}
-            onClick={() => setScopeOpen((open) => !open)}
+            ariaExpanded={overflowOpen}
+            onClick={() => setOverflowOpen((open) => !open)}
           >
-            <ChevronDown size={13} />
+            <MoreHorizontal size={16} />
           </IconButton>
           <Popover
-            open={scopeOpen}
-            onClose={() => setScopeOpen(false)}
-            anchorRef={scopeAnchor}
+            open={overflowOpen}
+            onClose={() => setOverflowOpen(false)}
+            anchorRef={overflowAnchor}
             role="dialog"
-            ariaLabel="Yenileme kapsamı"
+            ariaLabel="Diğer araçlar ve ayarlar"
             className="right-0 top-[calc(100%+0.375rem)] w-[min(22rem,calc(100vw-1.5rem))] p-3"
           >
             <div className="space-y-3">
+              {/* Görünüm / Tema */}
+              <div className="flex items-center justify-between gap-2 border-b border-subtle pb-2.5">
+                <span className="text-body text-secondary">Görünüm</span>
+                <button
+                  type="button"
+                  onClick={() => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}
+                  title="Temayı değiştir"
+                  aria-label="Temayı değiştir"
+                  className="flex h-7 items-center gap-1.5 rounded-control border border-subtle bg-surface-sunken px-2.5 text-meta text-primary transition hover:bg-surface-hover"
+                >
+                  {document.documentElement.dataset.theme === "dark" ? (
+                    <>
+                      <Sun size={13} className="text-icon" />
+                      <span>Açık tema</span>
+                    </>
+                  ) : (
+                    <>
+                      <Moon size={13} className="text-icon" />
+                      <span>Koyu tema</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Yenileme Kapsamı */}
               <header className="space-y-1">
-                <h3 className="text-heading text-primary">Yenileme kapsamı</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-heading text-primary">Yenileme kapsamı</h3>
+                  {isRefreshing && <Chip tone="accent">çalışıyor</Chip>}
+                </div>
                 <p className="text-micro text-muted">
                   Çalışan yenileme:{" "}
                   <span className="text-secondary">
                     {refreshStatus.data?.batch_id ? refreshStatus.data.batch_id.slice(0, 8) : "yok"}
                   </span>
-                  {isRefreshing && <Chip tone="accent">çalışıyor</Chip>}
                 </p>
               </header>
+
               <ul className="space-y-1">
                 {REFRESH_SCOPES.map((option) => (
                   <li key={option.id}>
@@ -232,10 +314,12 @@ export function WorkspaceHeader({
                   </li>
                 ))}
               </ul>
+
               <div className="space-y-1 border-t border-subtle pt-2 text-micro text-muted">
                 <p>{summary}</p>
                 {!online && <p className="text-warn">Çevrimdışısın: yenileme başlatılamaz.</p>}
               </div>
+
               {activeSourceBatch && (
                 <div className="space-y-2 border-t border-subtle pt-2" aria-live="polite">
                   <div className="flex flex-wrap items-center gap-2 text-meta">
@@ -253,7 +337,7 @@ export function WorkspaceHeader({
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      setScopeOpen(false);
+                      setOverflowOpen(false);
                       navigate("/sources");
                     }}
                   >
@@ -261,38 +345,47 @@ export function WorkspaceHeader({
                   </Button>
                 </div>
               )}
+
+              {/* Hızlı Araçlar */}
+              <div className="space-y-1 border-t border-subtle pt-2">
+                <p className="px-1 text-micro font-medium uppercase tracking-[0.16em] text-muted">Hızlı Araçlar</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverflowOpen(false);
+                    navigate("/health");
+                  }}
+                  className="flex h-8 w-full items-center gap-2 rounded-control px-2 text-left text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+                >
+                  <Activity size={14} className="shrink-0 text-icon" />
+                  <span>Sistem durumu paneli</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverflowOpen(false);
+                    navigate("/sources");
+                  }}
+                  className="flex h-8 w-full items-center gap-2 rounded-control px-2 text-left text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+                >
+                  <Layers size={14} className="shrink-0 text-icon" />
+                  <span>Kaynak sağlığı ve akışlar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverflowOpen(false);
+                    navigate("/settings");
+                  }}
+                  className="flex h-8 w-full items-center gap-2 rounded-control px-2 text-left text-meta text-secondary transition hover:bg-surface-hover hover:text-primary"
+                >
+                  <SlidersHorizontal size={14} className="shrink-0 text-icon" />
+                  <span>Ayarlar</span>
+                </button>
+              </div>
             </div>
           </Popover>
         </span>
-        <button
-          type="button"
-          onClick={openCommandPalette}
-          className="hidden h-8 w-52 items-center gap-2 rounded-control border border-subtle bg-surface px-2.5 text-left text-meta text-muted transition hover:bg-surface-hover hover:text-primary lg:flex"
-        >
-          <Search size={14} />
-          <span className="flex-1 truncate">Ara veya komut…</span>
-          <Kbd>Ctrl K</Kbd>
-        </button>
-        <button
-          type="button"
-          onClick={openCommandPalette}
-          title="Ara"
-          aria-label="Ara"
-          className="flex h-8 w-8 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary lg:hidden"
-        >
-          <Search size={15} />
-        </button>
-        <ActiveFocusIndicator />
-        <NotificationPanel />
-        <button
-          type="button"
-          onClick={() => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")}
-          title="Temayı değiştir"
-          aria-label="Temayı değiştir"
-          className="flex h-8 w-8 items-center justify-center rounded-control text-muted transition hover:bg-surface-hover hover:text-primary"
-        >
-          {document.documentElement.dataset.theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-        </button>
       </div>
     </header>
   );

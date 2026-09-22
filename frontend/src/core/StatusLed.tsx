@@ -118,7 +118,7 @@ function workerView(worker: SystemStats["worker"] | undefined): { text: string; 
  * Panel DURUSTTUR: bir sorgu dusmus ya da hala yukleniyorsa o satir
  * "bilinmiyor" der; hicbir kosulda "her sey saglikli" cumlesi kurulmaz.
  */
-export function StatusLed() {
+export function StatusLed({ hideWhenHealthy = false }: { hideWhenHealthy?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -173,6 +173,10 @@ export function StatusLed() {
       : tone === "muted"
         ? "durum okunuyor"
         : "sunucu sıkışıyor";
+
+  if (hideWhenHealthy && tone === "ok" && !isError) {
+    return null;
+  }
 
   return (
     <div ref={rootRef} className="relative">
