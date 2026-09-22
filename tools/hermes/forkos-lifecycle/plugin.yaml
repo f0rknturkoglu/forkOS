@@ -1,7 +1,8 @@
 name: forkos-lifecycle
-version: "1.1.0"
+version: "1.2.0"
 description: "Observe Hermes session lifecycle and inject bounded bootstrap/continuity context in local forkOS."
 author: "forkOS"
 provides_hooks:
   - pre_llm_call
+  - post_llm_call
   - on_session_finalize
