@@ -198,9 +198,7 @@ function CollapsedAreaFlyout({
 /**
  * Katlanır alan başlığı (Plan, Öğrenme, Kütüphane).
  *
- * Satırın TAMAMI açar/kapar ve AYRICA gezinmez: "etikete basınca mı, oka
- * basınca mı" belirsizliği böylece ortadan kalkar. Ok yalnız durumu söyler.
- * Geometri tek parça: h-9 satır, içinde ayrı bir tıklama dikdörtgeni YOK.
+ * Alan adı landing'e gider; ayrı ok alt hedefleri açar. Dar rayda flyout kalır.
  */
 function AreaHeader({
   area,
@@ -209,6 +207,7 @@ function AreaHeader({
   path,
   modules,
   onToggle,
+  onNavigate,
   flyoutOpen = false,
   onToggleFlyout,
   buttonRef,
@@ -219,6 +218,7 @@ function AreaHeader({
   path: string;
   modules: readonly ModuleSpec[];
   onToggle: () => void;
+  onNavigate: () => void;
   flyoutOpen?: boolean;
   onToggleFlyout?: () => void;
   buttonRef?: (el: HTMLButtonElement | null) => void;
@@ -226,23 +226,13 @@ function AreaHeader({
   const active = areaIsActive(area, path, modules);
   const AreaIcon = area.icon ?? LayoutGrid;
   return (
-    <button
-      ref={buttonRef}
-      type="button"
-      onClick={collapsed ? onToggleFlyout : onToggle}
+    <div
       onKeyDown={(event) => {
         if (collapsed && (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           onToggleFlyout?.();
         }
       }}
-      aria-expanded={collapsed ? flyoutOpen : open}
-      aria-haspopup={collapsed ? "menu" : undefined}
-      aria-controls={
-        collapsed ? (flyoutOpen ? `sidebar-area-flyout-${area.id}` : undefined) : `sidebar-area-${area.id}`
-      }
-      title={collapsed ? area.label : undefined}
-      aria-label={collapsed ? area.label : undefined}
       className={cx(
         "group flex h-9 w-full min-w-0 items-center rounded-control text-body transition-colors",
         collapsed ? "md:justify-center md:px-0" : "gap-2.5 px-2.5",
@@ -251,14 +241,42 @@ function AreaHeader({
           : "text-secondary hover:bg-surface-hover hover:text-primary",
       )}
     >
-      <AreaIcon size={16} className="shrink-0 text-icon group-hover:text-primary" />
-      <span className={cx("min-w-0 flex-1 truncate text-left", collapsed && "md:hidden")}>{area.label}</span>
-      <ChevronDown
-        size={15}
-        aria-hidden
-        className={cx("shrink-0 text-muted transition-transform", collapsed && "md:hidden", open && "rotate-180")}
-      />
-    </button>
+      <a
+        href={`#${area.landing ?? areaRows(area, modules)[0]?.path ?? "/"}`}
+        aria-current={active && path === area.landing ? "page" : undefined}
+        onClick={(event) => {
+          if (!requestNavigation(area.landing ?? "/")) event.preventDefault();
+          else onNavigate();
+        }}
+        className={cx("flex min-w-0 flex-1 items-center gap-2.5", collapsed && "md:hidden")}
+        title={collapsed ? area.label : undefined}
+      >
+        <AreaIcon size={16} className="shrink-0 text-icon group-hover:text-primary" />
+        <span className={cx("min-w-0 flex-1 truncate text-left", collapsed && "md:hidden")}>{area.label}</span>
+      </a>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={collapsed ? onToggleFlyout : onToggle}
+        aria-label={collapsed ? area.label : `${area.label} alt menüsünü ${open ? "daralt" : "genişlet"}`}
+        aria-expanded={collapsed ? flyoutOpen : open}
+        aria-haspopup={collapsed ? "menu" : undefined}
+        aria-controls={
+          collapsed ? (flyoutOpen ? `sidebar-area-flyout-${area.id}` : undefined) : `sidebar-area-${area.id}`
+        }
+        className={cx(
+          "flex h-8 w-7 shrink-0 items-center justify-center rounded-control hover:bg-surface-hover",
+          collapsed && "md:w-full",
+        )}
+      >
+        {collapsed && <AreaIcon size={16} aria-hidden className="hidden text-icon md:block" />}
+        <ChevronDown
+          size={15}
+          aria-hidden
+          className={cx("text-muted transition-transform", collapsed && "md:hidden", open && "rotate-180")}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -515,6 +533,7 @@ export function AppSidebar({
                     path={path}
                     modules={modules}
                     onToggle={() => toggleArea(area)}
+                    onNavigate={onCloseMobile}
                     onToggleFlyout={() => {
                       clearFlyoutTimer();
                       setFlyoutArea((curr) => (curr === area.id ? null : area.id));

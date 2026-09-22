@@ -7,6 +7,7 @@ import { RelatedPanel } from "@/core/RelatedPanel";
 import { Empty, PageFrame, RowList, Section, SkeletonRows } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
+import { PlanViews } from "./PlanViews";
 import { TodoRow } from "./TodoRow";
 import { dueLabel, planLabel } from "./priority";
 import { todayKey, tomorrowKey } from "@/lib/date";
@@ -53,6 +54,7 @@ export function TodoPage() {
   const [status, setStatus] = useState<string>(focusId ? "" : "open");
   const [tag, setTag] = useState<string>("");
   const [routineOnly, setRoutineOnly] = useState(path === "/habits");
+  useEffect(() => setRoutineOnly(path === "/habits"), [path]);
 
   // ?project=<id> filtre kipi: yalniz o projenin gorevleri listelenir.
   const projectFilter = params.get("project") ?? "";
@@ -189,8 +191,9 @@ export function TodoPage() {
             </p>
           ) : null}
         </WorkspacePaneHeader>
+        <PlanViews view={path === "/habits" ? "routines" : "tasks"} />
         <div className="border-b border-subtle bg-surface-sunken p-3">
-          <TodoComposer />
+          <TodoComposer defaultRecurring={path === "/habits"} />
         </div>
         <WorkspaceScrollArea className="space-y-3 p-3">
           {isLoading ? (

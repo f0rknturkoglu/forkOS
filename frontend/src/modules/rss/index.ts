@@ -12,14 +12,14 @@ const FeedPage = lazy(() => import("./FeedPage").then((module) => ({ default: mo
 
 registerModule({
   id: "rss",
-  title: "RSS",
+  title: "RSS & Akış",
   description: "RSS aboneliklerini takip et, yeni yazıları oku ve okundu işaretle.",
   icon: Rss,
   routes: [
-    { path: "/rss", element: RssPage },
+    { path: "/feed", element: FeedPage, title: "RSS & Akış", icon: Newspaper },
+    { path: "/rss", element: RssPage, title: "RSS Kaynakları", icon: Rss, navigation: "child" },
     // Okuma akisi: RSS + Reddit + Hacker News + GitHub tek listede. Home'un ve
     // RSS sayfasinin parcasidir; Kutuphane'de AYRI satir tutmaz (rota durur).
-    { path: "/feed", element: FeedPage, title: "Okuma Akışı", icon: Newspaper, navigation: "hidden" },
   ],
   todayStats: [RssStats],
   commands: [

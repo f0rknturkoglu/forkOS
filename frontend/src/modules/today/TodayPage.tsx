@@ -27,6 +27,16 @@ export function TodayPage() {
     <WorkspaceScrollArea className="bg-canvas">
       <WorkspaceBody mode="full" className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
         <TodayHero />
+        {stats.length > 0 && (
+          <section
+            aria-label="Günlük kısa özet"
+            className="my-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-subtle pb-3 [&_.numeral]:font-sans [&_.numeral]:text-body [&_.numeral]:font-medium [&_.group]:flex [&_.group]:items-baseline [&_.group]:gap-1 [&_.group]:px-0 [&_.group]:py-0 [&_.text-meta]:mt-0 [&_.text-meta]:text-meta"
+          >
+            {stats.map((Tile, index) => (
+              <Tile key={index} />
+            ))}
+          </section>
+        )}
         {stats.length + views.length === 0 ? (
           <Empty variant="page" title="Bugün için yüzey yok">
             Ayarlar'dan modülleri açarak günün planını ve bağlamını görebilirsin.
@@ -34,16 +44,6 @@ export function TodayPage() {
         ) : (
           <>
             <HomeGrid views={views} />
-            {stats.length > 0 && (
-              <section aria-label="Kısa özet" className="mt-8 border-t border-subtle pt-4">
-                <h2 className="mb-2 text-meta font-medium text-secondary">Kısa özet</h2>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-                  {stats.map((Tile, index) => (
-                    <Tile key={index} />
-                  ))}
-                </div>
-              </section>
-            )}
           </>
         )}
       </WorkspaceBody>

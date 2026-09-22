@@ -4,6 +4,7 @@ import { FeedStreamList, FeedSourceFailures } from "@/core/FeedStreamList";
 import { FEED_FILTERS, useFeedStream, type FeedFilter } from "@/core/feedStream";
 import { Button, PageFrame, Tabs } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
+import { ReaderViews } from "./ReaderViews";
 
 /**
  * Okuma Akışı (`/feed`) — kendi başına açılabilen okuma yüzeyi.
@@ -22,13 +23,9 @@ export function FeedPage() {
       <Workspace>
         <WorkspacePaneHeader
           eyebrow="Kütüphane"
-          title="Okuma Akışı"
+          title="RSS & Akış"
           hint="RSS · Reddit · Hacker News · GitHub"
-          action={
-            <a href="#/rss" className="text-meta text-accent hover:underline">
-              RSS okuyucu →
-            </a>
-          }
+          action={<ReaderViews view="feed" />}
         >
           <Tabs
             value={filter}
@@ -38,7 +35,7 @@ export function FeedPage() {
           />
         </WorkspacePaneHeader>
 
-        <WorkspaceScrollArea className="p-3">
+        <WorkspaceScrollArea className="min-w-0 overflow-x-hidden p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-meta text-muted">
             {/* Kaynak kimliği açıkça görünür: hangi kaynağın canlı olduğu belli olsun. */}
             {stream.sources.map((source) => (
@@ -59,7 +56,7 @@ export function FeedPage() {
 
           <FeedSourceFailures failures={stream.failures} />
 
-          <div className="rounded-card border border-subtle bg-surface">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-card border border-subtle bg-surface">
             {stream.items.length === 0 && stream.loading ? (
               <p className="px-3 py-8 text-center text-meta text-muted">Akış yükleniyor…</p>
             ) : (

@@ -86,7 +86,7 @@ describe("CommandPalette v2", () => {
     // Gezin grubu başlığı ve temel rotalar
     expect(screen.getByText("Gezin")).toBeTruthy();
     expect(screen.getByText("Projeler")).toBeTruthy();
-    expect(screen.getByText("Finans")).toBeTruthy();
+    expect(screen.getByText("Abonelikler")).toBeTruthy();
   });
 
   it("Gezin öğesi seçildiğinde rotaya gider ve paleti kapatır", () => {

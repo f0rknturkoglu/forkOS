@@ -14,12 +14,21 @@ import { PRIORITIES, RECURRENCES } from "./priority";
  * "hizlica bir sey yaz" yolu tek tikla kalirken tarih/oncelik/etiket/rutin
  * hala ayni yerden verilebiliyor -- ayri bir "gelismis" ekran yok.
  */
-export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
+export function TodoComposer({
+  onCreated,
+  defaultPlanDay,
+  defaultRecurring = false,
+}: {
+  onCreated?: () => void;
+  defaultPlanDay?: string;
+  defaultRecurring?: boolean;
+}) {
   const [title, setTitle] = useState("");
   const [open, setOpen] = useState(false);
   const [priority, setPriority] = useState(2);
   const [due, setDue] = useState("");
-  const [recur, setRecur] = useState("");
+  const [recur, setRecur] = useState(defaultRecurring ? "weekly" : "");
+  const [plannedDay, setPlannedDay] = useState(defaultPlanDay ?? "");
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
   // Varsayilan KAPALI ama son secim hatirlanir: her zaman bugune alan kullanici
@@ -37,7 +46,8 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
     setTitle("");
     setPriority(2);
     setDue("");
-    setRecur("");
+    setRecur(defaultRecurring ? "weekly" : "");
+    setPlannedDay(defaultPlanDay ?? "");
     setTags([]);
     setTagDraft("");
     setOpen(false);
@@ -56,7 +66,7 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
         // Aksi halde gorev panelin gostermedigi bir gune planlanir. due_at degil:
         // plan = "bugune al", teslim tarihi ayri kavramdir. Işaretli degilken alan
         // gövdede HIC olmaz (backend "plan yok"u boyle ayirt eder).
-        plan_day: planToday ? localDateKey(new Date()) : undefined,
+        plan_day: plannedDay || (planToday ? localDateKey(new Date()) : undefined),
       }),
     onSuccess: () => {
       reset();
@@ -150,6 +160,11 @@ export function TodoComposer({ onCreated }: { onCreated?: () => void }) {
             <Checkbox checked={planToday} onChange={togglePlan} label="bugüne al" />
             <span className="text-meta text-muted">planlanır — son tarih verilmez</span>
           </div>
+
+          <label className="block text-meta text-muted">
+            Planlanan gün
+            <Input type="date" value={plannedDay} onChange={setPlannedDay} className="mt-1 w-full sm:w-48" />
+          </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">

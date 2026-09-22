@@ -26,6 +26,7 @@ import { navigate } from "@/app/router";
 import type { Bookmark, Collection, Feed, FeedItem } from "@/core/types";
 import { appDayUtc } from "@/lib/date";
 import { RssReadingPane } from "./RssReadingPane";
+import { ReaderViews } from "./ReaderViews";
 
 type SmartView = "unread" | "today" | "saved" | "all";
 
@@ -516,6 +517,10 @@ export function RssPage() {
 
   return (
     <PageFrame className="flex min-h-workspace-body flex-col py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-3">
+        <h1 className="text-heading text-primary">RSS & Akış</h1>
+        <ReaderViews view="sources" />
+      </div>
       <Surface className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-workspace-rail xl:grid-cols-workspace-reader">
         {/* ── Sol: akıllı görünümler + beslemeler ── */}
         <aside className="flex max-h-[380px] min-w-0 flex-col overflow-y-auto border-b border-subtle p-3 md:max-h-[560px] md:border-b-0 md:border-r xl:max-h-none">

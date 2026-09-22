@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowUpRight,
-  BookOpen,
-  Briefcase,
-  ChevronDown,
-  ChevronRight,
-  ChevronsUpDown,
-  ClipboardCheck,
-  Flame,
-  ListChecks,
-  Timer,
-} from "lucide-react";
+import { ArrowUpRight, BookOpen, Briefcase, ChevronDown, ChevronsUpDown, Flame, ListChecks, Timer } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { POMODORO_STATS_QUERY_KEY } from "@/modules/pomodoro/queries";
@@ -36,23 +25,6 @@ import { describe, verbIcon } from "@/core/verbs";
 import { Heatmap } from "./Heatmap";
 import { RANGES, type RangeId as RangeIdSource } from "./ranges";
 import { MonthlyBars, monthTotal, useRhythmSummary } from "./RhythmWidget";
-
-/** Geçmiş değerlendirmeler -- GET /reviews ucu. Etiket döneme gore. */
-interface ReviewOut {
-  id: string;
-  kind: "daily" | "weekly";
-  period_start: string;
-  period_end: string;
-  note: string | null;
-}
-
-function reviewLabel(start: string, end: string): string {
-  const s = new Date(start + "T00:00:00");
-  const e = new Date(end + "T00:00:00");
-  const month = (d: Date) => formatTrDate(d, { day: "numeric", month: "short" });
-  if (s.toDateString() === e.toDateString()) return month(s);
-  return `${month(s)} – ${month(e)}`;
-}
 
 function dayLabel(iso: string): string {
   return formatTrDate(iso, { weekday: "long", day: "numeric", month: "long" });
@@ -104,7 +76,7 @@ export function ActivityPage() {
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [openDays, setOpenDays] = useState<Set<string>>(new Set());
-  const [historyOpen, setHistoryOpen] = useState(false);
+
   const query = useDebounced(search, 300);
 
   const { summary, monthly } = useRhythmSummary();
@@ -116,16 +88,20 @@ export function ActivityPage() {
     queryKey: ["activity", "feed", filter, query, limit],
     queryFn: () => api.get<ActivityEvent[]>(`/activity${qs({ limit, filter, q: query || undefined })}`),
   });
-  // Gecmis kapali gelir: acilinca cekilir (akis asil yuzey).
-  const { data: reviews = [] } = useQuery({
-    queryKey: ["reviews"],
-    queryFn: () => api.get<ReviewOut[]>("/reviews?limit=10"),
-    enabled: historyOpen,
-  });
-
   const dayEntries = useMemo(() => {
     const entries = new Map<string, { key: string; label: string; events: ActivityEvent[] }>();
-    for (const event of data) {
+    for (const event of data.filter(
+      (item) =>
+        filter !== "all" ||
+        (item.verb !== "review.completed" &&
+          !item.verb.startsWith("source_sync.") &&
+          !item.verb.startsWith("system.") &&
+          !item.verb.startsWith("backup.") &&
+          !item.verb.startsWith("media.sync_") &&
+          !item.verb.startsWith("media.artwork_") &&
+          !item.verb.startsWith("calendar.synced") &&
+          !item.verb.startsWith("document.synced")),
+    )) {
       // Gruplama app gunune gore -- backend heatmap'i ile ayni gun.
       const key = localDateKey(new Date(event.occurred_at));
       const entry = entries.get(key) ?? { key, label: dayLabel(event.occurred_at), events: [] };
@@ -255,171 +231,136 @@ export function ActivityPage() {
             </Section>
           )}
 
-          {/* Katman 3: hareket akisi -- sayfanin odagi. */}
-          <Section
-            title="Hareket akışı"
-            hint={`${data.length}${canLoadMore ? "+" : ""} hareket · ${dayKeys.length} gün`}
-            action={
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setOpenDays(new Set(allDaysOpen ? [] : dayKeys))}
-                  disabled={dayKeys.length === 0}
-                >
-                  <ChevronsUpDown size={13} />
-                  {allDaysOpen ? "Tümünü kapat" : "Tümünü aç"}
-                </Button>
-                {limit > PAGE_SIZE && (
-                  <Button size="sm" variant="ghost" onClick={() => setLimit(PAGE_SIZE)} title="Akışı ilk sayfaya al">
-                    başa al
+          {/* Ayrıntılı olaylar yalnız isteyince açılır; ritim ana yüzeydir. */}
+          <details className="rounded-card border border-subtle bg-surface">
+            <summary className="cursor-pointer px-3.5 py-3 text-body font-medium text-secondary">
+              Detaylı geçmiş
+            </summary>
+            <Section
+              title="Hareket akışı"
+              hint={`${data.length}${canLoadMore ? "+" : ""} hareket · ${dayKeys.length} gün`}
+              action={
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setOpenDays(new Set(allDaysOpen ? [] : dayKeys))}
+                    disabled={dayKeys.length === 0}
+                  >
+                    <ChevronsUpDown size={13} />
+                    {allDaysOpen ? "Tümünü kapat" : "Tümünü aç"}
                   </Button>
-                )}
-              </div>
-            }
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <Tabs
-                value={filter}
-                onChange={(next) => setFilter(next)}
-                ariaLabel="Hareket filtresi"
-                items={FEED_FILTERS.map((item) => ({ id: item.id, label: item.label }))}
-              />
-              <Input
-                value={search}
-                onChange={setSearch}
-                placeholder="Hareketlerde ara…"
-                ariaLabel="Hareketlerde ara"
-                className="h-8 w-full text-meta sm:ml-auto sm:w-56"
-              />
-            </div>
-
-            <div className="mt-3 space-y-2">
-              {isLoading ? (
-                <SkeletonRows rows={6} />
-              ) : data.length === 0 ? (
-                <Empty>{query ? "Aramayla eşleşen hareket yok." : "Bu filtrede hareket yok."}</Empty>
-              ) : (
-                <>
-                  {dayEntries.map(({ key, label, events: dayEvents }) => {
-                    const alertCount = dayEvents.filter((event) => event.is_alert).length;
-                    const open = openDays.has(key);
-                    return (
-                      <details
-                        key={key}
-                        data-activity-day
-                        open={open}
-                        onToggle={(event) => setDayOpen(key, event.currentTarget.open)}
-                        className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
-                      >
-                        <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none">
-                          <ChevronDown
-                            className={cx("shrink-0 transition-transform", open && "rotate-180")}
-                            size={15}
-                          />
-                          <span className="label-caps truncate text-secondary">{label}</span>
-                          <span className="ml-auto shrink-0 text-meta text-muted">{dayEvents.length} hareket</span>
-                          {alertCount > 0 && (
-                            <span className="flex shrink-0 items-center gap-1.5 text-meta text-warn">
-                              <span className="h-1.5 w-1.5 rounded-full bg-warn" aria-hidden />
-                              {alertCount} uyarı
-                            </span>
-                          )}
-                          <a
-                            href={`#/day?d=${key}`}
-                            title={`${label} gününü aç`}
-                            aria-label={`${label} gününü aç`}
-                            className="shrink-0 text-muted transition hover:text-primary"
-                          >
-                            <ArrowUpRight size={14} />
-                          </a>
-                        </summary>
-                        <ul className="divide-y divide-subtle border-t border-subtle px-3.5">
-                          {dayEvents.map((event) => {
-                            const Icon = verbIcon(event.verb);
-                            const link = entityLink(event);
-                            return (
-                              <li key={event.id} className="flex items-start gap-2.5 py-2 text-body">
-                                <Icon
-                                  size={14}
-                                  className={cx("mt-1 shrink-0", event.is_alert ? "text-warn" : "text-icon")}
-                                />
-                                <span className={cx("min-w-0 flex-1", event.is_alert ? "text-warn" : "text-secondary")}>
-                                  {describe(event.verb, event.payload)}
-                                </span>
-                                {link && (
-                                  <a
-                                    href={link}
-                                    className="mt-0.5 flex shrink-0 items-center gap-0.5 text-meta text-muted transition hover:text-accent"
-                                  >
-                                    {typeLabel(event.entity_type ?? "")}
-                                    <ArrowUpRight size={12} />
-                                  </a>
-                                )}
-                                <span className="numeral mt-0.5 shrink-0 text-meta tabular-nums text-muted">
-                                  {formatTrDateTime(event.occurred_at, { hour: "2-digit", minute: "2-digit" })}
-                                </span>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </details>
-                    );
-                  })}
-
-                  {canLoadMore && (
-                    <div className="flex justify-center pt-1">
-                      <Button onClick={() => setLimit((current) => Math.min(MAX_LIMIT, current + PAGE_SIZE))}>
-                        Daha fazla yükle
-                      </Button>
-                    </div>
+                  {limit > PAGE_SIZE && (
+                    <Button size="sm" variant="ghost" onClick={() => setLimit(PAGE_SIZE)} title="Akışı ilk sayfaya al">
+                      başa al
+                    </Button>
                   )}
-                </>
-              )}
-            </div>
-          </Section>
-
-          {/* Gecmis degerlendirmeler: akisin ALTINDA, kapali gelir -- Activity'nin
-              odagi akis; degerlendirmenin kendi sayfasi var. */}
-          <div className="rounded-card border border-subtle bg-surface shadow-card">
-            <button
-              type="button"
-              onClick={() => setHistoryOpen((value) => !value)}
-              aria-expanded={historyOpen}
-              className="flex w-full items-center gap-2 px-3.5 py-2 text-left"
+                </div>
+              }
             >
-              {historyOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-              <span className="label-caps text-secondary">Değerlendirme geçmişi</span>
-              <span className="ml-auto text-meta text-muted">{historyOpen ? "gizle" : "göster"}</span>
-            </button>
-            {historyOpen && (
-              <div className="border-t border-subtle px-3.5 py-2">
-                {reviews.length === 0 ? (
-                  <p className="py-2 text-meta text-muted">Kaydedilmiş değerlendirme yok.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Tabs
+                  value={filter}
+                  onChange={(next) => setFilter(next)}
+                  ariaLabel="Hareket filtresi"
+                  items={FEED_FILTERS.map((item) => ({ id: item.id, label: item.label }))}
+                />
+                <Input
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Hareketlerde ara…"
+                  ariaLabel="Hareketlerde ara"
+                  className="h-8 w-full text-meta sm:ml-auto sm:w-56"
+                />
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {isLoading ? (
+                  <SkeletonRows rows={6} />
+                ) : data.length === 0 ? (
+                  <Empty>{query ? "Aramayla eşleşen hareket yok." : "Bu filtrede hareket yok."}</Empty>
                 ) : (
-                  <ul className="divide-y divide-subtle">
-                    {reviews.map((review) => (
-                      <li key={review.id}>
-                        <a
-                          href={`#/review/${review.kind}`}
-                          className="flex items-center gap-2.5 py-2 text-body text-secondary transition hover:text-primary"
+                  <>
+                    {dayEntries.map(({ key, label, events: dayEvents }) => {
+                      const alertCount = dayEvents.filter((event) => event.is_alert).length;
+                      const open = openDays.has(key);
+                      return (
+                        <details
+                          key={key}
+                          data-activity-day
+                          open={open}
+                          onToggle={(event) => setDayOpen(key, event.currentTarget.open)}
+                          className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
                         >
-                          <ClipboardCheck size={14} className="shrink-0 text-icon" />
-                          <span className="shrink-0 text-meta text-muted">
-                            {review.kind === "weekly" ? "Haftalık" : "Günlük"}
-                          </span>
-                          <span className="shrink-0 text-meta">
-                            {reviewLabel(review.period_start, review.period_end)}
-                          </span>
-                          {review.note && <span className="min-w-0 flex-1 truncate text-meta">{review.note}</span>}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+                          <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none">
+                            <ChevronDown
+                              className={cx("shrink-0 transition-transform", open && "rotate-180")}
+                              size={15}
+                            />
+                            <span className="label-caps truncate text-secondary">{label}</span>
+                            <span className="ml-auto shrink-0 text-meta text-muted">{dayEvents.length} hareket</span>
+                            {alertCount > 0 && (
+                              <span className="flex shrink-0 items-center gap-1.5 text-meta text-warn">
+                                <span className="h-1.5 w-1.5 rounded-full bg-warn" aria-hidden />
+                                {alertCount} uyarı
+                              </span>
+                            )}
+                            <a
+                              href={`#/day?d=${key}`}
+                              title={`${label} gününü aç`}
+                              aria-label={`${label} gününü aç`}
+                              className="shrink-0 text-muted transition hover:text-primary"
+                            >
+                              <ArrowUpRight size={14} />
+                            </a>
+                          </summary>
+                          <ul className="divide-y divide-subtle border-t border-subtle px-3.5">
+                            {dayEvents.map((event) => {
+                              const Icon = verbIcon(event.verb);
+                              const link = entityLink(event);
+                              return (
+                                <li key={event.id} className="flex items-start gap-2.5 py-2 text-body">
+                                  <Icon
+                                    size={14}
+                                    className={cx("mt-1 shrink-0", event.is_alert ? "text-warn" : "text-icon")}
+                                  />
+                                  <span
+                                    className={cx("min-w-0 flex-1", event.is_alert ? "text-warn" : "text-secondary")}
+                                  >
+                                    {describe(event.verb, event.payload)}
+                                  </span>
+                                  {link && (
+                                    <a
+                                      href={link}
+                                      className="mt-0.5 flex shrink-0 items-center gap-0.5 text-meta text-muted transition hover:text-accent"
+                                    >
+                                      {typeLabel(event.entity_type ?? "")}
+                                      <ArrowUpRight size={12} />
+                                    </a>
+                                  )}
+                                  <span className="numeral mt-0.5 shrink-0 text-meta tabular-nums text-muted">
+                                    {formatTrDateTime(event.occurred_at, { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </details>
+                      );
+                    })}
+
+                    {canLoadMore && (
+                      <div className="flex justify-center pt-1">
+                        <Button onClick={() => setLimit((current) => Math.min(MAX_LIMIT, current + PAGE_SIZE))}>
+                          Daha fazla yükle
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
-            )}
-          </div>
+            </Section>
+          </details>
         </WorkspaceScrollArea>
       </Workspace>
     </PageFrame>

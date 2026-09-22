@@ -146,7 +146,7 @@ const PRODUCT_AREAS: readonly ProductArea[] = [
   },
   {
     id: "finance",
-    label: "Finans",
+    label: "Abonelikler",
     icon: Wallet,
     placement: "primary",
     moduleIds: ["finance"],

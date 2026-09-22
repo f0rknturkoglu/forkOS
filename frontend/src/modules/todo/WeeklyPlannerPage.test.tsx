@@ -105,4 +105,20 @@ describe("WeeklyPlannerPage", () => {
     );
     expect(screen.getByText("Açık görevlerin hepsi planlandı.")).toBeTruthy();
   });
+
+  it("haftalık görünümde aynı görev oluşturucusu yeni işi seçili haftaya planlar", async () => {
+    render(<WeeklyPlannerPage />);
+    fireEvent.change(screen.getByLabelText("Görev başlığı"), { target: { value: "Yeni haftalık iş" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ekle" }));
+
+    await waitFor(() =>
+      expect(harness.apiPost).toHaveBeenCalledWith(
+        "/todos",
+        expect.objectContaining({
+          title: "Yeni haftalık iş",
+          plan_day: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        }),
+      ),
+    );
+  });
 });

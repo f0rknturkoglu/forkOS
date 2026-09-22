@@ -115,7 +115,8 @@ describe("ürün navigasyonu — satırlar", () => {
   it("Kütüphane satırları kendi domainlerini korur; Belgeler artık ürün yüzeyi değil", () => {
     expect(areaRows(area("library"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
       "Yer İmleri=/bookmarks",
-      "RSS=/rss",
+      "RSS & Akış=/feed",
+      "RSS Kaynakları=/rss",
       "Medya=/media",
       "Bilgi=/notes",
     ]);
@@ -125,7 +126,9 @@ describe("ürün navigasyonu — satırlar", () => {
   });
 
   it("Finans, Etkinlik ve Değerlendirme artık kök hedefler (uzun kuyruk yok)", () => {
-    expect(areaRows(area("finance"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual(["Finans=/finance"]);
+    expect(areaRows(area("finance"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
+      "Abonelikler=/finance",
+    ]);
     expect(areaRows(area("activity"), modules()).map((row) => `${row.label}=${row.path}`)).toEqual([
       "Etkinlik=/activity",
     ]);

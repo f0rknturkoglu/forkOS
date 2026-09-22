@@ -8,6 +8,8 @@ import { Button, Empty, IconButton, PageFrame, cx } from "@/core/ui";
 import type { PlanSlot, Todo } from "@/core/types";
 import { addAppDays, appWeekStartKey, formatTrDate, keyToUtc, localDateKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
+import { TodoComposer } from "./TodoComposer";
+import { PlanViews } from "./PlanViews";
 import {
   Workspace,
   WorkspacePaneHeader,
@@ -224,6 +226,10 @@ export function WeeklyPlannerPage() {
                 : "Görevleri günlere sürükleyerek yerleştir."}
             </p>
           </WorkspacePaneHeader>
+          <PlanViews view="week" />
+          <div className="border-b border-subtle bg-surface-sunken p-3">
+            <TodoComposer key={isoDay(week)} defaultPlanDay={isoDay(week)} />
+          </div>
           <WorkspaceScrollArea className="overflow-x-auto">
             <div className="grid min-w-calendar-week grid-cols-7">
               {days.map((day) => (

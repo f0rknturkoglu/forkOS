@@ -55,10 +55,6 @@ const MONTHLY = [
   },
 ];
 
-const REVIEWS = [
-  { id: "r1", kind: "weekly", period_start: "2026-08-17", period_end: "2026-08-23", note: "iyi haftaydı" },
-];
-
 function dayKey(offset: number): string {
   const date = new Date();
   date.setDate(date.getDate() - offset);
@@ -128,7 +124,6 @@ beforeEach(() => {
     if (path.startsWith("/activity/day")) return { day: "", events: [], kinds: {}, labels: {}, total: 0, other: 0 };
     if (path.startsWith("/activity?")) return feed(50);
     if (path.startsWith("/sources/health")) return [];
-    if (path.startsWith("/reviews")) return REVIEWS;
     throw new Error(`beklenmeyen çağrı: ${path}`);
   });
 });
@@ -255,16 +250,13 @@ describe("Etkinlik — hareket akışı", () => {
     expect(requested("/sources/health")).toHaveLength(0);
   });
 
-  it("değerlendirme geçmişi kapalı gelir, açılınca listelenir", async () => {
+  it("ham geçmişi ikincil tutar ve Review arşivini kopyalamaz", async () => {
     renderPage();
     await waitFor(() => expect(requested("/activity?")).toHaveLength(1));
-
-    expect(screen.queryByText("Haftalık")).toBeNull();
+    const details = screen.getByText("Detaylı geçmiş").closest("details");
+    expect(details?.hasAttribute("open")).toBe(false);
+    expect(screen.getByText("Ritim")).toBeTruthy();
+    expect(screen.queryByText("Değerlendirme geçmişi")).toBeNull();
     expect(requested("/reviews")).toHaveLength(0);
-
-    fireEvent.click(screen.getByRole("button", { name: /Değerlendirme geçmişi/ }));
-
-    expect(await screen.findByText("Haftalık")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Haftalık/ }).getAttribute("href")).toBe("#/review/weekly");
   });
 });

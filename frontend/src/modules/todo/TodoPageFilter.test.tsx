@@ -119,7 +119,7 @@ describe("TodoPage kayitli gorunumler (Faz 26)", () => {
 
     expect(await screen.findByText("Görev c")).toBeTruthy();
     for (const label of ["açık", "devam", "tamam", "bırakılan", "tümü", "Rutinler"]) {
-      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
   });
 });

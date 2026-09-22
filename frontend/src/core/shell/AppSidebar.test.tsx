@@ -70,14 +70,14 @@ describe("AppSidebar — ürün navigasyonu", () => {
 
     // Alt satırı olan alanlar katlanır düğme; tek hedefli alanlar bağlantı.
     for (const label of ["Plan", "Öğrenme", "Kütüphane"]) {
-      expect(screen.getByRole("button", { name: label })).toBeTruthy();
-      expect(screen.queryByRole("link", { name: label })).toBeNull();
+      expect(screen.getByRole("button", { name: new RegExp(`^${label} alt menüsünü`) })).toBeTruthy();
+      expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
     for (const [label, href] of [
       ["Home", "#/"],
       ["Projeler", "#/projects"],
       ["Kariyer", "#/opportunities"],
-      ["Finans", "#/finance"],
+      ["Abonelikler", "#/finance"],
       ["Etkinlik", "#/activity"],
       ["Değerlendirme", "#/review/weekly"],
     ] as const) {
@@ -90,7 +90,7 @@ describe("AppSidebar — ürün navigasyonu", () => {
 
     expect(screen.queryByText("Daha fazla")).toBeNull();
     expect(screen.queryByRole("button", { name: "Daha fazla" })).toBeNull();
-    expect(screen.getByRole("link", { name: "Finans" }).getAttribute("href")).toBe("#/finance");
+    expect(screen.getByRole("link", { name: "Abonelikler" }).getAttribute("href")).toBe("#/finance");
     expect(screen.getByRole("link", { name: "Etkinlik" }).getAttribute("href")).toBe("#/activity");
     expect(screen.getByRole("link", { name: "Değerlendirme" }).getAttribute("href")).toBe("#/review/weekly");
   });
@@ -130,11 +130,11 @@ describe("AppSidebar — ürün navigasyonu", () => {
     renderSidebar("/");
 
     // Kök alanlar her zaman görünür (bağlantı ya da katlanır başlık).
-    for (const label of ["Home", "Projeler", "Kariyer", "Finans", "Etkinlik", "Değerlendirme"]) {
+    for (const label of ["Home", "Projeler", "Kariyer", "Abonelikler", "Etkinlik", "Değerlendirme"]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
     for (const label of ["Plan", "Öğrenme", "Kütüphane"]) {
-      expect(screen.getByRole("button", { name: label })).toBeTruthy();
+      expect(screen.getByRole("button", { name: new RegExp(`^${label} alt menüsünü`) })).toBeTruthy();
     }
     // Alt satırlar kapalı: sakin varsayılan. Satırlar DOM'da durur ama
     // bölgeleri `hidden`dır (klavye erişimi dışında).
@@ -143,28 +143,30 @@ describe("AppSidebar — ürün navigasyonu", () => {
       ["library", "Kütüphane"],
       ["learning", "Öğrenme"],
     ] as const) {
-      expect(screen.getByRole("button", { name: label }).getAttribute("aria-expanded")).toBe("false");
+      expect(
+        screen.getByRole("button", { name: new RegExp(`^${label} alt menüsünü`) }).getAttribute("aria-expanded"),
+      ).toBe("false");
       expect(document.getElementById(`sidebar-area-${areaId}`)?.className).toContain("hidden");
     }
   });
 
   it("katlanır satır tek parça: satırın tamamı açar, ok ayrı hedef değil", () => {
     renderSidebar("/");
-    const plan = screen.getByRole("button", { name: "Plan" });
+    const plan = screen.getByRole("button", { name: /^Plan alt menüsünü/ });
 
     // Tek geometri: h-9 satır; içinde ayrı bir okma düğmesi yok.
-    expect(plan.className).toContain("h-9");
-    expect(plan.className).toContain("w-full");
+    expect(plan.closest(".h-9")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Plan" }).getAttribute("href")).toBe("#/todos");
     expect(screen.queryByRole("button", { name: "Plan alt satırları aç" })).toBeNull();
     expect(plan.getAttribute("aria-controls")).toBe("sidebar-area-plan");
 
     fireEvent.click(plan);
-    expect(screen.getByRole("button", { name: "Plan" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Plan alt menüsünü/ }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("katlanır satır gezinmez: tıklama rota değiştirmez", () => {
     const { onCloseMobile } = renderSidebar("/");
-    fireEvent.click(screen.getByRole("button", { name: "Kütüphane" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Kütüphane alt menüsünü/ }));
 
     expect(location.hash).not.toContain("/bookmarks");
     expect(onCloseMobile).not.toHaveBeenCalled();
@@ -176,7 +178,9 @@ describe("AppSidebar — ürün navigasyonu", () => {
 
     fireEvent.click(expandAll);
     for (const label of ["Plan", "Öğrenme", "Kütüphane"]) {
-      expect(screen.getByRole("button", { name: label }).getAttribute("aria-expanded")).toBe("true");
+      expect(
+        screen.getByRole("button", { name: new RegExp(`^${label} alt menüsünü`) }).getAttribute("aria-expanded"),
+      ).toBe("true");
     }
     expect(JSON.parse(localStorage.getItem("forkos.sidebar.areas") ?? "[]").sort()).toEqual([
       "learning",
@@ -186,7 +190,9 @@ describe("AppSidebar — ürün navigasyonu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tümünü daralt" }));
     for (const label of ["Plan", "Öğrenme", "Kütüphane"]) {
-      expect(screen.getByRole("button", { name: label }).getAttribute("aria-expanded")).toBe("false");
+      expect(
+        screen.getByRole("button", { name: new RegExp(`^${label} alt menüsünü`) }).getAttribute("aria-expanded"),
+      ).toBe("false");
     }
     expect(JSON.parse(localStorage.getItem("forkos.sidebar.areas") ?? "[]")).toEqual([]);
     // Alt rotalar hâlâ erişilebilir: satırlar DOM'da durur, yalnız gizlenir.
@@ -196,30 +202,30 @@ describe("AppSidebar — ürün navigasyonu", () => {
   it("aktif rota kendi alanını otomatik açar", async () => {
     renderSidebar("/pomodoro");
     expect(await screen.findByRole("link", { name: "Odak" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Plan" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Plan alt menüsünü/ }).getAttribute("aria-expanded")).toBe("true");
 
     cleanup();
     renderSidebar("/rss");
-    expect(await screen.findByRole("link", { name: "RSS" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Kütüphane" }).getAttribute("aria-expanded")).toBe("true");
+    expect(await screen.findByRole("link", { name: "RSS Kaynakları" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Kütüphane alt menüsünü/ }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("kütüphane altında Medya ve Bilgi var; Okuma Akışı ayrı satır değil", async () => {
     renderSidebar("/media");
     expect(await screen.findByRole("link", { name: "Medya" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Bilgi" }).getAttribute("href")).toBe("#/notes");
-    expect(screen.queryByRole("link", { name: "Okuma Akışı" })).toBeNull();
+    expect(screen.getByRole("link", { name: "RSS & Akış" })).toBeTruthy();
     expect(allRoutes().some((route) => route.path === "/feed")).toBe(true);
   });
 
   it("alt satırlar kök satırdan hafif küçük ve girintili", async () => {
     renderSidebar("/media");
-    const root = screen.getByRole("button", { name: "Kütüphane" });
+    const root = screen.getByRole("button", { name: /^Kütüphane alt menüsünü/ });
     const child = await screen.findByRole("link", { name: "Medya" });
 
     // Kök: h-9 + 16px ikon; alt satır: h-8 + girinti + 14px ikon.
-    expect(root.className).toContain("h-9");
-    expect(root.querySelector("svg")?.getAttribute("width")).toBe("16");
+    expect(root.closest(".h-9")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Kütüphane" }).querySelector("svg")?.getAttribute("width")).toBe("16");
     expect(child.className).toContain("h-8");
     expect(child.className).toContain("pl-6");
     expect(child.querySelector("svg")?.getAttribute("width")).toBe("14");
@@ -239,22 +245,24 @@ describe("AppSidebar — ürün navigasyonu", () => {
 
     expect(screen.getByRole("link", { name: "Takvim" }).getAttribute("aria-current")).toBe("page");
     // Plan alanı başlığı da aktif bölgede kalır (alan vurgusu).
-    expect(screen.getByRole("button", { name: "Plan" }).className).toContain("bg-surface-selected");
-    expect(screen.getByRole("button", { name: "Kütüphane" }).className).not.toContain("bg-surface-selected");
+    expect(screen.getByRole("link", { name: "Plan" }).closest(".h-9")?.className).toContain("bg-surface-selected");
+    expect(screen.getByRole("link", { name: "Kütüphane" }).closest(".h-9")?.className).not.toContain(
+      "bg-surface-selected",
+    );
   });
 
   it("tek hedefli alan aktifken de bağlantı olarak işaretlenir", () => {
     renderSidebar("/finance");
-    expect(screen.getByRole("link", { name: "Finans" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Abonelikler" }).getAttribute("aria-current")).toBe("page");
   });
 
   it("aç/kapa tercihini saklar (temiz kurulumda kapalı)", () => {
     renderSidebar("/");
-    fireEvent.click(screen.getByRole("button", { name: "Plan" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Plan alt menüsünü/ }));
     expect(localStorage.getItem("forkos.sidebar.areas")).toContain("plan");
-    expect(screen.getByRole("button", { name: "Plan" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Plan alt menüsünü/ }).getAttribute("aria-expanded")).toBe("true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Plan" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Plan alt menüsünü/ }));
     expect(localStorage.getItem("forkos.sidebar.areas")).not.toContain("plan");
   });
 
@@ -368,6 +376,6 @@ describe("AppSidebar — ürün navigasyonu", () => {
   it("daraltılmış ray modunda aktif alt rota alan butonunu vurgular", () => {
     renderSidebar("/calendar", "", { collapsed: true });
     const planBtn = screen.getByRole("button", { name: "Plan" });
-    expect(planBtn.className).toContain("bg-surface-selected");
+    expect(planBtn.closest(".h-9")?.className).toContain("bg-surface-selected");
   });
 });
