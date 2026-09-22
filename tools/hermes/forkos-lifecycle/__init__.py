@@ -50,7 +50,7 @@ def _send(base_url: str, payload: dict[str, object]) -> int:
         )
         response = connection.getresponse()
         response.read(256)
-        if response.status >= 400:
+        if not (200 <= response.status < 300):
             raise OSError(f"HTTP {response.status}")
         return response.status
     finally:

@@ -87,6 +87,64 @@ def test_server_down_and_stall_fail_open() -> None:
         server.shutdown()
 
 
+def test_http_status_semantics() -> None:
+    plugin = load(PLUGIN, "forkos_lifecycle_status_semantics_test")
+
+    current_status = 200
+
+    class StatusHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.send_response(current_status)
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, *_):
+            pass
+
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+
+    with Server(("127.0.0.1", 0), StatusHandler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+        before, finalize = plugin.make_hooks(base_url)
+
+        # 2xx: Success
+        for status in (200, 201, 204):
+            current_status = status
+            assert plugin._send(base_url, {"schema_version": 1}) == status
+            assert before(session_id="sid", turn_id="t1", is_first_turn=True) is None
+            assert finalize(session_id="sid") is None
+
+        # 3xx: Fail-open (not accepted as success, but never crashes Hermes conversation)
+        for status in (301, 302, 307, 308):
+            current_status = status
+            with pytest.raises(OSError, match=f"HTTP {status}"):
+                plugin._send(base_url, {"schema_version": 1})
+            assert before(session_id="sid", turn_id="t1", is_first_turn=True) is None
+            assert finalize(session_id="sid") is None
+
+        # 4xx: Fail-open
+        for status in (400, 404, 409, 422):
+            current_status = status
+            with pytest.raises(OSError, match=f"HTTP {status}"):
+                plugin._send(base_url, {"schema_version": 1})
+            assert before(session_id="sid", turn_id="t1", is_first_turn=True) is None
+            assert finalize(session_id="sid") is None
+
+        # 5xx: Fail-open
+        for status in (500, 502, 503):
+            current_status = status
+            with pytest.raises(OSError, match=f"HTTP {status}"):
+                plugin._send(base_url, {"schema_version": 1})
+            assert before(session_id="sid", turn_id="t1", is_first_turn=True) is None
+            assert finalize(session_id="sid") is None
+
+        server.shutdown()
+
+
 def test_installer_refuses_unmanaged_or_edited_plugin(tmp_path: Path) -> None:
     installer = load(INSTALLER, "forkos_lifecycle_installer_test")
     target = installer.install(tmp_path)
