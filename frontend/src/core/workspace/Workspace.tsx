@@ -184,3 +184,67 @@ export function WorkspaceInspectorContent({
     </div>
   );
 }
+
+/**
+ * U2 Page-Local Toolbar sözleşmesi.
+ *
+ * Global header'ı kirletmeden sayfa içi filtre, görünüm, sıralama ve birincil
+ * eylemleri (filter, sort, view, action) taşır. U3 pilot ekranları bu sözleşmeyi
+ * kullanarak kendi araçlarını yerleştirecektir.
+ */
+export function WorkspaceToolbar({
+  left,
+  right,
+  children,
+  className,
+}: {
+  left?: ReactNode;
+  right?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      role="toolbar"
+      aria-orientation="horizontal"
+      className={cx(
+        "flex h-10 shrink-0 items-center justify-between gap-3 border-b border-subtle bg-surface px-4 text-body",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar">
+        {left ?? children}
+      </div>
+      {right ? <div className="flex shrink-0 items-center gap-2">{right}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * U2 Bounded-Content vs Full-Width-Workspace sözleşmesi.
+ *
+ * - "bounded": Metin ağırlıklı, okuma/ayar/detay akışları için sakin max-width (max-w-5xl).
+ * - "full": RSS, Projeler, Fırsatlar gibi yoğun veri tabloları, panolar veya split görünümler
+ *   için tüm genişliği ve yüksekliği kullanan tam çalışma alanı (w-full).
+ */
+export function WorkspaceBody({
+  mode = "full",
+  children,
+  className,
+}: {
+  mode?: "bounded" | "full";
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cx(
+        "min-h-0 flex-1",
+        mode === "bounded" ? "mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8" : "w-full",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}

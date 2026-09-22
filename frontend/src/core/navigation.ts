@@ -251,19 +251,24 @@ function areaRoutes(area: ProductArea, modules: readonly ModuleSpec[]): string[]
   return paths;
 }
 
-/** Path'in ait olduğu ürün alanı (tam eşleşme global olarak kazanır). */
+/** Path'in ait olduğu ürün alanı (tam eşleşme global olarak kazanır, derin alt rota öneki yedekler). */
 export function areaForPath(path: string, modules: readonly ModuleSpec[]): ProductArea | undefined {
   const candidates = PRODUCT_AREAS.flatMap((area) => areaRoutes(area, modules).map((route) => ({ path: route, area })));
-  return findRouteMatch(candidates, path)?.area;
+  const direct = findRouteMatch(candidates, path)?.area;
+  if (direct) return direct;
+  return candidates.find((c) => c.path !== "/" && path.startsWith(`${c.path}/`))?.area;
 }
 
 export function areasAt(placement: NavigationPlacement): ProductArea[] {
   return PRODUCT_AREAS.filter((area) => area.placement === placement);
 }
 
-/** Satır aktif mi: rota eşleşmesi + varsa derin görünüm sorgusu. */
+/** Satır aktif mi: rota eşleşmesi (veya alt rota öneki) + varsa derin görünüm sorgusu. */
 export function rowIsActive(row: NavigationRow, path: string, params: URLSearchParams): boolean {
-  if (!findRouteMatch([{ path: row.path }], path)) return false;
+  const matchesRoute =
+    Boolean(findRouteMatch([{ path: row.path }], path)) ||
+    (row.path !== "/" && path.startsWith(`${row.path}/`));
+  if (!matchesRoute) return false;
   if (!row.query) return true;
   for (const [key, value] of new URLSearchParams(row.query)) {
     if (params.get(key) !== value) return false;
@@ -271,14 +276,18 @@ export function rowIsActive(row: NavigationRow, path: string, params: URLSearchP
   return true;
 }
 
-/** Alanın kendi satırı aktif mi (alan içindeki herhangi bir rota). */
+/** Alanın kendi satırı aktif mi (alan içindeki herhangi bir rota veya alt rota). */
 export function areaIsActive(area: ProductArea, path: string, modules: readonly ModuleSpec[]): boolean {
-  return Boolean(
+  const routes = areaRoutes(area, modules);
+  if (
     findRouteMatch(
-      areaRoutes(area, modules).map((route) => ({ path: route })),
+      routes.map((route) => ({ path: route })),
       path,
-    ),
-  );
+    )
+  ) {
+    return true;
+  }
+  return routes.some((route) => route !== "/" && path.startsWith(`${route}/`));
 }
 
 /** Bir modülün birincil rota yolu; sidebar dışı satırlar (ör. sabitlenmiş görünüm) için. */

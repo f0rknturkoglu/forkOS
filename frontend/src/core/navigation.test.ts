@@ -195,4 +195,14 @@ describe("ürün navigasyonu — satırlar", () => {
     expect(rowIsActive(tekrar, "/learning", new URLSearchParams())).toBe(false);
     expect(rowIsActive(tekrar, "/flashcard", new URLSearchParams("view=review"))).toBe(false);
   });
+
+  it("derin alt rotalarda parent alan ve satır aktif kalır", () => {
+    expect(areaForPath("/projects/p-12345", modules())?.id).toBe("projects");
+    const projectRow = areaRows(area("projects"), modules()).find((row) => row.path === "/projects")!;
+    expect(rowIsActive(projectRow, "/projects/p-12345", new URLSearchParams())).toBe(true);
+
+    expect(areaForPath("/opportunities/opp-999", modules())?.id).toBe("career");
+    const oppRow = areaRows(area("career"), modules()).find((row) => row.path === "/opportunities")!;
+    expect(rowIsActive(oppRow, "/opportunities/opp-999", new URLSearchParams())).toBe(true);
+  });
 });

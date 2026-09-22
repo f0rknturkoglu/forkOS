@@ -2,12 +2,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   Workspace,
+  WorkspaceBody,
   WorkspaceInspectorContent,
   WorkspacePaneHeader,
   WorkspaceRailButton,
   WorkspaceRailContent,
   WorkspaceRailGroup,
   WorkspaceScrollArea,
+  WorkspaceToolbar,
 } from "./Workspace";
 
 describe("workspace primitives", () => {
@@ -55,5 +57,35 @@ describe("workspace primitives", () => {
 
     expect(markup).toContain("lg:grid-cols-workspace-wide-rail");
     expect(markup).toContain('class="break-words text-heading text-primary"');
+  });
+
+  it("renders page-local toolbar with left and right action slots", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceToolbar
+        left={<span>Filtreler</span>}
+        right={<button type="button">Yeni Ekle</button>}
+      />,
+    );
+
+    expect(markup).toContain('role="toolbar"');
+    expect(markup).toContain("Filtreler");
+    expect(markup).toContain("Yeni Ekle");
+  });
+
+  it("supports bounded vs full-width workspace body modes", () => {
+    const boundedMarkup = renderToStaticMarkup(
+      <WorkspaceBody mode="bounded">
+        <div>İçerik</div>
+      </WorkspaceBody>,
+    );
+    expect(boundedMarkup).toContain("max-w-5xl");
+
+    const fullMarkup = renderToStaticMarkup(
+      <WorkspaceBody mode="full">
+        <div>Tablo</div>
+      </WorkspaceBody>,
+    );
+    expect(fullMarkup).toContain("w-full");
+    expect(fullMarkup).not.toContain("max-w-5xl");
   });
 });
