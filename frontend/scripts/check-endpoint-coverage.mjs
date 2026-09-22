@@ -43,6 +43,9 @@ const EXEMPT = new Set([
   // Hermes host plugin'i tarafından tüketilir; tarayıcı yazma çağrısı değildir.
   "/api/agent/lifecycle/event",
   "/api/agent/lifecycle/turn",
+  // A3 tur/mühürleme: Hermes host plugin'i tarafından tüketilir; tarayıcı yazma çağrısı değildir.
+  "/api/agent/episode/turn",
+  "/api/agent/episode/finalize",
 ]);
 
 function isCalled(path) {

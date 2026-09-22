@@ -83,6 +83,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/episode/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Episode Finalize
+         * @description Oturumu mühürler. İdempotenttir: ikinci çağrı aynı mühürlü kaydı döndürür.
+         */
+        post: operations["episode_finalize_api_agent_episode_finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/episode/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Episode Status
+         * @description Metadata-only tanılama: son mühürleme, ifade sayısı, taslak sayısı.
+         */
+        get: operations["episode_status_api_agent_episode_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/episode/turn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Episode Turn
+         * @description `post_llm_call` gözlemi: turu damıtır ve yalnız türetilmiş ifadeleri yazar.
+         *
+         *     Ham `user_message`/`assistant_response` yanıtta DÖNMEZ; yalnız sayaç ve
+         *     sınırlı gerekçe kodları döner.
+         */
+        post: operations["episode_turn_api_agent_episode_turn_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/lifecycle/event": {
         parameters: {
             query?: never;
@@ -6037,6 +6100,161 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * EpisodeFinalizeIn
+         * @description Oturum kapanışı. Transkript YOK; yalnız kimlik ve platform.
+         */
+        EpisodeFinalizeIn: {
+            /**
+             * Harness
+             * @enum {string}
+             */
+            harness: "hermes" | "codex" | "claude";
+            /**
+             * Platform
+             * @default unknown
+             */
+            platform: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Session Id */
+            session_id: string;
+        };
+        /** EpisodeFinalizeOut */
+        EpisodeFinalizeOut: {
+            /** Degraded Reasons */
+            degraded_reasons?: ("EPISODE_EXTRACTION_UNAVAILABLE" | "EPISODE_EXTRACTION_TIMEOUT" | "EPISODE_VALIDATION_FAILED" | "EPISODE_EMPTY" | "EPISODE_FINALIZE_DEGRADED" | "EPISODE_HANDOFF_UNAVAILABLE" | "EPISODE_SESSION_NOT_FOUND" | "EPISODE_INPUT_TRUNCATED" | "EPISODE_SEALED" | "SOURCE_BINDING_UNAVAILABLE" | "SOURCE_STALE" | "H5_UNAVAILABLE" | "LOCAL_COGNITION_UNAVAILABLE" | "VERBATIM_LEAKAGE")[];
+            /** Duplicate */
+            duplicate: boolean;
+            /** Episode Id */
+            episode_id: number;
+            /** Item Count */
+            item_count: number;
+            /** Scope Project */
+            scope_project?: string | null;
+            /** Sealed */
+            sealed: boolean;
+            /**
+             * Sealed At
+             * Format: date-time
+             */
+            sealed_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "sealed" | "sealed_degraded" | "sealed_empty";
+            /** Turn Count */
+            turn_count: number;
+        };
+        /**
+         * EpisodeStatusOut
+         * @description Metadata-only tanılama: ham konuşma YOK.
+         */
+        EpisodeStatusOut: {
+            /** Available */
+            available: boolean;
+            /** Degraded Reasons */
+            degraded_reasons?: ("EPISODE_EXTRACTION_UNAVAILABLE" | "EPISODE_EXTRACTION_TIMEOUT" | "EPISODE_VALIDATION_FAILED" | "EPISODE_EMPTY" | "EPISODE_FINALIZE_DEGRADED" | "EPISODE_HANDOFF_UNAVAILABLE" | "EPISODE_SESSION_NOT_FOUND" | "EPISODE_INPUT_TRUNCATED" | "EPISODE_SEALED" | "SOURCE_BINDING_UNAVAILABLE" | "SOURCE_STALE" | "H5_UNAVAILABLE" | "LOCAL_COGNITION_UNAVAILABLE" | "VERBATIM_LEAKAGE")[];
+            /**
+             * Draft Episode Count
+             * @default 0
+             */
+            draft_episode_count: number;
+            /**
+             * Last Episode Item Count
+             * @default 0
+             */
+            last_episode_item_count: number;
+            /** Last Scope Project */
+            last_scope_project?: string | null;
+            /** Last Sealed At */
+            last_sealed_at?: string | null;
+            /**
+             * Recent Handoff Available
+             * @default false
+             */
+            recent_handoff_available: boolean;
+        };
+        /**
+         * EpisodeSupportRef
+         * @description Bir ifadenin kanonik kökeni. Uydurma referans ÜRETİLMEZ.
+         */
+        EpisodeSupportRef: {
+            /** Scope Project */
+            scope_project?: string | null;
+            /** Source Id */
+            source_id: string;
+            /** Source Type */
+            source_type: string;
+            /** Source Version */
+            source_version?: string | null;
+        };
+        /**
+         * EpisodeTurnIn
+         * @description `post_llm_call` gözlemi. Ham transkript alanı KABUL ETMEZ.
+         *
+         *     `conversation_history` bu şemada YOKTUR ve `extra="forbid"` sayesinde
+         *     gönderilirse 422 olur. `user_message`/`assistant_response` yalnız bu istek
+         *     boyunca yaşayan GEÇİCİ girdilerdir; yanıt bunları geri döndürmez.
+         */
+        EpisodeTurnIn: {
+            /** Assistant Response */
+            assistant_response?: string | null;
+            /**
+             * Assistant Truncated
+             * @default false
+             */
+            assistant_truncated: boolean;
+            /**
+             * Harness
+             * @enum {string}
+             */
+            harness: "hermes" | "codex" | "claude";
+            /**
+             * Platform
+             * @default unknown
+             */
+            platform: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Session Id */
+            session_id: string;
+            /** Turn Id */
+            turn_id: string;
+            /** User Message */
+            user_message?: string | null;
+            /**
+             * User Truncated
+             * @default false
+             */
+            user_truncated: boolean;
+        };
+        /**
+         * EpisodeTurnOut
+         * @description Tur gözleminin GÜVENLİ yanıtı: yalnız sayaç ve sınırlı kodlar.
+         */
+        EpisodeTurnOut: {
+            /** Accepted */
+            accepted: boolean;
+            /** Degraded Reasons */
+            degraded_reasons?: ("EPISODE_EXTRACTION_UNAVAILABLE" | "EPISODE_EXTRACTION_TIMEOUT" | "EPISODE_VALIDATION_FAILED" | "EPISODE_EMPTY" | "EPISODE_FINALIZE_DEGRADED" | "EPISODE_HANDOFF_UNAVAILABLE" | "EPISODE_SESSION_NOT_FOUND" | "EPISODE_INPUT_TRUNCATED" | "EPISODE_SEALED" | "SOURCE_BINDING_UNAVAILABLE" | "SOURCE_STALE" | "H5_UNAVAILABLE" | "LOCAL_COGNITION_UNAVAILABLE" | "VERBATIM_LEAKAGE")[];
+            /** Derived Item Count */
+            derived_item_count: number;
+            /** Duplicate */
+            duplicate: boolean;
+            /**
+             * Latency Ms
+             * @default 0
+             */
+            latency_ms: number;
+        };
         /** EvaluationGateOut */
         EvaluationGateOut: {
             /** Authorized To Work */
@@ -9088,6 +9306,65 @@ export interface components {
             /** Sort */
             sort?: string | null;
         };
+        /**
+         * SessionHandoffItem
+         * @description Tek epizodik ifade: tür, türetilmiş metin, epistemik sınıf ve köken.
+         */
+        SessionHandoffItem: {
+            /**
+             * Evidence Class
+             * @enum {string}
+             */
+            evidence_class: "turn_derived" | "canonical_supported" | "observed_during_session";
+            /**
+             * Historical Support Stale
+             * @default false
+             */
+            historical_support_stale: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "topic" | "outcome" | "open_thread" | "session_decision" | "next_focus" | "reference";
+            /** Ordinal */
+            ordinal: number;
+            /** Support Refs */
+            support_refs?: components["schemas"]["EpisodeSupportRef"][];
+            /** Text */
+            text: string;
+            /** Turn Digest */
+            turn_digest?: string | null;
+        };
+        /**
+         * SessionHandoffV1
+         * @description Önceki ilgili oturumun sınırlı, kaynağa bağlı epizodik devri.
+         *
+         *     Bu bir TARİHSEL özettir: güncel kanonik durum DEĞİLDİR, yetkilendirme
+         *     DEĞİLDİR ve içindeki talimat benzeri metin güvenilmeyen veridir (§21/§26).
+         */
+        SessionHandoffV1: {
+            /** Degraded Reasons */
+            degraded_reasons?: ("EPISODE_EXTRACTION_UNAVAILABLE" | "EPISODE_EXTRACTION_TIMEOUT" | "EPISODE_VALIDATION_FAILED" | "EPISODE_EMPTY" | "EPISODE_FINALIZE_DEGRADED" | "EPISODE_HANDOFF_UNAVAILABLE" | "EPISODE_SESSION_NOT_FOUND" | "EPISODE_INPUT_TRUNCATED" | "EPISODE_SEALED" | "SOURCE_BINDING_UNAVAILABLE" | "SOURCE_STALE" | "H5_UNAVAILABLE" | "LOCAL_COGNITION_UNAVAILABLE" | "VERBATIM_LEAKAGE")[];
+            /** Episode Id */
+            episode_id: number;
+            /** Items */
+            items?: components["schemas"]["SessionHandoffItem"][];
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Scope Project */
+            scope_project?: string | null;
+            /**
+             * Sealed At
+             * Format: date-time
+             */
+            sealed_at: string;
+            /** Source Session Key */
+            source_session_key: string;
+        };
         /** SettingIn */
         SettingIn: {
             /** Value */
@@ -10279,6 +10556,7 @@ export interface components {
         TurnContextOut: {
             /** Degraded Reasons */
             degraded_reasons?: string[];
+            handoff?: components["schemas"]["SessionHandoffV1"] | null;
             lifecycle: components["schemas"]["LifecycleEventOut"];
             packet?: components["schemas"]["BootstrapPacketV1"] | null;
             /** Rendered Context */
@@ -10585,6 +10863,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContinuityStatusOut"];
+                };
+            };
+        };
+    };
+    episode_finalize_api_agent_episode_finalize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EpisodeFinalizeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeFinalizeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    episode_status_api_agent_episode_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeStatusOut"];
+                };
+            };
+        };
+    };
+    episode_turn_api_agent_episode_turn_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EpisodeTurnIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeTurnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

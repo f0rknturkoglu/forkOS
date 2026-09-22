@@ -3803,6 +3803,391 @@
         "title": "EntityOut",
         "type": "object"
       },
+      "EpisodeFinalizeIn": {
+        "additionalProperties": false,
+        "description": "Oturum kapanışı. Transkript YOK; yalnız kimlik ve platform.",
+        "properties": {
+          "harness": {
+            "enum": [
+              "hermes",
+              "codex",
+              "claude"
+            ],
+            "title": "Harness",
+            "type": "string"
+          },
+          "platform": {
+            "default": "unknown",
+            "maxLength": 64,
+            "title": "Platform",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "session_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "harness",
+          "session_id"
+        ],
+        "title": "EpisodeFinalizeIn",
+        "type": "object"
+      },
+      "EpisodeFinalizeOut": {
+        "properties": {
+          "degraded_reasons": {
+            "items": {
+              "enum": [
+                "EPISODE_EXTRACTION_UNAVAILABLE",
+                "EPISODE_EXTRACTION_TIMEOUT",
+                "EPISODE_VALIDATION_FAILED",
+                "EPISODE_EMPTY",
+                "EPISODE_FINALIZE_DEGRADED",
+                "EPISODE_HANDOFF_UNAVAILABLE",
+                "EPISODE_SESSION_NOT_FOUND",
+                "EPISODE_INPUT_TRUNCATED",
+                "EPISODE_SEALED",
+                "SOURCE_BINDING_UNAVAILABLE",
+                "SOURCE_STALE",
+                "H5_UNAVAILABLE",
+                "LOCAL_COGNITION_UNAVAILABLE",
+                "VERBATIM_LEAKAGE"
+              ],
+              "type": "string"
+            },
+            "title": "Degraded Reasons",
+            "type": "array"
+          },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "episode_id": {
+            "title": "Episode Id",
+            "type": "integer"
+          },
+          "item_count": {
+            "maximum": 12.0,
+            "minimum": 0.0,
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "scope_project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Project"
+          },
+          "sealed": {
+            "title": "Sealed",
+            "type": "boolean"
+          },
+          "sealed_at": {
+            "format": "date-time",
+            "title": "Sealed At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "sealed",
+              "sealed_degraded",
+              "sealed_empty"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turn_count": {
+            "minimum": 0.0,
+            "title": "Turn Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sealed",
+          "duplicate",
+          "status",
+          "episode_id",
+          "item_count",
+          "turn_count",
+          "sealed_at"
+        ],
+        "title": "EpisodeFinalizeOut",
+        "type": "object"
+      },
+      "EpisodeStatusOut": {
+        "description": "Metadata-only tanılama: ham konuşma YOK.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "degraded_reasons": {
+            "items": {
+              "enum": [
+                "EPISODE_EXTRACTION_UNAVAILABLE",
+                "EPISODE_EXTRACTION_TIMEOUT",
+                "EPISODE_VALIDATION_FAILED",
+                "EPISODE_EMPTY",
+                "EPISODE_FINALIZE_DEGRADED",
+                "EPISODE_HANDOFF_UNAVAILABLE",
+                "EPISODE_SESSION_NOT_FOUND",
+                "EPISODE_INPUT_TRUNCATED",
+                "EPISODE_SEALED",
+                "SOURCE_BINDING_UNAVAILABLE",
+                "SOURCE_STALE",
+                "H5_UNAVAILABLE",
+                "LOCAL_COGNITION_UNAVAILABLE",
+                "VERBATIM_LEAKAGE"
+              ],
+              "type": "string"
+            },
+            "title": "Degraded Reasons",
+            "type": "array"
+          },
+          "draft_episode_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Draft Episode Count",
+            "type": "integer"
+          },
+          "last_episode_item_count": {
+            "default": 0,
+            "maximum": 12.0,
+            "minimum": 0.0,
+            "title": "Last Episode Item Count",
+            "type": "integer"
+          },
+          "last_scope_project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Scope Project"
+          },
+          "last_sealed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sealed At"
+          },
+          "recent_handoff_available": {
+            "default": false,
+            "title": "Recent Handoff Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "EpisodeStatusOut",
+        "type": "object"
+      },
+      "EpisodeSupportRef": {
+        "additionalProperties": false,
+        "description": "Bir ifadenin kanonik kökeni. Uydurma referans ÜRETİLMEZ.",
+        "properties": {
+          "scope_project": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Project"
+          },
+          "source_id": {
+            "maxLength": 128,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_type": {
+            "maxLength": 32,
+            "title": "Source Type",
+            "type": "string"
+          },
+          "source_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_type"
+        ],
+        "title": "EpisodeSupportRef",
+        "type": "object"
+      },
+      "EpisodeTurnIn": {
+        "additionalProperties": false,
+        "description": "`post_llm_call` gözlemi. Ham transkript alanı KABUL ETMEZ.\n\n`conversation_history` bu şemada YOKTUR ve `extra=\"forbid\"` sayesinde\ngönderilirse 422 olur. `user_message`/`assistant_response` yalnız bu istek\nboyunca yaşayan GEÇİCİ girdilerdir; yanıt bunları geri döndürmez.",
+        "properties": {
+          "assistant_response": {
+            "anyOf": [
+              {
+                "maxLength": 6000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistant Response"
+          },
+          "assistant_truncated": {
+            "default": false,
+            "title": "Assistant Truncated",
+            "type": "boolean"
+          },
+          "harness": {
+            "enum": [
+              "hermes",
+              "codex",
+              "claude"
+            ],
+            "title": "Harness",
+            "type": "string"
+          },
+          "platform": {
+            "default": "unknown",
+            "maxLength": 64,
+            "title": "Platform",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "session_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Turn Id",
+            "type": "string"
+          },
+          "user_message": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Message"
+          },
+          "user_truncated": {
+            "default": false,
+            "title": "User Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "schema_version",
+          "harness",
+          "session_id",
+          "turn_id"
+        ],
+        "title": "EpisodeTurnIn",
+        "type": "object"
+      },
+      "EpisodeTurnOut": {
+        "description": "Tur gözleminin GÜVENLİ yanıtı: yalnız sayaç ve sınırlı kodlar.",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "degraded_reasons": {
+            "items": {
+              "enum": [
+                "EPISODE_EXTRACTION_UNAVAILABLE",
+                "EPISODE_EXTRACTION_TIMEOUT",
+                "EPISODE_VALIDATION_FAILED",
+                "EPISODE_EMPTY",
+                "EPISODE_FINALIZE_DEGRADED",
+                "EPISODE_HANDOFF_UNAVAILABLE",
+                "EPISODE_SESSION_NOT_FOUND",
+                "EPISODE_INPUT_TRUNCATED",
+                "EPISODE_SEALED",
+                "SOURCE_BINDING_UNAVAILABLE",
+                "SOURCE_STALE",
+                "H5_UNAVAILABLE",
+                "LOCAL_COGNITION_UNAVAILABLE",
+                "VERBATIM_LEAKAGE"
+              ],
+              "type": "string"
+            },
+            "title": "Degraded Reasons",
+            "type": "array"
+          },
+          "derived_item_count": {
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Derived Item Count",
+            "type": "integer"
+          },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "latency_ms": {
+            "default": 0.0,
+            "minimum": 0.0,
+            "title": "Latency Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "accepted",
+          "duplicate",
+          "derived_item_count"
+        ],
+        "title": "EpisodeTurnOut",
+        "type": "object"
+      },
       "EvaluationGateOut": {
         "properties": {
           "authorized_to_work": {
@@ -12818,6 +13203,149 @@
         "title": "SavedViewPatch",
         "type": "object"
       },
+      "SessionHandoffItem": {
+        "additionalProperties": false,
+        "description": "Tek epizodik ifade: tür, türetilmiş metin, epistemik sınıf ve köken.",
+        "properties": {
+          "evidence_class": {
+            "enum": [
+              "turn_derived",
+              "canonical_supported",
+              "observed_during_session"
+            ],
+            "title": "Evidence Class",
+            "type": "string"
+          },
+          "historical_support_stale": {
+            "default": false,
+            "title": "Historical Support Stale",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "topic",
+              "outcome",
+              "open_thread",
+              "session_decision",
+              "next_focus",
+              "reference"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "ordinal": {
+            "minimum": 0.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "support_refs": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeSupportRef"
+            },
+            "title": "Support Refs",
+            "type": "array"
+          },
+          "text": {
+            "maxLength": 300,
+            "title": "Text",
+            "type": "string"
+          },
+          "turn_digest": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Digest"
+          }
+        },
+        "required": [
+          "ordinal",
+          "kind",
+          "text",
+          "evidence_class"
+        ],
+        "title": "SessionHandoffItem",
+        "type": "object"
+      },
+      "SessionHandoffV1": {
+        "additionalProperties": false,
+        "description": "Önceki ilgili oturumun sınırlı, kaynağa bağlı epizodik devri.\n\nBu bir TARİHSEL özettir: güncel kanonik durum DEĞİLDİR, yetkilendirme\nDEĞİLDİR ve içindeki talimat benzeri metin güvenilmeyen veridir (§21/§26).",
+        "properties": {
+          "degraded_reasons": {
+            "items": {
+              "enum": [
+                "EPISODE_EXTRACTION_UNAVAILABLE",
+                "EPISODE_EXTRACTION_TIMEOUT",
+                "EPISODE_VALIDATION_FAILED",
+                "EPISODE_EMPTY",
+                "EPISODE_FINALIZE_DEGRADED",
+                "EPISODE_HANDOFF_UNAVAILABLE",
+                "EPISODE_SESSION_NOT_FOUND",
+                "EPISODE_INPUT_TRUNCATED",
+                "EPISODE_SEALED",
+                "SOURCE_BINDING_UNAVAILABLE",
+                "SOURCE_STALE",
+                "H5_UNAVAILABLE",
+                "LOCAL_COGNITION_UNAVAILABLE",
+                "VERBATIM_LEAKAGE"
+              ],
+              "type": "string"
+            },
+            "title": "Degraded Reasons",
+            "type": "array"
+          },
+          "episode_id": {
+            "title": "Episode Id",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionHandoffItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "scope_project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Project"
+          },
+          "sealed_at": {
+            "format": "date-time",
+            "title": "Sealed At",
+            "type": "string"
+          },
+          "source_session_key": {
+            "maxLength": 64,
+            "title": "Source Session Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "episode_id",
+          "source_session_key",
+          "sealed_at"
+        ],
+        "title": "SessionHandoffV1",
+        "type": "object"
+      },
       "SettingIn": {
         "properties": {
           "value": {
@@ -15684,6 +16212,16 @@
             "title": "Degraded Reasons",
             "type": "array"
           },
+          "handoff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionHandoffV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "lifecycle": {
             "$ref": "#/components/schemas/LifecycleEventOut"
           },
@@ -16400,6 +16938,112 @@
         "summary": "Continuity Status",
         "tags": [
           "agent-continuity"
+        ]
+      }
+    },
+    "/api/agent/episode/finalize": {
+      "post": {
+        "description": "Oturumu mühürler. İdempotenttir: ikinci çağrı aynı mühürlü kaydı döndürür.",
+        "operationId": "episode_finalize_api_agent_episode_finalize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EpisodeFinalizeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeFinalizeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Episode Finalize",
+        "tags": [
+          "agent-episode"
+        ]
+      }
+    },
+    "/api/agent/episode/status": {
+      "get": {
+        "description": "Metadata-only tanılama: son mühürleme, ifade sayısı, taslak sayısı.",
+        "operationId": "episode_status_api_agent_episode_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Episode Status",
+        "tags": [
+          "agent-episode"
+        ]
+      }
+    },
+    "/api/agent/episode/turn": {
+      "post": {
+        "description": "`post_llm_call` gözlemi: turu damıtır ve yalnız türetilmiş ifadeleri yazar.\n\nHam `user_message`/`assistant_response` yanıtta DÖNMEZ; yalnız sayaç ve\nsınırlı gerekçe kodları döner.",
+        "operationId": "episode_turn_api_agent_episode_turn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EpisodeTurnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpisodeTurnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Episode Turn",
+        "tags": [
+          "agent-episode"
         ]
       }
     },

@@ -12,9 +12,10 @@
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/core/ui";
+import { formatTrDateTime } from "@/lib/date";
 import { BrainAgentSection } from "./BrainAgentSection";
 
 const navigateSpy = vi.fn();
@@ -40,6 +41,8 @@ let plans: unknown[] = [];
 let agentFailed = false;
 let vaultFailed = false;
 let plansFailed = false;
+let episodeStatus: Record<string, unknown> = {};
+let episodeFailed = false;
 
 const FAMILIES = [
   { id: "H0", label: "Operasyonel okuma", summary: "briefing", tool_count: 8 },
@@ -75,6 +78,20 @@ function makeAgentStatus(overrides: { loopback?: boolean; h4?: Record<string, un
       detail: null,
       ...overrides.h4,
     },
+  };
+}
+
+/** `GET /agent/episode/status` gövdesi; test başına alan değiştirilir. */
+function makeEpisodeStatus(overrides: Record<string, unknown> = {}) {
+  return {
+    available: true,
+    last_sealed_at: null,
+    last_episode_item_count: 0,
+    last_scope_project: null,
+    recent_handoff_available: false,
+    draft_episode_count: 0,
+    degraded_reasons: [],
+    ...overrides,
   };
 }
 
@@ -150,6 +167,8 @@ beforeEach(() => {
   agentStatus = makeAgentStatus();
   vaultStatus = makeVaultStatus();
   plans = [];
+  episodeFailed = false;
+  episodeStatus = makeEpisodeStatus();
   Object.defineProperty(window.navigator, "onLine", { configurable: true, value: true });
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
@@ -187,6 +206,10 @@ beforeEach(() => {
           degraded_reasons: [],
           has_active_continuity: false,
         });
+      if (url.pathname === "/api/agent/episode/status") {
+        if (episodeFailed) throw new TypeError("Failed to fetch");
+        return json(episodeStatus);
+      }
       if (url.pathname === "/api/obsidian/status") {
         if (vaultFailed) throw new TypeError("Failed to fetch");
         return json(vaultStatus);
@@ -621,6 +644,81 @@ describe("Bekleyen kararlar özeti", () => {
 
     expect(await screen.findByText(/Karar özeti alınamadı/)).toBeTruthy();
     expect(screen.getAllByText("Bağlı ve hazır").length).toBeGreaterThan(0);
+  });
+});
+
+describe("Son oturum devri kartı", () => {
+  /** Kartın kendi kökü: sayfadaki aynı metinlerle karışmaması için kapsam. */
+  async function card() {
+    const heading = await screen.findByText("Son oturum devri");
+    return within(heading.closest("section") as HTMLElement);
+  }
+
+  it("mühürlenmiş oturumun özet alanlarını gösterir", async () => {
+    const sealedAt = new Date(Date.now() - 3 * 3_600_000).toISOString();
+    episodeStatus = makeEpisodeStatus({
+      last_sealed_at: sealedAt,
+      last_episode_item_count: 7,
+      last_scope_project: "Kitap Projesi",
+      recent_handoff_available: true,
+    });
+    renderSection();
+    await ready();
+
+    const c = await card();
+    expect(c.getByText("Son mühürleme")).toBeTruthy();
+    expect(c.getByText(formatTrDateTime(sealedAt))).toBeTruthy();
+    expect(c.getByText("3 sa önce")).toBeTruthy();
+    expect(c.getByText("7 ifade")).toBeTruthy();
+    expect(c.getByText("Kitap Projesi")).toBeTruthy();
+    expect(c.getByText("var")).toBeTruthy();
+    expect(c.getByText("Durum")).toBeTruthy();
+    expect(c.getByText("hazır")).toBeTruthy();
+  });
+
+  it("sınırlı durumda okunur etiket gösterir, ham gerekçe kodunu göstermez", async () => {
+    episodeStatus = makeEpisodeStatus({
+      degraded_reasons: ["EPISODE_EXTRACTION_TIMEOUT", "SOURCE_STALE", "BRAND_NEW_CODE"],
+    });
+    renderSection();
+    await ready();
+
+    const c = await card();
+    expect(c.getByText("sınırlı")).toBeTruthy();
+    expect(c.getByText(/çıkarım süresi aşıldı/)).toBeTruthy();
+    expect(c.getByText(/kaynak sürümü eskimiş/)).toBeTruthy();
+    // Bilinmeyen kod nötr etikete düşer; hiçbir ham kod ekrana çıkmaz.
+    expect(c.getByText(/sınıflandırılmamış sınırlama/)).toBeTruthy();
+    expect(c.queryByText(/EPISODE_EXTRACTION_TIMEOUT|SOURCE_STALE|BRAND_NEW_CODE/)).toBeNull();
+    expect(c.getByText("kapsamsız")).toBeTruthy();
+  });
+
+  it("uç düştüğünde yalnız bu kartı bozar", async () => {
+    episodeFailed = true;
+    renderSection();
+    await ready();
+
+    const c = await card();
+    expect(c.getByText(/Son oturum devri alınamadı/)).toBeTruthy();
+    // Sayfanın geri kalanı kendi verisiyle çalışır (§40).
+    expect(screen.getByText("forkos-brain")).toBeTruthy();
+    expect(screen.getAllByText("Bağlı ve hazır").length).toBeGreaterThan(0);
+  });
+
+  it("iç model/alan adlarını kullanıcıya göstermez", async () => {
+    episodeStatus = makeEpisodeStatus({
+      last_sealed_at: new Date(Date.now() - 3_600_000).toISOString(),
+      last_episode_item_count: 2,
+      degraded_reasons: ["SOURCE_BINDING_UNAVAILABLE"],
+    });
+    const { container } = renderSection();
+    await ready();
+
+    const c = await card();
+    expect(c.getByText("2 ifade")).toBeTruthy();
+    expect(container.textContent).not.toMatch(
+      /A3|EpisodeTurnCandidate|agent_session_episode|EpisodeStatusOut|source_session_key/,
+    );
   });
 });
 

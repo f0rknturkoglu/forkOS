@@ -21,6 +21,7 @@ import { BookOpen, CalendarDays, ChevronDown, ExternalLink, Inbox, RefreshCw, Sh
 import { navigate } from "@/app/router";
 import { AGENT_LIFECYCLE_STATUS_KEY, getAgentLifecycleStatus } from "@/core/agentLifecycle";
 import { AGENT_CONTINUITY_STATUS_KEY, getAgentContinuityStatus } from "@/core/agentContinuity";
+import { AGENT_EPISODE_STATUS_KEY, getAgentEpisodeStatus } from "@/core/agentEpisode";
 import {
   AGENT_STATUS_KEY,
   brainReadiness,
@@ -50,6 +51,7 @@ import {
 import { PROACTIVITY_STATUS_KEY, proactivityStatus } from "@/core/proactivity";
 import { useSystemStats } from "@/core/runtimeQueries";
 import { Button, Chip, CopyButton, Disclosure, Section, Skeleton, cx, relativeTime, useToast } from "@/core/ui";
+import { formatTrDateTime } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { ProactivitySection } from "./ProactivitySection";
 
@@ -330,8 +332,6 @@ function AgentConnectionCard() {
                   }
                   tone={continuity.data?.active_source_count ? "ok" : "neutral"}
                 />
-
-
               </div>
               <p className="mt-1.5 text-micro text-muted">Bu kayıt, Hermes’in şu anda bağlı olduğunu göstermez.</p>
             </div>
@@ -713,6 +713,96 @@ function HermesCard() {
   );
 }
 
+/* ── Son oturum devri (A3) ───────────────────────────────────────────── */
+
+/**
+ * Sınırlı gerekçe kodlarının kullanıcı dilindeki karşılığı. Ham kod EKRANA
+ * ÇIKMAZ: sözlükte olmayan bir kod tek nötr etikete düşer, böylece yeni bir
+ * kod eklendiğinde yüzey sırıtmaz ve iç sözlük sızmaz.
+ */
+const EPISODE_DEGRADED_LABEL: Record<string, string> = {
+  EPISODE_EXTRACTION_UNAVAILABLE: "çıkarım servisi kullanılamadı",
+  EPISODE_EXTRACTION_TIMEOUT: "çıkarım süresi aşıldı",
+  EPISODE_VALIDATION_FAILED: "çıkarım doğrulanamadı",
+  EPISODE_EMPTY: "tura ait ifade bulunamadı",
+  EPISODE_FINALIZE_DEGRADED: "mühürleme sınırlı tamamlandı",
+  EPISODE_HANDOFF_UNAVAILABLE: "devir hazırlanamadı",
+  EPISODE_SESSION_NOT_FOUND: "oturum kaydı bulunamadı",
+  EPISODE_SEALED: "oturum zaten mühürlenmiş",
+  SOURCE_BINDING_UNAVAILABLE: "kaynak bağı kurulamadı",
+  SOURCE_STALE: "kaynak sürümü eskimiş",
+  EPISODE_INPUT_TRUNCATED: "tur kırpılarak alındı",
+  H5_UNAVAILABLE: "inceleme zekâsı kullanılamadı",
+  LOCAL_COGNITION_UNAVAILABLE: "yerel model kullanılamadı",
+  VERBATIM_LEAKAGE: "ham metin sızması engellendi",
+};
+
+const EPISODE_DEGRADED_UNKNOWN = "sınıflandırılmamış sınırlama";
+
+/**
+ * Son mühürlenmiş oturumun metadata özeti. Devir İÇERİĞİ (ifade metinleri)
+ * burada açılmaz: bu yüzey durum okur, hafıza göstermez. Hermes'in şu anda
+ * bağlı olduğu da iddia edilmez.
+ */
+function EpisodeHandoffCard() {
+  const query = useQuery({ queryKey: [AGENT_EPISODE_STATUS_KEY], queryFn: getAgentEpisodeStatus });
+  const status = query.data;
+  const degraded = status?.degraded_reasons ?? [];
+  const limited = degraded.length > 0;
+
+  return (
+    <Section
+      title="Son oturum devri"
+      hint="metadata özeti"
+      action={
+        status ? <Chip tone={limited ? "warn" : "ok"}>{limited ? "devir sınırlı" : "devir hazır"}</Chip> : undefined
+      }
+    >
+      <CardBody
+        isLoading={query.isLoading}
+        isError={query.isError}
+        errorLabel="Son oturum devri"
+        onRetry={() => void query.refetch()}
+      >
+        {status && (
+          <div className="space-y-2">
+            <div className="divide-y divide-subtle">
+              <StatusRow
+                label="Son mühürleme"
+                value={status.last_sealed_at ? formatTrDateTime(status.last_sealed_at) : "henüz yok"}
+                hint={status.last_sealed_at ? relativeTime(status.last_sealed_at) : undefined}
+              />
+              <StatusRow label="Devir öğeleri" value={`${status.last_episode_item_count} ifade`} />
+              <StatusRow label="Kapsam" value={status.last_scope_project ?? "kapsamsız"} />
+              <StatusRow
+                label="Hazır devir"
+                value={status.recent_handoff_available ? "var" : "yok"}
+                tone={status.recent_handoff_available ? "ok" : "neutral"}
+              />
+              <StatusRow label="Durum" value={limited ? "sınırlı" : "hazır"} tone={limited ? "warn" : "ok"} />
+            </div>
+
+            {limited && (
+              <ul className="space-y-0.5">
+                {degraded.map((code) => (
+                  <li key={code} className="text-micro text-warn">
+                    · {EPISODE_DEGRADED_LABEL[code] ?? EPISODE_DEGRADED_UNKNOWN}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <p className="text-micro text-muted">
+              Yalnız mühürlenmiş oturumun özeti gösterilir; devir içeriği burada açılmaz. Bu kayıt, Hermes&apos;in şu
+              anda bağlı olduğunu göstermez.
+            </p>
+          </div>
+        )}
+      </CardBody>
+    </Section>
+  );
+}
+
 /* ── Sayfa ───────────────────────────────────────────────────────────── */
 
 export function BrainAgentSection() {
@@ -729,7 +819,10 @@ export function BrainAgentSection() {
         <LocalModelCard />
         <DecisionsCard />
       </div>
-      <HermesCard />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <HermesCard />
+        <EpisodeHandoffCard />
+      </div>
       <div className="space-y-0.5">
         <p className="text-meta text-secondary">Sessizlik başarılı bir sonuçtur.</p>
         <p className="text-micro text-muted">
