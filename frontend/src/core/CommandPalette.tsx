@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Command } from "cmdk";
-import { Search } from "lucide-react";
-import { allCommands } from "./registry";
+import { ArrowUpRight, Compass, LayoutGrid, Moon, Search, Settings, Sun } from "lucide-react";
+import { allCommands, enabledModules } from "./registry";
+import { areasAt, areaRows } from "./navigation";
 import type { Command as AppCommand } from "./types";
-import { Kbd } from "./ui";
+import { Kbd, useTheme } from "./ui";
 import { entityRoute, useGlobalSearch } from "./GlobalSearch";
 import { typeLabel } from "./entityRegistry";
 import { navigate } from "@/app/router";
@@ -13,35 +14,75 @@ const OPEN_EVENT = "forkos:open-palette";
 export const openCommandPalette = () => window.dispatchEvent(new Event(OPEN_EVENT));
 
 const GROUP_HEADING =
-  "mb-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 " +
+  "mb-1 mt-2 first:mt-0 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 " +
   "[&_[cmdk-group-heading]]:text-micro [&_[cmdk-group-heading]]:font-medium " +
   "[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.16em] " +
   "[&_[cmdk-group-heading]]:text-muted";
 
 const ITEM =
-  "flex cursor-pointer items-center justify-between gap-3 rounded-control px-2 py-2 " +
-  "text-body text-primary data-[selected=true]:bg-surface-hover";
+  "flex cursor-pointer items-center justify-between gap-3 rounded-control px-2.5 py-2 " +
+  "text-body text-primary data-[selected=true]:bg-surface-hover transition-colors select-none";
 
 /**
- * Cmd/Ctrl+K. Komutlar registry'den, sonuclar /api/search'ten gelir.
- * Buraya modul adi YAZMA -- her modul kendi komutunu registerModule ile verir.
+ * U2 Command Palette v2.
+ * Cmd/Ctrl+K ile açılır, Cmd/Ctrl+, ile ayarlara gider.
+ * Gruplar: Gezin (Ürün alanları ve sayfalar), Arama Sonuçları (/api/search), Komutlar ve Eylemler.
  */
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [, setTheme] = useTheme();
   /** Girdi bekleyen komut. null ise palet normal arama modunda. */
   const [asking, setAsking] = useState<AppCommand | null>(null);
   const [answer, setAnswer] = useState("");
   const { data: hitGroups = {} } = useGlobalSearch(open || asking ? query : "");
 
+  const modules = enabledModules();
+  const primaryAreas = areasAt("primary");
+  const systemAreas = areasAt("system");
+
+  const navItems = useMemo(() => {
+    const items: {
+      id: string;
+      label: string;
+      path: string;
+      icon?: React.ComponentType<{ size?: number | string; className?: string }>;
+    }[] = [];
+    for (const area of [...primaryAreas, ...systemAreas]) {
+      const rows = areaRows(area, modules);
+      if (rows.length <= 1) {
+        items.push({
+          id: `nav-${area.id}`,
+          label: area.label,
+          path: area.landing ?? rows[0]?.path ?? `/${area.id}`,
+          icon: area.icon,
+        });
+      } else {
+        for (const row of rows) {
+          items.push({
+            id: `nav-${row.moduleId}-${row.path}-${row.query ?? ""}`,
+            label: `${area.label} / ${row.label}`,
+            path: row.query ? `${row.path}?${row.query}` : row.path,
+            icon: row.icon ?? area.icon,
+          });
+        }
+      }
+    }
+    return items;
+  }, [modules, primaryAreas, systemAreas]);
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
         setOpen((v) => !v);
       }
-      if (e.key === "Escape") {
-        // Once girdi adimindan geri don; palet ancak sonra kapanir.
+      if (event.key === "," && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        navigate("/settings");
+        setOpen(false);
+      }
+      if (event.key === "Escape") {
         setAsking((current: AppCommand | null) => {
           if (current) return null;
           setOpen(false);
@@ -88,9 +129,28 @@ export function CommandPalette() {
 
   const needle = query.trim().toLocaleLowerCase("tr");
 
+  const filteredNav = navItems.filter((item) => item.label.toLocaleLowerCase("tr").includes(needle));
+
+  const shellCommands: AppCommand[] = [
+    {
+      id: "shell.theme",
+      label: "Temayı değiştir",
+      run: () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"),
+    },
+    {
+      id: "shell.settings",
+      label: "Ayarları aç",
+      shortcut: "Ctrl ,",
+      run: () => navigate("/settings"),
+    },
+  ];
+
+  const allCmds = [...allCommands(), ...shellCommands];
+  const filteredCommands = allCmds.filter((cmd) => cmd.label.toLocaleLowerCase("tr").includes(needle));
+
   return (
     <div
-      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] pt-32"
+      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] px-3 pt-20 sm:pt-28"
       onClick={() => setOpen(false)}
     >
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl">
@@ -117,8 +177,6 @@ export function CommandPalette() {
                 placeholder={asking.ask?.placeholder ?? asking.ask?.label}
                 aria-label={asking.ask?.label ?? asking.label}
                 onKeyDown={(e) => {
-                  // cmdk kok elemanda Enter'i kendi yakalayip liste secimi
-                  // yapmaya calisiyor; girdi adiminda ona ulasmasin.
                   if (e.key === "Enter") {
                     e.preventDefault();
                     e.stopPropagation();
@@ -140,7 +198,7 @@ export function CommandPalette() {
                 autoFocus
                 value={query}
                 onValueChange={setQuery}
-                placeholder="Komut veya arama…"
+                placeholder="Komut, sayfa veya arama…"
                 className="h-[50px] w-full bg-transparent text-body text-primary outline-none placeholder:text-muted"
               />
               <Kbd>esc</Kbd>
@@ -155,10 +213,35 @@ export function CommandPalette() {
               </span>
             </div>
           ) : (
-            <Command.List className="max-h-[372px] overflow-y-auto p-2">
+            <Command.List className="max-h-[380px] overflow-y-auto p-2">
               <Command.Empty className="px-2 py-8 text-center text-body text-secondary">
                 “{query}” için sonuç yok.
               </Command.Empty>
+
+              {filteredNav.length > 0 && (
+                <Command.Group heading="Gezin" className={GROUP_HEADING}>
+                  {filteredNav.map((item) => {
+                    const ItemIcon = item.icon ?? Compass;
+                    return (
+                      <Command.Item
+                        key={item.id}
+                        value={item.id}
+                        onSelect={() => {
+                          navigate(item.path);
+                          setOpen(false);
+                        }}
+                        className={ITEM}
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <ItemIcon size={14} className="shrink-0 text-muted" />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        <ArrowUpRight size={13} className="shrink-0 text-muted" />
+                      </Command.Item>
+                    );
+                  })}
+                </Command.Group>
+              )}
 
               {Object.entries(hitGroups).map(([label, group]) => (
                 <Command.Group key={label} heading={`${label} (${group.length})`} className={GROUP_HEADING}>
@@ -181,29 +264,32 @@ export function CommandPalette() {
                 </Command.Group>
               ))}
 
-              <Command.Group heading="Komutlar" className={GROUP_HEADING}>
-                {allCommands()
-                  .filter((cmd) => cmd.label.toLocaleLowerCase("tr").includes(needle))
-                  .map((cmd) => (
+              {filteredCommands.length > 0 && (
+                <Command.Group heading="Komutlar" className={GROUP_HEADING}>
+                  {filteredCommands.map((cmd) => (
                     <Command.Item key={cmd.id} value={cmd.id} onSelect={() => launch(cmd)} className={ITEM}>
                       <span>{cmd.label}</span>
                       {cmd.shortcut && <Kbd>{cmd.shortcut}</Kbd>}
                     </Command.Item>
                   ))}
-              </Command.Group>
+                </Command.Group>
+              )}
             </Command.List>
           )}
 
           {!asking && (
-            <div className="flex items-center gap-4 border-t border-subtle bg-canvas px-4 py-2 text-meta text-muted">
+            <div className="flex items-center gap-4 border-t border-subtle bg-canvas/80 px-4 py-2 text-meta text-muted">
               <span>
                 <Kbd>↑↓</Kbd> gez
               </span>
               <span>
                 <Kbd>↵</Kbd> aç
               </span>
+              <span>
+                <Kbd>esc</Kbd> kapat
+              </span>
               <span className="flex-1" />
-              <span>arama /api/search, komutlar registry’den</span>
+              <span className="text-micro text-muted">forkOS</span>
             </div>
           )}
         </Command>
