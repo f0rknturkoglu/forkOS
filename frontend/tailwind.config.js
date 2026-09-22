@@ -65,8 +65,7 @@ export default {
       borderColor: { DEFAULT: "var(--border)" },
       fontFamily: {
         sans: ['"Manrope Variable"', "ui-sans-serif", "system-ui", "sans-serif"],
-        // Serif kasitli olarak kaldirildi (kullanici karari): font-serif sinifi
-        // artik sans ile ayni yigini uretir -- yanlislikla kalan kullanim Georgia
+        // Manrope: ana ürün UI ve kontrolleri. Newsreader: editoryal okuma bağlamları (BookmarkReaderModal).
         serif: ['"Newsreader Variable"', "Georgia", "serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
