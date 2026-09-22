@@ -101,6 +101,9 @@ def test_module_tables_reference_entity():
         # A1 agent oturumları: içeriksiz, hash-kimlikli operasyonel gözlem.
         "agent_session",
         "agent_session_turn",
+        # A2 agent context/continuity: ephemeral oturum bağlamı ve kaynak devamlılığı desteği.
+        "agent_session_context",
+        "agent_session_source",
         "plan_slot",
         "habit_log",
         "opportunity_requirement",
