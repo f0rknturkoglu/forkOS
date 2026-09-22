@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { KeyboardEventHandler, ReactNode } from "react";
 import { cx } from "@/core/ui";
 
 /**
@@ -14,6 +14,7 @@ export function Workspace({
   className,
   railAt = "md",
   railWidth = "default",
+  inspectorAt = "lg",
 }: {
   rail?: ReactNode;
   inspector?: ReactNode;
@@ -21,6 +22,7 @@ export function Workspace({
   className?: string;
   railAt?: "md" | "lg";
   railWidth?: "default" | "wide";
+  inspectorAt?: "lg" | "xl";
 }) {
   const columns = rail
     ? inspector
@@ -39,17 +41,13 @@ export function Workspace({
           ? "md:grid-cols-workspace-wide-rail"
           : "md:grid-cols-workspace-rail"
     : inspector
-      ? "lg:grid-cols-workspace-inspector"
+      ? inspectorAt === "xl"
+        ? "xl:grid-cols-workspace-inspector"
+        : "lg:grid-cols-workspace-inspector"
       : "";
 
   return (
-    <div
-      className={cx(
-        "grid min-h-workspace-body overflow-hidden",
-        columns,
-        className,
-      )}
-    >
+    <div className={cx("grid min-h-workspace-body overflow-hidden", columns, className)}>
       {rail ? (
         <aside
           className={cx(
@@ -66,6 +64,7 @@ export function Workspace({
           className={cx(
             "min-w-0 border-t border-subtle bg-surface-sunken",
             rail ? "md:col-span-2 xl:col-span-1 xl:border-t-0 xl:border-l" : "lg:border-t-0 lg:border-l",
+            inspectorAt === "xl" && "hidden xl:block",
           )}
         >
           {inspector}
@@ -135,18 +134,24 @@ export function WorkspaceRailButton({
   active,
   icon,
   onClick,
+  onKeyDown,
+  selection = false,
 }: {
   label: ReactNode;
   count?: ReactNode;
   active?: boolean;
   icon?: ReactNode;
   onClick: () => void;
+  onKeyDown?: KeyboardEventHandler<HTMLButtonElement>;
+  selection?: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-current={active ? "page" : undefined}
+      aria-current={!selection && active ? "page" : undefined}
+      aria-pressed={selection ? Boolean(active) : undefined}
       onClick={onClick}
+      onKeyDown={onKeyDown}
       className={cx(
         "flex h-8 w-full min-w-0 items-center gap-2 rounded-control px-2 text-left text-body transition",
         active
@@ -212,9 +217,7 @@ export function WorkspaceToolbar({
         className,
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar">
-        {left ?? children}
-      </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar">{left ?? children}</div>
       {right ? <div className="flex shrink-0 items-center gap-2">{right}</div> : null}
     </div>
   );

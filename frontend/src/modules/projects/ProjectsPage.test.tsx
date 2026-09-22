@@ -18,11 +18,13 @@ const harness = vi.hoisted(() => ({
   apiPatch: vi.fn(),
   apiPost: vi.fn(),
   invalidate: vi.fn(),
+  navigate: vi.fn(),
   queryData: {} as Record<string, unknown>,
 }));
 
 vi.mock("@/app/router", () => ({
   useHashRoute: () => ({ path: "/projects", params: new URLSearchParams(harness.focus) }),
+  navigate: (...args: unknown[]) => harness.navigate(...args),
 }));
 vi.mock("@/core/api", () => ({
   api: { del: harness.apiDel, get: harness.apiGet, patch: harness.apiPatch, post: harness.apiPost },
@@ -106,6 +108,7 @@ describe("ProjectsPage", () => {
     harness.apiPatch.mockReset();
     harness.apiPost.mockReset();
     harness.invalidate.mockReset();
+    harness.navigate.mockReset();
     harness.apiDel.mockResolvedValue({});
     harness.apiGet.mockResolvedValue([]);
     harness.queryData.projects = [alfa, beta, gamma];
@@ -117,9 +120,8 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />);
 
     expect(await screen.findByRole("heading", { name: "Alfa" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-current")).toBeNull();
-    // Alfa'nin tek tasi tarihsiz ve acik -- liste gorur, cizelge cizmez.
+    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByText("Alfa adım")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Zaman çizelgesi" })).toBeNull();
   });
@@ -129,10 +131,11 @@ describe("ProjectsPage", () => {
     await screen.findByRole("heading", { name: "Alfa" });
 
     fireEvent.click(screen.getByRole("button", { name: /Beta/ }));
+    expect(harness.navigate).toHaveBeenCalledWith("/projects?focus=p2", { replace: true });
 
     const timeline = await waitFor(timelineSection);
     expect(screen.getByRole("heading", { name: "Beta" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-pressed")).toBe("true");
     // Kronolojik gruplar: geciken, yaklasan, tamamlanan, tarihsiz.
     expect(within(timeline).getAllByTestId("milestone-timeline-row")).toHaveLength(4);
     expect(within(timeline).getByText("Geciken")).toBeTruthy();
@@ -144,6 +147,7 @@ describe("ProjectsPage", () => {
     // Tamamlananlar cizgili.
     expect(within(timeline).getByText("Beta 3. adım").className).toContain("line-through");
     // Liste hâlâ butun taslari sayar (davranis korundu).
+    fireEvent.click(screen.getByRole("tab", { name: "İşler" }));
     const list = screen.getByRole("heading", { name: "Kilometre taşları" }).closest("section") as HTMLElement;
     expect(within(list).getByText("1/4")).toBeTruthy();
   });
@@ -153,8 +157,8 @@ describe("ProjectsPage", () => {
     render(<ProjectsPage />);
 
     expect(await screen.findByRole("heading", { name: "Gamma" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Gamma/ }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("button", { name: /Gamma/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /Beta/ }).getAttribute("aria-pressed")).toBe("false");
     expect(screen.queryByRole("heading", { name: "Zaman çizelgesi" })).toBeNull();
   });
 
@@ -174,6 +178,51 @@ describe("ProjectsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Alfa" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Beta" })).toBeNull();
-    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: /Alfa/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(harness.navigate).toHaveBeenCalledWith("/projects?focus=p1", { replace: true });
+  });
+
+  it("yerel gorunum ve detay paneli durumunu korur", async () => {
+    render(<ProjectsPage />);
+    await screen.findByRole("heading", { name: "Alfa" });
+
+    fireEvent.click(screen.getByRole("tab", { name: "İşler" }));
+    expect(screen.getByRole("heading", { name: "Kilometre taşları" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Geçmiş" }));
+    expect(screen.queryByRole("heading", { name: "Kilometre taşları" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Detayları gizle" }));
+    expect(screen.queryByRole("button", { name: "Projeyi sil" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Detayları göster" }));
+    expect(screen.getByRole("button", { name: "Projeyi sil" })).toBeTruthy();
+  });
+
+  it("yeni proje olusturur ve secime gecer", async () => {
+    harness.apiPost.mockResolvedValue(project("p4", "Delta", []));
+    render(<ProjectsPage />);
+    await screen.findByRole("heading", { name: "Alfa" });
+    fireEvent.click(screen.getByRole("button", { name: "Yeni proje" }));
+    const dialog = screen.getByRole("dialog", { name: "Yeni proje" });
+    fireEvent.change(within(dialog).getByPlaceholderText("Proje adı"), { target: { value: "Delta" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Oluştur" }));
+    await waitFor(() =>
+      expect(harness.apiPost).toHaveBeenCalledWith("/projects", { title: "Delta", github_repo: undefined }),
+    );
+    expect(harness.invalidate).toHaveBeenCalledWith("project.write");
+    expect(harness.navigate).toHaveBeenCalledWith("/projects?focus=p4", { replace: true });
+  });
+
+  it("rayda ok tusuyla secimi degistirir ve durum degisikligini kaydeder", async () => {
+    harness.apiPatch.mockResolvedValue({});
+    render(<ProjectsPage />);
+    await screen.findByRole("heading", { name: "Alfa" });
+    const alfaButton = screen.getByRole("button", { name: /Alfa/ });
+    alfaButton.focus();
+    fireEvent.keyDown(alfaButton, { key: "ArrowDown" });
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Beta/ }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Proje durumu" }), { target: { value: "paused" } });
+    await waitFor(() => expect(harness.apiPatch).toHaveBeenCalledWith("/projects/p2", { status: "paused" }));
+    expect(harness.invalidate).toHaveBeenCalledWith("project.write");
   });
 });
