@@ -73,7 +73,12 @@ olay kaybı mümkündür ve durum endpoint'i kesintisiz gözlem garantisi vermez
 
 A1 hiçbir operasyonel varlığı, `event` günlüğünü, `90 Agent/Memory` içeriğini
 veya Vault dosyasını değiştirmez. Alt ajan oturumu da yalnızca anonim yaşam
-döngüsü metadata'sıdır. A2 ileride model öncesi hook'tan önce **ayrı** sınırlı
-bootstrap/continuity bağlamı oluşturabilir; A3 kapanış gözleminden ayrı bir
-handoff adayı türetebilir. Kimlik bootstrap'i, Last Session, Active Threads,
-episodik/semantik terfi, Jev ve Brain Doctor bu sürümde yoktur.
+döngüsü metadata'sıdır.
+
+## A1.1 Sertleştirmesi (Hardening)
+
+1. **Kaynak Değişmezliği İnvariantı (`A1.1.1`):**
+   `test_agent_lifecycle_invariants.py` testiyle; tüm yaşam döngüsü çağrılarının (`session_start`, `turn_seen`, `session_finalize`, duplicate çağrılar) 17 operasyonel veritabanı tablosu (`Entity`, `Event`, `Link`, `Todo`, `Project`, `Opportunity`, vb.) ve Vault/sıcak bellek dosyaları üzerinde **kesinlikle 0 mutasyon** yaptığı doğrulanır.
+2. **Katı 2xx Başarı Semantiği (`A1.1.2`):**
+   Hermes eklentisinde yalnızca `200 <= response.status < 300` durum kodları başarı kabul edilir; 3xx/4xx/5xx durumlarında `_send` `OSError` yükseltir ve eklenti fail-open çalışarak Hermes oturumunu asla çökertmez (`test_hermes_lifecycle_plugin.py`).
+Oturum başlangıcı ve sonraki turlarda bütçeli bağlam enjeksiyonu ve kaynak devamlılığı için [A2 — Bootstrap & Continuity](a2-bootstrap-continuity.md) dokümanına bakın.

@@ -430,6 +430,36 @@ H6'nın karar alanıdır ve H6 canonical mutasyon yapmaz.
 
 ---
 
+## A-Serisi — Yaşam Döngüsü ve Süreklilik (A1 → A2)
+
+Ajan oturumlarının yaşam döngüsünü gözleyen, Hermes harness'ı ile forkOS arasında hafif ve bütçeli bir süreklilik köprüsü kuran katman. A-serisi yeni bir kanonik durum sahibi DEĞİLDİR; forkOS operasyonel durumunu ve f0rknbrain bilgisini MCP dışındaki oturum sınırlarında köprüler.
+
+### A1 — Lifecycle Bridge ✅ Tamamlandı
+- Hermes oturum yaşam döngüsü kancaları: `session_start`, `turn_seen`, `session_finalize`.
+- İçeriksiz, ucuz ve bağımsız metadata kaydı (`POST /api/agent/lifecycle/event`).
+- `AgentSession` ve `AgentSessionTurn` modelleri (migration `0063_agent_lifecycle`).
+- Ayrıntı: `a1-lifecycle-bridge.md`.
+
+### A1.1 — Lifecycle Bridge Hardening ✅ Tamamlandı
+- **Kaynak Değişmezliği İnvariantı (`A1.1.1`):** 17 operasyonel tablo ve Vault/H2 üzerinde sıfır mutasyon garantisi (`test_agent_lifecycle_invariants.py`).
+- **Katı 2xx Başarı Semantiği (`A1.1.2`):** Yalnızca `200 <= status < 300` durum kodları başarı kabul edilir; 3xx/4xx/5xx durumlarında fail-open çalışarak Hermes turunu asla çökertmez (`test_hermes_lifecycle_plugin.py`).
+
+### A2 — Bounded Bootstrap & Continuity ✅ Tamamlandı
+- **Tek HTTP Round-Trip:** `pre_llm_call` kancasında `POST /api/agent/lifecycle/turn` üzerinden bağımsız A1 commit'i ve salt-okunur A2 bağlam üretimi.
+- **Fail-Open Hata İzolasyonu:** A2 arızası A1 commit'ini geri almaz; `degraded_reasons` ile 200 döner.
+- **Bütçeli İlk Tur Bağlamı:** Kimlik/güvenlik ilkeleri, aktif projeler (≤5), son tarihler (≤5), yakın H5 sürekliliği ve H2 sıcak hafıza (≤6) ile 4000 karakter bütçeli `<forkos-context>`.
+- **Sonraki Turlar İçin Kaynak Devamlılığı:** Ambiguous continuation durumunda 60 dk TTL'li kaynak reuse (`<forkos-continuity>`); topic shift durumunda eski kaynak invalidation ve sınırlandırılmış arama. Tam bootstrap asla tekrarlanmaz.
+- **Güvenlik ve Gizlilik:** Geçici kullanıcı promptları asla saklanmaz, prompt injection XML escaping savunması, mutlak sistem yollarının maskelenmesi (`<vault>`), sıfır dış ağ çağrısı.
+- **Destek Modelleri:** `agent_session_context` ve `agent_session_source` (migration `0064_agent_continuity`).
+- Ayrıntı: `a2-bootstrap-continuity.md`.
+
+### A3 / A4 / A5 — Gelecek Aşamalar (Başlatılmadı)
+- **A3 (Episodic Handoff):** Oturum kapanışında kalıcı hafıza/terfi adayları türetme.
+- **A4 (Cross-Day Continuity):** Günler arası oturum bağıntıları ve uzun vadeli iş parçaları.
+- **A5 (Answer Judge & Feedback):** Ajan yanıtlarının kalitesini ve kanıt doğruluğunu değerlendirme.
+
+---
+
 ## Değişmez ilkeler (tüm fazlar)
 
 1. **İnsan onayı her mutasyonun önündedir.** Otonomi, onayın yerini almaz.

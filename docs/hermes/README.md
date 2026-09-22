@@ -238,4 +238,6 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [H7 Durum Makinesi](h7-state-machine.md): 12 durum, birebir izinli geçiş tablosu, terminal durumlar, geçersiz geçiş örnekleri ve MCP Tasks eşlemesi.
 - [H7 Karar ve Onay Politikası](h7-approval-policy.md): beş ayrım (akıl yürütme ≠ yetki … kısmi ≠ tamam), dört karar türü, replay koruması, TTL ve değişmez tablosu.
 - [H7 Araç Sözleşmesi](h7-tool-contract.md): `forkos_execution` imzası, işlem tablosu, plan görünümü şeması, REST uçları, hata kodları ve örnek çıktılar.
+- [A1 Yaşam Döngüsü Köprüsü](a1-lifecycle-bridge.md): Hermes oturum yaşam döngüsü gözlemi, `session_start`/`turn_seen`/`session_finalize` olayları ve A1.1 invariant hardening.
+- [A2 Başlangıç ve Süreklilik](a2-bootstrap-continuity.md): Tek HTTP round-trip tur orkestrasyonu, bütçeli ilk tur bağlamı, sonraki turlar için kaynak devamlılığı ve prompt injection savunması.
 - [H-Serisi Yol Haritası (H0 → H7)](roadmap.md): Beyin arayüzünün H0 temelinden H7 kalıcı karar ve sınırlı yürütmeye evrilme planı.
