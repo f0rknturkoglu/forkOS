@@ -79,6 +79,7 @@ describe("workspace primitives", () => {
       </WorkspaceBody>,
     );
     expect(boundedMarkup).toContain("max-w-5xl");
+    expect(boundedMarkup).toContain("data-workspace-body");
 
     const fullMarkup = renderToStaticMarkup(
       <WorkspaceBody mode="full">
@@ -87,5 +88,22 @@ describe("workspace primitives", () => {
     );
     expect(fullMarkup).toContain("w-full");
     expect(fullMarkup).not.toContain("max-w-5xl");
+    expect(fullMarkup).toContain("data-workspace-body");
+  });
+
+  it("WorkspaceRailButton renders icon, label and count", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceRailButton
+        label="Proje A"
+        count="3 gün önce · aktif"
+        active
+        icon={<span className="h-2 w-2 rounded-full bg-ok" />}
+        onClick={() => undefined}
+      />,
+    );
+    expect(markup).toContain("Proje A");
+    expect(markup).toContain("3 gün önce · aktif");
+    expect(markup).toContain('aria-current="page"');
+    expect(markup).toContain("bg-ok");
   });
 });
