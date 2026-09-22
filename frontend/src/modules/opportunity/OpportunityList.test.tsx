@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Opportunity } from "@/core/types";
 import { FilterChip } from "@/core/ui";
 import { OpportunityCard, OpportunityCollection } from "./OpportunityList";
@@ -36,6 +39,7 @@ const item = {
 } satisfies Opportunity;
 
 describe("opportunity list components", () => {
+  afterEach(cleanup);
   it("renders score and actions without page state", () => {
     const html = renderToStaticMarkup(
       <OpportunityCard
@@ -52,13 +56,16 @@ describe("opportunity list components", () => {
 
     expect(html).toContain("82");
     expect(html).toContain("Frontend Developer");
-    expect(html).toContain("Yazılım &amp; mühendislik");
+    expect(html).toContain("Uzaktan");
+    expect(html).toContain("diğer işlemler");
+    expect(html).not.toContain("Yazılım &amp; mühendislik");
     expect(html).toContain("Çöpe at");
   });
 
   it("surfaces career intelligence signals on the card", () => {
     const html = renderToStaticMarkup(
       <OpportunityCard
+        layout="grid"
         item={{
           ...item,
           intelligence: {
@@ -131,5 +138,31 @@ describe("opportunity list components", () => {
     const html = renderToStaticMarkup(<FilterChip label="İş İlanları" count={12} active onClick={() => undefined} />);
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain("12");
+  });
+
+  it("ok tuşlarıyla komşu kaydı seçer; durum eylemini tetiklemez", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const status = vi.fn();
+    const actions = {
+      disabled: false,
+      isTrash: false,
+      onStatus: status,
+      onTrash: vi.fn(),
+      onRestore: vi.fn(),
+      onDelete: vi.fn(),
+    };
+    render(
+      <OpportunityCollection layout="rows">
+        <OpportunityCard item={item} onOpen={first} {...actions} />
+        <OpportunityCard item={{ ...item, id: "2", title: "Backend Developer" }} onOpen={second} {...actions} />
+      </OpportunityCollection>,
+    );
+    const button = screen.getByRole("button", { name: "Frontend Developer" });
+    button.focus();
+    fireEvent.keyDown(button, { key: "ArrowDown" });
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(status).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Backend Developer" }));
   });
 });

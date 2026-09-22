@@ -7,7 +7,7 @@
  * mutlaka bir chip olarak görünür ve tek başına kaldırılabilir.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { LayoutGrid, Kanban, List, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button, Chip, FilterChip, IconButton, Input, Popover, Select, Section, cx } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
@@ -18,6 +18,7 @@ import { SCORE_STATE_PRESETS } from "./scoreDomain";
 import { ScoreRangeControl } from "./ScoreRangeControl";
 
 interface FilterBarProps {
+  leading?: ReactNode;
   filters: OpportunityBrowseFilters;
   facets: Record<string, Record<string, number>>;
   /** Sonuç sayacı: yüklenirken eski sayı korunur, sahte 0/0 gösterilmez. */
@@ -64,6 +65,7 @@ function facetChips(
 }
 
 export function OpportunityFilterBar({
+  leading,
   filters,
   facets,
   shown,
@@ -95,7 +97,8 @@ export function OpportunityFilterBar({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+      <div role="toolbar" aria-label="Fırsat filtreleri" className="flex flex-wrap items-center gap-2">
+        {leading}
         <div className="relative min-w-0 flex-[2_1_16rem]">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-icon" />
           <Input

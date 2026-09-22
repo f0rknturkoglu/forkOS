@@ -1,4 +1,4 @@
-import { Bookmark, CalendarDays, ExternalLink, MapPin, RotateCcw, Trash2, Users } from "lucide-react";
+import { Bookmark, CalendarDays, ExternalLink, MapPin, MoreHorizontal, RotateCcw, Trash2, Users } from "lucide-react";
 import { Button, Chip, FilterChip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
@@ -65,6 +65,7 @@ export function OpportunityCard({
   sourceActive = false,
   remoteActive = false,
   onSave,
+  selected = false,
 }: {
   item: Opportunity;
   onOpen: () => void;
@@ -83,6 +84,7 @@ export function OpportunityCard({
   remoteActive?: boolean;
   /** İlanı kütüphaneye kaydet ("Kaydet" aksiyonu; url yoksa buton çizilmez). */
   onSave?: () => void;
+  selected?: boolean;
 }) {
   const left = daysLeft(item.deadline_at);
   const urgent = left !== null && left <= 7;
@@ -90,6 +92,201 @@ export function OpportunityCard({
   const rk = remoteKind(item.remote);
   const announcement = item.kind !== "job";
   const publicationDate = item.published_at ?? item.found_at;
+
+  if (layout === "rows") {
+    return (
+      <article
+        className={cx(
+          "grid min-w-0 grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 transition hover:bg-surface-hover",
+          selected && "bg-surface-selected",
+          band === "eliminated" && "opacity-60",
+        )}
+      >
+        <div
+          className="text-center"
+          aria-label={
+            announcement
+              ? "Duyuru"
+              : item.score === null
+                ? "Kalite skoru hesaplanmadı"
+                : `Kalite skoru ${displayScore(item.score)} / 100`
+          }
+        >
+          {announcement ? (
+            <CalendarDays size={17} className="mx-auto text-accent" />
+          ) : (
+            <span
+              className={cx(
+                "numeral text-title",
+                band === "strong"
+                  ? "text-ok"
+                  : band === "fair"
+                    ? "text-warn"
+                    : band === "eliminated"
+                      ? "text-danger"
+                      : "text-muted",
+              )}
+            >
+              {displayScore(item.score)}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <button
+            type="button"
+            data-opportunity-open=""
+            aria-pressed={selected}
+            onClick={onOpen}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+              const buttons = Array.from(
+                event.currentTarget
+                  .closest("[data-layout=rows]")
+                  ?.querySelectorAll<HTMLButtonElement>("button[data-opportunity-open]") ?? [],
+              );
+              const next = buttons[buttons.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)];
+              if (next) {
+                event.preventDefault();
+                next.focus();
+                next.click();
+              }
+            }}
+            className="block w-full truncate text-left text-body font-medium text-primary hover:text-accent"
+          >
+            {item.title}
+          </button>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 text-meta text-muted">
+            {item.organization && <span className="truncate text-secondary">{item.organization}</span>}
+            {item.location && <span className="truncate">{item.location}</span>}
+            {rk && <span>{REMOTE_LABELS[rk]}</span>}
+            <span title={new Date(publicationDate).toLocaleString("tr-TR")}>
+              {announcement
+                ? new Date(publicationDate).toLocaleDateString("tr-TR", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : relativeTime(publicationDate)}
+            </span>
+            {left !== null && (
+              <span className={urgent ? "text-warn" : "text-muted"}>
+                {left < 0 ? `${Math.abs(left)} gün geçti` : left === 0 ? "Son gün" : `${left} gün kaldı`}
+              </span>
+            )}
+            {item.intelligence?.geo_mismatch && <span className="text-danger">Konum uyuşmazlığı</span>}
+            {item.source_status === "closed" && <span className="text-danger">Kaynak kapalı</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {!isTrash && (
+            <Select
+              value={item.status}
+              disabled={disabled}
+              ariaLabel={`${item.title} — durum`}
+              onChange={onStatus}
+              className="hidden w-28 sm:block"
+            >
+              <option value={item.status}>{statusLabel(item.status)}</option>
+              {(item.allowed_transitions ?? []).map((status) => (
+                <option key={status} value={status}>
+                  {statusLabel(status)}
+                </option>
+              ))}
+            </Select>
+          )}
+          <details
+            className="relative"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.preventDefault();
+              event.currentTarget.open = false;
+              event.currentTarget.querySelector("summary")?.focus();
+            }}
+          >
+            <summary
+              role="button"
+              className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-control border border-subtle text-secondary hover:bg-surface-hover"
+              aria-label={`${item.title} — diğer işlemler`}
+            >
+              <MoreHorizontal size={16} />
+            </summary>
+            <div className="absolute right-0 top-full z-popover mt-1 flex w-56 flex-col gap-1 rounded-card border border-subtle bg-surface-raised p-2 shadow-overlay">
+              <p className="px-2 text-micro text-muted">
+                {kindLabel(item.kind)} · {sourceLabel(item.source)}
+              </p>
+              {!isTrash && (
+                <Select
+                  value={item.status}
+                  disabled={disabled}
+                  ariaLabel={`${item.title} — durum (dar ekran)`}
+                  onChange={onStatus}
+                  className="w-full sm:hidden"
+                >
+                  <option value={item.status}>{statusLabel(item.status)}</option>
+                  {(item.allowed_transitions ?? []).map((status) => (
+                    <option key={status} value={status}>
+                      {statusLabel(status)}
+                    </option>
+                  ))}
+                </Select>
+              )}
+              {item.evaluation_stale_reason && <p className="px-2 text-meta text-warn">Değerlendirme güncel değil</p>}
+              {item.intelligence?.is_repost && (
+                <p className="px-2 text-meta text-warn">Tekrar ilan · {item.intelligence.repost_count}</p>
+              )}
+              {item.intelligence?.pay_transparency_risk && (
+                <p className="px-2 text-meta text-warn">Geniş ücret bandı</p>
+              )}
+              {item.url && (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2 py-1 text-meta text-accent hover:underline"
+                >
+                  İlanı aç <ExternalLink size={12} className="inline" />
+                </a>
+              )}
+              {onSave && item.url && !isTrash && (
+                <Button size="sm" onClick={onSave} disabled={disabled}>
+                  <Bookmark size={13} /> Kütüphaneye kaydet
+                </Button>
+              )}
+              {onSource && (
+                <Button size="sm" onClick={() => onSource(item.source)}>
+                  Kaynağa göre filtrele
+                </Button>
+              )}
+              {onRemote && rk && (
+                <Button size="sm" onClick={() => onRemote(rk)}>
+                  Çalışma biçimine göre filtrele
+                </Button>
+              )}
+              {onKind && (
+                <Button size="sm" onClick={() => onKind(item.kind)}>
+                  Türe göre filtrele
+                </Button>
+              )}
+              {isTrash ? (
+                <>
+                  <Button size="sm" onClick={onRestore} disabled={disabled}>
+                    <RotateCcw size={13} /> Geri yükle
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={onDelete} disabled={disabled}>
+                    Kalıcı sil
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="danger" onClick={onTrash} disabled={disabled}>
+                  <Trash2 size={13} /> Çöpe at
+                </Button>
+              )}
+            </div>
+          </details>
+        </div>
+      </article>
+    );
+  }
 
   function chip(active: boolean) {
     return cx(
@@ -103,10 +300,7 @@ export function OpportunityCard({
   return (
     <article
       className={cx(
-        "group min-w-0 transition hover:bg-surface-hover",
-        layout === "rows"
-          ? "grid grid-cols-[52px_minmax(0,1fr)] gap-3 px-1 py-3 sm:grid-cols-[58px_minmax(0,1fr)_auto]"
-          : "flex h-full flex-col gap-3 rounded-card border border-subtle bg-surface p-4",
+        "group flex h-full min-w-0 flex-col gap-3 rounded-card border border-subtle bg-surface p-4 transition hover:bg-surface-hover",
         band === "eliminated" && "opacity-60",
       )}
     >
@@ -132,7 +326,7 @@ export function OpportunityCard({
           <div
             className={cx(
               "numeral leading-none",
-              layout === "rows" ? "text-numeral-lg" : "text-title",
+              "text-title",
               band === "strong"
                 ? "text-ok"
                 : band === "fair"
@@ -254,12 +448,7 @@ export function OpportunityCard({
           )}
         </div>
       </div>
-      <div
-        className={cx(
-          "flex flex-wrap items-center gap-2",
-          layout === "rows" ? "col-span-2 sm:col-span-1 sm:justify-end" : "justify-start",
-        )}
-      >
+      <div className={cx("flex flex-wrap items-center gap-2", "justify-start")}>
         {" "}
         {isTrash ? (
           <>

@@ -3,7 +3,7 @@ import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
-import { Button, Empty, PageFrame, Section, Tabs, useToast } from "@/core/ui";
+import { Button, Empty, PageFrame, Tabs, useToast } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
@@ -30,6 +30,22 @@ import {
 import { remoteKind } from "./labels";
 
 const PAGE = 60;
+const INSPECTOR_LAYOUT = "(min-width: 1280px)";
+
+function useInspectorLayout() {
+  const [wide, setWide] = useState(
+    () => typeof window === "undefined" || !window.matchMedia || window.matchMedia(INSPECTOR_LAYOUT).matches,
+  );
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const query = window.matchMedia(INSPECTOR_LAYOUT);
+    const onChange = () => setWide(query.matches);
+    onChange();
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return wide;
+}
 
 const INITIAL_FILTERS: OpportunityBrowseFilters = {
   section: "jobs",
@@ -65,6 +81,7 @@ export function OpportunityPage() {
   const [filters, setFilters] = useState<OpportunityBrowseFilters>(INITIAL_FILTERS);
   const [tab, setTab] = useState<OpportunityTab>("jobs");
   const [selected, setSelected] = useState<string | null>(null);
+  const wideInspector = useInspectorLayout();
   const [view, setView] = useState<"rows" | "grid" | "kanban">(initialView);
   const [searchDraft, setSearchDraft] = useState("");
   // Kariyer deep-link'leri (`?story=` / `?connection=`) URL'de korunur; aksi
@@ -216,9 +233,15 @@ export function OpportunityPage() {
 
   return (
     <PageFrame>
-      <Workspace>
+      <Workspace
+        inspectorAt="xl"
+        inspector={
+          selected && wideInspector && browseEnabled ? (
+            <OpportunityDetail id={selected} close={closeRecord} mode="inline" />
+          ) : undefined
+        }
+      >
         <WorkspacePaneHeader
-          eyebrow="Kariyer"
           title="Fırsatlar"
           hint={
             tab === "jobs"
@@ -247,25 +270,24 @@ export function OpportunityPage() {
 
         {browseEnabled && (
           <div className="shrink-0 border-b border-subtle bg-surface px-4 py-2">
-            {filters.section !== "announcements" && counts.trash > 0 && (
-              <div className="mb-2">
-                <Button
-                  size="sm"
-                  variant={filters.section === "trash" ? "secondary" : "ghost"}
-                  onClick={() =>
-                    setFilters((current) => ({
-                      ...current,
-                      section: current.section === "trash" ? "jobs" : "trash",
-                      offset: 0,
-                    }))
-                  }
-                >
-                  <Trash2 size={12} /> Çöp
-                  <span className="tabular-nums text-muted">{counts.trash}</span>
-                </Button>
-              </div>
-            )}
             <OpportunityFilterBar
+              leading={
+                filters.section !== "announcements" && counts.trash > 0 ? (
+                  <Button
+                    size="sm"
+                    variant={filters.section === "trash" ? "secondary" : "ghost"}
+                    onClick={() =>
+                      setFilters((current) => ({
+                        ...current,
+                        section: current.section === "trash" ? "jobs" : "trash",
+                        offset: 0,
+                      }))
+                    }
+                  >
+                    <Trash2 size={12} /> Çöp <span className="tabular-nums text-muted">{counts.trash}</span>
+                  </Button>
+                ) : undefined
+              }
               filters={filters}
               facets={facets}
               shown={shown}
@@ -283,11 +305,10 @@ export function OpportunityPage() {
         <WorkspaceScrollArea className="p-3">
           {browseEnabled ? (
             <div className="space-y-3">
-              <Section
-                title={
+              <section
+                aria-label={
                   filters.section === "jobs" ? "İş ilanları" : filters.section === "announcements" ? "Duyurular" : "Çöp"
                 }
-                hint={`${shown} / ${total}`}
               >
                 {browse.isPending && browseEnabled ? (
                   <div
@@ -331,6 +352,7 @@ export function OpportunityPage() {
                           <OpportunityCard
                             key={item.id}
                             item={item}
+                            selected={selected === item.id}
                             disabled={!online}
                             onOpen={() => openRecord(item.id)}
                             onStatus={(to) => transition.mutate({ id: item.id, to })}
@@ -377,7 +399,7 @@ export function OpportunityPage() {
                     )}
                   </>
                 )}
-              </Section>
+              </section>
             </div>
           ) : tab === "applications" ? (
             <ApplicationsWorkspace online={online} onOpen={openRecord} />
@@ -389,7 +411,7 @@ export function OpportunityPage() {
         </WorkspaceScrollArea>
       </Workspace>
 
-      {selected && <OpportunityDetail id={selected} close={closeRecord} />}
+      {selected && (!wideInspector || !browseEnabled) && <OpportunityDetail id={selected} close={closeRecord} />}
     </PageFrame>
   );
 }

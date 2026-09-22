@@ -1,5 +1,8 @@
+// @vitest-environment jsdom
+
+import { cleanup, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const harness = vi.hoisted(() => ({
   get: vi.fn(),
@@ -52,7 +55,11 @@ vi.mock("@/core/SaveToLibrary", () => ({ useSaveToLibrary: () => ({ save: vi.fn(
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
 vi.mock("@/core/SyncProgress", () => ({ SyncProgress: () => null }));
 vi.mock("@/modules/sources/SourcePicker", () => ({ SourcePicker: () => null }));
-vi.mock("./OpportunityDetail", () => ({ OpportunityDetail: () => null }));
+vi.mock("./OpportunityDetail", () => ({
+  OpportunityDetail: ({ mode = "drawer" }: { mode?: string }) => (
+    <div data-testid="opportunity-detail" data-mode={mode} />
+  ),
+}));
 vi.mock("./ApplicationsWorkspace", () => ({ ApplicationsWorkspace: () => null }));
 vi.mock("./CareerWorkspace", () => ({ CareerWorkspace: () => null }));
 vi.mock("@/modules/sources/SourcesWorkspace", () => ({ SourcesWorkspace: () => null }));
@@ -64,7 +71,22 @@ describe("opportunity page workspaces", () => {
     harness.get.mockReset();
     harness.params = new URLSearchParams();
     harness.query = null;
+    const storage = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          storage.set(key, value);
+        },
+        removeItem: (key: string) => {
+          storage.delete(key);
+        },
+        clear: () => storage.clear(),
+      },
+    });
   });
+  afterEach(cleanup);
 
   it("renders the five workspaces and uses the paginated browse endpoint", async () => {
     const html = renderToStaticMarkup(<OpportunityPage />);
@@ -94,5 +116,29 @@ describe("opportunity page workspaces", () => {
     expect(html).not.toContain("Görünümler");
     // Bilinmeyen `?saved=` çökmeye yol açmaz: çalışma alanı normal çizilir.
     expect(html).toContain("Keşfet");
+  });
+
+  it("focus bağlantısını geniş ekranda inline inspector olarak açar", async () => {
+    harness.params = new URLSearchParams("focus=opp-1");
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes("1280"),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    });
+    render(<OpportunityPage />);
+    expect((await screen.findByTestId("opportunity-detail")).getAttribute("data-mode")).toBe("inline");
+  });
+
+  it("focus bağlantısını dar ekranda drawer olarak açar", async () => {
+    harness.params = new URLSearchParams("focus=opp-1");
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+    });
+    render(<OpportunityPage />);
+    expect((await screen.findByTestId("opportunity-detail")).getAttribute("data-mode")).toBe("drawer");
   });
 });
