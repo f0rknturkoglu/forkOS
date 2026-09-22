@@ -1,7 +1,7 @@
 # forkOS — A1.1 Hardening + A2 Bootstrap & Continuity Design
 
 **Tarih:** 2026-09-22  
-**Durum:** Taslak (İncelemeye Hazır)  
+**Durum:** Onaylandı (Uygulama Sözleşmesi)  
 **Branch:** `main`  
 **Hedef:** A1.1 Lifecycle Bridge Mini-Hardening ve A2 Bounded Bootstrap & Continuity Alt Sistemi
 
@@ -24,6 +24,10 @@ Bellek ayrımı:
 - `HOT MEMORY`: H2
 - `SEMANTIC`: f0rknbrain
 - `PROCEDURAL`: Hermes Skills + Agent Operating Contract
+
+### A2 Read-Only Semantiği ve Destek Tablosu Yazımları
+`A2ContextService.compose()` kanonik kaynaklar (forkOS `entity`, `event`, `todo`, `project`, `opportunity`, `notification`, H2 dosyaları, Vault notları) açısından **%100 salt-okunurdur (read-only)**.
+A1 gözlem commit'inden sonra A2; bu kanonik kaynakları mutate etmeden okur. Yalnızca A2'nin kendi ephemeral/support metadata'sı (`agent_session_context`, `agent_session_source`) ayrı, bağımsız ve küçük bir support-state transaction'ında yazılır. Bu destek yazımları kanonik durum mutasyonu değildir.
 
 ---
 
@@ -64,7 +68,7 @@ POST /api/agent/lifecycle/turn
        │
        └─► 2. A2 Context Composition ────────────────► Read-Only Bounded Context
                  ├─► f0rknbrain / H2 / H5 / forkOS DB
-                 ├─► Ephemeral session source tracking
+                 ├─► Ephemeral session source tracking (ayrı support transaction)
                  └─► Format rendered context
        │
        ▼
@@ -80,6 +84,10 @@ TurnContextOut (HTTP 200)
 ### 3.2 Bağımsız Transaction ve Hata İzolasyonu
 1. **A1 İzolasyonu:** `AgentLifecycleService.observe()` önce çalışır ve transaction commit edilir. A2 bağlam üretimindeki herhangi bir arıza (Vault erişilemezliği, H2 çatışması, DB gecikmesi) A1 oturum gözlemini ASLA geri almaz (`rollback` etmez).
 2. **Hermes Güvenliği (Fail-Open):** A2 bağlamı oluşturulamazsa `rendered_context=None`, `degraded_reasons=["..."]` ile HTTP 200 döner. Hermes tura normal şekilde devam eder.
+
+### 3.3 Duplicate-Turn Context Idempotency
+Aynı `(session, turn_id)` çifti lifecycle katmanı tarafından mükerrer (`duplicate: True`) görülürse, A2 bu tur için ikinci kez context compose ve inject **etmez**.
+Yanıtta `duplicate=True`, `rendered_context=None` döner ve güvenli no-op sağlanır. Bu davranış hem servis hem eklenti düzeyinde test edilir.
 
 ---
 
@@ -108,7 +116,8 @@ Oturum içinde modele teslim edilen bounded kaynak referansları:
 - `id`: BigInteger PK
 - `session_id`: BigInteger FK → `agent_session.id` (ON DELETE CASCADE)
 - `turn_id`: BigInteger FK → `agent_session_turn.id` (ON DELETE CASCADE, nullable)
-- `source_id`: String(128) NOT NULL (örn. `entity:<uuid>`, `vault:<path>`, `hot_memory:<id>`, `deadline:<id>`)
+- `source_id`: String(128) NOT NULL (örn. `entity:<uuid>`, `vault:<relative_path>`, `hot_memory:<id>`, `deadline:<id>`)
+  - **Önemli:** `source_id` içinde mutlak dosya yolu (`vault:/Users/...`) KESİNLİKLE YER ALAMAZ. Yalnızca göreli yollar (`vault:20-projects/x.md`) veya opak kimlikler kullanılır.
 - `source_type`: String(32) NOT NULL (`entity`, `vault_note`, `hot_memory`, `deadline`, `review`, `project`)
 - `source_version`: String(64) NULLABLE (hash veya revizyon damgası)
 - `scope_project`: String(64) NULLABLE (proje UUID)
@@ -226,24 +235,26 @@ class BootstrapPacketV1(BaseModel):
 ### 6.2 Later Turns (Sonraki Turlar)
 - Tam bootstrap **kesinlikle tekrarlanmaz**.
 - İstekle gelen transient prompt incelenir:
-  - Eğer soru belirsiz bir devam sorusu ise (*"bunu biraz aç"*, *"onu da karşılaştır"*, *"peki bunun diğerinden farkı?"*, *"önceki kaynağa göre?"*, vb.):
-    - Oturum aynıysa, TTL dolmamışsa (60 dk) ve kaynak revizyonu güncelse:
-      Önceki kaynak kümesini özetleyen kısa devam bağlamı üretilir:
-      ```markdown
-      <forkos-continuity version="1">
-      Önceki aktif kaynaklar: [kaynak listesi]
-      </forkos-continuity>
-      ```
-  - Eğer açıkça yeni bir konuya/projeye geçildiyse veya devamlılık kriteri sağlanmıyorsa:
-    - Önceki kaynak devamlılığı sıfırlanır (`reset/invalidate`).
-    - `rendered_context=None` döner (model MCP araçlarıyla çalışır).
+  1. **Geçerli Ambiguous Continuation:** Soru belirsiz bir devam sorusu ise (*"bunu biraz aç"*, *"onu da karşılaştır"*, *"peki bunun diğerinden farkı?"*, *"önceki kaynağa göre?"*, vb.):
+     - Oturum aynıysa, TTL dolmamışsa (60 dk) ve kaynak revizyonu güncelse:
+       Önceki kaynak kümesini özetleyen kısa devam bağlamı üretilir:
+       ```markdown
+       <forkos-continuity version="1">
+       Önceki aktif kaynaklar: [kaynak listesi]
+       </forkos-continuity>
+       ```
+  2. **Yeni Konu / Sorgu Kapsamı (Topic Shift):** Açıkça yeni bir konuya/projeye geçildiyse:
+     - Eski kaynak devamlılığı sıfırlanır (`reset/invalidate`).
+     - Yeni sorgu için gerekli olduğunda **bounded query-relevant local context retrieval** yapılır (örneğin sorguda geçen projeye/varlığa ait bounded bağlam seçilir).
+     - Full first-turn bootstrap tekrarlanmaz; yalnızca yeni konuya ait bounded kaynaklar enjekte edilir ve yeni kaynak seti kaydedilir.
+  3. **Bağlam Gerektirmeyen Turlar:** Ek bağlam gerekmiyorsa `rendered_context=None` döner (model MCP araçlarıyla çalışır).
 
 ### 6.3 Geçersiz Kılma (Invalidation) Kuralları
 - **Oturum değişti:** Yeni oturumda eski kaynaklar kullanılmaz.
-- **Proje/kapsam değişti:** Kaynak referansları temizlenir.
+- **Proje/kapsam değişti:** Eski kaynak referansları temizlenir.
 - **Kaynak revizyonu değişti:** Bayat kaynak yeniden kullanılmaz.
 - **TTL (60 dk) aşıldı:** Sıfırlanır.
-- **Açık konu değişimi:** Sıfırlanır.
+- **Açık konu değişimi:** Eski kaynak seti sıfırlanır.
 
 ---
 
@@ -251,8 +262,12 @@ class BootstrapPacketV1(BaseModel):
 
 1. **Transient Prompt:** Gelen kullanıcı mesajı (`user_message`) yalnızca bellek içinde devamlılık/konu analizi için kullanılır; PostgreSQL'e, loglara, tanılamalara veya Vault'a **asla yazılmaz**.
 2. **Local-Only:** Tüm işlemler `127.0.0.1` üzerinde kalır, hiçbir harici API/telemetri çağrısı yapılmaz.
-3. **Yol Gizleme:** Dosya yolları `redact_absolute_paths` ile temizlenir; mutlak sistem yolları arayüze veya modele sızmaz.
-4. **Prompt Injection İzolasyonu:** Context blokları açık XML/Markdown sınırlarıyla (`<forkos-context>`) veri olarak işaretlenir; sistem talimatı gibi yorumlanamaz.
+3. **Yol Gizleme:** Dosya yolları `redact_absolute_paths` ile temizlenir; mutlak sistem yolları arayüze, yanıtlara, tanılamalara veya modele sızmaz.
+4. **Prompt Injection İzolasyonu:**
+   - Getirilen kaynak içeriği (retrieved source content) **untrusted data** olarak ele alınır.
+   - Kaynak metni içinde yer alan herhangi bir komut, talimat, sistem promptu taklidi, rol etiketi (`System:`, `Developer:`) veya araç çağrısı talebi **yetkilendirme veya sistem talimatı değildir**.
+   - Context renderer içerik sınırlarını kaçış karakterleri ve belirteçler (`<forkos-context-data>`) ile izole eder; kaynak metni context wrapper'ından taşamaz.
+   - Bu davranış adversarial kaynak metin testleriyle (prompt injection, role spoofing, wrapper escape) kilitlenir.
 
 ---
 
@@ -272,15 +287,18 @@ class BootstrapPacketV1(BaseModel):
 ## 9. Doğrulama ve Test Planı
 
 1. **A1.1 Hardening Testleri:**
-   - Invariant testi: Lifecycle gözlemlerinin `Entity`, `Event`, `Todo`, `Vault` vb. tabloları/dosyaları değiştirmediğini kanıtlayan test.
-   - HTTP semantikleri: 2xx success, 3xx/4xx/5xx fail-open testleri.
+   - Invariant testi: Lifecycle gözlemlerinin `Entity`, `Event`, `Todo`, `Vault` vb. tabloları/dosyaları değiştirmediğini kanıtlayan test (`test_agent_lifecycle_invariants.py`).
+   - HTTP semantikleri: 2xx success, 3xx/4xx/5xx fail-open testleri (`test_hermes_lifecycle_plugin.py`).
 2. **A2 Bootstrap & Context Testleri:**
    - İlk turda bounded bootstrap üretimi, bütçe aşımında kırpma.
    - Vault/H2/H5 arızalarında degrade olma ve fail-open davranışı.
-   - Idempotans: Çift çağrıda duplicate context enjekte edilmemesi.
+   - Idempotans: Çift çağrıda duplicate context enjekte edilmemesi (`duplicate=True`, `rendered_context=None`).
+   - Adversarial prompt injection koruması testi.
 3. **Kaynak Devamlılığı Testleri:**
    - Aynı oturumda "bunu biraz aç" isteminde kaynak devamlılığı reuse.
    - Oturum/konu/TTL değişiminde invalidation / reset.
+   - Yeni topic için bounded query-relevant context retrieval.
    - Raw prompt'un veritabanına kaydedilmediğinin kanıtı.
+   - Mutlak dosya yollarının `source_id` veya context'e sızmadığının kanıtı.
 4. **Canlı Hermes Yürüyüşü (Walkthrough):**
    - Yerel Hermes CLI ile oturum açma, ilk tur bootstrap doğrulaması, devam sorusu testi, finalize ve latency ölçümü.
