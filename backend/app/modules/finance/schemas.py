@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
@@ -24,6 +24,12 @@ KNOWN_SUB_BRANDS = [
 SUB_SLUG = re.compile(r"^[a-z0-9][a-z0-9_]{0,31}$")
 
 FREQUENCIES = ["monthly", "quarterly", "yearly"]
+
+
+class PaidRecurringOut(BaseModel):
+    id: int
+    title: str
+    paid_at: datetime
 
 
 def _check_sub(v: str | None) -> str | None:

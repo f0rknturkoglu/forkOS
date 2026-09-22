@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.links import link
-from app.core.models import Entity
+from app.core.models import Entity, Event
 from app.core.time import local_datetime, local_today
 from app.modules import DeadlineRow
 from app.modules.finance.models import Expense, Income, RecurringPayment
@@ -23,6 +23,19 @@ DATE_COLUMN = {Expense: Expense.spent_on, Income: Income.received_on}
 MONTHS_PER_PERIOD = {"monthly": 1, "quarterly": 3, "yearly": 12}
 
 CENT = Decimal("0.01")
+
+
+async def payment_history(session: AsyncSession, limit: int) -> list[dict]:
+    """Yalnız abonelik ödeme kanıtları; genel gider defteri bu ekrana taşınmaz."""
+    rows = (await session.execute(
+        select(Event.id, Entity.title, Event.occurred_at)
+        .outerjoin(Entity, Entity.id == Event.entity_id)
+        .where(Event.verb == "recurring.paid")
+        .order_by(Event.occurred_at.desc(), Event.id.desc())
+        .limit(limit)
+    )).all()
+    return [{"id": event_id, "title": title or "Eski abonelik", "paid_at": paid_at}
+            for event_id, title, paid_at in rows]
 
 
 def _serialize_item(item, title: str) -> dict:

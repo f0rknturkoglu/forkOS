@@ -14,6 +14,7 @@ from app.modules.finance.schemas import (
     ExpensePatch,
     IncomeIn,
     IncomePatch,
+    PaidRecurringOut,
     RecurringIn,
     RecurringPatch,
 )
@@ -96,6 +97,12 @@ async def delete_income(item_id: uuid.UUID, session: AsyncSession = Depends(get_
 @router.get("/recurring-payments")
 async def recurring(session: AsyncSession = Depends(get_session)):
     return await service.list_items(session, RecurringPayment)
+
+
+@router.get("/recurring-payments/history", response_model=list[PaidRecurringOut])
+async def recurring_history(limit: int = Query(default=20, ge=1, le=100),
+                            session: AsyncSession = Depends(get_session)):
+    return await service.payment_history(session, limit)
 
 
 @router.post("/recurring-payments", status_code=201)

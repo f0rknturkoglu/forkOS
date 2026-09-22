@@ -10550,6 +10550,30 @@
         "title": "OpportunityUsageOut",
         "type": "object"
       },
+      "PaidRecurringOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "paid_at": {
+            "format": "date-time",
+            "title": "Paid At",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "paid_at"
+        ],
+        "title": "PaidRecurringOut",
+        "type": "object"
+      },
       "PlanSlotIn": {
         "properties": {
           "day": {
@@ -12657,6 +12681,27 @@
         "title": "ReviewBlockOut",
         "type": "object"
       },
+      "ReviewNotePatch": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "ReviewNotePatch",
+        "type": "object"
+      },
       "ReviewPreview": {
         "properties": {
           "completed_todos": {
@@ -12669,7 +12714,9 @@
           "kind": {
             "enum": [
               "daily",
-              "weekly"
+              "weekly",
+              "monthly",
+              "yearly"
             ],
             "title": "Kind",
             "type": "string"
@@ -16604,7 +16651,9 @@
           "kind": {
             "enum": [
               "daily",
-              "weekly"
+              "weekly",
+              "monthly",
+              "yearly"
             ],
             "title": "Kind",
             "type": "string"
@@ -16648,7 +16697,9 @@
           "kind": {
             "enum": [
               "daily",
-              "weekly"
+              "weekly",
+              "monthly",
+              "yearly"
             ],
             "title": "Kind",
             "type": "string"
@@ -27026,6 +27077,55 @@
         ]
       }
     },
+    "/api/recurring-payments/history": {
+      "get": {
+        "operationId": "recurring_history_api_recurring_payments_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaidRecurringOut"
+                  },
+                  "title": "Response Recurring History Api Recurring Payments History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recurring History",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
     "/api/recurring-payments/{item_id}": {
       "delete": {
         "operationId": "delete_recurring_api_recurring_payments__item_id__delete",
@@ -27397,6 +27497,59 @@
           }
         },
         "summary": "Preview",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/reviews/{review_id}": {
+      "patch": {
+        "operationId": "patch_review_note_api_reviews__review_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewNotePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__modules__review__schemas__ReviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Review Note",
         "tags": [
           "review"
         ]

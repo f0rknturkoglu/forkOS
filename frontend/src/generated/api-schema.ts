@@ -3369,6 +3369,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recurring-payments/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recurring History */
+        get: operations["recurring_history_api_recurring_payments_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recurring-payments/{item_id}": {
         parameters: {
             query?: never;
@@ -3495,6 +3512,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/reviews/{review_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Review Note */
+        patch: operations["patch_review_note_api_reviews__review_id__patch"];
         trace?: never;
     };
     "/api/rss/feeds": {
@@ -8370,6 +8404,18 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** PaidRecurringOut */
+        PaidRecurringOut: {
+            /** Id */
+            id: number;
+            /**
+             * Paid At
+             * Format: date-time
+             */
+            paid_at: string;
+            /** Title */
+            title: string;
+        };
         /** PlanSlotIn */
         PlanSlotIn: {
             /**
@@ -9078,6 +9124,11 @@ export interface components {
              */
             review_count: number;
         };
+        /** ReviewNotePatch */
+        ReviewNotePatch: {
+            /** Note */
+            note: string | null;
+        };
         /** ReviewPreview */
         ReviewPreview: {
             /** Completed Todos */
@@ -9086,7 +9137,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "daily" | "weekly";
+            kind: "daily" | "weekly" | "monthly" | "yearly";
             /**
              * Period End
              * Format: date
@@ -10697,7 +10748,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "daily" | "weekly";
+            kind: "daily" | "weekly" | "monthly" | "yearly";
             /** Note */
             note?: string | null;
             /**
@@ -10721,7 +10772,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "daily" | "weekly";
+            kind: "daily" | "weekly" | "monthly" | "yearly";
             /** Note */
             note: string | null;
             /**
@@ -17617,6 +17668,37 @@ export interface operations {
             };
         };
     };
+    recurring_history_api_recurring_payments_history_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaidRecurringOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_recurring_api_recurring_payments__item_id__delete: {
         parameters: {
             query?: never;
@@ -17871,6 +17953,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_review_note_api_reviews__review_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                review_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewNotePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__modules__review__schemas__ReviewOut"];
                 };
             };
             /** @description Validation Error */

@@ -13,8 +13,8 @@ const FinancePage = lazy(() => import("./FinancePage").then((module) => ({ defau
 
 registerModule({
   id: "finance",
-  title: "Finans",
-  description: "Gelir-gider akışını, abonelikleri ve düzenli ödemeleri takip et.",
+  title: "Abonelikler",
+  description: "Yaklaşan abonelik ödemelerini ve aylık toplamı takip et.",
   icon: Wallet,
   routes: [{ path: "/finance", element: FinancePage }],
   todayWidgets: [
@@ -27,8 +27,7 @@ registerModule({
     },
   ],
   commands: [
-    { id: "finance.open", label: "Finansı aç", run: () => navigate("/finance") },
-    { id: "finance.expense", label: "Gider ekle", run: () => navigate("/finance?tab=flow") },
-    { id: "finance.subs", label: "Abonelikleri aç", run: () => navigate("/finance?tab=subs") },
+    { id: "finance.open", label: "Abonelikleri aç", run: () => navigate("/finance") },
+    { id: "finance.subs", label: "Abonelikleri aç", run: () => navigate("/finance") },
   ],
 });

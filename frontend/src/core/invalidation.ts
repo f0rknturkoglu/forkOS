@@ -92,6 +92,7 @@ export const AFTER = {
     "finance-overview",
     "finance-summary",
     "recurring",
+    "recurring-history",
     "deadlines",
     "today-agenda",
     "activity",
