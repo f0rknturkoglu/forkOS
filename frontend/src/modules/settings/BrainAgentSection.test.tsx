@@ -177,6 +177,16 @@ beforeEach(() => {
           last_finalized_at: null,
           incomplete_session_count: 0,
         });
+      if (url.pathname === "/api/agent/continuity/status")
+        return json({
+          available: true,
+          last_bootstrap_at: null,
+          last_harness: null,
+          active_source_count: 0,
+          is_truncated: false,
+          degraded_reasons: [],
+          has_active_continuity: false,
+        });
       if (url.pathname === "/api/obsidian/status") {
         if (vaultFailed) throw new TypeError("Failed to fetch");
         return json(vaultStatus);
@@ -314,6 +324,17 @@ describe("Agent bağlantısı kartı", () => {
 
     expect(screen.queryByText(/Hermes bağlı/i)).toBeNull();
     expect(await screen.findByText(/forkOS, Hermes istemcisinin bağlı olup olmadığını doğrulayamaz/)).toBeTruthy();
+  });
+
+  it("oturum devamlılığı, başlangıç bağlamı ve kaynak devamlılığı tanılamalarını gösterir", async () => {
+    renderSection();
+    await ready();
+
+    expect(await screen.findByText("Oturum devamlılığı")).toBeTruthy();
+    expect(screen.getByText("Başlangıç bağlamı")).toBeTruthy();
+    expect(screen.getByText("Kaynak devamlılığı")).toBeTruthy();
+    expect(screen.getByText("Etkin kaynak yok")).toBeTruthy();
+    expect(screen.getByText("Henüz oluşturulmadı")).toBeTruthy();
   });
 });
 
