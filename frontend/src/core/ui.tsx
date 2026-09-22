@@ -82,13 +82,15 @@ export function PageFrame({ children, className }: { children: ReactNode; classN
   return <div className={cx("mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6", className)}>{children}</div>;
 }
 
+type SectionVariant = "flat" | "card";
+
 /**
- * Icerik bolumu. Varsayilani KUTU: 1px kenarlik + beyaz yuzey + cok hafif
- * kabartma. Duz yatay ayraclarla kurulan onceki duzende bolumler birbirine
- * karisiyordu; kutu sinirlari "anca secilen" ama net bir cerceve verir.
+ * Icerik bolumu.
  *
- * `flat` yalnizca zaten bir kutunun (Surface/Panel/popover) icindeyken --
- * ic ice kutu cizmemek icin.
+ * U1 (Design Foundation v2) sozlesmesi:
+ * Varsayilani `flat`: anlamsal gruplama, unboxed, cercevesiz dogal dikey akis.
+ * Kutu kabugu yalnizca acikca istendiginde (`variant="card"` veya `flat={false}`)
+ * eklenir (`rounded-card border border-subtle bg-surface shadow-card`).
  */
 export function Section({
   title,
@@ -97,7 +99,10 @@ export function Section({
   children,
   className,
   bodyClassName,
-  flat = false,
+  flat = true,
+  variant,
+  divider = false,
+  titleVariant = "heading",
 }: {
   title?: ReactNode;
   hint?: ReactNode;
@@ -106,24 +111,45 @@ export function Section({
   className?: string;
   bodyClassName?: string;
   flat?: boolean;
+  variant?: SectionVariant;
+  /** Flat modda baslik altina ince ayirac cizgisi ekler. */
+  divider?: boolean;
+  /** Baslik tipografi tercihi: dogal text-heading (varsayilan) veya label-caps. */
+  titleVariant?: "heading" | "caps";
 }) {
+  const isCard = variant === "card" || (variant === undefined && flat === false);
   const head = title || hint || action;
+
   return (
-    <section className={cx(!flat && "rounded-card border border-subtle bg-surface shadow-card", className)}>
+    <section className={cx(isCard && "rounded-card border border-subtle bg-surface shadow-card", className)}>
       {head && (
         <header
           className={cx(
-            "flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 border-b border-subtle",
-            flat ? "mb-2.5 px-0 pb-2" : "px-3.5 py-2",
+            "flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1",
+            isCard
+              ? "border-b border-subtle px-3.5 py-2"
+              : cx("px-0 pb-1.5", divider ? "border-b border-subtle mb-3" : "mb-2"),
           )}
         >
-          {title && <h2 className="label-caps shrink-0 text-secondary">{title}</h2>}
+          {title &&
+            (typeof title === "string" ? (
+              <h2
+                className={cx(
+                  "shrink-0",
+                  titleVariant === "caps" ? "label-caps text-secondary" : "text-heading font-medium text-primary",
+                )}
+              >
+                {title}
+              </h2>
+            ) : (
+              title
+            ))}
           <span className="min-w-2 flex-1" />
           {hint && <span className="text-meta text-muted">{hint}</span>}
           {action}
         </header>
       )}
-      <div className={cx(!flat && "px-3.5 py-3", bodyClassName)}>{children}</div>
+      <div className={cx(isCard && "px-3.5 py-3", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -206,14 +232,27 @@ export function RowList({
 }
 
 /**
- * Bolum basligi: kucuk kapital etiket + sayfayi bolen ince cizgi.
- * Today ve liste sayfalari hiyerarsiyi bununla kurar, kart icine almadan.
+ * Bolum basligi: kucuk kapital etiket + opsiyonel ayirac cizgisi.
+ *
+ * U1 sozlesmesi: Sayfalar hiyerarsiyi cizgiler yerine bosluk ve tipografi
+ * ile kurar; ayirac cizgisi (h-px bg-subtle) varsayilan olarak KAPALIDIR.
+ * Cizgi yalnizca acikca `divider` verildiginde cizilir.
  */
-export function SectionHeader({ label, hint, action }: { label: string; hint?: ReactNode; action?: ReactNode }) {
+export function SectionHeader({
+  label,
+  hint,
+  action,
+  divider = false,
+}: {
+  label: string;
+  hint?: ReactNode;
+  action?: ReactNode;
+  divider?: boolean;
+}) {
   return (
     <div className="mb-3 flex items-baseline gap-3">
       <span className="label-caps">{label}</span>
-      <span className="h-px flex-1 bg-subtle" />
+      {divider ? <span className="h-px flex-1 bg-subtle" /> : <span className="flex-1" />}
       {hint && <span className="text-meta text-muted">{hint}</span>}
       {action}
     </div>

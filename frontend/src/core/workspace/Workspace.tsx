@@ -45,7 +45,7 @@ export function Workspace({
   return (
     <div
       className={cx(
-        "grid min-h-workspace-body overflow-hidden rounded-card border border-subtle bg-surface shadow-card",
+        "grid min-h-workspace-body overflow-hidden",
         columns,
         className,
       )}
@@ -60,7 +60,7 @@ export function Workspace({
           {rail}
         </aside>
       ) : null}
-      <section className="flex min-h-0 min-w-0 flex-col">{children}</section>
+      <section className="flex min-h-0 min-w-0 flex-col bg-surface">{children}</section>
       {inspector ? (
         <aside
           className={cx(
