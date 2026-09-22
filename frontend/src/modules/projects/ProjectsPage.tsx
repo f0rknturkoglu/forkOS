@@ -33,9 +33,11 @@ import { ProjectKnowledgeNote } from "./ProjectKnowledgeNote";
 import {
   Workspace,
   WorkspacePaneHeader,
+  WorkspaceRailButton,
   WorkspaceRailContent,
   WorkspaceRailGroup,
   WorkspaceScrollArea,
+  WorkspaceToolbar,
 } from "@/core/workspace/Workspace";
 
 const STATUSES = [
@@ -109,32 +111,18 @@ export function ProjectsPage() {
                   const status = statusOf(project.status);
                   const active = project.id === selected;
                   return (
-                    <button
+                    <WorkspaceRailButton
                       key={project.id}
-                      type="button"
+                      label={project.title}
+                      active={active}
                       onClick={() => setSelected(project.id)}
-                      aria-current={active ? "page" : undefined}
-                      className={cx(
-                        "flex w-full min-w-0 items-start gap-2.5 rounded-control px-2 py-2 text-left transition",
-                        active ? "bg-surface-selected" : "hover:bg-surface-hover",
-                      )}
-                    >
-                      <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", status.dot)} />
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={cx(
-                            "block truncate text-body",
-                            active ? "font-medium text-primary" : "text-secondary",
-                          )}
-                        >
-                          {project.title}
-                        </span>
-                        <span className="block truncate text-meta text-muted">
-                          {project.github_repo ?? status.label}
-                          {project.last_activity_at && ` · ${relativeTime(project.last_activity_at)}`}
-                        </span>
-                      </span>
-                    </button>
+                      icon={<span className={cx("h-2 w-2 rounded-full", status.dot)} />}
+                      count={
+                        project.last_activity_at
+                          ? `${relativeTime(project.last_activity_at)} · ${status.label}`
+                          : project.github_repo ?? status.label
+                      }
+                    />
                   );
                 })}
               </WorkspaceRailGroup>
@@ -145,7 +133,9 @@ export function ProjectsPage() {
             eyebrow="Proje çalışma alanı"
             title={current.title}
             hint={<Chip tone={statusOf(current.status).tone}>{statusOf(current.status).label}</Chip>}
-            action={
+          />
+          <WorkspaceToolbar
+            right={
               <Button variant="primary" size="sm" onClick={() => setAdding((value) => !value)} disabled={!online}>
                 <Plus size={14} /> {adding ? "Vazgeç" : "Yeni proje"}
               </Button>

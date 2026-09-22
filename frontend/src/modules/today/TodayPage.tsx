@@ -1,8 +1,9 @@
 import { allTodayStats, useTodayWidgetViews } from "@/core/registry";
 import type { TodayWidgetView } from "@/core/registry";
-import { Empty, PageFrame, cx } from "@/core/ui";
+import { Empty, cx } from "@/core/ui";
 import type { TodayPlacement } from "@/core/types";
 import { TodayHero } from "./TodayHero";
+import { WorkspaceScrollArea } from "@/core/workspace/Workspace";
 
 /**
  * Home = günün yürütme ekranı.
@@ -38,24 +39,26 @@ export function TodayPage() {
 
   if (stats.length + views.length === 0) {
     return (
-      <PageFrame>
+      <WorkspaceScrollArea className="p-4 sm:p-6">
         <TodayHero />
         <Empty variant="page" title="Panel boş">
           Hiçbir modül widget vermiyor. Ayarlar'dan modülleri açabilirsin.
         </Empty>
-      </PageFrame>
+      </WorkspaceScrollArea>
     );
   }
 
   return (
-    <PageFrame>
+    <WorkspaceScrollArea className="p-4 sm:p-6">
       <TodayHero
         metrics={stats.map((Tile, index) => (
           <Tile key={index} />
         ))}
       />
-      <HomeGrid views={views} />
-    </PageFrame>
+      <div className="mt-5">
+        <HomeGrid views={views} />
+      </div>
+    </WorkspaceScrollArea>
   );
 }
 

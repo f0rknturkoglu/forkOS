@@ -245,42 +245,44 @@ export function OpportunityPage() {
           )}
         </WorkspacePaneHeader>
 
+        {browseEnabled && (
+          <div className="shrink-0 border-b border-subtle bg-surface px-4 py-2">
+            {filters.section !== "announcements" && counts.trash > 0 && (
+              <div className="mb-2">
+                <Button
+                  size="sm"
+                  variant={filters.section === "trash" ? "secondary" : "ghost"}
+                  onClick={() =>
+                    setFilters((current) => ({
+                      ...current,
+                      section: current.section === "trash" ? "jobs" : "trash",
+                      offset: 0,
+                    }))
+                  }
+                >
+                  <Trash2 size={12} /> Çöp
+                  <span className="tabular-nums text-muted">{counts.trash}</span>
+                </Button>
+              </div>
+            )}
+            <OpportunityFilterBar
+              filters={filters}
+              facets={facets}
+              shown={shown}
+              total={total}
+              loading={isFetching}
+              view={view}
+              onView={changeView}
+              onChange={setFilters}
+              searchValue={searchDraft}
+              onSearchChange={setSearchDraft}
+              liveMessage={isFetching ? "Sonuçlar güncelleniyor" : `${total} kayıttan ${shown} tanesi gösteriliyor`}
+            />
+          </div>
+        )}
         <WorkspaceScrollArea className="p-3">
           {browseEnabled ? (
             <div className="space-y-3">
-              {filters.section !== "announcements" && counts.trash > 0 && (
-                <div>
-                  <Button
-                    size="sm"
-                    variant={filters.section === "trash" ? "secondary" : "ghost"}
-                    onClick={() =>
-                      setFilters((current) => ({
-                        ...current,
-                        section: current.section === "trash" ? "jobs" : "trash",
-                        offset: 0,
-                      }))
-                    }
-                  >
-                    <Trash2 size={12} /> Çöp
-                    <span className="tabular-nums text-muted">{counts.trash}</span>
-                  </Button>
-                </div>
-              )}
-
-              <OpportunityFilterBar
-                filters={filters}
-                facets={facets}
-                shown={shown}
-                total={total}
-                loading={isFetching}
-                view={view}
-                onView={changeView}
-                onChange={setFilters}
-                searchValue={searchDraft}
-                onSearchChange={setSearchDraft}
-                liveMessage={isFetching ? "Sonuçlar güncelleniyor" : `${total} kayıttan ${shown} tanesi gösteriliyor`}
-              />
-
               <Section
                 title={
                   filters.section === "jobs" ? "İş ilanları" : filters.section === "announcements" ? "Duyurular" : "Çöp"
