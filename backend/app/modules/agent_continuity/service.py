@@ -18,7 +18,6 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deadlines import collect_deadlines
 from app.core.models import Entity
 from app.modules.agent_continuity.models import AgentSessionContext, AgentSessionSource
 from app.modules.agent_continuity.renderer import (
@@ -35,6 +34,7 @@ from app.modules.agent_continuity.schemas import (
     OperationalDeadline,
     OperationalProject,
     OperationalState,
+    ContinuityStatusOut,
 )
 from app.modules.agent_lifecycle.models import AgentSession
 from app.modules.execution.models import ExecutionPlan
@@ -106,6 +106,8 @@ async def _collect_operational_projects(session: AsyncSession, limit: int = 5) -
 
 async def _collect_operational_deadlines(session: AsyncSession, limit: int = 5) -> list[OperationalDeadline]:
     """Yaklaşan son tarihleri çeker."""
+    from app.core.deadlines import collect_deadlines
+
     raw = await collect_deadlines(session, limit=limit)
     deadlines: list[OperationalDeadline] = []
     for d in raw:
@@ -551,4 +553,44 @@ async def compose_later_turn_context(
     await session.commit()
 
     return None, new_sources, rendered, degraded_reasons
+
+
+async def status(session: AsyncSession) -> ContinuityStatusOut:
+    """Devamlılık ve bağlam oluşturma tanılamalarını döner."""
+    now = datetime.now(UTC)
+    last_bootstrap = await session.scalar(
+        select(AgentSessionContext.created_at)
+        .where(AgentSessionContext.is_first_turn.is_(True))
+        .order_by(AgentSessionContext.created_at.desc())
+        .limit(1)
+    )
+    last_harness_row = (await session.execute(
+        select(AgentSession.harness)
+        .join(AgentSessionContext, AgentSessionContext.session_id == AgentSession.id)
+        .order_by(AgentSessionContext.created_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+    active_sources = await session.scalar(
+        select(func.count())
+        .select_from(AgentSessionSource)
+        .where(AgentSessionSource.expires_at > now)
+    ) or 0
+
+    latest_ctx = (await session.execute(
+        select(AgentSessionContext)
+        .order_by(AgentSessionContext.created_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+    return ContinuityStatusOut(
+        available=True,
+        last_bootstrap_at=last_bootstrap,
+        last_harness=last_harness_row,
+        active_source_count=active_sources,
+        is_truncated=latest_ctx.truncated if latest_ctx else False,
+        degraded_reasons=latest_ctx.degraded_reasons if latest_ctx else [],
+        has_active_continuity=active_sources > 0,
+    )
+
 

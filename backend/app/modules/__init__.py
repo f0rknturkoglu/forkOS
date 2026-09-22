@@ -65,6 +65,7 @@ class ModuleSpec:
 
 from app.modules.bookmark import MODULE as bookmark_module  # noqa: E402
 from app.modules.agent_lifecycle import MODULE as agent_lifecycle_module  # noqa: E402
+from app.modules.agent_continuity import MODULE as agent_continuity_module  # noqa: E402
 from app.modules.calendar import MODULE as calendar_module  # noqa: E402
 from app.modules.document import MODULE as document_module  # noqa: E402
 from app.modules.execution import MODULE as execution_module  # noqa: E402
@@ -86,6 +87,7 @@ from app.modules.todo import MODULE as todo_module  # noqa: E402
 
 MODULES: list[ModuleSpec] = [
     agent_lifecycle_module,
+    agent_continuity_module,
     bookmark_module,
     rss_module,
     flashcard_module,

@@ -4,12 +4,21 @@ Retrieved kaynaklar ve kullanıcı notları untrusted data kabul edilir;
 sınırlar delimiter etiketleri ve kaçış kurallarıyla korunur.
 """
 
-from __future__ import annotations
-
 import html
+import re
 
-from app.integrations.agent.context import redact_absolute_paths
 from app.modules.agent_continuity.schemas import BootstrapPacketV1, BootstrapSourceRef
+
+_ABSOLUTE_PATH_RE = re.compile(
+    r"(^|[\s'\"(\[,;])((?:[A-Za-z]:[\\/]|/)[^'\"()\[\],;\n]+)",
+    re.MULTILINE,
+)
+
+
+def redact_absolute_paths(text: str) -> str:
+    """Tanılama ve bağlam metninden mutlak sistem yollarını temizler."""
+    return _ABSOLUTE_PATH_RE.sub(lambda match: f"{match.group(1)}<vault>", text or "")
+
 
 _DELIMITER_REPLACEMENTS = [
     ("</forkos-context>", "&lt;/forkos-context&gt;"),
