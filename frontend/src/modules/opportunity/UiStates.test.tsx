@@ -249,14 +249,15 @@ describe("ApplicationsWorkspace hata ve offline durumları", () => {
     harness.state.applicationsTotal = 1;
     renderInQueryClient(<ApplicationsWorkspace online onOpen={vi.fn()} />);
     await screen.findByText("Belgesi Eksik Başvuru");
+    expect(screen.queryByText("Kohort dönüşümü")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "İstatistik" }));
 
     expect(screen.getByText("Henüz yeterli veri yok")).toBeTruthy();
     expect(screen.queryByText("Kohort dönüşümü")).toBeNull();
     expect(screen.queryByText("Durum dağılımı")).toBeNull();
     expect(screen.queryByText("Kaynağa göre")).toBeNull();
 
-    // Takvim sekmesindeki haftalık/aylık ritim grafikleri de gizlenir.
-    fireEvent.click(screen.getByRole("tab", { name: "Takvim" }));
+    // Haftalık/aylık ritim grafikleri istatistikte de küçük örneklemde gizlenir.
     expect(await screen.findByText(/başvuru ritmi grafikleri en az 3 gerçek başvuru/)).toBeTruthy();
     expect(screen.queryByText("Haftalık başvuru ritmi")).toBeNull();
     expect(screen.queryByText("Aylık başvuru ritmi")).toBeNull();

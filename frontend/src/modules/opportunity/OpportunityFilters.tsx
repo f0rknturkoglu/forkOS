@@ -110,14 +110,6 @@ export function OpportunityFilterBar({
           />
         </div>
 
-        {filters.section === "jobs" && (
-          <ScoreRangeControl
-            min={filters.min_score}
-            max={filters.max_score}
-            onChange={(min, max) => update({ min_score: min, max_score: max })}
-          />
-        )}
-
         <Select
           ariaLabel="Sıralama"
           value={filters.sort}
@@ -418,6 +410,11 @@ function FilterPanelPopover({
 
         {jobs && (
           <Section title="Skor">
+            <ScoreRangeControl
+              min={filters.min_score}
+              max={filters.max_score}
+              onChange={(min, max) => update({ min_score: min, max_score: max })}
+            />
             <div className="flex flex-wrap items-center gap-1.5">
               {SCORE_STATE_PRESETS.map((preset) => (
                 <FilterChip

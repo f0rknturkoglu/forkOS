@@ -111,10 +111,9 @@ function CohortRow({
 const VIEW_TABS = [
   { id: "list", label: "Liste" },
   { id: "kanban", label: "Kanban" },
-  { id: "timeline", label: "Takvim" },
 ];
 
-type ApplicationsView = "list" | "kanban" | "timeline";
+type ApplicationsView = "list" | "kanban";
 
 interface ApplicationsWorkspaceProps {
   online: boolean;
@@ -298,6 +297,7 @@ function RecordLink({
 
 export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceProps) {
   const [view, setView] = useState<ApplicationsView>("list");
+  const [mode, setMode] = useState<"pipeline" | "followup" | "stats">("pipeline");
   const toast = useToast();
 
   const applications = useQuery({
@@ -361,7 +361,19 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Tabs value={view} onChange={setView} items={VIEW_TABS} ariaLabel="Başvuru görünümü" />
+        <Tabs
+          value={mode}
+          onChange={setMode}
+          items={[
+            { id: "pipeline", label: "Pipeline" },
+            { id: "followup", label: "Takip" },
+            { id: "stats", label: "İstatistik" },
+          ]}
+          ariaLabel="Başvuru alanı"
+        />
+        {mode === "pipeline" && (
+          <Tabs value={view} onChange={setView} items={VIEW_TABS} ariaLabel="Pipeline görünümü" />
+        )}
         <span className="flex-1" />
         <span className="text-meta text-muted">
           Payda: yalnızca gerçek başvurular · {applicationsTotal} kayıt
@@ -375,7 +387,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
         </p>
       )}
 
-      {view === "list" && (
+      {mode === "pipeline" && view === "list" && (
         <Section
           title="Başvuru listesi"
           hint={
@@ -445,7 +457,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
         </Section>
       )}
 
-      {view === "kanban" && (
+      {mode === "pipeline" && view === "kanban" && (
         <Section
           title="Başvuru hattı"
           hint={
@@ -527,7 +539,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
         </Section>
       )}
 
-      {view === "timeline" && (
+      {mode === "followup" && (
         <div className="space-y-4">
           <Section
             title="Yaklaşan takipler"
@@ -560,7 +572,11 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
               </div>
             )}
           </Section>
+        </div>
+      )}
 
+      {mode === "stats" && (
+        <>
           {funnel.isError ? (
             <Section title="Başvuru ritmi" hint="okunamadı">
               <QueryFailure
@@ -585,254 +601,257 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
               </Section>
             </div>
           )}
-        </div>
-      )}
-
-      {funnel.isError ? (
-        <Section title="Başvuru analizi" hint="okunamadı">
-          <QueryFailure
-            message={`Başvuru analitiği yüklenemedi: ${
-              funnel.error instanceof Error ? funnel.error.message : "bilinmeyen hata"
-            }`}
-            retrying={funnel.isFetching}
-            onRetry={() => void funnel.refetch()}
-          />
-        </Section>
-      ) : (
-        <>
-          <MetricStrip className="grid-cols-2 lg:grid-cols-4">
-            <Metric
-              label="Gerçek başvuru"
-              value={funnelData?.total ?? rows.length}
-              hint="Payda: yalnızca gerçek başvurular"
-            />
-            <Metric label="Takip edilen" value={funnelData?.tracked ?? "—"} hint="preparing ve sonrası" />
-            <Metric
-              label="Ort. ilk yanıt"
-              value={
-                funnelData?.avg_first_response_days === null || funnelData?.avg_first_response_days === undefined
-                  ? "—"
-                  : `${funnelData.avg_first_response_days} gün`
-              }
-              hint="başvurudan ilk yanıta"
-            />
-            <Metric
-              label="Ort. başvuru → görüşme"
-              value={
-                funnelData?.avg_applied_to_interview_days === null ||
-                funnelData?.avg_applied_to_interview_days === undefined
-                  ? "—"
-                  : `${funnelData.avg_applied_to_interview_days} gün`
-              }
-              hint="gün"
-            />
-          </MetricStrip>
-
-          {sparse ? (
-            <Section title="Başvuru analizi" hint={`Payda: ${applicationsTotal} gerçek başvuru`}>
-              <Empty title="Henüz yeterli veri yok">
-                Dönüşüm, durum dağılımı ve kırılım grafikleri en az 3 gerçek başvuru biriktiğinde anlamlı olur.
-              </Empty>
-            </Section>
-          ) : (
-            <>
-              <Section
-                title="Kohort dönüşümü"
-                hint={`Payda: ${funnelData?.cohort_size ?? 0} başvuru · eşik ${minimumSample}`}
-              >
-                {funnel.isLoading ? (
-                  <SkeletonRows rows={4} />
-                ) : (
-                  <div className="space-y-1.5">
-                    <CohortRow
-                      label="Başvuru → görüşme"
-                      reached={cohort.interview ?? 0}
-                      base={cohort.applied ?? 0}
-                      minimum={minimumSample}
-                    />
-                    <CohortRow
-                      label="Görüşme → teklif"
-                      reached={cohort.offer ?? 0}
-                      base={cohort.interview ?? 0}
-                      minimum={minimumSample}
-                    />
-                    <CohortRow
-                      label="Teklif → kabul"
-                      reached={cohort.accepted ?? 0}
-                      base={cohort.offer ?? 0}
-                      minimum={minimumSample}
-                    />
-                    <CohortRow
-                      label="Başvuru → ret"
-                      reached={cohort.rejected ?? 0}
-                      base={cohort.applied ?? 0}
-                      minimum={minimumSample}
-                    />
-                  </div>
-                )}
-                {funnelData && !funnelData.sufficient && (
-                  <p className="mt-2 text-micro text-muted">
-                    Örneklem küçük ({funnelData.cohort_size} başvuru): yanıltıcı yüzde yerine ham sayı gösteriliyor.
-                  </p>
-                )}
-              </Section>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <Section title="Durum dağılımı" hint={`Payda: ${funnelData?.total ?? rows.length} gerçek başvuru`}>
-                  {funnel.isLoading ? (
-                    <SkeletonRows rows={4} />
-                  ) : (funnelData?.by_status ?? []).every((row) => row.count === 0) ? (
-                    <Empty>Henüz başvuru yok.</Empty>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {(funnelData?.by_status ?? []).map((row) => (
-                        <div key={row.status} className="flex items-center gap-2">
-                          <span className="w-24 shrink-0 truncate text-meta text-secondary">
-                            {applicationStatusLabel(row.status)}
-                          </span>
-                          <div className="h-3 min-w-0 flex-1 overflow-hidden rounded-control bg-surface-sunken">
-                            <div
-                              className="h-full rounded-control bg-accent"
-                              style={{ width: `${(row.count / maxStatusCount) * 100}%` }}
-                            />
-                          </div>
-                          <span className="w-8 shrink-0 text-right text-meta tabular-nums text-primary">
-                            {row.count}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Section>
-
-                <Section title="Red nedenleri" hint="Payda: red durumundaki başvurular">
-                  {funnel.isLoading ? (
-                    <SkeletonRows rows={3} />
-                  ) : !reasonRows.some((row) => row.count > 0) ? (
-                    <Empty>Henüz red kaydı yok.</Empty>
-                  ) : (
-                    <div className="divide-y divide-subtle">
-                      {reasonRows.map((row) => (
-                        <div key={row.reason} className="flex items-center gap-2 py-1.5">
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
-                          <span className="min-w-0 flex-1 truncate text-meta text-secondary">{row.reason}</span>
-                          <Chip tone={row.count > 0 ? "danger" : "neutral"}>{row.count}</Chip>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Section>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <BreakdownTable
-                  title="Kaynağa göre"
-                  rows={funnelData?.by_source ?? []}
-                  hint="Kayıt · yanıt · görüşme oranı"
-                  labelFor={(row) => sourceLabel(row.key)}
-                  minimumSample={minimumSample}
-                />
-                <BreakdownTable
-                  title="CV'ye göre"
-                  rows={funnelData?.by_cv ?? []}
-                  hint="Kayıt · yanıt · görüşme oranı"
-                  minimumSample={minimumSample}
-                />
-                <BreakdownTable
-                  title="Role göre"
-                  rows={funnelData?.by_role ?? []}
-                  hint="Kayıt · yanıt · görüşme oranı"
-                  minimumSample={minimumSample}
-                />
-                <BreakdownTable
-                  title="Ülkeye göre"
-                  rows={funnelData?.by_country ?? []}
-                  hint="Kayıt · yanıt · görüşme oranı"
-                  minimumSample={minimumSample}
-                />
-                <BreakdownTable
-                  title="Çalışma biçimine göre"
-                  rows={funnelData?.by_work_mode ?? []}
-                  hint="Kayıt · yanıt · görüşme oranı"
-                  minimumSample={minimumSample}
-                />
-              </div>
-            </>
-          )}
         </>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Section
-          title="Yaklaşan takipler"
-          hint={followups.isError ? "okunamadı" : `${(followups.data ?? []).length} kayıt · payda: aktif başvurular`}
-          action={<CalendarClock size={14} className="text-icon" />}
-        >
-          {followups.isLoading ? (
-            <SkeletonRows rows={3} />
-          ) : followups.isError ? (
+      {mode === "stats" &&
+        (funnel.isError ? (
+          <Section title="Başvuru analizi" hint="okunamadı">
             <QueryFailure
-              message={`Takipler yüklenemedi: ${
-                followups.error instanceof Error ? followups.error.message : "bilinmeyen hata"
+              message={`Başvuru analitiği yüklenemedi: ${
+                funnel.error instanceof Error ? funnel.error.message : "bilinmeyen hata"
               }`}
-              retrying={followups.isFetching}
-              onRetry={() => void followups.refetch()}
+              retrying={funnel.isFetching}
+              onRetry={() => void funnel.refetch()}
             />
-          ) : (followups.data ?? []).length === 0 ? (
-            <Empty>Takipli başvuru yok.</Empty>
-          ) : (
-            <div className="space-y-1.5">
-              {(followups.data ?? []).slice(0, 5).map((item) => (
-                <RecordLink
-                  key={item.id}
-                  title={item.title}
-                  subtitle={applicationStatusLabel(item.status)}
-                  meta={relativeTime(item.follow_up_at)}
-                  onOpen={() => onOpen(item.id)}
-                />
-              ))}
-            </div>
-          )}
-        </Section>
+          </Section>
+        ) : (
+          <>
+            <MetricStrip className="grid-cols-2 lg:grid-cols-4">
+              <Metric
+                label="Gerçek başvuru"
+                value={funnelData?.total ?? rows.length}
+                hint="Payda: yalnızca gerçek başvurular"
+              />
+              <Metric label="Takip edilen" value={funnelData?.tracked ?? "—"} hint="preparing ve sonrası" />
+              <Metric
+                label="Ort. ilk yanıt"
+                value={
+                  funnelData?.avg_first_response_days === null || funnelData?.avg_first_response_days === undefined
+                    ? "—"
+                    : `${funnelData.avg_first_response_days} gün`
+                }
+                hint="başvurudan ilk yanıta"
+              />
+              <Metric
+                label="Ort. başvuru → görüşme"
+                value={
+                  funnelData?.avg_applied_to_interview_days === null ||
+                  funnelData?.avg_applied_to_interview_days === undefined
+                    ? "—"
+                    : `${funnelData.avg_applied_to_interview_days} gün`
+                }
+                hint="gün"
+              />
+            </MetricStrip>
 
-        <Section
-          title="Firma sessizliği"
-          hint="21 günü aşan yanıtsız görüşme · payda: görüşmedeki başvurular"
-          action={<Radar size={14} className="text-icon" />}
-        >
-          {silence.isLoading ? (
-            <SkeletonRows rows={3} />
-          ) : silence.isError ? (
-            <QueryFailure
-              message={`Firma sessizliği yüklenemedi: ${
-                silence.error instanceof Error ? silence.error.message : "bilinmeyen hata"
-              }`}
-              retrying={silence.isFetching}
-              onRetry={() => void silence.refetch()}
-            />
-          ) : (silence.data ?? []).length === 0 ? (
-            <Empty>21 günü aşan yanıtsız görüşme yok.</Empty>
-          ) : (
-            <div className="space-y-1.5">
-              {(silence.data ?? []).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onOpen(item.id)}
-                  className="group flex w-full items-center gap-2 rounded-control border border-warn-border bg-warn-surface px-3 py-2 text-left transition hover:border-strong"
+            {sparse ? (
+              <Section title="Başvuru analizi" hint={`Payda: ${applicationsTotal} gerçek başvuru`}>
+                <Empty title="Henüz yeterli veri yok">
+                  Dönüşüm, durum dağılımı ve kırılım grafikleri en az 3 gerçek başvuru biriktiğinde anlamlı olur.
+                </Empty>
+              </Section>
+            ) : (
+              <>
+                <Section
+                  title="Kohort dönüşümü"
+                  hint={`Payda: ${funnelData?.cohort_size ?? 0} başvuru · eşik ${minimumSample}`}
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body font-medium text-primary">{item.title}</span>
-                    <span className="block text-micro text-muted">{item.organization || "Kurum belirtilmemiş"}</span>
-                  </span>
-                  <Chip tone="warn">{item.days_silent} gün</Chip>
-                  <ArrowRight size={13} className="shrink-0 text-muted transition group-hover:translate-x-0.5" />
-                </button>
-              ))}
-            </div>
-          )}
-        </Section>
-      </div>
+                  {funnel.isLoading ? (
+                    <SkeletonRows rows={4} />
+                  ) : (
+                    <div className="space-y-1.5">
+                      <CohortRow
+                        label="Başvuru → görüşme"
+                        reached={cohort.interview ?? 0}
+                        base={cohort.applied ?? 0}
+                        minimum={minimumSample}
+                      />
+                      <CohortRow
+                        label="Görüşme → teklif"
+                        reached={cohort.offer ?? 0}
+                        base={cohort.interview ?? 0}
+                        minimum={minimumSample}
+                      />
+                      <CohortRow
+                        label="Teklif → kabul"
+                        reached={cohort.accepted ?? 0}
+                        base={cohort.offer ?? 0}
+                        minimum={minimumSample}
+                      />
+                      <CohortRow
+                        label="Başvuru → ret"
+                        reached={cohort.rejected ?? 0}
+                        base={cohort.applied ?? 0}
+                        minimum={minimumSample}
+                      />
+                    </div>
+                  )}
+                  {funnelData && !funnelData.sufficient && (
+                    <p className="mt-2 text-micro text-muted">
+                      Örneklem küçük ({funnelData.cohort_size} başvuru): yanıltıcı yüzde yerine ham sayı gösteriliyor.
+                    </p>
+                  )}
+                </Section>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <Section title="Durum dağılımı" hint={`Payda: ${funnelData?.total ?? rows.length} gerçek başvuru`}>
+                    {funnel.isLoading ? (
+                      <SkeletonRows rows={4} />
+                    ) : (funnelData?.by_status ?? []).every((row) => row.count === 0) ? (
+                      <Empty>Henüz başvuru yok.</Empty>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {(funnelData?.by_status ?? []).map((row) => (
+                          <div key={row.status} className="flex items-center gap-2">
+                            <span className="w-24 shrink-0 truncate text-meta text-secondary">
+                              {applicationStatusLabel(row.status)}
+                            </span>
+                            <div className="h-3 min-w-0 flex-1 overflow-hidden rounded-control bg-surface-sunken">
+                              <div
+                                className="h-full rounded-control bg-accent"
+                                style={{ width: `${(row.count / maxStatusCount) * 100}%` }}
+                              />
+                            </div>
+                            <span className="w-8 shrink-0 text-right text-meta tabular-nums text-primary">
+                              {row.count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Section>
+
+                  <Section title="Red nedenleri" hint="Payda: red durumundaki başvurular">
+                    {funnel.isLoading ? (
+                      <SkeletonRows rows={3} />
+                    ) : !reasonRows.some((row) => row.count > 0) ? (
+                      <Empty>Henüz red kaydı yok.</Empty>
+                    ) : (
+                      <div className="divide-y divide-subtle">
+                        {reasonRows.map((row) => (
+                          <div key={row.reason} className="flex items-center gap-2 py-1.5">
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
+                            <span className="min-w-0 flex-1 truncate text-meta text-secondary">{row.reason}</span>
+                            <Chip tone={row.count > 0 ? "danger" : "neutral"}>{row.count}</Chip>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Section>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <BreakdownTable
+                    title="Kaynağa göre"
+                    rows={funnelData?.by_source ?? []}
+                    hint="Kayıt · yanıt · görüşme oranı"
+                    labelFor={(row) => sourceLabel(row.key)}
+                    minimumSample={minimumSample}
+                  />
+                  <BreakdownTable
+                    title="CV'ye göre"
+                    rows={funnelData?.by_cv ?? []}
+                    hint="Kayıt · yanıt · görüşme oranı"
+                    minimumSample={minimumSample}
+                  />
+                  <BreakdownTable
+                    title="Role göre"
+                    rows={funnelData?.by_role ?? []}
+                    hint="Kayıt · yanıt · görüşme oranı"
+                    minimumSample={minimumSample}
+                  />
+                  <BreakdownTable
+                    title="Ülkeye göre"
+                    rows={funnelData?.by_country ?? []}
+                    hint="Kayıt · yanıt · görüşme oranı"
+                    minimumSample={minimumSample}
+                  />
+                  <BreakdownTable
+                    title="Çalışma biçimine göre"
+                    rows={funnelData?.by_work_mode ?? []}
+                    hint="Kayıt · yanıt · görüşme oranı"
+                    minimumSample={minimumSample}
+                  />
+                </div>
+              </>
+            )}
+          </>
+        ))}
+
+      {mode === "pipeline" && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Section
+            title="Yaklaşan takipler"
+            hint={followups.isError ? "okunamadı" : `${(followups.data ?? []).length} kayıt · payda: aktif başvurular`}
+            action={<CalendarClock size={14} className="text-icon" />}
+          >
+            {followups.isLoading ? (
+              <SkeletonRows rows={3} />
+            ) : followups.isError ? (
+              <QueryFailure
+                message={`Takipler yüklenemedi: ${
+                  followups.error instanceof Error ? followups.error.message : "bilinmeyen hata"
+                }`}
+                retrying={followups.isFetching}
+                onRetry={() => void followups.refetch()}
+              />
+            ) : (followups.data ?? []).length === 0 ? (
+              <Empty>Takipli başvuru yok.</Empty>
+            ) : (
+              <div className="space-y-1.5">
+                {(followups.data ?? []).slice(0, 5).map((item) => (
+                  <RecordLink
+                    key={item.id}
+                    title={item.title}
+                    subtitle={applicationStatusLabel(item.status)}
+                    meta={relativeTime(item.follow_up_at)}
+                    onOpen={() => onOpen(item.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section
+            title="Firma sessizliği"
+            hint="21 günü aşan yanıtsız görüşme · payda: görüşmedeki başvurular"
+            action={<Radar size={14} className="text-icon" />}
+          >
+            {silence.isLoading ? (
+              <SkeletonRows rows={3} />
+            ) : silence.isError ? (
+              <QueryFailure
+                message={`Firma sessizliği yüklenemedi: ${
+                  silence.error instanceof Error ? silence.error.message : "bilinmeyen hata"
+                }`}
+                retrying={silence.isFetching}
+                onRetry={() => void silence.refetch()}
+              />
+            ) : (silence.data ?? []).length === 0 ? (
+              <Empty>21 günü aşan yanıtsız görüşme yok.</Empty>
+            ) : (
+              <div className="space-y-1.5">
+                {(silence.data ?? []).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onOpen(item.id)}
+                    className="group flex w-full items-center gap-2 rounded-control border border-warn-border bg-warn-surface px-3 py-2 text-left transition hover:border-strong"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-body font-medium text-primary">{item.title}</span>
+                      <span className="block text-micro text-muted">{item.organization || "Kurum belirtilmemiş"}</span>
+                    </span>
+                    <Chip tone="warn">{item.days_silent} gün</Chip>
+                    <ArrowRight size={13} className="shrink-0 text-muted transition group-hover:translate-x-0.5" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </Section>
+        </div>
+      )}
     </div>
   );
 }

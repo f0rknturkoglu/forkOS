@@ -82,7 +82,7 @@ export function OpportunityCard({
   onKind?: (kind: string) => void;
   sourceActive?: boolean;
   remoteActive?: boolean;
-  /** İlanı kütüphaneye kaydet ("Kaydet" aksiyonu; url yoksa buton çizilmez). */
+  /** İlanı mevcut discovery yaşam döngüsünde kısa listeye al. */
   onSave?: () => void;
   selected?: boolean;
 }) {
@@ -247,9 +247,9 @@ export function OpportunityCard({
                   İlanı aç <ExternalLink size={12} className="inline" />
                 </a>
               )}
-              {onSave && item.url && !isTrash && (
+              {onSave && item.allowed_transitions.includes("shortlisted") && !isTrash && (
                 <Button size="sm" onClick={onSave} disabled={disabled}>
-                  <Bookmark size={13} /> Kütüphaneye kaydet
+                  <Bookmark size={13} /> Kısa Listeye Al
                 </Button>
               )}
               {onSource && (
@@ -491,13 +491,13 @@ export function OpportunityCard({
             <ExternalLink size={14} />
           </a>
         )}
-        {!isTrash && onSave && item.url && (
+        {!isTrash && onSave && item.allowed_transitions.includes("shortlisted") && (
           <button
             type="button"
             onClick={onSave}
             disabled={disabled}
-            title="Kütüphaneye kaydet"
-            aria-label={`${item.title} fırsatını kütüphaneye kaydet`}
+            title="Kısa Listeye Al"
+            aria-label={`${item.title} fırsatını kısa listeye al`}
             className={cx(
               "flex h-8 w-8 items-center justify-center rounded-control border border-subtle text-muted transition",
               "hover:bg-surface-hover hover:text-primary disabled:opacity-50",

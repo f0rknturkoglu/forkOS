@@ -8,7 +8,6 @@ import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/work
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
 import type { Opportunity } from "@/core/types";
-import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import { SyncProgress } from "@/core/SyncProgress";
 import { useOnline } from "@/lib/hooks";
 import { SourcePicker } from "@/modules/sources/SourcePicker";
@@ -76,7 +75,6 @@ function initialView(): "rows" | "grid" | "kanban" {
 export function OpportunityPage() {
   const online = useOnline();
   const toast = useToast();
-  const { save } = useSaveToLibrary();
   const { params } = useHashRoute();
   const [filters, setFilters] = useState<OpportunityBrowseFilters>(INITIAL_FILTERS);
   const [tab, setTab] = useState<OpportunityTab>("jobs");
@@ -169,7 +167,17 @@ export function OpportunityPage() {
           : variables.action === "restore"
             ? "Fırsat geri yüklendi"
             : "Fırsat kalıcı olarak silindi",
-        { tone: "ok" },
+        {
+          tone: "ok",
+          ...(variables.action === "trash"
+            ? {
+                action: {
+                  label: "Geri al",
+                  run: () => lifecycleMutation.mutate({ action: "restore", id: variables.id }),
+                },
+              }
+            : {}),
+        },
       );
     },
   });
@@ -194,23 +202,10 @@ export function OpportunityPage() {
     setSelected(null);
   }, []);
 
-  const saveItem = (item: Opportunity) => {
-    if (item.url) {
-      void save({ url: item.url, title: item.title, collection: "reference", entity_id: item.id });
-    }
-  };
+  const saveItem = (item: Opportunity) => transition.mutate({ id: item.id, to: "shortlisted" });
 
-  async function trash(item: Opportunity) {
-    if (
-      await confirmDialog({
-        title: "Fırsat çöpe atılsın mı?",
-        body: item.title,
-        confirmLabel: "Çöpe at",
-        tone: "danger",
-      })
-    ) {
-      lifecycleMutation.mutate({ action: "trash", id: item.id });
-    }
+  function trash(item: Opportunity) {
+    lifecycleMutation.mutate({ action: "trash", id: item.id });
   }
   async function permanentlyDelete(item: Opportunity) {
     if (
@@ -270,6 +265,27 @@ export function OpportunityPage() {
 
         {browseEnabled && (
           <div className="shrink-0 border-b border-subtle bg-surface px-4 py-2">
+            {tab === "jobs" && filters.section !== "trash" && (
+              <div className="mb-2 flex flex-wrap gap-1">
+                <Button
+                  size="sm"
+                  variant={!filters.status ? "secondary" : "ghost"}
+                  onClick={() => setFilters((current) => ({ ...current, status: "", offset: 0 }))}
+                >
+                  Tümü
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filters.status === "shortlisted" ? "secondary" : "ghost"}
+                  onClick={() => setFilters((current) => ({ ...current, status: "shortlisted", offset: 0 }))}
+                >
+                  Kısa Liste
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => changeTab("applications")}>
+                  Başvurular
+                </Button>
+              </div>
+            )}
             <OpportunityFilterBar
               leading={
                 filters.section !== "announcements" && counts.trash > 0 ? (

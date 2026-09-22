@@ -51,11 +51,14 @@ describe("opportunity filter bar", () => {
   it("keeps the default surface compact: no slider track until the popover opens", () => {
     renderBar();
     expect(screen.queryByRole("slider", { name: /Minimum skor/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Skor aralığı/ })).toBeNull();
+    openPanel();
     expect(screen.getByRole("button", { name: /Skor aralığı: 40–80/ })).toBeTruthy();
   });
 
   it("opens the compact score popover and shows the current range", () => {
     renderBar();
+    openPanel();
     fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
     expect(screen.getByRole("dialog", { name: "Skor aralığı" })).toBeTruthy();
     expect(screen.getByRole("slider", { name: /Minimum skor/ })).toBeTruthy();
@@ -64,16 +67,19 @@ describe("opportunity filter bar", () => {
 
   it("shows 'Tüm skorlar' when no score filter is active", () => {
     renderBar({ min_score: undefined, max_score: undefined });
+    openPanel();
     expect(screen.getByRole("button", { name: /Skor aralığı: Tüm skorlar/ })).toBeTruthy();
   });
 
   it("renders -1 as 'Elendi' on the score control", () => {
     renderBar({ min_score: -1, max_score: -1 });
+    openPanel();
     expect(screen.getByRole("button", { name: /Skor aralığı: Elendi/ })).toBeTruthy();
   });
 
   it("applies a score preset with consistent, non-overlapping bands", () => {
     const { onChange } = renderBar({ min_score: undefined, max_score: undefined });
+    openPanel();
     fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: Tüm skorlar/ }));
     fireEvent.click(screen.getByRole("button", { name: "70–79" }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ min_score: 70, max_score: 79.99, offset: 0 }));
@@ -81,6 +87,7 @@ describe("opportunity filter bar", () => {
 
   it("commits a slider drag exactly once, and not on every pointer move", () => {
     const { onChange } = renderBar();
+    openPanel();
     fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
     const minimum = screen.getByRole("slider", { name: /Minimum skor/ });
     fireEvent.change(minimum, { target: { value: "55" } });
@@ -94,6 +101,7 @@ describe("opportunity filter bar", () => {
 
   it("supports keyboard adjustment of both handles", () => {
     const { onChange } = renderBar();
+    openPanel();
     fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
     const maximum = screen.getByRole("slider", { name: /Maksimum skor/ });
     fireEvent.change(maximum, { target: { value: "90" } });
@@ -104,6 +112,7 @@ describe("opportunity filter bar", () => {
 
   it("resets the score range", () => {
     const { onChange } = renderBar();
+    openPanel();
     fireEvent.click(screen.getByRole("button", { name: /Skor aralığı: 40–80/ }));
     fireEvent.click(screen.getByRole("button", { name: /Sıfırla/ }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ min_score: undefined, max_score: undefined }));

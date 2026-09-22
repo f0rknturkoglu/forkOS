@@ -3,7 +3,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
   Award,
-  BookOpen,
   CalendarClock,
   Check,
   CheckSquare,
@@ -21,7 +20,6 @@ import { invalidateAfter } from "@/core/invalidation";
 import { sourceLabel } from "@/core/labels";
 import { displayScore } from "./scoreDomain";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { useSaveToLibrary } from "@/core/SaveToLibrary";
 import { planDayForToday } from "@/core/tasks";
 import { Button, Chip, Empty, Input, Section, Select, Tabs, relativeTime } from "@/core/ui";
 import type {
@@ -194,7 +192,10 @@ export function JobDetail({ item }: { item: Opportunity }) {
 }
 
 function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
-  const { save } = useSaveToLibrary();
+  const shortlist = useMutation({
+    mutationFn: () => api.post(`/opportunities/${item.id}/transition`, { to: "shortlisted" }),
+    onSuccess: () => invalidateAfter("opportunity.write"),
+  });
   const band = scoreBand(item.score);
   const left = daysLeft(item.deadline_at);
   const workMode = remoteKind(item.remote);
@@ -226,15 +227,17 @@ function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
             >
               <ExternalLink size={13} /> İlanı Aç
             </a>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!online}
-              title="Kütüphaneye kaydet"
-              onClick={() => void save({ url, title: item.title, collection: "reference", entity_id: item.id })}
-            >
-              <BookOpen size={13} /> Kaydet
-            </Button>
+            {item.allowed_transitions.includes("shortlisted") && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!online || shortlist.isPending}
+                title="Kısa Listeye Al"
+                onClick={() => shortlist.mutate()}
+              >
+                <Star size={13} /> Kısa Listeye Al
+              </Button>
+            )}
           </>
         )}
         {left !== null && (

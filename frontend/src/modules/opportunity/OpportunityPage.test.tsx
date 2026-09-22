@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/core/ui";
 
 const harness = vi.hoisted(() => ({
   get: vi.fn(),
+  post: vi.fn(),
+  del: vi.fn(),
+  items: [] as Array<Record<string, unknown>>,
+  confirm: vi.fn(async () => true),
   params: new URLSearchParams(),
   query: null as null | { queryFn: (context: { pageParam: number }) => unknown },
 }));
@@ -17,7 +22,7 @@ vi.mock("@tanstack/react-query", () => ({
       data: {
         pages: [
           {
-            items: [],
+            items: harness.items,
             total: 0,
             offset: 0,
             limit: 60,
@@ -37,11 +42,16 @@ vi.mock("@tanstack/react-query", () => ({
       fetchNextPage: vi.fn(),
     };
   }),
-  useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useMutation: vi.fn((options) => ({
+    mutate: (variables: unknown) => {
+      Promise.resolve(options.mutationFn(variables)).then((result) => options.onSuccess?.(result, variables));
+    },
+    isPending: false,
+  })),
   useQuery: vi.fn(() => ({ data: [], isLoading: false })),
 }));
 vi.mock("@/core/api", () => ({
-  api: { get: harness.get, patch: vi.fn(), post: vi.fn(), del: vi.fn() },
+  api: { get: harness.get, patch: vi.fn(), post: harness.post, del: harness.del },
   qs: (params: Record<string, unknown>) => {
     const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== "");
     return entries.length ? `?${new URLSearchParams(entries.map(([key, value]) => [key, String(value)]))}` : "";
@@ -52,6 +62,8 @@ vi.mock("@/app/router", () => ({
   useHashRoute: () => ({ params: harness.params }),
 }));
 vi.mock("@/core/SaveToLibrary", () => ({ useSaveToLibrary: () => ({ save: vi.fn() }) }));
+vi.mock("@/core/invalidation", () => ({ invalidateAfter: vi.fn() }));
+vi.mock("@/core/dialog", () => ({ confirmDialog: harness.confirm }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true }));
 vi.mock("@/core/SyncProgress", () => ({ SyncProgress: () => null }));
 vi.mock("@/modules/sources/SourcePicker", () => ({ SourcePicker: () => null }));
@@ -69,6 +81,10 @@ import { OpportunityPage } from "./OpportunityPage";
 describe("opportunity page workspaces", () => {
   beforeEach(() => {
     harness.get.mockReset();
+    harness.post.mockReset().mockResolvedValue({});
+    harness.del.mockReset().mockResolvedValue({});
+    harness.confirm.mockReset().mockResolvedValue(true);
+    harness.items = [];
     harness.params = new URLSearchParams();
     harness.query = null;
     const storage = new Map<string, string>();
@@ -140,5 +156,94 @@ describe("opportunity page workspaces", () => {
     });
     render(<OpportunityPage />);
     expect((await screen.findByTestId("opportunity-detail")).getAttribute("data-mode")).toBe("drawer");
+  });
+
+  it("kısa liste eylemi domain durumunu değiştirir; çöp onaysız ve toast ile geri alınır", async () => {
+    harness.items = [
+      {
+        id: "1",
+        title: "Frontend Developer",
+        kind: "job",
+        category: "software",
+        organization: "forkOS",
+        url: "https://example.com/job",
+        status: "discovered",
+        allowed_transitions: ["shortlisted"],
+        priority: 2,
+        found_at: "2026-08-23T10:00:00Z",
+        published_at: null,
+        deadline_at: null,
+        applied_at: null,
+        location: "İstanbul",
+        remote: "remote",
+        compensation: null,
+        source: "test",
+        external_id: null,
+        raw: {},
+        score: 82,
+        score_reasons: null,
+        notes: null,
+        trashed_at: null,
+        trashed_from_status: null,
+        country: null,
+        region: null,
+        follow_up_at: null,
+        rejection_reason: null,
+      },
+    ];
+    render(
+      <ToastProvider>
+        <OpportunityPage />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Kısa Listeye Al" }));
+    await waitFor(() =>
+      expect(harness.post).toHaveBeenCalledWith("/opportunities/1/transition", { to: "shortlisted" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Çöpe at" }));
+    await waitFor(() => expect(harness.post).toHaveBeenCalledWith("/opportunities/1/trash"));
+    expect(harness.confirm).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Geri al" }));
+    await waitFor(() => expect(harness.post).toHaveBeenCalledWith("/opportunities/1/restore"));
+  });
+
+  it("kalıcı silme için onay ister", async () => {
+    harness.params = new URLSearchParams("section=trash");
+    harness.items = [
+      {
+        id: "2",
+        title: "Eski ilan",
+        kind: "job",
+        category: "software",
+        organization: "forkOS",
+        url: "https://example.com/job",
+        status: "discovered",
+        allowed_transitions: [],
+        priority: 2,
+        found_at: "2026-08-23T10:00:00Z",
+        published_at: null,
+        deadline_at: null,
+        applied_at: null,
+        location: "İstanbul",
+        remote: "remote",
+        compensation: null,
+        source: "test",
+        external_id: null,
+        raw: {},
+        score: 82,
+        score_reasons: null,
+        notes: null,
+        trashed_at: "2026-08-24T10:00:00Z",
+        trashed_from_status: "discovered",
+        country: null,
+        region: null,
+        follow_up_at: null,
+        rejection_reason: null,
+      },
+    ];
+    render(<OpportunityPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Kalıcı sil" }));
+    await waitFor(() => expect(harness.confirm).toHaveBeenCalledOnce());
+    await waitFor(() => expect(harness.del).toHaveBeenCalledWith("/opportunities/2"));
   });
 });

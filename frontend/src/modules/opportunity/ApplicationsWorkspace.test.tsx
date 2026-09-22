@@ -192,7 +192,7 @@ describe("ApplicationsWorkspace", () => {
 
     expect(harness.get).toHaveBeenCalledWith("/applications?limit=500");
     expect(harness.get).not.toHaveBeenCalledWith(expect.stringContaining("/opportunities/browse"));
-    expect(screen.getAllByText("Payda: yalnızca gerçek başvurular").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Payda: yalnızca gerçek başvurular/).length).toBeGreaterThan(0);
     expect(view.queryByText("Keşfedilmiş İlan")).toBeNull();
     // Backend CV adı belge kaydından çözülür.
     expect(screen.getByText("Backend CV 2026")).toBeTruthy();
@@ -224,6 +224,7 @@ describe("ApplicationsWorkspace", () => {
 
   it("null oranı '—' gösterir, yanıltıcı '%0' yazmaz", async () => {
     renderWorkspace();
+    fireEvent.click(screen.getByRole("tab", { name: "İstatistik" }));
     await screen.findByText("linkedin");
 
     const row = screen.getByText("linkedin").parentElement;
@@ -278,6 +279,7 @@ describe("ApplicationsWorkspace örneklem dürüstlüğü", () => {
     renderWorkspace();
 
     await screen.findAllByText("Backend Engineer");
+    fireEvent.click(screen.getByRole("tab", { name: "İstatistik" }));
     // 3 başvurudan 1'i: "%33" yerine "1/3".
     expect(screen.getAllByText("1/3").length).toBeGreaterThan(0);
     expect(screen.getByText(/Örneklem küçük \(3 başvuru\)/)).toBeTruthy();
