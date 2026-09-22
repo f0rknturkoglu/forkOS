@@ -8,12 +8,13 @@ Oturum içi bütçe ve kaynak referanslarını ephemeral destek tablolarına kay
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -366,3 +367,188 @@ async def compose_first_turn_bootstrap(
 
     await session.commit()
     return packet, sources, rendered
+
+
+AMBIGUOUS_PATTERNS = [
+    "bunu biraz aç", "bunu ac", "bunu aç", "bunu açıkla", "bunu acikla",
+    "bunu detaylandır", "bunu detaylandir", "biraz daha aç", "biraz daha ac",
+    "bunu detaylandırır mısın", "bunu detaylandirir misin",
+    "daha detaylı", "daha detayli", "daha fazla detay",
+    "onu da karşılaştır", "onu da karsilastir", "karşılaştır", "karsilastir",
+    "peki bunun", "peki bunun diğerinden farkı", "peki bunun digerinden farki",
+    "farkı ne", "farki ne",
+    "önceki kaynağa göre", "onceki kaynaga gore", "önceki kaynak", "onceki kaynak",
+    "buna göre", "buna gore", "ondan bahset", "ondan bahset biraz",
+    "hangisi daha iyi", "peki ya", "neden peki",
+    "expand on this", "tell me more", "explain further", "compare that",
+    "what about that", "what did you mean", "go on", "elaborate", "more details",
+]
+
+
+def _is_ambiguous_continuation(prompt: str) -> bool:
+    if not prompt:
+        return False
+    p = prompt.strip().lower()
+    for pat in AMBIGUOUS_PATTERNS:
+        if pat in p:
+            return True
+    if len(p) < 60:
+        words = p.split()
+        if any(w in {"bunu", "bunun", "bunda", "bundan", "onu", "onun", "onda", "ondan", "this", "that", "these", "it"} for w in words):
+            return True
+    return False
+
+
+def _extract_candidate_keywords(prompt: str) -> list[str]:
+    words = re.findall(r"\b[\w-]+\b", prompt)
+    stop_words = {
+        "ile", "icin", "için", "olan", "nedir", "nelerdir", "nasil", "nasıl",
+        "durum", "son", "ilgili", "hakkında", "hakkinda", "proje", "projesi",
+        "gorev", "görev", "yeni", "bir", "ve", "veya", "ama", "fakat", "the",
+        "and", "about", "what", "project", "task", "show", "tell", "give", "list"
+    }
+    candidates = [w for w in words if len(w) >= 3 and w.lower() not in stop_words]
+    return candidates
+
+
+async def compose_later_turn_context(
+    session: AsyncSession,
+    session_row: AgentSession,
+    transient_prompt: str,
+    turn_id: int | None = None,
+    scope_project: str | None = None,
+) -> tuple[BootstrapPacketV1 | None, list[BootstrapSourceRef], str | None, list[str]]:
+    """Sonraki turlar için kaynak devamlılığı veya sınırlandırılmış sorgu bağlamı üretir.
+
+    Transient prompt asla veritabanına, loglara veya kasaya kaydedilmez.
+    """
+    now = datetime.now(UTC)
+    degraded_reasons: list[str] = []
+
+    # 1. Ambiguous follow-up kontrolü
+    if _is_ambiguous_continuation(transient_prompt):
+        stmt = (
+            select(AgentSessionSource)
+            .where(
+                AgentSessionSource.session_id == session_row.id,
+                AgentSessionSource.expires_at > now,
+            )
+            .order_by(AgentSessionSource.delivered_at.desc())
+            .limit(MAX_DELIVERED_SOURCES)
+        )
+        res = await session.execute(stmt)
+        source_rows = res.scalars().all()
+
+        if source_rows:
+            sources: list[BootstrapSourceRef] = []
+            for r in source_rows:
+                title = None
+                if r.source_id.startswith("entity:"):
+                    try:
+                        ent_id_str = r.source_id.split(":", 1)[1]
+                        ent_uuid = uuid.UUID(ent_id_str)
+                        title = await session.scalar(select(Entity.title).where(Entity.id == ent_uuid))
+                    except Exception:
+                        pass
+                sources.append(
+                    BootstrapSourceRef(
+                        source_id=r.source_id,
+                        source_type=r.source_type,
+                        source_version=r.source_version,
+                        scope_project=r.scope_project,
+                        title=title[:128] if title else None,
+                    )
+                )
+
+            rendered = render_continuity_context(sources)
+
+            ctx_row = AgentSessionContext(
+                session_id=session_row.id,
+                turn_id=turn_id,
+                schema_version=1,
+                is_first_turn=False,
+                item_count=len(sources),
+                char_count=len(rendered),
+                truncated=False,
+                omitted_count=0,
+                degraded_reasons=[],
+                created_at=now,
+            )
+            session.add(ctx_row)
+            await session.commit()
+            return None, sources, rendered, degraded_reasons
+
+        # Süresi dolmuş veya önceki kaynak yok
+        return None, [], None, ["EXPIRED_OR_NO_CONTINUITY_SOURCES"]
+
+    # 2. Açık konu değişimi veya yeni sorgu (Topic Shift)
+    # Eski kaynakları geçersiz kıl (invalidate/reset)
+    await session.execute(
+        delete(AgentSessionSource).where(AgentSessionSource.session_id == session_row.id)
+    )
+
+    # Yeni sorgu için sınırlandırılmış yerel arama yap
+    from app.integrations.agent.context import search_operational_context
+
+    candidates = _extract_candidate_keywords(transient_prompt)
+    new_sources: list[BootstrapSourceRef] = []
+
+    for candidate in candidates[:3]:
+        try:
+            results = await search_operational_context(session, query=candidate, limit=3)
+            for ent in results:
+                new_sources.append(
+                    BootstrapSourceRef(
+                        source_id=f"entity:{ent.id}",
+                        source_type=ent.type,
+                        title=ent.title[:128] if ent.title else None,
+                    )
+                )
+            if new_sources:
+                break
+        except Exception as exc:
+            LOGGER.debug("search_operational_context failed for '%s': %s", candidate, exc)
+
+    new_sources = new_sources[:MAX_DELIVERED_SOURCES]
+    rendered = None
+    if new_sources:
+        rendered = render_continuity_context(new_sources)
+        expires_at = now + timedelta(minutes=DEFAULT_TTL_MINUTES)
+        for s in new_sources:
+            stmt = insert(AgentSessionSource).values(
+                session_id=session_row.id,
+                turn_id=turn_id,
+                source_id=s.source_id,
+                source_type=s.source_type,
+                source_version=s.source_version,
+                scope_project=s.scope_project,
+                topic_signature="query_retrieval",
+                delivered_at=now,
+                expires_at=expires_at,
+            ).on_conflict_do_update(
+                constraint="uq_agent_session_source_identity",
+                set_={
+                    "delivered_at": now,
+                    "expires_at": expires_at,
+                    "turn_id": turn_id,
+                }
+            )
+            await session.execute(stmt)
+
+    ctx_row = AgentSessionContext(
+        session_id=session_row.id,
+        turn_id=turn_id,
+        schema_version=1,
+        is_first_turn=False,
+        item_count=len(new_sources),
+        char_count=len(rendered) if rendered else 0,
+        truncated=False,
+        omitted_count=0,
+        degraded_reasons=degraded_reasons,
+        created_at=now,
+    )
+    session.add(ctx_row)
+    await session.commit()
+
+    return None, new_sources, rendered, degraded_reasons
+
