@@ -30,7 +30,14 @@ def load(path: Path, name: str):
 def test_register_maps_events_without_context_or_content(monkeypatch) -> None:
     plugin = load(PLUGIN, "forkos_lifecycle_test")
     sent = []
-    monkeypatch.setattr(plugin, "_send", lambda url, body: sent.append(body.copy()))
+
+    def mock_send(url, body, path=plugin.EVENT_PATH):
+        sent.append({"path": path, **body.copy()})
+        if path == plugin.TURN_PATH:
+            return 200, {"rendered_context": None}
+        return 200
+
+    monkeypatch.setattr(plugin, "_send", mock_send)
 
     class Context:
         hooks = {}
@@ -41,14 +48,53 @@ def test_register_maps_events_without_context_or_content(monkeypatch) -> None:
     ctx = Context()
     plugin.register(ctx)
     assert set(ctx.hooks) == {"pre_llm_call", "on_session_finalize"}
-    private = {"user_message": "VERY_PRIVATE_MESSAGE", "conversation_history": ["VERY_PRIVATE_HISTORY"], "future_key": "ignored"}
-    assert ctx.hooks["pre_llm_call"](session_id="sid", turn_id="t1", platform="desktop", is_first_turn=True, **private) is None
-    assert ctx.hooks["pre_llm_call"](session_id="sid", turn_id="t2", platform="desktop", is_first_turn=False, **private) is None
-    assert ctx.hooks["on_session_finalize"](session_id="sid", platform="desktop", **private) is None
-    assert [item["event"] for item in sent] == ["session_start", "turn_seen", "session_finalize"]
-    assert [item.get("turn_id") for item in sent] == ["t1", "t2", None]
-    assert "VERY_PRIVATE" not in json.dumps(sent)
-    assert all(set(item) <= {"schema_version", "event", "harness", "session_id", "turn_id", "platform"} for item in sent)
+    extra = {"conversation_history": ["VERY_PRIVATE_HISTORY"], "future_key": "ignored"}
+    assert ctx.hooks["pre_llm_call"](session_id="sid", turn_id="t1", platform="desktop", is_first_turn=True, **extra) is None
+    assert ctx.hooks["pre_llm_call"](session_id="sid", turn_id="t2", platform="desktop", is_first_turn=False, **extra) is None
+    assert ctx.hooks["on_session_finalize"](session_id="sid", platform="desktop", **extra) is None
+
+    assert sent[0]["path"] == plugin.TURN_PATH
+    assert sent[0]["is_first_turn"] is True
+    assert sent[0]["turn_id"] == "t1"
+
+    assert sent[1]["path"] == plugin.TURN_PATH
+    assert sent[1]["is_first_turn"] is False
+    assert sent[1]["turn_id"] == "t2"
+
+    assert sent[2]["path"] == plugin.EVENT_PATH
+    assert sent[2]["event"] == "session_finalize"
+
+
+def test_pre_llm_call_injects_rendered_context(monkeypatch) -> None:
+    plugin = load(PLUGIN, "forkos_lifecycle_inject_test")
+
+    def mock_send(url, body, path=plugin.TURN_PATH):
+        return 200, {"rendered_context": "<forkos-context>hello</forkos-context>"}
+
+    monkeypatch.setattr(plugin, "_send", mock_send)
+    before, _ = plugin.make_hooks()
+
+    res = before(session_id="sid", turn_id="t1", is_first_turn=True, user_message="test")
+    assert res == {"context": "<forkos-context>hello</forkos-context>"}
+
+
+def test_pre_llm_call_bounds_user_message(monkeypatch) -> None:
+    plugin = load(PLUGIN, "forkos_lifecycle_bounds_test")
+    sent = []
+
+    def mock_send(url, body, path=plugin.TURN_PATH):
+        sent.append(body.copy())
+        return 200, {"rendered_context": None}
+
+    monkeypatch.setattr(plugin, "_send", mock_send)
+    before, _ = plugin.make_hooks()
+
+    long_msg = "x" * 1000
+    res = before(session_id="sid", turn_id="t1", is_first_turn=True, user_message=long_msg)
+    assert res is None
+    assert len(sent) == 1
+    assert len(sent[0]["user_message"]) == 500
+
 
 
 def test_remote_urls_are_rejected() -> None:

@@ -14,6 +14,7 @@ LOGGER = logging.getLogger("forkos_lifecycle")
 DEFAULT_BASE_URL = "http://127.0.0.1:8787"
 TIMEOUT_SECONDS = 0.7
 EVENT_PATH = "/api/agent/lifecycle/event"
+TURN_PATH = "/api/agent/lifecycle/turn"
 _PLATFORM = re.compile(r"^[a-z0-9_-]{1,64}$")
 
 
@@ -40,19 +41,25 @@ def _safe_identity(value: object) -> str | None:
     return value
 
 
-def _send(base_url: str, payload: dict[str, object]) -> int:
+def _send(base_url: str, payload: dict[str, object], path: str = EVENT_PATH) -> tuple[int, dict[str, object] | None] | int:
     host, port = validate_base_url(base_url)  # validate again at request execution
     connection = http.client.HTTPConnection(host, port, timeout=TIMEOUT_SECONDS)
     try:
         connection.request(
-            "POST", EVENT_PATH, body=json.dumps(payload, separators=(",", ":")),
+            "POST", path, body=json.dumps(payload, separators=(",", ":")),
             headers={"Content-Type": "application/json"},
         )
         response = connection.getresponse()
-        response.read(256)
+        data = response.read(65536)
         if not (200 <= response.status < 300):
             raise OSError(f"HTTP {response.status}")
-        return response.status
+        try:
+            body = json.loads(data.decode("utf-8")) if data else None
+        except Exception:
+            body = None
+        if path == EVENT_PATH:
+            return response.status
+        return response.status, body
     finally:
         connection.close()
 
@@ -60,15 +67,60 @@ def _send(base_url: str, payload: dict[str, object]) -> int:
 def make_hooks(base_url: str = DEFAULT_BASE_URL):
     validate_base_url(base_url)
 
-    def deliver(event: str, kwargs: dict[str, object]) -> None:
+    def before(**kwargs: object) -> dict[str, str] | None:
         started = time.monotonic()
         session_id = _safe_identity(kwargs.get("session_id"))
         if session_id is None:
-            LOGGER.warning("lifecycle %s skipped: invalid session identity", event)
+            LOGGER.warning("lifecycle turn skipped: invalid session identity")
+            return None
+
+        is_first = kwargs.get("is_first_turn") is True
+        turn_id = _safe_identity(kwargs.get("turn_id"))
+        if not is_first and turn_id is None:
+            LOGGER.warning("lifecycle turn skipped: missing turn identity")
+            return None
+
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "harness": "hermes",
+            "session_id": session_id,
+            "platform": "unknown",
+            "is_first_turn": is_first,
+        }
+        platform = kwargs.get("platform")
+        if isinstance(platform, str) and _PLATFORM.fullmatch(platform.strip().lower()):
+            payload["platform"] = platform.strip().lower()
+        if turn_id is not None:
+            payload["turn_id"] = turn_id
+
+        raw_msg = kwargs.get("user_message") or kwargs.get("prompt")
+        if isinstance(raw_msg, str) and raw_msg.strip():
+            payload["user_message"] = raw_msg.strip()[:500]
+
+        try:
+            res = _send(base_url, payload, path=TURN_PATH)
+            status = res[0] if isinstance(res, tuple) else res
+            body = res[1] if isinstance(res, tuple) else None
+            LOGGER.info("lifecycle turn delivered (HTTP %s, %.0f ms)",
+                        status, (time.monotonic() - started) * 1000)
+            if body and isinstance(body, dict):
+                ctx = body.get("rendered_context")
+                if ctx and isinstance(ctx, str):
+                    return {"context": ctx}
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("lifecycle turn delivery failed (%s, %.0f ms)",
+                           type(exc).__name__, (time.monotonic() - started) * 1000)
+        return None
+
+    def finalize(**kwargs: object) -> None:
+        started = time.monotonic()
+        session_id = _safe_identity(kwargs.get("session_id"))
+        if session_id is None:
+            LOGGER.warning("lifecycle session_finalize skipped: invalid session identity")
             return
         payload: dict[str, object] = {
             "schema_version": 1,
-            "event": event,
+            "event": "session_finalize",
             "harness": "hermes",
             "session_id": session_id,
             "platform": "unknown",
@@ -76,28 +128,16 @@ def make_hooks(base_url: str = DEFAULT_BASE_URL):
         platform = kwargs.get("platform")
         if isinstance(platform, str) and _PLATFORM.fullmatch(platform.strip().lower()):
             payload["platform"] = platform.strip().lower()
-        turn_id = _safe_identity(kwargs.get("turn_id"))
-        if event == "turn_seen" and turn_id is None:
-            LOGGER.warning("lifecycle %s skipped: missing turn identity", event)
-            return
-        if event != "session_finalize" and turn_id is not None:
-            payload["turn_id"] = turn_id
         try:
-            status = _send(base_url, payload)
-            LOGGER.info("lifecycle %s delivered (HTTP %s, %.0f ms)",
-                        event, status, (time.monotonic() - started) * 1000)
+            status = _send(base_url, payload, path=EVENT_PATH)
+            LOGGER.info("lifecycle session_finalize delivered (HTTP %s, %.0f ms)",
+                        status, (time.monotonic() - started) * 1000)
         except Exception as exc:  # noqa: BLE001
-            # Hooks must never break a Hermes turn.
-            LOGGER.warning("lifecycle %s delivery failed (%s, %.0f ms)",
-                           event, type(exc).__name__, (time.monotonic() - started) * 1000)
-
-    def before(**kwargs: object) -> None:
-        deliver("session_start" if kwargs.get("is_first_turn") is True else "turn_seen", kwargs)
-
-    def finalize(**kwargs: object) -> None:
-        deliver("session_finalize", kwargs)
+            LOGGER.warning("lifecycle session_finalize delivery failed (%s, %.0f ms)",
+                           type(exc).__name__, (time.monotonic() - started) * 1000)
 
     return before, finalize
+
 
 
 def register(ctx) -> None:
