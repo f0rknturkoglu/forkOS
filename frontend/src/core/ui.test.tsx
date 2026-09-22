@@ -2,7 +2,18 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CopyButton, Metric, MetricStrip, PageFrame, RowList, Section, Surface, ToastProvider, Toolbar } from "./ui";
+import {
+  CopyButton,
+  Metric,
+  MetricStrip,
+  PageFrame,
+  RowList,
+  Section,
+  SectionHeader,
+  Surface,
+  ToastProvider,
+  Toolbar,
+} from "./ui";
 
 /** Pano erişilemediğinde kullanıcıya gösterilen tek cümle (ham hata metni değil). */
 const CLIPBOARD_WARNING = "Pano erişilemedi — tarayıcı izni gerekiyor.";
@@ -30,7 +41,7 @@ afterEach(() => {
 });
 
 describe("UI primitives", () => {
-  it("wraps section content in a card shell by default", () => {
+  it("renders flat unboxed section by default", () => {
     const html = renderToStaticMarkup(
       <Section title="RSS">
         <p>Akış</p>
@@ -39,17 +50,33 @@ describe("UI primitives", () => {
 
     expect(html).toContain("RSS");
     expect(html).toContain("Akış");
-    expect(html).toContain("rounded-card border border-subtle bg-surface");
+    expect(html).not.toContain("rounded-card border border-subtle bg-surface");
   });
 
-  it("drops the shell when nested inside another surface", () => {
-    const html = renderToStaticMarkup(
-      <Section title="RSS" flat>
+  it("wraps section content in a card shell when variant is card or flat is false", () => {
+    const htmlWithVariant = renderToStaticMarkup(
+      <Section title="RSS" variant="card">
         <p>Akış</p>
       </Section>,
     );
+    expect(htmlWithVariant).toContain("rounded-card border border-subtle bg-surface");
 
-    expect(html).not.toContain("rounded-card border border-subtle bg-surface");
+    const htmlWithFlatFalse = renderToStaticMarkup(
+      <Section title="RSS" flat={false}>
+        <p>Akış</p>
+      </Section>,
+    );
+    expect(htmlWithFlatFalse).toContain("rounded-card border border-subtle bg-surface");
+  });
+
+  it("renders SectionHeader without divider line by default, and draws divider when requested", () => {
+    const withoutDivider = renderToStaticMarkup(<SectionHeader label="Özet" />);
+    expect(withoutDivider).toContain("Özet");
+    expect(withoutDivider).not.toContain("h-px flex-1 bg-subtle");
+
+    const withDivider = renderToStaticMarkup(<SectionHeader label="Özet" divider />);
+    expect(withDivider).toContain("Özet");
+    expect(withDivider).toContain("h-px flex-1 bg-subtle");
   });
 
   it("keeps explicit surfaces, metrics, toolbars, and divided rows", () => {
