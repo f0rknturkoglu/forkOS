@@ -309,7 +309,7 @@ async def test_snooze_blocks_then_re_evaluates(db_session: AsyncSession) -> None
     run = (await _runs(db_session))[0]
 
     until = NOW + timedelta(days=3)
-    await service.snooze(db_session, until=until, run_id=run.id)
+    await service.snooze(db_session, until=until, run_id=run.id, now=NOW)
     await db_session.commit()
 
     blocked = await service.tick(db_session, now=NOW + timedelta(hours=1))
@@ -334,7 +334,7 @@ async def test_snooze_of_pending_run_resumes_after_expiry(db_session: AsyncSessi
     run = (await _runs(db_session))[0]
 
     until = NOW + timedelta(hours=6)
-    await service.snooze(db_session, until=until, run_id=run.id)
+    await service.snooze(db_session, until=until, run_id=run.id, now=NOW)
     await db_session.commit()
 
     blocked = await service.tick(db_session, now=NOW + timedelta(hours=2))
@@ -598,7 +598,7 @@ async def test_snooze_survives_a_threshold_change(db_session: AsyncSession) -> N
     assert first.surfaced == 1
     run = (await _runs(db_session))[0]
     until = NOW + timedelta(days=2)
-    await service.snooze(db_session, until=until, run_id=run.id)
+    await service.snooze(db_session, until=until, run_id=run.id, now=NOW)
     await db_session.commit()
 
     # Bir gun sonra esik T-3'ten T-1'e iner: yeni mantiksal kosu acilir ama

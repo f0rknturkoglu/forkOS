@@ -4,6 +4,10 @@ Hermes ve forkOS arasındaki resmi entegrasyon katmanı. Kişisel işletim siste
 (forkOS) ve uzun vadeli bilgi deposunu (f0rknbrain Obsidian Vault) yapay zeka
 ajanlarına **bounded** bir MCP yüzeyiyle açar.
 
+MCP akıl yürütme/araç arayüzüdür. Ayrı [Hermes oturum yaşam döngüsü köprüsü](a1-lifecycle-bridge.md)
+Hermes host'unun başlangıç, tur ve kapanış olaylarını içeriksiz metadata olarak
+gözler; MCP araç sayısını veya model bağlamını değiştirmez.
+
 Yüzey **H0 → H7** boyunca büyüdü ve bugün toplam **29** araçtır:
 
 ```text

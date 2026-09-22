@@ -5210,6 +5210,156 @@
         "title": "IssueToTodoIn",
         "type": "object"
       },
+      "LifecycleEventIn": {
+        "additionalProperties": false,
+        "properties": {
+          "event": {
+            "enum": [
+              "session_start",
+              "turn_seen",
+              "session_finalize"
+            ],
+            "title": "Event",
+            "type": "string"
+          },
+          "harness": {
+            "enum": [
+              "hermes",
+              "codex",
+              "claude"
+            ],
+            "title": "Harness",
+            "type": "string"
+          },
+          "platform": {
+            "default": "unknown",
+            "maxLength": 64,
+            "title": "Platform",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "session_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          }
+        },
+        "required": [
+          "schema_version",
+          "event",
+          "harness",
+          "session_id"
+        ],
+        "title": "LifecycleEventIn",
+        "type": "object"
+      },
+      "LifecycleEventOut": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "event": {
+            "enum": [
+              "session_start",
+              "turn_seen",
+              "session_finalize"
+            ],
+            "title": "Event",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted",
+          "event",
+          "duplicate"
+        ],
+        "title": "LifecycleEventOut",
+        "type": "object"
+      },
+      "LifecycleStatusOut": {
+        "properties": {
+          "active_sessions": {
+            "title": "Active Sessions",
+            "type": "integer"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "incomplete_session_count": {
+            "title": "Incomplete Session Count",
+            "type": "integer"
+          },
+          "last_event_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Event At"
+          },
+          "last_finalized_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finalized At"
+          },
+          "last_harness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Harness"
+          }
+        },
+        "required": [
+          "available",
+          "last_event_at",
+          "last_harness",
+          "active_sessions",
+          "last_finalized_at",
+          "incomplete_session_count"
+        ],
+        "title": "LifecycleStatusOut",
+        "type": "object"
+      },
       "LinkIn": {
         "properties": {
           "from_id": {
@@ -15600,6 +15750,68 @@
         "summary": "Activity Heatmap",
         "tags": [
           "core"
+        ]
+      }
+    },
+    "/api/agent/lifecycle/event": {
+      "post": {
+        "operationId": "lifecycle_event_api_agent_lifecycle_event_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecycleEventIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleEventOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lifecycle Event",
+        "tags": [
+          "agent-lifecycle"
+        ]
+      }
+    },
+    "/api/agent/lifecycle/status": {
+      "get": {
+        "operationId": "lifecycle_status_api_agent_lifecycle_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Lifecycle Status",
+        "tags": [
+          "agent-lifecycle"
         ]
       }
     },

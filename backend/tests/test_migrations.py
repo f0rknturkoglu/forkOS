@@ -98,6 +98,9 @@ def test_module_tables_reference_entity():
     """Kural 1: her modul tablosunun PK'si entity.id'ye FK olmali."""
     core_tables = {"entity", "link", "event", "tag", "entity_tag", "saved_view", "source_run"}
     support_tables = {
+        # A1 agent oturumları: içeriksiz, hash-kimlikli operasyonel gözlem.
+        "agent_session",
+        "agent_session_turn",
         "plan_slot",
         "habit_log",
         "opportunity_requirement",

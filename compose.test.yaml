@@ -20,6 +20,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://lifeos:lifeos@db-test:5432/forkos_test
     volumes:
       - ./backend:/app:z
+      - ./docs:/docs:ro
+      - ./tools:/tools:ro
+      - ./scripts:/scripts:ro
       # Faz 28 guardrail: Makefile target'i db konteynerinde pg_dump kullandigini
       # test eder; repo koku test konteynerine mount edilir (okuma icin).
       - ./Makefile:/Makefile:z

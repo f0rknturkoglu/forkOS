@@ -1,0 +1,7 @@
+name: forkos-lifecycle
+version: "1.0.0"
+description: "Observe Hermes session lifecycle in local forkOS without injecting context."
+author: "forkOS"
+provides_hooks:
+  - pre_llm_call
+  - on_session_finalize

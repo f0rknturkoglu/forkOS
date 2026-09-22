@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { BookOpen, CalendarDays, ChevronDown, ExternalLink, Inbox, RefreshCw, ShieldCheck } from "lucide-react";
 import { navigate } from "@/app/router";
+import { AGENT_LIFECYCLE_STATUS_KEY, getAgentLifecycleStatus } from "@/core/agentLifecycle";
 import {
   AGENT_STATUS_KEY,
   brainReadiness,
@@ -254,6 +255,7 @@ const TRANSPORT_LABEL: Record<string, string> = { streamable_http: "Streamable H
 
 function AgentConnectionCard() {
   const query = useAgentStatusQuery();
+  const lifecycle = useQuery({ queryKey: [AGENT_LIFECYCLE_STATUS_KEY], queryFn: getAgentLifecycleStatus });
   const brain: BrainStatusView | undefined = query.data?.brain;
   const readiness = BRAIN_READINESS[brainReadiness(brain, query.isError)];
 
@@ -276,6 +278,20 @@ function AgentConnectionCard() {
                 value={brain.loopback_only ? "yalnız 127.0.0.1" : "yerel sınır dışında"}
                 tone={brain.loopback_only ? "neutral" : "warn"}
               />
+            </div>
+
+            <div className="border-t border-subtle pt-2">
+              <p className="text-micro text-muted">Oturum devamlılığı</p>
+              <p className="text-meta text-primary">
+                {lifecycle.isLoading
+                  ? "Durum yükleniyor…"
+                  : lifecycle.isError
+                    ? "Oturum olayları alınamadı"
+                    : lifecycle.data?.last_event_at
+                      ? `Son agent oturumu olayı ${relativeTime(lifecycle.data.last_event_at)}`
+                      : "Henüz oturum olayı görülmedi"}
+              </p>
+              <p className="text-micro text-muted">Bu kayıt, Hermes’in şu anda bağlı olduğunu göstermez.</p>
             </div>
 
             <div className="rounded-control border border-subtle bg-surface-sunken px-2.5 py-2">

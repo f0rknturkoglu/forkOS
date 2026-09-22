@@ -168,6 +168,15 @@ beforeEach(() => {
         if (agentFailed) throw new TypeError("Failed to fetch");
         return json(agentStatus);
       }
+      if (url.pathname === "/api/agent/lifecycle/status")
+        return json({
+          available: true,
+          last_event_at: null,
+          last_harness: null,
+          active_sessions: 0,
+          last_finalized_at: null,
+          incomplete_session_count: 0,
+        });
       if (url.pathname === "/api/obsidian/status") {
         if (vaultFailed) throw new TypeError("Failed to fetch");
         return json(vaultStatus);
@@ -244,6 +253,7 @@ describe("Agent bağlantısı kartı", () => {
     expect(screen.getAllByText("29 sınırlı araç").length).toBeGreaterThan(0);
     expect(screen.getByText("yalnız 127.0.0.1")).toBeTruthy();
     expect(screen.getAllByText("http://127.0.0.1:8787/mcp").length).toBeGreaterThan(0);
+    expect(await screen.findByText("Henüz oturum olayı görülmedi")).toBeTruthy();
   });
 
   it("yetenek ailelerini istendiğinde sayılarıyla listeler", async () => {

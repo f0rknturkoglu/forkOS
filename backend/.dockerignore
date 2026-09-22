@@ -4,3 +4,8 @@ __pycache__
 .ruff_cache
 *.pyc
 tests
+backups
+data
+.env
+config.yaml
+app/sources/forkjob_core/data/*.user

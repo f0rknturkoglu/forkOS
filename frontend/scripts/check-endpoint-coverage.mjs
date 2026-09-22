@@ -40,6 +40,8 @@ const EXEMPT = new Set([
   "/api/registry/event-verbs",
   // Infra: docker healthcheck ve eklenti bu ucu kullanir
   "/health",
+  // Hermes host plugin'i tarafından tüketilir; tarayıcı yazma çağrısı değildir.
+  "/api/agent/lifecycle/event",
 ]);
 
 function isCalled(path) {

@@ -66,6 +66,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/lifecycle/event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lifecycle Event */
+        post: operations["lifecycle_event_api_agent_lifecycle_event_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/lifecycle/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lifecycle Status */
+        get: operations["lifecycle_status_api_agent_lifecycle_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/status": {
         parameters: {
             query?: never;
@@ -6497,6 +6531,60 @@ export interface components {
             /** Number */
             number: number;
         };
+        /** LifecycleEventIn */
+        LifecycleEventIn: {
+            /**
+             * Event
+             * @enum {string}
+             */
+            event: "session_start" | "turn_seen" | "session_finalize";
+            /**
+             * Harness
+             * @enum {string}
+             */
+            harness: "hermes" | "codex" | "claude";
+            /**
+             * Platform
+             * @default unknown
+             */
+            platform: string;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Session Id */
+            session_id: string;
+            /** Turn Id */
+            turn_id?: string | null;
+        };
+        /** LifecycleEventOut */
+        LifecycleEventOut: {
+            /** Accepted */
+            accepted: boolean;
+            /** Duplicate */
+            duplicate: boolean;
+            /**
+             * Event
+             * @enum {string}
+             */
+            event: "session_start" | "turn_seen" | "session_finalize";
+        };
+        /** LifecycleStatusOut */
+        LifecycleStatusOut: {
+            /** Active Sessions */
+            active_sessions: number;
+            /** Available */
+            available: boolean;
+            /** Incomplete Session Count */
+            incomplete_session_count: number;
+            /** Last Event At */
+            last_event_at: string | null;
+            /** Last Finalized At */
+            last_finalized_at: string | null;
+            /** Last Harness */
+            last_harness: string | null;
+        };
         /** LinkIn */
         LinkIn: {
             /**
@@ -10233,6 +10321,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lifecycle_event_api_agent_lifecycle_event_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LifecycleEventIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifecycleEventOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lifecycle_status_api_agent_lifecycle_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifecycleStatusOut"];
                 };
             };
         };
