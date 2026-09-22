@@ -118,7 +118,7 @@ def test_host_absolute_paths_are_redacted_in_renderer():
 
     rendered = render_bootstrap_context(packet)
     assert "/Users/furkanturkoglu" not in rendered
-    assert "<vault>" in rendered or "[redacted-path]" in rendered
+    assert "&lt;vault&gt;" in rendered or "<vault>" in rendered or "[redacted-path]" in rendered
 
 
 def test_render_continuity_context():
@@ -139,3 +139,42 @@ def test_source_ref_rejects_absolute_paths():
             source_id="vault:/Users/furkanturkoglu/vault/note.md",
             source_type="vault_note"
         )
+
+
+def test_hard_4000_char_budget_ceiling_with_massive_fields():
+    packet = sample_packet()
+    # Insert huge inputs
+    packet.operational_state.upcoming_deadlines.append(
+        OperationalDeadline(
+            id="dead-huge",
+            title="A" * 10000,
+            due_at="2026-10-01T00:00:00Z",
+            remaining_days=10,
+        )
+    )
+    packet.hot_memory.items.append({
+        "kind": "profile",
+        "title": "B" * 5000,
+        "text": "C" * 10000,
+    })
+
+    rendered = render_bootstrap_context(packet)
+    assert len(rendered) <= 4000
+    assert rendered.startswith('<forkos-context version="1"')
+    assert rendered.endswith("</forkos-context>")
+
+
+def test_continuity_hard_4000_char_budget_ceiling():
+    huge_sources = [
+        BootstrapSourceRef(
+            source_id=f"entity:proj-{i}",
+            source_type="project",
+            title="X" * 120,
+        )
+        for i in range(20)
+    ]
+    huge_notes = ["Y" * 1000 for _ in range(10)]
+    rendered = render_continuity_context(huge_sources, huge_notes)
+    assert len(rendered) <= 4000
+    assert rendered.startswith('<forkos-continuity version="1"')
+    assert rendered.endswith("</forkos-continuity>")

@@ -1,4 +1,4 @@
-"""Hermes A1 adapter: bounded metadata POST, no context, no tools or Vault access."""
+"""Hermes A1.1 + A2.1 adapter: bounded lifecycle metadata + bootstrap/continuity injection via /turn endpoint."""
 
 from __future__ import annotations
 
@@ -15,7 +15,9 @@ DEFAULT_BASE_URL = "http://127.0.0.1:8787"
 TIMEOUT_SECONDS = 0.7
 EVENT_PATH = "/api/agent/lifecycle/event"
 TURN_PATH = "/api/agent/lifecycle/turn"
+MAX_PLUGIN_USER_MESSAGE_CHARS = 500
 _PLATFORM = re.compile(r"^[a-z0-9_-]{1,64}$")
+
 
 
 def validate_base_url(value: str) -> tuple[str, int]:
@@ -95,7 +97,8 @@ def make_hooks(base_url: str = DEFAULT_BASE_URL):
 
         raw_msg = kwargs.get("user_message") or kwargs.get("prompt")
         if isinstance(raw_msg, str) and raw_msg.strip():
-            payload["user_message"] = raw_msg.strip()[:500]
+            payload["user_message"] = raw_msg.strip()[:MAX_PLUGIN_USER_MESSAGE_CHARS]
+
 
         try:
             res = _send(base_url, payload, path=TURN_PATH)

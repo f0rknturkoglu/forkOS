@@ -5748,6 +5748,8 @@ export interface components {
             is_truncated: boolean;
             /** Last Bootstrap At */
             last_bootstrap_at: string | null;
+            /** Last Context At */
+            last_context_at?: string | null;
             /** Last Harness */
             last_harness: string | null;
         };
@@ -7781,6 +7783,8 @@ export interface components {
         OperationalProject: {
             /** Id */
             id: string;
+            /** Last Activity At */
+            last_activity_at?: string | null;
             /** Next Action */
             next_action?: string | null;
             /** Status */

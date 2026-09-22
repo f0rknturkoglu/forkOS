@@ -58,6 +58,8 @@ class OperationalProject(BaseModel):
     title: str
     status: str
     next_action: str | None = None
+    last_activity_at: str | None = None
+
 
 
 class OperationalState(BaseModel):
@@ -157,6 +159,7 @@ class TurnContextOut(BaseModel):
 class ContinuityStatusOut(BaseModel):
     available: bool
     last_bootstrap_at: datetime | None
+    last_context_at: datetime | None = None
     last_harness: str | None
     active_source_count: int
     is_truncated: bool

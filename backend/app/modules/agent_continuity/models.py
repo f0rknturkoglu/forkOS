@@ -36,6 +36,7 @@ class AgentSessionContext(Base):
     truncated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     omitted_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     degraded_reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    scope_project: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

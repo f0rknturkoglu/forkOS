@@ -312,9 +312,11 @@ function AgentConnectionCard() {
                   value={
                     continuity.isLoading
                       ? "Durum yükleniyor…"
-                      : continuity.data?.last_bootstrap_at
-                        ? relativeTime(continuity.data.last_bootstrap_at)
-                        : "Henüz oluşturulmadı"
+                      : continuity.data?.last_context_at
+                        ? relativeTime(continuity.data.last_context_at)
+                        : continuity.data?.last_bootstrap_at
+                          ? relativeTime(continuity.data.last_bootstrap_at)
+                          : "Henüz oluşturulmadı"
                   }
                 />
                 <StatusRow
@@ -328,6 +330,8 @@ function AgentConnectionCard() {
                   }
                   tone={continuity.data?.active_source_count ? "ok" : "neutral"}
                 />
+
+
               </div>
               <p className="mt-1.5 text-micro text-muted">Bu kayıt, Hermes’in şu anda bağlı olduğunu göstermez.</p>
             </div>

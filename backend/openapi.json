@@ -3009,6 +3009,18 @@
             ],
             "title": "Last Bootstrap At"
           },
+          "last_context_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Context At"
+          },
           "last_harness": {
             "anyOf": [
               {
@@ -8855,6 +8867,17 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "last_activity_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Activity At"
           },
           "next_action": {
             "anyOf": [

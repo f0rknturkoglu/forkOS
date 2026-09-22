@@ -116,13 +116,15 @@ async def lifecycle_turn(body: TurnContextIn, session: AsyncSession = Depends(ge
                 degraded_reasons=degraded,
             )
     except Exception as exc:
-        LOGGER.exception("A2 context composition failed in /turn endpoint: %s", exc)
+        await session.rollback()
+        LOGGER.exception("A2 context composition failed in /turn endpoint: %s", type(exc).__name__)
         return TurnContextOut(
             lifecycle=lifecycle_out,
             packet=None,
             rendered_context=None,
             degraded_reasons=[f"CONTEXT_COMPOSITION_FAILED: {exc.__class__.__name__}"],
         )
+
 
 
 @router.get("/status", response_model=LifecycleStatusOut)

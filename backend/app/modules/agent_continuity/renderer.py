@@ -20,28 +20,21 @@ def redact_absolute_paths(text: str) -> str:
     return _ABSOLUTE_PATH_RE.sub(lambda match: f"{match.group(1)}<vault>", text or "")
 
 
-_DELIMITER_REPLACEMENTS = [
-    ("</forkos-context>", "&lt;/forkos-context&gt;"),
-    ("<forkos-context", "&lt;forkos-context"),
-    ("</forkos-continuity>", "&lt;/forkos-continuity&gt;"),
-    ("<forkos-continuity", "&lt;forkos-continuity"),
-    ("</forkos-data>", "&lt;/forkos-data&gt;"),
-    ("<forkos-data", "&lt;forkos-data"),
-]
+MAX_RENDER_CHAR_BUDGET = 4000
 
 
-def escape_context_data(text: str) -> str:
-    """Delimited XML kaçışı ve mutlak yol redaksiyonu uygular."""
+def escape_context_data(text: str, max_chars: int = 1000) -> str:
+    """Evrensel HTML/XML kaçışı, mutlak yol redaksiyonu ve alan sınırı uygular."""
     if not text:
         return ""
-    clean = redact_absolute_paths(text)
-    for target, replacement in _DELIMITER_REPLACEMENTS:
-        clean = clean.replace(target, replacement)
-    return clean
+    bounded = text[:max_chars]
+    clean = redact_absolute_paths(bounded)
+    return html.escape(clean, quote=True)
 
 
-def render_bootstrap_context(packet: BootstrapPacketV1) -> str:
+def render_bootstrap_context(packet: BootstrapPacketV1, enforce_hard_ceiling: bool = True) -> str:
     """BootstrapPacketV1 nesnesini model için sınırlandırılmış Markdown bağlamına çevirir."""
+
     lines: list[str] = [
         f'<forkos-context version="1" session="{escape_context_data(packet.session_key)}">',
         "<!--",
@@ -124,7 +117,17 @@ def render_bootstrap_context(packet: BootstrapPacketV1) -> str:
         lines.append("")
 
     lines.append("</forkos-context>")
-    return "\n".join(lines)
+    rendered = "\n".join(lines)
+    if enforce_hard_ceiling and len(rendered) > MAX_RENDER_CHAR_BUDGET:
+        closing = "\n</forkos-context>"
+        budget_for_body = MAX_RENDER_CHAR_BUDGET - len(closing)
+        truncated_body = rendered[:budget_for_body]
+        last_nl = truncated_body.rfind("\n")
+        if last_nl > 0:
+            truncated_body = truncated_body[:last_nl]
+        rendered = truncated_body + closing
+    return rendered
+
 
 
 def render_continuity_context(sources: list[BootstrapSourceRef], notes: list[str] | None = None) -> str:
@@ -142,4 +145,13 @@ def render_continuity_context(sources: list[BootstrapSourceRef], notes: list[str
         for n in notes:
             lines.append(f"- {escape_context_data(n)}")
     lines.append("</forkos-continuity>")
-    return "\n".join(lines)
+    rendered = "\n".join(lines)
+    if len(rendered) > MAX_RENDER_CHAR_BUDGET:
+        closing = "\n</forkos-continuity>"
+        budget_for_body = MAX_RENDER_CHAR_BUDGET - len(closing)
+        truncated_body = rendered[:budget_for_body]
+        last_nl = truncated_body.rfind("\n")
+        if last_nl > 0:
+            truncated_body = truncated_body[:last_nl]
+        rendered = truncated_body + closing
+    return rendered

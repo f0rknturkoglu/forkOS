@@ -85,27 +85,40 @@ Sonraki turlarda tam bootstrap **asla tekrarlanmaz**; prompt injection ve token 
 
 ## 4. Güvenlik, Gizlilik ve İzolasyon Sözleşmesi
 
-1. **Transient Prompt Asla Saklanmaz:**
+1. **Transient Prompt Asla Saklanmaz ve Loglanmaz:**
    - Gelen `user_message` yalnızca tur içinde devamlılık/konu sınıflandırması ve yerel arama için RAM'de kullanılır.
-   - Veritabanına (`AgentSessionContext`, `AgentSessionSource`), loglara veya Vault'a **kesinlikle yazılmaz**.
-2. **Prompt Injection Savunması:**
+   - Veritabanına (`AgentSessionContext`, `AgentSessionSource`), loglara (`LOGGER.debug/info/exception`) veya Vault'a **kesinlikle yazılmaz**. Loglar arıza durumunda yalnızca istisna sınıf adını (`type(exc).__name__`) kaydeder.
+2. **Evrensel XML/HTML Kaçışı:**
    - Getirilen tüm kaynak verisi (untrusted data) olarak kabul edilir.
-   - `escape_context_data` fonksiyonu ile `</forkos-context>`, `<forkos-context`, `</forkos-continuity>` gibi belirteçler XML entity'lerine dönüştürülür ve modelin wrapper sınırlarını aşması engellenir.
+   - `html.escape(text, quote=True)` ve `redact_absolute_paths` fonksiyonları ile hem XML etiketleri (`<`, `>`, `&`, `"`, `'`) hem de wrapper sınırları (`</forkos-context>`, `<forkos-continuity>`) tam güvenlik altına alınır.
 3. **Mutlak Sistem Yollarının Gizlenmesi:**
    - Hiçbir mutlak dosya yolu (`/Users/...`, `C:\...`) prompt context'ine veya tanılamalara sızamaz. `redact_absolute_paths` regex filtresi ile `<vault>` olarak maskelenir.
-4. **Local-Only Çalışma:**
+4. **Deterministik Kaynak Parmak İzi ve Bayatlama Denetimi (Stale Detection):**
+   - Kaynak sürümleri `Entity.updated_at` yerine doğrudan A2 tarafından tüketilen bounded kanonik payload'ın deterministik SHA-256 hash'idir:
+     - Proje: `sha256(title | status | next_action | last_activity_at)`
+     - Görev/Son tarih: `sha256(title | due_at | status)`
+     - Karar: `sha256(summary | status | revision)`
+     - Vault notu: `sha256(note_bytes)`
+   - Sonraki turlarda depolanan parmak izi canlı DB/dosya ile uyuşmazsa kaynak bayat kabul edilir (`SOURCE_STALE`), eski referans silinir ve temiz yeniden getirme tetiklenir.
+5. **Kapsam Geçiş Matrisi (Scope Project Boundary):**
+   - $A \rightarrow A$: Aynı proje kapsamı; geçerli kaynaklar korunur ve yeniden kullanılır.
+   - $A \rightarrow B$: Proje değişimi; $A$'ya ait önceki tüm kaynaklar geçersiz kılınır.
+   - $A \rightarrow \text{None}$: Kapsam temizlendi; proje kaynakları silinir, genel kaynaklar korunur.
+   - $\text{None} \rightarrow B$: Proje kapsamına giriş; farklı proje kaynakları temizlenir.
+6. **Deterministik Konu Uyumluluğu (Option A):**
+   - Harici model veya embedding kullanılmadan; doğrudan soru kelimeleri ile aktif kaynak başlıkları/kapsamı arasındaki anahtar kelime örtüşmesi hesaplanır. Aynı konudaki doğrudan sorular bağlam sürekliliğini kaybetmez.
+7. **Local-Only Çalışma ve Sıfır Mutasyon:**
    - Tüm HTTP trafiği `127.0.0.1:8787` üzerindedir. Dışarıya hiçbir veri veya telemetri çıkışı yoktur.
-5. **Kanonik Durum Salt-Okunurluğu:**
    - A2 bağlam üretimi `entity`, `event`, `link`, `todo`, `project`, `opportunity`, `notification`, `proactivity_run`, `execution_plan` veya Vault dosyalarında **sıfır mutasyon** gerçekleştirir.
 
 ---
 
-## 5. Ephemeral Destek Modelleri
+## 5. Ephemeral Destek Modelleri ve Budama
 
-`0064_agent_continuity` migration'ı ile iki destek tablosu eklenmiştir:
+`0064_agent_continuity` ve `0065_continuity_scope` migration'ları ile iki destek tablosu eklenmiştir:
 
-- `agent_session_context`: Oturum başına tur sayısı, bağlam karakter sayısı, kırpılma durumu ve arıza kodlarını (`degraded_reasons`) tutar.
-- `agent_session_source`: Teslim edilen kaynakların kimliğini (`source_id`), türünü ve 60 dakikalık geçerlilik süresini (`expires_at`) saklar.
+- `agent_session_context`: Oturum başına tur sayısı, bağlam karakter sayısı, kırpılma durumu, arıza kodları (`degraded_reasons`) ve proje kapsamını (`scope_project`) tutar. Oturum başına en fazla 50 kayıt saklanacak şekilde oportunistik olarak budanır.
+- `agent_session_source`: Teslim edilen kaynakların kimliğini (`source_id`), türünü, parmak izini (`source_version`), kapsamını (`scope_project`) ve 60 dakikalık geçerlilik süresini (`expires_at`) saklar. Süresi dolan kayıtlar her turda otomatik olarak temizlenir.
 
 ---
 
@@ -115,7 +128,8 @@ Gerçek yerel Hermes CLI ve forkOS API çalışma zamanı üzerinde yapılan öl
 
 | İşlem | Enjekte Edilen Bağlam | Ölçülen Gecikme |
 | --- | --- | --- |
-| **Tur 1 (İlk Tur / Bootstrap)** | `<forkos-context>` (732 karakter) | **207.0 ms** |
-| **Tur 2 (Belirsiz Devam Sorusu)** | `<forkos-continuity>` (kaynak reuse) | **16.7 ms** |
-| **Tur 3 (Konu Değişimi)** | Invalidation + Bounded search | **103.6 ms** |
+| **Tur 1 (İlk Tur / Bootstrap)** | `<forkos-context>` (732 karakter) | **184.4 ms** |
+| **Tur 2 (Belirsiz Devam Sorusu)** | `<forkos-continuity>` (kaynak reuse) | **18.7 ms** |
+| **Tur 3 (Aynı Konu Devamı)** | `<forkos-continuity>` (topic compatibility) | **13.5 ms** |
+| **Tur 4 (Konu Değişimi)** | Invalidation + Bounded query retrieval | **16.3 ms** |
 | **Oturum Kapanışı (Finalize)** | İçeriksiz yaşam döngüsü kaydı | **11.8 ms** |

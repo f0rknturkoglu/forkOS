@@ -5,13 +5,13 @@ tamamen salt-okunur (read-only) çalışır.
 Oturum içi bütçe ve kaynak referanslarını ephemeral destek tablolarına kaydeder.
 """
 
-from __future__ import annotations
-
+import hashlib
 import logging
 import re
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import delete, func, select
@@ -46,6 +46,45 @@ LOGGER = logging.getLogger("forkos.agent_continuity")
 MAX_RENDER_CHAR_BUDGET = 4000
 DEFAULT_TTL_MINUTES = 60
 MAX_DELIVERED_SOURCES = 5
+
+
+def compute_project_source_version(
+    title: str,
+    status: str,
+    next_action: str | None = None,
+    last_activity_at: Any | None = None,
+) -> str:
+    """A2 tarafından tüketilen bounded project canonical payload deterministik parmak izi."""
+    act = last_activity_at.isoformat() if hasattr(last_activity_at, "isoformat") else str(last_activity_at or "")
+    raw = f"{title}|{status}|{next_action or ''}|{act}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def compute_deadline_source_version(
+    title: str,
+    due_at: Any | None = None,
+    status: str | None = None,
+) -> str:
+    """A2 tarafından tüketilen bounded deadline/todo canonical payload parmak izi."""
+    due = due_at.isoformat() if hasattr(due_at, "isoformat") else str(due_at or "")
+    raw = f"{title}|{due}|{status or ''}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def compute_decision_source_version(
+    summary: str,
+    status: str,
+    revision: int | str = 0,
+) -> str:
+    """A2 tarafından tüketilen decision canonical payload parmak izi."""
+    raw = f"{summary}|{status}|{revision}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def compute_vault_note_source_version(note_bytes: bytes) -> str:
+    """Vault notu byte seviyesinde SHA-256 tam parmak izi."""
+    return hashlib.sha256(note_bytes).hexdigest()[:32]
+
 
 
 async def _collect_identity(session: AsyncSession) -> tuple[BootstrapIdentity, list[str]]:
@@ -93,15 +132,74 @@ async def _collect_operational_projects(session: AsyncSession, limit: int = 5) -
     res = await session.execute(stmt)
     projects: list[OperationalProject] = []
     for proj, title in res.all():
+        act_str = proj.last_activity_at.isoformat() if proj.last_activity_at else None
         projects.append(
             OperationalProject(
                 id=str(proj.id),
                 title=title,
                 status=proj.status,
                 next_action=proj.next_action,
+                last_activity_at=act_str,
             )
         )
     return projects
+
+
+async def _collect_vault_notes(
+    scope_project: str | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """f0rknbrain kasasından sınırlandırılmış dayanıklı kurallar/tercihler seçer (en fazla 2 not, <= 250 karakter).
+
+    Tüm kasayı gezmez (os.walk yapmaz); doğrudan 90 Agent dizinine bakar.
+    """
+    degraded: list[str] = []
+    notes: list[dict[str, Any]] = []
+    try:
+        from app.config import settings
+        from app.integrations.agent.knowledge import is_vault_accessible, _parse_frontmatter_and_body
+
+        if not is_vault_accessible():
+            degraded.append("VAULT_UNAVAILABLE")
+            return notes, degraded
+
+        v_root = settings.resolved_obsidian_vault_path
+        if not v_root:
+            return notes, degraded
+
+        agent_dirs = [v_root / "90 Agent", v_root / "90 agent", v_root / "90-agent", v_root / "agent"]
+        candidate_files: list[Path] = []
+        for ad in agent_dirs:
+            if ad.exists() and ad.is_dir():
+                for item in sorted(ad.iterdir()):
+                    if item.is_file() and item.suffix.lower() == ".md" and not item.name.startswith("."):
+                        candidate_files.append(item)
+                        if len(candidate_files) >= 2:
+                            break
+                if candidate_files:
+                    break
+
+        for cf in candidate_files[:2]:
+            try:
+                data = cf.read_bytes()
+                version = compute_vault_note_source_version(data)
+                rel_path = str(cf.relative_to(v_root)).replace("\\", "/")
+                text = data.decode("utf-8", errors="ignore")
+                fm, body = _parse_frontmatter_and_body(text)
+                title = fm.get("title") or cf.stem
+                snippet = " ".join(body.split())[:250]
+                notes.append({
+                    "relative_path": rel_path,
+                    "title": str(title)[:128],
+                    "version": version,
+                    "snippet": snippet,
+                })
+            except Exception:
+                continue
+    except Exception as exc:
+        LOGGER.warning("Vault notes collection degraded: %s", type(exc).__name__)
+        degraded.append("VAULT_UNAVAILABLE")
+    return notes, degraded
+
 
 
 async def _collect_operational_deadlines(session: AsyncSession, limit: int = 5) -> list[OperationalDeadline]:
@@ -249,22 +347,41 @@ async def compose_first_turn_bootstrap(
     hot_items, hot_deg = await _collect_hot_memory(session)
     degraded_reasons.extend(hot_deg)
 
+    vault_notes, v_deg = await _collect_vault_notes(scope_project=scope_project)
+    degraded_reasons.extend(v_deg)
+    for vn in vault_notes:
+        if vn["snippet"] and len(identity.durable_preferences) < 4:
+            identity.durable_preferences.append(f"{vn['title']}: {vn['snippet'][:100]}")
+
     # 3. Kaynak referansları oluştur (en fazla 5 grup)
     sources: list[BootstrapSourceRef] = []
     for proj in projects[:2]:
+        p_version = compute_project_source_version(
+            proj.title,
+            proj.status,
+            proj.next_action,
+            proj.last_activity_at,
+        )
         sources.append(
             BootstrapSourceRef(
                 source_id=f"entity:{proj.id}",
                 source_type="project",
+                source_version=p_version,
                 scope_project=proj.id,
                 title=proj.title[:128] if proj.title else None,
             )
         )
     for dead in deadlines[:2]:
+        d_version = compute_deadline_source_version(
+            dead.title,
+            dead.due_at,
+            dead.entity_type,
+        )
         sources.append(
             BootstrapSourceRef(
                 source_id=f"entity:{dead.id}",
                 source_type="deadline",
+                source_version=d_version,
                 title=dead.title[:128] if dead.title else None,
             )
         )
@@ -276,9 +393,19 @@ async def compose_first_turn_bootstrap(
                 BootstrapSourceRef(
                     source_id=f"hot_memory:{mem_id}",
                     source_type="hot_memory",
+                    source_version=str(h.get("revision", "1")),
                     title=raw_title[:128] if raw_title else None,
                 )
             )
+    for vn in vault_notes[:1]:
+        sources.append(
+            BootstrapSourceRef(
+                source_id=f"vault:{vn['relative_path']}",
+                source_type="vault_note",
+                source_version=vn["version"],
+                title=vn["title"],
+            )
+        )
 
     sources = sources[:MAX_DELIVERED_SOURCES]
 
@@ -302,7 +429,7 @@ async def compose_first_turn_bootstrap(
         ),
     )
 
-    rendered = render_bootstrap_context(packet)
+    rendered = render_bootstrap_context(packet, enforce_hard_ceiling=False)
     omitted = 0
 
     # Bütçe aşıldıysa öncelik sırasına göre kırp (identity korunur!)
@@ -321,11 +448,15 @@ async def compose_first_turn_bootstrap(
             omitted += 1
         else:
             break
-        rendered = render_bootstrap_context(packet)
+        rendered = render_bootstrap_context(packet, enforce_hard_ceiling=False)
+
+    # Son sert tavan garantisi
+    rendered = render_bootstrap_context(packet, enforce_hard_ceiling=True)
 
     if omitted > 0:
         packet.diagnostics.truncated = True
         packet.diagnostics.omitted_count = omitted
+
 
     # 5. Ephemeral destek tablolarına kaydet (bağımsız transaction)
     now = datetime.now(UTC)
@@ -341,6 +472,7 @@ async def compose_first_turn_bootstrap(
         truncated=packet.diagnostics.truncated,
         omitted_count=packet.diagnostics.omitted_count,
         degraded_reasons=packet.diagnostics.degraded_reasons,
+        scope_project=scope_project,
         created_at=now,
     )
     session.add(ctx_row)
@@ -362,12 +494,32 @@ async def compose_first_turn_bootstrap(
                 "delivered_at": now,
                 "expires_at": expires_at,
                 "turn_id": turn_id,
+                "source_version": s.source_version,
             }
         )
         await session.execute(stmt)
 
+    # Opportunistic pruning
+    await session.execute(
+        delete(AgentSessionSource).where(
+            AgentSessionSource.session_id == session_row.id,
+            AgentSessionSource.expires_at < now,
+        )
+    )
+    old_ctx_ids = (await session.scalars(
+        select(AgentSessionContext.id)
+        .where(AgentSessionContext.session_id == session_row.id)
+        .order_by(AgentSessionContext.created_at.desc())
+        .offset(50)
+    )).all()
+    if old_ctx_ids:
+        await session.execute(
+            delete(AgentSessionContext).where(AgentSessionContext.id.in_(old_ctx_ids))
+        )
+
     await session.commit()
     return packet, sources, rendered
+
 
 
 AMBIGUOUS_PATTERNS = [
@@ -412,6 +564,113 @@ def _extract_candidate_keywords(prompt: str) -> list[str]:
     return candidates
 
 
+async def _check_source_freshness(
+    session: AsyncSession,
+    source_row: AgentSessionSource,
+) -> tuple[bool, str | None]:
+    """Kaynağın canlı kanonik veriye göre hâlâ güncel olup olmadığını kontrol eder.
+
+    Döner: (is_fresh, current_title)
+    """
+    if source_row.source_id.startswith("entity:"):
+        try:
+            ent_uuid = uuid.UUID(source_row.source_id.split(":", 1)[1])
+        except Exception:
+            return False, None
+
+        if source_row.source_type == "project":
+            row = (await session.execute(
+                select(Project, Entity.title, Entity.archived_at)
+                .join(Entity, Entity.id == Project.id)
+                .where(Project.id == ent_uuid)
+            )).first()
+            if not row or row.archived_at is not None:
+                return False, None
+            proj, title, _ = row
+            cur_version = compute_project_source_version(
+                title,
+                proj.status,
+                proj.next_action,
+                proj.last_activity_at,
+            )
+            if source_row.source_version and source_row.source_version != cur_version:
+                return False, title
+            return True, title
+
+        elif source_row.source_type in ("deadline", "todo"):
+            row = (await session.execute(
+                select(Todo, Entity.title, Entity.archived_at)
+                .join(Entity, Entity.id == Todo.id)
+                .where(Todo.id == ent_uuid)
+            )).first()
+            if not row or row.archived_at is not None:
+                return False, None
+            todo, title, _ = row
+            due_str = todo.due_at.isoformat() if todo.due_at else None
+            cur_version = compute_deadline_source_version(title, due_str, todo.status)
+            if source_row.source_version and source_row.source_version != cur_version:
+                return False, title
+            return True, title
+
+    elif source_row.source_type == "vault_note" and source_row.source_id.startswith("vault:"):
+        rel_path = source_row.source_id.split(":", 1)[1]
+        try:
+            from app.config import settings
+            v_root = settings.resolved_obsidian_vault_path
+            if not v_root:
+                return False, None
+            target = v_root / rel_path
+            if not target.exists() or not target.is_file():
+                return False, None
+            data = target.read_bytes()
+            cur_version = compute_vault_note_source_version(data)
+            if source_row.source_version and source_row.source_version != cur_version:
+                return False, target.stem
+            return True, target.stem
+        except Exception:
+            return False, None
+
+    elif source_row.source_type == "hot_memory":
+        try:
+            from app.integrations.agent import hot_memory as h2_svc
+            ctx = h2_svc.get_context()
+            mem_id = source_row.source_id.split(":", 1)[1] if ":" in source_row.source_id else ""
+            for m in (ctx.profile + ctx.constraints + ctx.goals + ctx.decisions + ctx.preferences):
+                if m.memory_id == mem_id:
+                    return True, m.title
+            return False, None
+        except Exception:
+            return False, None
+
+    return True, None
+
+
+def _is_topic_compatible(
+    prompt: str,
+    active_sources: list[AgentSessionSource],
+    active_titles: list[str],
+    scope_project: str | None,
+) -> bool:
+    """Deterministik konu uyumluluğu kontrolü (harici model veya embedding kullanmaz)."""
+    if not prompt:
+        return False
+    prompt_words = {w.lower() for w in _extract_candidate_keywords(prompt)}
+    if not prompt_words:
+        return False
+
+    # Scope uyumu
+    if scope_project and any(s.scope_project == scope_project for s in active_sources):
+        return True
+
+    # Başlık/kelime örtüşmesi
+    for title in active_titles:
+        title_words = {w.lower() for w in _extract_candidate_keywords(title)}
+        if prompt_words & title_words:
+            return True
+
+    return False
+
+
 async def compose_later_turn_context(
     session: AsyncSession,
     session_row: AgentSession,
@@ -426,64 +685,133 @@ async def compose_later_turn_context(
     now = datetime.now(UTC)
     degraded_reasons: list[str] = []
 
-    # 1. Ambiguous follow-up kontrolü
-    if _is_ambiguous_continuation(transient_prompt):
-        stmt = (
-            select(AgentSessionSource)
-            .where(
-                AgentSessionSource.session_id == session_row.id,
-                AgentSessionSource.expires_at > now,
-            )
-            .order_by(AgentSessionSource.delivered_at.desc())
-            .limit(MAX_DELIVERED_SOURCES)
+    # 1. Kapsam geçiş matrisi kontrolü
+    last_ctx = (await session.execute(
+        select(AgentSessionContext)
+        .where(AgentSessionContext.session_id == session_row.id)
+        .order_by(AgentSessionContext.created_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+    prev_scope = last_ctx.scope_project if last_ctx else None
+    curr_scope = scope_project
+
+    if prev_scope and curr_scope and prev_scope != curr_scope:
+        # A -> B: Proje değişimi; önceki oturum içi tüm kaynakları geçersiz kıl
+        await session.execute(
+            delete(AgentSessionSource).where(AgentSessionSource.session_id == session_row.id)
         )
-        res = await session.execute(stmt)
-        source_rows = res.scalars().all()
-
-        if source_rows:
-            sources: list[BootstrapSourceRef] = []
-            for r in source_rows:
-                title = None
-                if r.source_id.startswith("entity:"):
-                    try:
-                        ent_id_str = r.source_id.split(":", 1)[1]
-                        ent_uuid = uuid.UUID(ent_id_str)
-                        title = await session.scalar(select(Entity.title).where(Entity.id == ent_uuid))
-                    except Exception:
-                        pass
-                sources.append(
-                    BootstrapSourceRef(
-                        source_id=r.source_id,
-                        source_type=r.source_type,
-                        source_version=r.source_version,
-                        scope_project=r.scope_project,
-                        title=title[:128] if title else None,
-                    )
-                )
-
-            rendered = render_continuity_context(sources)
-
-            ctx_row = AgentSessionContext(
-                session_id=session_row.id,
-                turn_id=turn_id,
-                schema_version=1,
-                is_first_turn=False,
-                item_count=len(sources),
-                char_count=len(rendered),
-                truncated=False,
-                omitted_count=0,
-                degraded_reasons=[],
-                created_at=now,
+    elif prev_scope and not curr_scope:
+        # A -> None: Proje temizlendi; sadece A'ya ait kaynakları temizle, genel kaynakları koru
+        await session.execute(
+            delete(AgentSessionSource).where(
+                AgentSessionSource.session_id == session_row.id,
+                AgentSessionSource.scope_project == prev_scope,
             )
-            session.add(ctx_row)
-            await session.commit()
-            return None, sources, rendered, degraded_reasons
+        )
+    elif not prev_scope and curr_scope:
+        # None -> B: Proje kapsamına giriş; farklı bir proje kapsamı olanları temizle
+        await session.execute(
+            delete(AgentSessionSource).where(
+                AgentSessionSource.session_id == session_row.id,
+                AgentSessionSource.scope_project.is_not(None),
+                AgentSessionSource.scope_project != curr_scope,
+            )
+        )
 
-        # Süresi dolmuş veya önceki kaynak yok
-        return None, [], None, ["EXPIRED_OR_NO_CONTINUITY_SOURCES"]
+    # 2. Aktif unexpired kaynakları çek
+    stmt = (
+        select(AgentSessionSource)
+        .where(
+            AgentSessionSource.session_id == session_row.id,
+            AgentSessionSource.expires_at > now,
+        )
+        .order_by(AgentSessionSource.delivered_at.desc())
+        .limit(MAX_DELIVERED_SOURCES)
+    )
+    res = await session.execute(stmt)
+    source_rows = res.scalars().all()
 
-    # 2. Açık konu değişimi veya yeni sorgu (Topic Shift)
-    # Eski kaynakları geçersiz kıl (invalidate/reset)
+    # 3. Canlı veriyle tazelik doğrulaması (Stale detection)
+    fresh_sources: list[tuple[AgentSessionSource, str | None]] = []
+    stale_ids: list[int] = []
+    for r in source_rows:
+        is_fresh, title = await _check_source_freshness(session, r)
+        if is_fresh:
+            fresh_sources.append((r, title))
+        else:
+            stale_ids.append(r.id)
+
+    if stale_ids:
+        await session.execute(
+            delete(AgentSessionSource).where(AgentSessionSource.id.in_(stale_ids))
+        )
+        degraded_reasons.append("SOURCE_STALE")
+
+    # 4. Ambiguous follow-up veya aynı konu devamlılığı (Topic Compatibility)
+    is_ambig = _is_ambiguous_continuation(transient_prompt)
+    is_compat = False
+    if fresh_sources and not is_ambig:
+        active_titles = [t for _, t in fresh_sources if t]
+        is_compat = _is_topic_compatible(
+            transient_prompt,
+            active_sources=[s for s, _ in fresh_sources],
+            active_titles=active_titles,
+            scope_project=curr_scope,
+        )
+
+    if (is_ambig or is_compat) and fresh_sources:
+        sources: list[BootstrapSourceRef] = []
+        for r, title in fresh_sources:
+            sources.append(
+                BootstrapSourceRef(
+                    source_id=r.source_id,
+                    source_type=r.source_type,
+                    source_version=r.source_version,
+                    scope_project=r.scope_project,
+                    title=title[:128] if title else None,
+                )
+            )
+
+        rendered = render_continuity_context(sources)
+
+        ctx_row = AgentSessionContext(
+            session_id=session_row.id,
+            turn_id=turn_id,
+            schema_version=1,
+            is_first_turn=False,
+            item_count=len(sources),
+            char_count=len(rendered),
+            truncated=False,
+            omitted_count=0,
+            degraded_reasons=sorted(set(degraded_reasons)),
+            scope_project=curr_scope,
+            created_at=now,
+        )
+        session.add(ctx_row)
+
+        # Opportunistic pruning
+        await session.execute(
+            delete(AgentSessionSource).where(
+                AgentSessionSource.session_id == session_row.id,
+                AgentSessionSource.expires_at < now,
+            )
+        )
+        old_ctx_ids = (await session.scalars(
+            select(AgentSessionContext.id)
+            .where(AgentSessionContext.session_id == session_row.id)
+            .order_by(AgentSessionContext.created_at.desc())
+            .offset(50)
+        )).all()
+        if old_ctx_ids:
+            await session.execute(
+                delete(AgentSessionContext).where(AgentSessionContext.id.in_(old_ctx_ids))
+            )
+
+        await session.commit()
+        return None, sources, rendered, sorted(set(degraded_reasons))
+
+    # 5. Açık konu değişimi veya taze kaynak kalmaması (Topic Shift)
+    # Eski oturum kaynaklarını sıfırla
     await session.execute(
         delete(AgentSessionSource).where(AgentSessionSource.session_id == session_row.id)
     )
@@ -498,17 +826,32 @@ async def compose_later_turn_context(
         try:
             results = await search_operational_context(session, query=candidate, limit=3)
             for ent in results:
+                ent_version = None
+                if ent.type == "project":
+                    p_row = (await session.execute(select(Project).where(Project.id == ent.id))).scalar_one_or_none()
+                    if p_row:
+                        ent_version = compute_project_source_version(
+                            ent.title, p_row.status, p_row.next_action, p_row.last_activity_at
+                        )
+                elif ent.type in ("deadline", "todo"):
+                    t_row = (await session.execute(select(Todo).where(Todo.id == ent.id))).scalar_one_or_none()
+                    if t_row:
+                        due_str = t_row.due_at.isoformat() if t_row.due_at else None
+                        ent_version = compute_deadline_source_version(ent.title, due_str, t_row.status)
+
                 new_sources.append(
                     BootstrapSourceRef(
                         source_id=f"entity:{ent.id}",
                         source_type=ent.type,
+                        source_version=ent_version,
+                        scope_project=str(ent.id) if ent.type == "project" else None,
                         title=ent.title[:128] if ent.title else None,
                     )
                 )
             if new_sources:
                 break
         except Exception as exc:
-            LOGGER.debug("search_operational_context failed for '%s': %s", candidate, exc)
+            LOGGER.debug("search_operational_context failed: %s", type(exc).__name__)
 
     new_sources = new_sources[:MAX_DELIVERED_SOURCES]
     rendered = None
@@ -532,6 +875,7 @@ async def compose_later_turn_context(
                     "delivered_at": now,
                     "expires_at": expires_at,
                     "turn_id": turn_id,
+                    "source_version": s.source_version,
                 }
             )
             await session.execute(stmt)
@@ -545,13 +889,32 @@ async def compose_later_turn_context(
         char_count=len(rendered) if rendered else 0,
         truncated=False,
         omitted_count=0,
-        degraded_reasons=degraded_reasons,
+        degraded_reasons=sorted(set(degraded_reasons)),
+        scope_project=curr_scope,
         created_at=now,
     )
     session.add(ctx_row)
-    await session.commit()
 
-    return None, new_sources, rendered, degraded_reasons
+    # Opportunistic pruning
+    await session.execute(
+        delete(AgentSessionSource).where(
+            AgentSessionSource.session_id == session_row.id,
+            AgentSessionSource.expires_at < now,
+        )
+    )
+    old_ctx_ids = (await session.scalars(
+        select(AgentSessionContext.id)
+        .where(AgentSessionContext.session_id == session_row.id)
+        .order_by(AgentSessionContext.created_at.desc())
+        .offset(50)
+    )).all()
+    if old_ctx_ids:
+        await session.execute(
+            delete(AgentSessionContext).where(AgentSessionContext.id.in_(old_ctx_ids))
+        )
+
+    await session.commit()
+    return None, new_sources, rendered, sorted(set(degraded_reasons))
 
 
 async def status(session: AsyncSession) -> ContinuityStatusOut:
@@ -563,6 +926,11 @@ async def status(session: AsyncSession) -> ContinuityStatusOut:
         .order_by(AgentSessionContext.created_at.desc())
         .limit(1)
     )
+    last_context = await session.scalar(
+        select(AgentSessionContext.created_at)
+        .order_by(AgentSessionContext.created_at.desc())
+        .limit(1)
+    )
     last_harness_row = (await session.execute(
         select(AgentSession.harness)
         .join(AgentSessionContext, AgentSessionContext.session_id == AgentSession.id)
@@ -570,11 +938,23 @@ async def status(session: AsyncSession) -> ContinuityStatusOut:
         .limit(1)
     )).scalar_one_or_none()
 
-    active_sources = await session.scalar(
-        select(func.count())
-        .select_from(AgentSessionSource)
-        .where(AgentSessionSource.expires_at > now)
-    ) or 0
+    latest_session_id = await session.scalar(
+        select(AgentSession.id)
+        .where(AgentSession.status == "active")
+        .order_by(AgentSession.last_seen_at.desc())
+        .limit(1)
+    )
+    if latest_session_id:
+        active_sources = await session.scalar(
+            select(func.count())
+            .select_from(AgentSessionSource)
+            .where(
+                AgentSessionSource.session_id == latest_session_id,
+                AgentSessionSource.expires_at > now,
+            )
+        ) or 0
+    else:
+        active_sources = 0
 
     latest_ctx = (await session.execute(
         select(AgentSessionContext)
@@ -585,6 +965,7 @@ async def status(session: AsyncSession) -> ContinuityStatusOut:
     return ContinuityStatusOut(
         available=True,
         last_bootstrap_at=last_bootstrap,
+        last_context_at=last_context,
         last_harness=last_harness_row,
         active_source_count=active_sources,
         is_truncated=latest_ctx.truncated if latest_ctx else False,
