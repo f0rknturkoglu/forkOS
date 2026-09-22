@@ -27,6 +27,7 @@ registerModule({
       id: "todo.overdue",
       title: "Geciken görevler",
       component: OverdueTodosWidget,
+      placement: "attention",
       order: 15,
       defaultVisible: false,
     },

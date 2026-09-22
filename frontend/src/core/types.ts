@@ -1153,18 +1153,8 @@ export interface Command {
   ask?: { label: string; placeholder?: string };
 }
 
-/**
- * Home'da çekirdek bir yüzeyin yeri.
- *
- *   priority → tam genişlik şerit, kolonların ÜSTÜNDE (bekleyen kararlar)
- *   left     → sol kolon: bugünün planı ve öğrenme
- *   center   → orta kolon, görsel çapa: okuma akışı ve ısı haritası
- *   right    → sağ kolon: son tarihler ve kariyer
- *
- * Çekirdek yüzeyler `order` ile sabit sırada dizilir; dar ekranda aynı sıra
- * tek kolonda okunur (DOM sırası = okuma sırası).
- */
-export type TodayPlacement = "priority" | "left" | "center" | "right";
+/** Home'un anlamsal okuma sırası; viewport değişince DOM sırası değişmez. */
+export type TodayPlacement = "now" | "plan" | "attention" | "context";
 
 export interface TodayWidget {
   /**
@@ -1183,6 +1173,8 @@ export interface TodayWidget {
    * iskeletin altında akar.
    */
   core?: TodayPlacement;
+  /** İsteğe bağlı widget'ın yeri; görünürlük tercihini değiştirmez. */
+  placement?: TodayPlacement;
   /**
    * Cekirdek iskeletteki sira; kucuk once. ZORUNLU: verilmezse cakisma
    * uretir (eski varsayilan 50 kaldirildi).

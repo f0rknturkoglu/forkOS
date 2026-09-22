@@ -38,13 +38,13 @@ registerModule({
   ],
   todayWidgets: [
     {
-      // P2 §18/§80: isi haritasi Home'un CEKIRDEK yuzeyi (orta kolon).
+      // Isı haritası Home'un çekirdek bağlam yüzeyidir.
       // Home kompakt surumu kullanir: ayni bilesen, ayni sorgu anahtari --
       // tam tur kirilimi ve aralik secimi Etkinlik sayfasinda kalir.
       id: "activity.heatmap",
       title: "Isı haritası",
       component: HomeHeatmap,
-      core: "center",
+      core: "context",
       order: 70,
     },
     {

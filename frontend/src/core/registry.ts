@@ -171,7 +171,7 @@ function readWidgetPrefs(): { order: string[]; hidden: Set<string>; touched: boo
  *     sirasi/gizlemesi burada uygulanmaz (eski gizleme kayitlari cekirdegi
  *     gizleyemez).
  *   - İSTEĞE BAĞLI: kalanlar. Gizleme + kullanici sirasi burada gecerli;
- *     iskeletin ALTINDA akar.
+ *     yerlesimleri `placement` ile belirlenir.
  * Bilinmeyen id'ler guvenle yok sayilir.
  */
 function buildWidgetViews(includeHidden: boolean): TodayWidgetView[] {

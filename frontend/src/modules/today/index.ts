@@ -23,26 +23,24 @@ registerModule({
   // Saat + hava ust seritte (TodayHero); sunucu ve saglik ust seritteki
   // durum LED'inde (StatusLed) -- panelde tekrar etmezler.
   //
-  // `core` alani Home iskeletini kurar: cekirdek yuzeyler her zaman gorunur,
-  // gizlenemez ve `order` ile SABIT sirada dizilir (DOM sirasi = dar ekranda
-  // okuma sirasi). `core` almayanlar istege bagli yuzeylerdir: Ayarlar'dan
-  // gizlenir/acilir ve iskeletin altinda akarlar.
+  // `core` anlamsal iskeleti kurar. `placement` ise isteğe bağlı widget'ın
+  // konumudur; görünürlük/sıra tercihini değiştirmez.
   todayWidgets: [
     {
-      // H7 karar yuzeyi: bekleyen planlar gunun isine girmeden once gorulur.
+      // H7 karar yuzeyi dikkat alanında kalır; boşken yer tutmaz.
       // Bos liste hicbir sey cizmez (kendi icinde null doner).
       id: "today.pending-decisions",
       title: "Bekleyen kararlar",
       component: PendingDecisions,
-      core: "priority",
+      core: "attention",
       order: 10,
     },
     {
-      // P2 §13: sol kolon "bugunun plani" ile acilir.
+      // Günün yürütme işinin ana yüzeyi.
       id: "today.agenda",
       title: "Bugünün planı",
       component: TodayAgendaWidget,
-      core: "left",
+      core: "plan",
       order: 20,
     },
     {
@@ -51,7 +49,7 @@ registerModule({
       id: "today.deadlines",
       title: "Son tarihler",
       component: DeadlinesWidget,
-      core: "right",
+      core: "attention",
       order: 30,
     },
     {
@@ -60,7 +58,7 @@ registerModule({
       id: "today.career",
       title: "Kariyer",
       component: CareerWidget,
-      core: "right",
+      core: "context",
       order: 40,
     },
     {
@@ -68,7 +66,7 @@ registerModule({
       id: "today.feed-stream",
       title: "Akış",
       component: FeedStreamWidget,
-      core: "center",
+      core: "context",
       order: 50,
     },
     {
@@ -77,6 +75,7 @@ registerModule({
       id: "today.now-next",
       title: "Şimdi ve sırada",
       component: NowNextWidget,
+      placement: "now",
       order: 8,
     },
     {

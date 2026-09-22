@@ -15,10 +15,10 @@ import type { TodayPlacement } from "@/core/types";
 
 /** Çekirdek yüzeyin nerede durduğu: kullanıcı iskeleti buradan okur. */
 const PLACEMENT_LABELS: Record<TodayPlacement, string> = {
-  priority: "Üst şerit",
-  left: "Sol kolon",
-  center: "Orta kolon",
-  right: "Sağ kolon",
+  now: "Şimdi",
+  plan: "Günün planı",
+  attention: "Dikkat",
+  context: "Bağlam",
 };
 
 /**
@@ -58,6 +58,8 @@ export function TodayWidgetsSection({
 
   const coreViews = views.filter((view) => view.widget.core);
   const optionalViews = views.filter((view) => !view.widget.core);
+  const zoneOf = (id: string) => optionalViews.find((view) => view.id === id)?.widget.placement ?? "context";
+  const zoneOrder = (id: string) => order.filter((candidate) => zoneOf(candidate) === zoneOf(id));
 
   function commit(nextOrder: string[], nextHidden: string[]) {
     setTodayWidgetOrder(nextOrder);
@@ -67,11 +69,15 @@ export function TodayWidgetsSection({
 
   function move(id: string, delta: -1 | 1) {
     const base = currentConfig();
-    const index = base.order.indexOf(id);
+    const withinZone = base.order.filter((candidate) => zoneOf(candidate) === zoneOf(id));
+    const index = withinZone.indexOf(id);
     const target = index + delta;
-    if (index < 0 || target < 0 || target >= base.order.length) return;
+    if (index < 0 || target < 0 || target >= withinZone.length) return;
     const next = [...base.order];
-    [next[index], next[target]] = [next[target], next[index]];
+    const other = withinZone[target];
+    const otherIndex = next.indexOf(other);
+    const ownIndex = next.indexOf(id);
+    [next[ownIndex], next[otherIndex]] = [next[otherIndex], next[ownIndex]];
     commit(next, base.hidden);
   }
 
@@ -96,8 +102,8 @@ export function TodayWidgetsSection({
   return (
     <Section title="Home bileşenleri">
       <p className="mb-2 text-meta text-muted">
-        Çekirdek yüzeyler Home iskeletini kurar; her zaman görünürler. İsteğe bağlı yüzeyleri gizleyip sıralayabilirsin.
-        Sıra ve görünürlük kalıcıdır; modül rotaları ve komutları bundan etkilenmez.
+        Çekirdek yüzeyler Home iskeletini kurar; her zaman görünürler. İsteğe bağlı yüzeyleri gizleyip kendi bölgesinde
+        sıralayabilirsin. Sıra ve görünürlük kalıcıdır; modül rotaları ve komutları bundan etkilenmez.
       </p>
       <div className="mb-3 flex items-center gap-2">
         <span className="text-meta text-muted">Hazır düzen:</span>
@@ -120,7 +126,7 @@ export function TodayWidgetsSection({
             <div className="min-w-0 flex-1">
               <p className="truncate text-body text-primary">{view.title}</p>
               <p className="text-meta text-muted">
-                {view.moduleId} · {PLACEMENT_LABELS[view.widget.core ?? "center"]} · çekirdek
+                {view.moduleId} · {PLACEMENT_LABELS[view.widget.core ?? "context"]} · çekirdek
               </p>
             </div>
           </li>
@@ -131,7 +137,8 @@ export function TodayWidgetsSection({
       <ul className="divide-y divide-subtle rounded-card border border-subtle">
         {optionalViews.map((view) => {
           const isHidden = hidden.has(view.id);
-          const position = order.indexOf(view.id);
+          const group = zoneOrder(view.id);
+          const groupPosition = group.indexOf(view.id);
           return (
             <li key={view.id} className="flex items-center gap-2 px-3 py-2">
               <div className="min-w-0 flex-1">
@@ -139,7 +146,7 @@ export function TodayWidgetsSection({
                   {view.title}
                 </p>
                 <p className="text-meta text-muted">
-                  {view.moduleId}
+                  {view.moduleId} · {PLACEMENT_LABELS[view.widget.placement ?? "context"]}
                   {isHidden && " · gizli"}
                 </p>
               </div>
@@ -147,7 +154,7 @@ export function TodayWidgetsSection({
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={!online || isHidden || position <= 0}
+                  disabled={!online || isHidden || groupPosition <= 0}
                   onClick={() => move(view.id, -1)}
                   title="Yukarı taşı"
                   ariaLabel={`${view.title} yukarı taşı`}
@@ -157,7 +164,7 @@ export function TodayWidgetsSection({
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={!online || isHidden || position < 0 || position >= order.length - 1}
+                  disabled={!online || isHidden || groupPosition < 0 || groupPosition >= group.length - 1}
                   onClick={() => move(view.id, 1)}
                   title="Aşağı taşı"
                   ariaLabel={`${view.title} aşağı taşı`}

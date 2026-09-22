@@ -18,11 +18,11 @@ registerModule({
   ],
   todayWidgets: [
     {
-      // P2 §19: ogrenme Home'un CEKIRDEK yuzeyi (sol kolon, planin altinda).
+      // Öğrenme çekirdek kalır; günlük planla aynı ağırlıkta yarışmaz.
       id: "learning.widget",
       title: "Öğrenme",
       component: LearningWidget,
-      core: "left",
+      core: "context",
       order: 60,
     },
   ],

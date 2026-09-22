@@ -1,7 +1,6 @@
-import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { LocateFixed } from "lucide-react";
-import { Button, cx } from "@/core/ui";
+import { Button } from "@/core/ui";
 import { appTimeParts, formatAppDate } from "@/lib/date";
 import { useWeather, weatherIcon, weatherLabel } from "./weather";
 
@@ -12,25 +11,10 @@ function greeting(hour: number): string {
   return "İyi akşamlar";
 }
 
-/**
- * Panelin ust seridi: saat + tarih + hava + gunun sayilari, TEK kutuda.
- *
- * Hepsi "su an nerdeyiz" sorusunun parcasi; ayri seritlerde durduklarinda
- * panelin ustunde ust uste iki-uc bant olusuyordu.
- *
- * Arama BURADA YOK: çalışma alanı başlığındaki arama her sayfada duruyor,
- * ikincisi ayni ekranda iki kutu demekti.
- *
- * Saat ve hava bilincli olarak sutunlarin disinda ve tek bir blokta: ikisi de
- * "su an" bilgisi, listelerin arasina serpistirilince hem yerleri her modul
- * eklemesinde kayiyordu hem de birbirinden kopuyordu.
- */
-export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
+/** Tarih ve hava çalışma gününe bağlam verir; planın üstünde büyük kart kurmaz. */
+export function TodayHero() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    // Saat DAKIKA gosterir; saniyelik guncelleme hava durumu panelini ve
-    // metrik karolarini her saniye yeniden render ediyordu. Dakika sinirinda
-    // bir kez guncellemek hem dogru hem bedava (SLEEP'e kadar bos).
     let timer = 0;
     const schedule = () => {
       const current = new Date();
@@ -49,72 +33,36 @@ export function TodayHero({ metrics = [] }: { metrics?: ReactNode[] }) {
   const date = formatAppDate(now, { weekday: "long", day: "numeric", month: "long" });
 
   return (
-    <header className="mb-5 rounded-card border border-subtle bg-surface px-4 py-3.5 shadow-card">
-      <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
-        <div className="min-w-0 shrink-0">
-          <p className="label-caps">{greeting(hour)}</p>
-          <div className="mt-1.5 flex items-baseline gap-3">
-            <time
-              dateTime={now.toISOString()}
-              className="numeral text-display-lg leading-none tracking-[-0.02em] text-primary"
-            >
-              {time}
-            </time>
-            <span className="truncate text-body text-secondary">{date}</span>
-          </div>
-        </div>
-
-        <WeatherPanel />
-
-        {metrics.length > 0 && (
-          /*
-           * Sayilar saatin sagina yaslanir, dar ekranda alt satira iner.
-           * Metric kendi ic bosluguyla gelir; burada onu sifirlayip
-           * rakami saatin (44px) yaninda ezilmeyecek boya cekiyoruz.
-           */
-          <div
-            className={cx(
-              "grid w-full shrink-0 grid-cols-2 gap-x-6 gap-y-3 border-t border-subtle pt-3.5",
-              // 4 sütun yalnız hero'nun gerçekten geniş olduğu yerde: 640-1023
-              // arasında 4×104px + boşluklar taşıp sayfayı yatay kaydırıyordu.
-              "lg:grid-cols-4 lg:border-t-0 lg:pt-0 sm:ml-auto sm:w-auto",
-              "[&>*]:min-w-[104px] [&>*]:px-0 [&>*]:py-0 [&_.numeral]:text-title",
-            )}
-          >
-            {metrics}
-          </div>
-        )}
+    <header className="mb-6 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-subtle pb-4">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+        <p className="text-title font-medium text-primary">{greeting(hour)}</p>
+        <span className="text-body text-secondary">{date}</span>
+        <time dateTime={now.toISOString()} className="tabular-nums text-meta text-muted">
+          {time}
+        </time>
       </div>
+      <WeatherPanel />
     </header>
   );
 }
 
-/** Saatin yanindaki hava blogu: su anki durum + uc gunluk ince serit. */
 function WeatherPanel() {
   const { coords, data, isError, refetch, asking, denied, place, requestLocation } = useWeather();
 
   if (!coords) {
     return (
-      <div className="flex items-center gap-2.5 text-meta text-muted sm:border-l sm:border-subtle sm:pl-8">
+      <div className="flex items-center gap-2 text-meta text-muted">
         <span>{denied ? "Konum izni yok — Ayarlar'dan şehir gir." : "Hava durumu için konum gerekli."}</span>
-        <button
-          type="button"
-          onClick={requestLocation}
-          disabled={asking}
-          className="flex items-center gap-1.5 border-b border-accent-border text-accent disabled:opacity-50"
-        >
-          <LocateFixed size={13} />
-          {asking ? "izin isteniyor…" : "konumumu kullan"}
-        </button>
+        <Button size="sm" variant="ghost" onClick={requestLocation} disabled={asking}>
+          <LocateFixed size={13} /> {asking ? "İzin isteniyor…" : "Konumumu kullan"}
+        </Button>
       </div>
     );
   }
 
-  const current = data?.current;
-  const daily = data?.daily;
   if (isError) {
     return (
-      <div className="flex items-center gap-2 text-meta text-muted sm:border-l sm:border-subtle sm:pl-8">
+      <div className="flex items-center gap-2 text-meta text-muted">
         <span>Hava durumu alınamadı.</span>
         <Button size="sm" variant="ghost" onClick={() => void refetch()}>
           Yeniden dene
@@ -122,47 +70,55 @@ function WeatherPanel() {
       </div>
     );
   }
-  if (!current) {
-    return <div className="text-meta text-muted sm:border-l sm:border-subtle sm:pl-8">Hava yükleniyor…</div>;
-  }
+
+  const current = data?.current;
+  if (!current) return <span className="text-meta text-muted">Hava yükleniyor…</span>;
 
   const Icon = weatherIcon(current.weather_code);
-
+  const daily = data?.daily;
+  const forecast = daily?.time.slice(0, 4) ?? [];
   return (
-    <div className="flex items-center gap-5 sm:border-l sm:border-subtle sm:pl-8">
-      <div className="flex items-center gap-3">
-        <Icon size={30} strokeWidth={1.4} className="shrink-0 text-secondary" />
-        <div>
-          <p className="numeral text-display leading-none text-primary">{Math.round(current.temperature_2m)}°</p>
-          <p className="mt-1 text-meta text-secondary">{weatherLabel(current.weather_code)}</p>
+    <details
+      className="group relative text-meta text-secondary"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }
+      }}
+    >
+      <summary
+        role="button"
+        aria-label="Hava durumu ve tahmin"
+        title={place ?? undefined}
+        className="flex cursor-pointer list-none items-center gap-2 rounded-control px-1 py-1 hover:bg-surface-hover"
+      >
+        <Icon size={17} strokeWidth={1.5} className="text-icon" />
+        <span className="tabular-nums font-medium text-primary">{Math.round(current.temperature_2m)}°</span>
+        <span>{weatherLabel(current.weather_code)}</span>
+        {place && <span className="hidden text-muted sm:inline">· {place}</span>}
+      </summary>
+      {daily && forecast.length > 0 && (
+        <div className="absolute right-0 top-full z-popover mt-1 w-64 rounded-card border border-subtle bg-surface-raised p-3 shadow-overlay">
+          <p className="mb-2 text-meta font-medium text-primary">Dört günlük tahmin</p>
+          <div className="space-y-1.5">
+            {forecast.map((day, index) => {
+              const DayIcon = weatherIcon(daily.weather_code[index]);
+              return (
+                <div key={day} className="flex items-center gap-2 text-meta">
+                  <span className="min-w-12 capitalize">
+                    {formatAppDate(`${day}T12:00:00Z`, { weekday: "short" })}
+                  </span>
+                  <DayIcon size={14} className="text-icon" />
+                  <span className="ml-auto tabular-nums">
+                    {Math.round(daily.temperature_2m_min[index])}°–{Math.round(daily.temperature_2m_max[index])}°
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-      {daily && (
-        <ul className="hidden items-stretch gap-4 lg:flex">
-          {daily.time.slice(0, 4).map((day, index) => {
-            const DayIcon = weatherIcon(daily.weather_code[index]);
-            const today = index === 0;
-            return (
-              <li key={day} className="text-center">
-                <p className={cx("text-micro uppercase tracking-[0.08em]", today ? "text-accent" : "text-muted")}>
-                  {today ? "bugün" : formatAppDate(day, { weekday: "short" })}
-                </p>
-                <DayIcon size={15} strokeWidth={1.5} className="mx-auto my-1 text-icon" />
-                <p className="numeral text-micro text-secondary">
-                  {Math.round(daily.temperature_2m_min[index])}°
-                  <span className="text-primary"> {Math.round(daily.temperature_2m_max[index])}°</span>
-                </p>
-              </li>
-            );
-          })}
-        </ul>
       )}
-
-      <p className="hidden self-end text-meta text-muted xl:block">
-        nem %{current.relative_humidity_2m}
-        {place && ` · ${place}`}
-      </p>
-    </div>
+    </details>
   );
 }

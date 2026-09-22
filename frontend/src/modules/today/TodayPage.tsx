@@ -1,89 +1,93 @@
 import { allTodayStats, useTodayWidgetViews } from "@/core/registry";
 import type { TodayWidgetView } from "@/core/registry";
-import { Empty, cx } from "@/core/ui";
 import type { TodayPlacement } from "@/core/types";
+import { Empty } from "@/core/ui";
+import { WorkspaceBody, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import { TodayHero } from "./TodayHero";
-import { WorkspaceScrollArea } from "@/core/workspace/Workspace";
 
-/**
- * Home = günün yürütme ekranı.
- *
- * İskelet sabittir ve TEK kaynaktan gelir (`core/types.ts` → `TodayPlacement`):
- * hero, ardından bekleyen kararlar şeridi ve masaüstünde üç kolon
- *
- *   sol    bugünün planı + öğrenme
- *   orta   okuma akışı + ısı haritası (görsel çapa)
- *   sağ    son tarihler + kariyer
- *
- * Dar ekranda ızgara tek kolona düşer ve DOM sırası okunur: bekleyen kararlar →
- * bugünün planı → son tarihler → kariyer → okuma akışı → öğrenme → ısı haritası.
- * Yani kaydırma sırası, ekran okuyucu sırası ve masaüstü kolonları AYNI
- * sözleşmeden türer; ikinci bir "mobil düzen" yok.
- *
- * Widget'ları Home bilmez: hangi yüzeyin çekirdek olduğunu ve hangi kolona
- * düştüğünü modül kaydı söyler (`TodayWidget.core`). Çekirdek olmayan yüzeyler
- * iskeletin ALTINDA akar.
- */
+/** Widget kimlikleri ve görünürlük tercihleri registry'de kalır. */
+function placement(view: TodayWidgetView): TodayPlacement {
+  return view.widget.core ?? view.widget.placement ?? "context";
+}
 
-/** Kolon yerleşimi: masaüstünde açık kolon, dar ekranda tek kolon (DOM sırası). */
-const PLACEMENT_CLASS: Record<TodayPlacement, string> = {
-  priority: "lg:col-span-full",
-  left: "lg:col-start-1",
-  center: "lg:col-start-2",
-  right: "lg:col-start-3",
-};
+function widget(view: TodayWidgetView) {
+  const Widget = view.widget.component;
+  return (
+    <div key={view.id} data-today-widget={view.id} className="min-w-0 empty:hidden">
+      <Widget />
+    </div>
+  );
+}
 
 export function TodayPage() {
   const stats = allTodayStats();
   const views = useTodayWidgetViews();
 
-  if (stats.length + views.length === 0) {
-    return (
-      <WorkspaceScrollArea className="p-4 sm:p-6">
-        <TodayHero />
-        <Empty variant="page" title="Panel boş">
-          Hiçbir modül widget vermiyor. Ayarlar'dan modülleri açabilirsin.
-        </Empty>
-      </WorkspaceScrollArea>
-    );
-  }
-
   return (
-    <WorkspaceScrollArea className="p-4 sm:p-6">
-      <TodayHero
-        metrics={stats.map((Tile, index) => (
-          <Tile key={index} />
-        ))}
-      />
-      <div className="mt-5">
-        <HomeGrid views={views} />
-      </div>
+    <WorkspaceScrollArea className="bg-canvas">
+      <WorkspaceBody mode="full" className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+        <TodayHero />
+        {stats.length + views.length === 0 ? (
+          <Empty variant="page" title="Bugün için yüzey yok">
+            Ayarlar'dan modülleri açarak günün planını ve bağlamını görebilirsin.
+          </Empty>
+        ) : (
+          <>
+            <HomeGrid views={views} />
+            {stats.length > 0 && (
+              <section aria-label="Kısa özet" className="mt-8 border-t border-subtle pt-4">
+                <h2 className="mb-2 text-meta font-medium text-secondary">Kısa özet</h2>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+                  {stats.map((Tile, index) => (
+                    <Tile key={index} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </WorkspaceBody>
     </WorkspaceScrollArea>
   );
 }
 
-/**
- * İskelet ızgarası. Masaüstünde üç kolon (`grid-auto-flow: row dense`):
- * her yüzey kendi kolonuna yerleşir, sırası `order` ile sabittir. Dar ekranda
- * tek kolon; sıra değişmez.
- *
- * Kendini çizmeyen yüzey (veri yokken null dönen kart) ızgarada yer TUTMAZ:
- * `empty:hidden` boş sarmalayıcıyı düşürür, kalanlar boşluğu kapatır.
- */
+/** Ana iş solda, dikkat sağda; 850px'te aynı DOM sırası tek kolondur. */
 export function HomeGrid({ views }: { views: TodayWidgetView[] }) {
+  const by = (zone: TodayPlacement) => views.filter((view) => placement(view) === zone);
+  const now = by("now");
+  const plan = by("plan");
+  const attention = by("attention");
+  const context = by("context");
+
   return (
-    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(13rem,0.9fr)_minmax(0,1.5fr)_minmax(13rem,0.9fr)] lg:[grid-auto-flow:row_dense]">
-      {views.map((view) => {
-        const Widget = view.widget.component;
-        return (
-          <div
-            key={view.id}
-            className={cx("min-w-0 empty:hidden", view.widget.core && PLACEMENT_CLASS[view.widget.core])}
+    <div className="space-y-7">
+      {now.length > 0 && (
+        <section aria-label="Şimdi" className="space-y-3">
+          {now.map(widget)}
+        </section>
+      )}
+      <div className="today-primary-grid grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.46fr)]">
+        <section aria-label="Bugünün işi" className="min-w-0 max-w-4xl space-y-4">
+          {plan.map(widget)}
+        </section>
+        {attention.length > 0 && (
+          <aside
+            aria-label="Dikkat isteyenler"
+            className="today-attention min-w-0 space-y-4 lg:border-l lg:border-subtle lg:pl-6"
           >
-            <Widget />
+            <h2 className="text-meta font-medium text-secondary">Dikkat isteyenler</h2>
+            {attention.map(widget)}
+          </aside>
+        )}
+      </div>
+      {context.length > 0 && (
+        <section aria-label="Bağlam" className="border-t border-subtle pt-5">
+          <h2 className="mb-4 text-meta font-medium text-secondary">Bağlam</h2>
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)]">
+            {context.map(widget)}
           </div>
-        );
-      })}
+        </section>
+      )}
     </div>
   );
 }

@@ -15,11 +15,11 @@ describe("Today module registrations", () => {
     await import("@/modules/index");
   });
 
-  it("sol kolonda tek plan yüzeyi tutar: birleşik ajanda", () => {
-    const left = harness.specs
+  it("günün işi alanında tek plan yüzeyi tutar: birleşik ajanda", () => {
+    const plan = harness.specs
       .flatMap((spec) => spec.todayWidgets ?? [])
-      .filter((widget) => typeof widget !== "function" && widget.core === "left");
-    const components = left.map((widget) => (typeof widget === "function" ? widget : widget.component));
+      .filter((widget) => typeof widget !== "function" && widget.core === "plan");
+    const components = plan.map((widget) => (typeof widget === "function" ? widget : widget.component));
 
     expect(components.filter((component) => component === TodayAgendaWidget)).toHaveLength(1);
     expect(components.map((component) => component.name)).not.toEqual(
