@@ -59,6 +59,18 @@ _CONTRACT_INSTRUCTIONS: dict[str, str] = {
         "otherwise return null. due_time must be 24-hour HH:MM or null.\n"
         "source_excerpt must be a verbatim substring of the source text that contains the deadline."
     ),
+    "episodic_turn_v1": (
+        "Extract at most 6 items from this single conversation turn.\n"
+        "For each item return: kind, text, source_excerpt.\n"
+        "kind must be one of: topic, outcome, open_thread, session_decision, next_focus, reference.\n"
+        "text must be a SHORT, neutral historical statement of what happened in the turn "
+        "(what the user did, what was decided, what was left open). NEVER state a preference, "
+        "a personality trait or a general fact about the user or the world.\n"
+        "Use open_thread ONLY for work that was explicitly deferred or left unresolved; "
+        "ordinary conversation is not an open thread.\n"
+        "source_excerpt must be copied VERBATIM from the source text and must support the item.\n"
+        "Return an empty list if nothing in the turn qualifies."
+    ),
 }
 
 

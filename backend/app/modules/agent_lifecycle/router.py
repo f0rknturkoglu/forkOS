@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.modules.agent_continuity.schemas import TurnContextIn, TurnContextOut
+from app.modules.agent_episode import service as episode_svc
 from app.modules.agent_lifecycle import service
 from app.modules.agent_lifecycle.schemas import (
     LifecycleEventIn,
@@ -95,12 +96,7 @@ async def lifecycle_turn(body: TurnContextIn, session: AsyncSession = Depends(ge
                 turn_id=turn_db_id,
                 scope_project=body.scope_project,
             )
-            return TurnContextOut(
-                lifecycle=lifecycle_out,
-                packet=packet,
-                rendered_context=rendered,
-                degraded_reasons=packet.diagnostics.degraded_reasons,
-            )
+            degraded = list(packet.diagnostics.degraded_reasons)
         else:
             packet, sources, rendered, degraded = await continuity_svc.compose_later_turn_context(
                 session,
@@ -109,12 +105,34 @@ async def lifecycle_turn(body: TurnContextIn, session: AsyncSession = Depends(ge
                 turn_id=turn_db_id,
                 scope_project=body.scope_project,
             )
-            return TurnContextOut(
-                lifecycle=lifecycle_out,
-                packet=packet,
-                rendered_context=rendered,
-                degraded_reasons=degraded,
-            )
+            degraded = list(degraded)
+
+        # 4. A3: bu turda teslim edilen kaynakları deftere yaz ve YALNIZ ilk turda
+        #    önceki ilgili oturumun devrini seç. A3 kendi hatalarını yutar; A1/A2
+        #    sonucu bu adımdan etkilenmez.
+        handoff, handoff_rendered, a3_degraded = await episode_svc.observe_turn_delivery(
+            session,
+            session_row=session_row,
+            raw_turn_id=body.turn_id,
+            turn_db_id=turn_db_id,
+            sources=list(sources or []),
+            is_first_turn=body.is_first_turn,
+        )
+        for reason in a3_degraded:
+            if reason not in degraded:
+                degraded.append(reason)
+
+        combined = rendered
+        if handoff_rendered:
+            combined = f"{rendered}\n\n{handoff_rendered}" if rendered else handoff_rendered
+
+        return TurnContextOut(
+            lifecycle=lifecycle_out,
+            packet=packet,
+            rendered_context=combined,
+            degraded_reasons=degraded,
+            handoff=handoff,
+        )
     except Exception as exc:
         await session.rollback()
         LOGGER.exception("A2 context composition failed in /turn endpoint: %s", type(exc).__name__)

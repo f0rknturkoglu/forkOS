@@ -601,11 +601,15 @@ def _extract_candidate_keywords(prompt: str) -> list[str]:
     return candidates
 
 
-async def _check_source_freshness(
+async def check_source_freshness(
     session: AsyncSession,
     source_row: AgentSessionSource,
 ) -> tuple[bool, str | None]:
     """Kaynağın canlı kanonik veriye göre hâlâ güncel olup olmadığını kontrol eder.
+
+    A2 dışında A3 de kullanır (§22): geçmiş bir oturumun devri güncel durum
+    gibi sunulmasın diye destek referansları bu fonksiyonla yeniden doğrulanır.
+    Bu yüzden genel addır; ikinci bir tazelik kopyası YAZILMAZ.
 
     Döner: (is_fresh, current_title)
     """
@@ -808,7 +812,7 @@ async def compose_later_turn_context(
     fresh_sources: list[tuple[AgentSessionSource, str | None]] = []
     stale_ids: list[int] = []
     for r in source_rows:
-        is_fresh, title = await _check_source_freshness(session, r)
+        is_fresh, title = await check_source_freshness(session, r)
         if is_fresh:
             fresh_sources.append((r, title))
         else:

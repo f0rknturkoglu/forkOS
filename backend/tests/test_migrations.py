@@ -104,6 +104,11 @@ def test_module_tables_reference_entity():
         # A2 agent context/continuity: ephemeral oturum bağlamı ve kaynak devamlılığı desteği.
         "agent_session_context",
         "agent_session_source",
+        # A3 epizodik oturum devri: içeriksiz, türetilmiş ve ham transkript
+        # kolonu bulunmayan destek kayıtları.
+        "agent_session_episode",
+        "agent_session_episode_turn",
+        "agent_session_episode_item",
         "plan_slot",
         "habit_log",
         "opportunity_requirement",

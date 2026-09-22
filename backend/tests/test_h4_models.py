@@ -229,6 +229,7 @@ EXPECTED_ITEM_CAPS = {
     "weekly_schedule_v1": 80,
     "deadline_candidates_v1": 80,
     "consolidation_candidates_v1": 30,
+    "episodic_turn_v1": 6,
 }
 
 

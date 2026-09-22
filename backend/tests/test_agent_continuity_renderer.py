@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.core.prompt_safety import escape_context_data
 from app.modules.agent_continuity.renderer import (
-    escape_context_data,
     render_bootstrap_context,
     render_continuity_context,
 )

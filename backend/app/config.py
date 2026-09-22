@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     h4_small_input_chars: int = 12000
     h4_medium_input_chars: int = 24000
     h4_timeout_seconds: float = 45.0
+    #: A3 epizodik damıtma bütçesi (saniye).
+    #:
+    #: `post_llm_call` kullanıcıya dönük turun hemen yanındadır, bu yüzden
+    #: H4'ün 45 sn'lik varsayılanı bu yol için KABUL EDİLEMEZ. Ölçüm (yerel
+    #: qwen2.5:14b-instruct-q4_K_M, episodic_turn_v1): 15.3–16.5 sn/model
+    #: çağrısı. Bu bütçe aşılırsa A3 `EPISODE_EXTRACTION_TIMEOUT` ile degrade
+    #: eder ve uydurma yapmaz; devir yine metadata + H5 gözlemleriyle mühürlenir.
+    #: Konuşmaya özgü ifade isteniyorsa H4'ü KÜÇÜK bir yerel modele yönlendirin.
+    a3_extraction_budget_seconds: float = 2.0
 
     @property
     def resolved_obsidian_vault_path(self) -> Path | None:

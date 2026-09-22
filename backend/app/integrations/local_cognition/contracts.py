@@ -177,6 +177,46 @@ class ConsolidationExtraction(BaseModel):
     )
 
 
+EpisodeTurnKind = Literal[
+    "topic",
+    "outcome",
+    "open_thread",
+    "session_decision",
+    "next_focus",
+    "reference",
+]
+
+#: Oturum episodu tavanları. Genel `MAX_EXTRACTION_ITEMS` tavanı BU sözleşme
+#: için geçerli DEĞİLDİR: tek bir turdan en fazla 6 tarihsel madde çıkar (§A3).
+MAX_EPISODE_TURN_ITEMS = 6
+MAX_EPISODE_TURN_TEXT_CHARS = 300
+
+
+class EpisodeTurnItemV1(BaseModel):
+    """Tek bir turdan çıkarılmış TEK tarihsel madde (sürüm: v1).
+
+    `text` model kaynaklı KISA tarihsel ifadedir ("kullanıcı şunu yaptı" /
+    "şuna karar verildi" tonunda); kanıt değildir. Kanıt, sağlanan tur metninde
+    birebir bulunması zorunlu olan `source_excerpt`'tir.
+    """
+
+    model_config = _STRICT
+
+    kind: EpisodeTurnKind
+    text: str = Field(..., min_length=1, max_length=MAX_EPISODE_TURN_TEXT_CHARS)
+    source_excerpt: str = Field(..., min_length=1, max_length=MAX_SOURCE_EXCERPT_CHARS)
+
+
+class EpisodeTurnExtraction(BaseModel):
+    """`episodic_turn_v1` çıktısı."""
+
+    model_config = _STRICT
+
+    items: list[EpisodeTurnItemV1] = Field(
+        default_factory=list, max_length=MAX_EPISODE_TURN_ITEMS
+    )
+
+
 class ClassificationPayload(BaseModel):
     """`classify` çıktısı. Güven/olasılık alanı KABUL EDİLMEZ (§39)."""
 
@@ -527,6 +567,30 @@ def validate_consolidation(payload: Any, source_text: str) -> ValidationOutcome:
     )
 
 
+def validate_episodic_turn(payload: Any, source_text: str) -> ValidationOutcome:
+    """`episodic_turn_v1` doğrulaması (§A3 — kaynak temelli oturum devri).
+
+    `source_excerpt` katı kaynak kuralına uyar (sağlanan tur metninde birebir
+    bulunmalı). `text` model kaynaklı KISA tarihsel ifadedir ve kaynağa
+    bağlanması BEKLENMEZ; boş (yalnız boşluk) olması ise kabul edilmez: madde
+    metinsiz anlamsızdır. Boş liste GEÇERLİDİR — tur hiçbir şey taşımıyorsa
+    model hiçbir madde üretmez.
+    """
+
+    def sanity(item: EpisodeTurnItemV1) -> ValidationCode | None:
+        if not item.text.strip():
+            return "OUTPUT_SCHEMA_MISMATCH"
+        return None
+
+    return _validate_collection(
+        payload=payload,
+        model=EpisodeTurnExtraction,
+        collection_key="items",
+        source_text=source_text,
+        sanity=sanity,
+    )
+
+
 def validate_classification(
     payload: Any, source_text: str, labels: list[str]
 ) -> ValidationOutcome:
@@ -579,6 +643,7 @@ EXTRACTION_VALIDATORS: dict[str, Callable[[Any, str], ValidationOutcome]] = {
     "weekly_schedule_v1": validate_weekly_schedule,
     "deadline_candidates_v1": validate_deadlines,
     "consolidation_candidates_v1": validate_consolidation,
+    "episodic_turn_v1": validate_episodic_turn,
 }
 
 #: Çıkarım sözleşmesi → (koleksiyon anahtarı, JSON şeması). Sağlayıcıya
@@ -588,6 +653,7 @@ EXTRACTION_SCHEMAS: dict[str, tuple[str, dict[str, Any]]] = {
     "weekly_schedule_v1": ("blocks", WeeklyScheduleExtraction.model_json_schema()),
     "deadline_candidates_v1": ("deadlines", DeadlineExtraction.model_json_schema()),
     "consolidation_candidates_v1": ("candidates", ConsolidationExtraction.model_json_schema()),
+    "episodic_turn_v1": ("items", EpisodeTurnExtraction.model_json_schema()),
 }
 
 CLASSIFICATION_SCHEMA: dict[str, Any] = ClassificationPayload.model_json_schema()

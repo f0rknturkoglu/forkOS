@@ -4,32 +4,10 @@ Retrieved kaynaklar ve kullanıcı notları untrusted data kabul edilir;
 sınırlar delimiter etiketleri ve kaçış kurallarıyla korunur.
 """
 
-import html
-import re
-
+from app.core.prompt_safety import escape_context_data
 from app.modules.agent_continuity.schemas import BootstrapPacketV1, BootstrapSourceRef
 
-_ABSOLUTE_PATH_RE = re.compile(
-    r"(^|[\s'\"(\[,;])((?:[A-Za-z]:[\\/]|/)[^'\"()\[\],;\n]+)",
-    re.MULTILINE,
-)
-
-
-def redact_absolute_paths(text: str) -> str:
-    """Tanılama ve bağlam metninden mutlak sistem yollarını temizler."""
-    return _ABSOLUTE_PATH_RE.sub(lambda match: f"{match.group(1)}<vault>", text or "")
-
-
 MAX_RENDER_CHAR_BUDGET = 4000
-
-
-def escape_context_data(text: str, max_chars: int = 1000) -> str:
-    """Evrensel HTML/XML kaçışı, mutlak yol redaksiyonu ve alan sınırı uygular."""
-    if not text:
-        return ""
-    bounded = text[:max_chars]
-    clean = redact_absolute_paths(bounded)
-    return html.escape(clean, quote=True)
 
 
 def render_bootstrap_context(packet: BootstrapPacketV1, enforce_hard_ceiling: bool = True) -> str:

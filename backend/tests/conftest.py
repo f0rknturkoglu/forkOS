@@ -16,6 +16,20 @@ def _truncate_statement() -> str:
     return f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"
 
 
+@pytest.fixture
+def h4_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    """H4 açık ve iki yerel model yuvası yapılandırılmış (sağlayıcı betiklenir).
+
+    Modül ad alanına import edilmesi GEREKMEZ: burada tanımlı olduğu için
+    `h4_ready` parametresi her test modülünde çözülür. (Import + parametre
+    kalıbı ruff'ta F811 "redefinition" üretiyordu.)
+    """
+    monkeypatch.setattr(settings, "h4_enabled", True)
+    monkeypatch.setattr(settings, "h4_small_model", "small-model")
+    monkeypatch.setattr(settings, "h4_medium_model", "medium-model")
+    monkeypatch.setattr(settings, "h4_ollama_base_url", "http://127.0.0.1:11434")
+
+
 @pytest.fixture(autouse=True)
 async def clean_database(request: pytest.FixtureRequest):
     """Her DB testi temiz şemayla başlar; hiçbir test diğerini etkileyemez.

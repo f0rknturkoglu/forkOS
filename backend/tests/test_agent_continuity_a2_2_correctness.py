@@ -105,7 +105,7 @@ async def test_h2_revision_v1_to_v2_stale_detection(a2_session: AgentSession):
 
         # 1. Unchanged revision -> Fresh
         with patch("app.integrations.agent.hot_memory.get_context", return_value=mock_ctx_v1):
-            is_fresh, title = await continuity_svc._check_source_freshness(db, source_row)
+            is_fresh, title = await continuity_svc.check_source_freshness(db, source_row)
             assert is_fresh is True
             assert title == "User prefers dark theme"
 
@@ -125,7 +125,7 @@ async def test_h2_revision_v1_to_v2_stale_detection(a2_session: AgentSession):
         )
 
         with patch("app.integrations.agent.hot_memory.get_context", return_value=mock_ctx_v2):
-            is_fresh, title = await continuity_svc._check_source_freshness(db, source_row)
+            is_fresh, title = await continuity_svc.check_source_freshness(db, source_row)
             assert is_fresh is False
             assert title == "User prefers light theme"
 
@@ -168,7 +168,7 @@ async def test_h2_revision_v1_to_v2_stale_detection(a2_session: AgentSession):
         await db.commit()
 
         with patch("app.integrations.agent.hot_memory.get_context", return_value=mock_ctx_empty):
-            is_fresh, title = await continuity_svc._check_source_freshness(db, source_row2)
+            is_fresh, title = await continuity_svc.check_source_freshness(db, source_row2)
             assert is_fresh is False
             assert title is None
 
@@ -205,7 +205,7 @@ async def test_deadline_freshness_todo_and_nontodo(a2_session: AgentSession):
         await db.commit()
 
         # Unchanged -> Fresh
-        is_fresh, title = await continuity_svc._check_source_freshness(db, source_todo)
+        is_fresh, title = await continuity_svc.check_source_freshness(db, source_todo)
         assert is_fresh is True
         assert title == "Deploy migration 0065"
 
@@ -213,7 +213,7 @@ async def test_deadline_freshness_todo_and_nontodo(a2_session: AgentSession):
         todo.due_at = now + timedelta(days=5)
         await db.commit()
 
-        is_fresh, title = await continuity_svc._check_source_freshness(db, source_todo)
+        is_fresh, title = await continuity_svc.check_source_freshness(db, source_todo)
         assert is_fresh is False
         assert title == "Deploy migration 0065"
 
@@ -253,7 +253,7 @@ async def test_deadline_freshness_todo_and_nontodo(a2_session: AgentSession):
 
         with patch("app.core.deadlines.collect_deadlines", return_value=mock_deadlines):
             # Unchanged non-todo deadline -> Fresh
-            is_fresh, title = await continuity_svc._check_source_freshness(db, source_media)
+            is_fresh, title = await continuity_svc.check_source_freshness(db, source_media)
             assert is_fresh is True
             assert title == "Release Episode 42"
 
@@ -271,13 +271,13 @@ async def test_deadline_freshness_todo_and_nontodo(a2_session: AgentSession):
                 }
             ]
             with patch("app.core.deadlines.collect_deadlines", return_value=changed_mock):
-                is_fresh, title = await continuity_svc._check_source_freshness(db, source_media)
+                is_fresh, title = await continuity_svc.check_source_freshness(db, source_media)
                 assert is_fresh is False
                 assert title == "Release Episode 42"
 
             # Non-todo deadline removed/completed -> Stale
             with patch("app.core.deadlines.collect_deadlines", return_value=[]):
-                is_fresh, title = await continuity_svc._check_source_freshness(db, source_media)
+                is_fresh, title = await continuity_svc.check_source_freshness(db, source_media)
                 assert is_fresh is False
                 assert title is None
 
@@ -397,7 +397,7 @@ async def test_excluded_and_policy_rejected_vault_note_never_injected(tmp_path: 
         )
 
         with patch("app.config.settings.obsidian_vault_path", str(tmp_path)):
-            is_fresh, title = await continuity_svc._check_source_freshness(db, source_row)
+            is_fresh, title = await continuity_svc.check_source_freshness(db, source_row)
             assert is_fresh is False
             assert title is None
 
@@ -416,7 +416,7 @@ async def test_vault_traversal_source_id_rejected(tmp_path: Path):
         )
 
         with patch("app.config.settings.obsidian_vault_path", str(tmp_path)):
-            is_fresh, title = await continuity_svc._check_source_freshness(db, source_row)
+            is_fresh, title = await continuity_svc.check_source_freshness(db, source_row)
             assert is_fresh is False
             assert title is None
 

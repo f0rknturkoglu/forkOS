@@ -26,6 +26,7 @@ from app.config import settings
 from app.core.models import Entity, Event, Link, Notification
 from app.db import SessionLocal
 from app.main import app
+from app.modules.agent_episode import service as a3
 from app.modules.agent_lifecycle.models import AgentSession, AgentSessionTurn
 from app.modules.bookmark.models import Bookmark
 from app.modules.execution.models import ExecutionDecision, ExecutionPlan, ExecutionReceipt
@@ -36,6 +37,15 @@ from app.modules.proactivity.models import ProactivityRule, ProactivityRun
 from app.modules.project.models import Milestone, Project
 from app.modules.review.models import Review
 from app.modules.todo.models import Todo
+from tests.a3_fixtures import (
+    deliver,
+    ingest,
+    items_json,
+    patch_provider,
+    seal,
+    start_session,
+)
+from tests.h4_test_provider import ScriptedProvider
 
 DOMAIN_MODELS = [
     Entity,
@@ -234,3 +244,60 @@ def test_invariant_detects_vault_mutation(tmp_path: Path) -> None:
     snapshot_2 = _snapshot_vault_files(tmp_path)
 
     assert snapshot_1 != snapshot_2, "Negative proof failed: file modification was NOT detected by vault snapshot!"
+
+
+async def test_a3_episode_ingest_finalize_and_handoff_mutate_no_canonical_state(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """§27: A3 yalnız kendi üç tablosunu yazar; kanonik durum ve Vault sabit kalır.
+
+    Gerçek bir tur üretilir (H4 hattı çalışır, ifade gerçekten damıtılır), oturum
+    mühürlenir ve bir sonraki oturum devri seçer. Bu zincirin hiçbir adımı
+    kanonik operasyonel durumu, H7 yürütme durumunu, bildirimleri, olay
+    defterini veya Vault dosyalarını değiştirmemelidir.
+    """
+    item_text = "A3 devir kaydı açıldı"
+    patch_provider(
+        monkeypatch,
+        ScriptedProvider(responses=[items_json([("open_thread", item_text, item_text)])]),
+    )
+    vault_dir = settings.resolved_obsidian_vault_path
+
+    state_before = await snapshot_domain_state()
+    vault_before = _snapshot_vault_files(vault_dir)
+
+    # Bu invariantın H7 yürütme tablolarını ve bildirimleri GERÇEKTEN kapsadığını kanıtla.
+    for required in ("execution_plan", "execution_decision", "execution_receipt", "notification"):
+        assert required in state_before, f"coverage gap: '{required}' is not fingerprinted"
+
+    async with SessionLocal() as db:
+        source_row = await start_session(db, "a3_inv_sess_a", turn_id="t1")
+        await deliver(db, source_row, raw_turn_id="t1", sources=[])
+        await ingest(
+            db, "a3_inv_sess_a", turn_id="t1", user=item_text, assistant=item_text
+        )
+        sealed = await seal(db, "a3_inv_sess_a")
+        assert sealed.item_count >= 1
+        follower = await start_session(db, "a3_inv_sess_b", turn_id="t1")
+        handoff = await a3.select_recent_handoff(
+            db, current_session_id=follower.id, current_scope=None
+        )
+        assert handoff is not None
+        assert [item.text for item in handoff.items] == [item_text]
+
+    state_after = await snapshot_domain_state()
+    vault_after = _snapshot_vault_files(vault_dir)
+
+    for table_name, snap_before in state_before.items():
+        snap_after = state_after[table_name]
+        assert snap_after["count"] == snap_before["count"], (
+            f"INVARIANT VIOLATION: A3 changed domain table '{table_name}' row count"
+        )
+        assert snap_after["identities"] == snap_before["identities"], (
+            f"INVARIANT VIOLATION: A3 changed domain table '{table_name}' identities"
+        )
+        assert snap_after["digest"] == snap_before["digest"], (
+            f"INVARIANT VIOLATION: A3 changed domain table '{table_name}' row content"
+        )
+
+    assert vault_after == vault_before, "INVARIANT VIOLATION: A3 modified Vault/Hot memory files"

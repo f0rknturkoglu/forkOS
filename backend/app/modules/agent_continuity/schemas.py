@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.modules.agent_episode.schemas import SessionHandoffV1
 from app.modules.agent_lifecycle.schemas import LifecycleEventOut
 
 _ABSOLUTE_PATH_CHECK = re.compile(r"(?:^[A-Za-z]:[\\/]|^\/|\/Users\/|\/home\/|\\Users\\)")
@@ -156,6 +157,10 @@ class TurnContextOut(BaseModel):
     packet: BootstrapPacketV1 | None = None
     rendered_context: str | None = None
     degraded_reasons: list[str] = Field(default_factory=list)
+    #: A3 epizodik devri. Yalnız YENİ oturumun ilk turunda dolu olabilir ve
+    #: yalnızca ilgili, mühürlenmiş, süresi geçmemiş bir devir seçilebilirse
+    #: doldurulur. A2 servisi bu alanı BİLMEZ; orkestrasyon ucudur.
+    handoff: SessionHandoffV1 | None = None
 
 
 class ContinuityStatusOut(BaseModel):
