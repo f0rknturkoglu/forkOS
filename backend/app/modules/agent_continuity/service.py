@@ -63,11 +63,13 @@ def compute_project_source_version(
 def compute_deadline_source_version(
     title: str,
     due_at: Any | None = None,
-    status: str | None = None,
+    entity_type: str | None = None,
+    module: str | None = None,
+    priority: int | None = None,
 ) -> str:
-    """A2 tarafından tüketilen bounded deadline/todo canonical payload parmak izi."""
+    """A2 tarafından tüketilen provider-aware bounded deadline canonical payload parmak izi."""
     due = due_at.isoformat() if hasattr(due_at, "isoformat") else str(due_at or "")
-    raw = f"{title}|{due}|{status or ''}"
+    raw = f"{title}|{due}|{entity_type or ''}|{module or ''}|{priority or ''}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
@@ -148,15 +150,18 @@ async def _collect_operational_projects(session: AsyncSession, limit: int = 5) -
 async def _collect_vault_notes(
     scope_project: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """f0rknbrain kasasından sınırlandırılmış dayanıklı kurallar/tercihler seçer (en fazla 2 not, <= 250 karakter).
+    """f0rknbrain kasasından anlamsal ve güvenli kalıcı bilgi seçer.
 
-    Tüm kasayı gezmez (os.walk yapmaz); doğrudan 90 Agent dizinine bakar.
+    Tüm kasayı gezmez (os.walk yapmaz); vault_index üzerinden managed kayıtları sorgular.
     """
     degraded: list[str] = []
     notes: list[dict[str, Any]] = []
     try:
         from app.config import settings
-        from app.integrations.agent.knowledge import is_vault_accessible, _parse_frontmatter_and_body
+        from app.integrations.agent.knowledge import is_vault_accessible
+        from app.integrations.obsidian.service import vault_index
+        from app.integrations.obsidian.security import resolve_safe_vault_path, is_safe_knowledge_path
+        from app.integrations.obsidian.hot_memory import is_policy_excluded
 
         if not is_vault_accessible():
             degraded.append("VAULT_UNAVAILABLE")
@@ -166,39 +171,65 @@ async def _collect_vault_notes(
         if not v_root:
             return notes, degraded
 
-        agent_dirs = [v_root / "90 Agent", v_root / "90 agent", v_root / "90-agent", v_root / "agent"]
-        candidate_files: list[Path] = []
-        for ad in agent_dirs:
-            if ad.exists() and ad.is_dir():
-                for item in sorted(ad.iterdir()):
-                    if item.is_file() and item.suffix.lower() == ".md" and not item.name.startswith("."):
-                        candidate_files.append(item)
-                        if len(candidate_files) >= 2:
-                            break
-                if candidate_files:
-                    break
+        if not vault_index.is_scanned:
+            # İndeks henüz hazır değilse hot path'te disk taraması yapma; güvenli degrade ol
+            return notes, degraded
 
-        for cf in candidate_files[:2]:
+        # 1. Eğer scope_project varsa, projenin managed bilgi notunu ara
+        if scope_project:
+            v_item = vault_index.get_item(str(scope_project)) or vault_index.find_by_note_kind("project", project_id=str(scope_project))
+            if not v_item:
+                for item in vault_index.items.values():
+                    if item.forkos_type == "project" and (item.forkos_id == str(scope_project) or item.project_id == str(scope_project)):
+                        v_item = item
+                        break
+            if v_item:
+                try:
+                    safe_path = resolve_safe_vault_path(v_root, v_item.relative_path)
+                    rel_from_vault = safe_path.relative_to(v_root)
+                    if is_safe_knowledge_path(rel_from_vault) and safe_path.is_file():
+                        raw_bytes = safe_path.read_bytes()
+                        raw_text = raw_bytes.decode("utf-8", errors="ignore")
+                        if not is_policy_excluded(rel_from_vault, raw_text):
+                            notes.append({
+                                "relative_path": v_item.relative_path,
+                                "title": str(v_item.title or safe_path.stem)[:128],
+                                "version": compute_vault_note_source_version(raw_bytes),
+                                "snippet": " ".join(raw_text.split())[:250],
+                                "kind": "project_knowledge",
+                                "scope_project": scope_project,
+                            })
+                except Exception:
+                    pass
+
+        # 2. Kalıcı kural / tercih notu (yalnız açıkça managed olanlar)
+        pref_items = [
+            item for item in vault_index.items.values()
+            if item.note_kind == "preference" or item.forkos_type == "memory"
+        ]
+        for p_item in pref_items[:1]:
             try:
-                data = cf.read_bytes()
-                version = compute_vault_note_source_version(data)
-                rel_path = str(cf.relative_to(v_root)).replace("\\", "/")
-                text = data.decode("utf-8", errors="ignore")
-                fm, body = _parse_frontmatter_and_body(text)
-                title = fm.get("title") or cf.stem
-                snippet = " ".join(body.split())[:250]
-                notes.append({
-                    "relative_path": rel_path,
-                    "title": str(title)[:128],
-                    "version": version,
-                    "snippet": snippet,
-                })
+                safe_path = resolve_safe_vault_path(v_root, p_item.relative_path)
+                rel_from_vault = safe_path.relative_to(v_root)
+                if is_safe_knowledge_path(rel_from_vault) and safe_path.is_file():
+                    raw_bytes = safe_path.read_bytes()
+                    raw_text = raw_bytes.decode("utf-8", errors="ignore")
+                    if not is_policy_excluded(rel_from_vault, raw_text):
+                        notes.append({
+                            "relative_path": p_item.relative_path,
+                            "title": str(p_item.title or safe_path.stem)[:128],
+                            "version": compute_vault_note_source_version(raw_bytes),
+                            "snippet": " ".join(raw_text.split())[:250],
+                            "kind": "preference",
+                            "scope_project": None,
+                        })
             except Exception:
-                continue
+                pass
+
     except Exception as exc:
         LOGGER.warning("Vault notes collection degraded: %s", type(exc).__name__)
         degraded.append("VAULT_UNAVAILABLE")
-    return notes, degraded
+    return notes[:2], degraded
 
 
 
@@ -218,6 +249,8 @@ async def _collect_operational_deadlines(session: AsyncSession, limit: int = 5) 
                 due_at=due_str,
                 remaining_days=d.get("remaining_days"),
                 entity_type=d.get("type", "todo"),
+                module=d.get("module"),
+                priority=d.get("priority"),
             )
         )
     return deadlines
@@ -291,13 +324,13 @@ async def _collect_hot_memory(session: AsyncSession) -> tuple[list[dict[str, Any
         from app.integrations.agent import hot_memory as h2_svc
         ctx = h2_svc.get_context()
         for p in ctx.profile[:1]:
-            items.append({"kind": "profile", "title": p.title, "text": p.text, "memory_id": p.memory_id})
+            items.append({"kind": "profile", "title": p.title, "text": p.text, "memory_id": p.memory_id, "revision": getattr(p, "revision", 1)})
         for c in ctx.constraints[:2]:
-            items.append({"kind": "constraint", "title": c.title, "text": c.text, "memory_id": c.memory_id})
+            items.append({"kind": "constraint", "title": c.title, "text": c.text, "memory_id": c.memory_id, "revision": getattr(c, "revision", 1)})
         for g in ctx.goals[:2]:
-            items.append({"kind": "goal", "title": g.title, "text": g.text, "memory_id": g.memory_id})
+            items.append({"kind": "goal", "title": g.title, "text": g.text, "memory_id": g.memory_id, "revision": getattr(g, "revision", 1)})
         for d in ctx.decisions[:1]:
-            items.append({"kind": "decision", "title": d.title, "text": d.text, "memory_id": d.memory_id})
+            items.append({"kind": "decision", "title": d.title, "text": d.text, "memory_id": d.memory_id, "revision": getattr(d, "revision", 1)})
     except Exception as exc:
         LOGGER.warning("H2 hot memory items degraded: %s", exc)
         degraded.append("HOT_MEMORY_UNAVAILABLE")
@@ -350,7 +383,7 @@ async def compose_first_turn_bootstrap(
     vault_notes, v_deg = await _collect_vault_notes(scope_project=scope_project)
     degraded_reasons.extend(v_deg)
     for vn in vault_notes:
-        if vn["snippet"] and len(identity.durable_preferences) < 4:
+        if vn.get("kind") == "preference" and vn.get("snippet") and len(identity.durable_preferences) < 4:
             identity.durable_preferences.append(f"{vn['title']}: {vn['snippet'][:100]}")
 
     # 3. Kaynak referansları oluştur (en fazla 5 grup)
@@ -373,9 +406,11 @@ async def compose_first_turn_bootstrap(
         )
     for dead in deadlines[:2]:
         d_version = compute_deadline_source_version(
-            dead.title,
-            dead.due_at,
-            dead.entity_type,
+            title=dead.title,
+            due_at=dead.due_at,
+            entity_type=dead.entity_type,
+            module=dead.module,
+            priority=dead.priority,
         )
         sources.append(
             BootstrapSourceRef(
@@ -389,11 +424,12 @@ async def compose_first_turn_bootstrap(
         mem_id = h.get("memory_id")
         if mem_id:
             raw_title = h.get("title")
+            rev = h.get("revision")
             sources.append(
                 BootstrapSourceRef(
                     source_id=f"hot_memory:{mem_id}",
                     source_type="hot_memory",
-                    source_version=str(h.get("revision", "1")),
+                    source_version=str(rev) if rev is not None else "1",
                     title=raw_title[:128] if raw_title else None,
                 )
             )
@@ -403,6 +439,7 @@ async def compose_first_turn_bootstrap(
                 source_id=f"vault:{vn['relative_path']}",
                 source_type="vault_note",
                 source_version=vn["version"],
+                scope_project=vn.get("scope_project"),
                 title=vn["title"],
             )
         )
@@ -598,35 +635,59 @@ async def _check_source_freshness(
             return True, title
 
         elif source_row.source_type in ("deadline", "todo"):
-            row = (await session.execute(
-                select(Todo, Entity.title, Entity.archived_at)
-                .join(Entity, Entity.id == Todo.id)
-                .where(Todo.id == ent_uuid)
-            )).first()
-            if not row or row.archived_at is not None:
+            from app.core.deadlines import collect_deadlines
+
+            raw_deadlines = await collect_deadlines(session, limit=200)
+            target_deadline = next(
+                (d for d in raw_deadlines if str(d.get("entity_id")) == str(ent_uuid)),
+                None,
+            )
+            if not target_deadline:
                 return False, None
-            todo, title, _ = row
-            due_str = todo.due_at.isoformat() if todo.due_at else None
-            cur_version = compute_deadline_source_version(title, due_str, todo.status)
+
+            cur_version = compute_deadline_source_version(
+                title=target_deadline.get("title", ""),
+                due_at=target_deadline.get("due_at"),
+                entity_type=target_deadline.get("type"),
+                module=target_deadline.get("module"),
+                priority=target_deadline.get("priority"),
+            )
             if source_row.source_version and source_row.source_version != cur_version:
-                return False, title
-            return True, title
+                return False, target_deadline.get("title")
+            return True, target_deadline.get("title")
 
     elif source_row.source_type == "vault_note" and source_row.source_id.startswith("vault:"):
         rel_path = source_row.source_id.split(":", 1)[1]
         try:
             from app.config import settings
+            from app.integrations.obsidian.security import resolve_safe_vault_path, is_safe_knowledge_path
+            from app.integrations.obsidian.hot_memory import is_policy_excluded
+
             v_root = settings.resolved_obsidian_vault_path
             if not v_root:
                 return False, None
-            target = v_root / rel_path
-            if not target.exists() or not target.is_file():
+
+            try:
+                safe_target = resolve_safe_vault_path(v_root, rel_path)
+            except (ValueError, PermissionError):
                 return False, None
-            data = target.read_bytes()
+
+            rel_from_vault = safe_target.relative_to(v_root)
+            if not is_safe_knowledge_path(rel_from_vault):
+                return False, None
+
+            if not safe_target.exists() or not safe_target.is_file():
+                return False, None
+
+            data = safe_target.read_bytes()
+            raw_text = data.decode("utf-8", errors="ignore")
+            if is_policy_excluded(rel_from_vault, raw_text):
+                return False, None
+
             cur_version = compute_vault_note_source_version(data)
             if source_row.source_version and source_row.source_version != cur_version:
-                return False, target.stem
-            return True, target.stem
+                return False, safe_target.stem
+            return True, safe_target.stem
         except Exception:
             return False, None
 
@@ -637,6 +698,9 @@ async def _check_source_freshness(
             mem_id = source_row.source_id.split(":", 1)[1] if ":" in source_row.source_id else ""
             for m in (ctx.profile + ctx.constraints + ctx.goals + ctx.decisions + ctx.preferences):
                 if m.memory_id == mem_id:
+                    cur_rev = str(getattr(m, "revision", 1))
+                    if source_row.source_version and source_row.source_version != cur_rev:
+                        return False, m.title
                     return True, m.title
             return False, None
         except Exception:
@@ -726,10 +790,19 @@ async def compose_later_turn_context(
             AgentSessionSource.expires_at > now,
         )
         .order_by(AgentSessionSource.delivered_at.desc())
-        .limit(MAX_DELIVERED_SOURCES)
+        .limit(MAX_DELIVERED_SOURCES * 2)
     )
     res = await session.execute(stmt)
-    source_rows = res.scalars().all()
+    all_source_rows = res.scalars().all()
+
+    # Scope filtering: curr_scope varsa yalnız scope_project is None veya scope_project == curr_scope
+    if curr_scope:
+        source_rows = [
+            r for r in all_source_rows
+            if r.scope_project is None or r.scope_project == curr_scope
+        ][:MAX_DELIVERED_SOURCES]
+    else:
+        source_rows = all_source_rows[:MAX_DELIVERED_SOURCES]
 
     # 3. Canlı veriyle tazelik doğrulaması (Stale detection)
     fresh_sources: list[tuple[AgentSessionSource, str | None]] = []
@@ -762,6 +835,8 @@ async def compose_later_turn_context(
     if (is_ambig or is_compat) and fresh_sources:
         sources: list[BootstrapSourceRef] = []
         for r, title in fresh_sources:
+            if curr_scope and r.scope_project is not None and r.scope_project != curr_scope:
+                continue
             sources.append(
                 BootstrapSourceRef(
                     source_id=r.source_id,
@@ -834,10 +909,20 @@ async def compose_later_turn_context(
                             ent.title, p_row.status, p_row.next_action, p_row.last_activity_at
                         )
                 elif ent.type in ("deadline", "todo"):
-                    t_row = (await session.execute(select(Todo).where(Todo.id == ent.id))).scalar_one_or_none()
-                    if t_row:
-                        due_str = t_row.due_at.isoformat() if t_row.due_at else None
-                        ent_version = compute_deadline_source_version(ent.title, due_str, t_row.status)
+                    from app.core.deadlines import collect_deadlines
+                    raw_deadlines = await collect_deadlines(session, limit=200)
+                    target_deadline = next(
+                        (d for d in raw_deadlines if str(d.get("entity_id")) == str(ent.id)),
+                        None,
+                    )
+                    if target_deadline:
+                        ent_version = compute_deadline_source_version(
+                            title=target_deadline.get("title", ""),
+                            due_at=target_deadline.get("due_at"),
+                            entity_type=target_deadline.get("type"),
+                            module=target_deadline.get("module"),
+                            priority=target_deadline.get("priority"),
+                        )
 
                 new_sources.append(
                     BootstrapSourceRef(

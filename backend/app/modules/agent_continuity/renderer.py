@@ -119,6 +119,7 @@ def render_bootstrap_context(packet: BootstrapPacketV1, enforce_hard_ceiling: bo
     lines.append("</forkos-context>")
     rendered = "\n".join(lines)
     if enforce_hard_ceiling and len(rendered) > MAX_RENDER_CHAR_BUDGET:
+        packet.diagnostics.truncated = True
         closing = "\n</forkos-context>"
         budget_for_body = MAX_RENDER_CHAR_BUDGET - len(closing)
         truncated_body = rendered[:budget_for_body]

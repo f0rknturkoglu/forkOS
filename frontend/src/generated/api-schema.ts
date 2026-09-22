@@ -7774,6 +7774,10 @@ export interface components {
             entity_type: string;
             /** Id */
             id: string;
+            /** Module */
+            module?: string | null;
+            /** Priority */
+            priority?: number | null;
             /** Remaining Days */
             remaining_days?: number | null;
             /** Title */

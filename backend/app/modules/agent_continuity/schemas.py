@@ -49,6 +49,8 @@ class OperationalDeadline(BaseModel):
     due_at: str | None = None
     remaining_days: int | None = None
     entity_type: str = "todo"
+    module: str | None = None
+    priority: int | None = None
 
 
 class OperationalProject(BaseModel):
