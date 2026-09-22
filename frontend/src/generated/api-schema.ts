@@ -66,6 +66,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/continuity/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Continuity Status */
+        get: operations["continuity_status_api_agent_continuity_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/lifecycle/event": {
         parameters: {
             query?: never;
@@ -94,6 +111,23 @@ export interface paths {
         get: operations["lifecycle_status_api_agent_lifecycle_status_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/lifecycle/turn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lifecycle Turn */
+        post: operations["lifecycle_turn_api_agent_lifecycle_turn_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5270,6 +5304,104 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** BootstrapContinuity */
+        BootstrapContinuity: {
+            /** Active Threads */
+            active_threads?: string[];
+            /** Activity Gap Hours */
+            activity_gap_hours?: number | null;
+            /** Anchor Kind */
+            anchor_kind?: string | null;
+            /** Anchor Timestamp */
+            anchor_timestamp?: string | null;
+            /** Last Meaningful Activity */
+            last_meaningful_activity?: string | null;
+            /** Recent Completed */
+            recent_completed?: string[];
+            /** Stalled Projects */
+            stalled_projects?: string[];
+        };
+        /** BootstrapDiagnostics */
+        BootstrapDiagnostics: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /** Degraded Reasons */
+            degraded_reasons?: string[];
+            /**
+             * Generation Ms
+             * @default 0
+             */
+            generation_ms: number;
+            /**
+             * Omitted Count
+             * @default 0
+             */
+            omitted_count: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** BootstrapHotMemory */
+        BootstrapHotMemory: {
+            /** Items */
+            items?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** BootstrapIdentity */
+        BootstrapIdentity: {
+            /** Durable Preferences */
+            durable_preferences?: string[];
+            /** Explicit Corrections */
+            explicit_corrections?: string[];
+            /** Interaction Conventions */
+            interaction_conventions?: string[];
+            /** Long Running Goals */
+            long_running_goals?: string[];
+        };
+        /** BootstrapPacketV1 */
+        BootstrapPacketV1: {
+            continuity: components["schemas"]["BootstrapContinuity"];
+            diagnostics: components["schemas"]["BootstrapDiagnostics"];
+            /** Generated At */
+            generated_at: string;
+            hot_memory: components["schemas"]["BootstrapHotMemory"];
+            identity: components["schemas"]["BootstrapIdentity"];
+            /**
+             * Is First Turn
+             * @default true
+             */
+            is_first_turn: boolean;
+            operational_state: components["schemas"]["OperationalState"];
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Session Key */
+            session_key: string;
+            /** Sources */
+            sources?: components["schemas"]["BootstrapSourceRef"][];
+        };
+        /** BootstrapSourceRef */
+        BootstrapSourceRef: {
+            /** Scope Project */
+            scope_project?: string | null;
+            /** Source Id */
+            source_id: string;
+            /** Source Type */
+            source_type: string;
+            /** Source Version */
+            source_version?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /**
          * BrainStatusOut
          * @description MCP Brain Interface kimligi ve yetenek haritasi.
@@ -5601,6 +5733,23 @@ export interface components {
             title: string;
             /** Type */
             type: string;
+        };
+        /** ContinuityStatusOut */
+        ContinuityStatusOut: {
+            /** Active Source Count */
+            active_source_count: number;
+            /** Available */
+            available: boolean;
+            /** Degraded Reasons */
+            degraded_reasons: string[];
+            /** Has Active Continuity */
+            has_active_continuity: boolean;
+            /** Is Truncated */
+            is_truncated: boolean;
+            /** Last Bootstrap At */
+            last_bootstrap_at: string | null;
+            /** Last Harness */
+            last_harness: string | null;
         };
         /** ConvertToTaskIn */
         ConvertToTaskIn: {
@@ -7611,6 +7760,52 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /** OperationalDeadline */
+        OperationalDeadline: {
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * Entity Type
+             * @default todo
+             */
+            entity_type: string;
+            /** Id */
+            id: string;
+            /** Remaining Days */
+            remaining_days?: number | null;
+            /** Title */
+            title: string;
+        };
+        /** OperationalProject */
+        OperationalProject: {
+            /** Id */
+            id: string;
+            /** Next Action */
+            next_action?: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
+        /** OperationalState */
+        OperationalState: {
+            /** Active Projects */
+            active_projects?: components["schemas"]["OperationalProject"][];
+            /**
+             * Open Todos Count
+             * @default 0
+             */
+            open_todos_count: number;
+            /**
+             * Pending Decisions Count
+             * @default 0
+             */
+            pending_decisions_count: number;
+            /** Pending Decisions Summary */
+            pending_decisions_summary?: string[];
+            /** Upcoming Deadlines */
+            upcoming_deadlines?: components["schemas"]["OperationalDeadline"][];
         };
         /** OpportunityBrowseOut */
         OpportunityBrowseOut: {
@@ -10040,6 +10235,47 @@ export interface components {
             /** To */
             to: string;
         };
+        /** TurnContextIn */
+        TurnContextIn: {
+            /**
+             * Harness
+             * @enum {string}
+             */
+            harness: "hermes" | "codex" | "claude";
+            /**
+             * Is First Turn
+             * @default false
+             */
+            is_first_turn: boolean;
+            /**
+             * Platform
+             * @default unknown
+             */
+            platform: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Scope Project */
+            scope_project?: string | null;
+            /** Session Id */
+            session_id: string;
+            /** Turn Id */
+            turn_id?: string | null;
+            /** User Message */
+            user_message?: string | null;
+        };
+        /** TurnContextOut */
+        TurnContextOut: {
+            /** Degraded Reasons */
+            degraded_reasons?: string[];
+            lifecycle: components["schemas"]["LifecycleEventOut"];
+            packet?: components["schemas"]["BootstrapPacketV1"] | null;
+            /** Rendered Context */
+            rendered_context?: string | null;
+        };
         /** UnfinishedTodo */
         UnfinishedTodo: {
             /** Due At */
@@ -10325,6 +10561,26 @@ export interface operations {
             };
         };
     };
+    continuity_status_api_agent_continuity_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContinuityStatusOut"];
+                };
+            };
+        };
+    };
     lifecycle_event_api_agent_lifecycle_event_post: {
         parameters: {
             query?: never;
@@ -10374,6 +10630,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LifecycleStatusOut"];
+                };
+            };
+        };
+    };
+    lifecycle_turn_api_agent_lifecycle_turn_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnContextIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnContextOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

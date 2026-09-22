@@ -1686,6 +1686,287 @@
         "title": "BookmarkUpdate",
         "type": "object"
       },
+      "BootstrapContinuity": {
+        "additionalProperties": false,
+        "properties": {
+          "active_threads": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Active Threads",
+            "type": "array"
+          },
+          "activity_gap_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Gap Hours"
+          },
+          "anchor_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Kind"
+          },
+          "anchor_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Timestamp"
+          },
+          "last_meaningful_activity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Meaningful Activity"
+          },
+          "recent_completed": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Recent Completed",
+            "type": "array"
+          },
+          "stalled_projects": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "title": "Stalled Projects",
+            "type": "array"
+          }
+        },
+        "title": "BootstrapContinuity",
+        "type": "object"
+      },
+      "BootstrapDiagnostics": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "degraded_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Degraded Reasons",
+            "type": "array"
+          },
+          "generation_ms": {
+            "default": 0.0,
+            "title": "Generation Ms",
+            "type": "number"
+          },
+          "omitted_count": {
+            "default": 0,
+            "title": "Omitted Count",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "title": "BootstrapDiagnostics",
+        "type": "object"
+      },
+      "BootstrapHotMemory": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 6,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "BootstrapHotMemory",
+        "type": "object"
+      },
+      "BootstrapIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "durable_preferences": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Durable Preferences",
+            "type": "array"
+          },
+          "explicit_corrections": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Explicit Corrections",
+            "type": "array"
+          },
+          "interaction_conventions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Interaction Conventions",
+            "type": "array"
+          },
+          "long_running_goals": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Long Running Goals",
+            "type": "array"
+          }
+        },
+        "title": "BootstrapIdentity",
+        "type": "object"
+      },
+      "BootstrapPacketV1": {
+        "additionalProperties": false,
+        "properties": {
+          "continuity": {
+            "$ref": "#/components/schemas/BootstrapContinuity"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/BootstrapDiagnostics"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "hot_memory": {
+            "$ref": "#/components/schemas/BootstrapHotMemory"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/BootstrapIdentity"
+          },
+          "is_first_turn": {
+            "default": true,
+            "title": "Is First Turn",
+            "type": "boolean"
+          },
+          "operational_state": {
+            "$ref": "#/components/schemas/OperationalState"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "session_key": {
+            "title": "Session Key",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/BootstrapSourceRef"
+            },
+            "maxItems": 5,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "session_key",
+          "generated_at",
+          "identity",
+          "operational_state",
+          "continuity",
+          "hot_memory",
+          "diagnostics"
+        ],
+        "title": "BootstrapPacketV1",
+        "type": "object"
+      },
+      "BootstrapSourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "scope_project": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Project"
+          },
+          "source_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_type": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Source Type",
+            "type": "string"
+          },
+          "source_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Version"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_type"
+        ],
+        "title": "BootstrapSourceRef",
+        "type": "object"
+      },
       "BrainStatusOut": {
         "description": "MCP Brain Interface kimligi ve yetenek haritasi.",
         "properties": {
@@ -2689,6 +2970,67 @@
           "title"
         ],
         "title": "ContextOut",
+        "type": "object"
+      },
+      "ContinuityStatusOut": {
+        "properties": {
+          "active_source_count": {
+            "title": "Active Source Count",
+            "type": "integer"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "degraded_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Degraded Reasons",
+            "type": "array"
+          },
+          "has_active_continuity": {
+            "title": "Has Active Continuity",
+            "type": "boolean"
+          },
+          "is_truncated": {
+            "title": "Is Truncated",
+            "type": "boolean"
+          },
+          "last_bootstrap_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Bootstrap At"
+          },
+          "last_harness": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Harness"
+          }
+        },
+        "required": [
+          "available",
+          "last_bootstrap_at",
+          "last_harness",
+          "active_source_count",
+          "is_truncated",
+          "degraded_reasons",
+          "has_active_continuity"
+        ],
+        "title": "ContinuityStatusOut",
         "type": "object"
       },
       "ConvertToTaskIn": {
@@ -8459,6 +8801,128 @@
           "status"
         ],
         "title": "OpenTodoOut",
+        "type": "object"
+      },
+      "OperationalDeadline": {
+        "additionalProperties": false,
+        "properties": {
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "entity_type": {
+            "default": "todo",
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "remaining_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Days"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "OperationalDeadline",
+        "type": "object"
+      },
+      "OperationalProject": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "title": "OperationalProject",
+        "type": "object"
+      },
+      "OperationalState": {
+        "additionalProperties": false,
+        "properties": {
+          "active_projects": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalProject"
+            },
+            "maxItems": 5,
+            "title": "Active Projects",
+            "type": "array"
+          },
+          "open_todos_count": {
+            "default": 0,
+            "title": "Open Todos Count",
+            "type": "integer"
+          },
+          "pending_decisions_count": {
+            "default": 0,
+            "title": "Pending Decisions Count",
+            "type": "integer"
+          },
+          "pending_decisions_summary": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Pending Decisions Summary",
+            "type": "array"
+          },
+          "upcoming_deadlines": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalDeadline"
+            },
+            "maxItems": 5,
+            "title": "Upcoming Deadlines",
+            "type": "array"
+          }
+        },
+        "title": "OperationalState",
         "type": "object"
       },
       "OpportunityBrowseOut": {
@@ -15086,6 +15550,126 @@
         "title": "TransitionIn",
         "type": "object"
       },
+      "TurnContextIn": {
+        "additionalProperties": false,
+        "properties": {
+          "harness": {
+            "enum": [
+              "hermes",
+              "codex",
+              "claude"
+            ],
+            "title": "Harness",
+            "type": "string"
+          },
+          "is_first_turn": {
+            "default": false,
+            "title": "Is First Turn",
+            "type": "boolean"
+          },
+          "platform": {
+            "default": "unknown",
+            "maxLength": 64,
+            "title": "Platform",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "scope_project": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Project"
+          },
+          "session_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          },
+          "user_message": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Message"
+          }
+        },
+        "required": [
+          "harness",
+          "session_id"
+        ],
+        "title": "TurnContextIn",
+        "type": "object"
+      },
+      "TurnContextOut": {
+        "properties": {
+          "degraded_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Degraded Reasons",
+            "type": "array"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/LifecycleEventOut"
+          },
+          "packet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BootstrapPacketV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rendered_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rendered Context"
+          }
+        },
+        "required": [
+          "lifecycle"
+        ],
+        "title": "TurnContextOut",
+        "type": "object"
+      },
       "UnfinishedTodo": {
         "properties": {
           "due_at": {
@@ -15753,6 +16337,27 @@
         ]
       }
     },
+    "/api/agent/continuity/status": {
+      "get": {
+        "operationId": "continuity_status_api_agent_continuity_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContinuityStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Continuity Status",
+        "tags": [
+          "agent-continuity"
+        ]
+      }
+    },
     "/api/agent/lifecycle/event": {
       "post": {
         "operationId": "lifecycle_event_api_agent_lifecycle_event_post",
@@ -15810,6 +16415,47 @@
           }
         },
         "summary": "Lifecycle Status",
+        "tags": [
+          "agent-lifecycle"
+        ]
+      }
+    },
+    "/api/agent/lifecycle/turn": {
+      "post": {
+        "operationId": "lifecycle_turn_api_agent_lifecycle_turn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnContextIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnContextOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lifecycle Turn",
         "tags": [
           "agent-lifecycle"
         ]
