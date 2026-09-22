@@ -430,9 +430,19 @@ H6'nın karar alanıdır ve H6 canonical mutasyon yapmaz.
 
 ---
 
-## A-Serisi — Yaşam Döngüsü ve Süreklilik (A1 → A2)
+## A-Serisi — Yaşam Döngüsü, Süreklilik ve Epizodik Devir (A1 → A3)
 
 Ajan oturumlarının yaşam döngüsünü gözleyen, Hermes harness'ı ile forkOS arasında hafif ve bütçeli bir süreklilik köprüsü kuran katman. A-serisi yeni bir kanonik durum sahibi DEĞİLDİR; forkOS operasyonel durumunu ve f0rknbrain bilgisini MCP dışındaki oturum sınırlarında köprüler.
+
+**Sözleşilmiş taksonomi:**
+
+```text
+A1 — Lifecycle Bridge
+A2 — Bootstrap & Source Continuity
+A3 — Session Handoff & Episodic Memory
+A4 — Semantic Promotion / Durable Memory      (BAŞLATILMADI)
+A5 — Context Judge / Feedback layer           (BAŞLATILMADI)
+```
 
 ### A1 — Lifecycle Bridge ✅ Tamamlandı
 - Hermes oturum yaşam döngüsü kancaları: `session_start`, `turn_seen`, `session_finalize`.
@@ -441,7 +451,7 @@ Ajan oturumlarının yaşam döngüsünü gözleyen, Hermes harness'ı ile forkO
 - Ayrıntı: `a1-lifecycle-bridge.md`.
 
 ### A1.1 — Lifecycle Bridge Hardening ✅ Tamamlandı
-- **Kaynak Değişmezliği İnvariantı (`A1.1.1`):** 17 operasyonel tablo ve Vault/H2 üzerinde sıfır mutasyon garantisi (`test_agent_lifecycle_invariants.py`).
+- **Kaynak Değişmezliği İnvariantı (`A1.1.1`):** 18 operasyonel model (H7 yürütme tabloları dahil) ve Vault/H2 üzerinde sıfır mutasyon garantisi (`test_agent_lifecycle_invariants.py`).
 - **Katı 2xx Başarı Semantiği (`A1.1.2`):** Yalnızca `200 <= status < 300` durum kodları başarı kabul edilir; 3xx/4xx/5xx durumlarında fail-open çalışarak Hermes turunu asla çökertmez (`test_hermes_lifecycle_plugin.py`).
 
 ### A2 — Bounded Bootstrap & Continuity ✅ Tamamlandı
@@ -453,10 +463,20 @@ Ajan oturumlarının yaşam döngüsünü gözleyen, Hermes harness'ı ile forkO
 - **Destek Modelleri:** `agent_session_context` ve `agent_session_source` (migration `0064_agent_continuity`).
 - Ayrıntı: `a2-bootstrap-continuity.md`.
 
-### A3 / A4 / A5 — Gelecek Aşamalar (Başlatılmadı)
-- **A3 (Episodic Handoff):** Oturum kapanışında kalıcı hafıza/terfi adayları türetme.
-- **A4 (Cross-Day Continuity):** Günler arası oturum bağıntıları ve uzun vadeli iş parçaları.
-- **A5 (Answer Judge & Feedback):** Ajan yanıtlarının kalitesini ve kanıt doğruluğunu değerlendirme.
+### A3 — Session Handoff & Episodic Memory ✅ Tamamlandı
+- **Kaynağa bağlı epizodik devir:** `post_llm_call` turu gözler, `on_session_finalize` oturumu mühürler, yeni oturumun İLK turunda en fazla bir önceki ilgili devir enjekte edilir (`<forkos-handoff version="1">`).
+- **Ham transkript kalıcılaşmaz:** A3'ün üç tablosunda ham mesaj/yanıt/transkript kolonu YOKTUR; yerine alan-ayrılmış tur digest'i saklanır. `conversation_history` forkOS'a hiç gönderilmez.
+- **Epistemik dürüstlük:** her ifade `turn_derived` / `canonical_supported` / `observed_during_session` sınıflarından birini taşır. Session decision ≠ authorization; tarihsel ≠ güncel doğru.
+- **H4 ve H5 yeniden kullanılır:** `episodic_turn_v1` dar çıkarım sözleşmesi + deterministik grounding; mühürlemede H5 oturum-penceresi zemini. Yeni özetleyici veya ikinci biliş yolu yoktur.
+- **Destek Modelleri:** `agent_session_episode`, `agent_session_episode_turn`, `agent_session_episode_item` (migration `0066_agent_episode`).
+- Ayrıntı: `a3-episodic-handoff.md` · Uçtan uca koşu: `walkthrough.md`.
+
+### A4 / A5 — Gelecek Aşamalar (BAŞLATILMADI)
+
+Bu iki aşamanın **implementasyonu başlamamıştır** ve A3 bunların hiçbir workflow'unu kurmaz (`promotion_status`, `auto_promote`, `semantic_truth` gibi alanlar yoktur). Sınır dürüstçe şudur:
+
+- **A4 — Semantic Promotion / Durable Memory:** epizodik kayıtlardan kalıcı, kullanıcıya ait anlamsal bilgiye (H2 / f0rknbrain) **terfi** politikası. A3 yalnız A4'ün okuyabileceği epizodik item türleri üretir; otomatik terfi YAPMAZ.
+- **A5 — Context Judge / Feedback layer:** enjekte edilen bağlamın ve ajan yanıtlarının kalitesini/kanıt doğruluğunu değerlendiren geri bildirim katmanı. A3 hiçbir judge çağırmaz.
 
 ---
 

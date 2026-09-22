@@ -6,7 +6,9 @@ ajanlarına **bounded** bir MCP yüzeyiyle açar.
 
 MCP akıl yürütme/araç arayüzüdür. Ayrı [Hermes oturum yaşam döngüsü köprüsü](a1-lifecycle-bridge.md)
 Hermes host'unun başlangıç, tur ve kapanış olaylarını içeriksiz metadata olarak
-gözler; MCP araç sayısını veya model bağlamını değiştirmez.
+gözler; [A3 epizodik devir](a3-episodic-handoff.md) katmanı ise oturumlar arasında
+sınırlı, kaynağa bağlı bir tarihsel devir taşır. İkisi de MCP araç sayısını veya
+model bağlamını değiştirmez.
 
 Yüzey **H0 → H7** boyunca büyüdü ve bugün toplam **29** araçtır:
 
@@ -240,4 +242,6 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [H7 Araç Sözleşmesi](h7-tool-contract.md): `forkos_execution` imzası, işlem tablosu, plan görünümü şeması, REST uçları, hata kodları ve örnek çıktılar.
 - [A1 Yaşam Döngüsü Köprüsü](a1-lifecycle-bridge.md): Hermes oturum yaşam döngüsü gözlemi, `session_start`/`turn_seen`/`session_finalize` olayları ve A1.1 invariant hardening.
 - [A2 Başlangıç ve Süreklilik](a2-bootstrap-continuity.md): Tek HTTP round-trip tur orkestrasyonu, bütçeli ilk tur bağlamı, sonraki turlar için kaynak devamlılığı ve prompt injection savunması.
-- [H-Serisi Yol Haritası (H0 → H7)](roadmap.md): Beyin arayüzünün H0 temelinden H7 kalıcı karar ve sınırlı yürütmeye evrilme planı.
+- [A3 Oturum Devri ve Epizodik Hafıza](a3-episodic-handoff.md): `post_llm_call` tur gözlemi, kaynağa bağlı epizodik ifadeler, mühürleme, ham transkript kalıcılaştırmama invariantı ve yeni oturumun ilk turuna sınırlı devir enjeksiyonu.
+- [Uçtan Uca Koşu (Walkthrough)](walkthrough.md): İki oturumluk gerçek Hermes koşusu — ne gözlendi, hangi satırlar oluştu, hangi gecikmeler ölçüldü.
+- [H-Serisi Yol Haritası (H0 → H7 + A1 → A3)](roadmap.md): Beyin arayüzünün H0 temelinden H7 kalıcı karar ve sınırlı yürütmeye, oradan A3 epizodik devre evrilme planı.

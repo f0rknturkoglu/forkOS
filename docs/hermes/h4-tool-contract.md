@@ -13,7 +13,7 @@ forkos_local_cognition(
     lane:                "classify" | "structured_extract" | "query_rewrite",   # ZORUNLU
     text:                str,                        # ZORUNLU, 2-24000
     contract:            "academic_calendar_v1" | "weekly_schedule_v1"
-                       | "deadline_candidates_v1" | None = None,
+                       | "deadline_candidates_v1" | "episodic_turn_v1" | None = None,
     labels:              list[str] | None = None,     # 2-20, tekil, her biri 1-80
     classification_goal: str | None = None,           # ≤ 300
     protected_terms:     list[str] | None = None      # ≤ 20, her biri 1-100
@@ -163,6 +163,26 @@ Yanıt (kısaltılmış, gerçek bir canlı çağrıdan):
 
 `source_excerpt` sağlanan metnin birebir parçasıdır: çıkarım denetlenebilir.
 
+### 3.1 Sözleşme — `episodic_turn_v1` (oturum episodu)
+
+Tek bir konuşma TURUNDAN kısa, tarihsel maddeler çıkarır (A3 oturum devri).
+Tavan: tur başına **≤ 6 madde**, `text` ≤ 300, `source_excerpt` ≤ 500 ve
+sağlanan tur metninde **birebir** bulunmak zorundadır. Genel koleksiyon tavanı
+(≤ 80) bu sözleşmede geçerli DEĞİLDİR.
+
+| `kind` | Anlam |
+|---|---|
+| `topic` | Turda konuşulan konu |
+| `outcome` | Turda elde edilen sonuç |
+| `open_thread` | Açıkça ertelenmiş/çözülmemiş iş (sıradan sohbet DEĞİL) |
+| `session_decision` | Oturumda alınan karar |
+| `next_focus` | Sıradaki odak |
+| `reference` | Turda geçen başvuru/kimlik |
+
+`text` nötr bir TARİHSEL ifadedir ("kullanıcı şunu yaptı", "şuna karar
+verildi"); tercih, kişilik ya da genel doğru İDDİA EDİLMEZ. Hiçbir şey
+uyduymuyorsa BOŞ LİSTE döner ve bu geçerli bir çıktıdır.
+
 ---
 
 ## 4. Girdi sınırları
@@ -175,6 +195,8 @@ Yanıt (kısaltılmış, gerçek bir canlı çağrıdan):
 | `protected_terms` | ≤ 20 adet, her biri 1–100 |
 | yeniden yazılan sorgu | 2–200 |
 | çıkarım koleksiyonu | ≤ 80 öğe |
+| episod maddesi (`episodic_turn_v1`) | ≤ 6 öğe |
+| `text` (episod maddesi) | ≤ 300 |
 | `title` / `date_text` / `source_excerpt` | ≤ 200 / ≤ 120 / ≤ 500 |
 
 Kaynak temellendirmesi (H4.1): `date_text` alıntıdan, normalize tarih/saat ise

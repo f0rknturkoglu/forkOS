@@ -78,7 +78,7 @@ döngüsü metadata'sıdır.
 ## A1.1 Sertleştirmesi (Hardening)
 
 1. **Kaynak Değişmezliği İnvariantı (`A1.1.1`):**
-   `test_agent_lifecycle_invariants.py` testiyle; tüm yaşam döngüsü çağrılarının (`session_start`, `turn_seen`, `session_finalize`, duplicate çağrılar) 17 operasyonel veritabanı tablosu (`Entity`, `Event`, `Link`, `Todo`, `Project`, `Opportunity`, vb.) ve Vault/sıcak bellek dosyaları üzerinde **kesinlikle 0 mutasyon** yaptığı doğrulanır.
+   `test_agent_lifecycle_invariants.py` testiyle; tüm yaşam döngüsü çağrılarının (`session_start`, `turn_seen`, `session_finalize`, duplicate çağrılar) **18** operasyonel veritabanı modeli (`Entity`, `Event`, `Link`, `Notification`, `Todo`, `Project`, `Milestone`, `Opportunity`, `Application`, `Bookmark`, `FlashcardCard`, `PomodoroSession`, `Review`, `ProactivityRule`, `ProactivityRun`, `ExecutionPlan`, `ExecutionReceipt`, `ExecutionDecision`) ve Vault/sıcak bellek dosyaları üzerinde **kesinlikle 0 mutasyon** yaptığı doğrulanır.
 2. **Katı 2xx Başarı Semantiği (`A1.1.2`):**
    Hermes eklentisinde yalnızca `200 <= response.status < 300` durum kodları başarı kabul edilir; 3xx/4xx/5xx durumlarında `_send` `OSError` yükseltir ve eklenti fail-open çalışarak Hermes oturumunu asla çökertmez (`test_hermes_lifecycle_plugin.py`).
 Oturum başlangıcı ve sonraki turlarda bütçeli bağlam enjeksiyonu ve kaynak devamlılığı için [A2 — Bootstrap & Continuity](a2-bootstrap-continuity.md) dokümanına bakın.
