@@ -901,8 +901,8 @@ async def status(session: AsyncSession) -> EpisodeStatusOut:
         )
         # `select_recent_handoff` kapsamı ÇAĞRI ANINDA karşılaştırır; durum ucu
         # ise yalnız "teslim edilebilir mühürlü bir devir var mı" sorusunu
-        # cevaplar. Buraya kapsam koşulu koymak, aynı kapsamlı bir oturuma
-        # devir teslim edilecekken "yok" demek olurdu.
+        # cevaplar. Ancak SCOPE_AMBIGUOUS işaretli devirler hiçbir koşulda
+        # teslim edilemeyeceğinden (A3.1 §19), uygunluk filtresi bunları hariç tutar.
         available = (
             await session.execute(
                 select(AgentSessionEpisode.id)
@@ -910,6 +910,7 @@ async def status(session: AsyncSession) -> EpisodeStatusOut:
                     AgentSessionEpisode.status.in_(_SEALED_STATUSES),
                     AgentSessionEpisode.expires_at > now,
                     AgentSessionEpisode.item_count > 0,
+                    not_(AgentSessionEpisode.degraded_reasons.contains(["SCOPE_AMBIGUOUS"])),
                 )
                 .limit(1)
             )

@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import SessionLocal
@@ -632,3 +632,66 @@ async def test_mixed_source_delivery_to_new_session_prevents_accidental_global_h
         )
 
         assert handoff is None
+
+
+async def test_status_recent_handoff_available_truthfulness(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch, client: AsyncClient
+) -> None:
+    """A3 diagnostics truthfulness: SCOPE_AMBIGUOUS episode varken recent_handoff_available=False; eligible unscoped varken True."""
+    patch_provider(monkeypatch, ScriptedProvider(responses=[items_json([DEFAULT_ITEM])]))
+
+    async with SessionLocal() as session:
+        now = datetime.now(UTC)
+        # Önceki testlerden kalan aktif devirleri yaşlandır (expire et)
+        await session.execute(
+            update(AgentSessionEpisode).values(expires_at=now - timedelta(days=1))
+        )
+        await session.commit()
+
+        # 1. Mixed-scope episode oluştur: delivered refs = projA + projB
+        _, sealed, episode = await _sealed_episode(
+            session,
+            "a3_status_ambiguous_src",
+            response=items_json([DEFAULT_ITEM]),
+            sources=[_scope_source("projA"), _scope_source("projB")],
+        )
+
+        # İspat: episode gerçekten sealed_degraded, item_count > 0, SCOPE_AMBIGUOUS içeriyor
+        assert sealed.status == "sealed_degraded"
+        assert sealed.item_count > 0
+        assert "SCOPE_AMBIGUOUS" in sealed.degraded_reasons
+        assert episode.expires_at > now
+
+        # Runtime handoff kontrolü: gerçekten None dönüyor
+        follower = await _new_session(session, "a3_status_ambig_dst")
+        runtime_handoff = await a3.select_recent_handoff(
+            session, current_session_id=follower.id, current_scope=None
+        )
+        assert runtime_handoff is None
+
+        # 2. Service & endpoint status kontrolü: recent_handoff_available == False olmalıdır!
+        st = await a3.status(session)
+        assert st.recent_handoff_available is False
+
+        resp = await client.get("/api/agent/episode/status")
+        assert resp.status_code == 200
+        assert resp.json()["recent_handoff_available"] is False
+
+        # 3. Positive regression: Gerçekten eligible unscoped bir episode mühürlendiğinde
+        # recent_handoff_available == True olmalıdır
+        _, sealed_ok, episode_ok = await _sealed_episode(
+            session,
+            "a3_status_eligible_unscoped_src",
+            response=items_json([DEFAULT_ITEM]),
+            sources=[],
+        )
+        assert "SCOPE_AMBIGUOUS" not in sealed_ok.degraded_reasons
+        assert sealed_ok.item_count > 0
+        assert episode_ok.expires_at > now
+
+        st_ok = await a3.status(session)
+        assert st_ok.recent_handoff_available is True
+
+        resp_ok = await client.get("/api/agent/episode/status")
+        assert resp_ok.status_code == 200
+        assert resp_ok.json()["recent_handoff_available"] is True
