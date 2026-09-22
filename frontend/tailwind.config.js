@@ -121,8 +121,8 @@ export default {
       boxShadow: {
         // Katman yuzeyleri (komut paleti, popover).
         overlay: "0 24px 60px -20px rgb(9 11 15 / 0.30)",
-        // Kutular: kenarligi destekleyen, anca secilen bir kabartma.
-        card: "0 1px 2px 0 rgb(9 11 15 / 0.04)",
+        // Kutular: kenarligi destekleyen, sakin ve anca secilen bir kabartma.
+        card: "0 1px 2px 0 rgb(0 0 0 / 0.03)",
         // Yalniz floating toolbar, popover ve denetci gibi yukseltilmis katmanlar.
         raised: "0 12px 36px -16px rgb(9 11 15 / 0.24)",
       },

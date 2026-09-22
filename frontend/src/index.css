@@ -16,13 +16,14 @@
 
 @layer base {
   :root {
-    --canvas: #ffffff;
-    --sidebar: #f7f7f8;
+    /* ── Yapı ve Katman Yüzeyleri (Linear Calm Zemin) ─────────────────── */
+    --canvas: #fafafb;
+    --sidebar: #f4f4f6;
     --surface: #ffffff;
-    --surface-sunken: #f3f3f5;
-    --surface-hover: #eeeef1;
+    --surface-sunken: #f0f2f5;
+    --surface-hover: #eceef2;
     --surface-raised: #ffffff;
-    --surface-selected: #e8e8eb;
+    --surface-selected: #e2e6eb;
     --workspace-rail-width: 15rem;
     --workspace-list-width: 21rem;
     --workspace-inspector-width: 18.75rem;
@@ -30,14 +31,17 @@
     /* Katman arka plan karartmasi (dialog, komut paleti). Tema bagimsiz. */
     --overlay-scrim: rgb(26 24 21 / 0.28);
 
-    --border: #e4e4e7;
-    --border-strong: #c7c7cd; /* 3.1:1 / surface */
+    /* ── Sınırlar ve İnce Çizgiler ────────────────────────────────────── */
+    --border: rgba(15, 17, 21, 0.08);
+    --border-strong: rgba(15, 17, 21, 0.16);
 
-    --text: #0f1115; /* 18.7:1 / surface */
-    --text-secondary: #454b56; /*  8.8:1 / surface */
-    --text-muted: #5c636f; /*  6.1:1 / surface */
-    --icon: #7a828f; /*  3.9:1 / surface — ikon, metin degil */
+    /* ── Tipografi ve İçerik Tonları ──────────────────────────────────── */
+    --text: #0f1115; /* 18.2:1 / canvas */
+    --text-secondary: #454b56; /*  8.6:1 / canvas */
+    --text-muted: #5c636f; /*  5.9:1 / canvas */
+    --icon: #7a828f; /*  3.8:1 / canvas — ikon, metin degil */
 
+    /* ── Semantik Durum Renkleri ──────────────────────────────────────── */
     --accent: #1f5fd0; /*  5.8:1 / surface */
     --accent-surface: #eaf1fe;
     --accent-border: #c5dafb;
@@ -117,22 +121,26 @@
   }
 
   [data-theme="dark"] {
-    --canvas: #111113;
-    --sidebar: #171719;
-    --surface: #18181b;
-    --surface-sunken: #202024;
-    --surface-hover: #26262b;
-    --surface-raised: #202024;
-    --surface-selected: #2b2b31;
+    /* ── Yapı ve Katman Yüzeyleri (Linear Calm Koyu Zemin) ─────────────── */
+    --canvas: #0f1012;
+    --sidebar: #141518;
+    --surface: #18191f;
+    --surface-sunken: #1f2026;
+    --surface-hover: #262730;
+    --surface-raised: #202129;
+    --surface-selected: #2d2f3b;
 
-    --border: #2a2e35;
-    --border-strong: #3c424c;
+    /* ── Sınırlar ve İnce Çizgiler ────────────────────────────────────── */
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
 
-    --text: #f2f4f7; /* 17.1:1 / canvas */
+    /* ── Tipografi ve İçerik Tonları ──────────────────────────────────── */
+    --text: #f2f4f7; /* 17.0:1 / canvas */
     --text-secondary: #aeb6c2; /*  8.5:1 / canvas */
     --text-muted: #8b94a1; /*  5.5:1 / canvas */
     --icon: #7e8794;
 
+    /* ── Semantik Durum Renkleri ──────────────────────────────────────── */
     --accent: #6fa8ff;
     --accent-surface: #14213a;
     --accent-border: #26406b;
@@ -214,8 +222,8 @@
     --surface-raised: #0d1012;
     --surface-selected: #151a1d;
 
-    --border: #1b2024;
-    --border-strong: #303840;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
 
     --text: #f5f7f6;
     --text-secondary: #b8c0bd;
@@ -278,6 +286,18 @@
     background: var(--accent-surface);
     color: var(--text);
   }
+
+  /* Erişilebilirlik: Kullanıcı hareketi azaltmayı tercih ettiğinde animasyon ve geçişleri sıfırla. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 /* ── Home iskeleti ─────────────────────────────────────────────────────────
@@ -288,7 +308,7 @@
 @layer components {
   /* Bolum basligi: "BEKLEYENLER" gibi kucuk kapitaller. */
   .label-caps {
-    @apply text-micro font-medium uppercase tracking-[0.16em] text-muted;
+    @apply text-micro font-semibold uppercase tracking-[0.14em] text-muted;
   }
   /* Tabular rakam — saat, sayac, skor. Hizalanmasi icin tabular; font sans
      (serif tamamen kaldirildi, kullanici karari). */
