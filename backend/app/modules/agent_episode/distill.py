@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.config import settings
+from app.core.secret_safety import contains_high_confidence_secret
 from app.integrations.local_cognition.models import H4Error, StructuredExtractRequest
 from app.integrations.local_cognition.service import run_local_cognition
 from app.modules.agent_episode.schemas import (
@@ -236,6 +237,11 @@ def _accept_items(
         if has_verbatim_leak(text, transient_text):
             if "VERBATIM_LEAKAGE" not in degraded:
                 degraded.append("VERBATIM_LEAKAGE")
+            continue
+        # Kısa kimlik bilgisi / sır sızıntısı: apaçık kimlik deseni taşıyan ifade saklanmaz.
+        if contains_high_confidence_secret(text):
+            if "SECRET_LEAKAGE" not in degraded:
+                degraded.append("SECRET_LEAKAGE")
             continue
         refs = match_support_refs(
             item_text=text,

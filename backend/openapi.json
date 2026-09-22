@@ -3860,7 +3860,9 @@
                 "SOURCE_STALE",
                 "H5_UNAVAILABLE",
                 "LOCAL_COGNITION_UNAVAILABLE",
-                "VERBATIM_LEAKAGE"
+                "VERBATIM_LEAKAGE",
+                "SCOPE_AMBIGUOUS",
+                "SECRET_LEAKAGE"
               ],
               "type": "string"
             },
@@ -3952,7 +3954,9 @@
                 "SOURCE_STALE",
                 "H5_UNAVAILABLE",
                 "LOCAL_COGNITION_UNAVAILABLE",
-                "VERBATIM_LEAKAGE"
+                "VERBATIM_LEAKAGE",
+                "SCOPE_AMBIGUOUS",
+                "SECRET_LEAKAGE"
               ],
               "type": "string"
             },
@@ -4156,7 +4160,9 @@
                 "SOURCE_STALE",
                 "H5_UNAVAILABLE",
                 "LOCAL_COGNITION_UNAVAILABLE",
-                "VERBATIM_LEAKAGE"
+                "VERBATIM_LEAKAGE",
+                "SCOPE_AMBIGUOUS",
+                "SECRET_LEAKAGE"
               ],
               "type": "string"
             },
@@ -13292,7 +13298,9 @@
                 "SOURCE_STALE",
                 "H5_UNAVAILABLE",
                 "LOCAL_COGNITION_UNAVAILABLE",
-                "VERBATIM_LEAKAGE"
+                "VERBATIM_LEAKAGE",
+                "SCOPE_AMBIGUOUS",
+                "SECRET_LEAKAGE"
               ],
               "type": "string"
             },

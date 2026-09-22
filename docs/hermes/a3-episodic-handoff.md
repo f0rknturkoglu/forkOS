@@ -41,7 +41,7 @@ anlamına gelen **tarihsel bir iddiadır**; "şu an doğru" anlamına gelmez. To
 İki sonuç mimariyi belirler:
 
 - **`on_session_finalize` transkript taşımaz.** Orada transkript varmış gibi tasarım yapılmaz; konuşma düzeyi kanıt gerekiyorsa tur devam ederken `post_llm_call` üzerinden geçici olarak görülür.
-- **`conversation_history` forkOS'a GÖNDERİLMEZ.** A3 yalnız current successful turn'ün asgari alanlarını geçici olarak kullanır.
+- **`conversation_history` forkOS'a GÖNDERİLMEZ ve okunmaz.** Yalnızca başarılı, kesilmemiş geçerli turun (`post_llm_call`) sınırlı `user_message` ve `assistant_response` alanları loopback forkOS backend'ine geçici olarak iletilir. Bu ham alanlar A3 tarafından asla kalıcılaştırılmaz.
 
 Tek entegrasyon yüzeyi `tools/hermes/forkos-lifecycle/` olarak kalır. Ayrı `forkos-memory` / `forkos-episode` / `forkos-handoff` plugin'i YOKTUR. Plugin domain mantığı taşımaz: yalnız alan çıkarımı, sınırlar, loopback taşıma, fail-open ve bağlam enjeksiyonu.
 
@@ -132,11 +132,12 @@ Metadata-only tanılama: `last_sealed_at`, `last_episode_item_count`, `last_scop
 
 **Ham transkript kalıcılaşmaz.** `raw user_message`, `raw assistant_response`, `conversation_history` ve tam transkript PostgreSQL'e, Vault'a, H2'ye, loga, tanılamaya, Event'e, JSON artifact'e, geçici dosyaya, debug dump'a, exception string'ine veya frontend API'sine ASLA yazılmaz.
 
-Üç kapı bunu korur:
+Dört kapı bunu korur:
 
 1. **Şema düzeyi.** A3'ün üç tablosunda `message`, `response`, `prompt`, `transcript`, `history`, `content` adlı kolon YOKTUR.
 2. **Plugin sınırı.** `post_llm_call` payload'ı `conversation_history` taşımaz; kwargs'tan hiç okunmaz.
-3. **Sızıntı kapısı.** Bir ifade kaynak metinden 120 karakteri aşan birebir parça taşıyorsa `VERBATIM_LEAKAGE` ile reddedilir. "Türetilmiş ifade" ile "ham alıntı" arasındaki fark böylece denetlenebilir kalır.
+3. **Sızıntı kapısı (Uzun birebir alıntı).** Bir ifade kaynak metinden 120 karakteri aşan birebir parça taşıyorsa `VERBATIM_LEAKAGE` ile reddedilir.
+4. **Kimlik ve sır kapısı (A3.1).** Bir ifade yüksek güvenli kimlik/token/parola kalıbı (`sk-...`, `ghp_...`, `password=...`, `Bearer ...`, `PRIVATE KEY`) taşıyorsa `SECRET_LEAKAGE` ile reddedilir ve veritabanına yazılmaz. Bu kurallar H2 ile ortak canonical modülden (`app/core/secret_safety.py`) gelir; sır değerleri asla loglanmaz.
 
 Doğrulamada kullanılan `source_excerpt` **kalıcı olarak saklanmaz**; yalnız istek belleğinde yaşar ve grounding kapısından geçmek için kullanılır.
 
@@ -261,12 +262,12 @@ H5 yoksa `H5_UNAVAILABLE` ile degrade edilir ve mühürleme yine tamamlanır.
 | `agent_session_episode_turn` | gözlemlenen tur: `turn_digest`, `delivered_refs`, degrade kodları |
 | `agent_session_episode_item` | türetilmiş ifade: `kind`, `text`, `evidence_class`, `support_refs` |
 
-DB kısıtları gerçek sınırları zorlar. En önemlisi epistemik bağlama kısıtıdır:
+DB kısıtları gerçek sınırları zorlar (`0066_agent_episode` + `0067_episode_evidence_guard`). En önemlisi epistemik bağlama matrisidir:
 
 ```sql
--- turn_derived / canonical_supported → tur satırı ZORUNLU
--- observed_during_session          → tur satırı YOK
--- observed_during_session          → support_refs BOŞ OLAMAZ (kanıt kilidi)
+-- turn_derived: tur satırı ZORUNLU, support_refs BOŞ ZORUNLU (jsonb_array_length = 0)
+-- canonical_supported: tur satırı ZORUNLU, support_refs DOLU ZORUNLU (jsonb_array_length > 0)
+-- observed_during_session: tur satırı YOK, support_refs DOLU ZORUNLU (jsonb_array_length > 0)
 ```
 
 ve `status = 'extracted'` olan bir tur satırının `turn_digest`'i NULL olamaz.
@@ -288,9 +289,17 @@ A3 kalıcı bir konuşma arşivi değildir: son **≤ 20** mühürlü devir VE e
 
 Yalnız yeni oturumun **ilk turunda** enjekte edilir; sonraki turlarda tekrarlanmaz. Aynı oturum kendi devrini görmez.
 
+### Kapsam durumları (A3.1: Belirsiz ≠ Kapsamsız)
+
+1. **EXACT (Tek proje):** Oturumda tek proje teslim edildiyse o projeye bağlanır (`scope_project = projX`).
+2. **UNSCOPED (Kapsamsız):** Hiçbir projeli kaynak yoksa gerçekten genel/kapsamsız bir devirdir (`scope_project = None`).
+3. **AMBIGUOUS (Çelişkili/Birden fazla proje):** Birden fazla proje teslim edildiyse devir **otomatik cross-session devir seçimine girmez** (`SCOPE_AMBIGUOUS`, durum `sealed_degraded`). Tarihsel kayıt korunur fakat sonraki oturumlara rastgele global devir gibi aktarılmaz.
+4. **Yeni oturum fail-closed:** Yeni bir oturumun ilk turunda birden fazla proje teslim edilirse (`ambiguous`), genel kapsamsız bir devir dahi verilmez (yanlış devir riskini önlemek için fail-closed).
+
 ```text
-mevcut kapsam dolu → önce aynı kapsam, sonra kapsamsız devir; ikisi de yoksa devir YOK
-mevcut kapsam boş  → yalnız kapsamsız devir
+mevcut kapsam dolu   → önce aynı kapsam, sonra kapsamsız devir; ikisi de yoksa devir YOK
+mevcut kapsam boş    → yalnız kapsamsız devir (ambiguous olmayan)
+mevcut kapsam belirsiz → devir YOK (fail-closed)
 ```
 
 Relevance belirsizse devir verilmez: **yanlış devir, devirsizlikten kötüdür.** İlk sürümde en fazla 1 önceki ilgili devir enjekte edilir.

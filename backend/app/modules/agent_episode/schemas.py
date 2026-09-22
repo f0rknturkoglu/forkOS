@@ -92,6 +92,8 @@ EpisodeReasonCode = Literal[
     "H5_UNAVAILABLE",
     "LOCAL_COGNITION_UNAVAILABLE",
     "VERBATIM_LEAKAGE",
+    "SCOPE_AMBIGUOUS",
+    "SECRET_LEAKAGE",
 ]
 
 _STRICT = ConfigDict(extra="forbid")

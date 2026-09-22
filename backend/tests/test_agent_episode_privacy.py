@@ -318,3 +318,45 @@ async def test_stored_turn_digest_is_reproducible_and_input_bound(
         )
         != expected
     )
+
+
+# ---------------------------------------------------------------------------
+# 8. Kısa kimlik bilgisi / sır sızıntısı reddedilir (A3.1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "secret_payload",
+    [
+        "sk-ant-api03-abcdef123456789012345678",
+        "password=supersecretpassword123",
+        "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.t-ID4nzNQbu",
+        "ghp_123456789012345678901234567890123456",
+        "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0...",
+    ],
+)
+async def test_derived_item_containing_secret_pattern_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, h4_ready: None, secret_payload: str
+) -> None:
+    user = f"Kullanıcı ayar sordu: {secret_payload}"
+    derived_text = f"Anahtar tanımlandı: {secret_payload}"
+    patch_provider(
+        monkeypatch,
+        ScriptedProvider(responses=[item_json("reference", derived_text, secret_payload[:25])]),
+    )
+    async with SessionLocal() as session:
+        await start_session(session, "privacy-secret-leak")
+        out = await ingest(
+            session, "privacy-secret-leak", turn_id="t1", user=user, assistant="tamam"
+        )
+        items = (
+            await session.execute(
+                select(AgentSessionEpisodeItem)
+            )
+        ).scalars().all()
+        dumped = await _serialized_rows(session, EPISODE_TABLES)
+
+    assert out.derived_item_count == 0
+    assert len(items) == 0
+    assert "SECRET_LEAKAGE" in out.degraded_reasons
+    assert secret_payload not in _joined(dumped)

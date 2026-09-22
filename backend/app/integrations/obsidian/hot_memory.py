@@ -43,6 +43,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from app.core.secret_safety import _SECRET_PATTERNS, looks_like_secret
 from app.integrations.obsidian.constants import MEMORY_ROOT
 from app.integrations.obsidian.frontmatter import (
     parse_frontmatter,
@@ -101,21 +102,6 @@ OWNED_KEYS: tuple[str, ...] = (
     "tags",
     "retired_at",
     "retired_reason",
-)
-
-#: Deterministik, YÜKSEK GÜVENLİ sır desenleri (§20). Bu bir sınıflandırıcı
-#: DEĞİLDİR; yalnızca apaçık kimlik bilgisi biçimlerini reddeder. Asıl savunma
-#: küçük şema + açık onay + otomatik yazma yasağıdır.
-_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"-----\s*BEGIN[^-]*PRIVATE KEY-----", re.IGNORECASE),
-    re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/]{20,}", re.IGNORECASE),
-    re.compile(
-        r"\b(?:password|passwd|pwd|api[_-]?key|secret[_-]?key|client[_-]?secret"
-        r"|access[_-]?token|refresh[_-]?token)\b\s*[:=]\s*\S{6,}",
-        re.IGNORECASE,
-    ),
-    re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"),
-    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
 )
 
 _UUID_RE = re.compile(r"\A[0-9a-fA-F-]{36}\Z")
@@ -227,12 +213,6 @@ def _now_iso() -> str:
 def normalize_text(value: str) -> str:
     """Tekilleştirme için metin normalizasyonu (§58) — sezgisel değil, kesin."""
     return " ".join(value.split()).casefold().strip()
-
-
-def looks_like_secret(*parts: str | None) -> bool:
-    """Apaçık kimlik bilgisi biçimi var mı (deterministik, muhafazakâr)."""
-    blob = "\n".join(part for part in parts if part)
-    return any(pattern.search(blob) for pattern in _SECRET_PATTERNS)
 
 
 def is_policy_excluded(relative_path: str | Path, raw_markdown: str | None) -> bool:

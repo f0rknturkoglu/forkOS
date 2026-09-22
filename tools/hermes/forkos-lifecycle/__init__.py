@@ -142,7 +142,12 @@ def make_hooks(base_url: str = DEFAULT_BASE_URL):
         return None
 
     def observe_turn(**kwargs: object) -> None:
-        """A3: report bounded turn metadata only; the transcript is never read or sent."""
+        """A3: observe current successful turn; conversation_history is never read or sent.
+
+        Only the current successful turn's bounded user_message and assistant_response
+        are transiently transmitted to the local loopback forkOS backend. Those raw
+        fields are not durably persisted by A3.
+        """
         started = time.monotonic()
         session_id = _safe_identity(kwargs.get("session_id"))
         if session_id is None:

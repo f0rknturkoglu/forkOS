@@ -117,6 +117,7 @@ async def lifecycle_turn(body: TurnContextIn, session: AsyncSession = Depends(ge
             turn_db_id=turn_db_id,
             sources=list(sources or []),
             is_first_turn=body.is_first_turn,
+            explicit_scope=body.scope_project,
         )
         for reason in a3_degraded:
             if reason not in degraded:

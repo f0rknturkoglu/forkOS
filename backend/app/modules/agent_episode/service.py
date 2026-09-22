@@ -12,10 +12,11 @@ yaşam döngüsünü ASLA düşürmez. Her hata sınırlı bir gerekçe koduna i
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, not_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -123,21 +124,61 @@ async def _get_or_create_episode(session: AsyncSession, session_row: AgentSessio
     return row
 
 
-def derive_scope(refs: list[dict[str, Any]]) -> str | None:
-    """Oturum kapsamını TESLİM EDİLEN kaynaklardan türetir.
+@dataclass(frozen=True)
+class ScopeResolution:
+    """Kapsam çözümleme sonucu (§19 / A3.1)."""
 
-    Yalnız tek bir kapsam değeri varsa o kapsam kullanılır. İki farklı proje
-    kapsamı görülürse kapsam BELİRSİZDİR ve `None` döner: belirsiz kapsamla
-    yanlış eşleştirme yapmaktansa kapsamsız kalmak dürüsttür (§19).
+    scope_project: str | None
+    ambiguous: bool
+
+    @property
+    def is_exact(self) -> bool:
+        return self.scope_project is not None and not self.ambiguous
+
+    @property
+    def is_unscoped(self) -> bool:
+        return self.scope_project is None and not self.ambiguous
+
+
+def resolve_scope(
+    refs: list[dict[str, Any]],
+    explicit_scope: str | None = None,
+) -> ScopeResolution:
+    """Oturum/tur kapsamını teslim edilen kaynaklardan ve isteğe bağlı açık kapsamdan çözer.
+
+    Kurallar (A3.1):
+    - Teslim edilen kaynaklarda birden fazla farklı proje varsa: AMBIGUOUS (scope_project=None, ambiguous=True)
+    - Teslim edilen kaynaklarda tek proje varsa (örn. A):
+        - explicit_scope yoksa veya A ise: EXACT (scope_project=A, ambiguous=False)
+        - explicit_scope farklı bir proje ise: CONFLICT -> fail-closed (scope_project=None, ambiguous=True)
+    - Teslim edilen kaynaklarda hiç proje yoksa:
+        - explicit_scope varsa: EXACT (scope_project=explicit_scope, ambiguous=False)
+        - explicit_scope yoksa: UNSCOPED (scope_project=None, ambiguous=False)
     """
     scopes = {
         ref["scope_project"]
         for ref in refs
         if isinstance(ref.get("scope_project"), str) and ref.get("scope_project")
     }
+    if len(scopes) > 1:
+        return ScopeResolution(scope_project=None, ambiguous=True)
+
     if len(scopes) == 1:
-        return next(iter(scopes))
-    return None
+        delivered_scope = next(iter(scopes))
+        if explicit_scope and explicit_scope != delivered_scope:
+            return ScopeResolution(scope_project=None, ambiguous=True)
+        return ScopeResolution(scope_project=delivered_scope, ambiguous=False)
+
+    # len(scopes) == 0
+    if explicit_scope:
+        return ScopeResolution(scope_project=explicit_scope, ambiguous=False)
+    return ScopeResolution(scope_project=None, ambiguous=False)
+
+
+def derive_scope(refs: list[dict[str, Any]], explicit_scope: str | None = None) -> str | None:
+    """Oturum kapsamını TESLİM EDİLEN kaynaklardan türetir (geriye uyumluluk)."""
+    res = resolve_scope(refs, explicit_scope=explicit_scope)
+    return res.scope_project if not res.ambiguous else None
 
 
 async def _episode_turn(
@@ -287,7 +328,9 @@ async def ingest_turn(session: AsyncSession, body: EpisodeTurnIn) -> EpisodeTurn
         await session.flush()
 
     delivered_refs = list(row.delivered_refs or [])
-    episode_scope = derive_scope(await _all_delivered_refs(session, episode.id))
+    all_refs = await _all_delivered_refs(session, episode.id)
+    scope_res = resolve_scope(all_refs)
+    episode_scope = scope_res.scope_project
 
     outcome = await distill_turn(
         user_text=body.user_message,
@@ -307,6 +350,8 @@ async def ingest_turn(session: AsyncSession, body: EpisodeTurnIn) -> EpisodeTurn
     # Kırpılmış tur sessizce yutulmaz: sınırlı kodla görünür kalır.
     if body.truncated and "EPISODE_INPUT_TRUNCATED" not in degraded:
         degraded.append("EPISODE_INPUT_TRUNCATED")
+    if scope_res.ambiguous and "SCOPE_AMBIGUOUS" not in degraded:
+        degraded.append("SCOPE_AMBIGUOUS")
     for reason in outcome.degraded_reasons:
         if reason not in degraded:
             degraded.append(reason)
@@ -485,6 +530,15 @@ async def finalize(session: AsyncSession, body: EpisodeFinalizeIn) -> EpisodeFin
             if reason not in degraded:
                 degraded.append(reason)
 
+    all_refs = await _all_delivered_refs(session, episode.id)
+    scope_res = resolve_scope(all_refs)
+    if scope_res.ambiguous:
+        episode.scope_project = None
+        if "SCOPE_AMBIGUOUS" not in degraded:
+            degraded.append("SCOPE_AMBIGUOUS")
+    else:
+        episode.scope_project = scope_res.scope_project
+
     observed_turns = [row for row in turn_rows if row.observed_at is not None]
 
     item_rows = (
@@ -643,13 +697,17 @@ async def select_recent_handoff(
     *,
     current_session_id: int,
     current_scope: str | None,
+    current_scope_ambiguous: bool = False,
     now: datetime | None = None,
 ) -> SessionHandoffV1 | None:
-    """Yeni oturumun ilk turu için EN FAZLA bir ilgili devir seçer (§19).
+    """Yeni oturumun ilk turu için EN FAZLA bir ilgili devir seçer (§19 / A3.1).
 
     Kapsam uyumu önceliklidir. Kapsamı belirsiz bir eşleşme kurulacaksa hiç
     devir verilmez: yanlış devir, devirsizlikten kötüdür.
     """
+    if current_scope_ambiguous:
+        return None
+
     moment = now or _now()
     base = (
         select(AgentSessionEpisode)
@@ -658,6 +716,7 @@ async def select_recent_handoff(
             AgentSessionEpisode.status.in_(_SEALED_STATUSES),
             AgentSessionEpisode.expires_at > moment,
             AgentSessionEpisode.item_count > 0,
+            not_(AgentSessionEpisode.degraded_reasons.contains(["SCOPE_AMBIGUOUS"])),
         )
         .order_by(AgentSessionEpisode.sealed_at.desc(), AgentSessionEpisode.id.desc())
         .limit(1)
@@ -746,6 +805,7 @@ async def observe_turn_delivery(
     turn_db_id: int | None,
     sources: list[Any],
     is_first_turn: bool,
+    explicit_scope: str | None = None,
     now: datetime | None = None,
 ) -> tuple[SessionHandoffV1 | None, str | None, list[str]]:
     """`/turn` orkestrasyon ucunun A3 tarafı: defter yazımı + (ilk turda) devir.
@@ -786,10 +846,12 @@ async def observe_turn_delivery(
         refs = [
             ref for ref in (delivered_ref_from_source(source) for source in sources) if ref
         ]
+        scope_res = resolve_scope(refs, explicit_scope=explicit_scope)
         handoff = await select_recent_handoff(
             session,
             current_session_id=session_row.id,
-            current_scope=derive_scope(refs),
+            current_scope=scope_res.scope_project,
+            current_scope_ambiguous=scope_res.ambiguous,
             now=moment,
         )
     except Exception as exc:  # noqa: BLE001 - devir seçimi hot path'i düşürmez
@@ -903,12 +965,14 @@ async def prune(session: AsyncSession, now: datetime | None = None) -> None:
 
 __all__ = [
     "EpisodeSessionNotFound",
+    "ScopeResolution",
     "derive_scope",
     "finalize",
     "ingest_turn",
     "observe_turn_delivery",
     "prune",
     "record_delivered",
+    "resolve_scope",
     "select_recent_handoff",
     "status",
 ]

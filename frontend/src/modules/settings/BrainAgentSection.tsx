@@ -735,6 +735,8 @@ const EPISODE_DEGRADED_LABEL: Record<string, string> = {
   H5_UNAVAILABLE: "inceleme zekâsı kullanılamadı",
   LOCAL_COGNITION_UNAVAILABLE: "yerel model kullanılamadı",
   VERBATIM_LEAKAGE: "ham metin sızması engellendi",
+  SCOPE_AMBIGUOUS: "çelişkili proje kapsamı",
+  SECRET_LEAKAGE: "hassas bilgi sızması engellendi",
 };
 
 const EPISODE_DEGRADED_UNKNOWN = "sınıflandırılmamış sınırlama";

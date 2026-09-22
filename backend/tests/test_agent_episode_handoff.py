@@ -486,3 +486,149 @@ async def test_handoff_never_touches_h7_execution_state(
     assert handoff is not None
     assert any(item.text == "deployment approved" for item in handoff.items)
     assert after == before
+
+
+# ---------------------------------------------------------------------------
+# Kapsam belirsizliği vs Kapsamsızlık testleri (A3.1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.no_database
+def test_scope_resolution_deterministic_rules() -> None:
+    """A3.1 Kapsam çözümleme kuralları matrisi."""
+    ref_a = {"scope_project": "projA", "source_id": "1"}
+    ref_b = {"scope_project": "projB", "source_id": "2"}
+    ref_empty = {"scope_project": None, "source_id": "3"}
+
+    # Delivered A, explicit None -> A
+    res = a3.resolve_scope([ref_a])
+    assert res.scope_project == "projA" and not res.ambiguous
+
+    # Delivered [], explicit None -> genuinely unscoped
+    res = a3.resolve_scope([ref_empty])
+    assert res.scope_project is None and not res.ambiguous
+
+    res = a3.resolve_scope([])
+    assert res.scope_project is None and not res.ambiguous
+
+    # Delivered A + B, explicit None -> ambiguous
+    res = a3.resolve_scope([ref_a, ref_b])
+    assert res.scope_project is None and res.ambiguous
+
+    # Explicit A, delivered A -> A
+    res = a3.resolve_scope([ref_a], explicit_scope="projA")
+    assert res.scope_project == "projA" and not res.ambiguous
+
+    # Explicit A, delivered [] -> A
+    res = a3.resolve_scope([], explicit_scope="projA")
+    assert res.scope_project == "projA" and not res.ambiguous
+
+    # Explicit A, delivered B -> conflict / fail closed
+    res = a3.resolve_scope([ref_b], explicit_scope="projA")
+    assert res.scope_project is None and res.ambiguous
+
+    # Explicit A, delivered A + B -> ambiguous / fail closed
+    res = a3.resolve_scope([ref_a, ref_b], explicit_scope="projA")
+    assert res.scope_project is None and res.ambiguous
+
+
+async def test_mixed_scope_sources_yield_ambiguous_episode_and_no_handoff(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test A: delivered refs = [scope A, scope B] -> episode ambiguous -> not eligible for handoff."""
+    patch_provider(monkeypatch, ScriptedProvider(responses=[items_json([DEFAULT_ITEM])]))
+
+    async with SessionLocal() as session:
+        _, sealed, episode = await _sealed_episode(
+            session,
+            "a3_ambiguous_src",
+            response=items_json([DEFAULT_ITEM]),
+            sources=[_scope_source("projA"), _scope_source("projB")],
+        )
+
+        assert "SCOPE_AMBIGUOUS" in sealed.degraded_reasons
+        assert sealed.status == "sealed_degraded"
+        assert episode.scope_project is None
+
+        # Hiçbir takipçi (unscoped veya herhangi bir projeye bağlı) bu devri alamaz
+        follower_unscoped = await _new_session(session, "a3_ambig_dst_unscoped")
+        handoff = await a3.select_recent_handoff(
+            session, current_session_id=follower_unscoped.id, current_scope=None
+        )
+        assert handoff is None
+
+        follower_a = await _new_session(session, "a3_ambig_dst_a")
+        handoff = await a3.select_recent_handoff(
+            session, current_session_id=follower_a.id, current_scope="projA"
+        )
+        assert handoff is None
+
+
+async def test_unscoped_sources_remain_eligible_for_handoff(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test B: delivered refs = [] -> genuine unscoped episode -> handoff works."""
+    patch_provider(monkeypatch, ScriptedProvider(responses=[items_json([DEFAULT_ITEM])]))
+
+    async with SessionLocal() as session:
+        _, sealed, _ = await _sealed_episode(
+            session, "a3_genuine_unscoped_src", response=items_json([DEFAULT_ITEM]), sources=[]
+        )
+        assert "SCOPE_AMBIGUOUS" not in sealed.degraded_reasons
+
+        follower = await _new_session(session, "a3_genuine_unscoped_dst")
+        handoff = await a3.select_recent_handoff(
+            session, current_session_id=follower.id, current_scope=None
+        )
+        assert handoff is not None
+        assert handoff.episode_id == sealed.episode_id
+
+
+async def test_scoped_episode_does_not_handoff_to_different_scoped_session(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test C: delivered refs = [scope A] -> episode A -> new session B -> handoff none."""
+    patch_provider(monkeypatch, ScriptedProvider(responses=[items_json([DEFAULT_ITEM])]))
+
+    async with SessionLocal() as session:
+        _, sealed, _ = await _sealed_episode(
+            session,
+            "a3_scope_a_src",
+            response=items_json([DEFAULT_ITEM]),
+            sources=[_scope_source("projA")],
+        )
+        assert sealed.scope_project == "projA"
+
+        follower_b = await _new_session(session, "a3_scope_b_dst")
+        handoff = await a3.select_recent_handoff(
+            session, current_session_id=follower_b.id, current_scope="projB"
+        )
+        assert handoff is None
+
+
+async def test_mixed_source_delivery_to_new_session_prevents_accidental_global_handoff(
+    h4_ready: None, monkeypatch: pytest.MonkeyPatch, client: AsyncClient
+) -> None:
+    """Integration test: Yeni oturuma A2 iki farklı proje teslim ettiğinde rastgele global devir almaz."""
+    patch_provider(monkeypatch, ScriptedProvider(responses=[items_json([DEFAULT_ITEM])]))
+
+    async with SessionLocal() as session:
+        # 1. Genel (kapsamsız) bir oturum mühürle
+        await _sealed_episode(
+            session, "a3_global_src", response=items_json([DEFAULT_ITEM]), sources=[]
+        )
+
+        # 2. Yeni oturum için iki farklı proje kaynağı ile observe_turn_delivery çağır
+        new_sess = await _new_session(session, "a3_mixed_delivery_session")
+        mixed_sources = [_scope_source("projAlpha"), _scope_source("projBeta")]
+
+        handoff, _, degraded = await a3.observe_turn_delivery(
+            session,
+            session_row=new_sess,
+            raw_turn_id="t1",
+            turn_db_id=None,
+            sources=mixed_sources,
+            is_first_turn=True,
+        )
+
+        assert handoff is None

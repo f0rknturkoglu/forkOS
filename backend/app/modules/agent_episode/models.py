@@ -154,6 +154,16 @@ class AgentSessionEpisodeItem(Base):
             " or jsonb_array_length(support_refs) > 0",
             name="ck_agent_session_episode_item_observed_evidence",
         ),
+        CheckConstraint(
+            "evidence_class <> 'canonical_supported'"
+            " or jsonb_array_length(support_refs) > 0",
+            name="ck_agent_session_episode_item_canonical_evidence",
+        ),
+        CheckConstraint(
+            "evidence_class <> 'turn_derived'"
+            " or jsonb_array_length(support_refs) = 0",
+            name="ck_agent_session_episode_item_turn_derived_evidence",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
