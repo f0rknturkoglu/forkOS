@@ -61,10 +61,7 @@ describe("workspace primitives", () => {
 
   it("renders page-local toolbar with left and right action slots", () => {
     const markup = renderToStaticMarkup(
-      <WorkspaceToolbar
-        left={<span>Filtreler</span>}
-        right={<button type="button">Yeni Ekle</button>}
-      />,
+      <WorkspaceToolbar left={<span>Filtreler</span>} right={<button type="button">Yeni Ekle</button>} />,
     );
 
     expect(markup).toContain('role="toolbar"');

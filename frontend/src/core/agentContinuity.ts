@@ -19,5 +19,4 @@ export interface AgentContinuityStatus {
   has_active_continuity: boolean;
 }
 
-
 export const getAgentContinuityStatus = () => api.get<AgentContinuityStatus>("/agent/continuity/status");

@@ -21,7 +21,7 @@ U3, U2 kabuğu üzerinde üç günlük çalışma yüzeyini yeniden düzenler: H
 
 **Widget sözleşmesi:** Var olan widget ID'leri ve `core`/`defaultVisible` anlamı korunur. `TodayPlacement` artık `now | plan | attention | context`; çekirdek widget'lar `core`, isteğe bağlı widget'lar `placement` alanını kullanır. Gizleme, hazır düzen ve sıra tercihleri aynı registry üzerinden sürer. Ayarlarda sıra aynı bölge içindeki widget'lar arasında değiştirilebilir. Hava izni verilmediğinde konum çağrısı görünür kalır; dört günlük tahmin kısa hava özetinden açılır.
 
-**Duyarlılık:** 1440'ta plan baskın, bağlam aşağıdadır. 1100 ve 850'de aynı mantıksal DOM sırası tek sütuna iner; yatay taşma yoktur.
+**Duyarlılık:** 1440 ve 1100 genişliklerinde ana plan ve dikkat alanı iki sütunlu hiyerarşiyi korur. Yaklaşık 850px dar masaüstünde yerleşim tek sütuna iner ve Şimdi → Plan → Dikkat → Bağlam DOM/okuma sırası korunur; yatay taşma yoktur. Dikkat widget'ları boş döndüğünde ayrılmış sütun gösterilmez.
 
 ## 4. Projects
 
@@ -75,10 +75,16 @@ Yerel Chromium render'ında gerçek kullanıcı verisiyle kontrol edildi; test/s
 
 ## 10. Testler ve paket boyutu
 
-Frontend `npm test`: 161 dosya, 1175 test geçti. `npm run build` (`tsc -b`, Vite, bundle guard) ve `npm run api:check` geçti. Entry chunk yaklaşık 467.67 KB ve 500 KB sınırının altında. Endpoint coverage: 1 referanssız uç, mevcut eşik 3. `npm run format:check`, U3'te değişmeyen beş dosyanın mevcut biçim farkları yüzünden geçmiyor; U3 dosyaları Prettier ile biçimlendirildi. Yeni runtime bağımlılığı, backend diff'i veya API şeması değişikliği yok.
+Kapanış doğrulaması: `npm run format:check` PASS; `npm test` 161 dosya/1175 test PASS; `npm run api:check` PASS; endpoint coverage 1/3 eşiği PASS; dead export guard 3/10 eşiği PASS; `npm run build` içindeki TypeScript, üretim derlemesi ve bundle guard PASS; `npm audit --audit-level=moderate` 0 açık; `git diff --check` PASS. Entry chunk 467.67 KB ile 500 KB sınırının altında. Yeni runtime bağımlılığı, backend diff'i veya API şeması değişikliği yok.
 
 ## 11–13. Sonraki fazlara bırakılanlar
 
-- **U4:** Diğer sayfaların aynı hiyerarşi ve kontrast düzeyine taşınması.
-- **U5:** Pilotlar arası daha geniş klavye ve kişiselleştirme iyileştirmeleri.
-- **U6:** Genel eski UI kodunun ve ürün çapındaki artıkların temizliği. U3 kapsamında yeni bir uyumluluk katmanı eklenmedi.
+- **U4 — Dogfood & UX Validation:** Pilot ekranlar gerçek günlük kullanımda değerlendirilir. Sürtünme, hiyerarşi, etkileşim ve responsive sorunları kaydedilir; büyük geçişten önce pilot kalıplarının işe yaradığı doğrulanır.
+- **U5 — Full UI Migration:** U0–U4'te doğrulanan kabuk, tasarım temeli ve pilot kalıpları kalan forkOS ekranlarına taşınır.
+- **U6 — Performance & Cruft Sweep:** Eski UI kodu, uyumluluk parçaları, import/bundle borcu, gereksiz mount'lar ve genel frontend artıkları temizlenir. U3 kapsamında yeni bir uyumluluk katmanı eklenmedi.
+
+U6 ertelenen notu: Projeler'de 1280px altında masaüstü inspector CSS ile gizlenirken bile component ağacında mounted kalabilir. Drawer açıldığında ikinci `ProjectInspector` örneği oluşabilir. React Query cache/dedup nedeniyle bu bir doğruluk engeli değildir; conditional mounting ve responsive inspector yaşam döngüsü U6'da performans ve cruft açısından değerlendirilebilir.
+
+## U3 ✅ CLOSED
+
+Pilot ekranlar U3 kapsamı ve kalite kapıları açısından kapatıldı. Sonraki ayrı görev U4 — Dogfood & UX Validation'dır.

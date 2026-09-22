@@ -113,9 +113,7 @@ describe("CommandPalette v2", () => {
     apiMock.get.mockImplementation((path: string) => {
       if (path.startsWith("/search")) {
         return Promise.resolve({
-          hits: [
-            { id: "proj-1", type: "project", title: "forkOS Yeniden Tasarım" },
-          ],
+          hits: [{ id: "proj-1", type: "project", title: "forkOS Yeniden Tasarım" }],
         });
       }
       return Promise.resolve({});

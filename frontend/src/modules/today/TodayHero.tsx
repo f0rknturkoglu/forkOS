@@ -106,9 +106,7 @@ function WeatherPanel() {
               const DayIcon = weatherIcon(daily.weather_code[index]);
               return (
                 <div key={day} className="flex items-center gap-2 text-meta">
-                  <span className="min-w-12 capitalize">
-                    {formatAppDate(`${day}T12:00:00Z`, { weekday: "short" })}
-                  </span>
+                  <span className="min-w-12 capitalize">{formatAppDate(`${day}T12:00:00Z`, { weekday: "short" })}</span>
                   <DayIcon size={14} className="text-icon" />
                   <span className="ml-auto tabular-nums">
                     {Math.round(daily.temperature_2m_min[index])}°–{Math.round(daily.temperature_2m_max[index])}°

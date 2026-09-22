@@ -266,8 +266,7 @@ export function areasAt(placement: NavigationPlacement): ProductArea[] {
 /** Satır aktif mi: rota eşleşmesi (veya alt rota öneki) + varsa derin görünüm sorgusu. */
 export function rowIsActive(row: NavigationRow, path: string, params: URLSearchParams): boolean {
   const matchesRoute =
-    Boolean(findRouteMatch([{ path: row.path }], path)) ||
-    (row.path !== "/" && path.startsWith(`${row.path}/`));
+    Boolean(findRouteMatch([{ path: row.path }], path)) || (row.path !== "/" && path.startsWith(`${row.path}/`));
   if (!matchesRoute) return false;
   if (!row.query) return true;
   for (const [key, value] of new URLSearchParams(row.query)) {

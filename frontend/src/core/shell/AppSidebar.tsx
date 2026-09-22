@@ -239,11 +239,7 @@ function AreaHeader({
       aria-expanded={collapsed ? flyoutOpen : open}
       aria-haspopup={collapsed ? "menu" : undefined}
       aria-controls={
-        collapsed
-          ? flyoutOpen
-            ? `sidebar-area-flyout-${area.id}`
-            : undefined
-          : `sidebar-area-${area.id}`
+        collapsed ? (flyoutOpen ? `sidebar-area-flyout-${area.id}` : undefined) : `sidebar-area-${area.id}`
       }
       title={collapsed ? area.label : undefined}
       aria-label={collapsed ? area.label : undefined}
@@ -474,10 +470,7 @@ export function AppSidebar({
         </div>
 
         <nav
-          className={cx(
-            "min-h-0 flex-1 py-3",
-            collapsed ? "md:overflow-visible md:px-2" : "overflow-y-auto px-2.5",
-          )}
+          className={cx("min-h-0 flex-1 py-3", collapsed ? "md:overflow-visible md:px-2" : "overflow-y-auto px-2.5")}
         >
           <div className="space-y-1">
             {primary.map((area) => {
