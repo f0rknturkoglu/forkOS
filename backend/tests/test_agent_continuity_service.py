@@ -100,7 +100,7 @@ async def test_compose_bootstrap_fails_open_on_vault_error(test_session: AgentSe
     def mock_vault_error(*args, **kwargs):
         raise RuntimeError("Vault disk unmounted")
 
-    monkeypatch.setattr("app.integrations.agent.knowledge.get_brain_status", mock_vault_error)
+    monkeypatch.setattr("app.integrations.agent.knowledge.is_vault_accessible", mock_vault_error)
 
     async with SessionLocal() as db:
         packet, sources, rendered = await continuity_svc.compose_first_turn_bootstrap(
@@ -110,4 +110,26 @@ async def test_compose_bootstrap_fails_open_on_vault_error(test_session: AgentSe
         )
         # Does not raise! Degrades gracefully
         assert "VAULT_UNAVAILABLE" in packet.diagnostics.degraded_reasons
+        assert "<forkos-context" in rendered
+
+
+async def test_compose_bootstrap_never_calls_os_walk(test_session: AgentSession, monkeypatch):
+    """Regresyon testi: İlk tur bağlam üretiminin hot path'i asla os.walk çalıştırmamalıdır."""
+    import os
+    walk_called = False
+
+    def forbidden_walk(*args, **kwargs):
+        nonlocal walk_called
+        walk_called = True
+        raise AssertionError("Hot-path os.walk violation!")
+
+    monkeypatch.setattr(os, "walk", forbidden_walk)
+
+    async with SessionLocal() as db:
+        packet, sources, rendered = await continuity_svc.compose_first_turn_bootstrap(
+            db,
+            session_row=test_session,
+            scope_project=None,
+        )
+        assert not walk_called, "os.walk must never be called during first-turn bootstrap hot path!"
         assert "<forkos-context" in rendered

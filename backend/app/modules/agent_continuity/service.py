@@ -216,11 +216,10 @@ async def compose_first_turn_bootstrap(
     start_time = time.monotonic()
     degraded_reasons: list[str] = []
 
-    # 1. Bilgi ve kasa sağlığı kontrolü
+    # 1. Bilgi ve kasa sağlığı kontrolü (hızlı O(1) erişim kontrolü, os.walk taraması yapmaz)
     try:
-        from app.integrations.agent.knowledge import get_brain_status
-        status = get_brain_status()
-        if not status.available:
+        from app.integrations.agent.knowledge import is_vault_accessible
+        if not is_vault_accessible():
             degraded_reasons.append("VAULT_UNAVAILABLE")
     except Exception:
         degraded_reasons.append("VAULT_UNAVAILABLE")

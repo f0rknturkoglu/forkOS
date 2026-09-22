@@ -52,6 +52,14 @@ def _get_vault_root() -> Path:
     return v_root
 
 
+def is_vault_accessible() -> bool:
+    """Fast non-walking check whether the configured Obsidian Vault is present and readable."""
+    v_root = settings.resolved_obsidian_vault_path
+    if not v_root or not v_root.exists() or not v_root.is_dir():
+        return False
+    return os.access(v_root, os.R_OK)
+
+
 def _parse_frontmatter_and_body(text: str) -> tuple[dict[str, Any], str]:
     """Parse YAML frontmatter and body from markdown text."""
     if not text.startswith("---"):
