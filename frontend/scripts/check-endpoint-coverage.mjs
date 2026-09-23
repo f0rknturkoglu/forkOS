@@ -46,6 +46,11 @@ const EXEMPT = new Set([
   // A3 tur/mühürleme: Hermes host plugin'i tarafından tüketilir; tarayıcı yazma çağrısı değildir.
   "/api/agent/episode/turn",
   "/api/agent/episode/finalize",
+  // U6: Legacy finance REST uçları (DB ve geçmiş veri korunur, frontend abonelik odaklıdır)
+  "/api/expenses/{item_id}",
+  "/api/incomes/{item_id}",
+  "/api/finance/overview",
+  "/api/finance/summary",
 ]);
 
 function isCalled(path) {

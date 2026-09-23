@@ -175,8 +175,6 @@ export function subColor(sub: string | null): string {
   return CHART_TOKENS[hash % CHART_TOKENS.length];
 }
 
-export const colorOf = (index: number): string => CHART_TOKENS[index % CHART_TOKENS.length];
-
 /* ── Para ─────────────────────────────────────────────────────────── */
 
 /** Tutari tr-TR bicimiyle yazar. Gecersiz kur kodunda sayi + kod'a duser. */
@@ -244,14 +242,6 @@ export function monthShort(key: string): string {
   return new Intl.DateTimeFormat("tr-TR", { month: "short" })
     .format(new Date(Date.UTC(year, month - 1, 1)))
     .replace(/\.$/, "");
-}
-
-/** "2026-08-26" -> "26 Ağustos Çarşamba" */
-export function dayLabel(dayKey: string): string {
-  const [year, month, day] = dayKey.split("-").map(Number);
-  return new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", weekday: "long" }).format(
-    new Date(Date.UTC(year, month - 1, day)),
-  );
 }
 
 /** Vade uzakligi: "bugün", "yarın", "3 gün sonra", "2 gün gecikti". */

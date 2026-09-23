@@ -16,7 +16,7 @@ import {
 } from "./financeLabels";
 
 /** Tek modalda uc is: gider, gelir ve abonelik (gelecege donuk taahhut). */
-export type TransactionKind = "expense" | "income" | "subscription";
+type TransactionKind = "expense" | "income" | "subscription";
 
 const KINDS: { id: TransactionKind; label: string; icon: typeof Wallet }[] = [
   { id: "expense", label: "Gider", icon: ArrowDownLeft },

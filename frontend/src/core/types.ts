@@ -525,46 +525,6 @@ export interface ProjectJournalDay {
   events: ProjectEvent[];
 }
 
-export interface Expense {
-  id: string;
-  title: string;
-  /** Backend Decimal'i JSON'da sayi olarak doner; eski kod bunu string sanip
-   *  `.includes` gibi metotlar cagirinca arama cokuyordu. */
-  amount: string | number;
-  currency: string;
-  category: string;
-  spent_on: string;
-  note: string | null;
-  sub: string | null;
-}
-
-export interface Income {
-  id: string;
-  title: string;
-  amount: string | number;
-  currency: string;
-  category: string;
-  received_on: string;
-  note: string | null;
-}
-
-/** Bir ayin tek para birimindeki gelir/gider tablosu (/finance/overview). */
-export interface CurrencyOverview {
-  currency: string;
-  income: string | number;
-  expense: string | number;
-  net: string | number;
-  recurring_monthly: string | number;
-  expense_by_category: { category: string; amount: string | number }[];
-  income_by_category: { category: string; amount: string | number }[];
-}
-
-export interface FinanceOverview {
-  year: number;
-  month: number;
-  currencies: CurrencyOverview[];
-}
-
 export interface RecurringPayment {
   id: string;
   title: string;
