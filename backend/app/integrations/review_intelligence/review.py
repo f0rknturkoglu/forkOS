@@ -236,6 +236,18 @@ async def _promotion_bundle(
             }
         )
 
+    episode_items = await source_svc.sealed_episode_items(
+        session, start=period_start, end=period_end, limit=20
+    )
+    for ep_item in episode_items:
+        fragments.append(
+            {
+                "ref": ep_item["ref"],
+                "text": f"{ep_item['kind']}: {ep_item['text']}",
+                "entity_id": None,
+            }
+        )
+
     promotions = await consolidation_svc.extract_promotion_candidates(
         session, collector, fragments=fragments, focus_entity_id=focus_entity_id
     )

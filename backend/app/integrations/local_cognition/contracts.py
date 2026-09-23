@@ -146,6 +146,9 @@ ConsolidationKind = Literal[
     "constraint",
     "project_knowledge",
     "reference",
+    "identity",
+    "preference",
+    "correction",
 ]
 
 #: Konsolidasyon adaylarının tavanları (§54).

@@ -55,12 +55,12 @@ from app.integrations.obsidian.vault import require_writable_vault
 #: Frontmatter sözleşme sürümü. Uyumsuz sürüm = geçersiz dosya.
 MEMORY_SCHEMA_VERSION = 1
 
-MemoryKind = Literal["profile", "preference", "goal", "constraint", "decision"]
+MemoryKind = Literal["profile", "preference", "goal", "constraint", "decision", "correction"]
 MemoryStatus = Literal["active", "retired"]
 EffectiveStatus = Literal["active", "expired", "retired"]
 SourceMode = Literal["explicit_user", "approved_candidate"]
 
-KINDS: tuple[MemoryKind, ...] = ("profile", "preference", "goal", "constraint", "decision")
+KINDS: tuple[MemoryKind, ...] = ("profile", "preference", "goal", "constraint", "decision", "correction")
 STATUSES: tuple[MemoryStatus, ...] = ("active", "retired")
 SOURCE_MODES: tuple[SourceMode, ...] = ("explicit_user", "approved_candidate")
 

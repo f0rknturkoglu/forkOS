@@ -164,6 +164,14 @@ class AgentSessionEpisodeItem(Base):
             " or jsonb_array_length(support_refs) = 0",
             name="ck_agent_session_episode_item_turn_derived_evidence",
         ),
+        CheckConstraint(
+            "source_role is null or source_role in ('user', 'assistant', 'mixed')",
+            name="ck_agent_session_episode_item_source_role",
+        ),
+        CheckConstraint(
+            "evidence_digest is null or char_length(evidence_digest) = 64",
+            name="ck_agent_session_episode_item_evidence_digest",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -178,6 +186,8 @@ class AgentSessionEpisodeItem(Base):
     text: Mapped[str] = mapped_column(String(300), nullable=False)
     evidence_class: Mapped[str] = mapped_column(String(32), nullable=False)
     support_refs: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    source_role: Mapped[str | None] = mapped_column(String(16))
+    evidence_digest: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

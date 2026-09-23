@@ -215,6 +215,8 @@ export const AFTER = {
   // `execute` sirasindadir ve H1 uzerinden olur -- o zaman backend zaten ilgili
   // kaynak sorgularini kendi invalidation'ina baglar (or. "todo.write").
   "execution.write": ["execution-plans", "execution-plan"],
+  // A4 semantik terfi ve aday islemleri
+  "agent-semantic.write": ["agent-semantic-status", "agent-semantic-candidates", "vault-status"],
 } as const;
 
 type AfterEvent = keyof typeof AFTER;

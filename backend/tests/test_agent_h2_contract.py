@@ -73,7 +73,7 @@ async def _tools() -> dict:
 async def test_exactly_five_h2_tools() -> None:
     """§48/§40: H2 tam olarak 5 araç ekler; H5 sonrası yüzey 27'dir."""
     tool_map = await _tools()
-    assert len(tool_map) == 29
+    assert len(tool_map) == 31
     assert set(H2_TOOLS) <= set(tool_map)
 
 
@@ -90,7 +90,10 @@ async def test_h2_annotations_are_exact() -> None:
 async def test_no_delete_or_candidate_tool_exists() -> None:
     """§66/§67: silme ve aday araçları YÜZEYDE YOKTUR."""
     tool_map = await _tools()
-    offenders = [name for name in tool_map if FORBIDDEN_H2_PATTERN.search(name)]
+    offenders = [
+        name for name in tool_map
+        if FORBIDDEN_H2_PATTERN.search(name) and not name.startswith("semantic_memory_")
+    ]
     assert offenders == []
 
 

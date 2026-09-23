@@ -149,6 +149,9 @@ CandidateKind = Literal[
     "constraint",
     "project_knowledge",
     "reference",
+    "identity",
+    "preference",
+    "correction",
 ]
 
 #: Önerilen varış yeri (§60) — H5 YAZMAZ, yalnızca önerir.

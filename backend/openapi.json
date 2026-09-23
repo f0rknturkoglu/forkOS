@@ -13256,6 +13256,490 @@
         "title": "SavedViewPatch",
         "type": "object"
       },
+      "SemanticCandidateConfirmIn": {
+        "properties": {
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SemanticCandidateConfirmIn",
+        "type": "object"
+      },
+      "SemanticCandidateListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SemanticCandidateRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Status Counts",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "SemanticCandidateListResponse",
+        "type": "object"
+      },
+      "SemanticCandidatePromoteIn": {
+        "properties": {
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "string"
+          },
+          "supersedes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes"
+          },
+          "target_destination": {
+            "anyOf": [
+              {
+                "enum": [
+                  "operational",
+                  "hot_memory",
+                  "durable_vault",
+                  "procedural_candidate",
+                  "discard"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Destination"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SemanticCandidatePromoteIn",
+        "type": "object"
+      },
+      "SemanticCandidatePromoteOut": {
+        "properties": {
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "destination": {
+            "title": "Destination",
+            "type": "string"
+          },
+          "relative_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative Path"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "destination",
+          "revision"
+        ],
+        "title": "SemanticCandidatePromoteOut",
+        "type": "object"
+      },
+      "SemanticCandidateRead": {
+        "properties": {
+          "candidate_key": {
+            "title": "Candidate Key",
+            "type": "string"
+          },
+          "conditions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "evidence_refs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "exceptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exceptions",
+            "type": "array"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "identity",
+              "preference",
+              "correction",
+              "constraint",
+              "goal",
+              "decision",
+              "lesson",
+              "project_knowledge",
+              "reference"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "possible_related_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Possible Related Card Ids",
+            "type": "array"
+          },
+          "primary_evidence_class": {
+            "enum": [
+              "explicit_user",
+              "canonical_source",
+              "episode_derived",
+              "model_derived"
+            ],
+            "title": "Primary Evidence Class",
+            "type": "string"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "recurrence_count": {
+            "default": 1,
+            "title": "Recurrence Count",
+            "type": "integer"
+          },
+          "remote_allowed": {
+            "default": false,
+            "title": "Remote Allowed",
+            "type": "boolean"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "scope_project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope Project"
+          },
+          "sensitivity": {
+            "default": "normal",
+            "title": "Sensitivity",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "needs_review",
+              "ready",
+              "promoted",
+              "rejected",
+              "stale"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Key"
+          },
+          "suggested_destination": {
+            "enum": [
+              "operational",
+              "hot_memory",
+              "durable_vault",
+              "procedural_candidate",
+              "discard"
+            ],
+            "title": "Suggested Destination",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "candidate_key",
+          "kind",
+          "statement",
+          "scope",
+          "suggested_destination",
+          "primary_evidence_class",
+          "observed_at",
+          "status",
+          "first_seen_at",
+          "last_seen_at",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SemanticCandidateRead",
+        "type": "object"
+      },
+      "SemanticCandidateRefreshIn": {
+        "properties": {
+          "include_episodes": {
+            "default": true,
+            "title": "Include Episodes",
+            "type": "boolean"
+          },
+          "include_events": {
+            "default": true,
+            "title": "Include Events",
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 50,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "SemanticCandidateRefreshIn",
+        "type": "object"
+      },
+      "SemanticCandidateRefreshOut": {
+        "properties": {
+          "created_count": {
+            "title": "Created Count",
+            "type": "integer"
+          },
+          "total_candidates": {
+            "title": "Total Candidates",
+            "type": "integer"
+          },
+          "updated_count": {
+            "title": "Updated Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created_count",
+          "updated_count",
+          "total_candidates"
+        ],
+        "title": "SemanticCandidateRefreshOut",
+        "type": "object"
+      },
+      "SemanticCandidateRejectIn": {
+        "properties": {
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SemanticCandidateRejectIn",
+        "type": "object"
+      },
+      "SemanticStatusOut": {
+        "properties": {
+          "durable_card_count": {
+            "title": "Durable Card Count",
+            "type": "integer"
+          },
+          "needs_review_count": {
+            "title": "Needs Review Count",
+            "type": "integer"
+          },
+          "promoted_count": {
+            "title": "Promoted Count",
+            "type": "integer"
+          },
+          "proposed_count": {
+            "title": "Proposed Count",
+            "type": "integer"
+          },
+          "ready_count": {
+            "title": "Ready Count",
+            "type": "integer"
+          },
+          "rejected_count": {
+            "title": "Rejected Count",
+            "type": "integer"
+          },
+          "total_candidates": {
+            "title": "Total Candidates",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_candidates",
+          "proposed_count",
+          "needs_review_count",
+          "ready_count",
+          "promoted_count",
+          "rejected_count",
+          "durable_card_count"
+        ],
+        "title": "SemanticStatusOut",
+        "type": "object"
+      },
       "SessionHandoffItem": {
         "additionalProperties": false,
         "description": "Tek epizodik ifade: tür, türetilmiş metin, epistemik sınıf ve köken.",
@@ -13268,6 +13752,18 @@
             ],
             "title": "Evidence Class",
             "type": "string"
+          },
+          "evidence_digest": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Digest"
           },
           "historical_support_stale": {
             "default": false,
@@ -13290,6 +13786,18 @@
             "minimum": 0.0,
             "title": "Ordinal",
             "type": "integer"
+          },
+          "source_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Role"
           },
           "support_refs": {
             "items": {
@@ -17206,6 +17714,385 @@
         "summary": "Lifecycle Turn",
         "tags": [
           "agent-lifecycle"
+        ]
+      }
+    },
+    "/api/agent/semantic/candidates": {
+      "get": {
+        "description": "Kayıtlı semantik hafıza adaylarını listeler.",
+        "operationId": "list_candidates_api_agent_semantic_candidates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "destination",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Destination"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticCandidateListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Candidates",
+        "tags": [
+          "agent-semantic"
+        ]
+      }
+    },
+    "/api/agent/semantic/candidates/{candidate_id}": {
+      "get": {
+        "description": "Belirli bir adayın detayını döner.",
+        "operationId": "get_candidate_api_agent_semantic_candidates__candidate_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticCandidateRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Candidate",
+        "tags": [
+          "agent-semantic"
+        ]
+      }
+    },
+    "/api/agent/semantic/candidates/{candidate_id}/confirm": {
+      "post": {
+        "description": "Adayı kullanıcı tarafından onaylanmış ('ready') olarak işaretler.",
+        "operationId": "confirm_candidate_api_agent_semantic_candidates__candidate_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemanticCandidateConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticCandidateRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Candidate",
+        "tags": [
+          "agent-semantic"
+        ]
+      }
+    },
+    "/api/agent/semantic/candidates/{candidate_id}/promote": {
+      "post": {
+        "description": "Adayı kalıcı bilgiye terfi ettirir.",
+        "operationId": "promote_candidate_api_agent_semantic_candidates__candidate_id__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemanticCandidatePromoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticCandidatePromoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Candidate",
+        "tags": [
+          "agent-semantic"
+        ]
+      }
+    },
+    "/api/agent/semantic/candidates/{candidate_id}/reject": {
+      "post": {
+        "description": "Adayı reddeder ('rejected').",
+        "operationId": "reject_candidate_api_agent_semantic_candidates__candidate_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemanticCandidateRejectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticCandidateRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Candidate",
+        "tags": [
+          "agent-semantic"
+        ]
+      }
+    },
+    "/api/agent/semantic/refresh": {
+      "post": {
+        "description": "Mühürlenmiş epizotlardan ve kanonik kaynaklardan adayları tazeler.",
+        "operationId": "refresh_candidates_api_agent_semantic_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SemanticCandidateRefreshIn",
+                "default": {
+                  "include_episodes": true,
+                  "include_events": true,
+                  "limit": 50
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticCandidateRefreshOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Candidates",
+        "tags": [
+          "agent-semantic"
+        ]
+      }
+    },
+    "/api/agent/semantic/status": {
+      "get": {
+        "description": "Semantik hafıza durumu ve özet istatistikleri döner.",
+        "operationId": "get_status_api_agent_semantic_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemanticStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "agent-semantic"
         ]
       }
     },

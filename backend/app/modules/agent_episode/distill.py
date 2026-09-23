@@ -173,6 +173,37 @@ def match_support_refs(
     return matched
 
 
+def compute_source_role_and_digest(
+    excerpt: str,
+    user_text: str | None,
+    assistant_text: str | None,
+) -> tuple[str | None, str | None]:
+    """A4 §22: Geçici alıntıdan kaynak rolü ve kanıt özeti türetir (alıntı saklanmaz)."""
+    norm_excerpt = normalize_for_matching(excerpt)
+    if not norm_excerpt:
+        return None, None
+    digest = hashlib.sha256(
+        ("forkos-explicit-evidence-v1" + norm_excerpt).encode("utf-8")
+    ).hexdigest()
+
+    norm_user = normalize_for_matching(user_text) if user_text else ""
+    norm_asst = normalize_for_matching(assistant_text) if assistant_text else ""
+
+    in_user = bool(norm_user and norm_excerpt in norm_user)
+    in_asst = bool(norm_asst and norm_excerpt in norm_asst)
+
+    if in_user and not in_asst:
+        role = "user"
+    elif in_asst and not in_user:
+        role = "assistant"
+    elif in_user and in_asst:
+        role = "mixed"
+    else:
+        role = None
+
+    return role, digest
+
+
 @dataclass(frozen=True)
 class DistilledItem:
     """Kabul edilmiş tek epizodik ifade (ham alıntı TAŞIMAZ)."""
@@ -181,6 +212,8 @@ class DistilledItem:
     text: str
     evidence_class: str
     support_refs: list[dict[str, Any]] = field(default_factory=list)
+    source_role: str | None = None
+    evidence_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -219,6 +252,8 @@ def _accept_items(
     raw_items: list[dict[str, Any]],
     *,
     transient_text: str,
+    user_text: str | None = None,
+    assistant_text: str | None = None,
     delivered_refs: list[dict[str, Any]],
     scope_project: str | None,
 ) -> tuple[list[DistilledItem], list[str]]:
@@ -249,12 +284,15 @@ def _accept_items(
             delivered_refs=delivered_refs,
             scope_project=scope_project,
         )
+        role, digest = compute_source_role_and_digest(excerpt, user_text, assistant_text)
         accepted.append(
             DistilledItem(
                 kind=kind,
                 text=text,
                 evidence_class="canonical_supported" if refs else "turn_derived",
                 support_refs=refs,
+                source_role=role,
+                evidence_digest=digest,
             )
         )
     return accepted, degraded
@@ -316,6 +354,8 @@ async def distill_turn(
     items, degraded = _accept_items(
         raw_items,
         transient_text=transient_text,
+        user_text=user_text,
+        assistant_text=assistant_text,
         delivered_refs=delivered_refs,
         scope_project=scope_project,
     )
@@ -330,6 +370,7 @@ __all__ = [
     "DistilledItem",
     "DistillationOutcome",
     "build_transient_text",
+    "compute_source_role_and_digest",
     "compute_turn_digest",
     "delivered_ref_from_source",
     "distill_turn",

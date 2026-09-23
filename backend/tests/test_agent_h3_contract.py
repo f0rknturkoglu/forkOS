@@ -109,11 +109,11 @@ def _property_names(schema: dict) -> set[str]:
 
 async def test_tool_surface_is_exactly_26_with_one_h3_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 29
+    assert len(tools) == 31
     assert set(tools) & H3_TOOLS == H3_TOOLS
     assert set(tools) == ALL_FAMILY_TOOLS == capabilities.all_tools()
     assert len(H0_TOOLS) == 8 and len(H1_TOOLS) == 11 and len(H2_TOOLS) == 5
-    assert len(ALL_FAMILY_TOOLS) == capabilities.tool_count() == 29
+    assert len(ALL_FAMILY_TOOLS) == capabilities.tool_count() == 31
 
 
 async def test_h0_h1_h2_tools_are_unchanged() -> None:

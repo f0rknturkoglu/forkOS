@@ -376,6 +376,8 @@ async def ingest_turn(session: AsyncSession, body: EpisodeTurnIn) -> EpisodeTurn
                 text=item.text,
                 evidence_class=item.evidence_class,
                 support_refs=item.support_refs,
+                source_role=item.source_role,
+                evidence_digest=item.evidence_digest,
             )
         )
 
@@ -565,6 +567,8 @@ async def finalize(session: AsyncSession, body: EpisodeFinalizeIn) -> EpisodeFin
                 evidence_class=item.evidence_class,
                 support_refs=[EpisodeSupportRef(**ref) for ref in (item.support_refs or [])],
                 turn_digest=turn.turn_digest,
+                source_role=item.source_role,
+                evidence_digest=item.evidence_digest,
             ),
             turn.id,
         )
@@ -587,6 +591,8 @@ async def finalize(session: AsyncSession, body: EpisodeFinalizeIn) -> EpisodeFin
                 evidence_class="observed_during_session",
                 support_refs=[EpisodeSupportRef(**ref) for ref in refs],
                 turn_digest=None,
+                source_role=None,
+                evidence_digest=None,
             ),
             None,
         )
@@ -616,6 +622,8 @@ async def finalize(session: AsyncSession, body: EpisodeFinalizeIn) -> EpisodeFin
                 support_refs=[
                     ref.model_dump() for ref in item.support_refs[:MAX_SUPPORT_REFS_PER_ITEM]
                 ],
+                source_role=item.source_role,
+                evidence_digest=item.evidence_digest,
             )
         )
 

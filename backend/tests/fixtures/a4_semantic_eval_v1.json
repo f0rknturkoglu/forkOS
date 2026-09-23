@@ -1,0 +1,98 @@
+{
+  "version": "v1",
+  "name": "a4_semantic_eval_v1",
+  "description": "A4 Semantic Promotion & Durable Memory evaluation benchmark",
+  "privacy_opt_out_cases": [
+    {
+      "input": "Lütfen bunu hafızaya alma, sadece şu anlık konuşuyoruz.",
+      "should_block": true
+    },
+    {
+      "input": "Bunu hatırlama, geçici bir not.",
+      "should_block": true
+    },
+    {
+      "input": "Lütfen bunu saklama.",
+      "should_block": true
+    },
+    {
+      "input": "Don't remember this, it is sensitive.",
+      "should_block": true
+    },
+    {
+      "input": "Do not store this conversation.",
+      "should_block": true
+    },
+    {
+      "input": "Projede TypeScript ve React kullanıyoruz, strict null checks açık olsun.",
+      "should_block": false
+    },
+    {
+      "input": "Toplantılar salı günleri saat 14:00'te yapılacak.",
+      "should_block": false
+    }
+  ],
+  "candidate_key_stability_cases": [
+    {
+      "kind": "preference",
+      "scope": "global",
+      "scope_project": null,
+      "subject_key": null,
+      "statement_1": "Kullanıcı TypeScript ve React tercih eder.",
+      "statement_2": "kullanıcı   typescript ve  react tercih eder.",
+      "expected_match": true
+    },
+    {
+      "kind": "preference",
+      "scope": "global",
+      "scope_project": null,
+      "subject_key": null,
+      "statement_1": "Kullanıcı TypeScript tercih eder.",
+      "statement_2": "Kullanıcı Python tercih eder.",
+      "expected_match": false
+    }
+  ],
+  "promotion_gate_cases": [
+    {
+      "case_id": "explicit_user_direct",
+      "evidence_class": "explicit_user",
+      "user_confirmed": false,
+      "can_promote": true
+    },
+    {
+      "case_id": "model_derived_unconfirmed",
+      "evidence_class": "model_derived",
+      "user_confirmed": false,
+      "can_promote": false,
+      "expected_error": "SEMANTIC_REVIEW_REQUIRED"
+    },
+    {
+      "case_id": "episode_derived_unconfirmed",
+      "evidence_class": "episode_derived",
+      "user_confirmed": false,
+      "can_promote": false,
+      "expected_error": "SEMANTIC_REVIEW_REQUIRED"
+    },
+    {
+      "case_id": "episode_derived_confirmed",
+      "evidence_class": "episode_derived",
+      "user_confirmed": true,
+      "can_promote": true
+    }
+  ],
+  "supersession_cases": [
+    {
+      "card_old": {
+        "card_id": "old_pref_1",
+        "statement": "Next.js Pages Router kullanılır."
+      },
+      "card_new": {
+        "card_id": "new_pref_1",
+        "statement": "Next.js App Router kullanılır.",
+        "supersedes": ["old_pref_1"]
+      },
+      "expected_old_status": "superseded",
+      "expected_new_status": "active"
+    }
+  ]
+}

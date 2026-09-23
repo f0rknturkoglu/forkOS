@@ -13,7 +13,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 #: Kanonik türler (§14) ve kaynak modları (§43).
-MemoryKindValue = Literal["profile", "preference", "goal", "constraint", "decision"]
+MemoryKindValue = Literal["profile", "preference", "goal", "constraint", "decision", "correction"]
 SourceModeValue = Literal["explicit_user", "approved_candidate"]
 EffectiveStatusFilter = Literal["active", "expired", "retired", "all"]
 
@@ -132,6 +132,7 @@ class HotMemoryContextData(BaseModel):
     goals: list[HotMemoryItem] = Field(default_factory=list)
     constraints: list[HotMemoryItem] = Field(default_factory=list)
     decisions: list[HotMemoryItem] = Field(default_factory=list)
+    corrections: list[HotMemoryItem] = Field(default_factory=list)
     active_total: int = 0
     returned_total: int = 0
     omitted_total: int = 0

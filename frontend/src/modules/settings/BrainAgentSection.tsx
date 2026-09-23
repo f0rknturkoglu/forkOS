@@ -23,6 +23,17 @@ import { AGENT_LIFECYCLE_STATUS_KEY, getAgentLifecycleStatus } from "@/core/agen
 import { AGENT_CONTINUITY_STATUS_KEY, getAgentContinuityStatus } from "@/core/agentContinuity";
 import { AGENT_EPISODE_STATUS_KEY, getAgentEpisodeStatus } from "@/core/agentEpisode";
 import {
+  AGENT_SEMANTIC_STATUS_KEY,
+  AGENT_SEMANTIC_CANDIDATES_KEY,
+  getAgentSemanticStatus,
+  listSemanticCandidates,
+  refreshSemanticCandidates,
+  confirmSemanticCandidate,
+  rejectSemanticCandidate,
+  promoteSemanticCandidate,
+} from "@/core/agentSemantic";
+import { invalidateAfter } from "@/core/invalidation";
+import {
   AGENT_STATUS_KEY,
   brainReadiness,
   getAgentStatus,
@@ -213,6 +224,7 @@ function ReadinessSummary() {
   const vault = useVaultQuery();
   const proactivity = useProactivityStatusQuery();
   const executions = useRecentExecutions();
+  const semantic = useQuery({ queryKey: [AGENT_SEMANTIC_STATUS_KEY], queryFn: getAgentSemanticStatus });
 
   const vaultState = describeVaultState(vault.data, vault.isError);
   const brain = BRAIN_READINESS[brainReadiness(agent.data?.brain, agent.isError)];
@@ -232,6 +244,13 @@ function ReadinessSummary() {
     : summary.pending > 0
       ? { label: `${summary.pending} bekleyen karar`, tone: "warn" as Tone }
       : { label: "bekleyen karar yok", tone: "ok" as Tone };
+  const needsReview = semantic.data?.needs_review_count ?? 0;
+  const durableCards = semantic.data?.durable_card_count ?? 0;
+  const semanticState = semantic.isError
+    ? { label: "durum okunamadı", tone: "warn" as Tone }
+    : needsReview > 0
+      ? { label: `${needsReview} inceleme bekliyor`, tone: "warn" as Tone }
+      : { label: `${durableCards} kalıcı kart`, tone: "ok" as Tone };
 
   return (
     <Section title="Genel durum" hint="skor değil; her bileşen kendi durumunu söyler">
@@ -245,6 +264,7 @@ function ReadinessSummary() {
         />
         <StatusRow label="f0rknbrain" value={VAULT_HEADLINE[vaultState.kind]} tone={VAULT_TONE[vaultState.kind]} />
         <StatusRow label="Yerel model" value={h4.label} tone={h4.tone} />
+        <StatusRow label="Hafıza adayları" value={semanticState.label} tone={semanticState.tone} />
         <StatusRow label="Proaktivite" value={proactivityState.label} tone={proactivityState.tone} />
         <StatusRow label="Bekleyen kararlar" value={h7.label} tone={h7.tone} />
       </div>
@@ -805,6 +825,282 @@ function EpisodeHandoffCard() {
   );
 }
 
+const EVIDENCE_LABELS: Record<string, string> = {
+  explicit_user: "Kullanıcı açıkça söyledi",
+  canonical_source: "Kayıtla doğrulandı",
+  episode_derived: "Önceki oturumdan çıkarıldı",
+  model_derived: "Agent çıkarımı",
+};
+
+const DESTINATION_LABELS: Record<string, string> = {
+  durable_vault: "Kalıcı Kasa",
+  hot_memory: "Sıcak Bellek",
+  operational: "Operasyonel",
+  procedural_candidate: "Prosedürel Aday",
+  discard: "Göz Ardı",
+};
+
+const KIND_LABELS: Record<string, string> = {
+  identity: "Kimlik",
+  preference: "Tercih",
+  correction: "Düzeltme",
+  constraint: "Kısıt",
+  goal: "Hedef",
+  decision: "Karar",
+  lesson: "Ders",
+  project_knowledge: "Proje Bilgisi",
+  reference: "Referans",
+};
+
+export function SemanticCandidatesCard({ online = true }: { online?: boolean }) {
+  const toast = useToast();
+  const statusQuery = useQuery({
+    queryKey: [AGENT_SEMANTIC_STATUS_KEY],
+    queryFn: getAgentSemanticStatus,
+  });
+  const candidatesQuery = useQuery({
+    queryKey: [AGENT_SEMANTIC_CANDIDATES_KEY],
+    queryFn: () => listSemanticCandidates(),
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: refreshSemanticCandidates,
+    onSuccess: (data) => {
+      invalidateAfter("agent-semantic.write");
+      toast.push(`Adaylar tarandı: ${data.created_count} yeni, ${data.updated_count} güncellenen aday.`, { tone: "ok" });
+    },
+    onError: () => {
+      toast.push("Adaylar taranırken hata oluştu.", { tone: "danger" });
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: ({ id, revision }: { id: string; revision: string }) =>
+      confirmSemanticCandidate(id, revision),
+    onSuccess: () => {
+      invalidateAfter("agent-semantic.write");
+      toast.push("Aday onaylandı ve terfi için hazırlandı.", { tone: "ok" });
+    },
+    onError: () => {
+      toast.push("Aday onaylanırken hata oluştu.", { tone: "danger" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, revision }: { id: string; revision: string }) =>
+      rejectSemanticCandidate(id, revision),
+    onSuccess: () => {
+      invalidateAfter("agent-semantic.write");
+      toast.push("Aday reddedildi.", { tone: "ok" });
+    },
+    onError: () => {
+      toast.push("Aday reddedilirken hata oluştu.", { tone: "danger" });
+    },
+  });
+
+  const promoteMutation = useMutation({
+    mutationFn: ({
+      id,
+      revision,
+      targetDestination,
+      supersedes,
+    }: {
+      id: string;
+      revision: string;
+      targetDestination?: string;
+      supersedes?: string[];
+    }) => promoteSemanticCandidate(id, revision, targetDestination, supersedes),
+    onSuccess: (data) => {
+      invalidateAfter("agent-semantic.write");
+      toast.push(`Aday kalıcı bilgiye terfi ettirildi (${data.destination}).`, { tone: "ok" });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail?.message || "Terfi işlemi başarısız oldu.";
+      toast.push(msg, { tone: "danger" });
+    },
+  });
+
+  const status = statusQuery.data;
+  const candidates = candidatesQuery.data?.items ?? [];
+  const pendingCandidates = candidates.filter(
+    (c) => c.status === "proposed" || c.status === "needs_review" || c.status === "ready",
+  );
+
+  return (
+    <Section
+      title="Hafıza adayları"
+      hint="epistemik inceleme ve kalıcı bilgi terfisi"
+      action={
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => refreshMutation.mutate()}
+          disabled={!online || refreshMutation.isPending}
+        >
+          <RefreshCw className={cx("mr-1.5 h-3.5 w-3.5", refreshMutation.isPending && "animate-spin")} />
+          Adayları tara
+        </Button>
+      }
+    >
+      <CardBody
+        isLoading={statusQuery.isLoading || candidatesQuery.isLoading}
+        isError={statusQuery.isError || candidatesQuery.isError}
+        errorLabel="Hafıza adayları"
+        onRetry={() => {
+          void statusQuery.refetch();
+          void candidatesQuery.refetch();
+        }}
+      >
+        <div className="space-y-3">
+          {status && (
+            <div className="divide-y divide-subtle">
+              <StatusRow
+                label="Kalıcı kartlar"
+                value={`${status.durable_card_count} kart`}
+                hint="30 Knowledge/Memory/"
+                tone={status.durable_card_count > 0 ? "ok" : "neutral"}
+              />
+              <StatusRow
+                label="İnceleme bekleyen"
+                value={`${status.needs_review_count ?? 0} aday`}
+                tone={(status.needs_review_count ?? 0) > 0 ? "warn" : "neutral"}
+              />
+              <StatusRow
+                label="Onaylı / Hazır"
+                value={`${status.ready_count ?? 0} aday`}
+                tone={(status.ready_count ?? 0) > 0 ? "ok" : "neutral"}
+              />
+              <StatusRow
+                label="Önerilen"
+                value={`${status.proposed_count ?? 0} aday`}
+                tone="neutral"
+              />
+            </div>
+          )}
+
+          {pendingCandidates.length === 0 ? (
+            <p className="text-micro text-muted py-1">
+              Bekleyen hafıza adayı yok. Oturumlar tamamlandıkça veya kaynaklar güncellendikçe adaylar burada listelenir.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <span className="text-micro font-medium text-secondary">
+                Bekleyen Adaylar ({pendingCandidates.length})
+              </span>
+              <div className="space-y-2">
+                {pendingCandidates.map((c) => {
+                  const isExplicitUser = c.primary_evidence_class === "explicit_user";
+                  const isReady = c.status === "ready";
+                  const canPromote = isExplicitUser || isReady;
+                  const isPendingAction =
+                    confirmMutation.isPending || rejectMutation.isPending || promoteMutation.isPending;
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="rounded-card border border-subtle bg-surface-raised p-2.5 space-y-1.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-meta font-medium text-primary leading-snug">
+                          {c.statement}
+                        </p>
+                        <Chip
+                          tone={
+                            c.status === "ready"
+                              ? "ok"
+                              : c.status === "needs_review"
+                                ? "warn"
+                                : "neutral"
+                          }
+                        >
+                          {c.status === "ready"
+                            ? "Onaylı"
+                            : c.status === "needs_review"
+                              ? "İnceleme Gerekli"
+                              : "Önerildi"}
+                        </Chip>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 text-micro text-secondary">
+                        <Chip tone="accent">{KIND_LABELS[c.kind] ?? c.kind}</Chip>
+                        <Chip tone="neutral">
+                          {c.scope === "project" ? (c.scope_project ?? "Proje") : "Genel"}
+                        </Chip>
+                        <Chip tone="neutral">
+                          Hedef: {DESTINATION_LABELS[c.suggested_destination] ?? c.suggested_destination}
+                        </Chip>
+                        <span className="text-muted">·</span>
+                        <span>
+                          {EVIDENCE_LABELS[c.primary_evidence_class] ?? c.primary_evidence_class}
+                        </span>
+                        <span className="text-muted">·</span>
+                        <span>{(c.evidence_refs ?? []).length} kaynak</span>
+                      </div>
+
+                      {(c.possible_related_card_ids ?? []).length > 0 && (
+                        <div className="rounded border border-subtle bg-surface px-2 py-1 text-micro text-warn">
+                          Benzer mevcut bilgi: {(c.possible_related_card_ids ?? []).join(", ")}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-1">
+                        {!isReady && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={!online || isPendingAction}
+                            onClick={() =>
+                              confirmMutation.mutate({ id: c.id, revision: c.revision })
+                            }
+                          >
+                            Onayla
+                          </Button>
+                        )}
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={!online || isPendingAction || !canPromote}
+                          onClick={() =>
+                            promoteMutation.mutate({
+                              id: c.id,
+                              revision: c.revision,
+                              targetDestination: c.suggested_destination,
+                              supersedes:
+                                (c.possible_related_card_ids ?? []).length > 0
+                                  ? c.possible_related_card_ids
+                                  : undefined,
+                            })
+                          }
+                        >
+                          Terfi et
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!online || isPendingAction}
+                          onClick={() =>
+                            rejectMutation.mutate({ id: c.id, revision: c.revision })
+                          }
+                        >
+                          Reddet
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <p className="text-micro text-muted">
+            Kalıcı hafıza f0rknbrain kasasındaki 30 Knowledge/Memory/ altında Markdown kartları olarak saklanır. Zayıf kanıtlı veya model çıkarımı olan adaylar kullanıcı onayı olmadan terfi edemez.
+          </p>
+        </div>
+      </CardBody>
+    </Section>
+  );
+}
+
 /* ── Sayfa ───────────────────────────────────────────────────────────── */
 
 export function BrainAgentSection() {
@@ -825,6 +1121,7 @@ export function BrainAgentSection() {
         <HermesCard />
         <EpisodeHandoffCard />
       </div>
+      <SemanticCandidatesCard online={online} />
       <div className="space-y-0.5">
         <p className="text-meta text-secondary">Sessizlik başarılı bir sonuçtur.</p>
         <p className="text-micro text-muted">

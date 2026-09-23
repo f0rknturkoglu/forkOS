@@ -267,6 +267,8 @@ class SessionHandoffItem(BaseModel):
     evidence_class: EpisodeEvidenceClass
     support_refs: list[EpisodeSupportRef] = Field(default_factory=list)
     turn_digest: str | None = Field(default=None, max_length=64)
+    source_role: str | None = Field(default=None, max_length=16)
+    evidence_digest: str | None = Field(default=None, max_length=64)
     historical_support_stale: bool = False
 
 

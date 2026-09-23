@@ -197,6 +197,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/semantic/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Candidates
+         * @description Kayıtlı semantik hafıza adaylarını listeler.
+         */
+        get: operations["list_candidates_api_agent_semantic_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Candidate
+         * @description Belirli bir adayın detayını döner.
+         */
+        get: operations["get_candidate_api_agent_semantic_candidates__candidate_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic/candidates/{candidate_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Candidate
+         * @description Adayı kullanıcı tarafından onaylanmış ('ready') olarak işaretler.
+         */
+        post: operations["confirm_candidate_api_agent_semantic_candidates__candidate_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic/candidates/{candidate_id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote Candidate
+         * @description Adayı kalıcı bilgiye terfi ettirir.
+         */
+        post: operations["promote_candidate_api_agent_semantic_candidates__candidate_id__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic/candidates/{candidate_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Candidate
+         * @description Adayı reddeder ('rejected').
+         */
+        post: operations["reject_candidate_api_agent_semantic_candidates__candidate_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Candidates
+         * @description Mühürlenmiş epizotlardan ve kanonik kaynaklardan adayları tazeler.
+         */
+        post: operations["refresh_candidates_api_agent_semantic_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/semantic/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Semantik hafıza durumu ve özet istatistikleri döner.
+         */
+        get: operations["get_status_api_agent_semantic_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/status": {
         parameters: {
             query?: never;
@@ -9357,6 +9497,197 @@ export interface components {
             /** Sort */
             sort?: string | null;
         };
+        /** SemanticCandidateConfirmIn */
+        SemanticCandidateConfirmIn: {
+            /** Expected Revision */
+            expected_revision: string;
+        };
+        /** SemanticCandidateListResponse */
+        SemanticCandidateListResponse: {
+            /** Items */
+            items: components["schemas"]["SemanticCandidateRead"][];
+            /** Status Counts */
+            status_counts?: {
+                [key: string]: number;
+            };
+            /** Total */
+            total: number;
+        };
+        /** SemanticCandidatePromoteIn */
+        SemanticCandidatePromoteIn: {
+            /** Expected Revision */
+            expected_revision: string;
+            /** Supersedes */
+            supersedes?: string[] | null;
+            /** Target Destination */
+            target_destination?: ("operational" | "hot_memory" | "durable_vault" | "procedural_candidate" | "discard") | null;
+        };
+        /** SemanticCandidatePromoteOut */
+        SemanticCandidatePromoteOut: {
+            /** Card Id */
+            card_id?: string | null;
+            /** Destination */
+            destination: string;
+            /** Relative Path */
+            relative_path?: string | null;
+            /** Revision */
+            revision: string;
+            /** Status */
+            status: string;
+        };
+        /** SemanticCandidateRead */
+        SemanticCandidateRead: {
+            /** Candidate Key */
+            candidate_key: string;
+            /** Conditions */
+            conditions?: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Domains */
+            domains?: string[];
+            /** Evidence Refs */
+            evidence_refs?: {
+                [key: string]: unknown;
+            }[];
+            /** Exceptions */
+            exceptions?: string[];
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "identity" | "preference" | "correction" | "constraint" | "goal" | "decision" | "lesson" | "project_knowledge" | "reference";
+            /**
+             * Last Seen At
+             * Format: date-time
+             */
+            last_seen_at: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Possible Related Card Ids */
+            possible_related_card_ids?: string[];
+            /**
+             * Primary Evidence Class
+             * @enum {string}
+             */
+            primary_evidence_class: "explicit_user" | "canonical_source" | "episode_derived" | "model_derived";
+            /** Rationale */
+            rationale?: string | null;
+            /**
+             * Recurrence Count
+             * @default 1
+             */
+            recurrence_count: number;
+            /**
+             * Remote Allowed
+             * @default false
+             */
+            remote_allowed: boolean;
+            /** Reviewed By */
+            reviewed_by?: string | null;
+            /** Revision */
+            revision: string;
+            /** Scope */
+            scope: string;
+            /** Scope Project */
+            scope_project?: string | null;
+            /**
+             * Sensitivity
+             * @default normal
+             */
+            sensitivity: string;
+            /** Statement */
+            statement: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "needs_review" | "ready" | "promoted" | "rejected" | "stale";
+            /** Subject Key */
+            subject_key?: string | null;
+            /**
+             * Suggested Destination
+             * @enum {string}
+             */
+            suggested_destination: "operational" | "hot_memory" | "durable_vault" | "procedural_candidate" | "discard";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Valid From */
+            valid_from?: string | null;
+            /** Valid To */
+            valid_to?: string | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** SemanticCandidateRefreshIn */
+        SemanticCandidateRefreshIn: {
+            /**
+             * Include Episodes
+             * @default true
+             */
+            include_episodes: boolean;
+            /**
+             * Include Events
+             * @default true
+             */
+            include_events: boolean;
+            /**
+             * Limit
+             * @default 50
+             */
+            limit: number;
+        };
+        /** SemanticCandidateRefreshOut */
+        SemanticCandidateRefreshOut: {
+            /** Created Count */
+            created_count: number;
+            /** Total Candidates */
+            total_candidates: number;
+            /** Updated Count */
+            updated_count: number;
+        };
+        /** SemanticCandidateRejectIn */
+        SemanticCandidateRejectIn: {
+            /** Expected Revision */
+            expected_revision: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** SemanticStatusOut */
+        SemanticStatusOut: {
+            /** Durable Card Count */
+            durable_card_count: number;
+            /** Needs Review Count */
+            needs_review_count: number;
+            /** Promoted Count */
+            promoted_count: number;
+            /** Proposed Count */
+            proposed_count: number;
+            /** Ready Count */
+            ready_count: number;
+            /** Rejected Count */
+            rejected_count: number;
+            /** Total Candidates */
+            total_candidates: number;
+        };
         /**
          * SessionHandoffItem
          * @description Tek epizodik ifade: tür, türetilmiş metin, epistemik sınıf ve köken.
@@ -9367,6 +9698,8 @@ export interface components {
              * @enum {string}
              */
             evidence_class: "turn_derived" | "canonical_supported" | "observed_during_session";
+            /** Evidence Digest */
+            evidence_digest?: string | null;
             /**
              * Historical Support Stale
              * @default false
@@ -9379,6 +9712,8 @@ export interface components {
             kind: "topic" | "outcome" | "open_thread" | "session_decision" | "next_focus" | "reference";
             /** Ordinal */
             ordinal: number;
+            /** Source Role */
+            source_role?: string | null;
             /** Support Refs */
             support_refs?: components["schemas"]["EpisodeSupportRef"][];
             /** Text */
@@ -11086,6 +11421,230 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_candidates_api_agent_semantic_candidates_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                kind?: string | null;
+                destination?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticCandidateListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_candidate_api_agent_semantic_candidates__candidate_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticCandidateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_candidate_api_agent_semantic_candidates__candidate_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemanticCandidateConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticCandidateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_candidate_api_agent_semantic_candidates__candidate_id__promote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemanticCandidatePromoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticCandidatePromoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_candidate_api_agent_semantic_candidates__candidate_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemanticCandidateRejectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticCandidateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_candidates_api_agent_semantic_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SemanticCandidateRefreshIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticCandidateRefreshOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_agent_semantic_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticStatusOut"];
                 };
             };
         };

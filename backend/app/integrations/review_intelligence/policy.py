@@ -44,6 +44,9 @@ DESTINATION_BY_KIND: dict[str, PromotionDestination] = {
     "lesson": "general_vault",
     "reference": "general_vault",
     "project_knowledge": "general_vault",
+    "identity": "general_vault",
+    "preference": "general_vault",
+    "correction": "general_vault",
 }
 
 #: Entity kapsamı KANITLANMIŞSA (tam olarak bir entity'ye bağlıysa) tercih

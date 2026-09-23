@@ -145,6 +145,9 @@ def test_module_tables_reference_entity():
         "execution_plan",
         "execution_receipt",
         "execution_decision",
+        # A4 anlamsal terfi ve dayanıklı hafıza aday tablosu:
+        # operasyonel inceleme durumu; kanonik bilgi f0rknbrain Vault'unda yaşar.
+        "agent_semantic_candidate",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

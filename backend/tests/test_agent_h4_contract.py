@@ -42,6 +42,7 @@ H4_TOOLS = {"forkos_local_cognition"}
 H5_TOOLS = {"forkos_review_intelligence"}
 H6_TOOLS = {"forkos_proactivity"}
 H7_TOOLS = {"forkos_execution"}
+A4_TOOLS = {"semantic_memory_candidates", "semantic_memory_promote"}
 
 #: H4'ün genel yüzeye ASLA koymadığı parametreler (§27).
 FORBIDDEN_PARAMETERS = {
@@ -65,9 +66,9 @@ async def _tools() -> dict:
 
 async def test_h4_adds_exactly_one_mcp_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 29
+    assert len(tools) == 31
     assert set(tools) & H4_TOOLS == H4_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS
+    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS | A4_TOOLS
     assert len(H0_TOOLS) == 8 and len(H1_TOOLS) == 11 and len(H2_TOOLS) == 5
 
 

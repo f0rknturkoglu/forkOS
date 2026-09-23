@@ -26,9 +26,16 @@ NOTE_KIND_PERSONAL = "personal"
 NOTE_KIND_DAILY = "daily"
 NOTE_KIND_PROJECT_JOURNAL = "project_journal"
 NOTE_KIND_BOOKMARK = "bookmark_note"
+NOTE_KIND_SEMANTIC_MEMORY = "semantic_memory"
 
 ALLOWED_NOTE_KINDS: frozenset[str] = frozenset(
-    {NOTE_KIND_PERSONAL, NOTE_KIND_DAILY, NOTE_KIND_PROJECT_JOURNAL, NOTE_KIND_BOOKMARK}
+    {
+        NOTE_KIND_PERSONAL,
+        NOTE_KIND_DAILY,
+        NOTE_KIND_PROJECT_JOURNAL,
+        NOTE_KIND_BOOKMARK,
+        NOTE_KIND_SEMANTIC_MEMORY,
+    }
 )
 
 #: Kanonik klasör kökleri (PHASE 2 plan.py hiyerarşisiyle aynı).
@@ -40,6 +47,9 @@ PROJECTS_ROOT = "20 Projects"
 LEARNING_ROOT = "40 Learning"
 SOURCES_ROOT = "60 Sources"
 JOURNAL_FOLDER = "Journal"
+
+#: A4 dayanıklı anlamsal hafıza kartları kökü (H3 kanıtına uygundur).
+SEMANTIC_MEMORY_ROOT = "30 Knowledge/Memory"
 
 #: Sıcak hafıza ağacı (H2). Kanonik kök BURASIDIR; depolama katmanı
 #: (`hot_memory.py`) ve yol politikası (`security.py`) aynı dizeyi paylaşır.

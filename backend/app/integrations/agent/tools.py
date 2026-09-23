@@ -1174,6 +1174,73 @@ def _register_review_intelligence_tool(server: MCPServer) -> None:
         except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
             raise ToolError(f"REVIEW_INTELLIGENCE_FAILED: {type(exc).__name__}") from exc
 
+    @server.tool(
+        name="semantic_memory_candidates",
+        description=(
+            "List or inspect pending durable semantic memory candidates extracted from "
+            "episodic sessions and canonical activity. Read-only tool. Returns proposed, "
+            "needs_review, and ready candidates with their evidence classification and "
+            "suggested destinations. " + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def semantic_memory_candidates(
+        status: str | None = None,
+        kind: str | None = None,
+        destination: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        async with SessionLocal() as session:
+            from app.modules.semantic_memory import service as sem_svc
+
+            res = await sem_svc.list_candidates(
+                session, status=status, kind=kind, destination=destination, limit=min(limit, 50)
+            )
+            return res.model_dump(mode="json")
+
+    @server.tool(
+        name="semantic_memory_promote",
+        description=(
+            "Controlled promotion of a verified or user-confirmed semantic candidate into "
+            "durable f0rknbrain Markdown storage (30 Knowledge/Memory/<uuid>.md) or H2 hot memory. "
+            "Strict gate: candidates with episode_derived or model_derived evidence REQUIRE user confirmation "
+            "first and cannot be promoted autonomously. Requires candidate_id and expected_revision for optimistic concurrency."
+        ),
+        annotations=EXECUTION_ANNOTATIONS,
+    )
+    async def semantic_memory_promote(
+        candidate_id: str,
+        expected_revision: str,
+        target_destination: str | None = None,
+        supersedes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        import uuid as _uuid
+        from fastapi import HTTPException
+
+        try:
+            cid = _uuid.UUID(candidate_id)
+        except Exception as exc:
+            raise ToolError(f"INVALID_CANDIDATE_ID: {exc}") from exc
+
+        async with SessionLocal() as session:
+            from app.modules.semantic_memory import service as sem_svc
+            from app.modules.semantic_memory.schemas import SemanticCandidatePromoteIn
+
+            try:
+                payload = SemanticCandidatePromoteIn(
+                    expected_revision=expected_revision,
+                    target_destination=target_destination,  # type: ignore[arg-type]
+                    supersedes=supersedes,
+                )
+                res = await sem_svc.promote_candidate(session, cid, payload)
+                return res.model_dump(mode="json")
+            except HTTPException as exc:
+                code = exc.detail.get("code") if isinstance(exc.detail, dict) else "PROMOTION_FAILED"
+                msg = exc.detail.get("message") if isinstance(exc.detail, dict) else str(exc.detail)
+                raise ToolError(f"{code}: {msg}") from exc
+            except Exception as exc:
+                raise ToolError(f"PROMOTION_FAILED: {exc}") from exc
+
 
 # ---------------------------------------------------------------------------
 # H6 proaktivite kontrol aracı (inceleme + kullanıcı override'i)

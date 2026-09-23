@@ -956,6 +956,43 @@ async def load_entity(session: AsyncSession, entity_id: uuid.UUID) -> dict[str, 
     }
 
 
+async def sealed_episode_items(
+    session: AsyncSession,
+    *,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Mühürlenmiş epizodik oturum maddelerini döner (ref: episode:<id>, episode_item:<id>)."""
+    from app.modules.agent_episode.models import AgentSessionEpisode, AgentSessionEpisodeItem
+
+    query = (
+        select(AgentSessionEpisodeItem, AgentSessionEpisode)
+        .join(AgentSessionEpisode, AgentSessionEpisodeItem.episode_id == AgentSessionEpisode.id)
+        .where(AgentSessionEpisode.status.in_(("sealed", "sealed_degraded")))
+    )
+    if start is not None:
+        query = query.where(AgentSessionEpisodeItem.created_at >= start)
+    if end is not None:
+        query = query.where(AgentSessionEpisodeItem.created_at <= end)
+    query = query.order_by(AgentSessionEpisodeItem.created_at.desc(), AgentSessionEpisodeItem.id.desc()).limit(limit)
+
+    result = await session.execute(query)
+    items: list[dict[str, Any]] = []
+    for item_row, ep_row in result.all():
+        items.append({
+            "episode_id": ep_row.id,
+            "episode_ref": f"episode:{ep_row.id}",
+            "item_id": item_row.id,
+            "ref": f"episode_item:{item_row.id}",
+            "kind": item_row.kind,
+            "text": item_row.statement,
+            "scope_project": ep_row.scope_project,
+            "created_at": _iso(item_row.created_at),
+        })
+    return items
+
+
 __all__ = [
     "CONTINUITY_ANCHOR_LOOKBACK_DAYS",
     "DAILY_ROOT",
@@ -985,6 +1022,7 @@ __all__ = [
     "resolve_period",
     "rss_accumulation",
     "scoped_events",
+    "sealed_episode_items",
     "todo_statuses",
     "todo_title_index",
     "upcoming_deadlines",

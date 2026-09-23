@@ -25,6 +25,7 @@ H4_TOOLS = {"forkos_local_cognition"}
 H5_TOOLS = {"forkos_review_intelligence"}
 H6_TOOLS = {"forkos_proactivity"}
 H7_TOOLS = {"forkos_execution"}
+A4_TOOLS = {"semantic_memory_candidates", "semantic_memory_promote"}
 
 #: H5'in genel yüzeye ASLA koymadığı iç düğmeler (§20).
 FORBIDDEN_PARAMETERS = {
@@ -39,9 +40,9 @@ async def _tools() -> dict:
 
 async def test_h5_adds_exactly_one_mcp_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 29
+    assert len(tools) == 31
     assert set(tools) & H5_TOOLS == H5_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS
+    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS | A4_TOOLS
 
 
 async def test_h5_tool_is_read_only() -> None:
@@ -67,7 +68,7 @@ async def test_h5_schema_argument_shapes() -> None:
 
 
 async def test_no_new_write_tool_was_added() -> None:
-    """H5 kendisi yazan arac EKLEMEZ; yazan kume H1+H2 ve (H6 ile) kontroldur."""
+    """H5 kendisi yazan arac EKLEMEZ; yazan kume H1+H2 ve (H6, H7, A4 ile) kontroldur."""
     tools = await _tools()
     writing = {
         name for name, tool in tools.items()
@@ -79,6 +80,7 @@ async def test_no_new_write_tool_was_added() -> None:
         "hot_memory_retire",
         "forkos_proactivity",
         "forkos_execution",
+        "semantic_memory_promote",
     }
 
 

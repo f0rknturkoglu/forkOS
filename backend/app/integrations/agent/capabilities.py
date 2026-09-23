@@ -105,8 +105,12 @@ FAMILIES: tuple[FamilySpec, ...] = (
     FamilySpec(
         id="H5",
         label="İnceleme zekâsı",
-        summary="Mevcut durum üzerine sınırlı düşünme: süreklilik, dönem farkı, günlük kapanış ve haftalık inceleme.",
-        tools=("forkos_review_intelligence",),
+        summary="Mevcut durum üzerine sınırlı düşünme: süreklilik, dönem farkı, günlük kapanış, haftalık inceleme ve anlamsal hafıza adayları.",
+        tools=(
+            "forkos_review_intelligence",
+            "semantic_memory_candidates",
+            "semantic_memory_promote",
+        ),
     ),
     FamilySpec(
         id="H6",
@@ -148,7 +152,7 @@ _FAMILY_ROLE: dict[str, str] = {
     ),
     "H5": (
         "H5 review intelligence: bounded reflection over existing state (continuity, period "
-        "delta, daily close, weekly review, consolidation candidates)."
+        "delta, daily close, weekly review, consolidation candidates) and controlled semantic memory promotion."
     ),
     "H6": (
         "H6 proactivity: inspect and control when forkOS proactively surfaces things; this is the "

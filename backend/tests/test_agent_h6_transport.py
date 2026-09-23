@@ -179,7 +179,7 @@ async def test_evaluate_now_produces_a_real_delivery(db_session: AsyncSession) -
     """§217: tur, son tarih adayını bulup TEK bildirim üretir; ikinci tur tekrarlamaz."""
     start, end = _quiet_window_away_from_now()
     await service.configure(db_session, enabled=True, quiet_hours_start=start, quiet_hours_end=end)
-    await make_todo(db_session, title="YLSY", due_at=NOW + timedelta(days=2, hours=1))
+    await make_todo(db_session, title="YLSY", due_at=datetime.now(UTC) + timedelta(days=2, hours=1))
     await db_session.commit()
 
     async with mcp_session() as session:

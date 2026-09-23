@@ -89,7 +89,10 @@ def compute_vault_note_source_version(note_bytes: bytes) -> str:
 
 
 
-async def _collect_identity(session: AsyncSession) -> tuple[BootstrapIdentity, list[str]]:
+async def _collect_identity(
+    session: AsyncSession,
+    scope_project: str | None = None,
+) -> tuple[BootstrapIdentity, list[str], list[Any]]:
     """Kullanıcı ilkelerini ve kalıcı tercihleri f0rknbrain / H2 üzerinden seçer."""
     degraded: list[str] = []
     conventions = [
@@ -100,26 +103,57 @@ async def _collect_identity(session: AsyncSession) -> tuple[BootstrapIdentity, l
     preferences: list[str] = []
     corrections: list[str] = []
     goals: list[str] = []
+    semantic_cards: list[Any] = []
 
     try:
         from app.integrations.agent import hot_memory as h2_svc
-        ctx = h2_svc.get_context(kinds=["profile", "preference", "constraint", "goal"])
+        ctx = h2_svc.get_context(kinds=["profile", "preference", "constraint", "goal", "correction"])
         for p in ctx.preferences[:3]:
             preferences.append(p.title)
         for c in ctx.constraints[:2]:
             conventions.append(c.title)
         for g in ctx.goals[:2]:
             goals.append(g.title)
+        for cor in getattr(ctx, "corrections", [])[:3]:
+            corrections.append(cor.title)
     except Exception as exc:
         LOGGER.warning("H2 hot memory read degraded in bootstrap: %s", exc)
         degraded.append("HOT_MEMORY_UNAVAILABLE")
+
+    try:
+        from app.integrations.obsidian.semantic_memory import get_semantic_profile, readable_root
+        sem_root = readable_root()
+        if sem_root is not None:
+            profile = get_semantic_profile(sem_root, scope_project=scope_project)
+            for c in profile.corrections:
+                if c.statement not in corrections and len(corrections) < 3:
+                    corrections.append(c.statement)
+                if c not in semantic_cards:
+                    semantic_cards.append(c)
+            for co in profile.constraints:
+                if co.statement not in conventions and len(conventions) < 3:
+                    conventions.append(co.statement)
+                if co not in semantic_cards:
+                    semantic_cards.append(co)
+            for p in profile.preferences:
+                if p.statement not in preferences and len(preferences) < 4:
+                    preferences.append(p.statement)
+                if p not in semantic_cards:
+                    semantic_cards.append(p)
+            for g in profile.goals:
+                if g.statement not in goals and len(goals) < 3:
+                    goals.append(g.statement)
+                if g not in semantic_cards:
+                    semantic_cards.append(g)
+    except Exception as exc:
+        LOGGER.warning("Semantic profile read degraded in bootstrap: %s", exc)
 
     return BootstrapIdentity(
         interaction_conventions=conventions[:3],
         durable_preferences=preferences[:4],
         explicit_corrections=corrections[:3],
         long_running_goals=goals[:3],
-    ), degraded
+    ), degraded, semantic_cards
 
 
 async def _collect_operational_projects(session: AsyncSession, limit: int = 5) -> list[OperationalProject]:
@@ -356,7 +390,7 @@ async def compose_first_turn_bootstrap(
         degraded_reasons.append("VAULT_UNAVAILABLE")
 
     # 2. Kaynak ailelerini topla (read-only)
-    identity, id_deg = await _collect_identity(session)
+    identity, id_deg, sem_cards = await _collect_identity(session, scope_project=scope_project)
     degraded_reasons.extend(id_deg)
 
     projects = (await _collect_operational_projects(session, limit=5))[:5]
@@ -441,6 +475,16 @@ async def compose_first_turn_bootstrap(
                 source_version=vn["version"],
                 scope_project=vn.get("scope_project"),
                 title=vn["title"],
+            )
+        )
+    for sc in sem_cards[:1]:
+        sources.append(
+            BootstrapSourceRef(
+                source_id=f"semantic_memory:{sc.card_id}",
+                source_type="semantic_memory",
+                source_version=sc.revision,
+                scope_project=sc.scope_project,
+                title=sc.title[:128] if sc.title else None,
             )
         )
 
@@ -707,6 +751,22 @@ async def check_source_freshness(
                         return False, m.title
                     return True, m.title
             return False, None
+        except Exception:
+            return False, None
+
+    elif source_row.source_type == "semantic_memory":
+        try:
+            from app.integrations.obsidian import semantic_memory as sem_svc
+            root = sem_svc.readable_root()
+            if not root:
+                return False, None
+            card_id = source_row.source_id.split(":", 1)[1] if ":" in source_row.source_id else source_row.source_id
+            card = sem_svc.read_semantic_card(root, card_id)
+            if card is None or card.effective_status != "active":
+                return False, None
+            if source_row.source_version and source_row.source_version != card.revision:
+                return False, card.title
+            return True, card.title
         except Exception:
             return False, None
 

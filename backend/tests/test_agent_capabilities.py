@@ -142,14 +142,14 @@ async def test_capability_metadata_matches_registered_tool_surface() -> None:
     # İki yön: kayıtlı olup metadatada olmayan ve metadatada olup kayıtlı olmayan araç yok.
     assert registered - capabilities.all_tools() == set()
     assert capabilities.all_tools() - registered == set()
-    assert capabilities.tool_count() == len(registered) == 29
+    assert capabilities.tool_count() == len(registered) == 31
     assert capabilities.family_counts() == {
         "H0": 8,
         "H1": 11,
         "H2": 5,
         "H3": 1,
         "H4": 1,
-        "H5": 1,
+        "H5": 3,
         "H6": 1,
         "H7": 1,
     }
@@ -366,14 +366,14 @@ async def test_brain_block_shape_and_endpoint_host() -> None:
     assert brain["endpoint"] == "http://127.0.0.1:9123/mcp"
     assert brain["transport"] == "streamable_http"
     assert brain["loopback_only"] is True
-    assert brain["tool_count"] == 29
+    assert brain["tool_count"] == 31
 
     families = brain["families"]
     assert [row["id"] for row in families] == [f"H{index}" for index in range(8)]
     for row in families:
         assert set(row) == {"id", "label", "summary", "tool_count"}
         assert row["label"] and row["summary"]
-    assert sum(row["tool_count"] for row in families) == 29
+    assert sum(row["tool_count"] for row in families) == 31
 
     assert set(payload["local_cognition"]) == {
         "enabled",
@@ -408,7 +408,7 @@ async def test_agent_status_route_serves_the_typed_payload() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["brain"]["endpoint"] == "http://127.0.0.1:9123/mcp"
-    assert body["brain"]["tool_count"] == 29
+    assert body["brain"]["tool_count"] == 31
     assert body["local_cognition"]["state"] in STATES
     # Varsayılan ayarlarda H4 kapalıdır: prob atılmaz, dış çağrı olmaz.
     assert body["local_cognition"]["state"] == "disabled"

@@ -49,10 +49,11 @@ KIND_CAPS: dict[str, int] = {
     "goal": 5,
     "constraint": 6,
     "decision": 6,
+    "correction": 5,
 }
 
 #: Bağlam paketinde kararlı kategori sırası (§46).
-KIND_ORDER: tuple[str, ...] = ("profile", "preference", "goal", "constraint", "decision")
+KIND_ORDER: tuple[str, ...] = ("correction", "profile", "preference", "goal", "constraint", "decision")
 
 #: Kategori → bağlam alanı adı.
 CONTEXT_FIELDS: dict[str, str] = {
@@ -61,6 +62,7 @@ CONTEXT_FIELDS: dict[str, str] = {
     "goal": "goals",
     "constraint": "constraints",
     "decision": "decisions",
+    "correction": "corrections",
 }
 
 LIST_DEFAULT_LIMIT = 20
