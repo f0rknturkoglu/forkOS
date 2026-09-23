@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { useHashRoute } from "@/app/router";
 import { ApiError, api, qs } from "@/core/api";
 import type { components } from "@/generated/api-schema";
-import { Button, Chip, Empty, Field, Input, PageFrame, Select, Toolbar, cx } from "@/core/ui";
+import { Button, Chip, Empty, Field, Input, PageFrame, Select, cx } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { Cover, KIND_LABELS, mediaCoverUrl, mediaProvider, providerChip, providerLabel, proxiedCover } from "./shared";
@@ -156,7 +156,7 @@ export function MediaCollectionDetailPage() {
           title={collection?.title ?? "Koleksiyon"}
           hint={collection ? `${collection.item_count ?? 0} kayıt` : undefined}
         />
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="space-y-4 p-4">
           <a
             href="#/media/collections"
             className="inline-flex items-center gap-1.5 rounded-control text-meta text-secondary hover:text-primary focus:outline-none focus:underline"
@@ -202,7 +202,7 @@ export function MediaCollectionDetailPage() {
                 <p className="max-w-3xl text-body text-secondary">{collection.description}</p>
               )}
 
-              <Toolbar>
+              <div className="flex flex-wrap items-center gap-3 border-y border-subtle py-2">
                 <Field label="Koleksiyonda ara" className="min-w-0 flex-1 sm:max-w-xs">
                   <Input value={term} onChange={setTerm} ariaLabel="Koleksiyonda ara" className="w-full" />
                 </Field>
@@ -218,7 +218,7 @@ export function MediaCollectionDetailPage() {
                 <span className="ml-auto text-meta tabular-nums text-muted">
                   {items.length} / {total} kayıt
                 </span>
-              </Toolbar>
+              </div>
 
               {items.length === 0 ? (
                 q ? (

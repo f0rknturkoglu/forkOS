@@ -93,7 +93,7 @@ export function KnowledgePage() {
   const focusItem = itemQuery.data;
 
   return (
-    <PageFrame className="py-3">
+    <PageFrame className="p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-4">
         <header className="flex items-start gap-3">
           <BookOpen size={22} className="mt-0.5 shrink-0 text-icon" />

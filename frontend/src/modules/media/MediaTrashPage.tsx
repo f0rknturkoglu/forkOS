@@ -60,7 +60,7 @@ export function MediaTrashPage() {
     <PageFrame>
       <Workspace>
         <WorkspacePaneHeader eyebrow="Medya" title="Çöp kutusu" hint={`${items.length} kayıt`} />
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="space-y-4 p-4">
           {isLoading ? (
             <p role="status" className="text-meta text-muted">
               Çöp kutusu yükleniyor…

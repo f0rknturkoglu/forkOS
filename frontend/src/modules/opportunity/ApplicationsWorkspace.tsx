@@ -505,10 +505,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
                         </p>
                       ) : (
                         columnRows.map((item) => (
-                          <div
-                            key={item.id}
-                            className="space-y-2 rounded-control border border-subtle bg-surface p-2 shadow-card"
-                          >
+                          <div key={item.id} className="space-y-2 rounded-control border border-subtle bg-surface p-2">
                             <button type="button" onClick={() => onOpen(item.id)} className="block w-full text-left">
                               <span className="block truncate text-meta font-medium text-primary">{item.title}</span>
                               <span className="block truncate text-micro text-muted">

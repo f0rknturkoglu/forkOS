@@ -216,7 +216,7 @@ function renderBlock(block: Block, props: MarkdownProps, key: string): ReactNode
       );
     case "table":
       return (
-        <div key={key} className="my-4 overflow-x-auto rounded-card border border-subtle bg-surface shadow-card">
+        <div key={key} className="my-4 overflow-x-auto rounded-card border border-subtle bg-surface">
           <table className="w-full border-collapse text-left text-body text-primary">
             <thead className="bg-surface-sunken text-secondary">
               <tr>

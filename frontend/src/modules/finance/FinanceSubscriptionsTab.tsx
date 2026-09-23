@@ -88,10 +88,7 @@ export function FinanceSubscriptionsTab({ recurring, online }: { recurring: Recu
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {active.map((item) => (
-            <div
-              key={item.id}
-              className="flex flex-col gap-3 rounded-card border border-subtle bg-surface p-4 shadow-card"
-            >
+            <div key={item.id} className="flex flex-col gap-3 rounded-card border border-subtle bg-surface p-4">
               <div className="flex items-start gap-2.5">
                 <SubBadge sub={item.sub} title={item.title} size={30} />
                 <div className="min-w-0 flex-1">

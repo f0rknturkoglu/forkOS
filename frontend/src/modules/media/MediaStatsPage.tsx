@@ -234,7 +234,7 @@ export function MediaStatsPage() {
     <PageFrame>
       <Workspace>
         <WorkspacePaneHeader eyebrow="Medya" title="İstatistikler" hint="Kütüphane ritmi" />
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="space-y-4 p-4">
           <div role="group" aria-label="Zaman aralığı" className="flex flex-wrap gap-2">
             {RANGES.map((option) => (
               <FilterChip

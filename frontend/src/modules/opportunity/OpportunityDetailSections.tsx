@@ -856,7 +856,7 @@ export function OpportunityKnowledgeSection({
   const vaultItem = canonical ? (item ?? null) : null;
 
   return (
-    <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
+    <section className="rounded-card border border-subtle bg-surface p-4">
       <div className="flex items-start justify-between gap-3 border-b border-subtle pb-3">
         <div className="min-w-0">
           <SectionHeader

@@ -113,7 +113,7 @@ export function MediaCollectionsPage() {
           title="Koleksiyonlar"
           hint={collections ? `${collections.length} koleksiyon` : undefined}
         />
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="space-y-4 p-4">
           <Section title="Yeni koleksiyon" className="max-w-xl">
             <form
               className="flex flex-wrap items-end gap-2"

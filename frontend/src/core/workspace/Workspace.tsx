@@ -180,7 +180,7 @@ export function WorkspaceInspectorContent({
   children: ReactNode;
 }) {
   return (
-    <div className="max-h-workspace-body overflow-y-auto p-3">
+    <div className="max-h-workspace-body overflow-y-auto p-4">
       <div className="mb-3 flex min-w-0 items-center gap-2 px-1">
         <h2 className="label-caps min-w-0 flex-1 truncate text-secondary">{title}</h2>
         {hint ? <span className="text-meta text-muted">{hint}</span> : null}

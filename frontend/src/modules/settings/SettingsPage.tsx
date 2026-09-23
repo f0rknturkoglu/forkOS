@@ -304,7 +304,7 @@ export function SettingsPage() {
     <PageFrame>
       <Workspace rail={rail}>
         <WorkspacePaneHeader eyebrow="Sistem" title="Ayarlar" hint={TABS.find((item) => item.id === tab)?.label} />
-        <WorkspaceScrollArea className="p-3">{body}</WorkspaceScrollArea>
+        <WorkspaceScrollArea className="p-4 sm:p-6">{body}</WorkspaceScrollArea>
       </Workspace>
     </PageFrame>
   );

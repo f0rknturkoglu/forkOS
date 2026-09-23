@@ -84,7 +84,7 @@ export function TodoComposer({
 
   return (
     <form
-      className="rounded-card border border-subtle bg-surface shadow-card"
+      className="rounded-card border border-subtle bg-surface"
       onSubmit={(event) => {
         event.preventDefault();
         if (title.trim() && online) create.mutate();

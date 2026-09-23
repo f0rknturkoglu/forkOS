@@ -34,6 +34,7 @@ import {
   WorkspaceInspectorContent,
   WorkspacePaneHeader,
   WorkspaceScrollArea,
+  WorkspaceToolbar,
 } from "@/core/workspace/Workspace";
 import { useOnline } from "@/lib/hooks";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
@@ -104,8 +105,8 @@ function InboxCard({
       onFocus={onSelect}
       onClick={onSelect}
       className={cx(
-        "group min-w-0 px-1 py-3 transition hover:bg-surface-hover",
-        selected ? "bg-accent-surface ring-1 ring-inset ring-accent" : "",
+        "group min-w-0 rounded-control px-2.5 py-2.5 transition",
+        selected ? "bg-surface-selected ring-1 ring-inset ring-accent" : "hover:bg-surface-hover",
         isDragging && "opacity-40",
       )}
     >
@@ -408,81 +409,80 @@ export function InboxPage() {
   }
 
   return (
-    <PageFrame className="py-3">
-      <DndContext
-        sensors={sensors}
-        onDragStart={(e) => setDragging(data.find((b) => b.id === e.active.id) ?? null)}
-        onDragCancel={() => setDragging(null)}
-        onDragEnd={onDragEnd}
-      >
-        <Workspace
-          inspector={
-            <WorkspaceInspectorContent title="Taşı" hint={selectedId ? "1 kart seçili" : "önce kart seç"}>
-              <div className="space-y-2">
-                {TARGETS.map((collection, index) => (
-                  <DropTarget
-                    key={collection}
-                    collection={collection}
-                    index={index}
-                    count={countOf(collection)}
-                    hasSelection={Boolean(selectedId) && online}
-                    onMove={() => moveSelected(collection)}
-                  />
-                ))}
-              </div>
-              <dl className="mt-4 space-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
-                {[
-                  ["↑ ↓", "kartlar arasında gez"],
-                  [`1–${TARGETS.length}`, "seçili kartı taşı"],
-                ].map(([keys, what]) => (
-                  <div key={keys} className="flex items-center gap-2">
-                    <dt>
-                      <Kbd>{keys}</Kbd>
-                    </dt>
-                    <dd>{what}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="mt-3 text-meta text-muted">Sürükle, hedefe tıkla veya sayı tuşlarını kullan.</p>
-            </WorkspaceInspectorContent>
-          }
-        >
-          <WorkspacePaneHeader title="Bekleyenler" eyebrow="Gelen Kutusu" hint={`${data.length} kayıt`}>
-            <QuickCapture />
-          </WorkspacePaneHeader>
-          <WorkspaceScrollArea className="p-3">
-            {isLoading ? (
-              <SkeletonRows rows={6} />
-            ) : data.length === 0 ? (
-              <Empty>Gelen kutusu boş. Tarayıcıdan Ctrl+Shift+S ile kaydet.</Empty>
-            ) : (
-              <RowList as="ul" onKeyDown={onListKeyDown}>
-                {data.map((bookmark) => (
-                  <InboxCard
-                    key={bookmark.id}
-                    bookmark={bookmark}
-                    disabled={!online}
-                    selected={selectedId === bookmark.id}
-                    onSelect={() => setSelectedId(bookmark.id)}
-                    registerRef={(node) => {
-                      if (node) cardRefs.current.set(bookmark.id, node);
-                      else cardRefs.current.delete(bookmark.id);
-                    }}
-                  />
-                ))}
-              </RowList>
-            )}
-          </WorkspaceScrollArea>
-        </Workspace>
-
-        <DragOverlay>
-          {dragging && (
-            <div className="rounded border border-accent-border bg-surface px-3 py-2 text-body shadow-overlay">
-              {dragging.title || dragging.url}
+    <DndContext
+      sensors={sensors}
+      onDragStart={(e) => setDragging(data.find((b) => b.id === e.active.id) ?? null)}
+      onDragCancel={() => setDragging(null)}
+      onDragEnd={onDragEnd}
+    >
+      <Workspace
+        inspector={
+          <WorkspaceInspectorContent title="Taşı" hint={selectedId ? "1 kart seçili" : "önce kart seç"}>
+            <div className="space-y-2">
+              {TARGETS.map((collection, index) => (
+                <DropTarget
+                  key={collection}
+                  collection={collection}
+                  index={index}
+                  count={countOf(collection)}
+                  hasSelection={Boolean(selectedId) && online}
+                  onMove={() => moveSelected(collection)}
+                />
+              ))}
             </div>
+            <dl className="mt-4 space-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
+              {[
+                ["↑ ↓", "kartlar arasında gez"],
+                [`1–${TARGETS.length}`, "seçili kartı taşı"],
+              ].map(([keys, what]) => (
+                <div key={keys} className="flex items-center gap-2">
+                  <dt>
+                    <Kbd>{keys}</Kbd>
+                  </dt>
+                  <dd>{what}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-meta text-muted">Sürükle, hedefe tıkla veya sayı tuşlarını kullan.</p>
+          </WorkspaceInspectorContent>
+        }
+      >
+        <WorkspacePaneHeader title="Bekleyenler" eyebrow="Gelen Kutusu" hint={`${data.length} kayıt`} />
+        <WorkspaceToolbar className="h-auto py-2">
+          <QuickCapture />
+        </WorkspaceToolbar>
+        <WorkspaceScrollArea className="p-4">
+          {isLoading ? (
+            <SkeletonRows rows={6} />
+          ) : data.length === 0 ? (
+            <Empty>Gelen kutusu boş. Tarayıcıdan Ctrl+Shift+S ile kaydet.</Empty>
+          ) : (
+            <RowList as="ul" onKeyDown={onListKeyDown}>
+              {data.map((bookmark) => (
+                <InboxCard
+                  key={bookmark.id}
+                  bookmark={bookmark}
+                  disabled={!online}
+                  selected={selectedId === bookmark.id}
+                  onSelect={() => setSelectedId(bookmark.id)}
+                  registerRef={(node) => {
+                    if (node) cardRefs.current.set(bookmark.id, node);
+                    else cardRefs.current.delete(bookmark.id);
+                  }}
+                />
+              ))}
+            </RowList>
           )}
-        </DragOverlay>
-      </DndContext>
-    </PageFrame>
+        </WorkspaceScrollArea>
+      </Workspace>
+
+      <DragOverlay>
+        {dragging && (
+          <div className="rounded border border-accent-border bg-surface px-3 py-2 text-body shadow-overlay">
+            {dragging.title || dragging.url}
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }

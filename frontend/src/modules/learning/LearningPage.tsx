@@ -429,7 +429,7 @@ export function LearningPage() {
           {focusId ? (
             <Workspace>{pane(true)}</Workspace>
           ) : (
-            <div className="rounded-card border border-subtle bg-surface p-3 shadow-card">{rail}</div>
+            <div className="rounded-card border border-subtle bg-surface p-3">{rail}</div>
           )}
         </div>
       )}

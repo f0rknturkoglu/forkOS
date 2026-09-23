@@ -522,7 +522,7 @@ export function MediaDetailPage() {
             </a>
           }
         />
-        <WorkspaceScrollArea className="p-3">
+        <WorkspaceScrollArea className="p-4">
           <div className="relative space-y-5">
             <Backdrop item={item} />
 

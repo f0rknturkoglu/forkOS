@@ -110,7 +110,7 @@ export function MediaSyncSummary({ online }: { online: boolean }) {
       data-media-sync
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
+      className="overflow-hidden rounded-card border border-subtle bg-surface"
     >
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 marker:content-none">
         <ChevronDown

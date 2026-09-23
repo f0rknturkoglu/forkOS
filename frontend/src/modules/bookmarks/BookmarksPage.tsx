@@ -38,6 +38,7 @@ import {
   WorkspaceRailContent,
   WorkspaceRailGroup,
   WorkspaceScrollArea,
+  WorkspaceToolbar,
 } from "@/core/workspace/Workspace";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
@@ -405,19 +406,24 @@ export function BookmarksPage() {
           ) : undefined
         }
       >
-        <WorkspacePaneHeader title="Kutuphane" eyebrow="Yer Imleri" hint={`${data.length} kayit`}>
-          <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+        <WorkspacePaneHeader
+          title={filter.collection ? COLLECTION_LABELS[filter.collection] : "Kütüphane"}
+          eyebrow="Yer İmleri"
+          hint={`${data.length} kayıt`}
+        />
+        <WorkspaceToolbar
+          left={
+            <>
               {data.length > 0 && (
-                <Button size="sm" variant="ghost" onClick={selectAll} title="Tumunu sec / secimi kaldir">
-                  {selectedIds.size === data.length ? "Secimi Kaldir" : "Tumunu Sec"}
+                <Button size="sm" variant="ghost" onClick={selectAll} title="Tümünü seç / seçimi kaldır">
+                  {selectedIds.size === data.length ? "Seçimi Kaldır" : "Tümünü Seç"}
                 </Button>
               )}
               <Input
                 value={search}
                 onChange={setSearch}
-                placeholder="Ara (baslik, not, icerik)..."
-                className="min-w-48 flex-1"
+                placeholder="Ara (başlık, not, içerik)..."
+                className="w-48 sm:w-64"
               />
               <FilterChip
                 label="Favoriler"
@@ -431,18 +437,16 @@ export function BookmarksPage() {
               />
               {filter.tag && (
                 <FilterChip
-                  label={`#${filter.tag} x`}
+                  label={`#${filter.tag} ×`}
                   active
                   onClick={() => setFilter({ ...filter, tag: undefined })}
                 />
               )}
-            </div>
-
-            <SavedViewPicker module="bookmarks" filters={{ ...filter, q }} onApply={applySavedFilters} />
-
-            {/* Sag Taraf: Gorunum Gecisi ve Ice/Disa Aktar */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Grid / List Gecisi */}
+              <SavedViewPicker module="bookmarks" filters={{ ...filter, q }} onApply={applySavedFilters} />
+            </>
+          }
+          right={
+            <>
               <div className="flex items-center rounded-control border border-subtle bg-surface-sunken p-0.5">
                 <IconButton
                   title="Kart Izgarasi (Grid)"
@@ -474,11 +478,11 @@ export function BookmarksPage() {
                 <Download size={14} />
                 <span>Disa Aktar</span>
               </Button>
-            </div>
-          </div>
-        </WorkspacePaneHeader>
+            </>
+          }
+        />
 
-        <WorkspaceScrollArea className="relative p-3">
+        <WorkspaceScrollArea className="relative p-4">
           {selectedIds.size > 0 && (
             <div className="sticky top-0 z-sticky mb-3 flex flex-wrap items-center justify-between gap-2 rounded-panel border border-subtle bg-surface-raised p-2.5 shadow-md">
               <div className="flex items-center gap-2 text-meta text-primary font-medium">

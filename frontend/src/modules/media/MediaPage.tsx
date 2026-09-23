@@ -9,7 +9,7 @@ import { confirmDialog } from "@/core/dialog";
 import type { components } from "@/generated/api-schema";
 import type { MediaItem, MediaPage as MediaPageResponse } from "@/core/types";
 import { Button, Empty, FilterChip, Input, PageFrame, Skeleton, cx } from "@/core/ui";
-import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
+import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea, WorkspaceToolbar } from "@/core/workspace/Workspace";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import {
   EMPTY_MEDIA_FILTERS,
@@ -164,7 +164,7 @@ function MediaContinueStrip({ items }: { items: MediaPosterItem[] }) {
         return (
           <li
             key={item.id}
-            className="flex w-56 shrink-0 items-center gap-2 rounded-card border border-subtle bg-surface p-2 shadow-card"
+            className="flex w-56 shrink-0 items-center gap-2 rounded-card border border-subtle bg-surface p-2"
           >
             <Cover url={mediaCoverUrl(item)} title={item.title} size="h-12 w-8" />
             <div className="min-w-0 flex-1">
@@ -339,30 +339,65 @@ function MediaLibraryView() {
   return (
     <PageFrame>
       <Workspace>
-        <WorkspacePaneHeader
-          eyebrow="Medya"
-          title="Kütüphane"
-          hint={library.isLoading ? "Yükleniyor…" : summary}
-          action={
+        <WorkspacePaneHeader eyebrow="Medya" title="Kütüphane" hint={library.isLoading ? "Yükleniyor…" : summary} />
+        <WorkspaceToolbar
+          className="h-auto py-2"
+          left={
+            <div className="flex flex-wrap items-center gap-2">
+              <div role="group" aria-label="Tür filtresi" className="flex flex-wrap gap-1.5">
+                <FilterChip label="Tümü" active={!values.kind} onClick={() => applyFilters({ kind: "" })} />
+                {KINDS.map((kind) => (
+                  <FilterChip
+                    key={kind}
+                    label={KIND_LABELS[kind]}
+                    active={values.kind === kind}
+                    onClick={() => applyFilters({ kind: values.kind === kind ? "" : kind })}
+                  />
+                ))}
+              </div>
+              <div className="relative min-w-0 flex-1 sm:max-w-xs">
+                <Search
+                  size={14}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
+                />
+                <Input
+                  value={draftQuery}
+                  onChange={setDraftQuery}
+                  ariaLabel="Kütüphanede ara"
+                  placeholder="Kütüphanede ara"
+                  type="search"
+                  className="w-full pl-8"
+                />
+              </div>
+              <Button
+                aria-expanded={filtersOpen}
+                onClick={() => setFiltersOpen((open) => !open)}
+                className={cx(filtersOpen && "border-accent text-accent")}
+              >
+                <SlidersHorizontal size={14} aria-hidden="true" />
+                {filtersOpen ? "Filtreleri kapat" : "Filtreleri aç"}
+              </Button>
+              <div role="group" aria-label="Durum filtresi" className="flex flex-wrap gap-1.5">
+                {["", "in_progress", "planned", "completed"].map((status) => (
+                  <FilterChip
+                    key={status || "all"}
+                    label={status ? statusLabel(values.kind, status) : "Tümü"}
+                    active={values.status === status}
+                    onClick={() => applyFilters({ status: values.status === status ? "" : status })}
+                  />
+                ))}
+              </div>
+            </div>
+          }
+          right={
             <Button size="sm" variant="primary" disabled={!online} onClick={() => writeParams({ search: "1" })}>
               <Plus size={14} aria-hidden="true" /> Medya ekle
             </Button>
           }
-        >
-          <div role="group" aria-label="Tür filtresi" className="flex flex-wrap gap-1.5">
-            <FilterChip label="Tümü" active={!values.kind} onClick={() => applyFilters({ kind: "" })} />
-            {KINDS.map((kind) => (
-              <FilterChip
-                key={kind}
-                label={KIND_LABELS[kind]}
-                active={values.kind === kind}
-                onClick={() => applyFilters({ kind: values.kind === kind ? "" : kind })}
-              />
-            ))}
-          </div>
-        </WorkspacePaneHeader>
+        />
 
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="space-y-4 p-4">
           {values.status !== "in_progress" && continuing.isLoading && (
             <div role="status" aria-label="Devam edenler yükleniyor" className="flex gap-2">
               <span className="sr-only">Devam edenler yükleniyor…</span>
@@ -379,42 +414,6 @@ function MediaLibraryView() {
             onRemove={removeFilter}
             onClear={() => navigate("/media")}
           />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-0 flex-1 sm:max-w-xs">
-              <Search
-                size={14}
-                aria-hidden="true"
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
-              />
-              <Input
-                value={draftQuery}
-                onChange={setDraftQuery}
-                ariaLabel="Kütüphanede ara"
-                placeholder="Kütüphanede ara"
-                type="search"
-                className="w-full pl-8"
-              />
-            </div>
-            <Button
-              aria-expanded={filtersOpen}
-              onClick={() => setFiltersOpen((open) => !open)}
-              className={cx(filtersOpen && "border-accent text-accent")}
-            >
-              <SlidersHorizontal size={14} aria-hidden="true" />
-              {filtersOpen ? "Filtreleri kapat" : "Filtreleri aç"}
-            </Button>
-            <div role="group" aria-label="Durum filtresi" className="flex flex-wrap gap-1.5">
-              {["", "in_progress", "planned", "completed"].map((status) => (
-                <FilterChip
-                  key={status || "all"}
-                  label={status ? statusLabel(values.kind, status) : "Tümü"}
-                  active={values.status === status}
-                  onClick={() => applyFilters({ status: values.status === status ? "" : status })}
-                />
-              ))}
-            </div>
-          </div>
 
           {filtersOpen && (
             <MediaFilterPanel

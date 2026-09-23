@@ -18,7 +18,6 @@ import {
   RowList,
   Section,
   Select,
-  Toolbar,
   useToast,
   cx,
 } from "@/core/ui";
@@ -221,7 +220,7 @@ export function DocumentsPage() {
             />
           </div>
         ) : null}
-        <WorkspaceScrollArea className="p-3">
+        <WorkspaceScrollArea className="p-4">
           <DocumentsList
             docs={visibleDocs}
             usageByDoc={docOpportunities}
@@ -259,28 +258,26 @@ function UploadPanel({ online }: { online: boolean }) {
 
   return (
     <Section title="Yerel Belge / CV Yükle">
-      <Toolbar className="border-y-0 py-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <FileInput
-            ref={fileRef}
-            accept=".pdf,.doc,.docx,.txt"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) upload.mutate(f);
-            }}
-          />
-          <Select value={category} onChange={setCategory} className="w-36">
-            <option value="cv">CV</option>
-            <option value="education">Eğitim</option>
-            <option value="exams">Sınavlar</option>
-            <option value="certificates">Sertifikalar</option>
-            <option value="other">Diğer</option>
-          </Select>
-          <Button variant="primary" disabled={!online || upload.isPending} onClick={() => fileRef.current?.click()}>
-            <Upload size={14} /> {upload.isPending ? "Yükleniyor…" : "Dosya Seç ve Yükle"}
-          </Button>
-        </div>
-      </Toolbar>
+      <div className="flex flex-wrap items-center gap-2">
+        <FileInput
+          ref={fileRef}
+          accept=".pdf,.doc,.docx,.txt"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) upload.mutate(f);
+          }}
+        />
+        <Select value={category} onChange={setCategory} className="w-36">
+          <option value="cv">CV</option>
+          <option value="education">Eğitim</option>
+          <option value="exams">Sınavlar</option>
+          <option value="certificates">Sertifikalar</option>
+          <option value="other">Diğer</option>
+        </Select>
+        <Button variant="primary" disabled={!online || upload.isPending} onClick={() => fileRef.current?.click()}>
+          <Upload size={14} /> {upload.isPending ? "Yükleniyor…" : "Dosya Seç ve Yükle"}
+        </Button>
+      </div>
     </Section>
   );
 }
@@ -314,27 +311,25 @@ function SyncPanel({
 }) {
   return (
     <Section title="Drive klasörü tara">
-      <Toolbar className="border-y-0 py-0">
-        <form
-          className="grid w-full gap-2 md:grid-cols-[1fr_12rem_auto]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (folderId.trim()) onSync();
-          }}
-        >
-          <Input value={folderId} onChange={onFolderId} placeholder="Drive klasör kimliği" className="w-full" />
-          <Select value={category} onChange={onCategory} className="w-full">
-            <option value="cv">CV</option>
-            <option value="education">Eğitim</option>
-            <option value="exams">Sınavlar</option>
-            <option value="certificates">Sertifikalar</option>
-            <option value="other">Diğer</option>
-          </Select>
-          <Button type="submit" variant="primary" disabled={!online || !connected || pending}>
-            Senkronla
-          </Button>
-        </form>
-      </Toolbar>
+      <form
+        className="grid w-full gap-2 md:grid-cols-[1fr_12rem_auto]"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (folderId.trim()) onSync();
+        }}
+      >
+        <Input value={folderId} onChange={onFolderId} placeholder="Drive klasör kimliği" className="w-full" />
+        <Select value={category} onChange={onCategory} className="w-full">
+          <option value="cv">CV</option>
+          <option value="education">Eğitim</option>
+          <option value="exams">Sınavlar</option>
+          <option value="certificates">Sertifikalar</option>
+          <option value="other">Diğer</option>
+        </Select>
+        <Button type="submit" variant="primary" disabled={!online || !connected || pending}>
+          Senkronla
+        </Button>
+      </form>
       {!connected && (
         <p className="mt-2 text-meta text-warn">
           Google bağlı değil; uygulamanın geri kalanı normal çalışmaya devam eder.

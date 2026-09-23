@@ -14,7 +14,7 @@ export function OpportunityConnectionsSection({ id }: { id: string }) {
   if (!data?.organization) return null;
 
   return (
-    <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
+    <section className="rounded-card border border-subtle bg-surface p-4">
       <SectionHeader
         label="Warm intro"
         hint={

@@ -32,6 +32,7 @@ import {
   cx,
   useToast,
 } from "@/core/ui";
+import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea, WorkspaceToolbar } from "@/core/workspace/Workspace";
 import { useOnline } from "@/lib/hooks";
 import { ContextChip, ContextPicker } from "./ContextPicker";
 import { FocusMode } from "./FocusMode";
@@ -152,137 +153,140 @@ export function PomodoroPage() {
 
   return (
     <>
-      <PageFrame className="max-w-none">
-        <header className="flex flex-wrap items-end gap-3 border-b border-subtle pb-3">
-          <div className="min-w-0 flex-1">
-            <p className="label-caps mb-1">Planlama</p>
-            <h1 className="text-display text-primary">Odak</h1>
-            <p className="mt-0.5 text-body text-muted">Sakin bir zihin, daha derin işler.</p>
-          </div>
-          <p className="text-meta text-muted">
-            {new Date().toLocaleDateString("tr-TR", {
+      <PageFrame>
+        <Workspace>
+          <WorkspacePaneHeader
+            eyebrow="Planlama"
+            title="Odak"
+            hint={new Date().toLocaleDateString("tr-TR", {
               weekday: "long",
               day: "numeric",
               month: "long",
               year: "numeric",
             })}
-          </p>
-        </header>
+          />
 
-        <nav aria-label="Odak bölümleri" className="mt-3 flex gap-1 border-b border-subtle">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              aria-current={tab === id ? "page" : undefined}
-              onClick={() => setTab(id)}
-              className={cx(
-                "flex items-center gap-1.5 border-b-2 px-3 py-2 text-meta transition-colors",
-                tab === id
-                  ? "border-accent font-medium text-primary"
-                  : "border-transparent text-muted hover:text-primary",
-              )}
-            >
-              <Icon size={14} /> {label}
-            </button>
-          ))}
-        </nav>
-
-        {tab === "focus" && (
-          <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.72fr)]">
-            <div className="space-y-3">
-              <FocusGarden
-                points={analytics?.daily ?? []}
-                totalMinutes={analytics?.minutes ?? 0}
-                loading={analyticsLoading}
-              />
-              <FocusComposer
-                active={active}
-                left={left}
-                paused={paused}
-                minutes={minutes}
-                topic={topic}
-                context={context}
-                breakMinutes={preferences.breakMinutes}
-                online={online}
-                pending={start.isPending || stop.isPending || togglePause.isPending}
-                onMinutes={setMinutes}
-                onTopic={setTopic}
-                onContext={setContext}
-                onStart={() => start.mutate("focus")}
-                onBreak={() => start.mutate("short_break")}
-                onPause={() => togglePause.mutate()}
-                onComplete={() => stop.mutate(false)}
-                onInterrupt={() => stop.mutate(true)}
-                onFullscreen={() => setFocusMode(true)}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <FocusTrend points={analytics?.daily ?? []} />
-              <SessionList
-                sessions={sessions.slice(0, 8)}
-                title="Son odak seansları"
-                onShowAll={() => setTab("stats")}
-                onRemove={(id) => remove.mutate(id)}
-                removePending={remove.isPending}
-              />
-            </div>
-          </div>
-        )}
-
-        {tab === "stats" && (
-          <div className="mt-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-title text-primary">Odak analizi</h2>
-                <p className="text-meta text-muted">Tamamlanan ve yarıda kesilen odak bloklarından hesaplanır.</p>
-              </div>
-              <div className="flex rounded-control border border-subtle bg-surface p-1">
-                {RANGE_LABELS.map((item) => (
+          <WorkspaceToolbar
+            left={
+              <nav aria-label="Odak bölümleri" className="flex items-center gap-1">
+                {TABS.map(({ id, label, icon: Icon }) => (
                   <button
-                    key={item.id}
+                    key={id}
                     type="button"
-                    aria-pressed={range === item.id}
-                    onClick={() => setRange(item.id)}
+                    aria-current={tab === id ? "page" : undefined}
+                    onClick={() => setTab(id)}
                     className={cx(
-                      "rounded-control px-3 py-1.5 text-meta transition-colors",
-                      range === item.id ? "bg-primary text-canvas" : "text-muted hover:text-primary",
+                      "flex h-8 items-center gap-1.5 rounded-control px-2.5 text-meta transition-colors",
+                      tab === id
+                        ? "bg-surface-selected font-medium text-primary"
+                        : "text-muted hover:bg-surface-hover hover:text-primary",
                     )}
                   >
-                    {item.label}
+                    <Icon size={14} /> {label}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            <div className="grid gap-3 lg:grid-cols-3">
-              <StatValue label="Toplam odak" value={durationLabel(analytics?.minutes ?? 0)} />
-              <StatValue label="Tamamlanan" value={String(analytics?.completed ?? 0)} />
-              <StatValue label="Yarıda kesilen" value={String(analytics?.interrupted ?? 0)} />
-            </div>
-
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-              <ContextBreakdown analytics={analytics} />
-              <SessionList
-                sessions={sessions}
-                title="Etkinlik geçmişi"
-                onRemove={(id) => remove.mutate(id)}
-                removePending={remove.isPending}
-                allowManual
-                onManualDone={refresh}
-              />
-            </div>
-          </div>
-        )}
-
-        {tab === "settings" && (
-          <FocusSettings
-            value={preferences}
-            onChange={updatePreferences}
-            onUseDefault={() => setMinutes(preferences.focusMinutes)}
+              </nav>
+            }
           />
-        )}
+
+          <WorkspaceScrollArea className="space-y-4 p-4 sm:p-6">
+            {tab === "focus" && (
+              <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.72fr)]">
+                <div className="space-y-3">
+                  <FocusGarden
+                    points={analytics?.daily ?? []}
+                    totalMinutes={analytics?.minutes ?? 0}
+                    loading={analyticsLoading}
+                  />
+                  <FocusComposer
+                    active={active}
+                    left={left}
+                    paused={paused}
+                    minutes={minutes}
+                    topic={topic}
+                    context={context}
+                    breakMinutes={preferences.breakMinutes}
+                    online={online}
+                    pending={start.isPending || stop.isPending || togglePause.isPending}
+                    onMinutes={setMinutes}
+                    onTopic={setTopic}
+                    onContext={setContext}
+                    onStart={() => start.mutate("focus")}
+                    onBreak={() => start.mutate("short_break")}
+                    onPause={() => togglePause.mutate()}
+                    onComplete={() => stop.mutate(false)}
+                    onInterrupt={() => stop.mutate(true)}
+                    onFullscreen={() => setFocusMode(true)}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <FocusTrend points={analytics?.daily ?? []} />
+                  <SessionList
+                    sessions={sessions.slice(0, 8)}
+                    title="Son odak seansları"
+                    onShowAll={() => setTab("stats")}
+                    onRemove={(id) => remove.mutate(id)}
+                    removePending={remove.isPending}
+                  />
+                </div>
+              </div>
+            )}
+
+            {tab === "stats" && (
+              <div className="mt-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-title text-primary">Odak analizi</h2>
+                    <p className="text-meta text-muted">Tamamlanan ve yarıda kesilen odak bloklarından hesaplanır.</p>
+                  </div>
+                  <div className="flex rounded-control border border-subtle bg-surface p-1">
+                    {RANGE_LABELS.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        aria-pressed={range === item.id}
+                        onClick={() => setRange(item.id)}
+                        className={cx(
+                          "rounded-control px-3 py-1.5 text-meta transition-colors",
+                          range === item.id ? "bg-primary text-canvas" : "text-muted hover:text-primary",
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-3">
+                  <StatValue label="Toplam odak" value={durationLabel(analytics?.minutes ?? 0)} />
+                  <StatValue label="Tamamlanan" value={String(analytics?.completed ?? 0)} />
+                  <StatValue label="Yarıda kesilen" value={String(analytics?.interrupted ?? 0)} />
+                </div>
+
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                  <ContextBreakdown analytics={analytics} />
+                  <SessionList
+                    sessions={sessions}
+                    title="Etkinlik geçmişi"
+                    onRemove={(id) => remove.mutate(id)}
+                    removePending={remove.isPending}
+                    allowManual
+                    onManualDone={refresh}
+                  />
+                </div>
+              </div>
+            )}
+
+            {tab === "settings" && (
+              <FocusSettings
+                value={preferences}
+                onChange={updatePreferences}
+                onUseDefault={() => setMinutes(preferences.focusMinutes)}
+              />
+            )}
+          </WorkspaceScrollArea>
+        </Workspace>
       </PageFrame>
 
       {focusMode && active && <FocusMode onClose={() => setFocusMode(false)} />}

@@ -42,7 +42,7 @@ export function HealthPage() {
             />
           }
         />
-        <WorkspaceScrollArea className="p-3">
+        <WorkspaceScrollArea className="p-4 sm:p-6">
           <div className="space-y-6">
             <SetupChecklist />
             <SystemStatusOverview summary={summary} />

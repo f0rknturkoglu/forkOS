@@ -134,7 +134,7 @@ export function MediaUpcomingPage() {
           title="Yaklaşan yayınlar"
           hint={data ? `${data.total} yayın` : undefined}
         />
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="space-y-4 p-4">
           <div className="flex flex-wrap items-center gap-2">
             <div role="group" aria-label="Yayın aralığı" className="flex flex-wrap gap-1.5">
               {DAY_OPTIONS.map((option) => (

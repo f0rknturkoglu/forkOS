@@ -32,7 +32,7 @@ export function SourceHealthAccordion({
       data-source-health
       open={open}
       onToggle={(event) => onOpenChange(event.currentTarget.open)}
-      className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
+      className="overflow-hidden rounded-card border border-subtle bg-surface"
     >
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 marker:content-none">
         <ChevronDown className={cx("transition-transform", open && "rotate-180")} aria-hidden size={15} />

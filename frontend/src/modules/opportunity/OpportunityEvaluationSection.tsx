@@ -156,7 +156,7 @@ export function OpportunityEvaluationSection({
 
   if (!evaluation || !draft) {
     return (
-      <section className="rounded-card border border-subtle bg-surface p-5 shadow-card">
+      <section className="rounded-card border border-subtle bg-surface p-5">
         <div className="mx-auto max-w-content py-8 text-center">
           <Sparkles size={22} className="mx-auto text-accent" />
           <h3 className="mt-3 text-heading text-primary">İlanı iki aşamada değerlendir</h3>
@@ -187,7 +187,7 @@ export function OpportunityEvaluationSection({
           <strong>İlan metni uyarısı:</strong> {draft.notes}
         </div>
       )}
-      <section className="rounded-card border border-subtle bg-surface p-4 shadow-card">
+      <section className="rounded-card border border-subtle bg-surface p-4">
         <SectionHeader
           label="İki aşamalı değerlendirme"
           hint={`${draft.version} · ${new Date(draft.evaluated_at).toLocaleDateString("tr-TR")}`}

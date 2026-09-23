@@ -290,7 +290,7 @@ export function ActivityPage() {
                           data-activity-day
                           open={open}
                           onToggle={(event) => setDayOpen(key, event.currentTarget.open)}
-                          className="overflow-hidden rounded-card border border-subtle bg-surface shadow-card"
+                          className="overflow-hidden rounded-card border border-subtle bg-surface"
                         >
                           <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-2 marker:content-none">
                             <ChevronDown

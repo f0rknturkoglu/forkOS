@@ -10,6 +10,7 @@ import {
   WorkspaceRailContent,
   WorkspaceRailGroup,
   WorkspaceScrollArea,
+  WorkspaceToolbar,
 } from "@/core/workspace/Workspace";
 import { DeckDetail } from "./DeckDetail";
 import { DeckList } from "./DeckList";
@@ -69,7 +70,7 @@ export function FlashcardPage() {
   };
 
   return (
-    <PageFrame className="py-3">
+    <PageFrame>
       <Workspace
         railAt="lg"
         rail={
@@ -101,9 +102,11 @@ export function FlashcardPage() {
           eyebrow="Kartlar"
           title={selected?.title ?? "Tekrar çalışma alanı"}
           hint={selected ? `${selected.card_count} kart` : `${decks.length} deste`}
-          action={
+        />
+        <WorkspaceToolbar
+          left={selected?.due_count ? <Chip tone="danger">{selected.due_count} tekrar</Chip> : null}
+          right={
             <div className="flex items-center gap-2">
-              {selected?.due_count ? <Chip tone="danger">{selected.due_count} tekrar</Chip> : null}
               <Button size="sm" variant="ghost" onClick={() => navigate("/flashcard?review=missed")}>
                 <Flame size={13} /> Zayıf noktalar
               </Button>
@@ -113,7 +116,7 @@ export function FlashcardPage() {
             </div>
           }
         />
-        <WorkspaceScrollArea className="p-3">
+        <WorkspaceScrollArea className="p-4">
           {reviewMode ? (
             sessionLoading || !session ? (
               session ? null : (
