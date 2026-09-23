@@ -22,7 +22,9 @@ from app.modules.opportunity.models import Application, Interview, Opportunity
 from app.modules.proactivity import rules, service
 from app.modules.proactivity.models import ProactivityRun
 
-NOW = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
+# Deadline provider filters future interviews against wall-clock time; keep
+# this test's synthetic timeline ahead of that boundary on every CI run.
+NOW = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0) + timedelta(days=1)
 
 
 @pytest.fixture
@@ -269,8 +271,9 @@ async def test_same_day_interview_time_change_changes_revision(
     """§9: date-only revizyon yeterli değil — saat değişimi de revizyonu değiştirir."""
 
     # T-5 (rung 7 → digest kuyruğu) ve AYNI GÜN içinde saat değişimi.
-    nine = datetime(2026, 9, 26, 9, 0, tzinfo=UTC)
-    four = datetime(2026, 9, 26, 16, 0, tzinfo=UTC)
+    interview_day = NOW + timedelta(days=5)
+    nine = interview_day.replace(hour=9)
+    four = interview_day.replace(hour=16)
     assert rules.temporal_revision(nine) != rules.temporal_revision(four)
     assert rules.temporal_revision(nine.date()) == rules.temporal_revision(nine.date())
 

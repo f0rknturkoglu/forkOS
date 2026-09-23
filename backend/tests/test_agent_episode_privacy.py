@@ -39,6 +39,8 @@ from app.modules.agent_episode.schemas import (
 )
 from app.modules.agent_lifecycle.models import AgentSession, AgentSessionTurn
 from app.modules.agent_lifecycle.service import turn_key
+from app.modules.semantic_memory import service as semantic_service
+from app.modules.semantic_memory.schemas import SemanticCandidateRefreshIn
 from tests.a3_fixtures import (
     A3_RAW_SECRET,
     Source,
@@ -126,6 +128,40 @@ async def test_raw_user_and_assistant_messages_are_never_persisted(
     assert dumped["agent_session_episode_turn"], "tur kökeni yazılmalıydı"
     assert dumped["agent_session_episode_item"], "türetilmiş ifade yazılmalıydı"
     assert A3_RAW_SECRET not in _joined(dumped)
+
+
+async def test_memory_opt_out_survives_distillation_without_raw_text(
+    monkeypatch: pytest.MonkeyPatch, h4_ready: None
+) -> None:
+    raw = "TypeScript seviyorum ama bunu hafızaya alma"
+    patch_provider(
+        monkeypatch,
+        ScriptedProvider(
+            responses=[
+                item_json("topic", "Kullanıcı TypeScript üzerine konuştu.", "TypeScript seviyorum")
+            ]
+        ),
+    )
+    async with SessionLocal() as session:
+        row = await start_session(session, "semantic-opt-out")
+        await deliver(session, row, raw_turn_id="t1", sources=[])
+        result = await ingest(
+            session,
+            "semantic-opt-out",
+            turn_id="t1",
+            user=raw,
+            assistant="TypeScript tercihi ele alındı.",
+        )
+        assert result.accepted
+        await seal(session, "semantic-opt-out")
+        turn = (await session.execute(select(AgentSessionEpisodeTurn))).scalar_one()
+        assert turn.semantic_memory_eligible is False
+        refreshed = await semantic_service.refresh_candidates(
+            session, SemanticCandidateRefreshIn(include_episodes=True, include_events=False)
+        )
+        assert refreshed.created_count == 0
+        dumped = await _serialized_rows(session, EPISODE_TABLES)
+        assert raw not in _joined(dumped)
 
 
 # ---------------------------------------------------------------------------
@@ -349,11 +385,7 @@ async def test_derived_item_containing_secret_pattern_is_rejected(
         out = await ingest(
             session, "privacy-secret-leak", turn_id="t1", user=user, assistant="tamam"
         )
-        items = (
-            await session.execute(
-                select(AgentSessionEpisodeItem)
-            )
-        ).scalars().all()
+        items = (await session.execute(select(AgentSessionEpisodeItem))).scalars().all()
         dumped = await _serialized_rows(session, EPISODE_TABLES)
 
     assert out.derived_item_count == 0

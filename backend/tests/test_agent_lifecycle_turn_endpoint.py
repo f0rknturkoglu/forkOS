@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.main import app
-from app.modules.agent_lifecycle.models import AgentSession, AgentSessionTurn
+from app.modules.agent_lifecycle.models import AgentSession
 from app.modules.agent_lifecycle.service import session_key
 
 

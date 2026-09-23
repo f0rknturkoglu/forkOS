@@ -13,7 +13,7 @@
     },
     {
       "input": "Lütfen bunu saklama.",
-      "should_block": true
+      "should_block": false
     },
     {
       "input": "Don't remember this, it is sensitive.",
@@ -29,6 +29,22 @@
     },
     {
       "input": "Toplantılar salı günleri saat 14:00'te yapılacak.",
+      "should_block": false
+    },
+    {
+      "input": "TypeScript seviyorum ama bunu hafızaya alma.",
+      "should_block": true
+    },
+    {
+      "input": "don't remember this preference",
+      "should_block": true
+    },
+    {
+      "input": "dosyayı kaydetme",
+      "should_block": false
+    },
+    {
+      "input": "şunu unut, diğer konuya geç",
       "should_block": false
     }
   ],
@@ -54,31 +70,52 @@
   ],
   "promotion_gate_cases": [
     {
-      "case_id": "explicit_user_direct",
-      "evidence_class": "explicit_user",
-      "user_confirmed": false,
+      "case_id": "explicit_user_ready",
+      "status": "ready",
       "can_promote": true
     },
     {
       "case_id": "model_derived_unconfirmed",
-      "evidence_class": "model_derived",
-      "user_confirmed": false,
+      "status": "needs_review",
       "can_promote": false,
       "expected_error": "SEMANTIC_REVIEW_REQUIRED"
     },
     {
       "case_id": "episode_derived_unconfirmed",
-      "evidence_class": "episode_derived",
-      "user_confirmed": false,
+      "status": "needs_review",
       "can_promote": false,
       "expected_error": "SEMANTIC_REVIEW_REQUIRED"
     },
     {
       "case_id": "episode_derived_confirmed",
-      "evidence_class": "episode_derived",
-      "user_confirmed": true,
+      "status": "ready",
       "can_promote": true
+    },
+    {
+      "case_id": "explicit_user_rejected",
+      "status": "rejected",
+      "can_promote": false,
+      "expected_error": "SEMANTIC_INVALID_STATE"
+    },
+    {
+      "case_id": "explicit_user_stale",
+      "status": "stale",
+      "can_promote": false,
+      "expected_error": "SEMANTIC_INVALID_STATE"
     }
+  ],
+  "destination_routing_cases": [
+    {"kind": "commitment", "scope": "global", "expected": "operational"},
+    {"kind": "preference", "scope": "global", "expected": "durable_vault"},
+    {"kind": "decision", "scope": "session", "expected": "hot_memory"}
+  ],
+  "scope_isolation_cases": [
+    {"session_project": null, "visible": ["global"]},
+    {"session_project": "a", "visible": ["global", "a"]},
+    {"session_project": "b", "visible": ["global", "b"]}
+  ],
+  "temporal_preservation_cases": [
+    {"observed_at": "2020-01-02T00:00:00+00:00", "valid_from": "2020-01-03T00:00:00+00:00", "valid_to": "2030-01-03T00:00:00+00:00"}
   ],
   "supersession_cases": [
     {

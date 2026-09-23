@@ -80,6 +80,7 @@ describe("Hafıza adayları kartı (A4)", () => {
           status: "needs_review",
           reviewed_by: null,
           possible_related_card_ids: ["old_card_123"],
+          possible_related_cards: [{ card_id: "old_card_123", statement: "Eski veritabanı kararı" }],
           warnings: [],
           recurrence_count: 1,
           first_seen_at: "2026-09-23T12:00:00Z",
@@ -124,7 +125,6 @@ describe("Hafıza adayları kartı (A4)", () => {
     });
   });
 
-
   it("adayları ve kanıt etiketlerini Türkçe olarak gösterir", async () => {
     wrap(<SemanticCandidatesCard online={true} />);
 
@@ -137,8 +137,8 @@ describe("Hafıza adayları kartı (A4)", () => {
     expect(screen.queryByText("Agent çıkarımı")).toBeTruthy();
     expect(screen.queryByText("Kullanıcı açıkça söyledi")).toBeTruthy();
 
-    // Benzer mevcut bilgi uyarısı
-    expect(screen.queryByText(/Benzer mevcut bilgi: old_card_123/)).toBeTruthy();
+    // Olası ilişki kullanıcıya gösterilir; otomatik geçersiz kılma yapılmaz.
+    expect(screen.queryByText(/Olası ilişkili kartlar: Eski veritabanı kararı/)).toBeTruthy();
   });
 
   it("Adayları tara eylemi refresh endpoint'ini çağırır", async () => {
@@ -171,6 +171,32 @@ describe("Hafıza adayları kartı (A4)", () => {
       expect(semanticApi.confirmSemanticCandidate).toHaveBeenCalledWith(
         "11111111-1111-1111-1111-111111111111",
         "rev_1",
+      );
+    });
+  });
+
+  it("normal terfi ilişkili kartı otomatik geçersiz kılmaz", async () => {
+    const candidates = await semanticApi.listSemanticCandidates();
+    candidates.items[0].status = "ready";
+    vi.mocked(semanticApi.listSemanticCandidates).mockResolvedValue(candidates);
+    vi.mocked(semanticApi.promoteSemanticCandidate).mockResolvedValue({
+      status: "promoted",
+      destination: "durable_vault",
+      card_id: "new_card",
+      relative_path: "30 Knowledge/Memory/new_card.md",
+      revision: "new_rev",
+    });
+    wrap(<SemanticCandidatesCard online={true} />);
+
+    const promoteButtons = await screen.findAllByText("Terfi et");
+    fireEvent.click(promoteButtons[0]);
+
+    await waitFor(() => {
+      expect(semanticApi.promoteSemanticCandidate).toHaveBeenCalledWith(
+        "11111111-1111-1111-1111-111111111111",
+        "rev_1",
+        "durable_vault",
+        undefined,
       );
     });
   });

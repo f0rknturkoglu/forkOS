@@ -11,8 +11,8 @@ from app.core.entity import create_entity
 from app.db import SessionLocal
 from app.modules.agent_continuity import service as continuity_svc
 from app.modules.agent_continuity.models import AgentSessionContext, AgentSessionSource
-from app.modules.agent_lifecycle.models import AgentSession, AgentSessionTurn
-from app.modules.agent_lifecycle.service import session_key, turn_key
+from app.modules.agent_lifecycle.models import AgentSession
+from app.modules.agent_lifecycle.service import session_key
 from app.modules.project.models import Project
 
 
@@ -221,12 +221,6 @@ async def test_scope_transitions_matrix(active_session: AgentSession):
             session_row=active_session,
             scope_project=id_a_str,
         )
-        last_ctx = (await db.execute(
-            select(AgentSessionContext)
-            .where(AgentSessionContext.session_id == active_session.id)
-            .order_by(AgentSessionContext.created_at.desc())
-            .limit(1)
-        )).scalar_one()
         # Ensure a source with scope A exists
         now = datetime.now(UTC)
         existing_s_a = (await db.execute(

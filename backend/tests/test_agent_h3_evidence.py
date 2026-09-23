@@ -21,6 +21,7 @@ from app.db import SessionLocal
 from app.integrations.agent import evidence as ev
 from app.integrations.agent.evidence_models import MAX_EVIDENCE_LIMIT, MAX_TOTAL_EVIDENCE_CHARS
 from app.integrations.obsidian.evidence import MAX_VAULT_SCAN_FILES
+from app.integrations.obsidian.semantic_memory import create_semantic_card
 from app.integrations.obsidian.service import refresh_vault_index
 from app.modules.project.models import Project
 from app.modules.todo.models import Todo
@@ -83,7 +84,9 @@ async def _entity(session: AsyncSession, *, type: str, title: str, search_text: 
     return entity
 
 
-async def _project(session: AsyncSession, *, title: str, stack: list[str] | None = None, **kwargs) -> Entity:
+async def _project(
+    session: AsyncSession, *, title: str, stack: list[str] | None = None, **kwargs
+) -> Entity:
     entity = await _entity(session, type="project", title=title, search_text=" ".join(stack or []))
     session.add(
         Project(
@@ -107,7 +110,9 @@ async def _todo(session: AsyncSession, *, title: str, project: Entity | None = N
     return entity
 
 
-async def _link(session: AsyncSession, source: Entity, target: Entity, relation: str = "related") -> None:
+async def _link(
+    session: AsyncSession, source: Entity, target: Entity, relation: str = "related"
+) -> None:
     session.add(Link(from_id=source.id, to_id=target.id, relation=relation))
     await session.flush()
 
@@ -179,7 +184,9 @@ async def test_explicit_project_evidence_covers_all_channels(
         github_repo="f0rknturkoglu/forkjob",
     )
     todo = await _todo(db_session, title="Rust mimarisini yaz", project=project)
-    project_event = await _event(db_session, project, verb="project.updated", payload={"stack": ["Rust"]})
+    project_event = await _event(
+        db_session, project, verb="project.updated", payload={"stack": ["Rust"]}
+    )
     todo_event = await _event(db_session, todo, verb="todo.created", payload={"status": "open"})
     _note(
         vault,
@@ -205,7 +212,9 @@ async def test_explicit_project_evidence_covers_all_channels(
     assert "stack: [Rust, PostgreSQL]" in seed_item.excerpt
     assert seed_item.relation_path == []
 
-    knowledge = next(item for item in _vault_items(bundle) if item.locator.forkos_id == str(project.id))
+    knowledge = next(
+        item for item in _vault_items(bundle) if item.locator.forkos_id == str(project.id)
+    )
     assert knowledge.locator.heading == "Teknoloji Kararı"
     assert knowledge.updated_at == "2026-09-01T10:00:00+03:00"
     assert knowledge.relation_path[0].kind == "knowledge_pointer"
@@ -226,7 +235,13 @@ async def test_evidence_order_follows_provenance_priority(
     project = await _project(db_session, title="forkjob", stack=["Rust"])
     await _todo(db_session, title="Rust görevi", project=project)
     await _event(db_session, project, verb="project.updated", payload={"note": "Rust"})
-    _note(vault, "20 Projects/forkjob.md", "# forkjob\n\n## Karar\n\nRust.\n", forkos_id=str(project.id), forkos_type="project")
+    _note(
+        vault,
+        "20 Projects/forkjob.md",
+        "# forkjob\n\n## Karar\n\nRust.\n",
+        forkos_id=str(project.id),
+        forkos_type="project",
+    )
     refresh_vault_index()
 
     bundle = await ev.retrieve_evidence(db_session, query="Rust", entity_id=str(project.id))
@@ -304,7 +319,9 @@ async def test_managed_note_heading_and_exact_line_locator(
     )
     refresh_vault_index()
 
-    bundle = await ev.retrieve_evidence(db_session, query="Rust memory safety", entity_id=str(project.id))
+    bundle = await ev.retrieve_evidence(
+        db_session, query="Rust memory safety", entity_id=str(project.id)
+    )
     item = _vault_items(bundle)[0]
 
     assert item.locator.forkos_id == str(project.id)
@@ -328,8 +345,12 @@ async def test_vault_conflict_is_reported_without_guessing(
 ) -> None:
     project = await _project(db_session, title="conflicted", stack=["Rust"])
     shared_id = str(project.id)
-    _note(vault, "20 Projects/a.md", "# A\n\nRust notu.\n", forkos_id=shared_id, forkos_type="project")
-    _note(vault, "20 Projects/b.md", "# B\n\nRust notu.\n", forkos_id=shared_id, forkos_type="project")
+    _note(
+        vault, "20 Projects/a.md", "# A\n\nRust notu.\n", forkos_id=shared_id, forkos_type="project"
+    )
+    _note(
+        vault, "20 Projects/b.md", "# B\n\nRust notu.\n", forkos_id=shared_id, forkos_type="project"
+    )
     refresh_vault_index()
 
     bundle = await ev.retrieve_evidence(db_session, query="Rust", entity_id=shared_id, scope="all")
@@ -341,7 +362,9 @@ async def test_vault_conflict_is_reported_without_guessing(
     # "yönetilen not" kökeni iddia edilmez.
     assert all(item.locator.forkos_id is None for item in _vault_items(bundle))
     assert not any(
-        hop.kind == "knowledge_pointer" for item in _vault_items(bundle) for hop in item.relation_path
+        hop.kind == "knowledge_pointer"
+        for item in _vault_items(bundle)
+        for hop in item.relation_path
     )
 
 
@@ -365,7 +388,11 @@ async def test_direct_wikilink_evidence_keeps_provenance_path(
     refresh_vault_index()
 
     bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
-    linked = next(item for item in _vault_items(bundle) if item.locator.relative_path == "30 Knowledge/Rust.md")
+    linked = next(
+        item
+        for item in _vault_items(bundle)
+        if item.locator.relative_path == "30 Knowledge/Rust.md"
+    )
 
     assert [hop.kind for hop in linked.relation_path] == ["knowledge_pointer", "wikilink"]
     assert linked.relation_path[-1].from_ref == "vault:20 Projects/forkjob.md"
@@ -373,9 +400,7 @@ async def test_direct_wikilink_evidence_keeps_provenance_path(
     assert linked.locator.heading == "Rust"
 
 
-async def test_ambiguous_wikilink_is_never_guessed(
-    db_session: AsyncSession, vault: Path
-) -> None:
+async def test_ambiguous_wikilink_is_never_guessed(db_session: AsyncSession, vault: Path) -> None:
     project = await _project(db_session, title="forkjob")
     _note(
         vault,
@@ -391,14 +416,10 @@ async def test_ambiguous_wikilink_is_never_guessed(
     bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
 
     assert any("ambiguity" in warning for warning in bundle.warnings)
-    assert not any(
-        hop.kind == "wikilink" for item in bundle.evidence for hop in item.relation_path
-    )
+    assert not any(hop.kind == "wikilink" for item in bundle.evidence for hop in item.relation_path)
 
 
-async def test_backlink_evidence_keeps_backlink_path(
-    db_session: AsyncSession, vault: Path
-) -> None:
+async def test_backlink_evidence_keeps_backlink_path(db_session: AsyncSession, vault: Path) -> None:
     project = await _project(db_session, title="forkjob")
     _note(
         vault,
@@ -411,7 +432,11 @@ async def test_backlink_evidence_keeps_backlink_path(
     refresh_vault_index()
 
     bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
-    backlink = next(item for item in _vault_items(bundle) if item.locator.relative_path == "50 Career/decision.md")
+    backlink = next(
+        item
+        for item in _vault_items(bundle)
+        if item.locator.relative_path == "50 Career/decision.md"
+    )
 
     assert [hop.kind for hop in backlink.relation_path] == ["knowledge_pointer", "backlink"]
     assert backlink.relation_path[-1].relation == "backlink"
@@ -429,7 +454,9 @@ async def test_irrelevant_linked_note_is_not_evidence(
         forkos_id=str(project.id),
         forkos_type="project",
     )
-    _note(vault, "30 Knowledge/Alakasız.md", "# Alakasız\n\nBambu yetiştiriciliği üzerine notlar.\n")
+    _note(
+        vault, "30 Knowledge/Alakasız.md", "# Alakasız\n\nBambu yetiştiriciliği üzerine notlar.\n"
+    )
     refresh_vault_index()
 
     bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
@@ -449,13 +476,22 @@ async def test_event_time_filter_selects_only_the_window(
 ) -> None:
     project = await _project(db_session, title="timebox")
     early = await _event(
-        db_session, project, verb="project.updated", occurred_at=datetime(2026, 9, 1, 9, 0, tzinfo=UTC)
+        db_session,
+        project,
+        verb="project.updated",
+        occurred_at=datetime(2026, 9, 1, 9, 0, tzinfo=UTC),
     )
     inside = await _event(
-        db_session, project, verb="project.updated", occurred_at=datetime(2026, 9, 10, 9, 0, tzinfo=UTC)
+        db_session,
+        project,
+        verb="project.updated",
+        occurred_at=datetime(2026, 9, 10, 9, 0, tzinfo=UTC),
     )
     late = await _event(
-        db_session, project, verb="project.updated", occurred_at=datetime(2026, 9, 20, 9, 0, tzinfo=UTC)
+        db_session,
+        project,
+        verb="project.updated",
+        occurred_at=datetime(2026, 9, 20, 9, 0, tzinfo=UTC),
     )
 
     bundle = await ev.retrieve_evidence(
@@ -489,7 +525,11 @@ async def test_current_state_and_history_stay_separate(
 
     bundle = await ev.retrieve_evidence(db_session, query="Python Rust", entity_id=str(project.id))
 
-    current = next(item for item in bundle.evidence if item.source_type == "entity" and item.source_id == str(project.id))
+    current = next(
+        item
+        for item in bundle.evidence
+        if item.source_type == "entity" and item.source_id == str(project.id)
+    )
     history = next(item for item in bundle.evidence if item.source_type == "event")
     note = next(item for item in _vault_items(bundle) if item.locator.forkos_id == str(project.id))
 
@@ -515,6 +555,25 @@ async def test_hot_memory_is_never_evidence(db_session: AsyncSession, vault: Pat
     paths = {item.locator.relative_path for item in bundle.evidence}
     assert "30 Knowledge/Not.md" in paths
     assert not any(path and path.startswith("90 Agent") for path in paths)
+
+
+async def test_semantic_card_is_evidence_but_hot_memory_is_not(
+    db_session: AsyncSession, vault: Path
+) -> None:
+    phrase = "semantik-kaynak-ozel-iz"
+    card = create_semantic_card(
+        vault,
+        kind="reference",
+        title="Kaynaklı bilgi",
+        statement=f"{phrase} doğrulandı.",
+    )
+    _note(vault, "90 Agent/Memory/semantic-shadow.md", f"# Sıcak bellek\n\n{phrase}\n")
+    refresh_vault_index()
+
+    bundle = await ev.retrieve_evidence(db_session, query=phrase, scope="knowledge")
+    paths = {item.locator.relative_path for item in bundle.evidence}
+    assert card.relative_path in paths
+    assert not any(path and path.startswith("90 Agent/Memory/") for path in paths)
 
 
 # ---------------------------------------------------------------------------
@@ -553,7 +612,9 @@ async def test_vault_unavailable_degrades_in_mixed_scope(
     project = await _project(db_session, title="degraded", stack=["Rust"])
     monkeypatch.setattr(settings, "obsidian_vault_path", str(vault / "does-not-exist"))
 
-    bundle = await ev.retrieve_evidence(db_session, query="Rust", entity_id=str(project.id), scope="all")
+    bundle = await ev.retrieve_evidence(
+        db_session, query="Rust", entity_id=str(project.id), scope="all"
+    )
 
     assert any("VAULT_UNAVAILABLE" in warning for warning in bundle.warnings)
     assert bundle.sources_used == ["forkos"]
@@ -583,7 +644,9 @@ async def test_knowledge_scope_emits_no_operational_evidence(
     )
     refresh_vault_index()
 
-    bundle = await ev.retrieve_evidence(db_session, query="Rust", entity_id=str(project.id), scope="knowledge")
+    bundle = await ev.retrieve_evidence(
+        db_session, query="Rust", entity_id=str(project.id), scope="knowledge"
+    )
 
     assert bundle.sources_used == ["f0rknbrain"]
     assert all(item.source_type == "vault" for item in bundle.evidence)
@@ -658,9 +721,7 @@ async def test_evidence_budget_is_honest(db_session: AsyncSession, vault: Path) 
     assert _trace(bundle, "budget").truncated is True
 
 
-async def test_repeated_calls_are_deterministic(
-    db_session: AsyncSession, vault: Path
-) -> None:
+async def test_repeated_calls_are_deterministic(db_session: AsyncSession, vault: Path) -> None:
     project = await _project(db_session, title="stable", stack=["Rust"])
     await _todo(db_session, title="Stable görev", project=project)
     await _event(db_session, project, verb="project.updated", payload={"note": "Rust"})
@@ -706,7 +767,9 @@ async def test_retrieval_creates_no_rows_and_touches_no_files(
     counts_before = await table_counts(db_session)
     legacy_before = await legacy_notes_counts(db_session)
 
-    await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id), scope="all")
+    await ev.retrieve_evidence(
+        db_session, query="Rust kararı", entity_id=str(project.id), scope="all"
+    )
     await ev.retrieve_evidence(db_session, query="Rust", scope="knowledge")
     await ev.retrieve_evidence(db_session, query="Rust", scope="operational")
 
@@ -880,9 +943,7 @@ async def test_mixed_direction_depth_two_relation_path(
     assert item.relation_path[0].to_ref == item.relation_path[1].from_ref == f"entity:{b.id}"
 
 
-async def test_non_entity_hops_carry_no_direction(
-    db_session: AsyncSession, vault: Path
-) -> None:
+async def test_non_entity_hops_carry_no_direction(db_session: AsyncSession, vault: Path) -> None:
     """§73: knowledge_pointer / wikilink / backlink yön taşımaz."""
     project = await _project(db_session, title="nohop-dir")
     _note(
@@ -951,7 +1012,9 @@ async def test_neighbor_wikilink_keeps_full_seed_to_source_path(
 
     bundle = await ev.retrieve_evidence(db_session, query="Rust kararı", entity_id=str(project.id))
     linked = next(
-        item for item in _vault_items(bundle) if item.locator.relative_path == "30 Knowledge/Rust.md"
+        item
+        for item in _vault_items(bundle)
+        if item.locator.relative_path == "30 Knowledge/Rust.md"
     )
 
     assert [hop.kind for hop in linked.relation_path] == [
@@ -1021,7 +1084,9 @@ async def test_depth_two_neighbor_wikilink_keeps_all_entity_hops(
         db_session, query="Rust kararı", entity_id=str(project.id), max_depth=2
     )
     linked = next(
-        item for item in _vault_items(bundle) if item.locator.relative_path == "30 Knowledge/Rust.md"
+        item
+        for item in _vault_items(bundle)
+        if item.locator.relative_path == "30 Knowledge/Rust.md"
     )
 
     assert [hop.kind for hop in linked.relation_path] == [
@@ -1080,9 +1145,7 @@ async def test_nine_events_mark_event_channel_truncated(
     assert step.truncated is True
 
 
-async def test_event_truncation_propagates_to_bundle(
-    db_session: AsyncSession, vault: Path
-) -> None:
+async def test_event_truncation_propagates_to_bundle(db_session: AsyncSession, vault: Path) -> None:
     """§25/§132: kanal kesmesi pakete yayılır — ve kaynağı iz'de görünür."""
     project = await _project(db_session, title="propagate")
     for index in range(9):
@@ -1136,9 +1199,7 @@ async def test_scan_cap_plus_one_marks_truncated(
 # ---------------------------------------------------------------------------
 
 
-async def test_seed_event_reason_is_explicit_seed(
-    db_session: AsyncSession, vault: Path
-) -> None:
+async def test_seed_event_reason_is_explicit_seed(db_session: AsyncSession, vault: Path) -> None:
     project = await _project(db_session, title="depth-seed")
     event = await _event(db_session, project, verb="project.updated")
 
@@ -1244,9 +1305,13 @@ async def test_operational_event_and_vault_neighbor_use_same_graph_path(
 
     entity_item = next(item for item in bundle.evidence if item.source_id == str(todo.id))
     event_item = next(item for item in bundle.evidence if item.source_id == str(event.id))
-    note_item = next(item for item in _vault_items(bundle) if item.locator.forkos_id == str(todo.id))
+    note_item = next(
+        item for item in _vault_items(bundle) if item.locator.forkos_id == str(todo.id)
+    )
     linked_item = next(
-        item for item in _vault_items(bundle) if item.locator.relative_path == "30 Knowledge/Rust.md"
+        item
+        for item in _vault_items(bundle)
+        if item.locator.relative_path == "30 Knowledge/Rust.md"
     )
 
     first_hop = entity_item.relation_path[0]
@@ -1265,10 +1330,10 @@ def _architecture_fixture(vault: Path, project: Entity) -> Path:
         "# forkjob\n\n"
         "## Old Decision\n\n"
         "Python was considered for the prototype.\n\n"
-        + "Python dolgu satırı burada.\n" * 20
+        + "Python dolgu satırı burada.\n"
+        * 20
         + "\n## Architecture Decision\n\n"
-        "Rust was selected because of memory safety.\n"
-        + "Rust dolgu satırı burada.\n" * 60
+        "Rust was selected because of memory safety.\n" + "Rust dolgu satırı burada.\n" * 60
     )
     return _note(
         vault,
@@ -1289,7 +1354,11 @@ async def test_global_budget_shrink_never_crosses_heading_section(
     monkeypatch.setattr(ev, "MAX_TOTAL_EVIDENCE_CHARS", 400)
 
     bundle = await ev.retrieve_evidence(
-        db_session, query="Rust memory safety", entity_id=str(project.id), scope="knowledge", limit=1
+        db_session,
+        query="Rust memory safety",
+        entity_id=str(project.id),
+        scope="knowledge",
+        limit=1,
     )
     item = bundle.evidence[0]
 
@@ -1315,7 +1384,11 @@ async def test_shrunk_vault_locator_line_range_remains_exact(
     monkeypatch.setattr(ev, "MAX_TOTAL_EVIDENCE_CHARS", 400)
 
     bundle = await ev.retrieve_evidence(
-        db_session, query="Rust memory safety", entity_id=str(project.id), scope="knowledge", limit=1
+        db_session,
+        query="Rust memory safety",
+        entity_id=str(project.id),
+        scope="knowledge",
+        limit=1,
     )
     item = bundle.evidence[0]
 
@@ -1339,9 +1412,7 @@ async def test_single_overlong_line_keeps_correct_heading_and_line(
     path = _note(
         vault,
         "20 Projects/overlong.md",
-        "# forkjob\n\n## Architecture Decision\n\nRust "
-        + "x" * 3000
-        + "\n\n## Sonraki\n\nbaşka\n",
+        "# forkjob\n\n## Architecture Decision\n\nRust " + "x" * 3000 + "\n\n## Sonraki\n\nbaşka\n",
         forkos_id=str(project.id),
         forkos_type="project",
     )
@@ -1458,9 +1529,7 @@ async def test_vault_relation_paths_are_adjacent_hop_continuous(
         assert_continuous_path(item.relation_path)
 
 
-async def test_backlink_final_ref_is_evidence_source(
-    db_session: AsyncSession, vault: Path
-) -> None:
+async def test_backlink_final_ref_is_evidence_source(db_session: AsyncSession, vault: Path) -> None:
     """§6: kasa kanıtının son hop'u KAYNAĞIN KENDİSİNE işaret eder."""
     project = await _project(db_session, title="final-ref")
     todo = await _todo(db_session, title="Son referans", project=project)
