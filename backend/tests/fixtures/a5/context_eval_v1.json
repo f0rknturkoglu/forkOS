@@ -1,0 +1,18 @@
+{
+  "schema_version": "1", "dataset_version": "context-v1", "description": "Synthetic H3-eligible usefulness pairs and pre-judge mechanical exclusions.",
+  "cases": [
+    {"id":"direct", "category":"directly_useful", "query":"What is the Atlas deadline?", "items":[{"id":"entity:atlas", "text":"Atlas deadline is 12 June.", "usefulness":"essential", "redundancy":"unique"}]},
+    {"id":"weak_lexical", "category":"weak_lexical_overlap", "query":"When will Atlas ship?", "items":[{"id":"vault:release", "text":"The launch window closes on 12 June.", "usefulness":"useful", "redundancy":"unique"}]},
+    {"id":"lexical_trap", "category":"lexically_similar_irrelevant", "query":"Atlas deployment status", "items":[{"id":"vault:myth", "text":"An atlas of deployment diagrams for an unrelated tutorial.", "usefulness":"irrelevant", "redundancy":"unique"}]},
+    {"id":"redundant", "category":"redundant_relevant", "query":"Atlas deadline", "items":[{"id":"entity:atlas", "text":"Atlas deadline is 12 June.", "usefulness":"essential", "redundancy":"unique"},{"id":"vault:copy", "text":"Atlas deadline is 12 June.", "usefulness":"useful", "redundancy":"redundant"}]},
+    {"id":"history", "category":"historical_query", "query":"What was the old Atlas deadline?", "items":[{"id":"event:1", "text":"On 1 May Atlas deadline was 10 June.", "usefulness":"essential", "redundancy":"unique"}]},
+    {"id":"current", "category":"current_state_query", "query":"What is the current Atlas deadline?", "items":[{"id":"event:1", "text":"On 1 May Atlas deadline was 10 June.", "usefulness":"weak", "redundancy":"unique"},{"id":"entity:atlas", "text":"Current Atlas deadline is 12 June.", "usefulness":"essential", "redundancy":"unique"}]},
+    {"id":"ambiguous", "category":"ambiguous_query", "query":"How is Atlas?", "items":[{"id":"vault:atlas", "text":"Atlas has a revised roadmap.", "usefulness":"uncertain", "redundancy":"uncertain"}]},
+    {"id":"complementary", "category":"complementary_sources", "query":"Why did Atlas move?", "items":[{"id":"event:2", "text":"Deadline moved to 12 June.", "usefulness":"useful", "redundancy":"unique"},{"id":"vault:reason", "text":"Vendor delay caused the move.", "usefulness":"useful", "redundancy":"unique"}]},
+    {"id":"scope_block", "category":"out_of_scope", "query":"Atlas deadline", "excluded":{"id":"entity:other_project", "reason":"scope"}, "items":[]},
+    {"id":"privacy_block", "category":"privacy_blocked", "query":"Atlas credentials", "excluded":{"id":"vault:secret", "reason":"privacy"}, "items":[]},
+    {"id":"stale_block", "category":"stale_source", "query":"Current Atlas state", "excluded":{"id":"entity:stale", "reason":"freshness"}, "items":[]},
+    {"id":"hot_memory_block", "category":"hot_memory_not_evidence", "query":"Atlas status", "excluded":{"id":"hot_memory:1", "reason":"H3 source type"}, "items":[]},
+    {"id":"unsafe_path_block", "category":"unsafe_vault_path", "query":"Atlas notes", "excluded":{"id":"vault:unsafe", "reason":"Vault path policy"}, "items":[]}
+  ]
+}

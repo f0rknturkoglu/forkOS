@@ -80,7 +80,7 @@ güvenli ve insan denetimini elden bırakmayan aşamalar halinde tasarlanmışt�
 
 - Sahiplik: `f0rknbrain / 90 Agent/Memory/<memory_id>.md` — öğe başına tek
   dosya, UUID kimliği, sürümlü frontmatter (v1).
-- 5 tür: `profile`, `preference`, `goal`, `constraint`, `decision`.
+- 6 tür: `profile`, `preference`, `goal`, `constraint`, `decision`, `correction`.
 - `effective_status`: `active | expired | retired` (zaman aşımı okuma anında;
   emeklilik silme değildir).
 - Revizyon = `sha256(dosya baytları)`; güncelleme/emeklilik `expected_revision`
@@ -430,7 +430,7 @@ H6'nın karar alanıdır ve H6 canonical mutasyon yapmaz.
 
 ---
 
-## A-Serisi — Yaşam Döngüsü, Süreklilik ve Anlamsal Terfi (A1 → A4)
+## A-Serisi — Yaşam Döngüsü, Süreklilik ve Anlamsal Terfi (A1 → A5)
 
 Ajan oturumlarının yaşam döngüsünü gözleyen, Hermes harness'ı ile forkOS arasında hafif ve bütçeli bir süreklilik köprüsü kuran katman. A-serisi yeni bir kanonik durum sahibi DEĞİLDİR; forkOS operasyonel durumunu ve f0rknbrain bilgisini MCP dışındaki oturum sınırlarında köprüler.
 
@@ -441,7 +441,11 @@ A1 — Lifecycle Bridge
 A2 — Bootstrap & Source Continuity
 A3 — Session Handoff & Episodic Memory
 A4 — Semantic Promotion / Durable Memory      (CLOSED, A4.1 hardening)
-A5 — Context Judge / Feedback layer           (BAŞLATILMADI)
+A5 — Judgment Layer
+  A5.0 Frozen Evaluation & Contracts          (CLOSED)
+  A5.1 Context Judge                          (NEXT)
+  A5.2 Memory Judge                           (NOT STARTED)
+  A5.3 Answer Evidence Judge                  (NOT STARTED)
 ```
 
 ### A1 — Lifecycle Bridge ✅ Tamamlandı
@@ -475,9 +479,9 @@ A5 — Context Judge / Feedback layer           (BAŞLATILMADI)
 
 A4 adayları A3'ün uygun mühürlü öğeleri ve isteğe bağlı kanonik event'lerden H5 consolidation ile çıkarılır. Aday kanonik doğru değildir. Kullanıcı incelemesi, `ready` kapısı, kaynak tazeliği, açık tek-kart supersession seçimi ve kopya koruması sonrasında H2 veya f0rknbrain'e terfi edebilir. Operasyonel/prosedürel yönlendirme kanonik yazma yapmaz; sahip eylemi gerektirir. Opt-out ham metin kalıcılaşmadan A3 turunda belirlenir. Ayrıntı: `a4-semantic-promotion.md`.
 
-### A5 — Context Judge / Feedback layer (BAŞLATILMADI)
+### A5 — Judgment Layer (A5.0 CLOSED; A5.1 NEXT)
 
-Enjekte edilen bağlamın ve ajan yanıtlarının kalitesini/kanıt doğruluğunu değerlendiren geri bildirim katmanı henüz uygulanmadı. A4 kendi çıkarımını otomatik doğrulamaz.
+A5.0 üç ayrı yargı amacı için sağlayıcıdan bağımsız, sınırlı sözleşmeleri, güvenli politika kapılarını ve SHA-256 ile dondurulmuş sentetik değerlendirme setlerini tanımlar. Çalışan model/sağlayıcı yoktur; A5.1 Context Judge çalışma zamanı sıradaki fazdır. A4 kendi çıkarımını otomatik doğrulamaz. Ayrıntı: `a5-judgment-layer.md`.
 
 ---
 

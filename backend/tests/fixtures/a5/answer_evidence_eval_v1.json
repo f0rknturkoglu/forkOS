@@ -1,0 +1,17 @@
+{
+  "schema_version":"1", "dataset_version":"answer-evidence-v1", "description":"Synthetic claim support against bounded excerpts and context; source presence is not entailment.",
+  "cases":[
+    {"id":"direct", "category":"direct_support", "claim":"Atlas uses Rust.", "evidence":["Atlas uses Rust."], "context_complete":true, "support":"supported"},
+    {"id":"paraphrase", "category":"paraphrase_support", "claim":"Atlas is implemented in Rust.", "evidence":["The Atlas codebase is written in Rust."], "context_complete":true, "support":"supported"},
+    {"id":"contradicted", "category":"contradiction", "claim":"Atlas uses Python.", "evidence":["Atlas uses Rust, not Python."], "context_complete":true, "support":"contradicted"},
+    {"id":"reversed_context", "category":"surrounding_context_reverses", "claim":"Deployment is scheduled for Friday.", "evidence":["Deployment is scheduled for Friday."], "surrounding_context":"Update: Friday deployment was cancelled.", "context_complete":true, "support":"contradicted"},
+    {"id":"related", "category":"related_insufficient", "claim":"Atlas ships Friday.", "evidence":["Atlas is in beta."], "context_complete":true, "support":"insufficient"},
+    {"id":"compound", "category":"partial_compound", "claim":"Atlas uses Rust and ships Friday.", "evidence":["Atlas uses Rust."], "context_complete":true, "support":"insufficient"},
+    {"id":"historical", "category":"historical_as_current", "claim":"Atlas currently uses Python.", "evidence":["In 2024 Atlas used Python."], "context_complete":true, "support":"insufficient"},
+    {"id":"current", "category":"current_correct", "claim":"Atlas currently uses Rust.", "evidence":["Current Atlas stack: Rust."], "context_complete":true, "support":"supported"},
+    {"id":"truncated", "category":"context_incomplete", "claim":"Atlas ships Friday.", "evidence":["Atlas ships Friday."], "context_complete":false, "support":"uncertain"},
+    {"id":"added_detail", "category":"unsupported_added_detail", "claim":"Atlas ships Friday at 9 AM.", "evidence":["Atlas ships Friday."], "context_complete":true, "support":"insufficient"},
+    {"id":"joint", "category":"joint_support", "claim":"Atlas uses Rust and ships Friday.", "evidence":["Atlas uses Rust.", "Atlas ships Friday."], "context_complete":true, "support":"supported"},
+    {"id":"ambiguous", "category":"ambiguous_evidence", "claim":"Atlas ships Friday.", "evidence":["Atlas may ship Friday if approval arrives."], "context_complete":true, "support":"uncertain"}
+  ]
+}

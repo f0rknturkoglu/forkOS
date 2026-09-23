@@ -1,0 +1,19 @@
+{
+  "schema_version":"1", "dataset_version":"memory-v1", "description":"Synthetic pairwise A4 candidate vs effective card relations; neither relation nor recency authorizes supersession.",
+  "cases":[
+    {"id":"paraphrase", "category":"same_claim_paraphrase", "candidate":"Prefer concise replies.", "existing":"Keep answers brief.", "relation":"same_claim"},
+    {"id":"exact", "category":"exact_duplicate", "candidate":"Prefer concise replies.", "existing":"Prefer concise replies.", "relation":"same_claim"},
+    {"id":"narrows", "category":"narrows", "candidate":"For code reviews, prefer concise replies.", "existing":"Prefer concise replies.", "relation":"narrows"},
+    {"id":"elaborates", "category":"elaborates", "candidate":"Prefer concise replies with a short example when needed.", "existing":"Prefer concise replies.", "relation":"elaborates"},
+    {"id":"changed", "category":"changed_decision", "candidate":"Decision changed: Atlas now uses Rust.", "existing":"Atlas decision was Python.", "relation":"changed_decision"},
+    {"id":"incompatible", "category":"direct_incompatibility", "candidate":"Atlas must use Rust only.", "existing":"Atlas must not use Rust.", "relation":"incompatible"},
+    {"id":"same_entity", "category":"same_entity_not_supersession", "candidate":"Atlas uses Rust.", "existing":"Atlas launches in June.", "relation":"unrelated"},
+    {"id":"same_subject", "category":"same_subject_key_not_supersession", "candidate":"Atlas budget is capped.", "existing":"Atlas uses Rust.", "subject_key":"atlas", "relation":"unrelated"},
+    {"id":"same_project", "category":"same_project_not_contradiction", "candidate":"Atlas uses Rust.", "existing":"Atlas has three milestones.", "relation":"unrelated"},
+    {"id":"historical_current", "category":"historical_vs_current", "candidate":"Currently prefer dark mode.", "existing":"In 2024 preferred light mode.", "relation":"unrelated"},
+    {"id":"conditional", "category":"conditional_vs_unconditional", "candidate":"When traveling, prefer short reports.", "existing":"Prefer detailed reports.", "relation":"uncertain"},
+    {"id":"insufficient", "category":"insufficient_context", "candidate":"Use the new arrangement.", "existing":"Use the old arrangement.", "relation":"uncertain"},
+    {"id":"ambiguous", "category":"ambiguous_relation", "candidate":"Atlas might use Rust.", "existing":"Atlas prefers Python.", "relation":"uncertain"},
+    {"id":"newer", "category":"newer_timestamp_not_replacement", "candidate":"Atlas has a green logo.", "existing":"Atlas uses Rust.", "relation":"unrelated"}
+  ]
+}
