@@ -204,7 +204,10 @@ export const VERB_LABELS: Record<string, string> = {
   "system.maintenance": "Sistem bakımı çalıştı",
   "system.automation_profile": "Otomasyon profili değişti",
   // A4 — Semantik hafıza adayı
-  "semantic_candidate.promoted": "Hafıza adayı kalıcı kasa'ya terfi etti",
+  "semantic_candidate.confirmed": "Hafıza adayı onaylandı",
+  "semantic_candidate.promoted": "Hafıza adayı kalıcı bilgiye terfi etti",
+  "semantic_candidate.rejected": "Hafıza adayı reddedildi",
+  "semantic_candidate.stale": "Hafıza adayı kaynağı güncelliğini yitirdi",
   // Modulu kaldirilmis eski fiiller: event tablosu append-only oldugu icin
   // gecmis satirlar hala gorunur (bkz. backend review/service.py habit notu).
   "habit.checked": "Rutin işaretlendi",

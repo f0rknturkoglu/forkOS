@@ -37,7 +37,7 @@ class AgentSemanticCandidate(Base):
             name="ck_agent_semantic_candidate_status",
         ),
         CheckConstraint(
-            "kind in ('identity', 'preference', 'correction', 'constraint', 'goal', 'decision', 'lesson', 'project_knowledge', 'reference')",
+            "kind in ('identity', 'preference', 'correction', 'constraint', 'goal', 'decision', 'lesson', 'project_knowledge', 'reference', 'commitment')",
             name="ck_agent_semantic_candidate_kind",
         ),
         CheckConstraint(
@@ -72,7 +72,9 @@ class AgentSemanticCandidate(Base):
     remote_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="proposed")
     reviewed_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    possible_related_card_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    possible_related_card_ids: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
     warnings: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     recurrence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

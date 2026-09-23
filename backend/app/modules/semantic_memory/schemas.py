@@ -18,10 +18,20 @@ CandidateKind = Literal[
     "lesson",
     "project_knowledge",
     "reference",
+    "commitment",
 ]
 CandidateStatus = Literal["proposed", "needs_review", "ready", "promoted", "rejected", "stale"]
-PrimaryEvidenceClass = Literal["explicit_user", "canonical_source", "episode_derived", "model_derived"]
-SuggestedDestination = Literal["operational", "hot_memory", "durable_vault", "procedural_candidate", "discard"]
+PrimaryEvidenceClass = Literal[
+    "explicit_user", "canonical_source", "episode_derived", "model_derived"
+]
+SuggestedDestination = Literal[
+    "operational", "hot_memory", "durable_vault", "procedural_candidate", "discard"
+]
+
+
+class RelatedSemanticCard(BaseModel):
+    card_id: str
+    statement: str
 
 
 class SemanticCandidateRead(BaseModel):
@@ -49,6 +59,7 @@ class SemanticCandidateRead(BaseModel):
     status: CandidateStatus
     reviewed_by: str | None = None
     possible_related_card_ids: list[str] = Field(default_factory=list)
+    possible_related_cards: list[RelatedSemanticCard] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     recurrence_count: int = 1
     first_seen_at: datetime

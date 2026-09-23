@@ -10,5 +10,10 @@ MODULE = ModuleSpec(
     id="agent_semantic",
     title="Agent Semantic Memory",
     router=router,
-    event_verbs=["semantic_candidate.promoted"],
+    event_verbs=[
+        "semantic_candidate.confirmed",
+        "semantic_candidate.promoted",
+        "semantic_candidate.rejected",
+        "semantic_candidate.stale",
+    ],
 )

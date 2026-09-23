@@ -127,7 +127,9 @@ def resolve_period(
         day = reference_date or local_today()
         start, end = day_bounds(day)
         partial = end > moment
-        return ResolvedPeriod(start, end, day, day + timedelta(days=1), 1, partial, not partial, day)
+        return ResolvedPeriod(
+            start, end, day, day + timedelta(days=1), 1, partial, not partial, day
+        )
 
     if mode == "weekly_review":
         anchor_day = reference_date or local_today()
@@ -485,7 +487,9 @@ async def passed_plan_open_tasks(
     results: list[dict[str, Any]] = []
     for slot_id, entity_id, day, start_min, title in rows:
         if day == today and start_min is not None:
-            slot_start = datetime.combine(day, time(hour=min(start_min // 60, 23)), tzinfo=local_zone())
+            slot_start = datetime.combine(
+                day, time(hour=min(start_min // 60, 23)), tzinfo=local_zone()
+            )
             if slot_start >= now:
                 continue
         results.append(
@@ -547,7 +551,11 @@ async def rss_accumulation(
             await session.execute(
                 select(func.count())
                 .select_from(FeedItem)
-                .where(FeedItem.fetched_at >= anchor, FeedItem.fetched_at < now, FeedItem.read_at.is_(None))
+                .where(
+                    FeedItem.fetched_at >= anchor,
+                    FeedItem.fetched_at < now,
+                    FeedItem.read_at.is_(None),
+                )
             )
         ).scalar_one()
     )
@@ -564,7 +572,9 @@ async def rss_accumulation(
             .select_from(FeedItem)
             .join(Feed, Feed.id == FeedItem.feed_id)
             .join(Entity, Entity.id == Feed.id)
-            .where(FeedItem.fetched_at >= anchor, FeedItem.fetched_at < now, FeedItem.read_at.is_(None))
+            .where(
+                FeedItem.fetched_at >= anchor, FeedItem.fetched_at < now, FeedItem.read_at.is_(None)
+            )
             .group_by(Entity.title)
             .order_by(func.count().desc(), Entity.title.asc())
             .limit(top_sources)
@@ -573,7 +583,9 @@ async def rss_accumulation(
     return {
         "new_unread_since_anchor": new_unread,
         "current_unread_total": total_unread,
-        "top_sources": [{"source": title or "", "count": int(count)} for title, count in breakdown_rows],
+        "top_sources": [
+            {"source": title or "", "count": int(count)} for title, count in breakdown_rows
+        ],
     }
 
 
@@ -584,7 +596,11 @@ async def important_notifications(
         await session.execute(
             select(Notification.id, Notification.title, Notification.body, Notification.created_at)
             .where(Notification.created_at >= start, Notification.created_at < end)
-            .order_by(Notification.importance.desc(), Notification.created_at.desc(), Notification.id.desc())
+            .order_by(
+                Notification.importance.desc(),
+                Notification.created_at.desc(),
+                Notification.id.desc(),
+            )
             .limit(limit)
         )
     ).all()
@@ -605,10 +621,21 @@ async def opportunity_changes(
     """Dönemde KEŞFEDİLEN fırsatlar (§34) — kazıma YOK, mevcut durum okunur."""
     rows = (
         await session.execute(
-            select(Opportunity.id, Entity.title, Opportunity.kind, Opportunity.status,
-                   Opportunity.organization, Opportunity.deadline_at, Opportunity.found_at)
+            select(
+                Opportunity.id,
+                Entity.title,
+                Opportunity.kind,
+                Opportunity.status,
+                Opportunity.organization,
+                Opportunity.deadline_at,
+                Opportunity.found_at,
+            )
             .join(Entity, Entity.id == Opportunity.id)
-            .where(Opportunity.found_at >= start, Opportunity.found_at < end, Opportunity.trashed_at.is_(None))
+            .where(
+                Opportunity.found_at >= start,
+                Opportunity.found_at < end,
+                Opportunity.trashed_at.is_(None),
+            )
             .order_by(Opportunity.found_at.desc(), Opportunity.id.asc())
             .limit(limit)
         )
@@ -635,8 +662,15 @@ async def opportunity_changes(
 async def active_projects(session: AsyncSession, *, limit: int) -> list[dict[str, Any]]:
     rows = (
         await session.execute(
-            select(Project.id, Entity.title, Project.status, Project.next_action,
-                   Project.stack, Project.github_repo, Entity.updated_at)
+            select(
+                Project.id,
+                Entity.title,
+                Project.status,
+                Project.next_action,
+                Project.stack,
+                Project.github_repo,
+                Entity.updated_at,
+            )
             .join(Entity, Entity.id == Project.id)
             .where(Project.status != "completed", Entity.archived_at.is_(None))
             .order_by(Project.position.asc(), Entity.title.asc())
@@ -685,7 +719,11 @@ async def project_last_activity(
             select(Link.to_id, func.max(Event.occurred_at))
             .select_from(Link)
             .join(Event, Event.entity_id == Link.from_id)
-            .where(Link.to_id.in_(project_ids), Link.relation == "belongs_to", Event.verb.in_(COUNTED_VERBS))
+            .where(
+                Link.to_id.in_(project_ids),
+                Link.relation == "belongs_to",
+                Event.verb.in_(COUNTED_VERBS),
+            )
             .group_by(Link.to_id)
         )
     ).all()
@@ -725,9 +763,7 @@ async def overdue_milestones(
 async def overdue_todos_for_project(
     session: AsyncSession, *, project_id: uuid.UUID, now: datetime, limit: int
 ) -> list[dict[str, Any]]:
-    linked = select(Link.from_id).where(
-        Link.to_id == project_id, Link.relation == "belongs_to"
-    )
+    linked = select(Link.from_id).where(Link.to_id == project_id, Link.relation == "belongs_to")
     rows = (
         await session.execute(
             select(Todo.id, Entity.title, Todo.due_at)
@@ -767,9 +803,7 @@ async def previous_review(
     if kind is not None:
         statement = statement.where(Review.kind == kind)
     row = (
-        await session.execute(
-            statement.order_by(Review.period_start.desc()).limit(1)
-        )
+        await session.execute(statement.order_by(Review.period_start.desc()).limit(1))
     ).scalar_one_or_none()
     if row is None:
         return None
@@ -939,7 +973,9 @@ def parse_focus_entity(value: str | None) -> uuid.UUID | None:
     try:
         return uuid.UUID(text)
     except (ValueError, AttributeError) as exc:
-        raise ReviewIntelligenceError("INVALID_FOCUS_ENTITY", "focus_entity_id must be a UUID") from exc
+        raise ReviewIntelligenceError(
+            "INVALID_FOCUS_ENTITY", "focus_entity_id must be a UUID"
+        ) from exc
 
 
 async def load_entity(session: AsyncSession, entity_id: uuid.UUID) -> dict[str, Any] | None:
@@ -964,32 +1000,50 @@ async def sealed_episode_items(
     limit: int = 50,
 ) -> list[dict[str, Any]]:
     """Mühürlenmiş epizodik oturum maddelerini döner (ref: episode:<id>, episode_item:<id>)."""
-    from app.modules.agent_episode.models import AgentSessionEpisode, AgentSessionEpisodeItem
+    from app.modules.agent_episode.models import (
+        AgentSessionEpisode,
+        AgentSessionEpisodeItem,
+        AgentSessionEpisodeTurn,
+    )
 
     query = (
-        select(AgentSessionEpisodeItem, AgentSessionEpisode)
+        select(AgentSessionEpisodeItem, AgentSessionEpisode, AgentSessionEpisodeTurn)
         .join(AgentSessionEpisode, AgentSessionEpisodeItem.episode_id == AgentSessionEpisode.id)
+        .outerjoin(
+            AgentSessionEpisodeTurn,
+            AgentSessionEpisodeItem.episode_turn_id == AgentSessionEpisodeTurn.id,
+        )
         .where(AgentSessionEpisode.status.in_(("sealed", "sealed_degraded")))
     )
     if start is not None:
         query = query.where(AgentSessionEpisodeItem.created_at >= start)
     if end is not None:
         query = query.where(AgentSessionEpisodeItem.created_at <= end)
-    query = query.order_by(AgentSessionEpisodeItem.created_at.desc(), AgentSessionEpisodeItem.id.desc()).limit(limit)
+    query = query.order_by(
+        AgentSessionEpisodeItem.created_at.desc(), AgentSessionEpisodeItem.id.desc()
+    ).limit(limit)
 
     result = await session.execute(query)
     items: list[dict[str, Any]] = []
-    for item_row, ep_row in result.all():
-        items.append({
-            "episode_id": ep_row.id,
-            "episode_ref": f"episode:{ep_row.id}",
-            "item_id": item_row.id,
-            "ref": f"episode_item:{item_row.id}",
-            "kind": item_row.kind,
-            "text": item_row.statement,
-            "scope_project": ep_row.scope_project,
-            "created_at": _iso(item_row.created_at),
-        })
+    for item_row, ep_row, turn_row in result.all():
+        items.append(
+            {
+                "episode_id": ep_row.id,
+                "episode_ref": f"episode:{ep_row.id}",
+                "item_id": item_row.id,
+                "ref": f"episode_item:{item_row.id}",
+                "kind": item_row.kind,
+                "text": item_row.text,
+                "source_role": item_row.source_role,
+                "evidence_digest": item_row.evidence_digest,
+                "semantic_memory_eligible": (
+                    turn_row.semantic_memory_eligible if turn_row is not None else False
+                ),
+                "scope_ambiguous": "SCOPE_AMBIGUOUS" in (ep_row.degraded_reasons or []),
+                "scope_project": ep_row.scope_project,
+                "created_at": _iso(item_row.created_at),
+            }
+        )
     return items
 
 

@@ -43,7 +43,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from app.core.secret_safety import _SECRET_PATTERNS, looks_like_secret
+from app.core.secret_safety import looks_like_secret
 from app.integrations.obsidian.constants import MEMORY_ROOT
 from app.integrations.obsidian.frontmatter import (
     parse_frontmatter,

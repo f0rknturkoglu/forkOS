@@ -189,7 +189,7 @@ class ActivityEventOut(EventOut):
     is_alert: bool = False
 
     @model_validator(mode="after")
-    def _mark_alert(self) -> "ActivityEventOut":
+    def _mark_alert(self) -> ActivityEventOut:
         self.is_alert = event_svc.is_alert(self.verb, self.payload)
         return self
 

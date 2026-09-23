@@ -21,6 +21,7 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -45,7 +46,9 @@ class AgentSessionEpisode(Base):
             "status in ('draft', 'sealed', 'sealed_degraded', 'sealed_empty')",
             name="ck_agent_session_episode_status",
         ),
-        CheckConstraint("turn_count >= 0 and item_count >= 0", name="ck_agent_session_episode_counts"),
+        CheckConstraint(
+            "turn_count >= 0 and item_count >= 0", name="ck_agent_session_episode_counts"
+        ),
         CheckConstraint(
             "(status = 'draft') = (sealed_at is null)", name="ck_agent_session_episode_sealed_at"
         ),
@@ -89,7 +92,9 @@ class AgentSessionEpisodeTurn(Base):
             "status in ('pending', 'extracted', 'degraded')",
             name="ck_agent_session_episode_turn_status",
         ),
-        CheckConstraint("item_count >= 0 and item_count <= 6", name="ck_agent_session_episode_turn_items"),
+        CheckConstraint(
+            "item_count >= 0 and item_count <= 6", name="ck_agent_session_episode_turn_items"
+        ),
         CheckConstraint(
             "status <> 'extracted' or turn_digest is not null",
             name="ck_agent_session_episode_turn_digest",
@@ -107,10 +112,13 @@ class AgentSessionEpisodeTurn(Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
     turn_digest: Mapped[str | None] = mapped_column(String(64))
     item_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    delivered_refs: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    delivered_refs: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
     degraded_reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     delivered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    semantic_memory_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -150,18 +158,15 @@ class AgentSessionEpisodeItem(Base):
         # Kanonik gözlem KANIT taşımak zorundadır: H5'in `ReviewInsight` kilidi
         # gibi fail-closed. Ref'siz bir "gerçekleşti" iddiası uydurma olurdu.
         CheckConstraint(
-            "evidence_class <> 'observed_during_session'"
-            " or jsonb_array_length(support_refs) > 0",
+            "evidence_class <> 'observed_during_session' or jsonb_array_length(support_refs) > 0",
             name="ck_agent_session_episode_item_observed_evidence",
         ),
         CheckConstraint(
-            "evidence_class <> 'canonical_supported'"
-            " or jsonb_array_length(support_refs) > 0",
+            "evidence_class <> 'canonical_supported' or jsonb_array_length(support_refs) > 0",
             name="ck_agent_session_episode_item_canonical_evidence",
         ),
         CheckConstraint(
-            "evidence_class <> 'turn_derived'"
-            " or jsonb_array_length(support_refs) = 0",
+            "evidence_class <> 'turn_derived' or jsonb_array_length(support_refs) = 0",
             name="ck_agent_session_episode_item_turn_derived_evidence",
         ),
         CheckConstraint(

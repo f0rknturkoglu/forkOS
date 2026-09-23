@@ -9047,6 +9047,13 @@ export interface components {
             /** Relation */
             relation: string;
         };
+        /** RelatedSemanticCard */
+        RelatedSemanticCard: {
+            /** Card Id */
+            card_id: string;
+            /** Statement */
+            statement: string;
+        };
         /** ReplyAnalysisIn */
         ReplyAnalysisIn: {
             /** Text */
@@ -9568,7 +9575,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "identity" | "preference" | "correction" | "constraint" | "goal" | "decision" | "lesson" | "project_knowledge" | "reference";
+            kind: "identity" | "preference" | "correction" | "constraint" | "goal" | "decision" | "lesson" | "project_knowledge" | "reference" | "commitment";
             /**
              * Last Seen At
              * Format: date-time
@@ -9581,6 +9588,8 @@ export interface components {
             observed_at: string;
             /** Possible Related Card Ids */
             possible_related_card_ids?: string[];
+            /** Possible Related Cards */
+            possible_related_cards?: components["schemas"]["RelatedSemanticCard"][];
             /**
              * Primary Evidence Class
              * @enum {string}

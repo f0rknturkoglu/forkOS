@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { BookOpen, CalendarDays, ChevronDown, ExternalLink, Inbox, RefreshCw, ShieldCheck } from "lucide-react";
 import { navigate } from "@/app/router";
+import { confirmDialog } from "@/core/dialog";
 import { AGENT_LIFECYCLE_STATUS_KEY, getAgentLifecycleStatus } from "@/core/agentLifecycle";
 import { AGENT_CONTINUITY_STATUS_KEY, getAgentContinuityStatus } from "@/core/agentContinuity";
 import { AGENT_EPISODE_STATUS_KEY, getAgentEpisodeStatus } from "@/core/agentEpisode";
@@ -850,6 +851,7 @@ const KIND_LABELS: Record<string, string> = {
   lesson: "Ders",
   project_knowledge: "Proje Bilgisi",
   reference: "Referans",
+  commitment: "Taahhüt",
 };
 
 export function SemanticCandidatesCard({ online = true }: { online?: boolean }) {
@@ -867,7 +869,9 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
     mutationFn: refreshSemanticCandidates,
     onSuccess: (data) => {
       invalidateAfter("agent-semantic.write");
-      toast.push(`Adaylar tarandı: ${data.created_count} yeni, ${data.updated_count} güncellenen aday.`, { tone: "ok" });
+      toast.push(`Adaylar tarandı: ${data.created_count} yeni, ${data.updated_count} güncellenen aday.`, {
+        tone: "ok",
+      });
     },
     onError: () => {
       toast.push("Adaylar taranırken hata oluştu.", { tone: "danger" });
@@ -875,8 +879,7 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
   });
 
   const confirmMutation = useMutation({
-    mutationFn: ({ id, revision }: { id: string; revision: string }) =>
-      confirmSemanticCandidate(id, revision),
+    mutationFn: ({ id, revision }: { id: string; revision: string }) => confirmSemanticCandidate(id, revision),
     onSuccess: () => {
       invalidateAfter("agent-semantic.write");
       toast.push("Aday onaylandı ve terfi için hazırlandı.", { tone: "ok" });
@@ -887,8 +890,7 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ id, revision }: { id: string; revision: string }) =>
-      rejectSemanticCandidate(id, revision),
+    mutationFn: ({ id, revision }: { id: string; revision: string }) => rejectSemanticCandidate(id, revision),
     onSuccess: () => {
       invalidateAfter("agent-semantic.write");
       toast.push("Aday reddedildi.", { tone: "ok" });
@@ -912,7 +914,14 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
     }) => promoteSemanticCandidate(id, revision, targetDestination, supersedes),
     onSuccess: (data) => {
       invalidateAfter("agent-semantic.write");
-      toast.push(`Aday kalıcı bilgiye terfi ettirildi (${data.destination}).`, { tone: "ok" });
+      toast.push(
+        data.status === "owner_action_required"
+          ? "Bu aday ilgili sahibin işlem akışında ele alınmalı. Terfi edilmedi."
+          : data.status === "rejected"
+            ? "Aday hafızaya alınmadan reddedildi."
+            : `Aday kalıcı bilgiye terfi ettirildi (${data.destination}).`,
+        { tone: data.status === "owner_action_required" ? "warn" : "ok" },
+      );
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.detail?.message || "Terfi işlemi başarısız oldu.";
@@ -970,17 +979,14 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
                 value={`${status.ready_count ?? 0} aday`}
                 tone={(status.ready_count ?? 0) > 0 ? "ok" : "neutral"}
               />
-              <StatusRow
-                label="Önerilen"
-                value={`${status.proposed_count ?? 0} aday`}
-                tone="neutral"
-              />
+              <StatusRow label="Önerilen" value={`${status.proposed_count ?? 0} aday`} tone="neutral" />
             </div>
           )}
 
           {pendingCandidates.length === 0 ? (
             <p className="text-micro text-muted py-1">
-              Bekleyen hafıza adayı yok. Oturumlar tamamlandıkça veya kaynaklar güncellendikçe adaylar burada listelenir.
+              Bekleyen hafıza adayı yok. Oturumlar tamamlandıkça veya kaynaklar güncellendikçe adaylar burada
+              listelenir.
             </p>
           ) : (
             <div className="space-y-2">
@@ -989,30 +995,16 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
               </span>
               <div className="space-y-2">
                 {pendingCandidates.map((c) => {
-                  const isExplicitUser = c.primary_evidence_class === "explicit_user";
                   const isReady = c.status === "ready";
-                  const canPromote = isExplicitUser || isReady;
+                  const canPromote = isReady;
                   const isPendingAction =
                     confirmMutation.isPending || rejectMutation.isPending || promoteMutation.isPending;
 
                   return (
-                    <div
-                      key={c.id}
-                      className="rounded-card border border-subtle bg-surface-raised p-2.5 space-y-1.5"
-                    >
+                    <div key={c.id} className="rounded-card border border-subtle bg-surface-raised p-2.5 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-meta font-medium text-primary leading-snug">
-                          {c.statement}
-                        </p>
-                        <Chip
-                          tone={
-                            c.status === "ready"
-                              ? "ok"
-                              : c.status === "needs_review"
-                                ? "warn"
-                                : "neutral"
-                          }
-                        >
+                        <p className="text-meta font-medium text-primary leading-snug">{c.statement}</p>
+                        <Chip tone={c.status === "ready" ? "ok" : c.status === "needs_review" ? "warn" : "neutral"}>
                           {c.status === "ready"
                             ? "Onaylı"
                             : c.status === "needs_review"
@@ -1023,23 +1015,20 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
 
                       <div className="flex flex-wrap items-center gap-1.5 text-micro text-secondary">
                         <Chip tone="accent">{KIND_LABELS[c.kind] ?? c.kind}</Chip>
-                        <Chip tone="neutral">
-                          {c.scope === "project" ? (c.scope_project ?? "Proje") : "Genel"}
-                        </Chip>
+                        <Chip tone="neutral">{c.scope === "project" ? (c.scope_project ?? "Proje") : "Genel"}</Chip>
                         <Chip tone="neutral">
                           Hedef: {DESTINATION_LABELS[c.suggested_destination] ?? c.suggested_destination}
                         </Chip>
                         <span className="text-muted">·</span>
-                        <span>
-                          {EVIDENCE_LABELS[c.primary_evidence_class] ?? c.primary_evidence_class}
-                        </span>
+                        <span>{EVIDENCE_LABELS[c.primary_evidence_class] ?? c.primary_evidence_class}</span>
                         <span className="text-muted">·</span>
                         <span>{(c.evidence_refs ?? []).length} kaynak</span>
                       </div>
 
-                      {(c.possible_related_card_ids ?? []).length > 0 && (
+                      {(c.possible_related_cards ?? []).length > 0 && (
                         <div className="rounded border border-subtle bg-surface px-2 py-1 text-micro text-warn">
-                          Benzer mevcut bilgi: {(c.possible_related_card_ids ?? []).join(", ")}
+                          Olası ilişkili kartlar:{" "}
+                          {(c.possible_related_cards ?? []).map((card) => card.statement).join(" · ")}
                         </div>
                       )}
 
@@ -1049,9 +1038,7 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
                             variant="secondary"
                             size="sm"
                             disabled={!online || isPendingAction}
-                            onClick={() =>
-                              confirmMutation.mutate({ id: c.id, revision: c.revision })
-                            }
+                            onClick={() => confirmMutation.mutate({ id: c.id, revision: c.revision })}
                           >
                             Onayla
                           </Button>
@@ -1065,22 +1052,43 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
                               id: c.id,
                               revision: c.revision,
                               targetDestination: c.suggested_destination,
-                              supersedes:
-                                (c.possible_related_card_ids ?? []).length > 0
-                                  ? c.possible_related_card_ids
-                                  : undefined,
                             })
                           }
                         >
                           Terfi et
                         </Button>
+                        {isReady &&
+                          c.suggested_destination === "durable_vault" &&
+                          (c.possible_related_cards ?? []).map((card) => (
+                            <Button
+                              key={card.card_id}
+                              variant="secondary"
+                              size="sm"
+                              disabled={!online || isPendingAction}
+                              onClick={async () => {
+                                const confirmed = await confirmDialog({
+                                  title: "Eski kartın yerine geçir",
+                                  body: "Bu işlem eski kartı silmez; yeni kart onu geçersiz kılar.",
+                                  confirmLabel: "Yerine geçir",
+                                });
+                                if (confirmed) {
+                                  promoteMutation.mutate({
+                                    id: c.id,
+                                    revision: c.revision,
+                                    targetDestination: "durable_vault",
+                                    supersedes: [card.card_id],
+                                  });
+                                }
+                              }}
+                            >
+                              {card.statement} yerine geçir
+                            </Button>
+                          ))}
                         <Button
                           variant="ghost"
                           size="sm"
                           disabled={!online || isPendingAction}
-                          onClick={() =>
-                            rejectMutation.mutate({ id: c.id, revision: c.revision })
-                          }
+                          onClick={() => rejectMutation.mutate({ id: c.id, revision: c.revision })}
                         >
                           Reddet
                         </Button>
@@ -1093,7 +1101,8 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
           )}
 
           <p className="text-micro text-muted">
-            Kalıcı hafıza f0rknbrain kasasındaki 30 Knowledge/Memory/ altında Markdown kartları olarak saklanır. Zayıf kanıtlı veya model çıkarımı olan adaylar kullanıcı onayı olmadan terfi edemez.
+            Kalıcı hafıza f0rknbrain kasasındaki 30 Knowledge/Memory/ altında Markdown kartları olarak saklanır. Zayıf
+            kanıtlı veya model çıkarımı olan adaylar kullanıcı onayı olmadan terfi edemez.
           </p>
         </div>
       </CardBody>

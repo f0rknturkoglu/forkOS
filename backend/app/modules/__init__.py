@@ -63,7 +63,8 @@ class ModuleSpec:
     deadline_provider: Callable[..., Awaitable[list[DeadlineRow]]] | None = None
 
 
-from app.modules.bookmark import MODULE as bookmark_module  # noqa: E402
+# Import order is intentional: lifecycle loads before continuity to avoid a schema cycle.
+from app.modules.bookmark import MODULE as bookmark_module  # noqa: E402, I001
 from app.modules.agent_lifecycle import MODULE as agent_lifecycle_module  # noqa: E402
 from app.modules.agent_continuity import MODULE as agent_continuity_module  # noqa: E402
 from app.modules.agent_episode import MODULE as agent_episode_module  # noqa: E402

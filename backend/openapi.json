@@ -12067,6 +12067,24 @@
         "title": "RelatedOut",
         "type": "object"
       },
+      "RelatedSemanticCard": {
+        "properties": {
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_id",
+          "statement"
+        ],
+        "title": "RelatedSemanticCard",
+        "type": "object"
+      },
       "ReplyAnalysisIn": {
         "properties": {
           "text": {
@@ -13447,7 +13465,8 @@
               "decision",
               "lesson",
               "project_knowledge",
-              "reference"
+              "reference",
+              "commitment"
             ],
             "title": "Kind",
             "type": "string"
@@ -13467,6 +13486,13 @@
               "type": "string"
             },
             "title": "Possible Related Card Ids",
+            "type": "array"
+          },
+          "possible_related_cards": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedSemanticCard"
+            },
+            "title": "Possible Related Cards",
             "type": "array"
           },
           "primary_evidence_class": {

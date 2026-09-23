@@ -16,16 +16,14 @@ export type SemanticCandidateList = components["schemas"]["SemanticCandidateList
 export type SemanticCandidateRefresh = components["schemas"]["SemanticCandidateRefreshOut"];
 export type SemanticCandidatePromote = components["schemas"]["SemanticCandidatePromoteOut"];
 
-export const getAgentSemanticStatus = () =>
-  api.get<SemanticStatus>("/agent/semantic/status");
+export const getAgentSemanticStatus = () => api.get<SemanticStatus>("/agent/semantic/status");
 
 export const listSemanticCandidates = (status?: string) =>
   api.get<SemanticCandidateList>(
     status ? `/agent/semantic/candidates?status=${encodeURIComponent(status)}` : "/agent/semantic/candidates",
   );
 
-export const getSemanticCandidate = (id: string) =>
-  api.get<SemanticCandidate>(`/agent/semantic/candidates/${id}`);
+export const getSemanticCandidate = (id: string) => api.get<SemanticCandidate>(`/agent/semantic/candidates/${id}`);
 
 export const refreshSemanticCandidates = () =>
   api.post<SemanticCandidateRefresh>("/agent/semantic/refresh", {

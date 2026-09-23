@@ -128,14 +128,16 @@ def register_agent_tools(server: MCPServer) -> None:
         try:
             async with SessionLocal() as session:
                 data = await ctx_svc.get_briefing_context(session, day=day)
-                truncated = any([
-                    len(data.open_todos) >= 20,
-                    len(data.deadlines) >= 15,
-                    len(data.active_projects) >= 10,
-                    len(data.learning_due) >= 10,
-                    len(data.opportunity_attention) >= 10,
-                    len(data.notifications) >= 10,
-                ])
+                truncated = any(
+                    [
+                        len(data.open_todos) >= 20,
+                        len(data.deadlines) >= 15,
+                        len(data.active_projects) >= 10,
+                        len(data.learning_due) >= 10,
+                        len(data.opportunity_attention) >= 10,
+                        len(data.notifications) >= 10,
+                    ]
+                )
                 return AgentEnvelope(source="forkos", data=data, truncated=truncated)
         except Exception as exc:
             raise ToolError(f"BRIEFING_ERROR: {exc}") from exc
@@ -452,19 +454,24 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_todo_create",
             source="forkos",
-            factory=lambda supplied: TodoCreateIn(**_supplied_only(supplied, dict(
-                title=title,
-                description=description,
-                priority=priority,
-                due_at=due_at,
-                reminder_at=reminder_at,
-                plan_day=plan_day,
-                project_id=project_id,
-                milestone_id=milestone_id,
-                parent_id=parent_id,
-                tags=tags or [],
-                recur=recur,
-            ))),
+            factory=lambda supplied: TodoCreateIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        title=title,
+                        description=description,
+                        priority=priority,
+                        due_at=due_at,
+                        reminder_at=reminder_at,
+                        plan_day=plan_day,
+                        project_id=project_id,
+                        milestone_id=milestone_id,
+                        parent_id=parent_id,
+                        tags=tags or [],
+                        recur=recur,
+                    ),
+                )
+            ),
             action=actions_svc.create_todo,
             ctx=ctx,
         )
@@ -493,17 +500,22 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_todo_update",
             source="forkos",
-            factory=lambda supplied: TodoUpdateIn(**_supplied_only(supplied, dict(
-                todo_id=todo_id,
-                title=title,
-                description=description,
-                priority=priority,
-                due_at=due_at,
-                reminder_at=reminder_at,
-                tags=tags,
-                recur=recur,
-                expected_updated_at=expected_updated_at,
-            ))),
+            factory=lambda supplied: TodoUpdateIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        todo_id=todo_id,
+                        title=title,
+                        description=description,
+                        priority=priority,
+                        due_at=due_at,
+                        reminder_at=reminder_at,
+                        tags=tags,
+                        recur=recur,
+                        expected_updated_at=expected_updated_at,
+                    ),
+                )
+            ),
             action=actions_svc.update_todo,
             ctx=ctx,
         )
@@ -549,9 +561,12 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_todo_plan",
             source="forkos",
-            factory=lambda supplied: TodoPlanIn(**_supplied_only(supplied, dict(
-                todo_id=todo_id, day=day, start_min=start_min, duration_min=duration_min
-            ))),
+            factory=lambda supplied: TodoPlanIn(
+                **_supplied_only(
+                    supplied,
+                    dict(todo_id=todo_id, day=day, start_min=start_min, duration_min=duration_min),
+                )
+            ),
             action=actions_svc.plan_todo,
             ctx=ctx,
         )
@@ -574,11 +589,16 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_project_update",
             source="forkos",
-            factory=lambda supplied: ProjectUpdateIn(**_supplied_only(supplied, dict(
-                project_id=project_id,
-                next_action=next_action,
-                expected_updated_at=expected_updated_at,
-            ))),
+            factory=lambda supplied: ProjectUpdateIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        project_id=project_id,
+                        next_action=next_action,
+                        expected_updated_at=expected_updated_at,
+                    ),
+                )
+            ),
             action=actions_svc.update_project,
             ctx=ctx,
         )
@@ -603,12 +623,17 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_opportunity_transition",
             source="forkos",
-            factory=lambda supplied: OpportunityTransitionIn(**_supplied_only(supplied, dict(
-                opportunity_id=opportunity_id,
-                expected_status=expected_status,
-                to_status=to_status,
-                note=note,
-            ))),
+            factory=lambda supplied: OpportunityTransitionIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        opportunity_id=opportunity_id,
+                        expected_status=expected_status,
+                        to_status=to_status,
+                        note=note,
+                    ),
+                )
+            ),
             action=actions_svc.transition_opportunity,
             ctx=ctx,
         )
@@ -635,13 +660,18 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_application_transition",
             source="forkos",
-            factory=lambda supplied: ApplicationTransitionIn(**_supplied_only(supplied, dict(
-                opportunity_id=opportunity_id,
-                expected_status=expected_status,
-                to_status=to_status,
-                note=note,
-                rejection_reason=rejection_reason,
-            ))),
+            factory=lambda supplied: ApplicationTransitionIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        opportunity_id=opportunity_id,
+                        expected_status=expected_status,
+                        to_status=to_status,
+                        note=note,
+                        rejection_reason=rejection_reason,
+                    ),
+                )
+            ),
             action=actions_svc.transition_application,
             ctx=ctx,
         )
@@ -666,13 +696,18 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_bookmark_capture",
             source="forkos",
-            factory=lambda supplied: BookmarkCaptureIn(**_supplied_only(supplied, dict(
-                url=url,
-                title=title,
-                collection=collection,
-                tags=tags or [],
-                note=note,
-            ))),
+            factory=lambda supplied: BookmarkCaptureIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        url=url,
+                        title=title,
+                        collection=collection,
+                        tags=tags or [],
+                        note=note,
+                    ),
+                )
+            ),
             action=actions_svc.capture_bookmark,
             ctx=ctx,
         )
@@ -681,8 +716,7 @@ def _register_write_tools(server: MCPServer) -> None:
         name="forkos_bookmark_update",
         description=(
             "Update low-risk bookmark fields: collection, favorite, read_status, tags. "
-            "No deletion, no bulk action, no progress simulation, no enrichment. "
-            + _APPROVAL_NOTE
+            "No deletion, no bulk action, no progress simulation, no enrichment. " + _APPROVAL_NOTE
         ),
         annotations=_write_annotations(idempotent=True),
     )
@@ -698,14 +732,19 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="forkos_bookmark_update",
             source="forkos",
-            factory=lambda supplied: BookmarkUpdateIn(**_supplied_only(supplied, dict(
-                bookmark_id=bookmark_id,
-                collection=collection,
-                favorite=favorite,
-                read_status=read_status,
-                tags=tags,
-                expected_updated_at=expected_updated_at,
-            ))),
+            factory=lambda supplied: BookmarkUpdateIn(
+                **_supplied_only(
+                    supplied,
+                    dict(
+                        bookmark_id=bookmark_id,
+                        collection=collection,
+                        favorite=favorite,
+                        read_status=read_status,
+                        tags=tags,
+                        expected_updated_at=expected_updated_at,
+                    ),
+                )
+            ),
             action=actions_svc.update_bookmark,
             ctx=ctx,
         )
@@ -729,9 +768,11 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="brain_capture",
             source="f0rknbrain",
-            factory=lambda supplied: BrainCaptureIn(**_supplied_only(supplied, dict(
-                body=body, title=title, relate_to=relate_to, tags=tags
-            ))),
+            factory=lambda supplied: BrainCaptureIn(
+                **_supplied_only(
+                    supplied, dict(body=body, title=title, relate_to=relate_to, tags=tags)
+                )
+            ),
             action=actions_svc.capture_brain_note,
             ctx=ctx,
         )
@@ -755,9 +796,9 @@ def _register_write_tools(server: MCPServer) -> None:
         return await _run_write(
             tool="brain_save_to_entity",
             source="f0rknbrain",
-            factory=lambda supplied: BrainSaveToEntityIn(**_supplied_only(supplied, dict(
-                forkos_id=forkos_id, text=text, heading=heading
-            ))),
+            factory=lambda supplied: BrainSaveToEntityIn(
+                **_supplied_only(supplied, dict(forkos_id=forkos_id, text=text, heading=heading))
+            ),
             action=actions_svc.save_to_entity_brain,
             ctx=ctx,
         )
@@ -924,8 +965,7 @@ def _register_hot_memory_tools(server: MCPServer) -> None:
         description=(
             "Stop using ONE hot memory while preserving historical evidence: status becomes "
             "retired and the item leaves active context. This is NOT deletion - the Markdown "
-            "file and its Git history remain. Requires expected_revision. "
-            + _H2_APPROVAL_NOTE
+            "file and its Git history remain. Requires expected_revision. " + _H2_APPROVAL_NOTE
         ),
         annotations=_write_annotations(idempotent=True),
     )
@@ -1203,8 +1243,8 @@ def _register_review_intelligence_tool(server: MCPServer) -> None:
         description=(
             "Controlled promotion of a verified or user-confirmed semantic candidate into "
             "durable f0rknbrain Markdown storage (30 Knowledge/Memory/<uuid>.md) or H2 hot memory. "
-            "Strict gate: candidates with episode_derived or model_derived evidence REQUIRE user confirmation "
-            "first and cannot be promoted autonomously. Requires candidate_id and expected_revision for optimistic concurrency."
+            "Strict gate: only ready candidates can be promoted. Supersession requires a separate "
+            "explicit user selection in Settings. Requires candidate_id and expected_revision."
         ),
         annotations=EXECUTION_ANNOTATIONS,
     )
@@ -1212,9 +1252,9 @@ def _register_review_intelligence_tool(server: MCPServer) -> None:
         candidate_id: str,
         expected_revision: str,
         target_destination: str | None = None,
-        supersedes: list[str] | None = None,
     ) -> dict[str, Any]:
         import uuid as _uuid
+
         from fastapi import HTTPException
 
         try:
@@ -1230,12 +1270,13 @@ def _register_review_intelligence_tool(server: MCPServer) -> None:
                 payload = SemanticCandidatePromoteIn(
                     expected_revision=expected_revision,
                     target_destination=target_destination,  # type: ignore[arg-type]
-                    supersedes=supersedes,
                 )
                 res = await sem_svc.promote_candidate(session, cid, payload)
                 return res.model_dump(mode="json")
             except HTTPException as exc:
-                code = exc.detail.get("code") if isinstance(exc.detail, dict) else "PROMOTION_FAILED"
+                code = (
+                    exc.detail.get("code") if isinstance(exc.detail, dict) else "PROMOTION_FAILED"
+                )
                 msg = exc.detail.get("message") if isinstance(exc.detail, dict) else str(exc.detail)
                 raise ToolError(f"{code}: {msg}") from exc
             except Exception as exc:
@@ -1383,7 +1424,15 @@ def _register_proactivity_tool(server: MCPServer) -> None:
 
 #: H7'nin KAPALI işlem kümesi: generic otomasyon yürütücüsü DEĞİL (§43).
 ExecutionOperation = Literal[
-    "prepare", "get", "list", "approve", "reject", "respond", "cancel", "execute", "recover",
+    "prepare",
+    "get",
+    "list",
+    "approve",
+    "reject",
+    "respond",
+    "cancel",
+    "execute",
+    "recover",
     "status",
 ]
 

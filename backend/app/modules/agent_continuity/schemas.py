@@ -146,7 +146,7 @@ class TurnContextIn(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def require_turn_for_later_turns(self) -> "TurnContextIn":
+    def require_turn_for_later_turns(self) -> TurnContextIn:
         if not self.is_first_turn and self.turn_id is None:
             raise ValueError("later turns require turn_id")
         return self

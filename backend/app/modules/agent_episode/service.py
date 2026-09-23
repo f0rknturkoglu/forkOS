@@ -77,14 +77,18 @@ def _episode_expiry(anchor: datetime) -> datetime:
     return anchor + timedelta(days=EPISODE_RETENTION_DAYS)
 
 
-async def _session_row(session: AsyncSession, harness: str, raw_session_id: str) -> AgentSession | None:
+async def _session_row(
+    session: AsyncSession, harness: str, raw_session_id: str
+) -> AgentSession | None:
     key = session_key(harness, raw_session_id)
     return (
         await session.execute(select(AgentSession).where(AgentSession.session_key == key))
     ).scalar_one_or_none()
 
 
-async def _get_or_create_episode(session: AsyncSession, session_row: AgentSession) -> AgentSessionEpisode:
+async def _get_or_create_episode(
+    session: AsyncSession, session_row: AgentSession
+) -> AgentSessionEpisode:
     """Oturumun taslak devrini döner, yoksa oluşturur.
 
     Eşzamanlı ilk dokunuş (ör. `/turn` ile `/episode/turn` aynı anda) iki
@@ -194,16 +198,18 @@ async def _episode_turn(
     ).scalar_one_or_none()
 
 
-async def _all_delivered_refs(
-    session: AsyncSession, episode_id: int
-) -> list[dict[str, Any]]:
+async def _all_delivered_refs(session: AsyncSession, episode_id: int) -> list[dict[str, Any]]:
     rows = (
-        await session.execute(
-            select(AgentSessionEpisodeTurn.delivered_refs).where(
-                AgentSessionEpisodeTurn.episode_id == episode_id
+        (
+            await session.execute(
+                select(AgentSessionEpisodeTurn.delivered_refs).where(
+                    AgentSessionEpisodeTurn.episode_id == episode_id
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     out: list[dict[str, Any]] = []
     for group in rows:
         out.extend(group or [])
@@ -269,7 +275,9 @@ async def _prune_turns(session: AsyncSession, episode: AgentSessionEpisode) -> N
         await session.scalars(
             select(AgentSessionEpisodeTurn.id)
             .where(AgentSessionEpisodeTurn.episode_id == episode.id)
-            .order_by(AgentSessionEpisodeTurn.delivered_at.desc(), AgentSessionEpisodeTurn.id.desc())
+            .order_by(
+                AgentSessionEpisodeTurn.delivered_at.desc(), AgentSessionEpisodeTurn.id.desc()
+            )
             .offset(MAX_EPISODE_TURNS)
         )
     ).all()
@@ -339,6 +347,11 @@ async def ingest_turn(session: AsyncSession, body: EpisodeTurnIn) -> EpisodeTurn
         scope_project=episode_scope,
     )
 
+    # Ham kullanıcı sözü yalnız bu istekte vardır; A4'e sınırlı politika sonucu taşınır.
+    from app.modules.semantic_memory.policy import is_privacy_blocked
+
+    row.semantic_memory_eligible = not is_privacy_blocked(body.user_message or "")
+
     digest = compute_turn_digest(
         session_key=session_row.session_key,
         turn_key=key,
@@ -356,15 +369,18 @@ async def ingest_turn(session: AsyncSession, body: EpisodeTurnIn) -> EpisodeTurn
         if reason not in degraded:
             degraded.append(reason)
 
-    base_ordinal = int(
-        (
-            await session.execute(
-                select(func.coalesce(func.max(AgentSessionEpisodeItem.ordinal), -1)).where(
-                    AgentSessionEpisodeItem.episode_id == episode.id
+    base_ordinal = (
+        int(
+            (
+                await session.execute(
+                    select(func.coalesce(func.max(AgentSessionEpisodeItem.ordinal), -1)).where(
+                        AgentSessionEpisodeItem.episode_id == episode.id
+                    )
                 )
-            )
-        ).scalar_one()
-    ) + 1
+            ).scalar_one()
+        )
+        + 1
+    )
 
     for index, item in enumerate(outcome.items):
         session.add(
@@ -390,7 +406,9 @@ async def ingest_turn(session: AsyncSession, body: EpisodeTurnIn) -> EpisodeTurn
     episode.turn_count = int(
         (
             await session.execute(
-                select(func.count()).select_from(AgentSessionEpisodeTurn).where(
+                select(func.count())
+                .select_from(AgentSessionEpisodeTurn)
+                .where(
                     AgentSessionEpisodeTurn.episode_id == episode.id,
                     AgentSessionEpisodeTurn.observed_at.is_not(None),
                 )
@@ -519,12 +537,16 @@ async def finalize(session: AsyncSession, body: EpisodeFinalizeIn) -> EpisodeFin
         return settled
 
     turn_rows = (
-        await session.execute(
-            select(AgentSessionEpisodeTurn)
-            .where(AgentSessionEpisodeTurn.episode_id == episode.id)
-            .order_by(AgentSessionEpisodeTurn.delivered_at, AgentSessionEpisodeTurn.id)
+        (
+            await session.execute(
+                select(AgentSessionEpisodeTurn)
+                .where(AgentSessionEpisodeTurn.episode_id == episode.id)
+                .order_by(AgentSessionEpisodeTurn.delivered_at, AgentSessionEpisodeTurn.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     degraded: list[str] = []
     for row in turn_rows:
@@ -733,15 +755,11 @@ async def select_recent_handoff(
     row = None
     if current_scope:
         row = (
-            await session.execute(
-                base.where(AgentSessionEpisode.scope_project == current_scope)
-            )
+            await session.execute(base.where(AgentSessionEpisode.scope_project == current_scope))
         ).scalar_one_or_none()
         if row is None:
             row = (
-                await session.execute(
-                    base.where(AgentSessionEpisode.scope_project.is_(None))
-                )
+                await session.execute(base.where(AgentSessionEpisode.scope_project.is_(None)))
             ).scalar_one_or_none()
     else:
         row = (
@@ -851,9 +869,7 @@ async def observe_turn_delivery(
         return None, None, degraded
 
     try:
-        refs = [
-            ref for ref in (delivered_ref_from_source(source) for source in sources) if ref
-        ]
+        refs = [ref for ref in (delivered_ref_from_source(source) for source in sources) if ref]
         scope_res = resolve_scope(refs, explicit_scope=explicit_scope)
         handoff = await select_recent_handoff(
             session,
@@ -899,10 +915,11 @@ async def status(session: AsyncSession) -> EpisodeStatusOut:
         drafts = int(
             (
                 await session.execute(
-                    select(func.count()).select_from(AgentSessionEpisode).where(
+                    select(func.count())
+                    .select_from(AgentSessionEpisode)
+                    .where(
                         AgentSessionEpisode.status == "draft",
-                        AgentSessionEpisode.updated_at
-                        > now - timedelta(hours=DRAFT_STALE_HOURS),
+                        AgentSessionEpisode.updated_at > now - timedelta(hours=DRAFT_STALE_HOURS),
                     )
                 )
             ).scalar_one()

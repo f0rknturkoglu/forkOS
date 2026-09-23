@@ -25,7 +25,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from app.core.secret_safety import contains_high_confidence_secret, looks_like_secret
+from app.core.secret_safety import contains_high_confidence_secret
 from app.integrations.obsidian.constants import (
     NOTE_KIND_SEMANTIC_MEMORY,
     SEMANTIC_MEMORY_ROOT,
@@ -34,12 +34,7 @@ from app.integrations.obsidian.frontmatter import (
     parse_frontmatter,
     render_markdown_with_frontmatter,
 )
-from app.integrations.obsidian.security import (
-    is_safe_knowledge_path,
-    resolve_safe_vault_path,
-    sanitize_filename,
-)
-from app.integrations.obsidian.vault import require_writable_vault
+from app.integrations.obsidian.security import resolve_safe_vault_path
 
 LOGGER = logging.getLogger("forkos.semantic_memory")
 
@@ -487,7 +482,7 @@ def derive_effective_status(cards: list[SemanticMemoryCard]) -> list[SemanticMem
 
     # 1. Aşama: Aktif kartların supersedes listelerini topla
     for card in cards:
-        if card.status == "active":
+        if card.status == "active" and (card.valid_to is None or card.valid_to >= now):
             superseded_ids.update(card.supersedes)
 
     # 2. Aşama: Efektif durumları ata
@@ -541,7 +536,8 @@ def get_semantic_profile(vault_root: Path, scope_project: str | None = None) -> 
     active = [
         c for c in all_cards
         if c.effective_status == "active"
-        and (scope_project is None or c.scope != "project" or c.scope_project == scope_project)
+        and (c.valid_from is None or c.valid_from <= datetime.now(UTC))
+        and (c.scope == "global" or (scope_project is not None and c.scope == "project" and c.scope_project == scope_project))
     ]
 
     corrections = [c for c in active if c.kind == "correction"]
@@ -582,4 +578,3 @@ def readable_root() -> Path | None:
         return resolved
     except (OSError, ValueError, PermissionError):
         return None
-

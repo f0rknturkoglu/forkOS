@@ -100,6 +100,8 @@ ACTIVITY_FILTERS: dict[str, tuple[str, ...]] = {
         "project.milestone_deleted", "project.milestone_updated", "project.updated",
         "recurring.paid", "recurring_payment.created", "recurring_payment.deleted",
         "settings.reset", "settings.updated",
+        "semantic_candidate.confirmed", "semantic_candidate.promoted",
+        "semantic_candidate.rejected", "semantic_candidate.stale",
         "source.failing", "source.stalled",
         "source_sync.completed", "source_sync.queued", "source_sync.sources_added",
         "source_sync.started",
