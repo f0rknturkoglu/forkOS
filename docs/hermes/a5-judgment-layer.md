@@ -16,6 +16,8 @@ Hermes orkestrasyona, PostgreSQL operasyonel duruma, H2 güncel kürasyonlu bağ
 
 H3 excerpt sınırı 1200, toplam metin sınırı 8000 karakterdir. Alıntı tek başına destek değildir; çevre bağlamı yoksa `context_complete=false` ve belirsizlik tercih edilir. Kaynak/tarih karışmaz: geçmiş olay güncel gerçek diye sunulamaz. `provider_confidence` yalnızca sağlayıcı tarafından bildirilen belirsizlik sinyalidir, nesnel doğruluk olasılığı değildir. Çıktılarda serbest komut/aksiyon alanı bulunmaz.
 
+Her uygun `ContextCandidate` için tam bir `ContextVerdict` zorunludur: eksik, yinelenen veya uydurulmuş kanıt kimliği geçersizdir. `status != success` olan her verdict yalnızca `uncertain` anlamsal alanlar taşıyabilir; başarılı çalışma da meşru biçimde `uncertain` dönebilir. Deterministik bellek kontrolü A4'ün `normalize_statement()` eşliğini yeniden kullanır; parafraz tahmini yapmaz.
+
 ## Rollout ve sağlayıcı sınırı
 
 Her amaç bağımsız mod taşır; A5.0'da hepsi `off`:
@@ -34,6 +36,8 @@ Durumlar `success`, `abstained`, `unavailable`, `stale`, `invalid`. Abstention n
 Her değişebilir kaynak `source_id`, tip, mevcut sürüm/revizyon ve yakalama zamanı ile bağlanır. Mekanik uygunluk ve gizlilik sağlayıcıdan **önce** uygulanır; H3 kapsam, Vault güvenli yolu, kaynak sınırı ve tazelik atlanamaz. Sağlayıcı çağrısı sonrasında kaynak revizyonu yeniden okunur; değişmiş/kaybolmuşsa `stale` ve sonuç kullanılamaz. Append-only olay gibi gerçekten değişmez kimlik/sürümün yeterli olduğu istisna gelecekte kaynak bazında açıkça belgelenmelidir.
 
 Yerellik `local|remote`; uzak sağlayıcı **varsayılan ret**. İlgili her öğede `remote_allowed=true` açıkça gerekli; duyarlılık ve kaynak politikası önceden denetlenir. Judge kendi gizlilik uygunluğunu belirleyemez. Bu sözleşme uzak içerik paylaşımını bugün açmaz. A5.0 gerçek özel verileri değerlendirme setlerine koymaz.
+
+`remote_allowed` yalnızca **uzak aktarımı** denetler; yerel sağlayıcının mekanik uygunluğunu etkilemez. Mekanik uygunluk ayrı ve her iki yerellik için zorunlu kapıdır.
 
 ## Dondurulmuş v1 değerlendirme ve kontrol
 

@@ -109,6 +109,14 @@ class ContextVerdict(VerdictBase):
     usefulness: ContextUsefulness
     redundancy: ContextRedundancy
 
+    @model_validator(mode="after")
+    def non_success_is_uncertain(self) -> ContextVerdict:
+        if self.status != "success" and (
+            self.usefulness != "uncertain" or self.redundancy != "uncertain"
+        ):
+            raise ValueError("non-success context verdict must be uncertain")
+        return self
+
 
 class MemorySnapshot(ContractModel):
     item_id: str = Field(min_length=1, max_length=128)
@@ -131,6 +139,12 @@ class MemoryRelationRequest(ContractModel):
 class MemoryRelationVerdict(VerdictBase):
     relation: MemoryRelation
 
+    @model_validator(mode="after")
+    def non_success_is_uncertain(self) -> MemoryRelationVerdict:
+        if self.status != "success" and self.relation != "uncertain":
+            raise ValueError("non-success memory relation must be uncertain")
+        return self
+
 
 class MemorySupportRequest(ContractModel):
     """Pairwise support uses the same bounded candidate/card snapshots."""
@@ -144,6 +158,12 @@ class MemorySupportRequest(ContractModel):
 
 class SupportVerdict(VerdictBase):
     support: EvidenceSupport
+
+    @model_validator(mode="after")
+    def non_success_is_uncertain(self) -> SupportVerdict:
+        if self.status != "success" and self.support != "uncertain":
+            raise ValueError("non-success support verdict must be uncertain")
+        return self
 
 
 class AnswerEvidenceItem(ContractModel):

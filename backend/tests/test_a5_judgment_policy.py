@@ -33,8 +33,15 @@ def test_off_shadow_remote_and_unavailable():
     with pytest.raises(ValidationError):
         PurposeModes(context="unknown")
     assert not decision(modes=PurposeModes()).allowed
+    assert decision(locality="local", remote_allowed=(False,)).allowed
+    assert decision(locality="local", remote_allowed=(True,)).allowed
+    assert decision(locality="local", remote_allowed=()).allowed
+    assert decision(locality="remote", remote_allowed=(True,)).allowed
     assert not decision(locality="remote", remote_allowed=(False,)).allowed
+    assert not decision(locality="remote", remote_allowed=(True, False)).allowed
+    assert decision(locality="remote", remote_allowed=(True, True)).allowed
     assert not decision(mechanically_eligible=False).allowed
+    assert not decision(locality="remote", mechanically_eligible=False).allowed
     assert decision(capabilities=frozenset()).reason == "unsupported_capability"
     assert decision(provider_available=False).status == "unavailable"
     assert decision().allowed
@@ -55,6 +62,10 @@ def test_source_changed_is_stale_and_never_authorizes():
 
 def test_conservative_baselines():
     assert memory_baseline(candidate="same", existing="same") == "same_claim"
+    assert memory_baseline(candidate="Prefer concise replies.", existing="Prefer concise replies.") == "same_claim"
+    assert memory_baseline(candidate="Prefer concise replies.", existing="  PREFER   CONCISE REPLIES. ") == "same_claim"
+    assert memory_baseline(candidate="Ａｔｌａｓ", existing="Atlas") == "same_claim"
+    assert memory_baseline(candidate="Prefer concise replies.", existing="Keep answers brief.") == "uncertain"
     assert memory_baseline(candidate="Rust", existing="Python") == "uncertain"
     valid = answer_baseline(evidence_current=True, locator_valid=True, context_complete=True)
     assert valid.support == "uncertain" and valid.status == "abstained"
@@ -72,3 +83,18 @@ def test_context_cannot_invent_evidence():
     assert context_verdicts_valid(request, (real,))
     assert not context_verdicts_valid(request, (invented,))
     assert not context_verdicts_valid(request, (real, real))
+    assert not context_verdicts_valid(request, ())
+
+    items = tuple(
+        ContextCandidate(
+            evidence_id=f"entity:{index}", source_type="entity", title="Atlas", excerpt="Status",
+            retrieval_position=index, snapshot=snap,
+        )
+        for index in range(15)
+    )
+    full = ContextJudgmentRequest(request_id="r15", query="Atlas?", candidates=items)
+    verdicts = tuple(real.model_copy(update={"evidence_id": item.evidence_id}) for item in items)
+    assert context_verdicts_valid(full, verdicts)
+    assert not context_verdicts_valid(full, verdicts[:-1])
+    assert not context_verdicts_valid(full, verdicts[:-1] + (invented,))
+    assert not context_verdicts_valid(full, verdicts[:-1] + (verdicts[0],))

@@ -69,3 +69,42 @@ def test_result_validation():
         m.ContextVerdict(evidence_id="e1", usefulness="true", redundancy="unique", status="success")
     with pytest.raises(ValidationError):
         m.MemoryRelationVerdict(status="abstained", relation="uncertain", reason_codes=("arbitrary",))
+
+
+@pytest.mark.parametrize(
+    ("status", "usefulness", "redundancy"),
+    [
+        ("abstained", "essential", "uncertain"),
+        ("unavailable", "uncertain", "unique"),
+        ("stale", "useful", "unique"),
+        ("invalid", "irrelevant", "uncertain"),
+    ],
+)
+def test_non_success_context_cannot_claim_usefulness(status, usefulness, redundancy):
+    with pytest.raises(ValidationError):
+        m.ContextVerdict(evidence_id="entity:1", status=status, usefulness=usefulness, redundancy=redundancy)
+
+
+@pytest.mark.parametrize(
+    ("status", "relation"),
+    [("unavailable", "incompatible"), ("stale", "changed_decision"), ("invalid", "same_claim")],
+)
+def test_non_success_relation_cannot_claim_semantics(status, relation):
+    with pytest.raises(ValidationError):
+        m.MemoryRelationVerdict(status=status, relation=relation)
+
+
+@pytest.mark.parametrize(
+    ("status", "support"),
+    [("invalid", "supported"), ("unavailable", "contradicted"), ("stale", "insufficient")],
+)
+def test_non_success_support_cannot_claim_semantics(status, support):
+    with pytest.raises(ValidationError):
+        m.SupportVerdict(status=status, support=support)
+
+
+def test_uncertainty_remains_valid_on_success_and_non_success():
+    for status in ("success", "abstained", "unavailable", "stale", "invalid"):
+        assert m.ContextVerdict(evidence_id="entity:1", status=status, usefulness="uncertain", redundancy="uncertain")
+        assert m.MemoryRelationVerdict(status=status, relation="uncertain")
+        assert m.SupportVerdict(status=status, support="uncertain")

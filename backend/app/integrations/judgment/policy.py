@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.modules.semantic_memory.policy import normalize_statement
+
 from .models import (
     AbstentionReason,
     ContextJudgmentRequest,
@@ -65,14 +67,14 @@ def may_invoke(
     """
     if modes.for_purpose(purpose) == "off":
         return InvocationDecision(False, "abstained", "mechanical_policy_block")
-    if not mechanically_eligible or not remote_allowed:
-        return InvocationDecision(False, "invalid", "mechanical_policy_block")
-    if locality == "remote" and not all(remote_allowed):
+    if not mechanically_eligible:
         return InvocationDecision(False, "invalid", "mechanical_policy_block")
     if PURPOSE_CAPABILITY[purpose] not in capabilities:
         return InvocationDecision(False, "abstained", "unsupported_capability")
     if not provider_available:
         return InvocationDecision(False, "unavailable", "provider_unavailable")
+    if locality == "remote" and not all(remote_allowed):
+        return InvocationDecision(False, "invalid", "mechanical_policy_block")
     return InvocationDecision(True, "success")
 
 
@@ -105,15 +107,19 @@ def context_baseline(request: ContextJudgmentRequest) -> tuple[str, ...]:
 
 
 def context_verdicts_valid(request: ContextJudgmentRequest, verdicts: tuple[ContextVerdict, ...]) -> bool:
-    """A judge cannot introduce an ID absent from its H3-filtered input."""
+    """Exactly one verdict per H3-filtered candidate; no omissions or inventions."""
     allowed = {item.evidence_id for item in request.candidates}
     seen = [verdict.evidence_id for verdict in verdicts]
-    return bool(seen) and len(seen) == len(set(seen)) and set(seen).issubset(allowed)
+    return (
+        len(verdicts) == len(request.candidates)
+        and len(seen) == len(set(seen))
+        and set(seen) == allowed
+    )
 
 
 def memory_baseline(*, candidate: str, existing: str) -> str:
-    """Exact normalization is only an exact duplicate signal, not a semantic guess."""
-    return "same_claim" if candidate.strip() == existing.strip() else "uncertain"
+    """A4 normalized duplicate signal only; no semantic or fuzzy guess."""
+    return "same_claim" if normalize_statement(candidate) == normalize_statement(existing) else "uncertain"
 
 
 def answer_baseline(*, evidence_current: bool, locator_valid: bool, context_complete: bool) -> SupportVerdict:
