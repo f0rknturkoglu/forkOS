@@ -88,7 +88,7 @@ A4, forkOS'un temel gizlilik değişmezini korur:
    Kullanıcı oturum içinde açıkça bellek kaydını reddettiğinde:
    - Türkçe: `"bunu hafızaya alma"`, `"bunu hatırlama"`, `"hafızaya kaydetme"`
    - İngilizce: `"don't remember this"`, `"do not store this as memory"`
-   gibi yüksek güvenilirlikli kalıplar tespit edilirse o tur/oturum için aday üretimi ATLANIR (`privacy_blocked`). Bu durum "aday reddedildi" anlamına gelmez; adayın hiç oluşturulmadığını dürüstçe belirtir.
+   gibi yüksek güvenilirlikli kalıplar tespit edilirse o turun `semantic_memory_eligible` değeri `false` olur ve o turdan aday üretilmez. Bu durum "aday reddedildi" anlamına gelmez; aday hiç oluşturulmaz.
    - Genel ve muğlak ifadeler (`"boşver"`, `"forget it"`, `"kaydetme"`) yanlış pozitif üretmemesi için veto sayılmaz.
 4. **Sır ve Kimlik Bilgisi Reddi:** Aday ifadesi, koşulları veya gerekçesi içinde API anahtarı, parola, token deseni tespit edilirse (`secret_safety.py`) işlem derhal reddedilir.
 
@@ -99,18 +99,18 @@ A4, forkOS'un temel gizlilik değişmezini korur:
 Adaylar `agent_semantic_candidate` tablosunda şu yaşam döngüsünü takip eder:
 
 ```text
-[Signal: H5 consolidation + A3 episode items]
+[Signal: H5 consolidation; yalnız uygun A3 item'ları ve isteğe bağlı kanonik event'ler]
         ↓
-    (proposed)
+  (ready veya needs_review)
         ↓
   Mekanik Kontroller
     ├── Kopya / Duplicate? ──────────→ (already_present / noop)
-    ├── Gizlilik Vetosu? ────────────→ (privacy_blocked)
+    ├── Gizlilik Vetosu? ────────────→ (aday oluşturulmaz)
     ├── Zayıf Kanıt / Çelişki? ──────→ (needs_review)
     └── Güçlü Kanıt (explicit_user)? ──→ (ready)
         ↓
   İnceleme (UI veya kısıtlı MCP)
-    ├── Kullanıcı Onayı ─────────────→ (promoted) → Kasa Kartı Yazımı
+    ├── Kullanıcı Onayı ─────────────→ (ready) → terfi → (promoted)
     ├── Kullanıcı Reddi ─────────────→ (rejected)
     └── Kaynak Bayatlaması ──────────→ (stale)
 ```
@@ -119,7 +119,7 @@ Adaylar `agent_semantic_candidate` tablosunda şu yaşam döngüsünü takip ede
 Aday kimliği destek referanslarına bağımlı olmamalıdır; çünkü aynı iddia zamanla yeni kanıtlar toplayabilir.
 ```text
 candidate_key = sha256(
-    "v1:"
+    "v2:"
     + kind
     + ":" + (scope or "global")
     + ":" + (scope_project or "")
@@ -127,7 +127,7 @@ candidate_key = sha256(
     + ":" + normalize_for_matching(statement)
 )
 ```
-Aynı anahtara sahip yeni sinyaller geldiğinde mevcut adayın `recurrence_count` değeri artar, yeni `support_refs` listeye birleştirilir ve `last_seen_at` güncellenir.
+Aynı anahtara sahip yeni kaynak referansları geldiğinde yalnız açık adayların `recurrence_count` değeri artar ve yeni kanıt referansları birleştirilir. Eski v1 adayları, opt-out metadata'sı olmadığı için migration sırasında `stale` yapılır; yeniden canlandırılmaz.
 
 ---
 
@@ -138,13 +138,13 @@ A4'ün ilk sorusu "Bu bilgi hafıza mı?" değil, **"Bu bilginin kanonik sahibi 
 ```text
 Aday Sinyali
     ├── commitment / action ──→ OPERATIONAL (forkOS: Todo, Project)
-    ├── temporary focus / goal → HOT_MEMORY (H2: 90 Agent/Memory)
+    ├── oturumluk açık hedef ──→ HOT_MEMORY (H2: 90 Agent/Memory)
     ├── identity / preference ─→ DURABLE_VAULT (f0rknbrain: 30 Knowledge/Memory)
     ├── explicit correction ───→ DURABLE_VAULT (+ gerekirse H2 sıcak bellek)
     ├── decision / lesson ─────→ DURABLE_VAULT (f0rknbrain: 30 Knowledge/Memory)
     ├── project knowledge ─────→ DURABLE_VAULT (f0rknbrain: 30 Knowledge/Memory)
     ├── system / prompt rule ──→ PROCEDURAL_CANDIDATE (Gelecek Sözleşme İncelemesi)
-    └── trivial / noisy chat ──→ DISCARD
+    └── trivial / noisy chat ──→ aday çıkarılmaz; kullanıcı ayrıca discard seçebilir
 ```
 
 - **Operasyonel Yönlendirme:** A4 kendiliğinden doğrudan `Todo` veya `Project` tablosuna INSERT yapmaz. `suggested_destination = "operational"` işaretler; mevcut H1/H7 güvenli yürütme hattına havale eder.
@@ -225,7 +225,7 @@ Bir iddianın ne zaman gözlemlendiği ile ne zaman geçerli olduğu birbirinden
 - `valid_to`: İddianın geçerliliğini yitirdiği bilinen an (açık bir bitiş yoksa `null`). Uydurma bitiş tarihi yazılmaz.
 
 Bir kart yerine yenisi geçtiğinde (`supersedes`):
-Eski kartın `valid_to` değeri kaydedilmemiş olsa bile, okuma modeli eski kartın efektif bitişini yeni kartın `valid_from` veya `observed_at` değerinden dinamik olarak türetebilir.
+Eski kartın `valid_to` değeri otomatik yazılmaz veya uydurulmaz. Yeni aktif kart eski kartı açıkça `supersedes` ile işaretlediğinde okuma modeli eski kartı `superseded` olarak gösterir.
 
 ---
 
@@ -233,7 +233,7 @@ Eski kartın `valid_to` değeri kaydedilmemiş olsa bile, okuma modeli eski kart
 
 A4 anlamsal belleği **eklemeli (additive)** yönetir. Eski gerçekler veritabanından silinmez veya sessizce üzerine yazılmaz.
 
-1. **Birebir Çift (Exact Duplicate):** Kapsam, tür ve normalize ifade mevcut aktif bir kartla birebir aynıysa YENİ KART YAZILMAZ (`noop / already_present`). Adayın sayaçları güncellenir.
+1. **Birebir Çift (Exact Duplicate):** Kapsam, tür, subject ve normalize ifade mevcut aktif bir kartla birebir aynıysa YENİ KART YAZILMAZ (`already_present`). Aday mevcut karta bağlanmış `promoted` durumuna geçer.
 2. **Subject Key Yalnızca İpucudur:** Aynı `subject_key` değerine sahip olmak eski kartı geçersiz kılmak için yeterli DEĞİLDİR.
 3. **Geniş Varlık Geçersiz Kılma Yasaktır:** "Kullanıcı Proje X hakkında konuştu" diye önceki tüm Proje X kartları emekli edilemez.
 4. **Kullanıcı Onaylı Geçersiz Kılma:** Eski bir kartın yerine yenisinin geçmesi, ancak kullanıcının açıkça seçtiği `supersedes_card_id` ile mümkündür. Yeni kartın `forkos_memory_supersedes` listesine eski kartın ID'si yazılır.
@@ -247,13 +247,13 @@ A4 v1'de **tam otomatik kalıcı hafıza kartı yazımı YOKTUR**.
 
 ### Mekanik Kapılar (Mechanical Gates)
 Terfi öncesinde şu kontroller zorunludur:
-- Aday mevcut ve durumu terfiye uygun (`ready` veya kullanıcı tarafından `confirmed`).
+- Aday mevcut ve durumu tam olarak `ready` (onay ayrı bir durum değil, `ready` geçişidir).
 - `expected_revision` adayın güncel revizyonu ile eşleşiyor (optimistic concurrency).
-- Kaynak referansları geçerli ve varsa hedef proje/kaynak silinmemiş.
+- Kanonik kaynak referansları geçerli, A3 turu semantic-memory-eligible ve varsa hedef proje/kaynak silinmemiş.
 - Gizlilik vetosu yok.
 - Secret safety kontrolü temiz (ifade içinde anahtar/şifre yok).
 - Hedef Vault yazılabilir.
-- Birebir aktif kopya yok.
+- Birebir aktif kopya varsa yeni dosya yazılmadan `already_present` döner.
 
 ### Zayıf Kanıt Koruması
 `episode_derived` veya `model_derived` kanıt sınıfına sahip adaylar kullanıcı arayüzünden doğrudan onaylanmadıkça (`reviewed_by = "user"`) MCP write araçları üzerinden tek tıkla terfi ettirilemez (`SEMANTIC_REVIEW_REQUIRED`). Ajan kendi çıkarımını kendi kendine onaylayamaz.
@@ -300,7 +300,7 @@ A2 teslimatına eklenen her anlamsal kart `semantic_memory:<uuid>` biçiminde ve
 ## 15. Hata ve Dayanıklılık Semantiği (Failure Semantics)
 
 - **Fail-Open / Güvenli Başarısızlık:** Kasa erişilemez durumdaysa, aday üretimi başarısız olduysa veya yerel model (H4) kapalıysa, Hermes oturumu veya A1 yaşam döngüsü ASLA düşürülmez.
-- **Dürüst Teşhis:** H4 kapalıysa uydurma aday üretilmez; `0 aday` ve `LOCAL_COGNITION_UNAVAILABLE` gerekçesi bildirilir.
+- **Dürüst Teşhis:** H4 kapalıysa uydurma aday üretilmez; refresh `0 aday` döner. A4 refresh yanıtı şu anda ayrıca `LOCAL_COGNITION_UNAVAILABLE` kodu taşımaz.
 - **Yazma Atomikliği:** Dosya yazımları `O_EXCL` ve geçici dosya üzerinden atomik gerçekleştirilir; bozuk/yarım dosya oluşmaz.
 
 ---
@@ -308,12 +308,12 @@ A2 teslimatına eklenen her anlamsal kart `semantic_memory:<uuid>` biçiminde ve
 ## 16. Doğrulama ve Değerlendirme Seti (Evaluation)
 
 A4'ün doğruluğu deterministik değerlendirme seti ile kilitlenir:
-[`backend/tests/fixtures/a4_semantic_eval_v1.json`](file:///Users/furkanturkoglu/Desktop/Projeler/forkOS/backend/tests/fixtures/a4_semantic_eval_v1.json)
+`backend/tests/fixtures/a4_semantic_eval_v1.json`
 
 Set şu test durumlarını zorunlu olarak içerir:
-1. **PromotionEval:** Açık tercih, düzeltme, karar, taahhüt -> operasyonel, anlık hedef -> H2, anlamsız sohbet -> discard.
+1. **PromotionEval:** Açık tercih, düzeltme, karar, taahhüt ve oturumluk hedef için sahiplik/yönlendirme beklentileri.
 2. **EvidenceEval:** `explicit_user`, `canonical_source`, `episode_derived`, `model_derived` doğru sınıflandırması.
-3. **PrivacyEval:** `"bunu hafızaya alma"` ve varyantlarında `privacy_blocked` oluşması; olumsuz örneklerde yanlış veto verilmemesi.
+3. **PrivacyEval:** `"bunu hafızaya alma"` ve varyantlarında A3 turunun uygunsuz işaretlenmesi ve A4 adayının hiç oluşmaması; olumsuz örneklerde yanlış veto verilmemesi.
 4. **TemporalEval:** Eski tercihin yeni tercih ile ilişkisi ve zamansal geçerlilik türetimi.
 5. **SupersessionEval:** Birebir kopyada noop; seçilen hedefte yerine geçme; alakasız varlık veya aynı proje bahsinde geçersiz kılmama.
 6. **AbstentionEval:** Yetersiz veya şüpheli veride `needs_review` veya `stale` dönülmesi; kesinlik uydurulmaması.

@@ -430,7 +430,7 @@ H6'nın karar alanıdır ve H6 canonical mutasyon yapmaz.
 
 ---
 
-## A-Serisi — Yaşam Döngüsü, Süreklilik ve Epizodik Devir (A1 → A3)
+## A-Serisi — Yaşam Döngüsü, Süreklilik ve Anlamsal Terfi (A1 → A4)
 
 Ajan oturumlarının yaşam döngüsünü gözleyen, Hermes harness'ı ile forkOS arasında hafif ve bütçeli bir süreklilik köprüsü kuran katman. A-serisi yeni bir kanonik durum sahibi DEĞİLDİR; forkOS operasyonel durumunu ve f0rknbrain bilgisini MCP dışındaki oturum sınırlarında köprüler.
 
@@ -440,7 +440,7 @@ Ajan oturumlarının yaşam döngüsünü gözleyen, Hermes harness'ı ile forkO
 A1 — Lifecycle Bridge
 A2 — Bootstrap & Source Continuity
 A3 — Session Handoff & Episodic Memory
-A4 — Semantic Promotion / Durable Memory      (BAŞLATILMADI)
+A4 — Semantic Promotion / Durable Memory      (CLOSED, A4.1 hardening)
 A5 — Context Judge / Feedback layer           (BAŞLATILMADI)
 ```
 
@@ -471,12 +471,13 @@ A5 — Context Judge / Feedback layer           (BAŞLATILMADI)
 - **Destek Modelleri:** `agent_session_episode`, `agent_session_episode_turn`, `agent_session_episode_item` (migration `0066_agent_episode`).
 - Ayrıntı: `a3-episodic-handoff.md` · Uçtan uca koşu: `walkthrough.md`.
 
-### A4 / A5 — Gelecek Aşamalar (BAŞLATILMADI)
+### A4 — Semantic Promotion / Durable Memory (CLOSED, A4.1)
 
-Bu iki aşamanın **implementasyonu başlamamıştır** ve A3 bunların hiçbir workflow'unu kurmaz (`promotion_status`, `auto_promote`, `semantic_truth` gibi alanlar yoktur). Sınır dürüstçe şudur:
+A4 adayları A3'ün uygun mühürlü öğeleri ve isteğe bağlı kanonik event'lerden H5 consolidation ile çıkarılır. Aday kanonik doğru değildir. Kullanıcı incelemesi, `ready` kapısı, kaynak tazeliği, açık tek-kart supersession seçimi ve kopya koruması sonrasında H2 veya f0rknbrain'e terfi edebilir. Operasyonel/prosedürel yönlendirme kanonik yazma yapmaz; sahip eylemi gerektirir. Opt-out ham metin kalıcılaşmadan A3 turunda belirlenir. Ayrıntı: `a4-semantic-promotion.md`.
 
-- **A4 — Semantic Promotion / Durable Memory:** epizodik kayıtlardan kalıcı, kullanıcıya ait anlamsal bilgiye (H2 / f0rknbrain) **terfi** politikası. A3 yalnız A4'ün okuyabileceği epizodik item türleri üretir; otomatik terfi YAPMAZ.
-- **A5 — Context Judge / Feedback layer:** enjekte edilen bağlamın ve ajan yanıtlarının kalitesini/kanıt doğruluğunu değerlendiren geri bildirim katmanı. A3 hiçbir judge çağırmaz.
+### A5 — Context Judge / Feedback layer (BAŞLATILMADI)
+
+Enjekte edilen bağlamın ve ajan yanıtlarının kalitesini/kanıt doğruluğunu değerlendiren geri bildirim katmanı henüz uygulanmadı. A4 kendi çıkarımını otomatik doğrulamaz.
 
 ---
 
