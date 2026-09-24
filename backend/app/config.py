@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -56,6 +57,11 @@ class Settings(BaseSettings):
     #: eder ve uydurma yapmaz; devir yine metadata + H5 gözlemleriyle mühürlenir.
     #: Konuşmaya özgü ifade isteniyorsa H4'ü KÜÇÜK bir yerel modele yönlendirin.
     a3_extraction_budget_seconds: float = 2.0
+
+    # A5.1: opt-in local context reranking. No daemon is started by forkOS.
+    a5_context_mode: Literal["off", "shadow", "assist", "on"] = "off"
+    a5_jevmlx_base_url: str = "http://127.0.0.1:8000"
+    a5_context_timeout_seconds: float = 1.5
 
     @property
     def resolved_obsidian_vault_path(self) -> Path | None:

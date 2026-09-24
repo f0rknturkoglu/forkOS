@@ -44,9 +44,10 @@ H4_TOOLS = capabilities.family_tools("H4")
 H5_TOOLS = capabilities.family_tools("H5")
 H6_TOOLS = capabilities.family_tools("H6")
 H7_TOOLS = capabilities.family_tools("H7")
+A5_TOOLS = capabilities.family_tools("A5")
 
 #: Aile adları TEK kaynaktan (`capabilities`) gelir; burada yinelenmez.
-ALL_FAMILY_TOOLS = H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS
+ALL_FAMILY_TOOLS = H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS | A5_TOOLS
 
 #: Yasak alan adları: sahte kesinlik ve yanıt üretimi sözleşmeye SIZAMAZ.
 FORBIDDEN_FIELD_NAMES = (
@@ -107,13 +108,13 @@ def _property_names(schema: dict) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
-async def test_tool_surface_is_exactly_26_with_one_h3_tool() -> None:
+async def test_tool_surface_is_exactly_32_with_one_h3_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 31
+    assert len(tools) == 32
     assert set(tools) & H3_TOOLS == H3_TOOLS
     assert set(tools) == ALL_FAMILY_TOOLS == capabilities.all_tools()
     assert len(H0_TOOLS) == 8 and len(H1_TOOLS) == 11 and len(H2_TOOLS) == 5
-    assert len(ALL_FAMILY_TOOLS) == capabilities.tool_count() == 31
+    assert len(ALL_FAMILY_TOOLS) == capabilities.tool_count() == 32
 
 
 async def test_h0_h1_h2_tools_are_unchanged() -> None:

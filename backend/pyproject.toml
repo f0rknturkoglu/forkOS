@@ -42,6 +42,7 @@ pythonpath = ["."]
 markers = [
   "no_database: test does not need a database connection",
   "h4_live: needs a real local model; skipped unless H4_LIVE=1 and a model is configured",
+  "a5_context_live: needs a ready local jevmlx daemon; skipped unless A5_CONTEXT_LIVE=1",
 ]
 
 [tool.ruff]

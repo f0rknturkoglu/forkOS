@@ -29,7 +29,7 @@ Her amaç bağımsız mod taşır; A5.0'da hepsi `off`:
 
 Durumlar `success`, `abstained`, `unavailable`, `stale`, `invalid`. Abstention nedenleri `insufficient_evidence`, `ambiguous_relation`, `context_incomplete`, `low_provider_margin`, `unsupported_capability`, `provider_unavailable`, `source_stale`, `mechanical_policy_block`. Bir sağlayıcının yetenekleri `context_relevance`, `semantic_relation`, `entailment`, `contradiction`, `answer_support` kümesidir. Desteklenmeyen yetenek çağrılmaz. Sağlayıcı yoksa deterministik kontrol/çekimserlik kullanılır; gizli uzak fallback yoktur.
 
-`JudgmentProvider` yalnız protokoldür. Plan: A5.1 bağlamda yerel jevmlx, A5.2 ilişkide jevmlx, A5.2 destek/çelişkide ve A5.3 yanıtta yerel poorjev/NLI. Bunlar değiştirilir uygulama seçenekleridir; v1 domain sözleşmelerine sağlayıcı kimliği sızmaz. A5.0 jevmlx/poorjev kurmaz, model indirmez, daemon veya HTTP istemcisi başlatmaz.
+`JudgmentProvider` sağlayıcı-nötr protokoldür. A5.1 bağlamda ayrı localhost jevmlx sürecini uygular; varsayılan mod yine `off`tur. A5.2 ilişki için jevmlx, A5.2 destek/çelişki ve A5.3 yanıt için poorjev/NLI yalnız plandır. Bunlar değiştirilebilir uygulama seçenekleridir; v1 domain sözleşmelerine sağlayıcı kimliği sızmaz. Ayrıntı: [A5.1 yerel bağlam yargısı](a5-context-judge.md).
 
 ## Kaynak anlık görüntüsü, gizlilik ve yeniden doğrulama
 
@@ -55,4 +55,4 @@ Kontrol: Context H3 sırasını ve 11 uygun öğeyi korur; 0 anlamsal yeniden s�
 
 ## Ertelemeler ve Hermes kancası
 
-Hermes `post_llm_call` teslim öncesi yanıtı bloke/değiştirilemez; bu yüzden A5.3 bir yanıt güvenlik duvarı değildir. Gelecekte explicit verify aracı veya yanıt-sonrası shadow ölçümü olabilir. Gerçek pre-send `on` için uygulanabilir ayrı kanca gerekir. A5.1 çalışma zamanı, A5.2, A5.3, otomatik iddia çıkarımı, kalıcı telemetri, UI ve A6 Brain Doctor bu fazda başlamaz.
+Hermes `post_llm_call` teslim öncesi yanıtı bloke/değiştirilemez; bu yüzden A5.3 bir yanıt güvenlik duvarı değildir. Gelecekte explicit verify aracı veya yanıt-sonrası shadow ölçümü olabilir. Gerçek pre-send `on` için uygulanabilir ayrı kanca gerekir. A5.1 yalnız bağlam sıralamasını uygular; A5.2, A5.3, otomatik iddia çıkarımı, kalıcı telemetri, UI ve A6 Brain Doctor başlamadı.

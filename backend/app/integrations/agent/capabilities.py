@@ -1,4 +1,4 @@
-"""H0–H7 Brain Interface yetenek metadatası — TEK kaynak (single source of truth).
+"""H0–H7 ve A5 Brain Interface yetenek metadatası — TEK kaynak.
 
 Bu dosya MCP yüzeyinin aile haritasını ve sunucu talimatını tutar; hem MCP
 sunucusu (`mcp.py`) hem Ayarlar teşhis ucu (`/api/agent/status`) buradan okur.
@@ -9,7 +9,7 @@ kümesi eşitliği + aile başına sayılar + yinelenen ad yasağı).
 
 Kural: yeni bir araç eklerken/aile değiştirirken ÖNCE burası güncellenir,
 sonra `tools.py` kaydı ve testler yeşile getirilir. Aileler tarihsel Hermes
-fazlarıdır (H0–H7) ve araç adları sunucudaki gerçek adlarla birebir aynıdır.
+fazlarıdır (H0–H7, A5) ve araç adları sunucudaki gerçek adlarla birebir aynıdır.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ LOOPBACK_ONLY = True
 
 @dataclass(frozen=True)
 class FamilySpec:
-    """Bir Hermes fazının (H0–H7) dışa vurulan yetenek özeti.
+    """Bir Hermes fazının dışa vurulan yetenek özeti.
 
     `tools` sunucudaki GERÇEK araç adlarıdır; sıra kayıt sırasıyla aynıdır.
     """
@@ -42,7 +42,7 @@ class FamilySpec:
     tools: tuple[str, ...]
 
 
-#: Aileler H0..H7 sırasındadır. Sıra sözleşmedir: teşhis yükü ve talimat metni
+#: Aileler H0..H7 ve A5 sırasındadır. Sıra sözleşmedir: teşhis yükü ve talimat metni
 #: bu sırayı korur, testler sırayı da doğrular.
 FAMILIES: tuple[FamilySpec, ...] = (
     FamilySpec(
@@ -124,6 +124,12 @@ FAMILIES: tuple[FamilySpec, ...] = (
         summary="Kanıttan plan önerir; yalnızca kullanıcının onayladığı revizyonu H1 yazma araçlarıyla yürütür.",
         tools=("forkos_execution",),
     ),
+    FamilySpec(
+        id="A5",
+        label="Bağlam yargısı",
+        summary="H3'ün uygun kanıtını yerel anlamsal öncelikle sıralar; kaynak eklemez veya silmez.",
+        tools=("forkos_context_judge",),
+    ),
 )
 
 #: Talimat metninde her ailenin ROLÜ. `FAMILIES` ile birebir örtüşmek zorundadır:
@@ -161,6 +167,10 @@ _FAMILY_ROLE: dict[str, str] = {
     "H7": (
         "H7 durable execution: propose an action plan from evidence, let the user approve one "
         "exact revision, then execute strictly through the H1 write tools."
+    ),
+    "A5": (
+        "A5 context judgment: optional local semantic prioritization of H3-eligible evidence, "
+        "with no evidence removal or canonical writes."
     ),
 }
 

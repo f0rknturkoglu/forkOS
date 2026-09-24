@@ -60,6 +60,7 @@ from app.integrations.agent.write_models import (
     TodoPlanIn,
     TodoUpdateIn,
 )
+from app.integrations.judgment import context as judgment_svc
 from app.integrations.local_cognition import models as lc_models
 from app.integrations.local_cognition import service as lc_svc
 from app.integrations.review_intelligence import models as ri_models
@@ -284,6 +285,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_review_intelligence_tool(server)
     _register_proactivity_tool(server)
     _register_execution_tool(server)
+    _register_context_judge_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -1063,6 +1065,40 @@ def _register_evidence_tool(server: MCPServer) -> None:
             raise ToolError(str(exc)) from exc
         except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı (§127)
             raise ToolError(f"EVIDENCE_UNAVAILABLE: {type(exc).__name__}") from exc
+
+
+def _register_context_judge_tool(server: MCPServer) -> None:
+    @server.tool(
+        name="forkos_context_judge",
+        description=(
+            "Run deterministic H3 retrieval first, then optionally prioritize its already-eligible "
+            "evidence with a local Context Judge. Returns the original unchanged EvidenceBundle, "
+            "baseline, advisory and effective orders. A5.1 creates or removes no evidence and "
+            "makes no canonical mutation or truth claim. With the judge off or unavailable, "
+            "effective order remains H3's order. Read-only; local provider only. " + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_context_judge(
+        query: EvidenceQuery,
+        entity_id: str | None = None,
+        scope: ev_models.EvidenceScope = "all",
+        since: str | None = None,
+        until: str | None = None,
+        max_depth: EvidenceDepth = ev_models.DEFAULT_EVIDENCE_DEPTH,
+        limit: EvidenceLimit = ev_models.DEFAULT_EVIDENCE_LIMIT,
+    ) -> AgentEnvelope[judgment_svc.ContextJudgeResponse]:
+        try:
+            async with SessionLocal() as session:
+                result = await judgment_svc.judge_context(
+                    session, query=query, entity_id=entity_id, scope=scope,
+                    since=since, until=until, max_depth=max_depth, limit=limit,
+                )
+            return AgentEnvelope(source="forkos", data=result, truncated=result.bundle.truncated)
+        except ev_svc.EvidenceError as exc:
+            raise ToolError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - no local path or provider body in error
+            raise ToolError(f"CONTEXT_JUDGE_UNAVAILABLE: {type(exc).__name__}") from exc
 
 
 # ---------------------------------------------------------------------------

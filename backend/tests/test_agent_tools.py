@@ -25,12 +25,12 @@ async def test_mcp_tool_registration_and_metadata():
         "brain_read",
     ]
 
-    # 1. H0 araçları yerinde ve toplam yüzey 8 + 11 + 5 + 1 + 1 + 1 = 27.
+    # 1. H0 araçları yerinde ve toplam MCP yüzeyi A5.1 ile 32.
     assert set(expected_read_tools) <= set(tool_map)
     assert "forkos_evidence" in tool_map
     assert "forkos_local_cognition" in tool_map
     assert "forkos_review_intelligence" in tool_map
-    assert len(tool_map) == 31
+    assert len(tool_map) == 32
 
     # 2. Okuma araçlarının sözleşmesi zayıflatılmadı.
     for name in expected_read_tools:
@@ -51,6 +51,7 @@ async def test_mcp_tool_registration_and_metadata():
         "forkos_local_cognition",
         "forkos_review_intelligence",
         "semantic_memory_candidates",
+        "forkos_context_judge",
     }
     for name, tool in tool_map.items():
         if name in read_only_names:
@@ -100,4 +101,3 @@ async def test_brain_search_input_validation():
 async def test_brain_read_uuid_validation():
     with pytest.raises(Exception, match="INVALID_UUID"):
         await mcp_server.call_tool("brain_read", {"forkos_id": "not-a-uuid"})
-

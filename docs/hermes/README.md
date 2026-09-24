@@ -10,7 +10,7 @@ gözler; [A3 epizodik devir](a3-episodic-handoff.md) katmanı ise oturumlar aras
 sınırlı, kaynağa bağlı bir tarihsel devir taşır. İkisi de MCP araç sayısını veya
 model bağlamını değiştirmez.
 
-Yüzey **H0 → H7** boyunca büyüdü ve bugün toplam **29** araçtır:
+Yüzey **H0 → H7 + A5.1** boyunca büyüdü ve bugün toplam **32** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
@@ -18,12 +18,12 @@ H1  11 araç   açıkça onaylanan güvenli YAZMALAR
 H2   5 araç   f0rknbrain `90 Agent/Memory` içinde küratörlü sıcak hafıza
 H3   1 araç   kökenli, sınırlı KANIT getirme (forkos_evidence)
 H4   1 araç   YEREL biliş router'ı: sınıflandırma/çıkarım/yeniden yazım
-H5   1 araç   GÖZDEN GEÇİRME zekâsı: süreklilik, gün kapanışı, haftalık,
-              dönem deltası ve konsolidasyon adayları (forkos_review_intelligence)
+H5   3 araç  GÖZDEN GEÇİRME zekâsı ve anlamsal hafıza adayları
 H6   1 araç   PROAKTİF dikkat kontrolü: kural/koşu durumu, konfigürasyon ve
               kullanıcı override'ı (forkos_proactivity)
 H7   1 araç   KALICI karar ve SINIRLI yürütme: plan revizyonu, sunucu tarafı
               onay, adım makbuzu ve kesintiye dayanıklı yürütme (forkos_execution)
+A5   1 araç   H3 kanıtının isteğe bağlı yerel anlamsal sıralaması (forkos_context_judge)
 ```
 
 > Bu dokümanın eski başlığı "Brain Interface Foundation (H0)" idi; H0 artık
@@ -47,7 +47,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │      29 Bounded MCP Tools      │
+                       │      32 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐
@@ -117,12 +117,12 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 
 ---
 
-## 3. Sağlanan MCP Araçları (29)
+## 3. Sağlanan MCP Araçları (32)
 
-Arayüz toplam **29** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+Arayüz toplam **32** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 (H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3) + **1 yerel biliş**
-(H4) + **1 gözden geçirme** (H5) + **1 proaktif dikkat** (H6) + **1 kalıcı
-karar/yürütme** (H7). Yazma araçları `readOnlyHint=false` taşır ve
+(H4) + **3 gözden geçirme/anlamsal aday** (H5) + **1 proaktif dikkat** (H6) + **1 kalıcı
+karar/yürütme** (H7) + **1 bağlam yargısı** (A5). Yazma araçları `readOnlyHint=false` taşır ve
 `trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
 
 ### Okuma araçları (H0)
@@ -193,6 +193,10 @@ karar/yürütme** (H7). Yazma araçları `readOnlyHint=false` taşır ve
 | Kategori | Araç Adı | Açıklama |
 | --- | --- | --- |
 | **Karar** | `forkos_execution` | Kanıta dayanan planı **kalıcı bir karara** ve **sınırlı yürütmeye** çevirir: `prepare`, `get`, `list`, `approve`, `reject`, `respond`, `cancel`, `execute`, `status`. Adımlar H1'in **kapalı** 11 eylem sözlüğünden seçilir ve argümanlar H1'in kendi modelleriyle doğrulanır; serbest araç adı, shell, SQL, keyfî HTTP ve silme reddedilir. Onay **sunucu tarafı** bir kayıttır ve immutable revizyona bağlanır: model onaylayamaz, onaysız yürütme `APPROVAL_REQUIRED` döner. Yürütme DB-destekli CAS ile tek sahiplik alır, her adım öncesi hedef damgasını yeniden doğrular, ilk hatada **durur**, otomatik rollback yapmaz ve adım başına tek durable makbuz bırakır. Canonical mutasyon yalnızca `execute` sırasında ve H1 üzerinden olur. |
+
+### Yerel bağlam yargısı (A5.1)
+
+`forkos_context_judge` H3 kanıtını içeriden getirir ve varsayılan `off` modunda yalnız orijinal sırayı döndürür. Etkinleştirilirse ayrı localhost jevmlx süreciyle anlamsal **sıralama önerir**; hiçbir kanıtı silmez veya kanonik kaydı değiştirmez. [A5.1 sözleşmesi](a5-context-judge.md).
 
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [Onay modeli](h1-safe-actions.md) ·

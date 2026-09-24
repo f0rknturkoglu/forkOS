@@ -29,6 +29,14 @@ NOW = datetime.now(UTC)
 STALE = NOW + timedelta(seconds=EXECUTOR_STALE_AFTER_SECONDS + 5)
 
 
+@pytest.fixture(autouse=True)
+def refresh_test_clock() -> None:
+    """Keep lease fixtures current even when this module runs late in the full suite."""
+    global NOW, STALE
+    NOW = datetime.now(UTC)
+    STALE = NOW + timedelta(seconds=EXECUTOR_STALE_AFTER_SECONDS + 5)
+
+
 @pytest.fixture
 async def db_session() -> AsyncIterator[AsyncSession]:
     async with SessionLocal() as session:

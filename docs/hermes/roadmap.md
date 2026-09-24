@@ -443,8 +443,8 @@ A3 — Session Handoff & Episodic Memory
 A4 — Semantic Promotion / Durable Memory      (CLOSED, A4.1 hardening)
 A5 — Judgment Layer
   A5.0 Frozen Evaluation & Contracts          (CLOSED)
-  A5.1 Context Judge                          (NEXT)
-  A5.2 Memory Judge                           (NOT STARTED)
+  A5.1 Context Judge                          (CLOSED; SHADOW advised)
+  A5.2 Memory Judge                           (NEXT)
   A5.3 Answer Evidence Judge                  (NOT STARTED)
 ```
 
@@ -479,9 +479,9 @@ A5 — Judgment Layer
 
 A4 adayları A3'ün uygun mühürlü öğeleri ve isteğe bağlı kanonik event'lerden H5 consolidation ile çıkarılır. Aday kanonik doğru değildir. Kullanıcı incelemesi, `ready` kapısı, kaynak tazeliği, açık tek-kart supersession seçimi ve kopya koruması sonrasında H2 veya f0rknbrain'e terfi edebilir. Operasyonel/prosedürel yönlendirme kanonik yazma yapmaz; sahip eylemi gerektirir. Opt-out ham metin kalıcılaşmadan A3 turunda belirlenir. Ayrıntı: `a4-semantic-promotion.md`.
 
-### A5 — Judgment Layer (A5.0 CLOSED; A5.1 NEXT)
+### A5 — Judgment Layer (A5.0 and A5.1 CLOSED; A5.2 NEXT)
 
-A5.0 üç ayrı yargı amacı için sağlayıcıdan bağımsız, sınırlı sözleşmeleri, güvenli politika kapılarını ve SHA-256 ile dondurulmuş sentetik değerlendirme setlerini tanımlar. Çalışan model/sağlayıcı yoktur; A5.1 Context Judge çalışma zamanı sıradaki fazdır. A4 kendi çıkarımını otomatik doğrulamaz. Ayrıntı: `a5-judgment-layer.md`.
+A5.0 üç ayrı yargı amacı için sağlayıcıdan bağımsız, sınırlı sözleşmeleri, güvenli politika kapılarını ve SHA-256 ile dondurulmuş sentetik değerlendirme setlerini tanımlar. A5.1 H3'ün uygun kanıtını ayrı, yerel jevmlx sağlayıcısıyla isteğe bağlı sıralar; varsayılan `off`, kalite gözlemi nedeniyle operasyon önerisi yalnız `shadow`tur. Kanıt silinmez, kanonik mutasyon yoktur. A4 kendi çıkarımını otomatik doğrulamaz. Ayrıntı: `a5-judgment-layer.md`, `a5-context-judge.md`.
 
 ---
 

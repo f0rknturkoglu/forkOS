@@ -73,7 +73,7 @@ async def _tools() -> dict:
 async def test_exactly_five_h2_tools() -> None:
     """§48/§40: H2 tam olarak 5 araç ekler; H5 sonrası yüzey 27'dir."""
     tool_map = await _tools()
-    assert len(tool_map) == 31
+    assert len(tool_map) == 32
     assert set(H2_TOOLS) <= set(tool_map)
 
 

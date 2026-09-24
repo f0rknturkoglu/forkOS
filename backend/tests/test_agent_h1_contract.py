@@ -124,14 +124,9 @@ async def _tools() -> dict:
 
 
 async def test_exact_public_tool_surface() -> None:
-    """8 okuma + 11 yazma + 5 sıcak hafıza + H3/H4/H5/H6 = 28.
-
-    H1'in kendi sözleşmesi (11 yazma aracı) değişmedi; sonraki fazlar yüzeye
-    tam olarak birer araç ekledi (H6'nınki kontrol yüzeyidir, yazan ama
-    yıkıcı olmayan tek istisna).
-    """
+    """H1'in 11 yazma aracı korunurken toplam MCP yüzeyi A5.1 ile 32'dir."""
     tool_map = await _tools()
-    assert len(tool_map) == 31
+    assert len(tool_map) == 32
     assert set(tool_map) == (
         set(READ_TOOLS)
         | set(WRITE_TOOLS)
@@ -144,6 +139,7 @@ async def test_exact_public_tool_surface() -> None:
             "forkos_execution",
             "semantic_memory_candidates",
             "semantic_memory_promote",
+            "forkos_context_judge",
         }
     )
 
