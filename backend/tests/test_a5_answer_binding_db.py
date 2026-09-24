@@ -71,7 +71,9 @@ class LocalAnswerJudge:
             question_version=QUESTION_VERSION,
             question_hash=QUESTION_HASH,
             claim_digest=answer_claim_digest(request.claim),
-            evidence_digest=answer_evidence_digest(request.evidence),
+            evidence_digest=answer_evidence_digest(
+                request.evidence, context_complete=request.context_complete
+            ),
             latency_ms=10,
             judged_at=datetime.now(UTC),
             abstained=False,

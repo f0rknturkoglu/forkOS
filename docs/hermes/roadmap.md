@@ -445,7 +445,7 @@ A5 — Judgment Layer
   A5.0 Frozen Evaluation & Contracts          (CLOSED)
   A5.1 Context Judge                          (CLOSED; SHADOW advised)
   A5.2 Memory Judge                           (CLOSED infrastructure; provider experimental, OFF default)
-  A5.3 Answer Evidence Judge                  (NOT STARTED)
+  A5.3 Answer Evidence Judge                  (CLOSED; SHADOW advised / OFF default)
 ```
 
 ### A1 — Lifecycle Bridge ✅ Tamamlandı
@@ -482,6 +482,8 @@ A4 adayları A3'ün uygun mühürlü öğeleri ve isteğe bağlı kanonik event'
 ### A5 — Judgment Layer ✅ CLOSED
 
 A5.0 üç ayrı yargı amacı için sağlayıcıdan bağımsız, sınırlı sözleşmeleri, güvenli politika kapılarını ve SHA-256 ile dondurulmuş sentetik değerlendirme setlerini tanımlar (A5.0 ✅). A5.1 H3'ün uygun kanıtını ayrı, yerel jevmlx sağlayıcısıyla isteğe bağlı sıralar; varsayılan `off`, kalite gözlemi nedeniyle operasyon önerisi yalnız `shadow`tur (A5.1 ✅). A5.2 A4 adayına ilişkin isteğe bağlı, salt-okunur yerel NLI danışmanlığıdır; kanonik mutasyon yapmaz (A5.2 ✅). A5.3 açık iddiaları forkOS kanıtlarıyla karşılaştıran salt-okunur Answer Evidence Judge servisidir; fail-closed `uncertain` tabanı, anlık görüntü bağlama, yarış koşulu tespiti ve kriptografik provenance doğrulaması ile çalışır; cevabı engellemez veya mutasyon yapmaz (A5.3 ✅; deneysel sağlayıcı kalitesi sebebiyle önerilen mod `shadow`). Ayrıntı: `a5-judgment-layer.md`, `a5-context-judge.md`, `a5-memory-judge.md`, `a5-answer-evidence-judge.md`.
+
+**A5 Ürünleştirme Kapısı (Productization Gate):** A5.0, A5.1, A5.2 ve A5.3 tamamlanmış ve aile düzeyinde mühürlenmiştir. Yeni A5 fazı, sağlayıcısı veya yargıcı geliştirilmeyecektir. Sonraki aşama: backend feature freeze, ürünleştirme ve dogfooding.
 
 ---
 

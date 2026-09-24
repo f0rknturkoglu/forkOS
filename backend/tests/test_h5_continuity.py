@@ -196,11 +196,19 @@ async def test_continuity_facts_carry_source_refs(db_session: AsyncSession, vaul
 
 
 async def test_continuity_upcoming_deadline_is_factual(
-    db_session: AsyncSession, vault: Path
+    db_session: AsyncSession, vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """§35: yaklaşan son tarih olgu olarak döner; sıralama önerisi Hermes'e aittir."""
     from app.core.models import Entity
+    from app.modules.opportunity import application as opp_app
     from app.modules.opportunity.models import Opportunity
+
+    class MockDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW
+
+    monkeypatch.setattr(opp_app, "datetime", MockDatetime)
 
     await build_continuity_fixture(db_session, vault)
     opportunity_entity = Entity(type="opportunity", title="YLSY başvurusu", search_text="")

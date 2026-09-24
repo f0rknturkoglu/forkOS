@@ -90,8 +90,8 @@ Geçmişe ait bir event kaydı (`event`) veya eski bir not satırı, bir durumun
 - **Açık İddia (`claim`):** İstemci tarafından sağlanır ($2 \le \text{karakter} \le 1000$). Boş, tek karakterlik veya 1000 karakterden uzun metinler doğrudan reddedilir (`ANSWER_JUDGE_INVALID_CLAIM`).
 - **Çağırıcı Kanıt Sağlayamaz:** İstemci dışarıdan kanıt metni enjekte edemez. Kanıtlar yalnızca forkOS içindeki H3 motoru (`retrieve_evidence`) üzerinden sistem tarafından toplanır.
 - **H3 Sorgu Türetimi (`derive_h3_query`):** Orijinal iddiayı mutasyona uğratmadan, ilk 2..200 karakter arasındaki sözcük sınırından güvenli bir arama sorgusu türetilir.
-- **Kanıt Öğeleri Sayısı:** En fazla 8 kanıt öğesi (`max_evidence_items <= 8`).
-- **Öğe Başına Metin Sınırı:** En fazla 1000 karakter (`max_chars_per_item <= 1000`).
+- **Kanıt Öğeleri Sayısı:** En fazla 15 kanıt öğesi (`max_evidence_items <= 15`).
+- **Öğe Başına Metin Sınırı:** En fazla 1200 karakter (`max_chars_per_item <= 1200`).
 - **Toplam Alıntı Bütçesi:** Tüm kanıt parçalarının toplam uzunluğu 8000 karakteri aşamaz (`total_excerpt_budget <= 8000`).
 
 ---

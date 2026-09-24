@@ -47,6 +47,7 @@ async def test_answer_judge_shadow_live_on_local_model(monkeypatch, tmp_path):
     assert result.effective_support == "uncertain"  # Zero downstream authority in shadow!
     assert result.provenance is not None
     assert result.provenance.provider_id == "poorjev-local-nli"
+    assert result.provenance.provider_version == "0.1.0"
     assert result.provenance.model_id == MODEL_ID
     assert result.provenance.model_revision == MODEL_REVISION
     assert result.provenance.question_version == "a5-answer-questions-v1"

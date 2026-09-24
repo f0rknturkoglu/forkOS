@@ -108,7 +108,7 @@ def _property_names(schema: dict) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
-async def test_tool_surface_is_exactly_32_with_one_h3_tool() -> None:
+async def test_tool_surface_is_exactly_34_with_one_h3_tool() -> None:
     tools = await _tools()
     assert len(tools) == 34
     assert set(tools) & H3_TOOLS == H3_TOOLS

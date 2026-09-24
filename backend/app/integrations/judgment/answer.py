@@ -39,6 +39,7 @@ from .poorjev_answer import (
     MODEL_ID,
     MODEL_REVISION,
     PROVIDER_ID,
+    PROVIDER_VERSION,
     QUESTION_HASH,
     QUESTION_VERSION,
     AnswerProviderError,
@@ -59,7 +60,9 @@ def validate_answer_provenance(
     if provenance is None:
         return False
     expected_claim = answer_claim_digest(request.claim)
-    expected_evidence = answer_evidence_digest(request.evidence)
+    expected_evidence = answer_evidence_digest(
+        request.evidence, context_complete=request.context_complete
+    )
     if provenance.claim_digest != expected_claim:
         return False
     if provenance.evidence_digest != expected_evidence:
@@ -67,6 +70,8 @@ def validate_answer_provenance(
     if provenance.question_version != QUESTION_VERSION:
         return False
     if provenance.question_hash != QUESTION_HASH:
+        return False
+    if provenance.provider_version != PROVIDER_VERSION:
         return False
     expected_provider_id = getattr(active_provider, "provider_id", None)
     if expected_provider_id and provenance.provider_id != expected_provider_id:

@@ -59,18 +59,24 @@ def answer_claim_digest(claim: str) -> str:
 
 def answer_evidence_digest(
     evidence: Sequence[AnswerEvidenceItem],
+    *,
+    context_complete: bool = True,
 ) -> str:
     """Canonical projection digest of the exact ordered evidence packet sent to provider."""
     return projection_digest(
-        tuple(
-            (
-                item.evidence_id,
-                item.snapshot.source_type,
-                item.snapshot.source_revision,
-                hashlib.sha256(item.excerpt.encode("utf-8")).hexdigest(),
-                hashlib.sha256(item.surrounding_context.encode("utf-8")).hexdigest(),
-            )
-            for item in evidence
+        (
+            context_complete,
+            tuple(
+                (
+                    item.evidence_id,
+                    item.snapshot.source_type,
+                    item.snapshot.source_version,
+                    item.snapshot.source_revision,
+                    hashlib.sha256(item.excerpt.encode("utf-8")).hexdigest(),
+                    hashlib.sha256(item.surrounding_context.encode("utf-8")).hexdigest(),
+                )
+                for item in evidence
+            ),
         )
     )
 
@@ -237,7 +243,9 @@ class PoorJevAnswerProvider:
         )
 
         claim_digest = answer_claim_digest(request.claim)
-        evidence_digest = answer_evidence_digest(request.evidence)
+        evidence_digest = answer_evidence_digest(
+            request.evidence, context_complete=request.context_complete
+        )
 
         provenance = AnswerJudgeProvenance(
             provider_id=PROVIDER_ID,

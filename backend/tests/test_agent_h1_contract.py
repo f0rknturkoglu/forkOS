@@ -124,7 +124,7 @@ async def _tools() -> dict:
 
 
 async def test_exact_public_tool_surface() -> None:
-    """H1'in 11 yazma aracı korunurken toplam MCP yüzeyi A5.2 ile 33'tür."""
+    """H1'in 11 yazma aracı korunurken toplam MCP yüzeyi A5.3 ile 34'tür."""
     tool_map = await _tools()
     assert len(tool_map) == 34
     assert set(tool_map) == (

@@ -25,7 +25,7 @@ async def test_mcp_tool_registration_and_metadata():
         "brain_read",
     ]
 
-    # 1. H0 araçları yerinde ve toplam MCP yüzeyi A5.2 ile 33.
+    # 1. H0 araçları yerinde ve toplam MCP yüzeyi A5.3 ile 34.
     assert set(expected_read_tools) <= set(tool_map)
     assert "forkos_evidence" in tool_map
     assert "forkos_local_cognition" in tool_map
