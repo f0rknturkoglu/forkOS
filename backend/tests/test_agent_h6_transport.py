@@ -17,7 +17,7 @@ from app.modules.proactivity.models import ProactivityRun
 from tests.agent_test_utils import mcp_session, tool_payload
 from tests.h5_fixtures import make_todo
 
-NOW = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
+NOW = datetime.now(UTC)
 
 
 def _quiet_window_away_from_now() -> tuple[str, str]:

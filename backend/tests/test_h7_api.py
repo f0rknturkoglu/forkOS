@@ -15,7 +15,7 @@ from app.db import SessionLocal
 from app.main import app
 from app.modules.todo.models import Todo
 
-NOW = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
+NOW = datetime.now(UTC)
 
 
 @pytest.fixture

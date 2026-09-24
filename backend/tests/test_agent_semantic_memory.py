@@ -337,6 +337,7 @@ async def test_include_events_controls_canonical_candidate_generation(monkeypatc
         candidate = (await sem_svc.list_candidates(session)).items[0]
         assert candidate.primary_evidence_class == "canonical_source"
         assert candidate.evidence_refs[0]["ref"].startswith("event:")
+        assert len(candidate.evidence_refs[0]["source_revision"]) == 64
 
 
 @pytest.mark.asyncio
@@ -463,6 +464,8 @@ async def test_candidate_workflow_service(monkeypatch, tmp_path: Path):
 
         assert c_model.status == "needs_review"
         assert c_user.status == "ready"
+        assert all(len(ref["source_revision"]) == 64 for ref in c_model.evidence_refs)
+        assert all(len(ref["source_revision"]) == 64 for ref in c_user.evidence_refs)
 
         # 3. Model-derived adayı direkt promote etmeyi dene -> SEMANTIC_REVIEW_REQUIRED hatası almalı!
         with pytest.raises(HTTPException) as exc_info:

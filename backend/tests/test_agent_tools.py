@@ -25,12 +25,12 @@ async def test_mcp_tool_registration_and_metadata():
         "brain_read",
     ]
 
-    # 1. H0 araçları yerinde ve toplam MCP yüzeyi A5.1 ile 32.
+    # 1. H0 araçları yerinde ve toplam MCP yüzeyi A5.2 ile 33.
     assert set(expected_read_tools) <= set(tool_map)
     assert "forkos_evidence" in tool_map
     assert "forkos_local_cognition" in tool_map
     assert "forkos_review_intelligence" in tool_map
-    assert len(tool_map) == 32
+    assert len(tool_map) == 33
 
     # 2. Okuma araçlarının sözleşmesi zayıflatılmadı.
     for name in expected_read_tools:
@@ -52,6 +52,7 @@ async def test_mcp_tool_registration_and_metadata():
         "forkos_review_intelligence",
         "semantic_memory_candidates",
         "forkos_context_judge",
+        "forkos_memory_judge",
     }
     for name, tool in tool_map.items():
         if name in read_only_names:

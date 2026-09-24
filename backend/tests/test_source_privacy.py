@@ -7,6 +7,7 @@ kişisel veri taşımadığını doğrular; gerçek kullanıcı dosyasına ihtiy
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -25,6 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _tracked_paths() -> set[str]:
     """Repo köküne göre git'in takip ettiği dosyalar."""
+    if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
+        pytest.skip("Git metadata bu test ortamına bağlanmamış; host testi gerekir")
     result = subprocess.run(
         ["git", "ls-files"],
         cwd=REPO_ROOT,
