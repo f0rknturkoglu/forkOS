@@ -1,0 +1,234 @@
+{
+  "schema_version": "1",
+  "dataset_version": "a5-answer-runtime-v1",
+  "description": "Supplemental runtime evaluation dataset for A5.3 Answer Evidence Judge covering all canonical scenarios, traps, and temporal shifts.",
+  "cases": [
+    {
+      "id": "direct_support_dev",
+      "split": "dev",
+      "category": "direct_support",
+      "claim": "Atlas core service is built with Rust.",
+      "evidence": ["Atlas core service is built with Rust."],
+      "context_complete": true,
+      "expected_support": "supported"
+    },
+    {
+      "id": "paraphrase_support_dev",
+      "split": "dev",
+      "category": "paraphrase_support",
+      "claim": "Hermes connects to forkOS over loopback.",
+      "evidence": ["Communication between Hermes and forkOS is restricted to 127.0.0.1."],
+      "context_complete": true,
+      "expected_support": "supported"
+    },
+    {
+      "id": "direct_contradiction_dev",
+      "split": "dev",
+      "category": "direct_contradiction",
+      "claim": "Atlas is written in Python.",
+      "evidence": ["Atlas is written exclusively in Rust."],
+      "context_complete": true,
+      "expected_support": "contradicted"
+    },
+    {
+      "id": "surrounding_reverses_dev",
+      "split": "dev",
+      "category": "surrounding_context_reverses",
+      "claim": "Atlas launches tomorrow.",
+      "evidence": ["Atlas launches tomorrow."],
+      "surrounding_context": "Cancelled: Launch postponed indefinitely.",
+      "context_complete": true,
+      "expected_support": "contradicted"
+    },
+    {
+      "id": "unrelated_insufficient_dev",
+      "split": "dev",
+      "category": "unrelated_evidence",
+      "claim": "Atlas uses Rust.",
+      "evidence": ["Atlas was created by John in 2023."],
+      "context_complete": true,
+      "expected_support": "insufficient"
+    },
+    {
+      "id": "partial_compound_dev",
+      "split": "dev",
+      "category": "partial_compound",
+      "claim": "Atlas uses Rust and PostgreSQL.",
+      "evidence": ["Atlas uses Rust."],
+      "context_complete": true,
+      "expected_support": "insufficient"
+    },
+    {
+      "id": "historical_as_current_dev",
+      "split": "dev",
+      "category": "historical_as_current",
+      "claim": "Atlas currently uses Python.",
+      "evidence": ["In 2023, Atlas was implemented in Python."],
+      "context_complete": true,
+      "expected_support": "insufficient",
+      "trap": "historical_as_current"
+    },
+    {
+      "id": "historical_claim_dev",
+      "split": "dev",
+      "category": "historical_claim",
+      "claim": "Atlas used Python in 2023.",
+      "evidence": ["In 2023, Atlas was implemented in Python."],
+      "context_complete": true,
+      "expected_support": "supported"
+    },
+    {
+      "id": "truncated_dev",
+      "split": "dev",
+      "category": "context_incomplete",
+      "claim": "Atlas uses Rust.",
+      "evidence": ["Atlas uses Rust."],
+      "context_complete": false,
+      "expected_support": "uncertain",
+      "trap": "context_incomplete"
+    },
+    {
+      "id": "scope_mismatch_dev",
+      "split": "dev",
+      "category": "scope_mismatch",
+      "claim": "Project Birch uses Rust.",
+      "evidence": ["Project Atlas uses Rust."],
+      "context_complete": true,
+      "expected_support": "insufficient",
+      "trap": "scope_mismatch"
+    },
+    {
+      "id": "negation_trap_dev",
+      "split": "dev",
+      "category": "negation_trap",
+      "claim": "Atlas uses Python.",
+      "evidence": ["Atlas does not use Python."],
+      "context_complete": true,
+      "expected_support": "contradicted",
+      "trap": "negation"
+    },
+    {
+      "id": "narrow_condition_dev",
+      "split": "dev",
+      "category": "narrower_condition",
+      "claim": "All Atlas microservices use Rust.",
+      "evidence": ["Rust is used for Atlas CLI tooling."],
+      "context_complete": true,
+      "expected_support": "insufficient"
+    },
+    {
+      "id": "direct_support_holdout",
+      "split": "holdout",
+      "category": "direct_support",
+      "claim": "forkOS PostgreSQL runs on port 5432.",
+      "evidence": ["PostgreSQL database container binds to port 5432."],
+      "context_complete": true,
+      "expected_support": "supported"
+    },
+    {
+      "id": "paraphrase_support_holdout",
+      "split": "holdout",
+      "category": "paraphrase_support",
+      "claim": "Task planning uses the priority field.",
+      "evidence": ["Tasks are scheduled according to their priority attribute."],
+      "context_complete": true,
+      "expected_support": "supported"
+    },
+    {
+      "id": "direct_contradiction_holdout",
+      "split": "holdout",
+      "category": "direct_contradiction",
+      "claim": "The API allows public internet access.",
+      "evidence": ["The API server binds strictly to 127.0.0.1 and denies remote access."],
+      "context_complete": true,
+      "expected_support": "contradicted"
+    },
+    {
+      "id": "surrounding_reverses_holdout",
+      "split": "holdout",
+      "category": "surrounding_context_reverses",
+      "claim": "Meeting is at 3 PM.",
+      "evidence": ["Team sync is set for 3 PM."],
+      "surrounding_context": "Notice: Meeting moved to 5 PM.",
+      "context_complete": true,
+      "expected_support": "contradicted"
+    },
+    {
+      "id": "unrelated_insufficient_holdout",
+      "split": "holdout",
+      "category": "unrelated_evidence",
+      "claim": "Atlas requires 16GB RAM.",
+      "evidence": ["Atlas documentation was updated yesterday."],
+      "context_complete": true,
+      "expected_support": "insufficient"
+    },
+    {
+      "id": "partial_compound_holdout",
+      "split": "holdout",
+      "category": "partial_compound",
+      "claim": "Atlas has 10 users and 5 admins.",
+      "evidence": ["Atlas has 10 users."],
+      "context_complete": true,
+      "expected_support": "insufficient"
+    },
+    {
+      "id": "historical_as_current_holdout",
+      "split": "holdout",
+      "category": "historical_as_current",
+      "claim": "Atlas currently runs on AWS.",
+      "evidence": ["Until 2024 Atlas was hosted on AWS."],
+      "context_complete": true,
+      "expected_support": "insufficient",
+      "trap": "historical_as_current"
+    },
+    {
+      "id": "current_overrides_historical_holdout",
+      "split": "holdout",
+      "category": "current_overrides_historical",
+      "claim": "Atlas currently uses Python.",
+      "evidence": ["Current stack: Rust.", "Historical note: Switched from Python."],
+      "context_complete": true,
+      "expected_support": "contradicted",
+      "trap": "historical_as_current"
+    },
+    {
+      "id": "truncated_holdout",
+      "split": "holdout",
+      "category": "context_incomplete",
+      "claim": "Release v2 is verified.",
+      "evidence": ["Release v2 is verified."],
+      "context_complete": false,
+      "expected_support": "uncertain",
+      "trap": "context_incomplete"
+    },
+    {
+      "id": "scope_mismatch_holdout",
+      "split": "holdout",
+      "category": "scope_mismatch",
+      "claim": "Production database uses SQLite.",
+      "evidence": ["Development sandbox uses SQLite."],
+      "context_complete": true,
+      "expected_support": "insufficient",
+      "trap": "scope_mismatch"
+    },
+    {
+      "id": "negation_trap_holdout",
+      "split": "holdout",
+      "category": "negation_trap",
+      "claim": "Backup is enabled.",
+      "evidence": ["Automated backup is disabled by configuration."],
+      "context_complete": true,
+      "expected_support": "contradicted",
+      "trap": "negation"
+    },
+    {
+      "id": "ambiguous_evidence_holdout",
+      "split": "holdout",
+      "category": "ambiguous_evidence",
+      "claim": "Deployment will succeed on Friday.",
+      "evidence": ["Deployment might succeed if tests pass."],
+      "context_complete": true,
+      "expected_support": "uncertain"
+    }
+  ]
+}

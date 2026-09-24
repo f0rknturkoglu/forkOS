@@ -60,6 +60,7 @@ from app.integrations.agent.write_models import (
     TodoPlanIn,
     TodoUpdateIn,
 )
+from app.integrations.judgment import answer as answer_judgment_svc
 from app.integrations.judgment import context as judgment_svc
 from app.integrations.judgment import memory as memory_judgment_svc
 from app.integrations.local_cognition import models as lc_models
@@ -288,6 +289,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_execution_tool(server)
     _register_context_judge_tool(server)
     _register_memory_judge_tool(server)
+    _register_answer_judge_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -1125,6 +1127,61 @@ def _register_memory_judge_tool(server: MCPServer) -> None:
             raise ToolError("MEMORY_CANDIDATE_NOT_FOUND") from exc
         except Exception as exc:
             raise ToolError(f"MEMORY_JUDGE_UNAVAILABLE: {type(exc).__name__}") from exc
+
+
+AnswerClaim = Annotated[
+    str,
+    Field(min_length=1, max_length=1000, description="Exact claim to verify against forkOS evidence."),
+]
+AnswerRetrievalQuery = Annotated[
+    str | None,
+    Field(
+        default=None,
+        min_length=2,
+        max_length=200,
+        description="Optional bounded retrieval query for H3; if omitted, derived from claim.",
+    ),
+]
+
+
+def _register_answer_judge_tool(server: MCPServer) -> None:
+    @server.tool(
+        name="forkos_answer_judge",
+        description=(
+            "Read-only A5.3 advisory answer evidence support judgment for an explicitly supplied claim. "
+            "Evidence is retrieved internally through H3; callers cannot supply evidence, sources, or verdicts. "
+            "No answer rewriting, blocking, or canonical mutation authority. " + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_answer_judge(
+        claim: AnswerClaim,
+        retrieval_query: AnswerRetrievalQuery = None,
+        entity_id: str | None = None,
+        scope: ev_models.EvidenceScope = "all",
+        since: str | None = None,
+        until: str | None = None,
+        max_depth: EvidenceDepth = ev_models.DEFAULT_EVIDENCE_DEPTH,
+        limit: EvidenceLimit = ev_models.DEFAULT_EVIDENCE_LIMIT,
+    ) -> AgentEnvelope[answer_judgment_svc.AnswerJudgeResponse]:
+        try:
+            async with SessionLocal() as session:
+                result = await answer_judgment_svc.judge_answer(
+                    session,
+                    claim=claim,
+                    retrieval_query=retrieval_query,
+                    entity_id=entity_id,
+                    scope=scope,
+                    since=since,
+                    until=until,
+                    max_depth=max_depth,
+                    limit=limit,
+                )
+            return AgentEnvelope(source="forkos", data=result, truncated=result.truncated)
+        except ev_svc.EvidenceError as exc:
+            raise ToolError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise ToolError(f"ANSWER_JUDGE_UNAVAILABLE: {type(exc).__name__}") from exc
 
 
 # ---------------------------------------------------------------------------

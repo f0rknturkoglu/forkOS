@@ -45,6 +45,7 @@ markers = [
   "h4_live: needs a real local model; skipped unless H4_LIVE=1 and a model is configured",
   "a5_context_live: needs a ready local jevmlx daemon; skipped unless A5_CONTEXT_LIVE=1",
   "a5_memory_live: needs the optional local NLI image/model and isolated test DB",
+  "a5_answer_live: needs the optional local NLI image/model and isolated test DB",
 ]
 
 [tool.ruff]

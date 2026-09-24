@@ -127,8 +127,8 @@ FAMILIES: tuple[FamilySpec, ...] = (
     FamilySpec(
         id="A5",
         label="Yerel yargı",
-        summary="H3 kanıtını ve A4 hafıza adayını yerel, salt-okunur biçimde değerlendirir; yazma yetkisi vermez.",
-        tools=("forkos_context_judge", "forkos_memory_judge"),
+        summary="H3 kanıtını, A4 hafıza adayını ve açık iddiaları yerel, salt-okunur biçimde değerlendirir; yazma yetkisi vermez.",
+        tools=("forkos_context_judge", "forkos_memory_judge", "forkos_answer_judge"),
     ),
 )
 
@@ -169,8 +169,9 @@ _FAMILY_ROLE: dict[str, str] = {
         "exact revision, then execute strictly through the H1 write tools."
     ),
     "A5": (
-        "A5 local judgment: optional semantic prioritization of H3-eligible evidence and "
-        "advisory judgments about A4 memory candidates, with no canonical writes or supersession authority."
+        "A5 local judgment: optional semantic prioritization of H3-eligible evidence, advisory "
+        "judgments about A4 memory candidates, and answer evidence support judgment for explicit "
+        "claims, with no canonical writes, answer rewrites, or delivery blocking authority."
     ),
 }
 

@@ -72,7 +72,7 @@ async def test_mcp_fastapi_mount_and_smoke():
         assert "forkos_evidence" in tool_names
         assert "forkos_local_cognition" in tool_names
         assert "forkos_review_intelligence" in tool_names
-        assert len(tool_names) == 33
+        assert len(tool_names) == 34
 
         status_res = await session.call_tool("brain_status", {})
         assert status_res.is_error is False

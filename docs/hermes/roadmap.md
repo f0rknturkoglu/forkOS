@@ -479,9 +479,9 @@ A5 — Judgment Layer
 
 A4 adayları A3'ün uygun mühürlü öğeleri ve isteğe bağlı kanonik event'lerden H5 consolidation ile çıkarılır. Aday kanonik doğru değildir. Kullanıcı incelemesi, `ready` kapısı, kaynak tazeliği, açık tek-kart supersession seçimi ve kopya koruması sonrasında H2 veya f0rknbrain'e terfi edebilir. Operasyonel/prosedürel yönlendirme kanonik yazma yapmaz; sahip eylemi gerektirir. Opt-out ham metin kalıcılaşmadan A3 turunda belirlenir. Ayrıntı: `a4-semantic-promotion.md`.
 
-### A5 — Judgment Layer (A5.0, A5.1 and A5.2 infrastructure CLOSED)
+### A5 — Judgment Layer (A5.0, A5.1, A5.2, A5.3 CLOSED; SHADOW advised)
 
-A5.0 üç ayrı yargı amacı için sağlayıcıdan bağımsız, sınırlı sözleşmeleri, güvenli politika kapılarını ve SHA-256 ile dondurulmuş sentetik değerlendirme setlerini tanımlar. A5.1 H3'ün uygun kanıtını ayrı, yerel jevmlx sağlayıcısıyla isteğe bağlı sıralar; varsayılan `off`, kalite gözlemi nedeniyle operasyon önerisi yalnız `shadow`tur. A5.2 A4 adayına ilişkin isteğe bağlı, salt-okunur yerel NLI danışmanlığıdır; kanonik mutasyon yapmaz. Ayrıntı: `a5-judgment-layer.md`, `a5-context-judge.md`, `a5-memory-judge.md`.
+A5.0 üç ayrı yargı amacı için sağlayıcıdan bağımsız, sınırlı sözleşmeleri, güvenli politika kapılarını ve SHA-256 ile dondurulmuş sentetik değerlendirme setlerini tanımlar. A5.1 H3'ün uygun kanıtını ayrı, yerel jevmlx sağlayıcısıyla isteğe bağlı sıralar; varsayılan `off`, kalite gözlemi nedeniyle operasyon önerisi yalnız `shadow`tur. A5.2 A4 adayına ilişkin isteğe bağlı, salt-okunur yerel NLI danışmanlığıdır; kanonik mutasyon yapmaz. A5.3 açık iddiaları forkOS kanıtlarıyla karşılaştıran salt-okunur Answer Evidence Judge servisidir; fail-closed `uncertain` tabanı, anlık görüntü bağlama ve yarış koşulu tespiti ile çalışır, cevabı engellemez veya mutasyon yapmaz (önerilen mod `shadow`). Ayrıntı: `a5-judgment-layer.md`, `a5-context-judge.md`, `a5-memory-judge.md`, `a5-answer-evidence-judge.md`.
 
 ---
 

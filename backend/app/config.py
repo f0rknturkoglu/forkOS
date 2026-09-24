@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     a5_memory_model_path: str = ""
     a5_memory_timeout_seconds: float = 20.0
 
+    # A5.3: independent, opt-in local Answer Evidence Judge.
+    a5_answer_mode: Literal["off", "shadow", "assist", "on"] = "off"
+    a5_answer_provider: Literal["poorjev"] = "poorjev"
+    a5_answer_model_path: str = ""
+    a5_answer_timeout_seconds: float = 20.0
+
     @property
     def resolved_obsidian_vault_path(self) -> Path | None:
         if not self.obsidian_vault_path or not self.obsidian_vault_path.strip():

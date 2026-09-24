@@ -1,3 +1,5 @@
+import hashlib
+import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -71,3 +73,18 @@ def test_baseline_measurements_are_conservative():
     assert metrics["memory"]["relation_matches"] == 4
     assert metrics["memory"]["uncertain"] == 13
     assert metrics["answer_evidence"] == {"cases": 12, "uncertain": 12, "false_supported": 0}
+
+
+def test_answer_runtime_v1_fixture_frozen_and_valid():
+    path = ROOT / "answer_runtime_v1.json"
+    raw = path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == "2394d8519e4cea8ae0af35463d834baa94108d9fac34fa26826b8a9539dc9190"
+    data = json.loads(raw)
+    assert data["schema_version"] == "1"
+    assert data["dataset_version"] == "a5-answer-runtime-v1"
+    cases = data["cases"]
+    assert len(cases) == 24
+    assert len({case["id"] for case in cases}) == 24
+    assert len([c for c in cases if c["split"] == "dev"]) == 12
+    assert len([c for c in cases if c["split"] == "holdout"]) == 12
+    assert all(c["expected_support"] in get_args(EvidenceSupport) for c in cases)
