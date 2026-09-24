@@ -102,8 +102,9 @@ git clone https://github.com/f0rknturkoglu/forkOS.git
 cd forkOS
 cp .env.example .env
 make up CO="docker compose"
-make migrate CO="docker compose"
 ```
+
+> **Otomatik migration geçidi:** `compose.yaml` içindeki one-shot `migrate` servisi sayesinde veritabanı migration'ları (`alembic upgrade head`) başlatma sırasında otomatik uygulanır; `api` ve `worker` servisleri ancak migration başarıyla tamamlandıktan sonra ayağa kalkar. Manuel `make migrate CO="docker compose"` komutu acil durum veya doğrudan müdahaleler için korunur.
 
 Ardından:
 
@@ -137,7 +138,7 @@ make down CO="docker compose"
 make logs CO="docker compose"
 make ps CO="docker compose"
 
-# Şemayı güncelle
+# Şemayı manuel güncelle (otomatik geçit dışında gerektiğinde)
 make migrate CO="docker compose"
 
 # Yerel PostgreSQL dump'ı

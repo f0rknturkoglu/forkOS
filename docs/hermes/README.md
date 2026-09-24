@@ -96,6 +96,27 @@ mcp_servers:
   ister. forkOS bu ayarın Hermes tarafında gerçekten açık olduğunu doğrulayamaz
   ve forkOS içinde bir "trust aç" düğmesi YOKTUR; gerçek dosya
   `~/.hermes/config.yaml` yalnız kullanıcı tarafından düzenlenir.
+- **Neden `trust: full` KESİNLİKLE ÇÖZÜM DEĞİLDİR:** `trust: full` ayarı tüm
+  onay mekanizmasını kapatır. Bu durumda ajan kullanıcı onayı almadan görevleri
+  silebilir, projeleri güncelleyebilir veya durum değiştirebilir. forkOS'un temel
+  ilkesi kullanıcı iradesidir; bu nedenle sunucu her zaman `trust: untrusted`
+  sözleşmesiyle çalışır.
+- **Hermes MCP `readOnlyHint` Uyumluluk Yaması:**
+  Upstream Hermes (`~/.hermes/hermes-agent/tools/mcp_tool_registration.py`), araç
+  ek açıklamalarında (`ToolAnnotations`) yalnızca camelCase `readOnlyHint`
+  aramaktadır. Oysa resmi Python MCP SDK'sı model nesnelerinde snake_case
+  `read_only_hint` alanını yayınlar. Bu uyumsuzluk yüzünden tüm salt-okunur araçlar
+  Hermes tarafından yanlışlıkla "yazma yapabilir" sayılarak gereksiz onay istemine
+  takılıyordu.
+  forkOS, upstream düzeltilinceye kadar geçici ve güvenli bir uyumluluk betiği
+  sunar:
+  ```bash
+  python3 scripts/patch_hermes_mcp_readonly.py
+  ```
+  Bu betik Hermes sürümünü denetler, `_annotation_read_only_hint` fonksiyonunu
+  hem snake_case hem camelCase destekleyecek şekilde idempotent olarak yamalar,
+  yedek alır ve `trust: untrusted` güvenlik sınırını bozmadan salt-okunur araçların
+  onaysız, yazma araçlarının ise onaylı çalışmasını sağlar.
 - `sampling: enabled: false` ve `supports_parallel_tool_calls: false` güvenli
   varsayılanlardır: forkOS tarafında sunucu-taraflı LLM çağrısı yoktur ve araç
   yüzeyi sıralı kullanılmak üzere tasarlanmıştır.
