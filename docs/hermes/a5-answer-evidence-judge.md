@@ -32,17 +32,19 @@ Answer Evidence Judge:
 A5 mimarisinin temel ilkesi korunur:
 
 ```text
-mekanik uygunluk kontrolü
+mekanik uygunluk kontrolü (claim length >= 2)
            ↓
 sınırlandırılmış H3 kanıt getirme
            ↓
-anlık görüntü bağlama (snapshot binding)
+anlık görüntü bağlama (pre-call snapshot binding)
            ↓
-anlamsal yargı (semantic judgment)
+sağlayıcı anlamsal çıkarımı (poorjev/NLI)
            ↓
-kaynak yeniden doğrulama (revalidation)
+kriptografik provenance doğrulaması (claim + evidence + question digest)
            ↓
-danışmanlık sonucu (advisory result)
+kaynak yeniden doğrulama (post-call source revalidation)
+           ↓
+danışmanlık sonucu (advisory result, default OFF / SHADOW)
 ```
 
 Asla:
@@ -63,8 +65,16 @@ ilişkisi kurulamaz.
    - İlgili kaynak ID'si,
    - `content_hash` (SHA-256),
    - `mtime_ns` / `source_revision`.
-2. **Çıkarım Sırasında Mutasyon Tespiti (Post-Call Revalidation):**
-   Model çıkarımı tamamlandıktan sonra (özellikle 500-3000 ms sürebilen yerel NLI işlemleri sırasında) kaynakların disk veya veritabanındaki durumları tekrar kontrol edilir.
+2. **Kriptografik Provenance Bağlama ve Doğrulama (A5.3.1):**
+   Sağlayıcıdan dönen `AnswerJudgeProvenance` bağımsız olarak orkestrasyon tarafından denetlenir:
+   - `expected_claim_digest == answer_claim_digest(request.claim)`
+   - `expected_evidence_digest == answer_evidence_digest(request.evidence)`
+   - `provenance.question_version == "a5-answer-questions-v1"`
+   - `provenance.question_hash == QUESTION_HASH`
+   - Pinned Model Kimliği ve Revizyonu: `MoritzLaurer/deberta-v3-base-zeroshot-v2.0` (`8e7e5af5983a0ddb1a5b45a38b129ab69e2258e8`).
+   Herhangi bir digest veya üstveri uyuşmazlığında, ya da provenance eksikliğinde yanıt doğrudan `status: invalid`, `effective_support: uncertain` olarak reddedilir (`ANSWER_JUDGE_INVALID_RESPONSE`).
+3. **Çıkarım Sırasında Mutasyon Tespiti (Post-Call Revalidation):**
+   Model çıkarımı tamamlandıktan sonra kaynakların disk veya veritabanındaki durumları tekrar kontrol edilir.
    Eğer çıkarım sürerken kaynak dosyası değiştirilmişse (`mtime_ns` veya `content_hash` uyuşmazlığı) ya da veritabanı varlığı güncellenmişse (`updated_at` / `revision` değişimi), modelin ürettiği semantik hüküm çöpe atılır; durum `stale` / `degraded` yapılır ve `effective_support: uncertain` döner (`SOURCE_MUTATED` / `SOURCE_STALE`).
 
 ### 2.2 Zaman Semantiği (Temporal Semantics)
@@ -77,7 +87,7 @@ Geçmişe ait bir event kaydı (`event`) veya eski bir not satırı, bir durumun
 
 ## 3. Giriş ve Bütçe Sınırları
 
-- **Açık İddia (`claim`):** İstemci tarafından sağlanır (maksimum 1000 karakter, minimum 2 karakter). Boş veya çok kısa metinler doğrudan reddedilir (`EMPTY_CLAIM`).
+- **Açık İddia (`claim`):** İstemci tarafından sağlanır ($2 \le \text{karakter} \le 1000$). Boş, tek karakterlik veya 1000 karakterden uzun metinler doğrudan reddedilir (`ANSWER_JUDGE_INVALID_CLAIM`).
 - **Çağırıcı Kanıt Sağlayamaz:** İstemci dışarıdan kanıt metni enjekte edemez. Kanıtlar yalnızca forkOS içindeki H3 motoru (`retrieve_evidence`) üzerinden sistem tarafından toplanır.
 - **H3 Sorgu Türetimi (`derive_h3_query`):** Orijinal iddiayı mutasyona uğratmadan, ilk 2..200 karakter arasındaki sözcük sınırından güvenli bir arama sorgusu türetilir.
 - **Kanıt Öğeleri Sayısı:** En fazla 8 kanıt öğesi (`max_evidence_items <= 8`).
@@ -108,14 +118,83 @@ Geçmişe ait bir event kaydı (`event`) veya eski bir not satırı, bir durumun
 ## 6. Değerlendirme ve Sentetik Kıyaslama (AnswerEvidenceEval)
 
 - **Donmuş Kıyaslama (`answer_evidence_eval_v1.json`):** 12 dondurulmuş senaryo (SHA-256 `6de1b082e91c34d7f607999077caef2084d9dd514ac9093d056ca9825b718397`).
-- **Genişletilmiş Çalışma Seti (`answer_runtime_v1.json`):** 24 senaryo (12 dev, 12 holdout), SHA-256 `2394d8519e4cea8ae0af35463d834baa94108d9fac34fa26826b8a9539dc9190`. Negasyon, kapsam uyumsuzluğu, zamansal kayma, kısmi örtüşme ve bağlam eksikliği gibi zorlayıcı durumları kapsar.
-- **Değerlendirme Betiği:** `backend/scripts/eval_a5_answer.py` doğruluk, macro-F1, supported precision/recall, yanlış-destek oranı (`false_supported_rate`), çelişki yakalama ve gecikme metriklerini raporlar.
+- **Genişletilmiş Çalışma Seti (`answer_runtime_v1.json`):** 24 senaryo (12 dev, 12 holdout), SHA-256 `2394d8519e4cea8ae0af35463d834baa94108d9fac34fa26826b8a9539dc9190`.
+
+### 6.1 Deterministik Taban Metrikleri (BASELINE ONLY)
+
+Herhangi bir ML modeli olmadan veya mekanik abstention durumunda fail-closed çalışan taban:
+
+| Metrik | Frozen v1 (12) | Runtime Dev (12) | Runtime Holdout (12) | Combined (24) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Accuracy** | 0.1667 | 0.0833 | 0.1667 | 0.1250 |
+| **Macro-F1** | 0.0714 | 0.0385 | 0.0714 | 0.0556 |
+| **Supported Precision** | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| **Supported Recall** | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| **False Supported Sayısı** | 0 | 0 | 0 | 0 |
+| **False Supported Oranı** | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| **Uncertain Oranı** | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| **Medyan Gecikme** | 0.0 ms | 0.0 ms | 0.0 ms | 0.0 ms |
+
+### 6.2 Gerçek Yerel Model Metrikleri (`poorjev-local-nli` / DeBERTa-v3)
+
+Apple Silicon / OrbStack üzerinde `forkos-api-memory:local` konteynerinde offline çalışan pinli modelin gerçek ölçümü:
+
+| Metrik | Frozen v1 (12) | Runtime Dev (12) | Runtime Holdout (12) | Combined (24) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Accuracy** | **0.5000** | 0.4167 | 0.1667 | 0.2917 |
+| **Macro-F1** | **0.4810** | 0.2582 | 0.1833 | 0.2930 |
+| **Supported Precision** | **1.0000** | 0.5000 | 0.0000 | 0.3333 |
+| **Supported Recall** | **0.7500** | 0.6667 | 0.0000 | 0.4000 |
+| **Contradiction Recall** | 0.5000 | 0.0000 | 0.2500 | 0.1429 |
+| **Insufficient Recall** | 0.5000 | 0.6000 | 0.0000 | 0.3333 |
+| **False Supported Sayısı** | **0** | **2** | **2** | **4** |
+| **False Supported Oranı** | **0.0000** | 0.2222 | 0.2000 | 0.2105 |
+| **Uncertain Oranı** | 0.1667 | 0.0000 | 0.3333 | 0.1667 |
+| **Brier Skoru** | 0.3097 | 0.2872 | 0.2945 | 0.2909 |
+| **Medyan Gecikme** | 326.5 ms | 331.5 ms | 329.5 ms | 330.5 ms |
+| **p95 Gecikme** | 1910 ms (soğuk) | 362 ms | 344 ms | 357.5 ms |
+| **Sağlayıcı Hataları** | 0 | 0 | 0 | 0 |
+
+### 6.3 False-Supported Analizi ve Model Kalitesi
+
+Model donmuş temel sette (`frozen_v1`) sıfır yanlış-destek üretmiş (`false_supported = 0`) ve %100 supported precision göstermiştir. Ancak zorlu çalışma setinde (`answer_runtime_v1`) toplam 4 adet yanlış-destekleme tespit edilmiştir:
+
+1. `partial_compound_dev` (Dev):
+   - **İddia:** "Atlas uses Rust and PostgreSQL."
+   - **Kanıt:** "Atlas uses Rust."
+   - **Beklenen:** `insufficient` | **Model:** `supported` (güven: 0.3525)
+   - **Hata Türü:** **Partial Evidence / Lexical Overlap** (Rust kısmını kanıtlayan metin yüzünden eksik kalan PostgreSQL bileşeni gözden kaçmıştır).
+2. `narrow_condition_dev` (Dev):
+   - **İddia:** "All Atlas microservices use Rust."
+   - **Kanıt:** "Rust is used for Atlas CLI tooling."
+   - **Beklenen:** `insufficient` | **Model:** `supported` (güven: 0.6345)
+   - **Hata Türü:** **Scope Mismatch / Quantifier Overgeneralization** (Dar CLI kullanımından evrensel mikroservis kapsamı türetilmiştir).
+3. `partial_compound_holdout` (Holdout):
+   - **İddia:** "Atlas has 10 users and 5 admins."
+   - **Kanıt:** "Atlas has 10 users."
+   - **Beklenen:** `insufficient` | **Model:** `supported` (güven: 0.3341)
+   - **Hata Türü:** **Partial Evidence / Lexical Overlap** (Kullanıcı sayısının doğrulanması yönetici sayısının yokluğunu gizlemiştir).
+4. `scope_mismatch_holdout` (Holdout):
+   - **İddia:** "Production database uses SQLite."
+   - **Kanıt:** "Development sandbox uses SQLite."
+   - **Beklenen:** `insufficient` | **Model:** `supported` (güven: 0.3106)
+   - **Hata Türü:** **Scope Mismatch / Environment Confusion** (Geliştirme sandbox'ı ile canlı veritabanı kelime örtüşmesi sebebiyle karıştırılmıştır).
+
+**Nihai Kalite Değerlendirmesi:**
+Model basit atıf ve doğrudan kanıt içeren temel iddialarda başarılıdır (%75 recall). Ancak bileşik iddialarda eksik kalan parçaları ayıklamakta ve dar kapsamı geniş iddiaya genelleme eğilimindedir. Bu nedenle sağlayıcı kalitesi **DENEYSEL / ZAYIF** (`EXPERIMENTAL / WEAK`) olarak sınıflandırılır. Operasyonel kullanım için varsayılan **`off`** ve deneyler için **`shadow`** modu zorunludur.
 
 ---
 
 ## 7. MCP Arayüzü
 
 A5.3, ajan ekosistemine `forkos_answer_judge` salt-okunur aracıyla açılır:
-- **Argümanlar:** `claim: str` (zorunlu), `scope: "all" | "vault" | "canonical"` (isteğe bağlı), `mode: "off" | "shadow" | "assist" | "on"` (isteğe bağlı).
+- **Argümanlar:**
+  - `claim: str` ($2 \le \text{karakter} \le 1000$, zorunlu)
+  - `retrieval_query: str | None` ($2 \le \text{karakter} \le 200$, isteğe bağlı)
+  - `entity_id: str | None` (isteğe bağlı)
+  - `scope: "all" | "operational" | "knowledge"` (isteğe bağlı)
+  - `since: str | None`, `until: str | None` (isteğe bağlı)
+  - `max_depth: int` ($0 \le d \le 2$, varsayılan 1)
+  - `limit: int` ($1 \le l \le 15$, varsayılan 12)
 - **Anotasyonlar:** `readOnlyHint=true`, `destructiveHint=false`, `idempotentHint=true`, `openWorldHint=false`.
 - **Dönüş:** `AnswerJudgeResponse` (durum, hüküm, gerekçe, kanıt anlık görüntüleri ve izlenebilirlik metadata'sı).

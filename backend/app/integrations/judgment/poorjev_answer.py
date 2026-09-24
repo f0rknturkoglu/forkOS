@@ -12,6 +12,7 @@ import json
 import math
 import os
 import time
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -21,6 +22,7 @@ from app.integrations.agent.evidence_revision import projection_digest
 
 from .answer_models import AnswerJudgeProvenance
 from .models import (
+    AnswerEvidenceItem,
     AnswerEvidenceRequest,
     EvidenceSupport,
     JudgmentMetadata,
@@ -48,6 +50,29 @@ HYPOTHESES: dict[EvidenceSupport, str] = {
     "uncertain": "It is uncertain or ambiguous whether the provided evidence supports this claim: {claim}",
 }
 QUESTION_HASH = projection_digest(HYPOTHESES)
+
+
+def answer_claim_digest(claim: str) -> str:
+    """Canonical SHA-256 digest of explicit claim."""
+    return hashlib.sha256(claim.encode("utf-8")).hexdigest()
+
+
+def answer_evidence_digest(
+    evidence: Sequence[AnswerEvidenceItem],
+) -> str:
+    """Canonical projection digest of the exact ordered evidence packet sent to provider."""
+    return projection_digest(
+        tuple(
+            (
+                item.evidence_id,
+                item.snapshot.source_type,
+                item.snapshot.source_revision,
+                hashlib.sha256(item.excerpt.encode("utf-8")).hexdigest(),
+                hashlib.sha256(item.surrounding_context.encode("utf-8")).hexdigest(),
+            )
+            for item in evidence
+        )
+    )
 
 
 class AnswerProviderError(Exception):
@@ -211,10 +236,8 @@ class PoorJevAnswerProvider:
             metadata=metadata,
         )
 
-        claim_digest = hashlib.sha256(request.claim.encode("utf-8")).hexdigest()
-        evidence_digest = projection_digest(
-            tuple((item.evidence_id, item.snapshot.source_revision) for item in request.evidence)
-        )
+        claim_digest = answer_claim_digest(request.claim)
+        evidence_digest = answer_evidence_digest(request.evidence)
 
         provenance = AnswerJudgeProvenance(
             provider_id=PROVIDER_ID,

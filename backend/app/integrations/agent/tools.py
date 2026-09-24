@@ -1131,7 +1131,7 @@ def _register_memory_judge_tool(server: MCPServer) -> None:
 
 AnswerClaim = Annotated[
     str,
-    Field(min_length=1, max_length=1000, description="Exact claim to verify against forkOS evidence."),
+    Field(min_length=2, max_length=1000, description="Exact claim to verify against forkOS evidence."),
 ]
 AnswerRetrievalQuery = Annotated[
     str | None,

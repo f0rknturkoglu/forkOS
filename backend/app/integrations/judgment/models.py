@@ -178,7 +178,7 @@ class AnswerEvidenceRequest(ContractModel):
     schema_version: Literal["1"] = "1"
     purpose: Literal["answer_evidence"] = "answer_evidence"
     request_id: str = Field(min_length=1, max_length=128)
-    claim: str = Field(min_length=1, max_length=MAX_CLAIM)
+    claim: str = Field(min_length=2, max_length=MAX_CLAIM)
     evidence: tuple[AnswerEvidenceItem, ...] = Field(min_length=1, max_length=MAX_CANDIDATES)
     context_complete: bool
 

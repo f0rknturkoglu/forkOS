@@ -68,6 +68,30 @@ def test_answer_evidence_request_bounds():
             context_complete=True,
         )
 
+    # Claim min_length = 2
+    with pytest.raises(ValidationError):
+        AnswerEvidenceRequest(
+            request_id="r4",
+            claim="",
+            evidence=(item("e1"),),
+            context_complete=True,
+        )
+    with pytest.raises(ValidationError):
+        AnswerEvidenceRequest(
+            request_id="r5",
+            claim="x",
+            evidence=(item("e1"),),
+            context_complete=True,
+        )
+    # Claim max_length = 1000
+    with pytest.raises(ValidationError):
+        AnswerEvidenceRequest(
+            request_id="r6",
+            claim="a" * 1001,
+            evidence=(item("e1"),),
+            context_complete=True,
+        )
+
 
 def test_support_verdict_non_success_is_uncertain():
     # Success can have any support label

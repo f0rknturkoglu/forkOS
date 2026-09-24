@@ -26,7 +26,7 @@ async def test_answer_judge_tool_contract():
         "limit",
     }
     assert tool.input_schema["required"] == ["claim"]
-    assert properties["claim"]["minLength"] == 1
+    assert properties["claim"]["minLength"] == 2
     assert properties["claim"]["maxLength"] == 1000
     rq = properties["retrieval_query"]
     str_schema = next(s for s in rq["anyOf"] if s.get("type") == "string")

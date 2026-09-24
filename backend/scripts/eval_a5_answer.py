@@ -198,6 +198,7 @@ async def run_eval(model_path: str | None = None) -> dict[str, Any]:
 
             results.append({
                 "id": case["id"],
+                "claim": case.get("claim", ""),
                 "category": case.get("category", ""),
                 "expected": expected,
                 "predicted": predicted,
@@ -213,6 +214,20 @@ async def run_eval(model_path: str | None = None) -> dict[str, Any]:
 
     runtime_dev = [r for r in runtime_results if r["split"] == "dev"]
     runtime_holdout = [r for r in runtime_results if r["split"] == "holdout"]
+    all_results = frozen_results + runtime_results
+    false_supported = [
+        {
+            "id": r["id"],
+            "split": r.get("split", "frozen"),
+            "category": r.get("category", ""),
+            "claim": r.get("claim", ""),
+            "expected": r["expected"],
+            "predicted": r["predicted"],
+            "confidence": r.get("confidence"),
+        }
+        for r in all_results
+        if r["expected"] != "supported" and r["predicted"] == "supported"
+    ]
 
     return {
         "provider": "poorjev-local-nli" if provider else "deterministic-baseline-only",
@@ -220,6 +235,7 @@ async def run_eval(model_path: str | None = None) -> dict[str, Any]:
         "runtime_dev": compute_metrics(runtime_dev),
         "runtime_holdout": compute_metrics(runtime_holdout),
         "runtime_combined": compute_metrics(runtime_results),
+        "false_supported_cases": false_supported,
     }
 
 

@@ -18,6 +18,14 @@ from app.integrations.judgment.models import (
     JudgmentMetadata,
     SupportVerdict,
 )
+from app.integrations.judgment.poorjev_answer import (
+    MODEL_ID,
+    MODEL_REVISION,
+    QUESTION_HASH,
+    QUESTION_VERSION,
+    answer_claim_digest,
+    answer_evidence_digest,
+)
 from app.modules.project.models import Project
 from tests.agent_test_utils import capture_db_content_fingerprint
 
@@ -58,12 +66,12 @@ class LocalAnswerJudge:
         provenance = AnswerJudgeProvenance(
             provider_id="poorjev-local-nli",
             provider_version="0.1.0",
-            model_id="deberta",
-            model_revision="rev1",
-            question_version="a5-answer-questions-v1",
-            question_hash="h" * 64,
-            claim_digest="c" * 64,
-            evidence_digest="e" * 64,
+            model_id=MODEL_ID,
+            model_revision=MODEL_REVISION,
+            question_version=QUESTION_VERSION,
+            question_hash=QUESTION_HASH,
+            claim_digest=answer_claim_digest(request.claim),
+            evidence_digest=answer_evidence_digest(request.evidence),
             latency_ms=10,
             judged_at=datetime.now(UTC),
             abstained=False,

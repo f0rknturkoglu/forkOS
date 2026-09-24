@@ -19,6 +19,14 @@ from app.integrations.judgment.models import (
     SourceSnapshot,
     SupportVerdict,
 )
+from app.integrations.judgment.poorjev_answer import (
+    MODEL_ID,
+    MODEL_REVISION,
+    QUESTION_HASH,
+    QUESTION_VERSION,
+    answer_claim_digest,
+    answer_evidence_digest,
+)
 
 pytestmark = pytest.mark.no_database
 
@@ -33,19 +41,23 @@ class FakeProvider:
         verdict: SupportVerdict | None = None,
         exc: Exception | None = None,
         on_call: Any | None = None,
+        provenance: AnswerJudgeProvenance | None = None,
+        return_raw_verdict_only: bool = False,
     ) -> None:
         self.verdict = verdict or SupportVerdict(
             status="success",
             support="supported",
             metadata=JudgmentMetadata(
                 provider_id="poorjev-local-nli",
-                model_id="deberta",
+                model_id=MODEL_ID,
                 latency_ms=10,
                 provider_confidence=0.95,
             ),
         )
         self.exc = exc
         self.on_call = on_call
+        self.provenance = provenance
+        self.return_raw_verdict_only = return_raw_verdict_only
         self.calls = 0
         self.last_request: AnswerEvidenceRequest | None = None
 
@@ -54,22 +66,24 @@ class FakeProvider:
 
     async def judge_support(
         self, request: AnswerEvidenceRequest
-    ) -> tuple[SupportVerdict, AnswerJudgeProvenance]:
+    ) -> tuple[SupportVerdict, AnswerJudgeProvenance] | SupportVerdict:
         self.calls += 1
         self.last_request = request
         if self.on_call:
             await self.on_call()
         if self.exc:
             raise self.exc
-        provenance = AnswerJudgeProvenance(
+        if self.return_raw_verdict_only:
+            return self.verdict
+        provenance = self.provenance or AnswerJudgeProvenance(
             provider_id="poorjev-local-nli",
             provider_version="0.1.0",
-            model_id="deberta",
-            model_revision="rev1",
-            question_version="a5-answer-questions-v1",
-            question_hash="h" * 64,
-            claim_digest="c" * 64,
-            evidence_digest="e" * 64,
+            model_id=MODEL_ID,
+            model_revision=MODEL_REVISION,
+            question_version=QUESTION_VERSION,
+            question_hash=QUESTION_HASH,
+            claim_digest=answer_claim_digest(request.claim),
+            evidence_digest=answer_evidence_digest(request.evidence),
             latency_ms=10,
             judged_at=datetime.now(UTC),
             abstained=False,
@@ -136,11 +150,12 @@ async def test_invalid_claim_returns_invalid_baseline():
     res1 = await service.judge_answer(session, claim="", provider=provider)
     assert res1.status == "invalid"
     assert res1.observed_support == "uncertain"
-    assert "ANSWER_JUDGE_INVALID_RESPONSE" in res1.degraded_reasons
+    assert "ANSWER_JUDGE_INVALID_CLAIM" in res1.degraded_reasons
 
     # Too long claim (> 1000)
     res2 = await service.judge_answer(session, claim="x" * 1001, provider=provider)
     assert res2.status == "invalid"
+    assert "ANSWER_JUDGE_INVALID_CLAIM" in res2.degraded_reasons
     assert provider.calls == 0
 
 
@@ -334,3 +349,198 @@ async def test_truncated_bundle_reflected_in_context_complete(monkeypatch):
     assert response.omitted_total == 2
     assert response.context_complete is False
     assert provider.last_request.context_complete is False
+
+
+async def test_wrong_claim_digest_is_rejected(monkeypatch):
+    item = make_evidence_item()
+    bundle = EvidenceBundle(query="Atlas", evidence=[item])
+    monkeypatch.setattr(service, "retrieve_evidence", AsyncMock(return_value=bundle))
+    snap = SourceSnapshot(
+        source_id="123", source_type="entity", source_revision="rev_1",
+        captured_at=datetime.now(UTC),
+    )
+    monkeypatch.setattr(service, "capture_snapshots", AsyncMock(return_value=(snap,)))
+
+    bad_prov = AnswerJudgeProvenance(
+        provider_id="poorjev-local-nli",
+        provider_version="0.1.0",
+        model_id=MODEL_ID,
+        model_revision=MODEL_REVISION,
+        question_version=QUESTION_VERSION,
+        question_hash=QUESTION_HASH,
+        claim_digest="f" * 64,  # Mismatched claim digest
+        evidence_digest=answer_evidence_digest((
+            service.AnswerEvidenceItem(
+                evidence_id=item.evidence_id,
+                excerpt=item.excerpt,
+                surrounding_context=service._extract_surrounding_context(item),
+                snapshot=snap,
+                remote_allowed=False,
+            ),
+        )),
+        latency_ms=10,
+        judged_at=datetime.now(UTC),
+        abstained=False,
+        provider_confidence=0.95,
+    )
+    provider = FakeProvider(provenance=bad_prov)
+    session = AsyncMock()
+    response = await service.judge_answer(
+        session, claim="Atlas uses Rust.", mode="on", provider=provider
+    )
+    assert response.status == "invalid"
+    assert response.effective_support == "uncertain"
+    assert "ANSWER_JUDGE_INVALID_RESPONSE" in response.degraded_reasons
+
+
+async def test_wrong_evidence_digest_is_rejected(monkeypatch):
+    item = make_evidence_item()
+    bundle = EvidenceBundle(query="Atlas", evidence=[item])
+    monkeypatch.setattr(service, "retrieve_evidence", AsyncMock(return_value=bundle))
+    snap = SourceSnapshot(
+        source_id="123", source_type="entity", source_revision="rev_1",
+        captured_at=datetime.now(UTC),
+    )
+    monkeypatch.setattr(service, "capture_snapshots", AsyncMock(return_value=(snap,)))
+
+    bad_prov = AnswerJudgeProvenance(
+        provider_id="poorjev-local-nli",
+        provider_version="0.1.0",
+        model_id=MODEL_ID,
+        model_revision=MODEL_REVISION,
+        question_version=QUESTION_VERSION,
+        question_hash=QUESTION_HASH,
+        claim_digest=answer_claim_digest("Atlas uses Rust."),
+        evidence_digest="f" * 64,  # Mismatched evidence digest
+        latency_ms=10,
+        judged_at=datetime.now(UTC),
+        abstained=False,
+        provider_confidence=0.95,
+    )
+    provider = FakeProvider(provenance=bad_prov)
+    session = AsyncMock()
+    response = await service.judge_answer(
+        session, claim="Atlas uses Rust.", mode="on", provider=provider
+    )
+    assert response.status == "invalid"
+    assert response.effective_support == "uncertain"
+    assert "ANSWER_JUDGE_INVALID_RESPONSE" in response.degraded_reasons
+
+
+async def test_wrong_question_hash_is_rejected(monkeypatch):
+    item = make_evidence_item()
+    bundle = EvidenceBundle(query="Atlas", evidence=[item])
+    monkeypatch.setattr(service, "retrieve_evidence", AsyncMock(return_value=bundle))
+    snap = SourceSnapshot(
+        source_id="123", source_type="entity", source_revision="rev_1",
+        captured_at=datetime.now(UTC),
+    )
+    monkeypatch.setattr(service, "capture_snapshots", AsyncMock(return_value=(snap,)))
+
+    bad_prov = AnswerJudgeProvenance(
+        provider_id="poorjev-local-nli",
+        provider_version="0.1.0",
+        model_id=MODEL_ID,
+        model_revision=MODEL_REVISION,
+        question_version=QUESTION_VERSION,
+        question_hash="f" * 64,  # Mismatched question hash
+        claim_digest=answer_claim_digest("Atlas uses Rust."),
+        evidence_digest=answer_evidence_digest((
+            service.AnswerEvidenceItem(
+                evidence_id=item.evidence_id,
+                excerpt=item.excerpt,
+                surrounding_context=service._extract_surrounding_context(item),
+                snapshot=snap,
+                remote_allowed=False,
+            ),
+        )),
+        latency_ms=10,
+        judged_at=datetime.now(UTC),
+        abstained=False,
+        provider_confidence=0.95,
+    )
+    provider = FakeProvider(provenance=bad_prov)
+    session = AsyncMock()
+    response = await service.judge_answer(
+        session, claim="Atlas uses Rust.", mode="on", provider=provider
+    )
+    assert response.status == "invalid"
+    assert response.effective_support == "uncertain"
+    assert "ANSWER_JUDGE_INVALID_RESPONSE" in response.degraded_reasons
+
+
+async def test_wrong_question_version_is_rejected(monkeypatch):
+    item = make_evidence_item()
+    bundle = EvidenceBundle(query="Atlas", evidence=[item])
+    monkeypatch.setattr(service, "retrieve_evidence", AsyncMock(return_value=bundle))
+    snap = SourceSnapshot(
+        source_id="123", source_type="entity", source_revision="rev_1",
+        captured_at=datetime.now(UTC),
+    )
+    monkeypatch.setattr(service, "capture_snapshots", AsyncMock(return_value=(snap,)))
+
+    bad_prov = AnswerJudgeProvenance(
+        provider_id="poorjev-local-nli",
+        provider_version="0.1.0",
+        model_id=MODEL_ID,
+        model_revision=MODEL_REVISION,
+        question_version="a5-wrong-question-version-v99",
+        question_hash=QUESTION_HASH,
+        claim_digest=answer_claim_digest("Atlas uses Rust."),
+        evidence_digest=answer_evidence_digest((
+            service.AnswerEvidenceItem(
+                evidence_id=item.evidence_id,
+                excerpt=item.excerpt,
+                surrounding_context=service._extract_surrounding_context(item),
+                snapshot=snap,
+                remote_allowed=False,
+            ),
+        )),
+        latency_ms=10,
+        judged_at=datetime.now(UTC),
+        abstained=False,
+        provider_confidence=0.95,
+    )
+    provider = FakeProvider(provenance=bad_prov)
+    session = AsyncMock()
+    response = await service.judge_answer(
+        session, claim="Atlas uses Rust.", mode="on", provider=provider
+    )
+    assert response.status == "invalid"
+    assert response.effective_support == "uncertain"
+    assert "ANSWER_JUDGE_INVALID_RESPONSE" in response.degraded_reasons
+
+
+async def test_missing_provenance_is_rejected(monkeypatch):
+    item = make_evidence_item()
+    bundle = EvidenceBundle(query="Atlas", evidence=[item])
+    monkeypatch.setattr(service, "retrieve_evidence", AsyncMock(return_value=bundle))
+    snap = SourceSnapshot(
+        source_id="123", source_type="entity", source_revision="rev_1",
+        captured_at=datetime.now(UTC),
+    )
+    monkeypatch.setattr(service, "capture_snapshots", AsyncMock(return_value=(snap,)))
+
+    provider = FakeProvider(return_raw_verdict_only=True)
+    session = AsyncMock()
+    response = await service.judge_answer(
+        session, claim="Atlas uses Rust.", mode="on", provider=provider
+    )
+    assert response.status == "invalid"
+    assert response.effective_support == "uncertain"
+    assert "ANSWER_JUDGE_INVALID_RESPONSE" in response.degraded_reasons
+
+
+async def test_claim_length_contract_bounds():
+    session = AsyncMock()
+    for bad_claim in ("", " ", "x"):
+        res = await service.judge_answer(session, claim=bad_claim, mode="on")
+        assert res.status == "invalid"
+        assert res.effective_support == "uncertain"
+        assert "ANSWER_JUDGE_INVALID_CLAIM" in res.degraded_reasons
+
+    too_long = "a" * 1001
+    res = await service.judge_answer(session, claim=too_long, mode="on")
+    assert res.status == "invalid"
+    assert res.effective_support == "uncertain"
+    assert "ANSWER_JUDGE_INVALID_CLAIM" in res.degraded_reasons

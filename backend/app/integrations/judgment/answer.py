@@ -35,8 +35,46 @@ from .policy import (
     may_invoke,
     revalidate_snapshots,
 )
-from .poorjev_answer import AnswerProviderError, PoorJevAnswerProvider
+from .poorjev_answer import (
+    MODEL_ID,
+    MODEL_REVISION,
+    PROVIDER_ID,
+    QUESTION_HASH,
+    QUESTION_VERSION,
+    AnswerProviderError,
+    PoorJevAnswerProvider,
+    answer_claim_digest,
+    answer_evidence_digest,
+)
 from .snapshots import bind_evidence_to_snapshots, capture_snapshots
+
+
+def validate_answer_provenance(
+    provenance: AnswerJudgeProvenance | None,
+    *,
+    request: AnswerEvidenceRequest,
+    active_provider: Any | None = None,
+) -> bool:
+    """Independently verify provider provenance against exact requested packet and schemas."""
+    if provenance is None:
+        return False
+    expected_claim = answer_claim_digest(request.claim)
+    expected_evidence = answer_evidence_digest(request.evidence)
+    if provenance.claim_digest != expected_claim:
+        return False
+    if provenance.evidence_digest != expected_evidence:
+        return False
+    if provenance.question_version != QUESTION_VERSION:
+        return False
+    if provenance.question_hash != QUESTION_HASH:
+        return False
+    expected_provider_id = getattr(active_provider, "provider_id", None)
+    if expected_provider_id and provenance.provider_id != expected_provider_id:
+        return False
+    return not (
+        provenance.provider_id == PROVIDER_ID
+        and (provenance.model_id != MODEL_ID or provenance.model_revision != MODEL_REVISION)
+    )
 
 
 def derive_h3_query(claim: str, explicit_query: str | None = None) -> str:
@@ -146,8 +184,8 @@ async def judge_answer(
 ) -> AnswerJudgeResponse:
     claim_str = (claim or "").strip()
     effective_mode = mode or settings.a5_answer_mode
-    if not claim_str or len(claim_str) > 1000:
-        return _baseline(claim_str, effective_mode, "invalid", "ANSWER_JUDGE_INVALID_RESPONSE")
+    if len(claim_str) < 2 or len(claim_str) > 1000:
+        return _baseline(claim_str, effective_mode, "invalid", "ANSWER_JUDGE_INVALID_CLAIM")
 
     try:
         query = derive_h3_query(claim_str, retrieval_query)
@@ -341,8 +379,6 @@ async def judge_answer(
         verdict_res = await active_provider.judge_support(request)
         if isinstance(verdict_res, tuple) and len(verdict_res) == 2:
             verdict, provenance = verdict_res
-        elif isinstance(verdict_res, SupportVerdict):
-            verdict = verdict_res
         else:
             return _baseline(
                 claim_str,
@@ -355,6 +391,21 @@ async def judge_answer(
                 omitted_total=bundle.omitted_total,
             )
         if not isinstance(verdict, SupportVerdict):
+            return _baseline(
+                claim_str,
+                effective_mode,
+                "invalid",
+                "ANSWER_JUDGE_INVALID_RESPONSE",
+                context_complete=context_complete,
+                evidence_count=len(bundle.evidence),
+                truncated=bundle.truncated,
+                omitted_total=bundle.omitted_total,
+            )
+        if not validate_answer_provenance(
+            provenance,
+            request=request,
+            active_provider=active_provider,
+        ):
             return _baseline(
                 claim_str,
                 effective_mode,

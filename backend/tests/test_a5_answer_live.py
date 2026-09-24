@@ -49,6 +49,10 @@ async def test_answer_judge_shadow_live_on_local_model(monkeypatch, tmp_path):
     assert result.provenance.provider_id == "poorjev-local-nli"
     assert result.provenance.model_id == MODEL_ID
     assert result.provenance.model_revision == MODEL_REVISION
+    assert result.provenance.question_version == "a5-answer-questions-v1"
+    assert result.provenance.question_hash is not None
+    assert result.provenance.claim_digest is not None
+    assert result.provenance.evidence_digest is not None
     print(
         json.dumps(
             {
