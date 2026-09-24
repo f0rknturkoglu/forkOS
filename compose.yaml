@@ -41,6 +41,18 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  migrate:
+    image: forkos-api:local
+    build: ./backend
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    logging: *logging
+
   api:
     image: forkos-api:local
     build: ./backend
@@ -59,17 +71,33 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+      TIMEZONE: ${TIMEZONE:-Europe/Istanbul}
       EXTENSION_ID: ${EXTENSION_ID:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}
       WORKER_ENABLED: ${WORKER_ENABLED:-0}
+      H4_ENABLED: ${H4_ENABLED:-0}
+      H4_OLLAMA_BASE_URL: ${H4_OLLAMA_BASE_URL:-http://127.0.0.1:11434}
+      H4_SMALL_MODEL: ${H4_SMALL_MODEL:-}
+      H4_MEDIUM_MODEL: ${H4_MEDIUM_MODEL:-}
+      H4_SMALL_INPUT_CHARS: ${H4_SMALL_INPUT_CHARS:-12000}
+      H4_MEDIUM_INPUT_CHARS: ${H4_MEDIUM_INPUT_CHARS:-24000}
+      H4_TIMEOUT_SECONDS: ${H4_TIMEOUT_SECONDS:-45.0}
       A5_CONTEXT_MODE: ${A5_CONTEXT_MODE:-off}
       A5_JEVMLX_BASE_URL: ${A5_JEVMLX_BASE_URL:-http://host.docker.internal:8000}
       A5_CONTEXT_TIMEOUT_SECONDS: ${A5_CONTEXT_TIMEOUT_SECONDS:-1.5}
       # Fixed by Compose, not supplied by an agent request. Only this approved
       # local-machine bridge is added to the native loopback allowlist.
       A5_HOST_BRIDGE_ENABLED: "1"
+      A5_MEMORY_MODE: ${A5_MEMORY_MODE:-off}
+      A5_MEMORY_PROVIDER: ${A5_MEMORY_PROVIDER:-poorjev}
+      A5_MEMORY_MODEL_PATH: ${A5_MEMORY_MODEL_PATH:-}
+      A5_MEMORY_TIMEOUT_SECONDS: ${A5_MEMORY_TIMEOUT_SECONDS:-20.0}
+      A5_ANSWER_MODE: ${A5_ANSWER_MODE:-off}
+      A5_ANSWER_PROVIDER: ${A5_ANSWER_PROVIDER:-poorjev}
+      A5_ANSWER_MODEL_PATH: ${A5_ANSWER_MODEL_PATH:-}
+      A5_ANSWER_TIMEOUT_SECONDS: ${A5_ANSWER_TIMEOUT_SECONDS:-20.0}
       # Manuel yenileme worker kapaliyken API arka planinda kosar; LinkedIn
       # ayarlari orada da gerekir (bkz. .env.example).
       FORKJOB_LINKEDIN_ALLOW_DIRECT: ${FORKJOB_LINKEDIN_ALLOW_DIRECT:-0}
@@ -79,6 +107,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=3)"]
       interval: 15s
@@ -100,6 +130,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+      TIMEZONE: ${TIMEZONE:-Europe/Istanbul}
       RSS_DEFAULT_INTERVAL_MINUTES: ${RSS_DEFAULT_INTERVAL_MINUTES:-30}
       RSS_RETENTION_DAYS: ${RSS_RETENTION_DAYS:-90}
       # Direct (proxy'siz) LinkedIn erisimi VARSAYILAN KAPALI. Acmak icin
@@ -113,6 +144,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.worker.healthcheck"]
       interval: 30s

@@ -1,4 +1,5 @@
-# Explicit opt-in A5.2 local NLI image; apply after compose.yaml.
+# Explicit opt-in A5.2 Memory Judge & A5.3 Answer Evidence Judge local NLI image; apply after compose.yaml.
+# A5.2 and A5.3 share the same pinned local poorjev/NLI weights (/opt/forkos/a5-memory-model).
 services:
   api:
     image: forkos-api-memory:local
@@ -7,8 +8,13 @@ services:
       dockerfile: Dockerfile.memory
     environment:
       A5_MEMORY_MODE: ${A5_MEMORY_MODE:-shadow}
-      A5_MEMORY_PROVIDER: poorjev
+      A5_MEMORY_PROVIDER: ${A5_MEMORY_PROVIDER:-poorjev}
       A5_MEMORY_MODEL_PATH: /opt/forkos/a5-memory-model
+      A5_MEMORY_TIMEOUT_SECONDS: ${A5_MEMORY_TIMEOUT_SECONDS:-20.0}
+      A5_ANSWER_MODE: ${A5_ANSWER_MODE:-shadow}
+      A5_ANSWER_PROVIDER: ${A5_ANSWER_PROVIDER:-poorjev}
+      A5_ANSWER_MODEL_PATH: /opt/forkos/a5-memory-model
+      A5_ANSWER_TIMEOUT_SECONDS: ${A5_ANSWER_TIMEOUT_SECONDS:-20.0}
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
     volumes:

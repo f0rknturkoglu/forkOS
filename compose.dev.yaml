@@ -11,6 +11,10 @@
 #
 # Port eslesmeleri degismez: nginx de Vite da container icinde 5173 dinler.
 services:
+  migrate:
+    volumes:
+      - ./backend:/app:z
+
   api:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload
     volumes:
