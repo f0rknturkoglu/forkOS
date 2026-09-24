@@ -1,0 +1,15 @@
+# Explicit opt-in A5.2 local NLI image; apply after compose.yaml.
+services:
+  api:
+    image: forkos-api-memory:local
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.memory
+    environment:
+      A5_MEMORY_MODE: ${A5_MEMORY_MODE:-shadow}
+      A5_MEMORY_PROVIDER: poorjev
+      A5_MEMORY_MODEL_PATH: /opt/forkos/a5-memory-model
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - ./backend/data/cache/a5-memory-model:/opt/forkos/a5-memory-model:ro

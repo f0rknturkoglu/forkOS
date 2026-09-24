@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     # Only canonical container wiring may opt into the Docker Desktop host bridge.
     a5_host_bridge_enabled: bool = False
 
+    # A5.2: independent, opt-in local Memory Judge. The default API image does
+    # not include poorjev or an NLI model; OFF never imports either one.
+    a5_memory_mode: Literal["off", "shadow", "assist", "on"] = "off"
+    a5_memory_provider: Literal["poorjev"] = "poorjev"
+    a5_memory_model_path: str = ""
+    a5_memory_timeout_seconds: float = 20.0
+
     @property
     def resolved_obsidian_vault_path(self) -> Path | None:
         if not self.obsidian_vault_path or not self.obsidian_vault_path.strip():

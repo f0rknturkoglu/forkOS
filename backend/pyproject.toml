@@ -25,6 +25,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.5"]
+memory = ["poorjev[local]==0.1.0", "transformers>=4.40,<5", "torch==2.5.1"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
@@ -43,6 +44,7 @@ markers = [
   "no_database: test does not need a database connection",
   "h4_live: needs a real local model; skipped unless H4_LIVE=1 and a model is configured",
   "a5_context_live: needs a ready local jevmlx daemon; skipped unless A5_CONTEXT_LIVE=1",
+  "a5_memory_live: needs the optional local NLI image/model and isolated test DB",
 ]
 
 [tool.ruff]

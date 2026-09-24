@@ -42,6 +42,7 @@ services:
     logging: *logging
 
   api:
+    image: forkos-api:local
     build: ./backend
     # `--reload` YOK: gunluk runtime'da kaynak izleyici ve yeniden baslatma yok.
     # Bu imaj kaynagi kopyalar; backend degisikliginden sonra `make build`.

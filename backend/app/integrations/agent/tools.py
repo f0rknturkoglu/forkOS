@@ -61,6 +61,7 @@ from app.integrations.agent.write_models import (
     TodoUpdateIn,
 )
 from app.integrations.judgment import context as judgment_svc
+from app.integrations.judgment import memory as memory_judgment_svc
 from app.integrations.local_cognition import models as lc_models
 from app.integrations.local_cognition import service as lc_svc
 from app.integrations.review_intelligence import models as ri_models
@@ -286,6 +287,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_proactivity_tool(server)
     _register_execution_tool(server)
     _register_context_judge_tool(server)
+    _register_memory_judge_tool(server)
 
 
 # ---------------------------------------------------------------------------
@@ -1099,6 +1101,30 @@ def _register_context_judge_tool(server: MCPServer) -> None:
             raise ToolError(str(exc)) from exc
         except Exception as exc:  # noqa: BLE001 - no local path or provider body in error
             raise ToolError(f"CONTEXT_JUDGE_UNAVAILABLE: {type(exc).__name__}") from exc
+
+
+def _register_memory_judge_tool(server: MCPServer) -> None:
+    @server.tool(
+        name="forkos_memory_judge",
+        description=(
+            "Read-only A5.2 advisory judgment for an internally loaded A4 candidate UUID. "
+            "Mechanical source/privacy gates run first; callers cannot supply evidence, "
+            "prior memories, policy or model prompts. No promotion, write or supersession "
+            "authority is granted. " + _READ_ONLY_CLAUSE
+        ),
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_memory_judge(
+        candidate_id: uuid.UUID,
+    ) -> AgentEnvelope[memory_judgment_svc.MemoryJudgeResponse]:
+        try:
+            async with SessionLocal() as session:
+                result = await memory_judgment_svc.judge_memory(session, candidate_id)
+            return AgentEnvelope(source="forkos", data=result, truncated=False)
+        except ValueError as exc:
+            raise ToolError("MEMORY_CANDIDATE_NOT_FOUND") from exc
+        except Exception as exc:
+            raise ToolError(f"MEMORY_JUDGE_UNAVAILABLE: {type(exc).__name__}") from exc
 
 
 # ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ services:
       # Faz 28 guardrail: Makefile target'i db konteynerinde pg_dump kullandigini
       # test eder; repo koku test konteynerine mount edilir (okuma icin).
       - ./Makefile:/Makefile:z
+      - ./compose.yaml:/compose.yaml:ro
     depends_on:
       db-test:
         condition: service_healthy

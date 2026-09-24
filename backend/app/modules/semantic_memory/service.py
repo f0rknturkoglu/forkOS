@@ -228,6 +228,7 @@ async def refresh_candidates(
     session: AsyncSession, payload: SemanticCandidateRefreshIn
 ) -> SemanticCandidateRefreshOut:
     """H5'in kaynaklı aday çıkarımını A4 inceleme kayıtlarına dönüştürür."""
+    from app.integrations.judgment.memory_sources import read_memory_source
     from app.integrations.review_intelligence import consolidation as h5_consolidation
     from app.integrations.review_intelligence import sources as h5_sources
     from app.integrations.review_intelligence.models import Collector
@@ -343,10 +344,22 @@ async def refresh_candidates(
                 )
             )
         ).scalar_one_or_none()
-        ref_entries = [
-            {"ref": item["ref"], "role": item.get("role"), "digest": item.get("digest")}
-            for item in supports
-        ]
+        ref_entries = []
+        for item in supports:
+            source = await read_memory_source(session, item["ref"])
+            if source is None or source.text != item["text"]:
+                ref_entries = []
+                break
+            ref_entries.append(
+                {
+                    "ref": item["ref"],
+                    "role": item.get("role"),
+                    "digest": item.get("digest"),
+                    "source_revision": source.revision,
+                }
+            )
+        if not ref_entries:
+            continue
         observed_at = min(datetime.fromisoformat(item["observed_at"]) for item in supports)
         moment = datetime.now(UTC)
         if existing is not None:
