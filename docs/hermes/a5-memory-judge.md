@@ -6,7 +6,24 @@ Memory Judge, A4'ün ürettiği `AgentSemanticCandidate` için **salt-okunur dan
 
 A3 mühürlü bölüm öğeleri ve H5 anlamlı event'leri → H5 aday çıkarımı → A4 `refresh_candidates` → A4 DB destek satırı / inceleme / yetkili `promote_candidate` → Vault/Hot Memory. A5.2 yalnız A4 adayını okuyan ayrı MCP danışmanlık yüzeyidir; A4 terfi kodunu çağırmaz veya davranışını değiştirmez. `source_revision` yeni adayların her `episode_item`/`event` kanıtına eklenir; eski, revizyonu olmayan adaylar güvenli biçimde `SOURCE_UNBOUND` ile degrade olur. A3 öğesi orijinal konuşmanın tam dökümü değil, türetilmiş mühürlü metindir; explicitness yargısının bu sınırlaması korunur.
 
-İlk bağlamada adayın tüm sütunları, kaynak projeksiyonları, ilgili kart kimliği/revizyonu/etkinlik durumu ve A5.2 politika sürümü SHA-256 ile bağlanır. Modelden hemen önce ve modelden sonra yeniden okunur. Kaynak, aday, kart, revocation/supersession veya politika değişirse `stale` ve sıfır anlamsal etki döner. Kaynak eksik, mahremiyet engeli, aşırı uzun paket veya tam yinelenen etkin kartta model çağrılmaz. En çok 3 kaynak, 3 ilgili kart, kaynak/kart başına 500 karakter ve toplam 6000 karakter kullanılır. İlgili kart yoksa ilişki uydurulmaz (`relations=[]`). Tarama ilgili tüm kart revizyonlarını hash'ler, modele yalnız son üç etkin kart gider.
+### Kanıt sınırlandırması ve tam kanıt doğrulaması (A5.2.1)
+
+A4 adayları zamanla birden fazla oturum veya konsolidasyon döngüsünde 3'ten fazla kanıt (`evidence_refs > 3`) biriktirebilir. A4'ün kanonik kanıt listesi asla budanmaz; tam tarihçe korunur. A5.2 ise model paketini korumak için deterministik sınırlandırma uygular:
+
+1. **Tam kanıt denetimi**: Adayın `evidence_refs` listesindeki *tüm* kaynaklar okunur ve revizyonları doğrulanır. Listede tek bir bozuk, bayat veya gizlilik engeli taşıyan kaynak varsa seçim bunu gizleyemez; işlem doğrudan `degraded` (`SOURCE_STALE` / `SOURCE_INVALID`) döner.
+2. **Deterministik seçim (`select_memory_sources`)**: Geçerli kaynaklar arasından en fazla `MAX_SOURCES = 3` kaynak deterministik kuralla seçilir:
+   - Rol önceliği: `user` (3) > `canonical` (2) > `assistant` (1) > diğer (0).
+   - Yenilik önceliği: Daha yüksek/yeni kaynak ID'si önce gelir (`source_id`).
+   - Eşitlik bozucu: Alfabetik `ref` anahtarı.
+3. **Ayrık anlık görüntü bağlama (Snapshot)**:
+   - `candidate_digest`: Adayın tüm sütunlarını ve tam `evidence_refs` listesini hash'ler. Çıkarım sırasında adaya yeni bir kanıt eklenirse anında `stale` olur.
+   - `full_source_digest`: Adaya bağlı *tüm* kaynakların revizyonlarını hash'ler. Seçilmemiş bir kaynak çıkarım sırasında değişirse `stale` olur.
+   - `source_digest`: Modele gönderilen seçilmiş kaynak paketinin hash'idir.
+   - `policy_digest`: `MEMORY_POLICY_VERSION` ve `MEMORY_SOURCE_SELECTION_VERSION` (`a5-memory-source-selection-v1`) sürümlerini bağlar.
+
+### Mahremiyet ve `remote_allowed` ayrımı
+
+A5.0 mimari sözleşmesi gereği `remote_allowed` bayrağı yalnızca **uzak** model sağlayıcıları için geçerli bir kapıdır. A5.2'nin kullandığı `poorjev` tamamen yerel bir model sağlayıcısı olduğundan `remote_allowed=False` tek başına yerel çıkarımı engellemez. Buna karşılık hassasiyet ve sır kapıları (`is_privacy_blocked`, `contains_high_confidence_secret`, `sensitivity != 'normal'`) hem yerel hem de uzak tüm sağlayıcılar için koşulsuz engelleyicidir (`SENSITIVITY_BLOCKED`).
 
 ## Sinyaller ve yetki sınırı
 

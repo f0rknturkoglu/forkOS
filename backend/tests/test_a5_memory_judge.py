@@ -175,3 +175,66 @@ async def test_provider_snapshot_mismatch_is_invalid(monkeypatch):
     assert result.status == "invalid"
     assert result.reason == "MEMORY_PROVIDER_RESPONSE_MISMATCH"
     assert result.signals is None and result.review_flags == ()
+
+
+def test_select_memory_sources_role_priority_and_recency():
+    s_user_old = service.MemorySource("episode_item:1", "text", "r1", "user", None)
+    s_user_new = service.MemorySource("episode_item:5", "text", "r2", "user", None)
+    s_canonical = service.MemorySource("event:10", "text", "r3", "canonical", None)
+    s_assistant = service.MemorySource("episode_item:20", "text", "r4", "assistant", None)
+    s_unknown = service.MemorySource("event:2", "text", "r5", None, None)
+
+    # 5 sources provided; selection must pick top 3:
+    # 1: user_new (user, id=5)
+    # 2: user_old (user, id=1)
+    # 3: canonical (canonical, id=10)
+    # Excluded: assistant (rank 1), unknown (rank 0)
+    selected = service.select_memory_sources([s_assistant, s_unknown, s_user_old, s_canonical, s_user_new])
+    assert len(selected) == 3
+    assert [s.ref for s in selected] == ["episode_item:5", "episode_item:1", "event:10"]
+
+
+def test_select_memory_sources_stability():
+    s1 = service.MemorySource("episode_item:1", "text1", "r1", "user", None)
+    s2 = service.MemorySource("episode_item:2", "text2", "r2", "user", None)
+    s3 = service.MemorySource("event:3", "text3", "r3", "canonical", None)
+    s4 = service.MemorySource("episode_item:4", "text4", "r4", "assistant", None)
+
+    order1 = service.select_memory_sources([s1, s2, s3, s4])
+    order2 = service.select_memory_sources([s4, s3, s2, s1])
+    order3 = service.select_memory_sources([s2, s4, s1, s3])
+    assert order1 == order2 == order3
+    assert [s.ref for s in order1] == ["episode_item:2", "episode_item:1", "event:3"]
+
+
+@pytest.mark.parametrize("mutated", ["full_source", "source", "candidate"])
+async def test_unselected_and_full_source_mutation_discards_semantics(monkeypatch, mutated):
+    states = [bound(), bound(), bound()]
+    if mutated == "full_source":
+        # Simulates an unselected source mutating its revision
+        states[2] = (
+            states[2][0],
+            service.BoundState(
+                **{**states[2][1].__dict__, "full_source_digest": "f" * 64}
+            ),
+            None,
+        )
+    elif mutated == "source":
+        states[2] = (
+            states[2][0],
+            service.BoundState(
+                **{**states[2][1].__dict__, "source_digest": "s2" * 32}
+            ),
+            None,
+        )
+    else:
+        states[2] = bound("mutated_candidate")
+
+    async def get_state(*args):
+        return states.pop(0)
+
+    monkeypatch.setattr(service, "_bound_state", get_state)
+    result = await service.judge_memory(FakeSession(), ID, provider=FakeProvider(), mode="on")
+    assert result.status == "stale"
+    assert result.signals is None and result.review_flags == ()
+    assert result.baseline_status == "proposed"

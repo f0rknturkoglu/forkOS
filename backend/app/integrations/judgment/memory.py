@@ -25,6 +25,30 @@ MAX_SOURCE_CHARS = 500
 MAX_CARD_CHARS = 500
 MAX_PACKET_CHARS = 6000
 MEMORY_POLICY_VERSION = "a5-memory-policy-v1"
+MEMORY_SOURCE_SELECTION_VERSION = "a5-memory-source-selection-v1"
+
+_ROLE_PRIORITY: dict[str | None, int] = {
+    "user": 3,
+    "canonical": 2,
+    "assistant": 1,
+}
+
+
+def _source_sort_key(source: MemorySource) -> tuple[int, int, str]:
+    _, _, id_str = source.ref.partition(":")
+    source_id = int(id_str) if id_str.isdigit() else 0
+    role_score = _ROLE_PRIORITY.get(source.role, 0)
+    # Higher role score first -> -role_score
+    # Higher source_id (newer) first -> -source_id
+    # Stable alphabetical ref -> source.ref
+    return (-role_score, -source_id, source.ref)
+
+
+def select_memory_sources(
+    sources: list[MemorySource], limit: int = MAX_SOURCES
+) -> tuple[MemorySource, ...]:
+    """Deterministically select top `limit` sources based on role, recency, and ref."""
+    return tuple(sorted(sources, key=_source_sort_key)[:limit])
 
 
 class MemoryProvider(Protocol):
@@ -42,11 +66,14 @@ class BoundState:
     sources: tuple[MemorySource, ...]
     related: tuple[sem_storage.SemanticMemoryCard, ...]
     exact_duplicate: bool
+    full_source_digest: str = ""
+    all_sources: tuple[MemorySource, ...] = ()
 
     @property
-    def identity(self) -> tuple[str, str, str, str]:
+    def identity(self) -> tuple[str, str, str, str, str]:
         return (
             self.candidate_digest,
+            self.full_source_digest,
             self.source_digest,
             self.related_digest,
             self.policy_digest,
@@ -60,6 +87,7 @@ def _policy_digest(mode: str) -> str:
     return projection_digest(
         (
             MEMORY_POLICY_VERSION,
+            MEMORY_SOURCE_SELECTION_VERSION,
             MAX_SOURCES,
             MAX_RELATED,
             MAX_SOURCE_CHARS,
@@ -123,9 +151,9 @@ async def _bound_state(
     ):
         return candidate, None, "SENSITIVITY_BLOCKED"
     refs = candidate.evidence_refs or []
-    if not 1 <= len(refs) <= MAX_SOURCES:
-        return candidate, None, "SOURCE_LIMIT_OR_MISSING"
-    sources: list[MemorySource] = []
+    if not refs:
+        return candidate, None, "SOURCE_MISSING"
+    all_sources: list[MemorySource] = []
     for entry in refs:
         if not isinstance(entry, dict):
             return candidate, None, "SOURCE_INVALID"
@@ -144,9 +172,12 @@ async def _bound_state(
             or entry.get("digest") != source.evidence_digest
         ):
             return candidate, None, "SOURCE_INVALID"
-        sources.append(source)
-    if len({source.ref for source in sources}) != len(sources):
+        all_sources.append(source)
+    if len({source.ref for source in all_sources}) != len(all_sources):
         return candidate, None, "SOURCE_INVALID"
+
+    selected_sources = select_memory_sources(all_sources, limit=MAX_SOURCES)
+
     related_state = _related_cards(candidate)
     if related_state is None:
         return candidate, None, "RELATED_UNAVAILABLE"
@@ -158,17 +189,27 @@ async def _bound_state(
         for card in related
     ):
         return candidate, None, "RELATED_SENSITIVITY_BLOCKED"
-    total_chars = len(candidate.statement) + sum(len(source.text) for source in sources) + sum(
+    total_chars = len(candidate.statement) + sum(len(source.text) for source in selected_sources) + sum(
         len(card.statement) for card in related
     )
     if total_chars > MAX_PACKET_CHARS:
         return candidate, None, "PACKET_LIMIT"
+
+    full_source_digest = projection_digest(
+        sorted((source.ref, source.revision, source.role, source.evidence_digest) for source in all_sources)
+    )
+    selected_source_digest = projection_digest(
+        [(source.ref, source.revision, source.role, source.evidence_digest) for source in selected_sources]
+    )
+
     return candidate, BoundState(
         candidate_digest=_candidate_digest(candidate),
-        source_digest=projection_digest([(source.ref, source.revision) for source in sources]),
+        source_digest=selected_source_digest,
+        full_source_digest=full_source_digest,
         related_digest=related_digest,
         policy_digest=_policy_digest(mode),
-        sources=tuple(sources),
+        sources=selected_sources,
+        all_sources=tuple(all_sources),
         related=related,
         exact_duplicate=exact_duplicate,
     ), None

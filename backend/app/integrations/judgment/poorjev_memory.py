@@ -247,5 +247,6 @@ class PoorJevMemoryProvider:
             judged_at=datetime.now(UTC),
             abstained=abstained,
             field_confidence=confidences,
+            selected_source_count=len(packet.source_texts),
         )
         return signals, provenance

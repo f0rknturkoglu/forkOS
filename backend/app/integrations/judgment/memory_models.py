@@ -68,6 +68,7 @@ class MemoryJudgeProvenance(AdvisoryModel):
     abstained: bool
     # Uncalibrated provider confidence is telemetry only, not truth or policy.
     field_confidence: dict[str, float] = Field(default_factory=dict)
+    selected_source_count: int | None = Field(default=None, ge=0, le=3)
 
 
 class MemoryJudgeResponse(AdvisoryModel):
