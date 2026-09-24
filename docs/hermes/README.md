@@ -10,7 +10,7 @@ gözler; [A3 epizodik devir](a3-episodic-handoff.md) katmanı ise oturumlar aras
 sınırlı, kaynağa bağlı bir tarihsel devir taşır. İkisi de MCP araç sayısını veya
 model bağlamını değiştirmez.
 
-Yüzey **H0 → H7 + A5.1** boyunca büyüdü ve bugün toplam **32** araçtır:
+Yüzey **H0 → H7 + A5.1 + A5.2** boyunca büyüdü ve bugün toplam **33** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
@@ -197,6 +197,8 @@ karar/yürütme** (H7) + **1 bağlam yargısı** (A5). Yazma araçları `readOnl
 ### Yerel bağlam yargısı (A5.1)
 
 `forkos_context_judge` H3 kanıtını içeriden getirir ve varsayılan `off` modunda yalnız orijinal sırayı döndürür. Etkinleştirilirse ayrı localhost jevmlx süreciyle anlamsal **sıralama önerir**; hiçbir kanıtı silmez veya kanonik kaydı değiştirmez. [A5.1 sözleşmesi](a5-context-judge.md).
+
+`forkos_memory_judge` A4 aday UUID'sini içeriden yükleyerek yerel NLI ile **salt-okunur** anlamsal inceleme sinyali üretir. Varsayılan `off`; aday terfisi ve supersession yetkisi yoktur. [A5.2 sözleşmesi](a5-memory-judge.md).
 
 Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 [Onay modeli](h1-safe-actions.md) ·

@@ -78,11 +78,11 @@ forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay ze
 | **H5** | 3 | **gözden geçirme zekâsı** ve anlamsal hafıza adayları (`forkos_review_intelligence`, `semantic_memory_candidates`, `semantic_memory_promote`) |
 | **H6** | 1 | **proaktif dikkat kontrolü**: kapalı kural kümesi, koşu durumu, konfigürasyon ve kullanıcı override'ı (`forkos_proactivity`) |
 | **H7** | 1 | **kalıcı karar ve sınırlı yürütme**: kanıta dayanan plan revizyonu, sunucu tarafı onay, adım başına durable makbuz ve kesintiye dayanıklı, H1 üzerinden yürütme (`forkos_execution`) |
-| **A5** | 1 | H3 kanıtının isteğe bağlı yerel anlamsal önceliklendirmesi; varsayılan kapalı (`forkos_context_judge`) |
+| **A5** | 2 | H3 kanıt sıralaması ve A4 adayına salt-okunur anlamsal danışmanlık; ikisi de varsayılan kapalı (`forkos_context_judge`, `forkos_memory_judge`) |
 
 Yazma araçları `readOnlyHint=false` taşır; önerilen istemci güveni `untrusted`dır ve kullanıcı onayı istemci/harness tarafından yönetilir.
 
-Backend ajan araçları için dış model/API'ye veri göndermez. H4 ve açıkça etkinleştirilmiş A5.1 yalnızca yapılandırılmış **loopback** yerel model süreçlerine gider. MCP araç sonuçlarını yapılandırılmış ajan harness'i tüketir: harness uzak bir model sağlayıcısı kullanıyorsa seçilen bağlam o sağlayıcıya model girdisi olarak gidebilir.
+Backend ajan araçları için dış model/API'ye veri göndermez. H4 ve açıkça etkinleştirilmiş A5.1 yalnızca yapılandırılmış **loopback** yerel model süreçlerine gider; A5.2 isteğe bağlı olarak aynı makinedeki NLI modelini kullanır. MCP araç sonuçlarını yapılandırılmış ajan harness'i tüketir: harness uzak bir model sağlayıcısı kullanıyorsa seçilen bağlam o sağlayıcıya model girdisi olarak gidebilir.
 
 Ayrıntılı mimari, araç sözleşmeleri ve kurulum için [Hermes Brain Interface Rehberi](docs/hermes/README.md) dokümanına bak.
 
