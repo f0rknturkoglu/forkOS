@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity, Event
 from app.integrations.agent.evidence import _entity_candidate
 from app.integrations.agent.evidence_models import EvidenceItem
-from app.integrations.obsidian.evidence import MAX_VAULT_FILE_BYTES
-from app.integrations.obsidian.security import is_evidence_path, resolve_safe_vault_path
+from app.integrations.agent.evidence_revision import event_source_revision, projection_digest
+from app.integrations.obsidian.evidence import read_note_lines
+from app.integrations.obsidian.frontmatter import extract_title, parse_frontmatter
+from app.integrations.obsidian.security import is_evidence_path
 from app.integrations.obsidian.vault import vault_context
 
 from .models import SourceSnapshot
@@ -21,11 +22,6 @@ from .models import SourceSnapshot
 
 class SnapshotUnavailable(Exception):
     """A source cannot be safely bound to a current revision."""
-
-
-def _digest(value: object) -> str:
-    raw = json.dumps(value, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
 
 
 async def capture_snapshot(session: AsyncSession, item: EvidenceItem) -> SourceSnapshot:
@@ -43,15 +39,16 @@ async def capture_snapshot(session: AsyncSession, item: EvidenceItem) -> SourceS
                 raise SnapshotUnavailable
             return SourceSnapshot(
                 source_id=item.source_id, source_type="entity", source_version=version,
-                source_revision=_digest(current.lines), captured_at=captured_at,
+                source_revision=projection_digest(current.lines), captured_at=captured_at,
             )
         if item.source_type == "event":
             event = await session.get(Event, int(item.source_id), populate_existing=True)
             if event is None or event.occurred_at.isoformat() != item.occurred_at:
                 raise SnapshotUnavailable
+            related = await session.get(Entity, event.entity_id, populate_existing=True) if event.entity_id else None
             return SourceSnapshot(
                 source_id=item.source_id, source_type="event",
-                source_revision=_digest((event.id, event.entity_id, event.entity_type, event.verb, event.payload, event.occurred_at)),
+                source_revision=event_source_revision(event, related.title if related else ""),
                 captured_at=captured_at,
             )
         if item.source_type == "vault":
@@ -59,16 +56,19 @@ async def capture_snapshot(session: AsyncSession, item: EvidenceItem) -> SourceS
             root, _ = vault_context()
             if root is None or not rel_path or not is_evidence_path(rel_path):
                 raise SnapshotUnavailable
-            path = resolve_safe_vault_path(root, rel_path)
-            if not path.is_file():
+            lines = read_note_lines(root, rel_path)
+            if lines is None:
                 raise SnapshotUnavailable
-            with path.open("rb") as handle:
-                raw = handle.read(MAX_VAULT_FILE_BYTES + 1)
-            if len(raw) > MAX_VAULT_FILE_BYTES:
-                raise SnapshotUnavailable
+            title = Path(rel_path).stem
+            if item._vault_title_from_index:
+                frontmatter, body = parse_frontmatter("\n".join(lines))
+                title = extract_title(
+                    frontmatter if isinstance(frontmatter, dict) else {},
+                    body, fallback=title,
+                )
             return SourceSnapshot(
                 source_id=item.source_id, source_type="vault",
-                source_revision=hashlib.sha256(raw).hexdigest(), captured_at=captured_at,
+                source_revision=projection_digest((lines, title)), captured_at=captured_at,
             )
     except (OSError, ValueError, TypeError, PermissionError) as exc:
         raise SnapshotUnavailable from exc
@@ -76,4 +76,18 @@ async def capture_snapshot(session: AsyncSession, item: EvidenceItem) -> SourceS
 
 
 async def capture_snapshots(session: AsyncSession, items: list[EvidenceItem]) -> tuple[SourceSnapshot, ...]:
+    # H3 may have loaded ORM rows into this session's identity map. Re-read all
+    # mutable projections under READ COMMITTED instead of trusting stale objects.
+    session.expire_all()
     return tuple([await capture_snapshot(session, item) for item in items])
+
+
+def bind_evidence_to_snapshots(items: list[EvidenceItem], snapshots: tuple[SourceSnapshot, ...]) -> bool:
+    """Only H3-produced items with the exact captured projection may be judged."""
+    return len(items) == len(snapshots) and all(
+        item._source_revision is not None
+        and item._source_revision == snapshot.source_revision
+        and item.source_id == snapshot.source_id
+        and item.source_type == snapshot.source_type
+        for item, snapshot in zip(items, snapshots, strict=True)
+    )

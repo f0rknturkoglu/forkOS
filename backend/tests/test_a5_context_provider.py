@@ -43,6 +43,8 @@ def valid_response(count: int = 2) -> dict:
 @pytest.mark.parametrize("url", [
     "https://example.com", "http://192.168.1.50:8000", "http://10.0.0.4:8000",
     "http://8.8.8.8:8000", "http://user:pass@127.0.0.1:8000", "http://127.0.0.1:8000/redirect",
+    "http://host.docker.internal:8000", "http://evil@host.docker.internal:8000",
+    "http://host.docker.internal:8000/path", "http://host.docker.internal:8000?next=remote",
 ])
 def test_non_loopback_or_unsafe_endpoint_rejected(url):
     with pytest.raises(ContextProviderError) as exc:
@@ -53,6 +55,20 @@ def test_non_loopback_or_unsafe_endpoint_rejected(url):
 @pytest.mark.parametrize("url", ["http://127.0.0.1:8000", "http://localhost:8000", "http://[::1]:8000"])
 def test_loopback_forms_allowed(url):
     assert JevMlxProvider(url).base_url == url
+
+
+def test_docker_host_bridge_requires_explicit_opt_in():
+    assert JevMlxProvider("http://host.docker.internal:8000", allow_host_bridge=True).base_url == "http://host.docker.internal:8000"
+    with pytest.raises(ContextProviderError):
+        JevMlxProvider("https://host.docker.internal:8000", allow_host_bridge=True)
+
+
+@pytest.mark.parametrize("url", [
+    "http://192.168.1.50:8000", "http://10.0.0.4:8000", "http://example.com:8000",
+])
+def test_remote_rejected_even_when_bridge_enabled(url):
+    with pytest.raises(ContextProviderError):
+        JevMlxProvider(url, allow_host_bridge=True)
 
 
 async def test_ready_and_one_batched_decision():
@@ -84,7 +100,7 @@ async def test_health_uses_ready_not_health():
     assert not await provider.health()
 
 
-@pytest.mark.parametrize(("status", "expected"), [(429, "CONTEXT_JUDGE_BUSY"), (413, "CONTEXT_JUDGE_INVALID_RESPONSE"), (500, "CONTEXT_JUDGE_UNAVAILABLE")])
+@pytest.mark.parametrize(("status", "expected"), [(429, "CONTEXT_JUDGE_BUSY"), (413, "CONTEXT_JUDGE_INVALID_RESPONSE"), (500, "CONTEXT_JUDGE_UNAVAILABLE"), (503, "CONTEXT_JUDGE_UNAVAILABLE"), (302, "CONTEXT_JUDGE_UNAVAILABLE")])
 async def test_http_failures(status, expected):
     provider = JevMlxProvider("http://127.0.0.1:8000", transport=httpx.MockTransport(lambda req: httpx.Response(status)))
     with pytest.raises(ContextProviderError) as exc:
@@ -124,3 +140,49 @@ async def test_network_failures(kind):
     with pytest.raises(ContextProviderError) as exc:
         await provider.judge_context(request())
     assert exc.value.code == ("CONTEXT_JUDGE_TIMEOUT" if kind == "timeout" else "CONTEXT_JUDGE_UNAVAILABLE")
+
+
+async def test_ready_model_populates_metadata_and_refreshes_without_stale_cache():
+    ready_models = iter(["fast", "other", None])
+
+    def handler(req):
+        if req.url.path == "/ready":
+            return httpx.Response(200, json={"ready": True, "model": next(ready_models)})
+        body = valid_response()
+        body.pop("model")
+        return httpx.Response(200, json=body)
+
+    provider = JevMlxProvider("http://127.0.0.1:8000", transport=httpx.MockTransport(handler))
+    for expected in ("fast", "other", None):
+        assert await provider.health()
+        verdicts = await provider.judge_context(request())
+        assert all(verdict.metadata.model_id == expected for verdict in verdicts)
+
+
+async def test_not_ready_clears_model_identity():
+    ready = iter([{"ready": True, "model": "fast"}, {"ready": False, "model": "fast"}])
+
+    def handler(req):
+        if req.url.path == "/ready":
+            return httpx.Response(200, json=next(ready))
+        body = valid_response()
+        body.pop("model")
+        return httpx.Response(200, json=body)
+
+    provider = JevMlxProvider("http://127.0.0.1:8000", transport=httpx.MockTransport(handler))
+    assert await provider.health()
+    assert not await provider.health()
+    assert all(verdict.metadata.model_id is None for verdict in await provider.judge_context(request()))
+
+
+async def test_redirect_is_not_followed():
+    destinations = []
+
+    def handler(req):
+        destinations.append(str(req.url))
+        return httpx.Response(302, headers={"location": "https://example.com/collect"})
+
+    provider = JevMlxProvider("http://127.0.0.1:8000", transport=httpx.MockTransport(handler))
+    with pytest.raises(ContextProviderError):
+        await provider.judge_context(request())
+    assert destinations == ["http://127.0.0.1:8000/decide"]

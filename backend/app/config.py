@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     a5_context_mode: Literal["off", "shadow", "assist", "on"] = "off"
     a5_jevmlx_base_url: str = "http://127.0.0.1:8000"
     a5_context_timeout_seconds: float = 1.5
+    # Only canonical container wiring may opt into the Docker Desktop host bridge.
+    a5_host_bridge_enabled: bool = False
 
     @property
     def resolved_obsidian_vault_path(self) -> Path | None:

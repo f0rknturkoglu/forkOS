@@ -28,13 +28,14 @@ from .policy import (
     may_invoke,
     revalidate_snapshots,
 )
-from .snapshots import capture_snapshots
+from .snapshots import bind_evidence_to_snapshots, capture_snapshots
 
 DegradedReason = Literal[
     "CONTEXT_JUDGE_DISABLED", "CONTEXT_JUDGE_EMPTY", "CONTEXT_JUDGE_UNAVAILABLE",
     "CONTEXT_JUDGE_TIMEOUT", "CONTEXT_JUDGE_BUSY", "CONTEXT_JUDGE_INVALID_RESPONSE",
     "CONTEXT_JUDGE_INVALID_ENDPOINT", "CONTEXT_JUDGE_SOURCE_STALE",
-    "CONTEXT_JUDGE_SNAPSHOT_UNAVAILABLE", "CONTEXT_JUDGE_UNSUPPORTED_CAPABILITY",
+    "CONTEXT_JUDGE_SNAPSHOT_UNAVAILABLE", "CONTEXT_JUDGE_SOURCE_BINDING_FAILED",
+    "CONTEXT_JUDGE_UNSUPPORTED_CAPABILITY",
 ]
 
 USEFULNESS_PRIORITY = {"essential": 0, "useful": 1, "weak": 2, "uncertain": 3, "irrelevant": 4}
@@ -112,6 +113,8 @@ async def judge_context(
     except Exception:
         # Snapshot reads are optional to H3; any failure forbids model use.
         return _baseline(bundle, effective_mode, "invalid", "CONTEXT_JUDGE_SNAPSHOT_UNAVAILABLE")
+    if not bind_evidence_to_snapshots(bundle.evidence, before):
+        return _baseline(bundle, effective_mode, "invalid", "CONTEXT_JUDGE_SOURCE_BINDING_FAILED")
     try:
         candidates = tuple(ContextCandidate(
             evidence_id=item.evidence_id, source_type=item.source_type, title=item.title,
@@ -126,6 +129,7 @@ async def judge_context(
     try:
         active_provider = provider or JevMlxProvider(
             settings.a5_jevmlx_base_url, timeout_seconds=settings.a5_context_timeout_seconds,
+            allow_host_bridge=settings.a5_host_bridge_enabled,
         )
         if active_provider.locality != "local":
             return _baseline(bundle, effective_mode, "unavailable", "CONTEXT_JUDGE_UNAVAILABLE")

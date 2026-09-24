@@ -51,6 +51,8 @@ class FakeProvider:
 
 def setup(monkeypatch, evidence=None, revisions=None):
     packet = evidence if evidence is not None else bundle()
+    for item in packet.evidence:
+        item._source_revision = "r1"
     state = {"calls": 0}
 
     async def retrieve(*args, **kwargs):

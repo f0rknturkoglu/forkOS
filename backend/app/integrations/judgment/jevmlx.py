@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from urllib.parse import urlsplit
@@ -34,11 +35,22 @@ class ContextProviderError(Exception):
         self.code = code
 
 
-def _base_url(value: str) -> str:
+def _base_url(value: str, *, allow_host_bridge: bool) -> str:
+    url = (value or "").strip().rstrip("/")
     try:
-        url = validate_loopback_base_url(value)
-    except ProviderError as exc:
+        host = urlsplit(url).hostname
+    except ValueError as exc:
         raise ContextProviderError("CONTEXT_JUDGE_INVALID_ENDPOINT") from exc
+    if host == "host.docker.internal" and allow_host_bridge:
+        # Docker Desktop's special host name is an explicit local-machine
+        # transport, never a general remote-host allowance.
+        if urlsplit(url).scheme != "http":
+            raise ContextProviderError("CONTEXT_JUDGE_INVALID_ENDPOINT")
+    else:
+        try:
+            url = validate_loopback_base_url(url)
+        except ProviderError as exc:
+            raise ContextProviderError("CONTEXT_JUDGE_INVALID_ENDPOINT") from exc
     parts = urlsplit(url)
     if parts.username or parts.password or parts.path or parts.query or parts.fragment:
         raise ContextProviderError("CONTEXT_JUDGE_INVALID_ENDPOINT")
@@ -102,7 +114,10 @@ def _unique_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
-def _parse_response(request: ContextJudgmentRequest, data: object, latency_ms: int) -> tuple[ContextVerdict, ...]:
+def _parse_response(
+    request: ContextJudgmentRequest, data: object, latency_ms: int,
+    ready_model: str | None,
+) -> tuple[ContextVerdict, ...]:
     if not isinstance(data, dict):
         raise ContextProviderError("CONTEXT_JUDGE_INVALID_RESPONSE")
     parsed = data.get("parsed_json")
@@ -110,9 +125,12 @@ def _parse_response(request: ContextJudgmentRequest, data: object, latency_ms: i
     expected = {f"candidate_{i}_{kind}" for i in range(len(request.candidates)) for kind in ("usefulness", "redundancy")}
     if not isinstance(parsed, dict) or set(parsed) != expected or not isinstance(telemetry, dict) or set(telemetry) != expected:
         raise ContextProviderError("CONTEXT_JUDGE_INVALID_RESPONSE")
-    model = data.get("model")
-    if not isinstance(model, str) or len(model) > 100:
-        model = None
+    response_model = data.get("model")
+    if not isinstance(response_model, str) or not response_model or len(response_model) > 100:
+        response_model = None
+    if ready_model and response_model and ready_model != response_model:
+        raise ContextProviderError("CONTEXT_JUDGE_INVALID_RESPONSE")
+    model = response_model or ready_model
     verdicts = []
     try:
         for slot, item in enumerate(request.candidates):
@@ -145,10 +163,16 @@ class JevMlxProvider:
     locality = "local"
     capabilities = frozenset({"context_relevance"})
 
-    def __init__(self, base_url: str, *, timeout_seconds: float = 1.5, transport: httpx.AsyncBaseTransport | None = None) -> None:
-        self.base_url = _base_url(base_url)
+    def __init__(
+        self, base_url: str, *, timeout_seconds: float = 1.5,
+        allow_host_bridge: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self.base_url = _base_url(base_url, allow_host_bridge=allow_host_bridge)
         self.timeout_seconds = min(max(float(timeout_seconds), 0.1), 5.0)
         self.transport = transport
+        self._ready_model: str | None = None
+        self._health_lock = asyncio.Lock()
 
     def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
@@ -157,16 +181,27 @@ class JevMlxProvider:
         )
 
     async def health(self) -> bool:
-        try:
-            async with self._client() as client:
-                response = await client.get("/ready")
-            return response.status_code == 200 and response.json().get("ready") is True
-        except httpx.TimeoutException as exc:
-            raise ContextProviderError("CONTEXT_JUDGE_TIMEOUT") from exc
-        except (httpx.HTTPError, ValueError, AttributeError) as exc:
-            raise ContextProviderError("CONTEXT_JUDGE_UNAVAILABLE") from exc
+        async with self._health_lock:
+            self._ready_model = None
+            try:
+                async with self._client() as client:
+                    response = await client.get("/ready")
+                if response.status_code != 200:
+                    return False
+                payload = response.json()
+                if not isinstance(payload, dict) or payload.get("ready") is not True:
+                    return False
+                model = payload.get("model")
+                if isinstance(model, str) and 0 < len(model) <= 100:
+                    self._ready_model = model
+                return True
+            except httpx.TimeoutException as exc:
+                raise ContextProviderError("CONTEXT_JUDGE_TIMEOUT") from exc
+            except (httpx.HTTPError, ValueError, AttributeError) as exc:
+                raise ContextProviderError("CONTEXT_JUDGE_UNAVAILABLE") from exc
 
     async def judge_context(self, request: ContextJudgmentRequest) -> tuple[ContextVerdict, ...]:
+        ready_model = self._ready_model
         started = time.perf_counter()
         try:
             async with self._client() as client:
@@ -183,7 +218,7 @@ class JevMlxProvider:
             payload = json.loads(response.content, object_pairs_hook=_unique_pairs)
         except ValueError as exc:
             raise ContextProviderError("CONTEXT_JUDGE_INVALID_RESPONSE") from exc
-        return _parse_response(request, payload, int((time.perf_counter() - started) * 1000))
+        return _parse_response(request, payload, int((time.perf_counter() - started) * 1000), ready_model)
 
     async def judge_relation(self, request: MemoryRelationRequest) -> MemoryRelationVerdict:
         raise ContextProviderError("CONTEXT_JUDGE_UNSUPPORTED_CAPABILITY")

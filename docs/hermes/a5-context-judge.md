@@ -9,11 +9,11 @@
 forkOS backend yalnız yapılandırılmış loopback HTTP üzerinden **ayrı** jevmlx daemon'ına gider. forkOS jevmlx/MLX/model paketlerini kendi bağımlılığına eklemez, daemon başlatmaz ve model indirmez. Doğrulanan upstream pin `bnsd55/jevmlx@011a23bc44fe78259c95f4949687d119e83ea262`; `fast` alias'ı `mlx-community/Qwen2.5-3B-Instruct-4bit` modelini kullanır. Sağlayıcı değiştirilirse A5 sözleşmesi ve frozen fixture'lar değişmez.
 
 - `A5_CONTEXT_MODE=off` varsayılan. `shadow`, `assist`, `on` açıkça seçilebilir.
-- `A5_JEVMLX_BASE_URL=http://127.0.0.1:8000` varsayılan; yalnız `localhost`, `127.0.0.1`, `[::1]`, kullanıcı bilgisi/yol/query olmadan kabul edilir.
+- Yerel host API varsayılanı `A5_JEVMLX_BASE_URL=http://127.0.0.1:8000`dır. Canonical Compose API container'ı `http://host.docker.internal:8000` varsayımını ve yalnız Compose tarafından açılan `A5_HOST_BRIDGE_ENABLED=1` kapısını taşır. Bu özel host köprüsü dışında LAN IP'si/genel hostname kabul edilmez; kullanıcı bilgisi/yol/query reddedilir.
 - `A5_CONTEXT_TIMEOUT_SECONDS=1.5` varsayılan; uygulama en fazla 5 saniyeye sınırlar.
 - Yalnız `/ready` kullanılabilirlik kanıtıdır (`/health` yalnız canlılık). Tek H3 paketi için **tek** `/decide` isteği gönderilir. HTTP yönlendirmeleri ve ortam proxy'leri kapalıdır; uzak fallback yoktur.
 
-Örnek bağımsız kurulum: `uv tool install 'git+https://github.com/bnsd55/jevmlx@011a23bc44fe78259c95f4949687d119e83ea262'`; ardından Apple Silicon host'ta `jevmlx serve --model fast --host 127.0.0.1 --port 8000`. API container'ında `127.0.0.1` container'ın kendisidir; host daemon'ına erişim için ağ topolojisi ayrıca ve **loopback-only** sınırını koruyarak yapılandırılmalıdır. Bu faz Docker'dan host'a güvenlik kuralını gevşetmez.
+Örnek bağımsız kurulum: `uv tool install 'git+https://github.com/bnsd55/jevmlx@011a23bc44fe78259c95f4949687d119e83ea262'`; ardından Apple Silicon host'ta `jevmlx serve --model fast --host 127.0.0.1 --port 8000`. Host'ta çalışan API loopback'e, Compose API ise Docker'ın yerel makine için ayırdığı `host.docker.internal` özel adına gider. Bu Mac'teki OrbStack Compose topolojisinde loopback'e bağlı daemon'a erişim canlı doğrulandı; Docker Desktop kurulu olmadığından onun host ağı canlı doğrulanamadı. Docker Desktop'ta bu adın host iç IP'sine çözülmesi, yalnız `127.0.0.1` adresine bağlı bir servise erişimi garanti etmez; bu kombinasyon Docker Desktop üzerinde ayrıca kanıtlanmadan A5.1 kapanmış sayılmaz. Daemon'ı LAN'a açmak veya `0.0.0.0` adresine bağlamak bu kılavuzun parçası değildir.
 
 ## Rollout ve sıralama
 
@@ -28,7 +28,9 @@ Sıra yalnız sınıflardan türetilir: `essential > useful > weak > uncertain >
 
 ## Anlık görüntü ve başarısızlık
 
-Sağlayıcıdan **önce** entity'nin kanonik `updated_at` + güncel H3 projeksiyon özeti, event'in kimlik ve satır özeti veya Vault dosyasının güvenli göreli yolundan SHA-256 alınır. Sağlayıcıdan **sonra** yeniden okunur. Kaybolan/değişen ya da doğrulanamayan bir kaynak varsa tüm anlamsal öneri bırakılır; eksik öğe gizlice çıkarılmaz. Güçlü eski verdict'ler `stale` durumda dışa verilmez.
+H3, kanıtı ürettiği anda kaynak projeksiyonunun içerik özetini yalnız istek ömründe taşır; bu özel alan H3 MCP/OpenAPI çıktısına girmez ve bütçe kırpması boyunca korunur. İlk snapshot aynı projeksiyonu yeniden okuyup **H3 kanıtı ↔ kaynak sürümü** bağını doğrular; başarısızsa modele hiç gidilmez. İkinci snapshot **ilk sürüm ↔ değerlendirme sonrası sürüm** kararlılığını doğrular; fark varsa yargı `stale` olur. Entity için proje alt alanları dâhil tüm H3 projeksiyon satırları, event için append-only satır ve H3'te görünen değişebilir entity başlığı, Vault için H3'ün okuduğu normalize edilmiş kaynak satırları ve başlık içerik-türetilmiş SHA-256 ile bağlanır. Kaybolan/değişen ya da doğrulanamayan bir kaynak varsa H3 sırası korunur; eksik öğe gizlice çıkarılmaz.
+
+Başarılı verdict'teki `metadata.model_id`, varsa jevmlx `/ready` yanıtının gerçek `model` alanından gelir. Sağlayıcı örneği istek başına kurulur; readiness yenilemesinde eski kimlik temizlenir. Alan yoksa `None` kalır, model adı uydurulmaz.
 
 `off`, boş paket, daemon yok/ısınma, timeout, 429, 413, hatalı JSON/enum, eksik alan veya bayat kaynak durumlarında orijinal H3 paketi ve H3 etkin sırası döner. Sınırlı makine nedenleri kullanılır; ham HTTP gövdesi, mutlak yol veya exception mesajı dışa çıkmaz. Tekrar deneme ve `Retry-After` beklemesi yoktur.
 
@@ -36,7 +38,7 @@ Kanıt alıntıları güvenilmeyen veridir. Model girdisi yalnız sorgu, slot, k
 
 ## Canlı doğrulama ve dürüst operasyon önerisi
 
-Apple Silicon host'ta pinli `fast` daemon `/ready=200` ile doğrulandı. Frozen `context-v1` değerlendirmesinde 8 uygun vaka, 11 öğe: yararlılık **6/11**, yinelenme **7/11**, geçersiz yanıt **0**. Sekiz sağlayıcı isteğinin medyanı **550 ms**, en yükseği **767 ms**. Sentetik H3 → A5 uçtan uca isteği 2 kanıtla **806.5 ms** sürdü. Bunlar küçük örneklemdir; genel p95 iddiası değildir.
+Apple Silicon host'ta pinli `fast` daemon `/ready=200` ile doğrulandı. A5.1.1 frozen `context-v1` yeniden koşusunda 8 uygun vaka, 11 öğe: yararlılık **6/11**, yinelenme **7/11**, geçersiz yanıt **0**. Sekiz sağlayıcı isteğinin medyanı **468 ms**, en yükseği **721 ms**. Son kodla izole Compose API → H3 → host-local jevmlx SHADOW isteği 1 kanıtla **687 ms** sürdü ve verdict `model_id=fast` taşıdı. Ölçümler küçük örneklemdir; genel p95 iddiası değildir.
 
 Yüksek-değerli gözlem: leksik benzerlik tuzağı `irrelevant` kaldı, güncel entity eski event'in önüne geçti. Ancak tekrar eden kopya `redundant` yerine `unique`, belirsiz sorgu `uncertain` yerine `weak` çıktı. Frozen beklentiler değiştirilmedi ve eşik/prompt hilesi eklenmedi. **Operasyon önerisi şimdilik `shadow`**; `assist/on` teknik modları kalite dogfooding'i olmadan açmayın. Varsayılan `off`tur.
 

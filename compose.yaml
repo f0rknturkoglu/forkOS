@@ -63,6 +63,12 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}
       WORKER_ENABLED: ${WORKER_ENABLED:-0}
+      A5_CONTEXT_MODE: ${A5_CONTEXT_MODE:-off}
+      A5_JEVMLX_BASE_URL: ${A5_JEVMLX_BASE_URL:-http://host.docker.internal:8000}
+      A5_CONTEXT_TIMEOUT_SECONDS: ${A5_CONTEXT_TIMEOUT_SECONDS:-1.5}
+      # Fixed by Compose, not supplied by an agent request. Only this approved
+      # local-machine bridge is added to the native loopback allowlist.
+      A5_HOST_BRIDGE_ENABLED: "1"
       # Manuel yenileme worker kapaliyken API arka planinda kosar; LinkedIn
       # ayarlari orada da gerekir (bkz. .env.example).
       FORKJOB_LINKEDIN_ALLOW_DIRECT: ${FORKJOB_LINKEDIN_ALLOW_DIRECT:-0}

@@ -6,8 +6,10 @@ from datetime import UTC, datetime
 import pytest
 
 from app.config import settings
+from app.core.entity import create_entity, touch_entity
 from app.core.models import Entity, Event
 from app.db import SessionLocal
+from app.integrations.agent.evidence import retrieve_evidence
 from app.integrations.agent.evidence_models import EvidenceItem, EvidenceLocator
 from app.integrations.judgment.policy import revalidate_snapshots
 from app.integrations.judgment.snapshots import SnapshotUnavailable, capture_snapshot
@@ -79,3 +81,30 @@ async def test_vault_snapshot_detects_bytes_and_missing_file(tmp_path, monkeypat
         note.unlink()
         with pytest.raises(SnapshotUnavailable):
             await capture_snapshot(session, item)
+
+
+async def test_event_projection_binds_mutable_related_entity_title():
+    async with SessionLocal() as session:
+        entity = await create_entity(session, type="todo", title="Atlas Rust", search_text="Atlas Rust")
+        entity_id = entity.id
+        session.add(Event(
+            entity_id=entity_id, entity_type="todo", verb="todo.created",
+            payload={"synthetic": True}, occurred_at=datetime.now(UTC),
+        ))
+        await session.commit()
+
+    async with SessionLocal() as session:
+        bundle = await retrieve_evidence(
+            session, query="Atlas Rust", entity_id=str(entity_id), scope="operational",
+        )
+        item = next(item for item in bundle.evidence if item.source_type == "event")
+        first = await capture_snapshot(session, item)
+        assert first.source_revision == item._source_revision
+
+    async with SessionLocal() as session:
+        await touch_entity(session, entity_id, title="Atlas Python")
+        await session.commit()
+
+    async with SessionLocal() as session:
+        second = await capture_snapshot(session, item)
+    assert second.source_revision != item._source_revision

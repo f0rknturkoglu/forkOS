@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 # ---------------------------------------------------------------------------
 # Girdi sınırları (§15/§114-§116)
@@ -196,6 +196,11 @@ class EvidenceItem(BaseModel):
     relation_path: list[EvidencePathHop] = Field(default_factory=list, description="How this evidence connects to the explicit seed.")
     retrieval_reason: str = Field(..., description="Why this item was selected (bounded, <=240 chars). Not model reasoning.")
     truncated: bool = Field(default=False, description="True if the excerpt was shortened to fit a budget.")
+
+    # H3-internal provenance. model_copy() preserves it through budget trimming;
+    # model_dump/OpenAPI/MCP do not expose it or change the public H3 contract.
+    _source_revision: str | None = PrivateAttr(default=None)
+    _vault_title_from_index: bool = PrivateAttr(default=False)
 
 
 class ResolvedEntityRef(BaseModel):

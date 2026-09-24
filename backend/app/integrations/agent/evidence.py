@@ -80,6 +80,7 @@ from app.integrations.agent.evidence_models import (
     ResolvedEntityRef,
     RetrievalTraceStep,
 )
+from app.integrations.agent.evidence_revision import event_source_revision, projection_digest
 from app.integrations.agent.models import sanitize_payload
 from app.integrations.obsidian import evidence as vault_ev
 from app.integrations.obsidian.frontmatter import parse_frontmatter
@@ -430,6 +431,7 @@ async def _entity_candidate(
         retrieval_reason=_bounded_reason(reason),
         truncated=truncated,
     )
+    item._source_revision = projection_digest(lines)
     return _Candidate(
         item=item,
         tier=tier,
@@ -649,6 +651,7 @@ async def _event_candidates(
             retrieval_reason=_bounded_reason(reason),
             truncated=len("\n".join(excerpt_lines)) > MAX_EVIDENCE_EXCERPT_CHARS,
         )
+        item._source_revision = event_source_revision(event, title)
         candidates.append(
             _Candidate(
                 item=item,
@@ -900,6 +903,8 @@ def _note_candidate(
         relation_path=relation_path,
         reason=reason,
     )
+    item._source_revision = projection_digest((lines, title))
+    item._vault_title_from_index = note is not None
     # Odak: snippet'in DAYANAĞI olan satır (snippet'in ilk satırı DEĞİL).
     # Bütçe kırpması bu satırı korur; aksi hâlde kanıt eşleşmeyi kaybederdi.
     focus = excerpt.focus_line
