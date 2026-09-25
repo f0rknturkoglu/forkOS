@@ -586,3 +586,13 @@ async def agent_status(request: Request) -> AgentStatusOut:
     """
     payload = await agent_status_svc.agent_status_payload(server=request.scope.get("server"))
     return AgentStatusOut.model_validate(payload)
+
+
+@router.get("/system/career-ops/doctor")
+async def career_ops_doctor():
+    """career-ops yetenek motoru tanı ve durum raporu (salt okunur)."""
+    from app.integrations.career_ops.adapter import CareerOpsAdapter
+
+    adapter = CareerOpsAdapter()
+    res = await adapter.doctor()
+    return res.model_dump()

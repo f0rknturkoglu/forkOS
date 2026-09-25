@@ -55,6 +55,13 @@ def status() -> None:
         raise typer.Exit(1) from exc
     modules = health.get("modules", [])
     console.print(f"[green]forkOS çalışıyor[/green] — {len(modules)} modül: {', '.join(modules)}")
+    try:
+        doc = _call("GET", "/system/career-ops/doctor")
+        c_status = doc.get("status", "unknown")
+        c_color = "green" if c_status == "ready" else "dim" if c_status == "disabled" else "yellow"
+        console.print(f"[{c_color}]Career Engine: career-ops {c_status}[/{c_color}]")
+    except Exception:
+        pass
 
 
 @app.command("today")
@@ -183,6 +190,43 @@ def scraper_health() -> None:
             table.add_row(src_id, kind, cat, f"[{color}]{status}[/{color}]", counts, started)
 
     console.print(table)
+
+
+@app.command("career-doctor")
+def career_doctor() -> None:
+    """career-ops yetenek motoru tanı ve durum kontrolü."""
+    doc = _call("GET", "/system/career-ops/doctor")
+    status_str = doc.get("status", "unknown")
+    color = "green" if status_str == "ready" else "yellow" if status_str == "disabled" else "red"
+    console.print(f"[{color}]career-ops durumu: {status_str.upper()}[/{color}]")
+
+    exp = doc.get("expected_identity", {})
+    act = doc.get("actual_identity") or {}
+    console.print(f"Beklenen Sürüm: {exp.get('version')} ({exp.get('commit', '')[:7]})")
+    if act:
+        console.print(f"Mevcut Sürüm:   {act.get('version')} ({act.get('commit', '')[:7]})")
+    console.print(f"Kanonik Durum Sahibi: [bold]{doc.get('canonical_state_owner')}[/bold]")
+
+    runtime = doc.get("runtime", {})
+    node_ver = runtime.get("node_version") or "yok"
+    node_compat = "uyumlu" if runtime.get("node_compatible") else "uyumsuz"
+    console.print(f"Node.js Runtime: {node_ver} ({node_compat})")
+
+    declared = doc.get("capabilities_declared", 0)
+    avail = doc.get("capabilities_available", 0)
+    console.print(f"Yetenekler: {avail}/{declared} aktif")
+
+    warnings = doc.get("warnings") or []
+    if warnings:
+        console.print("[yellow]Uyarılar:[/yellow]")
+        for w in warnings:
+            console.print(f"  • {w}")
+
+    errors = doc.get("errors") or []
+    if errors:
+        console.print("[red]Hatalar:[/red]")
+        for e in errors:
+            console.print(f"  • {e}")
 
 
 if __name__ == "__main__":
