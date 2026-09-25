@@ -158,11 +158,14 @@ class SubprocessCareerOpsRunner:
             if proc.returncode is None:
                 try:
                     proc.terminate()
-                    await asyncio.wait_for(proc.wait(), timeout=0.5)
+                except Exception:
+                    pass
+                try:
+                    await asyncio.shield(asyncio.wait_for(proc.wait(), timeout=0.5))
                 except Exception:
                     try:
                         proc.kill()
-                        await proc.wait()
+                        await asyncio.shield(proc.wait())
                     except Exception:
                         pass
 
@@ -178,9 +181,13 @@ class SubprocessCareerOpsRunner:
             raise CareerOpsTimeoutError(
                 f"Script '{script_name}' timed out after {timeout} seconds."
             ) from exc
+        except asyncio.CancelledError:
+            await _kill_process()
+            raise
         except Exception:
             await _kill_process()
             raise
+
 
         stdout_str = stdout_buf.decode("utf-8", errors="replace")
         stderr_str = stderr_buf.decode("utf-8", errors="replace")

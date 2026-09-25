@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from app.integrations.career_ops.errors import (
     CareerOpsInvalidOutputError,
@@ -127,3 +128,30 @@ async def test_runner_output_just_below_limit_succeeds(tmp_path):
     res = await runner.run_script("doctor.mjs", [])
     assert res.exit_code == 0
     assert len(res.stdout.strip()) == 50
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_runner_task_cancellation_kills_and_reaps_child(tmp_path):
+    script_path = tmp_path / "doctor.mjs"
+    # Long-running script that sleeps for 10 seconds
+    script_path.write_text('setTimeout(() => {}, 10000);\n')
+
+    runner = SubprocessCareerOpsRunner(
+        checkout_dir=tmp_path,
+        runtime_dir=tmp_path / "runtime",
+        node_bin="node",
+    )
+
+    task = asyncio.create_task(runner.run_script("doctor.mjs", []))
+    # Give event loop a moment to spawn node process
+    await asyncio.sleep(0.05)
+
+    # Cancel the asyncio task
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # Task was cancelled cleanly
+    assert task.cancelled()

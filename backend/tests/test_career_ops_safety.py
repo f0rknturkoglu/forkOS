@@ -1,13 +1,29 @@
 from collections.abc import AsyncIterator
+import json
 from pathlib import Path
+from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity
 from app.db import SessionLocal
 from app.integrations.career_ops.adapter import CareerOpsAdapter
+from app.integrations.career_ops.config import (
+    CAREER_OPS_PINNED_COMMIT,
+    CAREER_OPS_PINNED_VERSION,
+    CAREER_OPS_UPSTREAM_REPO,
+)
 from app.integrations.career_ops.errors import CareerOpsSecurityError
-from app.integrations.career_ops.runner import SubprocessCareerOpsRunner
+from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
+from app.integrations.career_ops.models import (
+    CareerOpsIdentity,
+    CareerOpsStatusEnum,
+)
+from app.integrations.career_ops.runner import (
+    CareerOpsRunner,
+    ExecutionResult,
+    SubprocessCareerOpsRunner,
+)
 from tests.agent_test_utils import capture_db_content_fingerprint
 
 
@@ -59,6 +75,75 @@ async def test_doctor_causes_zero_canonical_db_mutations(db_session: AsyncSessio
 
     fp_after = await capture_db_content_fingerprint(db_session)
     assert fp_before == fp_after, "Canonical database fingerprint changed during career-ops doctor/capability probe"
+
+
+@pytest.mark.asyncio
+async def test_doctor_ready_path_causes_zero_canonical_db_mutations(
+    db_session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Verify that doctor and capability probes reaching the READY path cause ZERO DB mutations."""
+    entity = await create_entity(
+        db_session, type="opportunity", title="Baseline Career Opportunity for Ready Probe"
+    )
+    await db_session.commit()
+
+    fp_before = await capture_db_content_fingerprint(db_session)
+
+    checkout_dir = tmp_path / "checkout"
+    checkout_dir.mkdir(parents=True)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir(parents=True)
+
+    (checkout_dir / "package.json").write_text(
+        json.dumps({"name": "career-ops", "version": CAREER_OPS_PINNED_VERSION}),
+        encoding="utf-8",
+    )
+    (checkout_dir / "doctor.mjs").write_text("// dummy doctor", encoding="utf-8")
+    (checkout_dir / "path-resolver.mjs").write_text("// dummy resolver", encoding="utf-8")
+
+    class ReadyMockRunner(CareerOpsRunner):
+        async def run_script(
+            self, script_name: str, args: list[str], **kwargs: Any
+        ) -> ExecutionResult:
+            if script_name == "doctor.mjs":
+                return ExecutionResult(
+                    script_name=script_name,
+                    exit_code=0,
+                    stdout=json.dumps({"onboarding_status": "complete", "warnings": []}),
+                    stderr="",
+                )
+            return ExecutionResult(script_name=script_name, exit_code=0, stdout="{}", stderr="")
+
+    adapter = CareerOpsAdapter(
+        enabled=True,
+        checkout_dir=checkout_dir,
+        runtime_dir=runtime_dir,
+        runner=ReadyMockRunner(),
+    )
+    monkeypatch.setattr(
+        CareerOpsRuntimeGuard,
+        "get_actual_identity",
+        lambda self: (
+            CareerOpsIdentity(
+                repository=CAREER_OPS_UPSTREAM_REPO,
+                version=CAREER_OPS_PINNED_VERSION,
+                commit=CAREER_OPS_PINNED_COMMIT,
+            ),
+            None,
+        ),
+    )
+
+    doc = await adapter.doctor()
+    assert doc.status == CareerOpsStatusEnum.READY
+    assert doc.capabilities_available == 2
+
+    caps = await adapter.capabilities()
+    assert len(caps) > 0
+    supported_caps = [c for c in caps if c.status.value == "supported"]
+    assert len(supported_caps) == 2
+
+    fp_after = await capture_db_content_fingerprint(db_session)
+    assert fp_before == fp_after, "Canonical database fingerprint changed during READY doctor probe"
 
 
 @pytest.mark.no_database

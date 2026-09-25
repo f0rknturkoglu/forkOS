@@ -866,40 +866,86 @@ async def _refresh_opportunity(
         reopened = lifecycle.source_reopen_status(opportunity.kind)
         await _record_discovery_change(session, opportunity, reopened)
         opportunity.status = reopened
-    opportunity.raw = raw
-    opportunity.category = category
-    opportunity.published_at = published_at
-    opportunity.deadline_at = deadline_at
-    opportunity.skill_match_ratio = _skill_match_ratio(opportunity, job.title)
+
+    # Non-destructive raw merge (Finding 16-18)
+    merged_raw = dict(opportunity.raw or {})
+    if "forkjob" in raw and isinstance(raw["forkjob"], dict):
+        merged_fk = dict(merged_raw.get("forkjob") or {})
+        for k, v in raw["forkjob"].items():
+            if v is not None and v != "":
+                merged_fk[k] = v
+        merged_raw["forkjob"] = merged_fk
+    if "career_ops" in raw and isinstance(raw["career_ops"], dict):
+        merged_raw["career_ops"] = raw["career_ops"]
+    if "cluster_key" in raw and raw["cluster_key"]:
+        merged_raw.setdefault("cluster_key", raw["cluster_key"])
+    if raw.get("description") and not merged_raw.get("description"):
+        merged_raw["description"] = raw["description"]
+
+    existing_sources = list(merged_raw.get("sources", [opportunity.source]))
+    incoming_sources = raw.get("sources") or [source_label]
+    for s in incoming_sources:
+        if s and s not in existing_sources:
+            existing_sources.append(s)
+    merged_raw["sources"] = existing_sources
+    opportunity.raw = merged_raw
+
+    # Field-aware non-destructive updates (Finding 16)
+    if category is not None and (not opportunity.category or opportunity.source == source_label):
+        opportunity.category = category
+    if published_at is not None and (opportunity.published_at is None or opportunity.source == source_label):
+        opportunity.published_at = published_at
+    if deadline_at is not None and (opportunity.deadline_at is None or opportunity.source == source_label):
+        opportunity.deadline_at = deadline_at
+
+    # Finding 20: Do not degrade/erase skill_match_ratio when incoming description is empty
+    new_skill_match = _skill_match_ratio(opportunity, job.title)
+    if new_skill_match is not None:
+        opportunity.skill_match_ratio = new_skill_match
+
+    # Finding 19: Scoring ownership - do not erase existing score
     score = forkjob.get("score")
     if isinstance(score, (int, float)):
         opportunity.score = float(score)
         opportunity.score_source = "forkjob-rules"
         opportunity.score_computed_at = now
-    if forkjob.get("country") and not opportunity.country:
+
+    if forkjob.get("country") and (not opportunity.country or opportunity.source == source_label):
         opportunity.country = forkjob.get("country")
-    if forkjob.get("region") and not opportunity.region:
+    if forkjob.get("region") and (not opportunity.region or opportunity.source == source_label):
         opportunity.region = forkjob.get("region")
-    if job.company:
+    if job.company and (not opportunity.organization or opportunity.source == source_label):
         opportunity.organization = job.company
-    if job.url:
+    if job.url and (not opportunity.url or opportunity.source == source_label):
         opportunity.url = job.url
-    if job.location:
+    if job.location and (not opportunity.location or opportunity.source == source_label):
         opportunity.location = job.location
+
     if forkjob.get("work_mode"):
-        opportunity.remote = str(forkjob["work_mode"])
+        mode = str(forkjob["work_mode"])
+        if mode and mode != "unknown" and (not opportunity.remote or opportunity.remote == "unknown" or opportunity.source == source_label):
+            opportunity.remote = mode
     elif getattr(job, "work_mode", None) is not None:
-        opportunity.remote = job.work_mode.value
-    if job.salary:
+        mode_val = job.work_mode.value if hasattr(job.work_mode, "value") else str(job.work_mode)
+        if mode_val and mode_val != "unknown":
+            if not opportunity.remote or opportunity.remote == "unknown" or opportunity.source == source_label:
+                opportunity.remote = mode_val
+        elif not opportunity.remote:
+            opportunity.remote = mode_val
+
+    if job.salary and (not opportunity.compensation or opportunity.source == source_label):
         opportunity.compensation = job.salary
+
     opportunity.last_seen_at = now
     opportunity.source_status = "active"
     opportunity.missing_since = None
     opportunity.closed_at = None
+
     # Duyuru alanlari kaynak sahipli; tazelenir. Kullanici alanlarina dokunulmaz.
     for key, value in _announcement_columns(raw).items():
         if value is not None and value != []:
             setattr(opportunity, key, value)
+
 
 
 
@@ -958,7 +1004,11 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         if (getattr(job, "external_id", None) or getattr(job, "job_id", None))
     ]
     urls = [job.url for job, _raw, _fk in rows_by_job if getattr(job, "url", None)]
-    cluster_keys = [fk.get("cluster_key") for _job, _raw, fk in rows_by_job if fk.get("cluster_key")]
+    cluster_keys = [
+        str(fk.get("cluster_key") or _raw.get("cluster_key"))
+        for _job, _raw, fk in rows_by_job
+        if (fk.get("cluster_key") or _raw.get("cluster_key"))
+    ]
 
     existing_by_ext: dict[str, Opportunity] = {}
     if external_ids:
@@ -996,7 +1046,10 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
     # cluster_key lookup'i kayit basina degil, tek sorguda (eski N+1 buradaydi).
     existing_by_cluster: dict[str, list[Opportunity]] = {}
     if cluster_keys:
-        cluster_expr = Opportunity.raw["forkjob"]["cluster_key"].astext
+        cluster_expr = func.coalesce(
+            Opportunity.raw["forkjob"]["cluster_key"].astext,
+            Opportunity.raw["cluster_key"].astext,
+        )
         for row in (
             (
                 await session.execute(
@@ -1006,7 +1059,10 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             .scalars()
             .all()
         ):
-            key = ((row.raw or {}).get("forkjob") or {}).get("cluster_key")
+            key = (
+                ((row.raw or {}).get("forkjob") or {}).get("cluster_key")
+                or (row.raw or {}).get("cluster_key")
+            )
             if key:
                 existing_by_cluster.setdefault(str(key), []).append(row)
 
@@ -1028,7 +1084,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             else forkjob.get("category")
         )
 
-        cluster_key = forkjob.get("cluster_key")
+        cluster_key = forkjob.get("cluster_key") or raw.get("cluster_key")
         cluster_matches = existing_by_cluster.get(str(cluster_key), []) if cluster_key else []
         if cluster_matches:
             canonical = canonical_cluster(cluster_matches)
@@ -1037,7 +1093,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                 session,
                 canonical,
                 job=job,
-                raw=raw if canonical.source == source_label else canonical.raw,
+                raw=raw,
                 forkjob=forkjob,
                 category=category,
                 published_at=published_at,

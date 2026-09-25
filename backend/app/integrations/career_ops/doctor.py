@@ -8,12 +8,17 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from app.integrations.career_ops.capabilities import get_declared_capabilities
+from app.config import settings
+from app.integrations.career_ops.capabilities import (
+    count_available_capabilities,
+    get_declared_capabilities,
+)
 from app.integrations.career_ops.config import (
     CAREER_OPS_PINNED_COMMIT,
     CAREER_OPS_PINNED_VERSION,
     CAREER_OPS_UPSTREAM_REPO,
 )
+from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
 from app.integrations.career_ops.models import (
     CareerOpsDoctorResult,
     CareerOpsIdentity,
@@ -38,54 +43,22 @@ class CareerOpsDoctor:
         self.runtime_dir = runtime_dir
         self.runner = runner
         self.node_bin = node_bin
-
-    def _expected_identity(self) -> CareerOpsIdentity:
-        return CareerOpsIdentity(
-            repository=CAREER_OPS_UPSTREAM_REPO,
-            version=CAREER_OPS_PINNED_VERSION,
-            commit=CAREER_OPS_PINNED_COMMIT,
+        self.guard = CareerOpsRuntimeGuard(
+            enabled=enabled,
+            checkout_dir=checkout_dir,
+            node_bin=node_bin,
+            discovery_enabled=settings.career_ops_discovery_enabled,
         )
 
-    def _check_node_runtime(self) -> CareerOpsRuntimeStatus:
-        node_path = shutil.which(self.node_bin)
-        if not node_path:
-            return CareerOpsRuntimeStatus(
-                node_version=None,
-                node_compatible=False,
-                installed=False,
-                details=f"Node.js binary '{self.node_bin}' not found on PATH.",
-            )
+    def _expected_identity(self) -> CareerOpsIdentity:
+        return self.guard.expected_identity()
 
-        try:
-            out = subprocess.check_output([node_path, "--version"], text=True, timeout=5).strip()
-            # Expect v26.x or v22.x or >=18
-            m = re.match(r"^v(\d+)\.(\d+)\.", out)
-            if not m:
-                return CareerOpsRuntimeStatus(
-                    node_version=out,
-                    node_compatible=False,
-                    installed=True,
-                    details=f"Unrecognized Node.js version format: {out}",
-                )
-            major = int(m.group(1))
-            compatible = major >= 18
-            return CareerOpsRuntimeStatus(
-                node_version=out.lstrip("v"),
-                node_compatible=compatible,
-                installed=True,
-                details="Node runtime OK" if compatible else "Node >= 18 required",
-            )
-        except Exception as exc:
-            return CareerOpsRuntimeStatus(
-                node_version=None,
-                node_compatible=False,
-                installed=True,
-                details=f"Failed to check Node version: {exc}",
-            )
+    def _check_node_runtime(self) -> CareerOpsRuntimeStatus:
+        return self.guard.check_node_runtime()
 
     async def run_diagnostics(self) -> CareerOpsDoctorResult:
-        expected = self._expected_identity()
-        runtime = self._check_node_runtime()
+        expected = self.guard.expected_identity()
+        runtime = self.guard.check_node_runtime()
         declared = get_declared_capabilities()
 
         if not self.enabled:
@@ -124,12 +97,8 @@ class CareerOpsDoctor:
                 errors=[f"career-ops checkout missing at {self.checkout_dir}"],
             )
 
-        # Inspect package.json version
-        actual_version = ""
-        try:
-            pkg_data = json.loads((self.checkout_dir / "package.json").read_text("utf-8"))
-            actual_version = pkg_data.get("version", "")
-        except Exception as exc:
+        actual_identity, ident_err = self.guard.get_actual_identity()
+        if actual_identity is None:
             return CareerOpsDoctorResult(
                 status=CareerOpsStatusEnum.MISCONFIGURED,
                 expected_identity=expected,
@@ -138,32 +107,10 @@ class CareerOpsDoctor:
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=0,
-                errors=[f"Failed to read package.json: {exc}"],
+                errors=[ident_err or "Failed to read package.json"],
             )
 
-        # Inspect actual commit
-        actual_commit = ""
-        git_dir = self.checkout_dir / ".git"
-        if git_dir.exists():
-            try:
-                actual_commit = subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"],
-                    cwd=str(self.checkout_dir),
-                    text=True,
-                    timeout=5,
-                ).strip()
-            except Exception:
-                actual_commit = "unknown"
-        else:
-            actual_commit = "unknown"
-
-        actual_identity = CareerOpsIdentity(
-            repository=CAREER_OPS_UPSTREAM_REPO,
-            version=actual_version,
-            commit=actual_commit,
-        )
-
-        if actual_version != expected.version:
+        if actual_identity.version != expected.version:
             return CareerOpsDoctorResult(
                 status=CareerOpsStatusEnum.VERSION_MISMATCH,
                 expected_identity=expected,
@@ -173,12 +120,12 @@ class CareerOpsDoctor:
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 errors=[
-                    f"Version mismatch! Expected {expected.version}, got {actual_version}"
+                    f"Version mismatch! Expected {expected.version}, got {actual_identity.version}"
                 ],
             )
 
         # Strict commit verification: unknown commit CANNOT be READY
-        if actual_commit == "unknown":
+        if actual_identity.commit == "unknown":
             return CareerOpsDoctorResult(
                 status=CareerOpsStatusEnum.MISCONFIGURED,
                 expected_identity=expected,
@@ -192,7 +139,7 @@ class CareerOpsDoctor:
                 ],
             )
 
-        if actual_commit != expected.commit:
+        if actual_identity.commit != expected.commit:
             return CareerOpsDoctorResult(
                 status=CareerOpsStatusEnum.VERSION_MISMATCH,
                 expected_identity=expected,
@@ -202,7 +149,7 @@ class CareerOpsDoctor:
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 errors=[
-                    f"Commit mismatch! Expected {expected.commit[:7]}, got {actual_commit[:7]}"
+                    f"Commit mismatch! Expected {expected.commit[:7]}, got {actual_identity.commit[:7]}"
                 ],
             )
 
@@ -221,8 +168,14 @@ class CareerOpsDoctor:
                 errors=[f"Required core files missing: {', '.join(missing_files)}"],
             )
 
+        # Dynamic computation of available capabilities based on runtime readiness and feature flags
+        available_capabilities_count = count_available_capabilities(
+            enabled=True,
+            runtime_ready=True,
+            discovery_enabled=settings.career_ops_discovery_enabled,
+        )
+
         # Execute upstream doctor in isolated workspace WITHOUT --target
-        # Upstream doctor resolves codeRoot as __dirname and projectRoot via CAREER_OPS_ROOT / CAREER_OPS_DATA_DIR
         upstream_onboarding: CareerOpsUpstreamOnboarding | None = None
         warnings: list[str] = []
         try:
@@ -255,7 +208,7 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=1,
+                capabilities_available=available_capabilities_count,
                 warnings=[f"Engine doctor probe failed: {exc}"],
             )
 
@@ -266,6 +219,6 @@ class CareerOpsDoctor:
             runtime=runtime,
             upstream_onboarding=upstream_onboarding,
             capabilities_declared=len(declared),
-            capabilities_available=1,
+            capabilities_available=available_capabilities_count,
             warnings=warnings,
         )

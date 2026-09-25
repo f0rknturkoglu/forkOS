@@ -170,16 +170,32 @@ def get_capability_status(
     capability_id: str,
     enabled: bool,
     runtime_ready: bool,
+    discovery_enabled: bool = True,
 ) -> CapabilityStatus:
     if not enabled:
         return CapabilityStatus.DISABLED
     if not runtime_ready:
         return CapabilityStatus.UNAVAILABLE
-    # In C1/C2: foundation.doctor and discovery.reverse_ats are active.
-    # discovery.scan remains UNAVAILABLE due to upstream machine contract limitations.
-    if capability_id in ("foundation.doctor", "discovery.reverse_ats"):
+    if capability_id == "foundation.doctor":
+        return CapabilityStatus.SUPPORTED
+    if capability_id == "discovery.reverse_ats":
+        if not discovery_enabled:
+            return CapabilityStatus.DISABLED
         return CapabilityStatus.SUPPORTED
     return CapabilityStatus.UNAVAILABLE
+
+
+def count_available_capabilities(
+    enabled: bool,
+    runtime_ready: bool,
+    discovery_enabled: bool = True,
+) -> int:
+    return sum(
+        1
+        for cap in ALL_CAPABILITIES
+        if get_capability_status(cap.id, enabled, runtime_ready, discovery_enabled) == CapabilityStatus.SUPPORTED
+    )
+
 
 
 def get_provider_capability_inventory() -> dict[str, dict[str, str]]:

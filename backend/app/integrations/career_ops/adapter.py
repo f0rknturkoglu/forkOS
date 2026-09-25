@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from app.config import settings
 from app.integrations.career_ops.capabilities import (
@@ -9,11 +10,13 @@ from app.integrations.career_ops.capabilities import (
 )
 from app.integrations.career_ops.doctor import CareerOpsDoctor
 from app.integrations.career_ops.errors import (
+    CareerOpsConfigurationError,
     CareerOpsExecutionError,
     CareerOpsInvalidOutputError,
     CareerOpsSecurityError,
     CareerOpsUnavailableError,
 )
+from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
 from app.integrations.career_ops.models import (
     CareerOpsCapability,
     CareerOpsDiscoveredJob,
@@ -32,6 +35,18 @@ REVERSE_ATS_PROVIDERS: frozenset[str] = frozenset({
     "icims",
     "bamboohr",
 })
+
+
+def _is_safe_http_url(url: str) -> bool:
+    """Validate that URL has safe http/https scheme and non-empty network location."""
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        parsed = urlparse(url.strip())
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc.strip())
+    except Exception:
+        return False
+
 
 
 class CareerOpsAdapter:
@@ -67,6 +82,13 @@ class CareerOpsAdapter:
                 max_buffer_bytes=settings.career_ops_max_buffer_bytes,
             )
 
+        self.guard = CareerOpsRuntimeGuard(
+            enabled=self.enabled,
+            checkout_dir=self.checkout_dir,
+            node_bin=self.node_bin,
+            discovery_enabled=settings.career_ops_discovery_enabled,
+        )
+
         self._doctor = CareerOpsDoctor(
             enabled=self.enabled,
             checkout_dir=self.checkout_dir,
@@ -74,6 +96,9 @@ class CareerOpsAdapter:
             runner=self.runner,
             node_bin=self.node_bin,
         )
+
+    async def ensure_runtime_ready(self, required_script: str | None = None) -> None:
+        self.guard.ensure_ready(required_script=required_script)
 
     async def doctor(self) -> CareerOpsDoctorResult:
         return await self._doctor.run_diagnostics()
@@ -87,7 +112,12 @@ class CareerOpsAdapter:
                 domain=c.domain,
                 name=c.name,
                 description=c.description,
-                status=get_capability_status(c.id, enabled=self.enabled, runtime_ready=ready),
+                status=get_capability_status(
+                    c.id,
+                    enabled=self.enabled,
+                    runtime_ready=ready,
+                    discovery_enabled=settings.career_ops_discovery_enabled,
+                ),
             )
             for c in get_declared_capabilities()
         ]
@@ -104,10 +134,17 @@ class CareerOpsAdapter:
         if not self.enabled:
             raise CareerOpsUnavailableError("career-ops integration is disabled")
 
+        if not settings.career_ops_discovery_enabled:
+            raise CareerOpsConfigurationError("career-ops discovery capability is disabled")
+
+        # Identity and runtime readiness gate: fail-closed before any subprocess execution
+        self.guard.ensure_ready(required_script="scan-ats-full.mjs")
+
         norm_provider = provider.strip().lower()
         if norm_provider not in REVERSE_ATS_PROVIDERS:
             raise CareerOpsSecurityError(
                 f"Unknown or unallowlisted discovery provider '{provider}'. "
+
                 f"Valid providers: {sorted(REVERSE_ATS_PROVIDERS)}"
             )
 
@@ -150,25 +187,25 @@ class CareerOpsAdapter:
                 f"scan-ats-full.mjs exited with code {exec_res.exit_code}: {exec_res.stderr.strip() or exec_res.stdout.strip()}"
             )
 
-        # 4. Parse stdout strictly as single JSON document
+        # 4. Parse stdout strictly as single JSON document (Finding H)
         raw_stdout = exec_res.stdout.strip()
         if not raw_stdout:
             raise CareerOpsInvalidOutputError("scan-ats-full.mjs produced empty stdout in --json mode")
 
-        first_brace = raw_stdout.find("{")
-        last_brace = raw_stdout.rfind("}")
-        if first_brace == -1 or last_brace == -1 or last_brace < first_brace:
-            raise CareerOpsInvalidOutputError("No JSON object found in scan-ats-full.mjs stdout")
-
         try:
-            payload = json.loads(raw_stdout[first_brace : last_brace + 1])
+            payload = json.loads(raw_stdout)
         except Exception as exc:
-            raise CareerOpsInvalidOutputError(f"Failed to parse scan-ats-full.mjs JSON output: {exc}") from exc
+            raise CareerOpsInvalidOutputError(
+                f"Strict JSON contract failed on scan-ats-full.mjs stdout: {exc}"
+            ) from exc
 
         if not isinstance(payload, dict):
-            raise CareerOpsInvalidOutputError("Expected JSON object from scan-ats-full.mjs")
+            raise CareerOpsInvalidOutputError(
+                f"Expected JSON object from scan-ats-full.mjs, got {type(payload).__name__}"
+            )
 
-        # 5. Evaluate partial / degraded conditions
+        # 5. Evaluate partial / degraded conditions (Finding F)
+        cap_hit = bool(payload.get("capHit"))
         stopped_by_outage = bool(payload.get("stoppedByOutage"))
         dataset_status = payload.get("datasetStatus", "ok")
         dataset_degraded = False
@@ -177,11 +214,17 @@ class CareerOpsAdapter:
         elif isinstance(dataset_status, str) and dataset_status != "ok":
             dataset_degraded = True
 
-        cap_hit = bool(payload.get("capHit"))
+        capped_boards = int(payload.get("cappedBoards") or 0)
         unreachable = int(payload.get("unreachableBoards") or 0)
 
         is_partial = False
         partial_reasons: list[str] = []
+        if cap_hit:
+            is_partial = True
+            partial_reasons.append("scan reached configured cap")
+        if capped_boards > 0:
+            is_partial = True
+            partial_reasons.append(f"{capped_boards} boards capped")
         if stopped_by_outage:
             is_partial = True
             partial_reasons.append("stopped by outage")
@@ -201,6 +244,11 @@ class CareerOpsAdapter:
             u = str(raw_offer.get("url", "")).strip()
             if not c or not t or not u:
                 continue
+
+            # Finding G: URL boundary validation (http/https only)
+            if not _is_safe_http_url(u):
+                continue
+
 
             offers.append(
                 CareerOpsDiscoveredJob(

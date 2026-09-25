@@ -43,13 +43,9 @@ Entegrasyon, upstream reponun belirli ve test edilmiş bir commit'ine kilitlenmi
 
 ```json
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "name": "career-ops",
-  "repository": "https://github.com/career-ops-hq/career-ops",
-  "pinned_version": "1.34.0",
-  "pinned_commit": "6326eb5d3804e8cb20d28acd5701a4e603a301f9",
-  "required_node_min": "18.0.0",
-  "recommended_node_min": "22.5.0"
+  "repository": "career-ops-hq/career-ops",
+  "version": "1.34.0",
+  "commit": "6326eb5d3804e8cb20d28acd5701a4e603a301f9"
 }
 ```
 
@@ -232,3 +228,34 @@ Bu nedenle:
 | `icims` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
 | `bamboohr` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
 | `portal_scan` | Broad Scan | `UNAVAILABLE` | `scan.mjs` yalnızca URL döner, ilan meta verisi sağlamaz |
+
+---
+
+## 11. C2.1 Doğruluk ve Kanonik Birleştirme Kapanışı (Correctness & Canonical Merge Closure)
+
+C2.1 fazı, C2 keşif yeteneğini sağlamlaştıran ve veri kaybını/bozulmasını önleyen 12 maddelik doğruluk ve güvenlik denetimini tamamlamıştır:
+
+1. **Upstream `location_filter` Şema Uyumu**: `CareerOpsDiscoveryConfigBuilder` upstream `buildLocationFilter()` şemasıyla (`always_allow`, `allow`, `block`, `block_hard`, `strict: False`) birebir uyumlu hale getirilmiştir.
+2. **Çalışma Zamanı Hazırlık Kapısı (`CareerOpsRuntimeGuard`)**: Subprocess çağrılmadan önce kilitli sürüm, commit hash, Node >= 18 sürümü ve gerekli betik varlığı fail-closed olarak doğrulanır.
+3. **URL Sınır Doğrulaması & Katı JSON Sözleşmesi**: Yalnızca `http://` ve `https://` şemaları kabul edilir (`javascript:`, `file:` vb. karantinaya alınır); `stdout` tek ve tam JSON belgesi olarak ayrıştırılır.
+4. **Alt Süreç İptali ve Öksüz Süreç Temizliği**: `asyncio.CancelledError` durumunda alt süreç ağacı (`terminate` -> `wait` -> `kill` -> `wait`) güvenle toplanır.
+5. **Tarama Eksiksizliği ve Bozulma Hakikati**: Kota aşımı (`capHit`), kısıtlanan pano (`cappedBoards`) veya kesinti durumlarında `FetchOutcome.partial = True` ve açıklayıcı `detail` atanır.
+6. **Deterministik Küme Eşleme & Farklı URL Dedup**: `forkjob_core.models.cluster_key` kullanılarak farklı URL'lerden gelen aynı pozisyon tek bir `Opportunity` altında birleştirilir.
+7. **Veri Kaybı Olmayan İlan Tazeleme (`_refresh_opportunity`)**: Zengin forkjob verileri (açıklama, çalışma modu, maaş, ülke, bölge, skor, profil uyum oranı) seyrek career-ops taramaları tarafından ezilmez; `raw["career_ops"]` ve `raw["sources"]` zenginleştirilir.
+8. **Worker Kiralama Kataloğu**: `careerops:*` kaynakları worker `_source_catalog()` içine dahil edilmiş ve 300 saniyelik sert zaman aşımı kiralama korumasına alınmıştır.
+9. **Dinamik Teşhis Yetenek Sayımı**: `CareerOpsDoctor` çalışma zamanı durumuna göre `capabilities_available` değerini dinamik hesaplar.
+10. **Sıfır PostgreSQL Mutasyon Güvencesi**: `READY` teşhis probu esnasında dahi kanonik veritabanında sıfır mutasyon gerçekleştiği kanıtlanmıştır.
+
+---
+
+## 12. Kanonik Yol Haritası (Canonical Roadmap)
+
+| Aşama | Başlık | Durum | Odak |
+| --- | --- | --- | --- |
+| **C1** | Temel & Teşhis (Foundation & Doctor) | `CLOSED` | Sürüm sabitleme, izolasyon, doctor teşhisleri |
+| **C1.1** | Hakikat ve Çalışma Zamanı Sertleştirmesi | `CLOSED` | Streaming bounds, tek kilit dosyası, zombi koruması |
+| **C2** | Ters ATS Keşfi ve Sağlayıcı Füzyonu | `CLOSED` | 6 ATS sağlayıcısı, SourceRun, non-destructive merge |
+| **C2.1** | Doğruluk ve Kanonik Birleştirme Kapanışı | `CLOSED` | cluster_key dedup, location_filter uyumu, runtime guard |
+| **C3** | İlan Zenginleştirme ve Yaşam Döngüsü | `FUTURE` | JD extraction, repost tespiti, liveness kontrolleri |
+| **C4** | Derin Değerlendirme ve Skorlama | `FUTURE` | A-H çok boyutlu uyum raporları, risk analizleri |
+| **C5** | Başvuru Hazırlığı ve Hermes Orkestrasyonu | `FUTURE` | CV/ön yazı stratejisi, başvuru paketi üretimi |

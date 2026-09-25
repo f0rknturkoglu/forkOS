@@ -29,3 +29,10 @@ async def test_live_reverse_ats_scan_smoke():
     assert isinstance(result.offers, list)
     assert isinstance(result.is_partial, bool)
     assert not (adapter.runtime_dir / "portals.yml").exists()
+
+    # Bounded smoke scan: ashby provider with 1 company limit
+    result_ashby = await adapter.reverse_scan("ashby", since_days=3, limit=1)
+    assert isinstance(result_ashby, CareerOpsDiscoveryResult)
+    assert result_ashby.provider == "ashby"
+    assert result_ashby.companies_scanned >= 1
+    assert not (adapter.runtime_dir / "portals.yml").exists()

@@ -82,16 +82,42 @@ class CareerOpsDiscoveryConfigBuilder:
                     if w and w not in negative_keywords:
                         negative_keywords.append(w)
 
-        # 3. Build location filter
-        location_pos: list[str] = ["remote"]
+        # 3. Build location filter according to pinned upstream buildLocationFilter schema:
+        # {always_allow, allow, block, block_hard, strict}
+        always_allow: list[str] = ["remote", "turkey", "türkiye"]
         for city in scoring.get("tr_office_cities") or []:
             c = str(city).strip().lower()
-            if c and c not in location_pos:
-                location_pos.append(c)
+            if c and c not in always_allow:
+                always_allow.append(c)
 
-        for regional in ["turkey", "türkiye", "emea", "europe"]:
-            if regional not in location_pos:
-                location_pos.append(regional)
+        allow: list[str] = list(always_allow)
+        for regional in [
+            "europe",
+            "emea",
+            "germany",
+            "netherlands",
+            "united kingdom",
+            "sweden",
+            "spain",
+            "poland",
+            "czechia",
+        ]:
+            if regional not in allow:
+                allow.append(regional)
+
+        block: list[str] = []
+        for blk in scoring.get("blocked_locations") or []:
+            b = str(blk).strip().lower()
+            if b and b not in block:
+                block.append(b)
+
+        block_hard: list[str] = [
+            "united states only",
+            "us citizenship",
+            "us citizenship required",
+            "security clearance",
+            "top secret",
+        ]
 
         projected = {
             "title_filter": {
@@ -99,12 +125,16 @@ class CareerOpsDiscoveryConfigBuilder:
                 "negative": negative_keywords,
             },
             "location_filter": {
-                "positive": location_pos,
-                "negative": ["us citizenship", "security clearance", "top secret"],
+                "always_allow": always_allow,
+                "allow": allow,
+                "block": block,
+                "block_hard": block_hard,
+                "strict": False,
             },
         }
 
         return yaml.dump(projected, sort_keys=False, allow_unicode=True)
+
 
     @classmethod
     def project_to_runtime(

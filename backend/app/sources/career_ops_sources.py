@@ -13,6 +13,9 @@ from app.integrations.career_ops.config import (
 from app.sources.base import FetchOutcome, RawItem, SourceClass
 
 
+from app.sources.forkjob_core.models import cluster_key as compute_cluster_key
+
+
 @dataclass
 class CareerOpsReverseSource:
     provider: str
@@ -56,6 +59,8 @@ class CareerOpsReverseSource:
                 except ValueError:
                     pub_date = None
 
+            ckey = compute_cluster_key(offer.company, offer.title, offer.location)
+
             items.append(
                 RawItem(
                     external_id=offer.url,
@@ -67,6 +72,13 @@ class CareerOpsReverseSource:
                         "organization": offer.company,
                         "location": offer.location,
                         "kind": "job",
+                        "cluster_key": ckey,
+                        "forkjob": {
+                            "cluster_key": ckey,
+                            "company": offer.company,
+                            "title": offer.title,
+                            "location": offer.location,
+                        },
                         "career_ops": {
                             "engine_version": CAREER_OPS_PINNED_VERSION,
                             "engine_commit": CAREER_OPS_PINNED_COMMIT,
@@ -77,6 +89,7 @@ class CareerOpsReverseSource:
                     },
                 )
             )
+
 
         return FetchOutcome(
             items=items,

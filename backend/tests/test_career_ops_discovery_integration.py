@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import shutil
 import pytest
@@ -12,6 +12,9 @@ from app.modules.opportunity.models import Opportunity, OpportunitySourceObserva
 from app.modules.opportunity.worker import NativeJob, poll_source
 from app.sources.base import FetchOutcome, RawItem
 from app.sources.career_ops_sources import CareerOpsReverseSource
+from app.sources.forkjob_core.models import cluster_key as compute_cluster_key
+from app.worker import jobs as worker_jobs
+from app.worker.jobs import _lease_map, _source_catalog
 
 
 @pytest.fixture
@@ -226,3 +229,282 @@ async def test_deleting_runtime_leaves_postgresql_intact(tmp_path: Path, db_sess
     opps = (await db_session.execute(select(Opportunity).where(Opportunity.url == job_url))).scalars().all()
     assert len(opps) == 1
     assert opps[0].organization == "SecureCorp"
+
+
+@pytest.mark.asyncio
+async def test_cross_url_cluster_dedup_and_source_merge(db_session: AsyncSession):
+    """Cross-URL dedup: Different URLs with identical cluster_key merge into 1 Opportunity."""
+    ckey = compute_cluster_key("ClusterCorp", "Senior Infrastructure Engineer", "Remote")
+    url_gh = "https://boards.greenhouse.io/clustercorp/jobs/111"
+    url_wd = "https://clustercorp.wd1.myworkdayjobs.com/careers/job/222"
+
+    gh_item = RawItem(
+        external_id=url_gh,
+        title="Senior Infrastructure Engineer",
+        url=url_gh,
+        extra={
+            "organization": "ClusterCorp",
+            "location": "Remote",
+            "cluster_key": ckey,
+            "forkjob": {"cluster_key": ckey},
+            "career_ops": {"provider": "greenhouse"},
+        },
+    )
+    added1 = await service.ingest_jobs(db_session, [NativeJob(gh_item)], "careerops:greenhouse")
+    await db_session.commit()
+    assert added1 == 1
+
+    wd_item = RawItem(
+        external_id=url_wd,
+        title="Senior Infrastructure Engineer",
+        url=url_wd,
+        extra={
+            "organization": "ClusterCorp",
+            "location": "Remote",
+            "cluster_key": ckey,
+            "forkjob": {"cluster_key": ckey},
+            "career_ops": {"provider": "workday"},
+        },
+    )
+    added2 = await service.ingest_jobs(db_session, [NativeJob(wd_item)], "careerops:workday")
+    await db_session.commit()
+    assert added2 == 0  # merged into existing cluster
+
+    opps = (
+        await db_session.execute(
+            select(Opportunity).where(Opportunity.organization == "ClusterCorp")
+        )
+    ).scalars().all()
+    assert len(opps) == 1
+    opp = opps[0]
+
+    obs = (
+        await db_session.execute(
+            select(OpportunitySourceObservation).where(
+                OpportunitySourceObservation.opportunity_id == opp.id
+            )
+        )
+    ).scalars().all()
+    assert len(obs) == 2
+    sources = {o.source for o in obs}
+    assert sources == {"careerops:greenhouse", "careerops:workday"}
+    assert set((opp.raw or {}).get("sources", [])) == {"careerops:greenhouse", "careerops:workday"}
+
+
+@pytest.mark.asyncio
+async def test_distinct_roles_remain_separate_opportunities(db_session: AsyncSession):
+    """Different roles produce different cluster keys and separate Opportunities."""
+    ckey1 = compute_cluster_key("DistinctCorp", "Senior Infrastructure Engineer", "Remote")
+    ckey2 = compute_cluster_key("DistinctCorp", "Senior Product Designer", "Remote")
+
+    item1 = RawItem(
+        external_id="https://boards.greenhouse.io/distinctcorp/jobs/infra-1",
+        title="Senior Infrastructure Engineer",
+        url="https://boards.greenhouse.io/distinctcorp/jobs/infra-1",
+        extra={
+            "organization": "DistinctCorp",
+            "location": "Remote",
+            "cluster_key": ckey1,
+            "forkjob": {"cluster_key": ckey1},
+        },
+    )
+    item2 = RawItem(
+        external_id="https://boards.greenhouse.io/distinctcorp/jobs/design-1",
+        title="Senior Product Designer",
+        url="https://boards.greenhouse.io/distinctcorp/jobs/design-1",
+        extra={
+            "organization": "DistinctCorp",
+            "location": "Remote",
+            "cluster_key": ckey2,
+            "forkjob": {"cluster_key": ckey2},
+        },
+    )
+
+    await service.ingest_jobs(db_session, [NativeJob(item1)], "careerops:greenhouse")
+    await service.ingest_jobs(db_session, [NativeJob(item2)], "careerops:greenhouse")
+    await db_session.commit()
+
+    opps = (
+        await db_session.execute(
+            select(Opportunity).where(Opportunity.organization == "DistinctCorp")
+        )
+    ).scalars().all()
+    assert len(opps) == 2
+
+
+@pytest.mark.asyncio
+async def test_non_destructive_refresh_rich_forkjob_then_sparse_careerops(db_session: AsyncSession):
+    """Rich forkjob discovery is NOT degraded when later seen by sparse career-ops scan."""
+    ckey = compute_cluster_key("RichCorp", "Principal Python Architect", "Remote")
+
+    rich_item = RawItem(
+        external_id="rich-1",
+        title="Principal Python Architect",
+        url="https://jobs.richcorp.com/roles/1",
+        summary="Extensive python and asyncpg expertise required.",
+        published_at=datetime(2026, 9, 21, tzinfo=UTC),
+        extra={
+            "organization": "RichCorp",
+            "location": "Remote",
+            "description": "Extensive python and asyncpg expertise required.",
+            "remote": "hybrid",
+            "compensation": "$200,000 - $250,000",
+            "cluster_key": ckey,
+            "forkjob": {
+                "cluster_key": ckey,
+                "country": "TR",
+                "region": "EMEA",
+                "score": 88.0,
+                "custom_rich_signal": "verified",
+            },
+        },
+    )
+    added1 = await service.ingest_jobs(
+        db_session, [NativeJob(rich_item)], "jobhunter:greenhouse:richcorp"
+    )
+    await db_session.commit()
+    assert added1 == 1
+
+    opp = (
+        await db_session.execute(
+            select(Opportunity).where(Opportunity.organization == "RichCorp")
+        )
+    ).scalar_one()
+    assert opp.remote == "hybrid"
+    assert opp.compensation == "$200,000 - $250,000"
+    assert opp.country == "TR"
+    assert opp.region == "EMEA"
+    assert opp.score == 88.0
+
+    # Ingest sparse career-ops item
+    sparse_item = RawItem(
+        external_id="https://boards.greenhouse.io/richcorp/jobs/999",
+        title="Principal Python Architect",
+        url="https://boards.greenhouse.io/richcorp/jobs/999",
+        summary=None,
+        published_at=None,
+        extra={
+            "organization": "RichCorp",
+            "location": "Remote",
+            "cluster_key": ckey,
+            "forkjob": {"cluster_key": ckey},
+            "career_ops": {
+                "engine_version": "1.34.0",
+                "provider": "greenhouse",
+                "date_status": "none",
+            },
+        },
+    )
+    added2 = await service.ingest_jobs(
+        db_session, [NativeJob(sparse_item)], "careerops:greenhouse"
+    )
+    await db_session.commit()
+    assert added2 == 0
+
+    await db_session.refresh(opp)
+    assert opp.remote == "hybrid"
+    assert opp.compensation == "$200,000 - $250,000"
+    assert opp.country == "TR"
+    assert opp.region == "EMEA"
+    assert opp.score == 88.0
+    assert (opp.raw or {}).get("description") == "Extensive python and asyncpg expertise required."
+    assert (opp.raw or {}).get("forkjob", {}).get("custom_rich_signal") == "verified"
+    assert (opp.raw or {}).get("career_ops", {}).get("provider") == "greenhouse"
+    assert set((opp.raw or {}).get("sources", [])) == {
+        "jobhunter:greenhouse:richcorp",
+        "careerops:greenhouse",
+    }
+
+
+@pytest.mark.asyncio
+async def test_non_destructive_refresh_sparse_careerops_then_rich_forkjob(db_session: AsyncSession):
+    """Sparse career-ops discovery is cleanly upgraded when later seen by rich forkjob scan."""
+    ckey = compute_cluster_key("SparseCorp", "Staff Systems Engineer", "Remote")
+
+    sparse_item = RawItem(
+        external_id="https://jobs.lever.co/sparsecorp/111",
+        title="Staff Systems Engineer",
+        url="https://jobs.lever.co/sparsecorp/111",
+        extra={
+            "organization": "SparseCorp",
+            "location": "Remote",
+            "cluster_key": ckey,
+            "forkjob": {"cluster_key": ckey},
+            "career_ops": {
+                "engine_version": "1.34.0",
+                "provider": "lever",
+            },
+        },
+    )
+    added1 = await service.ingest_jobs(
+        db_session, [NativeJob(sparse_item)], "careerops:lever"
+    )
+    await db_session.commit()
+    assert added1 == 1
+
+    rich_item = RawItem(
+        external_id="sparse-rich-222",
+        title="Staff Systems Engineer",
+        url="https://sparsecorp.com/careers/222",
+        summary="Deep distributed systems and Rust experience required.",
+        published_at=datetime(2026, 9, 22, tzinfo=UTC),
+        extra={
+            "organization": "SparseCorp",
+            "location": "Remote",
+            "description": "Deep distributed systems and Rust experience required.",
+            "remote": "remote",
+            "compensation": "$220,000",
+            "cluster_key": ckey,
+            "forkjob": {
+                "cluster_key": ckey,
+                "country": "US",
+                "region": "AMER",
+                "score": 92.0,
+            },
+        },
+    )
+    added2 = await service.ingest_jobs(
+        db_session, [NativeJob(rich_item)], "jobhunter:lever:sparsecorp"
+    )
+    await db_session.commit()
+    assert added2 == 0
+
+    opp = (
+        await db_session.execute(
+            select(Opportunity).where(Opportunity.organization == "SparseCorp")
+        )
+    ).scalar_one()
+    assert opp.remote == "remote"
+    assert opp.compensation == "$220,000"
+    assert opp.country == "US"
+    assert opp.region == "AMER"
+    assert opp.score == 92.0
+    assert (opp.raw or {}).get("description") == "Deep distributed systems and Rust experience required."
+    assert (opp.raw or {}).get("career_ops", {}).get("provider") == "lever"
+    assert (opp.raw or {}).get("forkjob", {}).get("score") == 92.0
+
+
+def test_worker_lease_catalog_includes_career_ops(monkeypatch: pytest.MonkeyPatch):
+    """Worker source catalog and lease map include career-ops reverse sources when enabled."""
+    from app.config import settings
+
+    # Default disabled: career-ops sources not in catalog
+    monkeypatch.setattr(settings, "career_ops_enabled", False)
+    worker_jobs._LEASE_CACHE = None
+    catalog = _source_catalog()
+    catalog_ids = {s.id for s in catalog}
+    assert "careerops:greenhouse" not in catalog_ids
+
+    # Enabled: career-ops sources in catalog and lease >= 300s
+    monkeypatch.setattr(settings, "career_ops_enabled", True)
+    monkeypatch.setattr(settings, "career_ops_discovery_enabled", True)
+    worker_jobs._LEASE_CACHE = None
+    catalog = _source_catalog()
+    catalog_ids = {s.id for s in catalog}
+    assert "careerops:greenhouse" in catalog_ids
+    assert "careerops:lever" in catalog_ids
+    assert "careerops:workday" in catalog_ids
+
+    lease_map = _lease_map()
+    assert "careerops:greenhouse" in lease_map
+    assert lease_map["careerops:greenhouse"] >= timedelta(seconds=300)
