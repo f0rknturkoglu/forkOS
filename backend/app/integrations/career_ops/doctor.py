@@ -19,6 +19,7 @@ from app.integrations.career_ops.models import (
     CareerOpsIdentity,
     CareerOpsRuntimeStatus,
     CareerOpsStatusEnum,
+    CareerOpsUpstreamOnboarding,
 )
 from app.integrations.career_ops.runner import CareerOpsRunner
 
@@ -93,6 +94,7 @@ class CareerOpsDoctor:
                 expected_identity=expected,
                 actual_identity=None,
                 runtime=runtime,
+                upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 warnings=["career-ops capability engine is disabled in configuration."],
@@ -104,6 +106,7 @@ class CareerOpsDoctor:
                 expected_identity=expected,
                 actual_identity=None,
                 runtime=runtime,
+                upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 errors=[runtime.details or "Node runtime incompatible or missing"],
@@ -115,6 +118,7 @@ class CareerOpsDoctor:
                 expected_identity=expected,
                 actual_identity=None,
                 runtime=runtime,
+                upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 errors=[f"career-ops checkout missing at {self.checkout_dir}"],
@@ -131,6 +135,7 @@ class CareerOpsDoctor:
                 expected_identity=expected,
                 actual_identity=None,
                 runtime=runtime,
+                upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 errors=[f"Failed to read package.json: {exc}"],
@@ -149,6 +154,8 @@ class CareerOpsDoctor:
                 ).strip()
             except Exception:
                 actual_commit = "unknown"
+        else:
+            actual_commit = "unknown"
 
         actual_identity = CareerOpsIdentity(
             repository=CAREER_OPS_UPSTREAM_REPO,
@@ -156,19 +163,46 @@ class CareerOpsDoctor:
             commit=actual_commit,
         )
 
-        if actual_version != expected.version or (
-            actual_commit and actual_commit != "unknown" and actual_commit != expected.commit
-        ):
+        if actual_version != expected.version:
             return CareerOpsDoctorResult(
                 status=CareerOpsStatusEnum.VERSION_MISMATCH,
                 expected_identity=expected,
                 actual_identity=actual_identity,
                 runtime=runtime,
+                upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 errors=[
-                    f"Version/commit mismatch! Expected {expected.version}@{expected.commit[:7]}, "
-                    f"got {actual_version}@{actual_commit[:7]}"
+                    f"Version mismatch! Expected {expected.version}, got {actual_version}"
+                ],
+            )
+
+        # Strict commit verification: unknown commit CANNOT be READY
+        if actual_commit == "unknown":
+            return CareerOpsDoctorResult(
+                status=CareerOpsStatusEnum.MISCONFIGURED,
+                expected_identity=expected,
+                actual_identity=actual_identity,
+                runtime=runtime,
+                upstream_onboarding=None,
+                capabilities_declared=len(declared),
+                capabilities_available=0,
+                errors=[
+                    "Pinned commit SHA could not be positively verified (missing git repository or commit metadata)."
+                ],
+            )
+
+        if actual_commit != expected.commit:
+            return CareerOpsDoctorResult(
+                status=CareerOpsStatusEnum.VERSION_MISMATCH,
+                expected_identity=expected,
+                actual_identity=actual_identity,
+                runtime=runtime,
+                upstream_onboarding=None,
+                capabilities_declared=len(declared),
+                capabilities_available=0,
+                errors=[
+                    f"Commit mismatch! Expected {expected.commit[:7]}, got {actual_commit[:7]}"
                 ],
             )
 
@@ -181,17 +215,20 @@ class CareerOpsDoctor:
                 expected_identity=expected,
                 actual_identity=actual_identity,
                 runtime=runtime,
+                upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=0,
                 errors=[f"Required core files missing: {', '.join(missing_files)}"],
             )
 
-        # Execute upstream doctor in isolated workspace
+        # Execute upstream doctor in isolated workspace WITHOUT --target
+        # Upstream doctor resolves codeRoot as __dirname and projectRoot via CAREER_OPS_ROOT / CAREER_OPS_DATA_DIR
+        upstream_onboarding: CareerOpsUpstreamOnboarding | None = None
         warnings: list[str] = []
         try:
             exec_res = await self.runner.run_script(
                 "doctor.mjs",
-                ["--target", str(self.runtime_dir), "--json"],
+                ["--json"],
                 timeout_seconds=15.0,
             )
             if exec_res.exit_code != 0:
@@ -199,9 +236,15 @@ class CareerOpsDoctor:
             else:
                 try:
                     payload = json.loads(exec_res.stdout)
-                    upstream_warnings = payload.get("warnings", [])
-                    if isinstance(upstream_warnings, list):
-                        warnings.extend([str(w) for w in upstream_warnings])
+                    upstream_onboarding = CareerOpsUpstreamOnboarding(
+                        onboarding_needed=bool(payload.get("onboardingNeeded")),
+                        missing=list(payload.get("missing") or []),
+                        unpersonalized=list(payload.get("unpersonalized") or []),
+                        warnings=[str(w) for w in (payload.get("warnings") or [])],
+                        plugins=list(payload.get("plugins") or []),
+                        playwright_mcp=dict(payload.get("playwright_mcp") or {}),
+                        active_cli=payload.get("active_cli"),
+                    )
                 except Exception:
                     warnings.append("doctor.mjs stdout was not JSON parseable")
         except Exception as exc:
@@ -210,6 +253,7 @@ class CareerOpsDoctor:
                 expected_identity=expected,
                 actual_identity=actual_identity,
                 runtime=runtime,
+                upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=1,
                 warnings=[f"Engine doctor probe failed: {exc}"],
@@ -220,6 +264,7 @@ class CareerOpsDoctor:
             expected_identity=expected,
             actual_identity=actual_identity,
             runtime=runtime,
+            upstream_onboarding=upstream_onboarding,
             capabilities_declared=len(declared),
             capabilities_available=1,
             warnings=warnings,

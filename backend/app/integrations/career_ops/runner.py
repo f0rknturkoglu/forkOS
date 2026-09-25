@@ -40,6 +40,26 @@ class CareerOpsRunner(Protocol):
         ...
 
 
+class _BufferExceededError(Exception):
+    """Internal sentinel when stream reading exceeds bounded budget."""
+
+
+async def _read_stream_bounded(
+    stream: asyncio.StreamReader,
+    max_bytes: int,
+) -> bytearray:
+    buf = bytearray()
+    chunk_size = 4096
+    while True:
+        chunk = await stream.read(chunk_size)
+        if not chunk:
+            break
+        buf.extend(chunk)
+        if len(buf) > max_bytes:
+            raise _BufferExceededError()
+    return buf
+
+
 class SubprocessCareerOpsRunner:
     def __init__(
         self,
@@ -107,32 +127,54 @@ class SubprocessCareerOpsRunner:
                 cwd=str(self.checkout_dir),
                 env=env,
             )
-
-            try:
-                stdout_data, stderr_data = await asyncio.wait_for(
-                    proc.communicate(),
-                    timeout=timeout,
-                )
-            except TimeoutError as exc:
-                try:
-                    proc.kill()
-                    await proc.wait()
-                except Exception:
-                    pass
-                raise CareerOpsTimeoutError(
-                    f"Script '{script_name}' timed out after {timeout} seconds."
-                ) from exc
-
         except OSError as exc:
             raise CareerOpsUnavailableError(f"Failed to spawn node process: {exc}") from exc
 
-        if len(stdout_data) > self.max_buffer_bytes or len(stderr_data) > self.max_buffer_bytes:
+        stdout_buf = bytearray()
+        stderr_buf = bytearray()
+
+        async def _drain_proc() -> None:
+            nonlocal stdout_buf, stderr_buf
+            assert proc.stdout is not None
+            assert proc.stderr is not None
+            out_res, err_res = await asyncio.gather(
+                _read_stream_bounded(proc.stdout, self.max_buffer_bytes),
+                _read_stream_bounded(proc.stderr, self.max_buffer_bytes),
+            )
+            stdout_buf = out_res
+            stderr_buf = err_res
+            await proc.wait()
+
+        async def _kill_process() -> None:
+            if proc.returncode is None:
+                try:
+                    proc.terminate()
+                    await asyncio.wait_for(proc.wait(), timeout=0.5)
+                except Exception:
+                    try:
+                        proc.kill()
+                        await proc.wait()
+                    except Exception:
+                        pass
+
+        try:
+            await asyncio.wait_for(_drain_proc(), timeout=timeout)
+        except _BufferExceededError:
+            await _kill_process()
             raise CareerOpsInvalidOutputError(
                 f"Script '{script_name}' exceeded maximum output buffer ({self.max_buffer_bytes} bytes)."
             )
+        except TimeoutError as exc:
+            await _kill_process()
+            raise CareerOpsTimeoutError(
+                f"Script '{script_name}' timed out after {timeout} seconds."
+            ) from exc
+        except Exception:
+            await _kill_process()
+            raise
 
-        stdout_str = stdout_data.decode("utf-8", errors="replace")
-        stderr_str = stderr_data.decode("utf-8", errors="replace")
+        stdout_str = stdout_buf.decode("utf-8", errors="replace")
+        stderr_str = stderr_buf.decode("utf-8", errors="replace")
 
         return ExecutionResult(
             script_name=script_name,

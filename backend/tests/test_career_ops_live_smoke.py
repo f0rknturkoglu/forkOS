@@ -25,3 +25,5 @@ async def test_live_pinned_career_ops_runtime():
     assert result.actual_identity.commit == "6326eb5d3804e8cb20d28acd5701a4e603a301f9"
     assert result.canonical_state_owner == "forkOS PostgreSQL"
     assert result.runtime.node_compatible is True
+    assert result.upstream_onboarding is not None
+    assert isinstance(result.upstream_onboarding.onboarding_needed, bool)

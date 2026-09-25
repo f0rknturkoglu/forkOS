@@ -1,6 +1,9 @@
 """Typed contracts and status models for career-ops integration."""
 
+from __future__ import annotations
+
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -42,11 +45,24 @@ class CareerOpsCapability(BaseModel):
     status: CapabilityStatus = CapabilityStatus.UNAVAILABLE
 
 
+class CareerOpsUpstreamOnboarding(BaseModel):
+    """Informational upstream onboarding and configuration diagnostics."""
+
+    onboarding_needed: bool = False
+    missing: list[str] = Field(default_factory=list)
+    unpersonalized: list[dict[str, Any]] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    plugins: list[dict[str, Any]] = Field(default_factory=list)
+    playwright_mcp: dict[str, Any] = Field(default_factory=dict)
+    active_cli: str | None = None
+
+
 class CareerOpsDoctorResult(BaseModel):
     status: CareerOpsStatusEnum
     expected_identity: CareerOpsIdentity
     actual_identity: CareerOpsIdentity | None = None
     runtime: CareerOpsRuntimeStatus
+    upstream_onboarding: CareerOpsUpstreamOnboarding | None = None
     capabilities_declared: int = 0
     capabilities_available: int = 0
     canonical_state_owner: str = "forkOS PostgreSQL"

@@ -1,5 +1,20 @@
 """Canonical constants and version pinning for career-ops integration."""
 
-CAREER_OPS_UPSTREAM_REPO = "career-ops-hq/career-ops"
-CAREER_OPS_PINNED_VERSION = "1.34.0"
-CAREER_OPS_PINNED_COMMIT = "6326eb5d3804e8cb20d28acd5701a4e603a301f9"
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+LOCK_MANIFEST_PATH: Path = Path(__file__).resolve().parent / "upstream.lock.json"
+
+if not LOCK_MANIFEST_PATH.exists():
+    raise RuntimeError(f"Authoritative career-ops lock manifest missing: {LOCK_MANIFEST_PATH}")
+
+try:
+    _lock_data = json.loads(LOCK_MANIFEST_PATH.read_text(encoding="utf-8"))
+except Exception as _exc:
+    raise RuntimeError(f"Malformed career-ops lock manifest: {_exc}") from _exc
+
+CAREER_OPS_UPSTREAM_REPO: str = _lock_data["repository"]
+CAREER_OPS_PINNED_VERSION: str = _lock_data["version"]
+CAREER_OPS_PINNED_COMMIT: str = _lock_data["commit"]

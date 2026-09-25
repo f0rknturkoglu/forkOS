@@ -3,9 +3,17 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_DIR="${REPO_ROOT}/.vendor/career-ops"
-PINNED_COMMIT="6326eb5d3804e8cb20d28acd5701a4e603a301f9"
-PINNED_VERSION="1.34.0"
-REPO_URL="https://github.com/career-ops-hq/career-ops.git"
+LOCK_FILE="${REPO_ROOT}/backend/app/integrations/career_ops/upstream.lock.json"
+
+if [ ! -f "${LOCK_FILE}" ]; then
+    echo "ERROR: Lock manifest missing at ${LOCK_FILE}" >&2
+    exit 1
+fi
+
+UPSTREAM_REPO=$(python3 -c "import json; print(json.load(open('${LOCK_FILE}'))['repository'])")
+PINNED_VERSION=$(python3 -c "import json; print(json.load(open('${LOCK_FILE}'))['version'])")
+PINNED_COMMIT=$(python3 -c "import json; print(json.load(open('${LOCK_FILE}'))['commit'])")
+REPO_URL="https://github.com/${UPSTREAM_REPO}.git"
 
 echo "=== Setting up pinned career-ops engine (${PINNED_VERSION} @ ${PINNED_COMMIT:0:7}) ==="
 

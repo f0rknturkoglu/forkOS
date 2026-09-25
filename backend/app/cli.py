@@ -216,9 +216,16 @@ def career_doctor() -> None:
     avail = doc.get("capabilities_available", 0)
     console.print(f"Yetenekler: {avail}/{declared} aktif")
 
+    onboarding = doc.get("upstream_onboarding")
+    if onboarding:
+        console.print("[dim]Upstream Hazırlık (Bilgilendirme):[/dim]")
+        for w in onboarding.get("warnings", []):
+            summary = w.split("\n")[0]
+            console.print(f"  [yellow]⚠[/yellow] {summary}")
+
     warnings = doc.get("warnings") or []
     if warnings:
-        console.print("[yellow]Uyarılar:[/yellow]")
+        console.print("[yellow]Sistem Uyarıları:[/yellow]")
         for w in warnings:
             console.print(f"  • {w}")
 
