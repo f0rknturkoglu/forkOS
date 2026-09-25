@@ -78,6 +78,28 @@ class Settings(BaseSettings):
     a5_answer_model_path: str = ""
     a5_answer_timeout_seconds: float = 20.0
 
+    # career-ops capability engine integration (C1)
+    career_ops_enabled: bool = False
+    career_ops_root: str = ""
+    career_ops_node_bin: str = "node"
+    career_ops_timeout_seconds: float = 30.0
+    career_ops_max_buffer_bytes: int = 512 * 1024
+    career_ops_runtime_dir: str = ""
+
+    @property
+    def resolved_career_ops_root(self) -> Path:
+        if self.career_ops_root and self.career_ops_root.strip():
+            return Path(self.career_ops_root.strip()).expanduser().resolve()
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        return (repo_root / ".vendor" / "career-ops").resolve()
+
+    @property
+    def resolved_career_ops_runtime_dir(self) -> Path:
+        if self.career_ops_runtime_dir and self.career_ops_runtime_dir.strip():
+            return Path(self.career_ops_runtime_dir.strip()).expanduser().resolve()
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        return (repo_root / "backend" / "data" / "runtime" / "career-ops").resolve()
+
     @property
     def resolved_obsidian_vault_path(self) -> Path | None:
         if not self.obsidian_vault_path or not self.obsidian_vault_path.strip():
