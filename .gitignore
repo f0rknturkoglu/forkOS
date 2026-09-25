@@ -38,4 +38,6 @@ design-reference-*
 design-qa-*
 *.png
 .serena/
+.vendor/career-ops/
+backend/data/runtime/career-ops/
 

@@ -31,6 +31,7 @@ sh:        ; $(CO) exec api bash
 psql:      ; $(CO) exec db psql -U lifeos -d lifeos
 migrate:   ; $(CO) exec api alembic upgrade head
 cli:       ; cd backend && .venv/bin/python -m app.cli $(ARGS)
+career-ops-setup: ; ./scripts/setup_career_ops.sh
 TEST_PROJECT ?= forkos-test
 test:
 	@status=0; \
