@@ -125,7 +125,7 @@ Tüm betik çağrılarına `CAREER_OPS_ROOT`, `CAREER_OPS_DATA_DIR` ve `CAREER_O
 * **Başvuru & Mülakat**: `application.cover_letter`, `application.answers`, `application.prefill`, `interview.prepare`, `interview.practice`, `interview.debrief` (C4)
 * **Analitik**: `analytics.funnel`, `analytics.rejection_patterns`, `analytics.skill_gap`, `analytics.calibration` (C4)
 
-C1/C1.1 aşamasında yalnızca `foundation.doctor` aktiftir; diğer yetenekler bildirilmiş ancak henüz implemente edilmediği için `unavailable` raporlanır.
+C1-C2.1 aşamasında `foundation.doctor` ve `discovery.reverse_ats` aktiftir; diğer yetenekler bildirilmiş ancak henüz implemente edilmediği için `unavailable` raporlanır.
 
 ---
 
@@ -157,7 +157,7 @@ Salt okunurdur; sistem durumunu, kilit dosyasını ve upstream onboarding durumu
 Gelecekte career-ops sürümü güncellenmek istendiğinde izlenecek adımlar:
 
 1. **Upstream Commit Seçimi**: Upstream sürüm ve commit SHA'sını belirle (asla `latest` çekme).
-2. **Kilit Dosyasını Güncelle**: `backend/app/integrations/career_ops/upstream.lock.json` içindeki `pinned_version` ve `pinned_commit` değerlerini güncelle.
+2. **Kilit Dosyasını Güncelle**: `backend/app/integrations/career_ops/upstream.lock.json` içindeki `version` ve `commit` değerlerini güncelle.
 3. **Provisioning Çalıştır**:
    ```bash
    ./scripts/setup_career_ops.sh

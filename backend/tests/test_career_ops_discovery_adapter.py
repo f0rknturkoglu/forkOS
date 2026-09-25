@@ -278,3 +278,54 @@ async def test_adapter_reverse_scan_strict_single_json_document(mock_checkout: P
     adapter5 = CareerOpsAdapter(enabled=True, checkout_dir=mock_checkout, runner=runner5)
     with pytest.raises(CareerOpsInvalidOutputError, match="Expected JSON object"):
         await adapter5.reverse_scan("greenhouse", config_path=config_file)
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_adapter_reverse_scan_typed_receipt_rejects_string_booleans(mock_checkout: Path, tmp_path: Path):
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("scoring:\n  role_terms:\n    - backend\n", encoding="utf-8")
+
+    # capHit as string "false" is rejected by StrictBool
+    runner = MockRunner(stdout=json.dumps({"capHit": "false", "offers": []}))
+    adapter = CareerOpsAdapter(enabled=True, checkout_dir=mock_checkout, runner=runner)
+    with pytest.raises(CareerOpsInvalidOutputError, match="Receipt validation failed"):
+        await adapter.reverse_scan("greenhouse", config_path=config_file)
+
+    # stoppedByOutage as string "true" is rejected by StrictBool
+    runner2 = MockRunner(stdout=json.dumps({"stoppedByOutage": "true", "offers": []}))
+    adapter2 = CareerOpsAdapter(enabled=True, checkout_dir=mock_checkout, runner=runner2)
+    with pytest.raises(CareerOpsInvalidOutputError, match="Receipt validation failed"):
+        await adapter2.reverse_scan("greenhouse", config_path=config_file)
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_adapter_reverse_scan_quarantines_malformed_offers(mock_checkout: Path, tmp_path: Path):
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("scoring:\n  role_terms:\n    - backend\n", encoding="utf-8")
+
+    payload = {
+        "date": "2026-09-25",
+        "sinceDays": 7,
+        "companiesAvailable": 10,
+        "companiesScanned": 5,
+        "capHit": False,
+        "unknownFutureField": "compatible",
+        "offers": [
+            # Valid offer
+            {"company": "Acme", "title": "DevOps", "url": "https://example.com/1"},
+            # Malformed offer: missing title
+            {"company": "BadCo", "url": "https://example.com/2"},
+            # Malformed offer: invalid blacklisted type
+            {"company": "BadCo2", "title": "Eng", "url": "https://example.com/3", "blacklisted": "false"},
+            # Malformed offer: not a dict
+            "not a dict",
+        ],
+    }
+    runner = MockRunner(stdout=json.dumps(payload))
+    adapter = CareerOpsAdapter(enabled=True, checkout_dir=mock_checkout, runner=runner)
+    result = await adapter.reverse_scan("greenhouse", config_path=config_file)
+    assert len(result.offers) == 1
+    assert result.offers[0].company == "Acme"
+    assert result.offers[0].title == "DevOps"

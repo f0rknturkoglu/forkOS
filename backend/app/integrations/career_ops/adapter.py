@@ -22,6 +22,8 @@ from app.integrations.career_ops.models import (
     CareerOpsDiscoveredJob,
     CareerOpsDiscoveryResult,
     CareerOpsDoctorResult,
+    CareerOpsOfferReceipt,
+    CareerOpsScanReceipt,
     CareerOpsStatusEnum,
 )
 from app.integrations.career_ops.runner import CareerOpsRunner, SubprocessCareerOpsRunner
@@ -204,18 +206,25 @@ class CareerOpsAdapter:
                 f"Expected JSON object from scan-ats-full.mjs, got {type(payload).__name__}"
             )
 
+        try:
+            receipt = CareerOpsScanReceipt.model_validate(payload)
+        except Exception as exc:
+            raise CareerOpsInvalidOutputError(
+                f"Receipt validation failed against typed contract: {exc}"
+            ) from exc
+
         # 5. Evaluate partial / degraded conditions (Finding F)
-        cap_hit = bool(payload.get("capHit"))
-        stopped_by_outage = bool(payload.get("stoppedByOutage"))
-        dataset_status = payload.get("datasetStatus", "ok")
+        cap_hit = bool(receipt.capHit)
+        stopped_by_outage = bool(receipt.stoppedByOutage)
+        dataset_status = receipt.datasetStatus or "ok"
         dataset_degraded = False
         if isinstance(dataset_status, dict):
             dataset_degraded = any(v != "ok" for v in dataset_status.values())
         elif isinstance(dataset_status, str) and dataset_status != "ok":
             dataset_degraded = True
 
-        capped_boards = int(payload.get("cappedBoards") or 0)
-        unreachable = int(payload.get("unreachableBoards") or 0)
+        capped_boards = int(receipt.cappedBoards or 0)
+        unreachable = int(receipt.unreachableBoards or 0)
 
         is_partial = False
         partial_reasons: list[str] = []
@@ -231,17 +240,23 @@ class CareerOpsAdapter:
         if dataset_degraded:
             is_partial = True
             partial_reasons.append(f"dataset status degraded: {dataset_status}")
-        if unreachable > 0 and unreachable > (payload.get("companiesScanned") or 0) * 0.5:
+        if unreachable > 0 and unreachable > (receipt.companiesScanned or 0) * 0.5:
             is_partial = True
             partial_reasons.append(f"high unreachable boards count: {unreachable}")
 
         offers: list[CareerOpsDiscoveredJob] = []
-        for raw_offer in payload.get("offers") or []:
+        for raw_offer in receipt.offers:
             if not isinstance(raw_offer, dict):
                 continue
-            c = str(raw_offer.get("company", "")).strip()
-            t = str(raw_offer.get("title", "")).strip()
-            u = str(raw_offer.get("url", "")).strip()
+            try:
+                offer_receipt = CareerOpsOfferReceipt.model_validate(raw_offer)
+            except Exception:
+                # Malformed individual offer is quarantined/skipped while top-level receipt is valid
+                continue
+
+            c = offer_receipt.company.strip()
+            t = offer_receipt.title.strip()
+            u = offer_receipt.url.strip()
             if not c or not t or not u:
                 continue
 
@@ -249,36 +264,36 @@ class CareerOpsAdapter:
             if not _is_safe_http_url(u):
                 continue
 
-
             offers.append(
                 CareerOpsDiscoveredJob(
                     company=c,
                     title=t,
                     url=u,
-                    location=raw_offer.get("location") or None,
-                    posted_at=raw_offer.get("postedAt") or None,
-                    date_status=str(raw_offer.get("dateStatus", "unknown")),
-                    blacklisted=bool(raw_offer.get("blacklisted", False)),
-                    note=raw_offer.get("note") or None,
-                    source=str(raw_offer.get("source", norm_provider)),
+                    location=offer_receipt.location or None,
+                    posted_at=offer_receipt.postedAt or None,
+                    date_status=offer_receipt.dateStatus or "unknown",
+                    blacklisted=bool(offer_receipt.blacklisted),
+                    note=offer_receipt.note,
+                    source=offer_receipt.source or norm_provider,
                     upstream_metadata={
-                        "raw_source": raw_offer.get("source"),
-                        "date_status": raw_offer.get("dateStatus"),
+                        k: v
+                        for k, v in raw_offer.items()
+                        if k not in ("company", "title", "url", "location", "postedAt", "dateStatus", "blacklisted", "note", "source")
                     },
                 )
             )
 
         return CareerOpsDiscoveryResult(
             provider=norm_provider,
-            date=str(payload.get("date", "")),
-            since_days=int(payload.get("sinceDays") or since_days),
-            companies_available=int(payload.get("companiesAvailable") or 0),
-            companies_scanned=int(payload.get("companiesScanned") or 0),
+            date=str(receipt.date or ""),
+            since_days=int(receipt.sinceDays or since_days),
+            companies_available=int(receipt.companiesAvailable or 0),
+            companies_scanned=int(receipt.companiesScanned or 0),
             cap_hit=cap_hit,
             stopped_by_outage=stopped_by_outage,
             dataset_status=dataset_status,
             unreachable_boards=unreachable,
-            retired_boards_skipped=int(payload.get("retiredBoardsSkipped") or 0),
+            retired_boards_skipped=int(receipt.retiredBoardsSkipped or 0),
             postings_kept=len(offers),
             is_partial=is_partial,
             partial_detail="; ".join(partial_reasons) if is_partial else "",

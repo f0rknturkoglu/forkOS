@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -135,6 +136,7 @@ class SubprocessCareerOpsRunner:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(self.checkout_dir),
                 env=env,
+                start_new_session=True,
             )
         except OSError as exc:
             raise CareerOpsUnavailableError(f"Failed to spawn node process: {exc}") from exc
@@ -156,16 +158,49 @@ class SubprocessCareerOpsRunner:
 
         async def _kill_process() -> None:
             if proc.returncode is None:
+                pgid: int | None = None
                 try:
-                    proc.terminate()
+                    pgid = os.getpgid(proc.pid)
                 except Exception:
                     pass
-                try:
-                    await asyncio.shield(asyncio.wait_for(proc.wait(), timeout=0.5))
-                except Exception:
+
+                # 1. Send SIGTERM to entire process group or direct process
+                if pgid is not None:
                     try:
-                        proc.kill()
-                        await asyncio.shield(proc.wait())
+                        os.killpg(pgid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        proc.terminate()
+                    except ProcessLookupError:
+                        pass
+                    except Exception:
+                        pass
+
+                # 2. Bounded wait for process group / parent to exit
+                try:
+                    await asyncio.shield(asyncio.wait_for(proc.wait(), timeout=1.0))
+                except Exception:
+                    # 3. Escalate to SIGKILL if still running
+                    if pgid is not None:
+                        try:
+                            os.killpg(pgid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            proc.kill()
+                        except ProcessLookupError:
+                            pass
+                        except Exception:
+                            pass
+                    try:
+                        await asyncio.shield(asyncio.wait_for(proc.wait(), timeout=1.0))
                     except Exception:
                         pass
 

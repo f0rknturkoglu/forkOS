@@ -1,4 +1,6 @@
 import asyncio
+import os
+from pathlib import Path
 import pytest
 from app.integrations.career_ops.errors import (
     CareerOpsInvalidOutputError,
@@ -155,3 +157,67 @@ async def test_runner_task_cancellation_kills_and_reaps_child(tmp_path):
 
     # Task was cancelled cleanly
     assert task.cancelled()
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_runner_process_tree_termination_kills_grandchildren(tmp_path: Path):
+    """Prove that process-tree termination with process groups kills child processes spawned by Node."""
+    script_path = tmp_path / "doctor.mjs"
+    pid_file = tmp_path / "child.pid"
+
+    # Node script that spawns a child node process and writes its PID to a file
+    code = (
+        'import { spawn } from "node:child_process";\n'
+        'import fs from "node:fs";\n'
+        'const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });\n'
+        f'fs.writeFileSync("{pid_file}", String(child.pid));\n'
+        'setInterval(() => {}, 10000);\n'
+    )
+    script_path.write_text(code, encoding="utf-8")
+
+    runner = SubprocessCareerOpsRunner(
+        checkout_dir=tmp_path,
+        runtime_dir=tmp_path / "runtime",
+        node_bin="node",
+    )
+
+    task = asyncio.create_task(runner.run_script("doctor.mjs", []))
+
+    # Wait for child process to be spawned and write PID
+    child_pid = None
+    for _ in range(50):
+        if pid_file.exists() and pid_file.read_text().strip():
+            try:
+                child_pid = int(pid_file.read_text().strip())
+                break
+            except ValueError:
+                pass
+        await asyncio.sleep(0.05)
+
+    assert child_pid is not None, "Child PID file was not written"
+
+    # Confirm child process is running
+    try:
+        os.kill(child_pid, 0)
+        child_alive_initially = True
+    except OSError:
+        child_alive_initially = False
+    assert child_alive_initially, "Child process was not running initially"
+
+    # Cancel parent task
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # Confirm child process is terminated (not orphaned)
+    child_terminated = False
+    for _ in range(30):
+        try:
+            os.kill(child_pid, 0)
+            await asyncio.sleep(0.05)
+        except OSError:
+            child_terminated = True
+            break
+
+    assert child_terminated, f"Child process {child_pid} survived cancellation of process group!"

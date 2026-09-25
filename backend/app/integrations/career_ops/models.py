@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 
 class CareerOpsStatusEnum(str, Enum):
@@ -100,3 +100,35 @@ class CareerOpsDiscoveryResult(BaseModel):
     is_partial: bool = False
     partial_detail: str = ""
     offers: list[CareerOpsDiscoveredJob] = Field(default_factory=list)
+
+
+class CareerOpsOfferReceipt(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    company: str
+    title: str
+    url: str
+    location: str | None = None
+    postedAt: str | None = None
+    dateStatus: str | None = None
+    blacklisted: StrictBool | None = None
+    note: str | None = None
+    source: str | None = None
+
+
+class CareerOpsScanReceipt(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    date: str | None = None
+    sources: list[str] | None = None
+    resumed: StrictBool | None = None
+    sinceDays: StrictInt | None = None
+    companiesAvailable: StrictInt | None = None
+    companiesScanned: StrictInt | None = None
+    capHit: StrictBool | None = None
+    stoppedByOutage: StrictBool | None = None
+    datasetStatus: str | dict[str, Any] | None = None
+    unreachableBoards: StrictInt | None = None
+    retiredBoardsSkipped: StrictInt | None = None
+    cappedBoards: StrictInt | None = None
+    offers: list[Any] = Field(default_factory=list)
