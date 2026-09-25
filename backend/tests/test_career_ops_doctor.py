@@ -117,3 +117,12 @@ async def test_doctor_separates_upstream_onboarding_and_does_not_pass_target_fla
     assert report.upstream_onboarding.onboarding_needed is True
     assert "cv.md" in report.upstream_onboarding.missing
     assert len(report.upstream_onboarding.warnings) == 1
+
+
+@pytest.mark.no_database
+def test_probe_browser_readiness(tmp_path: Path):
+    from app.integrations.career_ops.doctor import probe_browser_readiness
+
+    # Missing node_modules/playwright returns False
+    assert probe_browser_readiness(tmp_path) is False
+

@@ -32,6 +32,7 @@ psql:      ; $(CO) exec db psql -U lifeos -d lifeos
 migrate:   ; $(CO) exec api alembic upgrade head
 cli:       ; cd backend && .venv/bin/python -m app.cli $(ARGS)
 career-ops-setup: ; ./scripts/setup_career_ops.sh
+career-ops-browser-setup: ; cd .vendor/career-ops && npx playwright install chromium
 TEST_PROJECT ?= forkos-test
 test:
 	@status=0; \

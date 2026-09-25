@@ -65,6 +65,7 @@ class CareerOpsDoctorResult(BaseModel):
     upstream_onboarding: CareerOpsUpstreamOnboarding | None = None
     capabilities_declared: int = 0
     capabilities_available: int = 0
+    browser_ready: bool = False
     canonical_state_owner: str = "forkOS PostgreSQL"
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)

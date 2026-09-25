@@ -38,3 +38,17 @@ def test_capability_registry():
     assert "greenhouse" in inv
     assert inv["greenhouse"]["status"] == "supported"
     assert inv["curated_scan_lane"]["status"] == "deferred_contract_limitation"
+
+
+@pytest.mark.no_database
+def test_c3_capabilities_supported_when_browser_ready():
+    # Without browser_ready
+    assert get_capability_status("discovery.liveness", enabled=True, runtime_ready=True, browser_ready=False) == CapabilityStatus.UNAVAILABLE
+    assert get_capability_status("job.extract", enabled=True, runtime_ready=True, browser_ready=False) == CapabilityStatus.UNAVAILABLE
+    assert get_capability_status("job.repost_analysis", enabled=True, runtime_ready=True, browser_ready=False) == CapabilityStatus.UNAVAILABLE
+
+    # With browser_ready
+    assert get_capability_status("discovery.liveness", enabled=True, runtime_ready=True, browser_ready=True) == CapabilityStatus.SUPPORTED
+    assert get_capability_status("job.extract", enabled=True, runtime_ready=True, browser_ready=True) == CapabilityStatus.SUPPORTED
+    assert get_capability_status("job.repost_analysis", enabled=True, runtime_ready=True, browser_ready=True) == CapabilityStatus.SUPPORTED
+

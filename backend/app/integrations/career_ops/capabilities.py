@@ -171,6 +171,7 @@ def get_capability_status(
     enabled: bool,
     runtime_ready: bool,
     discovery_enabled: bool = True,
+    browser_ready: bool = False,
 ) -> CapabilityStatus:
     if not enabled:
         return CapabilityStatus.DISABLED
@@ -182,6 +183,10 @@ def get_capability_status(
         if not discovery_enabled:
             return CapabilityStatus.DISABLED
         return CapabilityStatus.SUPPORTED
+    if capability_id in ("discovery.liveness", "job.extract", "job.repost_analysis"):
+        if not browser_ready:
+            return CapabilityStatus.UNAVAILABLE
+        return CapabilityStatus.SUPPORTED
     return CapabilityStatus.UNAVAILABLE
 
 
@@ -189,11 +194,13 @@ def count_available_capabilities(
     enabled: bool,
     runtime_ready: bool,
     discovery_enabled: bool = True,
+    browser_ready: bool = False,
 ) -> int:
     return sum(
         1
         for cap in ALL_CAPABILITIES
-        if get_capability_status(cap.id, enabled, runtime_ready, discovery_enabled) == CapabilityStatus.SUPPORTED
+        if get_capability_status(cap.id, enabled, runtime_ready, discovery_enabled, browser_ready)
+        == CapabilityStatus.SUPPORTED
     )
 
 

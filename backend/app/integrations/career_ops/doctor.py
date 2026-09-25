@@ -29,6 +29,30 @@ from app.integrations.career_ops.models import (
 from app.integrations.career_ops.runner import CareerOpsRunner
 
 
+def probe_browser_readiness(checkout_dir: Path, node_bin: str = "node") -> bool:
+    """Check if Playwright and Chromium browser binary are installed and ready."""
+    if not (checkout_dir / "node_modules" / "playwright").exists():
+        return False
+    try:
+        res = subprocess.run(
+            [
+                node_bin,
+                "-e",
+                "import('playwright').then(p => { const pth = p.chromium.executablePath(); process.stdout.write(pth); }).catch(() => process.exit(1))",
+            ],
+            cwd=str(checkout_dir),
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            chrome_path = Path(res.stdout.strip())
+            return chrome_path.exists()
+        return False
+    except Exception:
+        return False
+
+
 class CareerOpsDoctor:
     def __init__(
         self,
@@ -168,11 +192,15 @@ class CareerOpsDoctor:
                 errors=[f"Required core files missing: {', '.join(missing_files)}"],
             )
 
+        # Probe browser readiness for C3 execution
+        browser_ready = probe_browser_readiness(self.checkout_dir, self.node_bin)
+
         # Dynamic computation of available capabilities based on runtime readiness and feature flags
         available_capabilities_count = count_available_capabilities(
             enabled=True,
             runtime_ready=True,
             discovery_enabled=settings.career_ops_discovery_enabled,
+            browser_ready=browser_ready,
         )
 
         # Execute upstream doctor in isolated workspace WITHOUT --target
@@ -209,6 +237,7 @@ class CareerOpsDoctor:
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=available_capabilities_count,
+                browser_ready=browser_ready,
                 warnings=[f"Engine doctor probe failed: {exc}"],
             )
 
@@ -220,5 +249,6 @@ class CareerOpsDoctor:
             upstream_onboarding=upstream_onboarding,
             capabilities_declared=len(declared),
             capabilities_available=available_capabilities_count,
+            browser_ready=browser_ready,
             warnings=warnings,
         )
