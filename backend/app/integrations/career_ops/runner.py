@@ -19,6 +19,7 @@ from app.integrations.career_ops.errors import (
 
 ALLOWLISTED_SCRIPTS: frozenset[str] = frozenset({
     "doctor.mjs",
+    "scan-ats-full.mjs",
 })
 
 
@@ -36,6 +37,8 @@ class CareerOpsRunner(Protocol):
         script_name: str,
         args: list[str],
         timeout_seconds: float | None = None,
+        extra_env: dict[str, str] | None = None,
+        max_buffer_bytes: int | None = None,
     ) -> ExecutionResult:
         ...
 
@@ -84,7 +87,7 @@ class SubprocessCareerOpsRunner:
         cache.mkdir(parents=True, exist_ok=True)
         return gen_in, temp_out, cache
 
-    def _build_env(self) -> dict[str, str]:
+    def _build_env(self, extra_env: dict[str, str] | None = None) -> dict[str, str]:
         # Clean environment: keep essential path variables, strip credentials
         safe_keys = {"PATH", "HOME", "USER", "TMPDIR", "LANG", "LC_ALL"}
         clean_env = {k: v for k, v in os.environ.items() if k in safe_keys}
@@ -93,7 +96,10 @@ class SubprocessCareerOpsRunner:
         clean_env["CAREER_OPS_ROOT"] = str(self.runtime_dir)
         clean_env["CAREER_OPS_DATA_DIR"] = str(self.runtime_dir)
         clean_env["CAREER_OPS_TRACKER"] = str(self.runtime_dir / "ephemeral-tracker.md")
+        clean_env["CAREER_OPS_PORTALS"] = str(self.runtime_dir / "portals.yml")
         clean_env["NODE_ENV"] = "production"
+        if extra_env:
+            clean_env.update(extra_env)
         return clean_env
 
     async def run_script(
@@ -101,6 +107,8 @@ class SubprocessCareerOpsRunner:
         script_name: str,
         args: list[str],
         timeout_seconds: float | None = None,
+        extra_env: dict[str, str] | None = None,
+        max_buffer_bytes: int | None = None,
     ) -> ExecutionResult:
         if script_name not in ALLOWLISTED_SCRIPTS:
             raise CareerOpsSecurityError(f"Script '{script_name}' is not in allowlisted operations.")
@@ -114,10 +122,11 @@ class SubprocessCareerOpsRunner:
             raise CareerOpsUnavailableError(f"Node executable '{self.node_bin}' not found on PATH.")
 
         self._ensure_workspace()
-        env = self._build_env()
+        env = self._build_env(extra_env=extra_env)
         cmd = [node_path, str(target_script)] + list(args)
 
         timeout = timeout_seconds if timeout_seconds is not None else self.default_timeout_seconds
+        buffer_limit = max_buffer_bytes if max_buffer_bytes is not None else self.max_buffer_bytes
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -138,8 +147,8 @@ class SubprocessCareerOpsRunner:
             assert proc.stdout is not None
             assert proc.stderr is not None
             out_res, err_res = await asyncio.gather(
-                _read_stream_bounded(proc.stdout, self.max_buffer_bytes),
-                _read_stream_bounded(proc.stderr, self.max_buffer_bytes),
+                _read_stream_bounded(proc.stdout, buffer_limit),
+                _read_stream_bounded(proc.stderr, buffer_limit),
             )
             stdout_buf = out_res
             stderr_buf = err_res

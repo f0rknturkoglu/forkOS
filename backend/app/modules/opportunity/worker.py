@@ -281,8 +281,10 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
         return 0
 
     # Kapanma taramasi YALNIZ guvenilir tam kosumda: `partial`/`empty` kosusunda
-    # "gorunmeyen" kayit aslinda taranmamis olabilir.
-    if payloads and not partial:
+    # "gorunmeyen" kayit aslinda taranmamis olabilir. Ayrica ters ATS (career-ops)
+    # taramalari filtrelenmis/pencereye bagli oldugundan kapanma kaniti sayilmaz (§26).
+    should_sweep = not getattr(source, "skip_closure_sweep", False) and not getattr(source, "id", "").startswith("careerops:")
+    if payloads and not partial and should_sweep:
         await _sweep_missing(source, payloads)
     await _run_health_check(source, status=_outcome_status(partial=partial, seen=len(payloads)))
     return added
@@ -400,10 +402,16 @@ def select_due_sources(
 
 
 async def poll_named_source(source_id: str, *, batch_id=None) -> int:
+    from app.config import settings
+    all_registered = [*forkjob_sources(include_opt_in=True), *SOURCES]
+    if settings.career_ops_enabled and settings.career_ops_discovery_enabled:
+        from app.sources.career_ops_sources import get_career_ops_sources
+        all_registered.extend(get_career_ops_sources())
+
     source = next(
         (
             item
-            for item in [*forkjob_sources(include_opt_in=True), *SOURCES]
+            for item in all_registered
             if item.id == source_id
         ),
         None,

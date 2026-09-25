@@ -175,8 +175,49 @@ def get_capability_status(
         return CapabilityStatus.DISABLED
     if not runtime_ready:
         return CapabilityStatus.UNAVAILABLE
-    # In C1, only foundation doctor capability is currently active.
-    # C2 introduces discovery, C3 evaluation, C4 application/interview, C5 generation.
-    if capability_id == "foundation.doctor":
+    # In C1/C2: foundation.doctor and discovery.reverse_ats are active.
+    # discovery.scan remains UNAVAILABLE due to upstream machine contract limitations.
+    if capability_id in ("foundation.doctor", "discovery.reverse_ats"):
         return CapabilityStatus.SUPPORTED
     return CapabilityStatus.UNAVAILABLE
+
+
+def get_provider_capability_inventory() -> dict[str, dict[str, str]]:
+    """Diagnostic inventory of the pinned career-ops provider universe (§40)."""
+    return {
+        "greenhouse": {
+            "status": "supported",
+            "protocol": "reverse_ats_json",
+            "source_id": "careerops:greenhouse",
+        },
+        "lever": {
+            "status": "supported",
+            "protocol": "reverse_ats_json",
+            "source_id": "careerops:lever",
+        },
+        "ashby": {
+            "status": "supported",
+            "protocol": "reverse_ats_json",
+            "source_id": "careerops:ashby",
+        },
+        "workday": {
+            "status": "supported",
+            "protocol": "reverse_ats_json_multitenant",
+            "source_id": "careerops:workday",
+        },
+        "icims": {
+            "status": "supported",
+            "protocol": "reverse_ats_json",
+            "source_id": "careerops:icims",
+        },
+        "bamboohr": {
+            "status": "supported",
+            "protocol": "reverse_ats_json",
+            "source_id": "careerops:bamboohr",
+        },
+        "curated_scan_lane": {
+            "status": "deferred_contract_limitation",
+            "protocol": "scan.mjs --json",
+            "reason": "Machine receipt produces added_urls array only; lacks offer metadata for canonical ingestion",
+        },
+    }

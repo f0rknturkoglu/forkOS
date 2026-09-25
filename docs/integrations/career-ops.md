@@ -1,6 +1,6 @@
-# forkOS × career-ops Entegrasyonu (C1/C1.1: Entegrasyon Temeli, Sürüm Sabitleme ve Doctor)
+# forkOS × career-ops Entegrasyonu (C1: Temel & Doctor, C2: Keşif & Sağlayıcı Füzyonu)
 
-Bu doküman, `career-ops` projesinin forkOS içerisine **sürüm-sabitli iç yetenek motoru** (version-pinned internal capability engine) olarak nasıl entegre edildiğini, hakikat sınırlarını ve C1.1 çalışma zamanı güvenlik sertleştirmelerini tanımlar.
+Bu doküman, `career-ops` projesinin forkOS içerisine **sürüm-sabitli iç yetenek motoru** (version-pinned internal capability engine) olarak nasıl entegre edildiğini, hakikat sınırlarını, C1.1 çalışma zamanı güvenlik sertleştirmelerini ve C2 iş keşfi (Discovery & Provider Fusion) mimarisini tanımlar.
 
 ---
 
@@ -172,3 +172,63 @@ Gelecekte career-ops sürümü güncellenmek istendiğinde izlenecek adımlar:
    ```
 5. **Yetenek ve Çıktı Farklarını İncele**: Upstream script argümanlarında veya JSON çıktılarında kırıcı değişiklik olup olmadığını denetle.
 6. **Git Commit**: Sürüm yükseltmesini forkOS üzerinde commit'le.
+
+---
+
+## 9. C2: Keşif ve Sağlayıcı Füzyonu (Discovery & Provider Fusion)
+
+C2 aşamasında, `career-ops` motorunun reverse-ATS tarama kabiliyeti forkOS'un `SourceAdapter` sözleşmesine bağlanmıştır.
+
+### 9.1 Desteklenen Sağlayıcılar ve Kaynak Kimlikleri
+Aşağıdaki 6 ATS sağlayıcısı `careerops:<provider>` ad alanında forkOS kaynaklarına eklenmiştir:
+- `careerops:greenhouse`
+- `careerops:lever`
+- `careerops:ashby`
+- `careerops:workday`
+- `careerops:icims`
+- `careerops:bamboohr`
+
+Tüm `careerops:*` kaynakları **`SourceClass.SLOW_OPTIN`** olarak sınıflandırılmıştır. Arka plan otomatik periyodik taramalarına dahil edilmez; yalnızca açık kullanıcı isteği veya manuel tetikleme ile çalıştırılır.
+
+### 9.2 Çalışma Zamanı Dinamik Portals Projeksiyonu
+forkOS kendi kullanıcı tercihlerini (`config.yaml` içindeki rol terimleri, beceriler, yasaklı kelimeler, şehirler) upstream motorun anlayacağı biçime dönüştürür:
+- `CareerOpsDiscoveryConfigBuilder`: forkOS tercihlerini anlık olarak okur ve `portals.yml` formatına çevirir.
+- Betik çağrısı öncesinde `backend/data/runtime/career-ops/portals.yml` konumuna yazılır ve `CAREER_OPS_PORTALS` ortam değişkeni ile aktarılır.
+- Betik çalışması tamamlandığında `finally:` bloğunda derhal silinir (`unlink`).
+- `.vendor/career-ops` içerisine hiçbir filtre ya da ayar dosyası yazılmaz.
+
+### 9.3 Makine Sözleşmesi ve Güvenli Çalıştırma
+- **Yalnızca JSON Çıktı**: Betik `scan-ats-full.mjs --json --dry-run` bayraklarıyla çağrılır. Disk veya veritabanına doğrudan yazma kesinlikle engellenir.
+- **Tek Belge Ayrıştırma**: `stdout` içindeki JSON belgesi güvenle ayıklanır; eksik/bozuk çıktılarda `CareerOpsInvalidOutputError` fırlatılır.
+- **Runner İzin Listesi**: Yalnızca onaylı `scan-ats-full.mjs` ve `doctor.mjs` betiklerinin çalıştırılmasına izin verilir; keyfi dosya/argüman yürütme güvenlik hatası üretir.
+
+### 9.4 Çok Kaynaklı Kanonik Birleştirme ve Dedup
+- Bir ilan hem mevcut bir forkOS kaynağından (örn. `forkjob:greenhouse`) hem de `careerops:greenhouse` tarafından keşfedildiğinde, URL ve kanonik anahtar üzerinden **aynı `Opportunity` kaydına bağlanır**.
+- Her iki kaynaktan gelen tarama için ayrı `OpportunitySourceObservation` üretilir.
+- `careerops` gözlemleri asla forkjob tarafından çıkarılan zengin metadata'yı (açıklama, şirket meta verisi) veya kullanıcı düzenlemelerini ezmez (`coalesce` semantiği).
+
+### 9.5 Yanlış Kapanma Koruması (No False Closure Invariant)
+Geleneksel forkjob kaynaklarında, hedef panoda artık listelenmeyen ilanlar `_sweep_missing()` tarafından `status="closed" / source_status="missing"` durumuna çekilir.
+Reverse-ATS discovery taramaları ise şirket şirket gezen ve filtreye göre kısmi sonuç getiren örnekleme taramalarıdır.
+Bu nedenle:
+- `backend/app/modules/opportunity/worker.py` içerisinde `careerops:` öneki `MISSING_SWEEP_EXEMPT_PREFIXES` arasına alınmıştır.
+- `careerops:*` taramalarında görünmeyen mevcut ilanlar **asla** süpürülmez ve kapanmış olarak işaretlenmez.
+
+### 9.6 Lane B (`scan.mjs`) Analizi ve Ertelenme Gerekçesi
+`scan.mjs` betiği `--json` parametresiyle çağrıldığında yalnızca `{"added_urls": ["https://..."]}` listesi üretmektedir; başlık, şirket adı, konum veya tarih gibi ilan meta verilerini sağlamamaktadır. Bu durum forkOS `RawItem` sözleşmesini karşılamadığı ve C2'de LLM kullanımına izin verilmediği için, `discovery.scan` yeteneği **`UNAVAILABLE`** olarak bırakılmış ve registry envanterinde gerekçesiyle belgelenmiştir.
+
+---
+
+## 10. Yetenek Envanteri ve Durum Tablosu
+
+`get_provider_capability_inventory()` çağrısıyla elde edilen sağlayıcı bazlı entegrasyon matrisi:
+
+| Sağlayıcı | Tarama Kabiliyeti | Durum | Gerekçe |
+| --- | --- | --- | --- |
+| `greenhouse` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
+| `lever` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
+| `ashby` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
+| `workday` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
+| `icims` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
+| `bamboohr` | Reverse ATS | `SUPPORTED` | `scan-ats-full.mjs` üzerinden tam entegre |
+| `portal_scan` | Broad Scan | `UNAVAILABLE` | `scan.mjs` yalnızca URL döner, ilan meta verisi sağlamaz |

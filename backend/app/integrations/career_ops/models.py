@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CareerOpsStatusEnum(str, Enum):
@@ -68,3 +68,35 @@ class CareerOpsDoctorResult(BaseModel):
     canonical_state_owner: str = "forkOS PostgreSQL"
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+
+
+class CareerOpsDiscoveredJob(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    company: str
+    title: str
+    url: str
+    location: str | None = None
+    posted_at: str | None = None
+    date_status: str = "unknown"
+    blacklisted: bool = False
+    note: str | None = None
+    source: str = ""
+    upstream_metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CareerOpsDiscoveryResult(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    provider: str
+    date: str = ""
+    since_days: int = 7
+    companies_available: int = 0
+    companies_scanned: int = 0
+    cap_hit: bool = False
+    stopped_by_outage: bool = False
+    dataset_status: Any = "ok"
+    unreachable_boards: int = 0
+    retired_boards_skipped: int = 0
+    postings_kept: int = 0
+    is_partial: bool = False
+    partial_detail: str = ""
+    offers: list[CareerOpsDiscoveredJob] = Field(default_factory=list)

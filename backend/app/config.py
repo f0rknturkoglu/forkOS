@@ -78,13 +78,18 @@ class Settings(BaseSettings):
     a5_answer_model_path: str = ""
     a5_answer_timeout_seconds: float = 20.0
 
-    # career-ops capability engine integration (C1)
+    # career-ops capability engine integration (C1/C2)
     career_ops_enabled: bool = False
     career_ops_root: str = ""
     career_ops_node_bin: str = "node"
     career_ops_timeout_seconds: float = 30.0
     career_ops_max_buffer_bytes: int = 512 * 1024
     career_ops_runtime_dir: str = ""
+    career_ops_discovery_enabled: bool = True
+    career_ops_discovery_timeout_seconds: float = 300.0
+    career_ops_discovery_since_days: int = 7
+    career_ops_discovery_limit: int = 200
+    career_ops_discovery_max_buffer_bytes: int = 4 * 1024 * 1024
 
     @property
     def resolved_career_ops_root(self) -> Path:

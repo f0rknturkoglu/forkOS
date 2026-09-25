@@ -40,6 +40,26 @@ async def test_runner_executes_allowlisted_script(tmp_path):
 
 @pytest.mark.no_database
 @pytest.mark.asyncio
+async def test_runner_executes_scan_ats_full_with_extra_env(tmp_path):
+    script_path = tmp_path / "scan-ats-full.mjs"
+    script_path.write_text('console.log(process.env.CUSTOM_TEST_VAR || "none");\n')
+
+    runner = SubprocessCareerOpsRunner(
+        checkout_dir=tmp_path,
+        runtime_dir=tmp_path / "runtime",
+        node_bin="node",
+    )
+    result = await runner.run_script(
+        "scan-ats-full.mjs",
+        ["--json"],
+        extra_env={"CUSTOM_TEST_VAR": "propagated_custom_value"},
+    )
+    assert result.exit_code == 0
+    assert "propagated_custom_value" in result.stdout
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
 async def test_runner_stdout_overflow_terminates_and_raises(tmp_path):
     # Generates ~10000 bytes while max_buffer_bytes=200
     script_path = tmp_path / "doctor.mjs"

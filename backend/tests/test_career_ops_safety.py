@@ -68,13 +68,16 @@ async def test_runner_security_rejections():
         checkout_dir=Path("/tmp"),
         runtime_dir=Path("/tmp/runtime"),
     )
+    from app.integrations.career_ops.runner import ALLOWLISTED_SCRIPTS
+    assert "scan-ats-full.mjs" in ALLOWLISTED_SCRIPTS
+
     unallowlisted = [
         "scan.mjs",
-        "scan-ats-full.mjs",
         "update-system.mjs",
         "set-status.mjs",
         "arbitrary.sh",
         "tracker.mjs",
+        "apply.mjs",
     ]
     for script in unallowlisted:
         with pytest.raises(CareerOpsSecurityError):

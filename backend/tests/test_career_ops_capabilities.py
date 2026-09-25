@@ -26,9 +26,15 @@ def test_capability_registry():
     assert status_unavail == CapabilityStatus.UNAVAILABLE
 
     # In C1 domain capabilities are not yet implemented, so even if runtime ready they remain UNAVAILABLE
-    status_ready = get_capability_status("discovery.scan", enabled=True, runtime_ready=True)
-    assert status_ready == CapabilityStatus.UNAVAILABLE
-
-    # Foundation doctor capability is supported when runtime is ready
+    # Foundation doctor and reverse_ats capabilities are supported when runtime is ready
     status_doc = get_capability_status("foundation.doctor", enabled=True, runtime_ready=True)
     assert status_doc == CapabilityStatus.SUPPORTED
+
+    status_rev = get_capability_status("discovery.reverse_ats", enabled=True, runtime_ready=True)
+    assert status_rev == CapabilityStatus.SUPPORTED
+
+    from app.integrations.career_ops.capabilities import get_provider_capability_inventory
+    inv = get_provider_capability_inventory()
+    assert "greenhouse" in inv
+    assert inv["greenhouse"]["status"] == "supported"
+    assert inv["curated_scan_lane"]["status"] == "deferred_contract_limitation"

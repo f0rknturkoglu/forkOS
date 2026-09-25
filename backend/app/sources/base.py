@@ -126,7 +126,7 @@ def source_class(source: object) -> SourceClass:
     sid = source_id_of(source)
     if getattr(source, "opt_in", False) or getattr(source, "slow_optin", False):
         return SourceClass.SLOW_OPTIN
-    if sid in SLOW_OPTIN_SOURCE_IDS:
+    if sid in SLOW_OPTIN_SOURCE_IDS or sid.startswith("careerops:"):
         return SourceClass.SLOW_OPTIN
     if sid in CRITICAL_SOURCE_IDS or ats_platform_of(sid) in CRITICAL_ATS:
         return SourceClass.CRITICAL

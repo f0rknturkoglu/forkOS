@@ -75,7 +75,12 @@ class CacheClearIn(BaseModel):
 
 
 def _catalog_sources() -> list:
-    return [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+    sources = [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+    from app.config import settings
+    if settings.career_ops_enabled and settings.career_ops_discovery_enabled:
+        from app.sources.career_ops_sources import get_career_ops_sources
+        sources.extend(get_career_ops_sources())
+    return sources
 
 
 @router.get("/sources/runs")
