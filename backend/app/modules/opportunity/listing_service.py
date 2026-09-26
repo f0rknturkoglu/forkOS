@@ -427,12 +427,13 @@ class OpportunityListingService:
             extract_res = await self.adapter.extract_job(selected_url)
             cleaned_text = (extract_res.text or "").strip()
 
+            method = getattr(extract_res, "method", None) or "upstream_extract"
             if extract_res.error or not cleaned_text:
                 failed_meta = {
                     "source_url": selected_url,
                     "requested_url": getattr(extract_res, "requested_url", selected_url),
                     "returned_url": getattr(extract_res, "final_url", getattr(extract_res, "url", selected_url)),
-                    "method": "browser_extract",
+                    "method": method,
                     "jd_extracted_at": now.isoformat(),
                     "jd_text_length": len(cleaned_text),
                     "jd_hash": "",
@@ -475,7 +476,7 @@ class OpportunityListingService:
                     "source_url": selected_url,
                     "requested_url": getattr(extract_res, "requested_url", selected_url),
                     "returned_url": getattr(extract_res, "final_url", getattr(extract_res, "url", selected_url)),
-                    "method": "browser_extract",
+                    "method": method,
                     "jd_extracted_at": now.isoformat(),
                     "jd_text_length": len(cleaned_text),
                     "jd_hash": jd_hash,
@@ -515,7 +516,7 @@ class OpportunityListingService:
                 "source_url": selected_url,
                 "requested_url": getattr(extract_res, "requested_url", selected_url),
                 "returned_url": getattr(extract_res, "final_url", getattr(extract_res, "url", selected_url)),
-                "method": "browser_extract",
+                "method": method,
                 "jd_extracted_at": now.isoformat(),
                 "jd_text_length": len(cleaned_text),
                 "jd_hash": jd_hash,

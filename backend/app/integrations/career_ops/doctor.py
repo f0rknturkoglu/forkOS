@@ -196,12 +196,13 @@ class CareerOpsDoctor:
         # Probe browser readiness for C3 execution
         browser_ready = probe_browser_readiness(self.checkout_dir, self.node_bin)
 
-        # Dynamic computation of available capabilities based on runtime readiness and feature flags
+        reasoner_available = (getattr(settings, "career_reasoner_provider", "none") or "none").lower() != "none"
         cap_ctx = CareerOpsCapabilityContext(
             enabled=True,
             core_ready=True,
             discovery_enabled=settings.career_ops_discovery_enabled,
             browser_ready=browser_ready,
+            reasoner_available=reasoner_available,
         )
         available_capabilities_count = count_available_capabilities(context=cap_ctx)
 

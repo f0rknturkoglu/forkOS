@@ -408,6 +408,57 @@
         "title": "AncestorOut",
         "type": "object"
       },
+      "ApplicationAnswerOut": {
+        "properties": {
+          "classification": {
+            "enum": [
+              "safe_verified",
+              "needs_user_input",
+              "sensitive_user_decision"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "confidence": {
+            "default": 1.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "proposed_answer": {
+            "title": "Proposed Answer",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "required": [
+          "question",
+          "proposed_answer",
+          "classification"
+        ],
+        "title": "ApplicationAnswerOut",
+        "type": "object"
+      },
       "ApplicationIn": {
         "properties": {
           "company_research": {
@@ -640,6 +691,119 @@
           "opportunity_id"
         ],
         "title": "ApplicationOut",
+        "type": "object"
+      },
+      "ApplicationPackageOut": {
+        "properties": {
+          "application_answers": {
+            "items": {
+              "$ref": "#/components/schemas/ApplicationAnswerOut"
+            },
+            "title": "Application Answers",
+            "type": "array"
+          },
+          "base_cv_document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Cv Document Id"
+          },
+          "cover_letter": {
+            "default": "",
+            "title": "Cover Letter",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "cv_change_audit": {
+            "items": {
+              "$ref": "#/components/schemas/CvChangeItemOut"
+            },
+            "title": "Cv Change Audit",
+            "type": "array"
+          },
+          "evaluation_revision": {
+            "title": "Evaluation Revision",
+            "type": "string"
+          },
+          "fact_verification": {
+            "items": {
+              "$ref": "#/components/schemas/CvFactVerificationOut"
+            },
+            "title": "Fact Verification",
+            "type": "array"
+          },
+          "generated_documents": {
+            "items": {
+              "$ref": "#/components/schemas/GeneratedDocumentRefOut"
+            },
+            "title": "Generated Documents",
+            "type": "array"
+          },
+          "knockout_answers": {
+            "items": {
+              "$ref": "#/components/schemas/KnockoutAnswerOut"
+            },
+            "title": "Knockout Answers",
+            "type": "array"
+          },
+          "listing_fingerprint": {
+            "title": "Listing Fingerprint",
+            "type": "string"
+          },
+          "opportunity_id": {
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
+          "readiness": {
+            "enum": [
+              "READY",
+              "NEEDS_INPUT",
+              "UNSUPPORTED_CLAIMS",
+              "STALE_EVALUATION",
+              "RENDER_FAILED"
+            ],
+            "title": "Readiness",
+            "type": "string"
+          },
+          "tailored_cv": {
+            "additionalProperties": true,
+            "title": "Tailored Cv",
+            "type": "object"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "opportunity_id",
+          "evaluation_revision",
+          "listing_fingerprint",
+          "readiness",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ApplicationPackageOut",
         "type": "object"
       },
       "ApplicationReviewStats": {
@@ -3635,6 +3799,86 @@
         "title": "CreateSourceNoteIn",
         "type": "object"
       },
+      "CvChangeItemOut": {
+        "properties": {
+          "change_type": {
+            "enum": [
+              "added",
+              "removed",
+              "rewritten",
+              "reordered"
+            ],
+            "title": "Change Type",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "original": {
+            "title": "Original",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change_type",
+          "original",
+          "new",
+          "reason"
+        ],
+        "title": "CvChangeItemOut",
+        "type": "object"
+      },
+      "CvFactVerificationOut": {
+        "properties": {
+          "candidate_fact_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Fact Ref"
+          },
+          "claim": {
+            "title": "Claim",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "verified",
+              "unsupported",
+              "ambiguous"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim",
+          "status"
+        ],
+        "title": "CvFactVerificationOut",
+        "type": "object"
+      },
       "DecisionIn": {
         "description": "Karar gövdesi: revizyon (isteğe bağlı, eskimiş onayı yakalar).",
         "properties": {
@@ -3727,6 +3971,159 @@
           "title"
         ],
         "title": "DeckPatch",
+        "type": "object"
+      },
+      "DeepEvaluationOut": {
+        "properties": {
+          "candidate_context_revision": {
+            "title": "Candidate Context Revision",
+            "type": "string"
+          },
+          "compensation": {
+            "additionalProperties": true,
+            "title": "Compensation",
+            "type": "object"
+          },
+          "confidence": {
+            "default": 1.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "is_stale": {
+            "default": false,
+            "title": "Is Stale",
+            "type": "boolean"
+          },
+          "listing_fingerprint": {
+            "title": "Listing Fingerprint",
+            "type": "string"
+          },
+          "location_fit": {
+            "title": "Location Fit",
+            "type": "string"
+          },
+          "missing_requirements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Requirements",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "must_have": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementAssessmentOut"
+            },
+            "title": "Must Have",
+            "type": "array"
+          },
+          "nice_to_have": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementAssessmentOut"
+            },
+            "title": "Nice To Have",
+            "type": "array"
+          },
+          "opportunity_id": {
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "overall_assessment": {
+            "title": "Overall Assessment",
+            "type": "string"
+          },
+          "partial_matches": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Partial Matches",
+            "type": "array"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "recommended_next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recommended Next Steps",
+            "type": "array"
+          },
+          "risks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risks",
+            "type": "array"
+          },
+          "role_fit": {
+            "title": "Role Fit",
+            "type": "string"
+          },
+          "seniority_fit": {
+            "title": "Seniority Fit",
+            "type": "string"
+          },
+          "sponsorship": {
+            "additionalProperties": true,
+            "title": "Sponsorship",
+            "type": "object"
+          },
+          "stale_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stale Reasons",
+            "type": "array"
+          },
+          "strengths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strengths",
+            "type": "array"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          },
+          "work_authorization": {
+            "additionalProperties": true,
+            "title": "Work Authorization",
+            "type": "object"
+          }
+        },
+        "required": [
+          "opportunity_id",
+          "listing_fingerprint",
+          "candidate_context_revision",
+          "provider",
+          "model",
+          "created_at",
+          "overall_assessment",
+          "role_fit",
+          "seniority_fit",
+          "location_fit"
+        ],
+        "title": "DeepEvaluationOut",
         "type": "object"
       },
       "DocumentUsagesOut": {
@@ -5183,6 +5580,56 @@
         "title": "FunnelVolumeRow",
         "type": "object"
       },
+      "GeneratedDocumentRefOut": {
+        "properties": {
+          "doc_type": {
+            "enum": [
+              "tailored_cv",
+              "cover_letter",
+              "pdf_cv"
+            ],
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "mime": {
+            "default": "text/plain",
+            "title": "Mime",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_type",
+          "title"
+        ],
+        "title": "GeneratedDocumentRefOut",
+        "type": "object"
+      },
       "GeocodeOut": {
         "properties": {
           "admin1": {
@@ -5953,6 +6400,45 @@
           "number"
         ],
         "title": "IssueToTodoIn",
+        "type": "object"
+      },
+      "KnockoutAnswerOut": {
+        "properties": {
+          "confidence": {
+            "default": 1.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "proposed_answer": {
+            "title": "Proposed Answer",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "required": [
+          "question",
+          "proposed_answer",
+          "evidence"
+        ],
+        "title": "KnockoutAnswerOut",
         "type": "object"
       },
       "LifecycleEventIn": {
@@ -12423,6 +12909,55 @@
         "title": "ReplyAnalysisOut",
         "type": "object"
       },
+      "RequirementAssessmentOut": {
+        "properties": {
+          "candidate_evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidate Evidence Refs",
+            "type": "array"
+          },
+          "classification": {
+            "enum": [
+              "strong",
+              "partial",
+              "missing",
+              "unknown",
+              "not_applicable"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
+          "confidence": {
+            "default": 1.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "listing_evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Listing Evidence Refs",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "requirement": {
+            "title": "Requirement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requirement",
+          "classification",
+          "reason"
+        ],
+        "title": "RequirementAssessmentOut",
+        "type": "object"
+      },
       "RequirementDocumentIn": {
         "properties": {
           "document_entity_id": {
@@ -12552,6 +13087,24 @@
           "name"
         ],
         "title": "RequirementOut",
+        "type": "object"
+      },
+      "ResolveAnswerIn": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "answer"
+        ],
+        "title": "ResolveAnswerIn",
         "type": "object"
       },
       "ResourceIn": {
@@ -25534,6 +26087,202 @@
         ]
       }
     },
+    "/api/opportunities/{id}/application-package": {
+      "get": {
+        "description": "Fırsatın hazırlanmış başvuru paketini ve hazırlık durumunu getir (C5).",
+        "operationId": "get_opportunity_application_package_api_opportunities__id__application_package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationPackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Opportunity Application Package",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{id}/application-package/resolve-answer": {
+      "post": {
+        "description": "Kullanıcı girdisi bekleyen başvuru sorusunu yanıtla ve hazır olma durumunu güncelle (C5).",
+        "operationId": "resolve_application_package_answer_api_opportunities__id__application_package_resolve_answer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationPackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Application Package Answer",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{id}/deep-evaluate": {
+      "post": {
+        "description": "Fırsatın aday profili ve kanıtlarıyla derin uyumunu değerlendir (C4).",
+        "operationId": "evaluate_opportunity_deep_api_opportunities__id__deep_evaluate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepEvaluationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evaluate Opportunity Deep",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{id}/deep-evaluation": {
+      "get": {
+        "description": "Fırsatın güncel derin değerlendirmesini ve bayatlık durumunu getir (C4).",
+        "operationId": "get_opportunity_deep_evaluation_api_opportunities__id__deep_evaluation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepEvaluationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Opportunity Deep Evaluation",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/{id}/extract-jd": {
       "post": {
         "description": "Fırsatın iş ilanı metnini çıkar ve açıklama taslaksa kanonik açıklamaya yükselt.",
@@ -25637,6 +26386,50 @@
           }
         },
         "summary": "Check Opportunity Liveness",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{id}/prepare-package": {
+      "post": {
+        "description": "Fırsat için başvuru paketini (uyarlanmış CV, ön yazı, soru yanıtları) hazırla (C5).",
+        "operationId": "prepare_opportunity_application_package_api_opportunities__id__prepare_package_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationPackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Opportunity Application Package",
         "tags": [
           "opportunities"
         ]

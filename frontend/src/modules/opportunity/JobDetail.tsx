@@ -36,6 +36,8 @@ import type { VaultItem } from "@/core/obsidian";
 import { CareerStoryBank } from "./CareerStoryBank";
 import { OpportunityConnectionsSection } from "./OpportunityConnectionsSection";
 import { OpportunityEvaluationSection } from "./OpportunityEvaluationSection";
+import { OpportunityDeepEvaluationSection } from "./OpportunityDeepEvaluationSection";
+import { OpportunityApplicationPackageSection } from "./OpportunityApplicationPackageSection";
 import {
   ApplicationSection,
   FollowUpSection,
@@ -591,6 +593,11 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
         )}
         <OpportunityEvaluationSection id={item.id} evaluation={evaluation} online={online} />
       </Section>
+
+      {/* (d) Derin Uzman Değerlendirmesi (C4). */}
+      <Section title="Kariyer Uzmanı Derin Değerlendirmesi" hint="kanıta dayalı analiz">
+        <OpportunityDeepEvaluationSection opportunityId={item.id} online={online} />
+      </Section>
     </div>
   );
 }
@@ -672,6 +679,10 @@ function JobApplication({ item, online }: { item: Opportunity; online: boolean }
 
       <Section title="Başvuru bilgileri">
         <ApplicationSection id={item.id} online={online} documents={documents} />
+      </Section>
+
+      <Section title="Kariyer Başvuru Paketi" hint="CV uyarlama, ön yazı ve soru yanıtları">
+        <OpportunityApplicationPackageSection opportunityId={item.id} online={online} />
       </Section>
 
       <Section title="Takip">

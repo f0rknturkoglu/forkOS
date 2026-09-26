@@ -164,6 +164,7 @@ class Application(EntityBacked, Base):
     company_research: Mapped[str | None] = mapped_column(Text)
     salary_expectation: Mapped[str | None] = mapped_column(Text)
     posting_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    package: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     note: Mapped[str | None] = mapped_column(Text)
     # Basvuru hatti: preparing|applied|interview|offer|accepted|rejected|withdrawn|closed
     # Tek hakikat kaynagi lifecycle.APPLICATION_FLOW; kesif durumu (opportunity.status)

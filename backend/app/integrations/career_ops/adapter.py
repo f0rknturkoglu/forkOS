@@ -143,11 +143,13 @@ class CareerOpsAdapter:
 
     async def capabilities(self) -> list[CareerOpsCapability]:
         doc = await self.doctor()
+        reasoner_available = (getattr(settings, "career_reasoner_provider", "none") or "none").lower() != "none"
         ctx = CareerOpsCapabilityContext(
             enabled=self.enabled,
             core_ready=doc.core_ready,
             discovery_enabled=settings.career_ops_discovery_enabled,
             browser_ready=doc.browser_ready,
+            reasoner_available=reasoner_available,
         )
         return [
             CareerOpsCapability(
@@ -486,6 +488,13 @@ class CareerOpsAdapter:
             title = payload.get("title") or ""
             text = payload.get("text") or ""
 
+            parsed_url = urlparse(final_url or url)
+            host = (parsed_url.netloc or "").lower()
+            if any(ats in host for ats in ("myworkdayjobs.com", "ashbyhq.com", "greenhouse.io", "lever.co")):
+                method = "ats_api"
+            else:
+                method = "browser"
+
             assessment = assess_extracted_job_identity(
                 requested_url=url,
                 final_url=final_url,
@@ -500,6 +509,7 @@ class CareerOpsAdapter:
                 title=title,
                 text=text,
                 extraction_status="success",
+                method=method,
                 job_identity_status=assessment.identity_status,
                 identity_reason=assessment.reason,
                 warnings=assessment.warnings,

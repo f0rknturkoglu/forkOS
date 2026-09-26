@@ -31,6 +31,7 @@ class CareerOpsCapabilityContext(BaseModel):
     core_ready: bool = True
     discovery_enabled: bool = True
     browser_ready: bool = False
+    reasoner_available: bool = False
 
 
 
@@ -186,6 +187,7 @@ class CareerOpsJobExtractionResult(BaseModel):
     title: str = ""
     text: str = ""
     extraction_status: str = "success"
+    method: str = "upstream_extract"
     job_identity_status: Literal["valid_job", "invalid_non_job", "uncertain_identity"] = "valid_job"
     identity_reason: str = "valid_specific_posting"
     warnings: list[str] = Field(default_factory=list)

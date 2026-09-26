@@ -58,7 +58,12 @@ from app.modules.opportunity.schemas import (
     SalaryConsistencyOut,
     SilentApplicationOut,
     TransitionIn,
+    DeepEvaluationOut,
+    ApplicationPackageOut,
+    ResolveAnswerIn,
 )
+from app.modules.opportunity.evaluation_service import CareerEvaluationService
+from app.modules.opportunity.package_service import ApplicationPackageService
 from app.modules.opportunity.sources_router import router as sources_router
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
@@ -852,6 +857,99 @@ async def extract_opportunity_jd(
     listing_service = service.OpportunityListingService()
     try:
         result = await listing_service.enrich_job_description(session, id, force=force)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+# ═════════════════════════════════════════════════════════════════════
+# C4 / C5 Career Intelligence & Application Production
+# ═════════════════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/opportunities/{id}/deep-evaluate",
+    response_model=DeepEvaluationOut,
+)
+async def evaluate_opportunity_deep(
+    id: UUID,
+    force: bool = Query(False),
+    session: AsyncSession = Depends(get_session),
+):
+    """Fırsatın aday profili ve kanıtlarıyla derin uyumunu değerlendir (C4)."""
+    eval_service = CareerEvaluationService()
+    try:
+        result = await eval_service.evaluate_opportunity(session, id, force=force)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+@router.get(
+    "/opportunities/{id}/deep-evaluation",
+    response_model=DeepEvaluationOut,
+)
+async def get_opportunity_deep_evaluation(
+    id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Fırsatın güncel derin değerlendirmesini ve bayatlık durumunu getir (C4)."""
+    eval_service = CareerEvaluationService()
+    result = await eval_service.get_evaluation(session, id)
+    if result is None:
+        raise HTTPException(404, "Bu fırsat için henüz derin değerlendirme bulunmuyor.")
+    return result
+
+
+@router.post(
+    "/opportunities/{id}/prepare-package",
+    response_model=ApplicationPackageOut,
+)
+async def prepare_opportunity_application_package(
+    id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Fırsat için başvuru paketini (uyarlanmış CV, ön yazı, soru yanıtları) hazırla (C5)."""
+    pkg_service = ApplicationPackageService()
+    try:
+        result = await pkg_service.prepare_application_package(session, id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+@router.get(
+    "/opportunities/{id}/application-package",
+    response_model=ApplicationPackageOut,
+)
+async def get_opportunity_application_package(
+    id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Fırsatın hazırlanmış başvuru paketini ve hazırlık durumunu getir (C5)."""
+    pkg_service = ApplicationPackageService()
+    result = await pkg_service.get_package(session, id)
+    if result is None:
+        raise HTTPException(404, "Bu fırsat için henüz başvuru paketi hazırlanmamış.")
+    return result
+
+
+@router.post(
+    "/opportunities/{id}/application-package/resolve-answer",
+    response_model=ApplicationPackageOut,
+)
+async def resolve_application_package_answer(
+    id: UUID,
+    body: ResolveAnswerIn,
+    session: AsyncSession = Depends(get_session),
+):
+    """Kullanıcı girdisi bekleyen başvuru sorusunu yanıtla ve hazır olma durumunu güncelle (C5)."""
+    pkg_service = ApplicationPackageService()
+    try:
+        result = await pkg_service.resolve_user_answer(session, id, body.question, body.answer)
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
     await session.commit()

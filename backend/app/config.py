@@ -91,6 +91,14 @@ class Settings(BaseSettings):
     career_ops_discovery_limit: int = 200
     career_ops_discovery_max_buffer_bytes: int = 4 * 1024 * 1024
 
+    # Career Reasoner provider abstraction (C4/C5)
+    career_reasoner_provider: Literal["none", "ollama", "openai", "gemini", "openrouter"] = "none"
+    career_reasoner_model: str = ""
+    career_reasoner_base_url: str = ""
+    career_reasoner_api_key: str = ""
+    career_reasoner_timeout_seconds: float = 60.0
+    career_reasoner_temperature: float = 0.1
+
     @property
     def resolved_career_ops_root(self) -> Path:
         if self.career_ops_root and self.career_ops_root.strip():

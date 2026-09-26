@@ -664,3 +664,109 @@ class FollowupOut(BaseModel):
     status: str
     follow_up_at: datetime
     note: str | None = None
+
+
+# ── C4 / C5 Career Intelligence & Application Production ───────────────────
+
+
+class RequirementAssessmentOut(BaseModel):
+    requirement: str
+    classification: Literal["strong", "partial", "missing", "unknown", "not_applicable"]
+    reason: str
+    candidate_evidence_refs: list[str] = Field(default_factory=list)
+    listing_evidence_refs: list[str] = Field(default_factory=list)
+    confidence: float = 1.0
+
+
+class DeepEvaluationOut(BaseModel):
+    opportunity_id: str
+    listing_fingerprint: str
+    candidate_context_revision: str
+    provider: str
+    model: str
+    created_at: str
+    overall_assessment: str
+    confidence: float = 1.0
+    role_fit: str
+    seniority_fit: str
+    location_fit: str
+    must_have: list[RequirementAssessmentOut] = Field(default_factory=list)
+    nice_to_have: list[RequirementAssessmentOut] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    partial_matches: list[str] = Field(default_factory=list)
+    missing_requirements: list[str] = Field(default_factory=list)
+    work_authorization: dict[str, Any] = Field(default_factory=dict)
+    sponsorship: dict[str, Any] = Field(default_factory=dict)
+    compensation: dict[str, Any] = Field(default_factory=dict)
+    risks: list[str] = Field(default_factory=list)
+    unknowns: list[str] = Field(default_factory=list)
+    recommended_next_steps: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    is_stale: bool = False
+    stale_reasons: list[str] = Field(default_factory=list)
+
+
+class CvChangeItemOut(BaseModel):
+    change_type: Literal["added", "removed", "rewritten", "reordered"]
+    original: str
+    new: str
+    reason: str
+    evidence_refs: list[str] = Field(default_factory=list)
+
+
+class CvFactVerificationOut(BaseModel):
+    claim: str
+    status: Literal["verified", "unsupported", "ambiguous"]
+    candidate_fact_ref: str | None = None
+    note: str = ""
+
+
+class ApplicationAnswerOut(BaseModel):
+    question: str
+    proposed_answer: str
+    classification: Literal["safe_verified", "needs_user_input", "sensitive_user_decision"]
+    evidence_refs: list[str] = Field(default_factory=list)
+    confidence: float = 1.0
+    warning: str | None = None
+
+
+class KnockoutAnswerOut(BaseModel):
+    question: str
+    proposed_answer: str
+    evidence: str
+    confidence: float = 1.0
+    warning: str | None = None
+
+
+class GeneratedDocumentRefOut(BaseModel):
+    document_id: str | None = None
+    doc_type: Literal["tailored_cv", "cover_letter", "pdf_cv"]
+    title: str
+    file_path: str | None = None
+    mime: str = "text/plain"
+
+
+class ApplicationPackageOut(BaseModel):
+    opportunity_id: str
+    evaluation_revision: str
+    listing_fingerprint: str
+    base_cv_document_id: str | None = None
+    tailored_cv: dict[str, Any] = Field(default_factory=dict)
+    cv_change_audit: list[CvChangeItemOut] = Field(default_factory=list)
+    fact_verification: list[CvFactVerificationOut] = Field(default_factory=list)
+    cover_letter: str = ""
+    application_answers: list[ApplicationAnswerOut] = Field(default_factory=list)
+    knockout_answers: list[KnockoutAnswerOut] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    generated_documents: list[GeneratedDocumentRefOut] = Field(default_factory=list)
+    readiness: Literal[
+        "READY", "NEEDS_INPUT", "UNSUPPORTED_CLAIMS", "STALE_EVALUATION", "RENDER_FAILED"
+    ]
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    created_at: str
+    updated_at: str
+
+
+class ResolveAnswerIn(BaseModel):
+    question: str
+    answer: str

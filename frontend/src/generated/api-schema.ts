@@ -2645,6 +2645,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/{id}/application-package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Opportunity Application Package
+         * @description Fırsatın hazırlanmış başvuru paketini ve hazırlık durumunu getir (C5).
+         */
+        get: operations["get_opportunity_application_package_api_opportunities__id__application_package_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{id}/application-package/resolve-answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Application Package Answer
+         * @description Kullanıcı girdisi bekleyen başvuru sorusunu yanıtla ve hazır olma durumunu güncelle (C5).
+         */
+        post: operations["resolve_application_package_answer_api_opportunities__id__application_package_resolve_answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{id}/deep-evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evaluate Opportunity Deep
+         * @description Fırsatın aday profili ve kanıtlarıyla derin uyumunu değerlendir (C4).
+         */
+        post: operations["evaluate_opportunity_deep_api_opportunities__id__deep_evaluate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{id}/deep-evaluation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Opportunity Deep Evaluation
+         * @description Fırsatın güncel derin değerlendirmesini ve bayatlık durumunu getir (C4).
+         */
+        get: operations["get_opportunity_deep_evaluation_api_opportunities__id__deep_evaluation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{id}/extract-jd": {
         parameters: {
             query?: never;
@@ -2679,6 +2759,26 @@ export interface paths {
          * @description Fırsatın kaynak linklerinin canlılığını doğrula ve durumunu güncelle.
          */
         post: operations["check_opportunity_liveness_api_opportunities__id__liveness_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{id}/prepare-package": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare Opportunity Application Package
+         * @description Fırsat için başvuru paketini (uyarlanmış CV, ön yazı, soru yanıtları) hazırla (C5).
+         */
+        post: operations["prepare_opportunity_application_package_api_opportunities__id__prepare_package_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5123,6 +5223,27 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ApplicationAnswerOut */
+        ApplicationAnswerOut: {
+            /**
+             * Classification
+             * @enum {string}
+             */
+            classification: "safe_verified" | "needs_user_input" | "sensitive_user_decision";
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /** Evidence Refs */
+            evidence_refs?: string[];
+            /** Proposed Answer */
+            proposed_answer: string;
+            /** Question */
+            question: string;
+            /** Warning */
+            warning?: string | null;
+        };
         /** ApplicationIn */
         ApplicationIn: {
             /** Company Research */
@@ -5189,6 +5310,51 @@ export interface components {
             status_changed_at?: string | null;
             /** Updated At */
             updated_at?: string | null;
+        };
+        /** ApplicationPackageOut */
+        ApplicationPackageOut: {
+            /** Application Answers */
+            application_answers?: components["schemas"]["ApplicationAnswerOut"][];
+            /** Base Cv Document Id */
+            base_cv_document_id?: string | null;
+            /**
+             * Cover Letter
+             * @default
+             */
+            cover_letter: string;
+            /** Created At */
+            created_at: string;
+            /** Cv Change Audit */
+            cv_change_audit?: components["schemas"]["CvChangeItemOut"][];
+            /** Evaluation Revision */
+            evaluation_revision: string;
+            /** Fact Verification */
+            fact_verification?: components["schemas"]["CvFactVerificationOut"][];
+            /** Generated Documents */
+            generated_documents?: components["schemas"]["GeneratedDocumentRefOut"][];
+            /** Knockout Answers */
+            knockout_answers?: components["schemas"]["KnockoutAnswerOut"][];
+            /** Listing Fingerprint */
+            listing_fingerprint: string;
+            /** Opportunity Id */
+            opportunity_id: string;
+            /** Provenance */
+            provenance?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Readiness
+             * @enum {string}
+             */
+            readiness: "READY" | "NEEDS_INPUT" | "UNSUPPORTED_CLAIMS" | "STALE_EVALUATION" | "RENDER_FAILED";
+            /** Tailored Cv */
+            tailored_cv?: {
+                [key: string]: unknown;
+            };
+            /** Updated At */
+            updated_at: string;
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * ApplicationReviewStats
@@ -6244,6 +6410,39 @@ export interface components {
             /** Additional Text */
             additional_text?: string | null;
         };
+        /** CvChangeItemOut */
+        CvChangeItemOut: {
+            /**
+             * Change Type
+             * @enum {string}
+             */
+            change_type: "added" | "removed" | "rewritten" | "reordered";
+            /** Evidence Refs */
+            evidence_refs?: string[];
+            /** New */
+            new: string;
+            /** Original */
+            original: string;
+            /** Reason */
+            reason: string;
+        };
+        /** CvFactVerificationOut */
+        CvFactVerificationOut: {
+            /** Candidate Fact Ref */
+            candidate_fact_ref?: string | null;
+            /** Claim */
+            claim: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "verified" | "unsupported" | "ambiguous";
+        };
         /**
          * DecisionIn
          * @description Karar gövdesi: revizyon (isteğe bağlı, eskimiş onayı yakalar).
@@ -6287,6 +6486,71 @@ export interface components {
         DeckPatch: {
             /** Title */
             title: string;
+        };
+        /** DeepEvaluationOut */
+        DeepEvaluationOut: {
+            /** Candidate Context Revision */
+            candidate_context_revision: string;
+            /** Compensation */
+            compensation?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /** Created At */
+            created_at: string;
+            /** Evidence */
+            evidence?: string[];
+            /**
+             * Is Stale
+             * @default false
+             */
+            is_stale: boolean;
+            /** Listing Fingerprint */
+            listing_fingerprint: string;
+            /** Location Fit */
+            location_fit: string;
+            /** Missing Requirements */
+            missing_requirements?: string[];
+            /** Model */
+            model: string;
+            /** Must Have */
+            must_have?: components["schemas"]["RequirementAssessmentOut"][];
+            /** Nice To Have */
+            nice_to_have?: components["schemas"]["RequirementAssessmentOut"][];
+            /** Opportunity Id */
+            opportunity_id: string;
+            /** Overall Assessment */
+            overall_assessment: string;
+            /** Partial Matches */
+            partial_matches?: string[];
+            /** Provider */
+            provider: string;
+            /** Recommended Next Steps */
+            recommended_next_steps?: string[];
+            /** Risks */
+            risks?: string[];
+            /** Role Fit */
+            role_fit: string;
+            /** Seniority Fit */
+            seniority_fit: string;
+            /** Sponsorship */
+            sponsorship?: {
+                [key: string]: unknown;
+            };
+            /** Stale Reasons */
+            stale_reasons?: string[];
+            /** Strengths */
+            strengths?: string[];
+            /** Unknowns */
+            unknowns?: string[];
+            /** Work Authorization */
+            work_authorization?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * DocumentUsagesOut
@@ -6839,6 +7103,25 @@ export interface components {
             /** Period */
             period: string;
         };
+        /** GeneratedDocumentRefOut */
+        GeneratedDocumentRefOut: {
+            /**
+             * Doc Type
+             * @enum {string}
+             */
+            doc_type: "tailored_cv" | "cover_letter" | "pdf_cv";
+            /** Document Id */
+            document_id?: string | null;
+            /** File Path */
+            file_path?: string | null;
+            /**
+             * Mime
+             * @default text/plain
+             */
+            mime: string;
+            /** Title */
+            title: string;
+        };
         /** GeocodeOut */
         GeocodeOut: {
             /** Admin1 */
@@ -7133,6 +7416,22 @@ export interface components {
         IssueToTodoIn: {
             /** Number */
             number: number;
+        };
+        /** KnockoutAnswerOut */
+        KnockoutAnswerOut: {
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /** Evidence */
+            evidence: string;
+            /** Proposed Answer */
+            proposed_answer: string;
+            /** Question */
+            question: string;
+            /** Warning */
+            warning?: string | null;
         };
         /** LifecycleEventIn */
         LifecycleEventIn: {
@@ -9214,6 +9513,27 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** RequirementAssessmentOut */
+        RequirementAssessmentOut: {
+            /** Candidate Evidence Refs */
+            candidate_evidence_refs?: string[];
+            /**
+             * Classification
+             * @enum {string}
+             */
+            classification: "strong" | "partial" | "missing" | "unknown" | "not_applicable";
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /** Listing Evidence Refs */
+            listing_evidence_refs?: string[];
+            /** Reason */
+            reason: string;
+            /** Requirement */
+            requirement: string;
+        };
         /** RequirementDocumentIn */
         RequirementDocumentIn: {
             /** Document Entity Id */
@@ -9271,6 +9591,13 @@ export interface components {
              * @enum {string}
              */
             status: "missing" | "ready" | "submitted" | "waived";
+        };
+        /** ResolveAnswerIn */
+        ResolveAnswerIn: {
+            /** Answer */
+            answer: string;
+            /** Question */
+            question: string;
         };
         /** ResourceIn */
         ResourceIn: {
@@ -16441,6 +16768,136 @@ export interface operations {
             };
         };
     };
+    get_opportunity_application_package_api_opportunities__id__application_package_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationPackageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_application_package_answer_api_opportunities__id__application_package_resolve_answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationPackageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evaluate_opportunity_deep_api_opportunities__id__deep_evaluate_post: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeepEvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_opportunity_deep_evaluation_api_opportunities__id__deep_evaluation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeepEvaluationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     extract_opportunity_jd_api_opportunities__id__extract_jd_post: {
         parameters: {
             query?: {
@@ -16494,6 +16951,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpportunityLivenessResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_opportunity_application_package_api_opportunities__id__prepare_package_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationPackageOut"];
                 };
             };
             /** @description Validation Error */

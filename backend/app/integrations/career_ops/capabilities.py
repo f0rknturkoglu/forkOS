@@ -208,6 +208,29 @@ def get_capability_status(
             return CapabilityStatus.SUPPORTED
         # Truthful degraded status: ATS API tier works without browser, generic browser fallback unavailable
         return CapabilityStatus.DEGRADED
+
+    # C4 / C5: Career Intelligence & Application Production capabilities
+    C4_C5_REASONER_CAPABILITIES = (
+        "evaluation.deep",
+        "evaluation.requirements",
+        "evaluation.compensation",
+        "evaluation.work_authorization",
+        "cv.tailor",
+        "cv.verify_facts",
+        "application.cover",
+        "application.answers",
+        "application.package",
+    )
+    if capability_id in C4_C5_REASONER_CAPABILITIES:
+        if getattr(context, "reasoner_available", False):
+            return CapabilityStatus.SUPPORTED
+        return CapabilityStatus.DEGRADED
+
+    if capability_id == "cv.render_pdf":
+        if context.browser_ready and getattr(context, "reasoner_available", False):
+            return CapabilityStatus.SUPPORTED
+        return CapabilityStatus.DEGRADED
+
     return CapabilityStatus.UNAVAILABLE
 
 

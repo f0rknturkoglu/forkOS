@@ -390,3 +390,46 @@ C3.2 fazı, C4 Derin Değerlendirme (Deep Evaluation) başlamadan önce kanıt k
 
 ### 15.4 C4 Hazırlık Güvencesi
 C3.2 ile tamamlanan bu mühür sayesinde, kanıt katmanının ürettiği iş tanımları, canlılık durumları ve kaynak kanıt zinciri tamamen deterministik, yanıltıcı yönlendirmelere karşı korumalı ve matematiksel olarak doğrulanabilir hale getirilmiştir. Bu durum, C4 aşamasında çalışacak Career Specialist ve Deep Evaluation ajanlarının kirli veya jenerik veriler üzerinde gereksiz veya hatalı muhakeme yapmasını kesin olarak önler.
+
+---
+
+## 16. C4–C5 Master: Kariyer Zekâsı & Başvuru Paketi Üretimi (Career Intelligence & Application Production)
+
+C4–C5 fazı, forkOS × career-ops mimarisinin karar ve başvuru üretim omurgasını hayata geçirir. İlan kanıtı (C3/C3.2) ile kanıtlanmış aday bağlamını bir araya getirerek sıfır-halüsinasyon disipliniyle derin uyum değerlendirmesi ve kişiselleştirilmiş başvuru paketi üretir.
+
+### 16.1 Aday ve İlan Bağlam Modelleri
+
+1. **`CandidateCareerContext` & Kanıtlanmış Aday Olguları (`CandidateFact`)**:
+   - Sistemdeki her aday olgusu (beceriler, roller, STAR+R hikâyeleri, master CV) bir `source_type`, `source_id`, `confidence` ve `verified` alanına sahiptir.
+   - Kanıtlanmamış deneyim yılı, unvan, metrik veya araç tahmini yapılmaz.
+   - Tüm doğrulanmış olguların sıralı JSON temsilinden deterministik SHA-256 `candidate_context_revision` hash'i hesaplanır. Aday profili değiştiğinde bu revizyon anında güncellenir.
+
+2. **`CareerListingContext`**:
+   - Yalnızca C3/C3.2 tarafından filtrelenmiş ve onaylanmış kanonik verileri tüketir.
+   - `invalid_non_job` veya `uncertain_identity` olan çıkarımlar reddedilir ve Specialist bağlamına giremez.
+   - İlanın `listing_fingerprint`, `jd_hash`, canlılık durumu ve `listing_health` metrikleri bağlama eklenir.
+
+### 16.2 Sınırlandırılmış Muhakeme Sağlayıcısı (`CareerReasoner`)
+
+- Çoklu sağlayıcı soyutlaması: `none` (güvenli devre dışı), `mock` (deterministik test motoru), `ollama` (yerel 127.0.0.1 model), `openai`, `gemini`, `openrouter` (bulut modelleri).
+- İstekler katı sistem yönergeleri ile korunur:
+  - Bilinmeyen/desteklenmeyen aday bilgilerini uydurma yasaktır.
+  - İlan metninden gelen prompt injection / sistem talimatı taklitleri yok sayılır.
+  - Yanıtlar kesin tiplenmiş Pydantic şemalarına zorlanır; format bozulmaları güvenli hata fırlatır (`CareerReasonerMalformedOutputError`).
+
+### 16.3 C4: Derin Uzman Değerlendirmesi (`DeepEvaluation`)
+
+- **Gereksinim Düzeyinde Kanıt Eşleme**: İlandaki her gereksinim `strong`, `partial`, `missing` veya `unknown` olarak sınıflandırılır. Güçlü ve kısmi eşleşmeler adayın doğrulanmış kanıt anahtarlarına (`candidate_evidence_refs`) ve ilan alıntılarına (`listing_evidence_refs`) bağlanmak zorundadır.
+- **Puan ve Skor İzolasyonu**: İlanın kurallara dayalı ilk tarama puanı (`Opportunity.score`) LLM değerlendirmesi tarafından **asla ezilmez**. İlan sağlığı (listing health) ile aday uyumu (candidate fit) ayrı tutulur.
+- **Kalıcılık**: Değerlendirme `Opportunity.evaluation` ve `Opportunity.evaluated_at` alanlarına yazılır; `opportunity.evaluated` olayı günlüğe kaydedilir.
+- **Dinamik Eskime (Staleness Detection)**: `get_evaluation()` çağrıldığında mevcut `listing_fingerprint` veya `candidate_context_revision` değerlendirmedeki revizyonla eşleşmiyorsa değerlendirme anında `is_stale = True` olarak işaretlenir.
+
+### 16.4 C5: Başvuru Paketi Üretimi (`ApplicationPackage`)
+
+- **Master CV Dokunulmazlığı**: Adayın ana CV belgesi (`Document`) asla değiştirilmez; uyarlama sanal bir görünüm ve HTML/metin temsili olarak oluşturulur.
+- **Doğrulanabilirlik Kapısı (`fact_verification`)**: Özelleştirilmiş CV'deki iddialar aday olgularıyla çapraz denetlenir. Doğrulanamayan herhangi bir iddia tespit edilirse hazırlık durumu anında `UNSUPPORTED_CLAIMS` durumuna çekilir ve paketin hazır (`READY`) sayılması engellenir.
+- **CV Değişiklik Denetimi (`cv_change_audit`)**: Yapılan her değişiklik (`change_type`, `original`, `new`, `reason`, `evidence_refs`) kayıt altına alınır.
+- **Ön Yazı (Cover Letter)**: Doğrudan adayın STAR+R hikâyelerinden (`CareerStory`) beslenir; jenerik şablonlar yerine yaşanmış somut başarılara atıfta bulunur.
+- **Başvuru Tarama Soruları**: Sorular `safe_verified` (profildeki doğrulanmış veriyle yanıtlanan) ve `needs_user_input` (maaş beklentisi, başlama tarihi vb.) olarak ikiye ayrılır. Eksik veri durumunda paket `NEEDS_INPUT` durumunda kalır; kullanıcı arayüzden veya API'den `resolve-answer` ile yanıt verdiğinde paket `READY` aşamasına geçer.
+- **Kanonik Kalıcılık**: Paket `Application.package` (JSONB) alanında saklanır. `Application` kaydı `status = "preparing"` durumunda oluşturulur veya güncellenir.
+- **Kesin İnsan Onay Sınırı**: Hiçbir harici otomatik gönderme, e-posta atma veya portala başvurma işlemi yapılmaz. Sistem her zaman insan denetimine açık bir taslak aşamasında bekler.
