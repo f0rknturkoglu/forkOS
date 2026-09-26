@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
@@ -133,3 +133,45 @@ class CareerOpsScanReceipt(BaseModel):
     retiredBoardsSkipped: StrictInt | None = None
     cappedBoards: StrictInt | None = None
     offers: list[Any] = Field(default_factory=list)
+
+
+class CareerOpsLivenessReceipt(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    url: str
+    status: Literal["active", "expired", "uncertain"]
+    code: str
+    reason: str
+    method: Literal["api", "browser", "bridge"]
+    checked_at: str
+
+
+class CareerOpsJobExtractionResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    url: str
+    title: str = ""
+    text: str = ""
+    error: str | None = None
+    code: str | None = None
+
+
+class CareerOpsRepostAppearance(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    url: str
+    date: str
+    title: str
+
+
+class CareerOpsRepostCluster(BaseModel):
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    company: str
+    role: str
+    repost_count: int = Field(alias="repostCount")
+    first_seen: str = Field(alias="firstSeen")
+    last_seen: str = Field(alias="lastSeen")
+    days_span: int = Field(alias="daysSpan")
+    appearances: list[CareerOpsRepostAppearance] = Field(default_factory=list)
+

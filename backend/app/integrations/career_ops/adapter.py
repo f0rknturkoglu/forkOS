@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from app.integrations.career_ops.errors import (
     CareerOpsExecutionError,
     CareerOpsInvalidOutputError,
     CareerOpsSecurityError,
+    CareerOpsTimeoutError,
     CareerOpsUnavailableError,
 )
 from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
@@ -22,7 +24,10 @@ from app.integrations.career_ops.models import (
     CareerOpsDiscoveredJob,
     CareerOpsDiscoveryResult,
     CareerOpsDoctorResult,
+    CareerOpsJobExtractionResult,
+    CareerOpsLivenessReceipt,
     CareerOpsOfferReceipt,
+    CareerOpsRepostCluster,
     CareerOpsScanReceipt,
     CareerOpsStatusEnum,
 )
@@ -299,3 +304,174 @@ class CareerOpsAdapter:
             partial_detail="; ".join(partial_reasons) if is_partial else "",
             offers=offers,
         )
+
+    async def check_liveness(
+        self,
+        url: str,
+        timeout_ms: int = 15_000,
+        no_fallback: bool = False,
+    ) -> CareerOpsLivenessReceipt:
+        """Verify URL liveness via zero-token ATS API first, then Playwright fallback."""
+        if not self.enabled:
+            raise CareerOpsUnavailableError("career-ops capability engine is disabled")
+
+        if not _is_safe_http_url(url):
+            return CareerOpsLivenessReceipt(
+                url=url,
+                status="uncertain",
+                code="invalid_url",
+                reason="URL scheme must be http or https",
+                method="bridge",
+                checked_at=datetime.now(UTC).isoformat(),
+            )
+
+        args = [url, f"--timeout={timeout_ms}"]
+        if no_fallback:
+            args.append("--no-fallback")
+
+        timeout_sec = (timeout_ms / 1000.0) + 5.0
+        try:
+            exec_res = await self.runner.run_script(
+                "bridges/liveness.mjs",
+                args,
+                timeout_seconds=timeout_sec,
+            )
+        except CareerOpsTimeoutError:
+            return CareerOpsLivenessReceipt(
+                url=url,
+                status="uncertain",
+                code="timeout",
+                reason="Liveness check timed out",
+                method="bridge",
+                checked_at=datetime.now(UTC).isoformat(),
+            )
+        except Exception as exc:
+            return CareerOpsLivenessReceipt(
+                url=url,
+                status="uncertain",
+                code="execution_error",
+                reason=str(exc),
+                method="bridge",
+                checked_at=datetime.now(UTC).isoformat(),
+            )
+
+        try:
+            payload = json.loads(exec_res.stdout)
+            return CareerOpsLivenessReceipt.model_validate(payload)
+        except Exception as exc:
+            raise CareerOpsInvalidOutputError(
+                f"Failed to parse JSON receipt from liveness bridge: {exc}"
+            ) from exc
+
+    async def extract_job(
+        self,
+        url: str,
+        max_chars: int = 12_000,
+        timeout_ms: int = 15_000,
+    ) -> CareerOpsJobExtractionResult:
+        """Extract job description text headlessly via browser-extract.mjs."""
+        if not self.enabled:
+            raise CareerOpsUnavailableError("career-ops capability engine is disabled")
+
+        if not _is_safe_http_url(url):
+            return CareerOpsJobExtractionResult(
+                url=url,
+                error="Invalid URL scheme (must be http or https)",
+                code="invalid_url",
+            )
+
+        args = [url, "--mode", "jd", "--max-chars", str(max_chars), "--timeout", str(timeout_ms)]
+        timeout_sec = (timeout_ms / 1000.0) + 5.0
+
+        try:
+            exec_res = await self.runner.run_script(
+                "browser-extract.mjs",
+                args,
+                timeout_seconds=timeout_sec,
+            )
+        except CareerOpsTimeoutError:
+            return CareerOpsJobExtractionResult(
+                url=url,
+                error="JD extraction timed out",
+                code="timeout",
+            )
+        except Exception as exc:
+            return CareerOpsJobExtractionResult(
+                url=url,
+                error=str(exc),
+                code="execution_error",
+            )
+
+        if exec_res.exit_code != 0:
+            err_msg = exec_res.stderr.strip() or exec_res.stdout.strip()
+            err_code = "extraction_error"
+            try:
+                parsed_err = json.loads(err_msg)
+                if isinstance(parsed_err, dict):
+                    err_msg = parsed_err.get("error", err_msg)
+                    err_code = parsed_err.get("code", err_code)
+            except Exception:
+                pass
+            return CareerOpsJobExtractionResult(
+                url=url,
+                error=err_msg,
+                code=err_code,
+            )
+
+        try:
+            payload = json.loads(exec_res.stdout)
+            return CareerOpsJobExtractionResult.model_validate(payload)
+        except Exception as exc:
+            raise CareerOpsInvalidOutputError(
+                f"Failed to parse JSON from browser-extract.mjs: {exc}"
+            ) from exc
+
+    async def detect_reposts(
+        self,
+        rows: list[dict[str, Any]],
+        window_days: int = 90,
+        min_span_days: int = 1,
+    ) -> list[CareerOpsRepostCluster]:
+        """Detect repost clusters from ephemeral scan history projection."""
+        if not self.enabled:
+            raise CareerOpsUnavailableError("career-ops capability engine is disabled")
+
+        tsv_dir = self.runtime_dir / "data"
+        tsv_dir.mkdir(parents=True, exist_ok=True)
+        tsv_path = tsv_dir / "scan-history.tsv"
+
+        lines = ["url\tfirst_seen\tportal\ttitle\tcompany\tstatus\tlocation"]
+        for r in rows:
+            u = str(r.get("url") or "").replace("\t", " ").strip()
+            d = str(r.get("first_seen") or r.get("date") or "").replace("\t", " ").strip()
+            p = str(r.get("portal") or "forkos").replace("\t", " ").strip()
+            t = str(r.get("title") or "").replace("\t", " ").strip()
+            c = str(r.get("company") or r.get("organization") or "").replace("\t", " ").strip()
+            s = str(r.get("status") or "added").replace("\t", " ").strip()
+            loc = str(r.get("location") or "").replace("\t", " ").strip()
+            if u and d and t and c:
+                lines.append(f"{u}\t{d}\t{p}\t{t}\t{c}\t{s}\t{loc}")
+
+        tsv_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        try:
+            exec_res = await self.runner.run_script(
+                "detect-reposts.mjs",
+                ["--window", str(window_days), "--min-span", str(min_span_days)],
+                timeout_seconds=30.0,
+            )
+            if exec_res.exit_code != 0:
+                raise CareerOpsExecutionError(
+                    f"detect-reposts.mjs failed with exit code {exec_res.exit_code}: {exec_res.stderr}"
+                )
+
+            payload = json.loads(exec_res.stdout)
+            clusters_raw = payload.get("clusters") or []
+            return [CareerOpsRepostCluster.model_validate(c) for c in clusters_raw]
+        finally:
+            if tsv_path.exists():
+                try:
+                    tsv_path.unlink()
+                except OSError:
+                    pass
+

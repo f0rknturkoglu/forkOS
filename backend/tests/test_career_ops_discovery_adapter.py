@@ -42,23 +42,6 @@ class MockRunner:
         )
 
 
-@pytest.fixture
-def mock_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    checkout = tmp_path / "checkout"
-    checkout.mkdir(parents=True, exist_ok=True)
-    (checkout / "package.json").write_text(
-        json.dumps({"name": "career-ops", "version": CAREER_OPS_PINNED_VERSION}),
-        encoding="utf-8",
-    )
-    (checkout / ".git").mkdir(parents=True, exist_ok=True)
-    (checkout / "scan-ats-full.mjs").write_text("// test", encoding="utf-8")
-    monkeypatch.setattr(
-        subprocess,
-        "check_output",
-        lambda cmd, **kwargs: CAREER_OPS_PINNED_COMMIT if "rev-parse" in cmd else "v22.5.0",
-    )
-    return checkout
-
 
 SAMPLE_VALID_REVERSE_JSON = """{
   "date": "2026-09-25",

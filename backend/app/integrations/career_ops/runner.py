@@ -21,6 +21,9 @@ from app.integrations.career_ops.errors import (
 ALLOWLISTED_SCRIPTS: frozenset[str] = frozenset({
     "doctor.mjs",
     "scan-ats-full.mjs",
+    "browser-extract.mjs",
+    "detect-reposts.mjs",
+    "bridges/liveness.mjs",
 })
 
 
@@ -96,6 +99,7 @@ class SubprocessCareerOpsRunner:
         # Inject isolated workspace overrides
         clean_env["CAREER_OPS_ROOT"] = str(self.runtime_dir)
         clean_env["CAREER_OPS_DATA_DIR"] = str(self.runtime_dir)
+        clean_env["CAREER_OPS_CHECKOUT"] = str(self.checkout_dir)
         clean_env["CAREER_OPS_TRACKER"] = str(self.runtime_dir / "ephemeral-tracker.md")
         clean_env["CAREER_OPS_PORTALS"] = str(self.runtime_dir / "portals.yml")
         clean_env["NODE_ENV"] = "production"
@@ -114,7 +118,11 @@ class SubprocessCareerOpsRunner:
         if script_name not in ALLOWLISTED_SCRIPTS:
             raise CareerOpsSecurityError(f"Script '{script_name}' is not in allowlisted operations.")
 
-        target_script = self.checkout_dir / script_name
+        if script_name.startswith("bridges/"):
+            target_script = (Path(__file__).resolve().parent / script_name).resolve()
+        else:
+            target_script = (self.checkout_dir / script_name).resolve()
+
         if not target_script.exists():
             raise CareerOpsUnavailableError(f"Script file '{target_script}' does not exist.")
 

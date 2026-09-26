@@ -1,3 +1,7 @@
+import json
+from pathlib import Path
+import subprocess
+
 import pytest
 from sqlalchemy import text
 
@@ -5,6 +9,10 @@ import app.modules  # noqa: F401 -- metadata bütün modüllerle dolsun
 from app.config import settings
 from app.core.test_guard import assert_safe_test_database
 from app.db import Base, engine
+from app.integrations.career_ops.config import (
+    CAREER_OPS_PINNED_COMMIT,
+    CAREER_OPS_PINNED_VERSION,
+)
 
 # pytest hiçbir koşulda kişisel `lifeos` veritabanına bağlanmamalı. Bu kontrol
 # fixture'lardan önce çalışır; dolayısıyla yanlış URL tek sorgu bile atamaz.
@@ -70,3 +78,21 @@ def isolated_data_dirs(tmp_path_factory, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(forkjob_port, "CONFIG_PATH", root / "config.yaml")
     monkeypatch.setattr(forkjob_port, "LEGACY_CONFIG_PATH", root / "legacy-config.yaml")
     return root
+
+
+@pytest.fixture
+def mock_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir(parents=True, exist_ok=True)
+    (checkout / "package.json").write_text(
+        json.dumps({"name": "career-ops", "version": CAREER_OPS_PINNED_VERSION}),
+        encoding="utf-8",
+    )
+    (checkout / ".git").mkdir(parents=True, exist_ok=True)
+    (checkout / "scan-ats-full.mjs").write_text("// test", encoding="utf-8")
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda cmd, **kwargs: CAREER_OPS_PINNED_COMMIT if "rev-parse" in cmd else "v22.5.0",
+    )
+    return checkout
