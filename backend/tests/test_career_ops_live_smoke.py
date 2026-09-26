@@ -27,3 +27,40 @@ async def test_live_pinned_career_ops_runtime():
     assert result.runtime.node_compatible is True
     assert result.upstream_onboarding is not None
     assert isinstance(result.upstream_onboarding.onboarding_needed, bool)
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_live_liveness_and_extraction_smoke():
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    vendor_dir = repo_root / ".vendor" / "career-ops"
+
+    if not vendor_dir.exists():
+        pytest.skip(".vendor/career-ops not provisioned; run 'make career-ops-setup'")
+
+    adapter = CareerOpsAdapter(
+        enabled=True,
+        checkout_dir=vendor_dir,
+    )
+
+    # 1. ATS API liveness smoke
+    url_ats = "https://boards.greenhouse.io/gitlab/jobs/4279007005"
+    receipt_ats = await adapter.check_liveness(url_ats)
+    assert receipt_ats.url == url_ats
+    assert receipt_ats.method == "api"
+    assert receipt_ats.status in ("active", "expired", "uncertain")
+    assert receipt_ats.checked_at != ""
+
+    # 2. Browser fallback liveness smoke
+    url_fallback = "https://example.com"
+    receipt_fallback = await adapter.check_liveness(url_fallback)
+    assert receipt_fallback.url == url_fallback
+    assert receipt_fallback.method == "browser"
+    assert receipt_fallback.status in ("active", "expired", "uncertain")
+    assert receipt_fallback.checked_at != ""
+
+    # 3. Real JD extraction smoke
+    extract_res = await adapter.extract_job(url_ats)
+    assert extract_res.url.startswith("http")
+    assert extract_res.title != ""
+    assert len(extract_res.text) > 200

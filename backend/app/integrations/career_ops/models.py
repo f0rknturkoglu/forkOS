@@ -19,9 +19,18 @@ class CareerOpsStatusEnum(str, Enum):
 
 class CapabilityStatus(str, Enum):
     SUPPORTED = "supported"
+    DEGRADED = "degraded"
     UNAVAILABLE = "unavailable"
     DISABLED = "disabled"
     UNKNOWN = "unknown"
+
+
+class CareerOpsCapabilityContext(BaseModel):
+    enabled: bool = True
+    core_ready: bool = True
+    discovery_enabled: bool = True
+    browser_ready: bool = False
+
 
 
 class CareerOpsIdentity(BaseModel):

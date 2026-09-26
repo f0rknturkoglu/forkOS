@@ -90,6 +90,12 @@ def mock_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     (checkout / ".git").mkdir(parents=True, exist_ok=True)
     (checkout / "scan-ats-full.mjs").write_text("// test", encoding="utf-8")
+    (checkout / "doctor.mjs").write_text("// test", encoding="utf-8")
+    (checkout / "path-resolver.mjs").write_text("// test", encoding="utf-8")
+    (checkout / "liveness-api.mjs").write_text("// test", encoding="utf-8")
+    (checkout / "liveness-browser.mjs").write_text("// test", encoding="utf-8")
+    (checkout / "browser-extract.mjs").write_text("// test", encoding="utf-8")
+    (checkout / "detect-reposts.mjs").write_text("// test", encoding="utf-8")
     monkeypatch.setattr(
         subprocess,
         "check_output",

@@ -6152,7 +6152,8 @@
               "live",
               "unchecked",
               "at_risk",
-              "expired"
+              "expired",
+              "uncertain"
             ],
             "title": "Liveness Status",
             "type": "string"

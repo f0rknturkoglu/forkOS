@@ -59,3 +59,63 @@ async def test_adapter_detect_reposts_projects_ephemeral_tsv_and_cleans_up(mock_
 
     # Invariant: scan-history.tsv is ephemeral and deleted after execution
     assert not (adapter.runtime_dir / "data" / "scan-history.tsv").exists()
+    assert not (adapter.runtime_dir / "repost_scratch").exists()
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_concurrent_repost_analyses_do_not_contaminate_each_other(mock_checkout: Path, tmp_path: Path):
+    """Verify concurrent repost analyses use isolated directories and do not collide (Finding 38 & 54)."""
+    import asyncio
+
+    class ConcurrentMockRunner:
+        async def run_script(self, script_name: str, args: list[str], **kwargs) -> ExecutionResult:
+            root_dir = kwargs.get("extra_env", {}).get("CAREER_OPS_ROOT")
+            assert root_dir is not None
+            tsv_path = Path(root_dir) / "data" / "scan-history.tsv"
+            assert tsv_path.exists(), f"TSV must exist during execution in {tsv_path}"
+            content = tsv_path.read_text(encoding="utf-8")
+
+            # Emulate real script reading its isolated input
+            company = "AlphaCorp" if "AlphaCorp" in content else "BetaCorp"
+            payload = {
+                "clusters": [
+                    {
+                        "company": company,
+                        "role": "Engineer",
+                        "repostCount": 2,
+                        "firstSeen": "2026-08-01",
+                        "lastSeen": "2026-09-15",
+                        "daysSpan": 45,
+                        "appearances": [],
+                    }
+                ]
+            }
+            # Short sleep to simulate parallel execution
+            await asyncio.sleep(0.01)
+            return ExecutionResult(script_name=script_name, exit_code=0, stdout=json.dumps(payload), stderr="")
+
+    runtime_dir = tmp_path / "runtime"
+    adapter = CareerOpsAdapter(enabled=True, checkout_dir=mock_checkout, runtime_dir=runtime_dir, runner=ConcurrentMockRunner())
+
+    rows_a = [
+        {"url": "https://alpha.com/1", "first_seen": "2026-08-01", "title": "Engineer", "company": "AlphaCorp"},
+        {"url": "https://alpha.com/2", "first_seen": "2026-09-15", "title": "Engineer", "company": "AlphaCorp"},
+    ]
+    rows_b = [
+        {"url": "https://beta.com/1", "first_seen": "2026-08-01", "title": "Engineer", "company": "BetaCorp"},
+        {"url": "https://beta.com/2", "first_seen": "2026-09-15", "title": "Engineer", "company": "BetaCorp"},
+    ]
+
+    res_a, res_b = await asyncio.gather(
+        adapter.detect_reposts(rows_a),
+        adapter.detect_reposts(rows_b),
+    )
+
+    assert res_a[0].company == "AlphaCorp"
+    assert res_b[0].company == "BetaCorp"
+
+    # All scratch directories cleaned up
+    scratch_parent = runtime_dir / "repost_scratch"
+    if scratch_parent.exists():
+        assert len(list(scratch_parent.iterdir())) == 0

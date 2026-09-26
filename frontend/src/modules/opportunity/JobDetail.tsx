@@ -286,14 +286,17 @@ function ListingHealthSection({ item, online }: { item: Opportunity; online: boo
     live: "Canlı",
     at_risk: "Kapanma Riski",
     expired: "Kapandı",
+    uncertain: "Belirsiz",
     unchecked: "Kontrol Edilmedi",
   };
   const livenessTones: Record<string, "ok" | "warn" | "danger" | "neutral"> = {
     live: "ok",
     at_risk: "warn",
     expired: "danger",
+    uncertain: "warn",
     unchecked: "neutral",
   };
+
 
   const completenessLabels: Record<string, string> = {
     complete: "Tam Açıklama (>1000 kr)",

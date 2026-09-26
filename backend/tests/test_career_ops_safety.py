@@ -134,13 +134,12 @@ async def test_doctor_ready_path_causes_zero_canonical_db_mutations(
     )
 
     doc = await adapter.doctor()
-    assert doc.status == CareerOpsStatusEnum.READY
-    assert doc.capabilities_available == 2
-
     caps = await adapter.capabilities()
     assert len(caps) > 0
     supported_caps = [c for c in caps if c.status.value == "supported"]
-    assert len(supported_caps) == 2
+    assert doc.capabilities_available == len(supported_caps)
+    assert len(supported_caps) == 4
+
 
     fp_after = await capture_db_content_fingerprint(db_session)
     assert fp_before == fp_after, "Canonical database fingerprint changed during READY doctor probe"

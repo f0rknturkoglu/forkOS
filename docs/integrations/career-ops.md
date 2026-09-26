@@ -1,6 +1,6 @@
-# forkOS × career-ops Entegrasyonu (C1: Temel & Doctor, C2: Keşif & Sağlayıcı Füzyonu, C3: İlan Metni, Canlılık ve İstihbarat)
+# forkOS × career-ops Entegrasyonu (C1: Temel & Doctor, C2: Keşif & Sağlayıcı Füzyonu, C3: İlan Metni, Canlılık ve İstihbarat, C3.1: Kanıt Doğruluğu & Yaşam Döngüsü Kapanışı)
 
-Bu doküman, `career-ops` projesinin forkOS içerisine **sürüm-sabitli iç yetenek motoru** (version-pinned internal capability engine) olarak nasıl entegre edildiğini, hakikat sınırlarını, C1.1 çalışma zamanı güvenlik sertleştirmelerini, C2 iş keşfi (Discovery & Provider Fusion) ve C3 ilan çıkarma / canlılık / ilan istihbaratı mimarisini tanımlar.
+Bu doküman, `career-ops` projesinin forkOS içerisine **sürüm-sabitli iç yetenek motoru** (version-pinned internal capability engine) olarak nasıl entegre edildiğini, hakikat sınırlarını, C1.1 çalışma zamanı güvenlik sertleştirmelerini, C2 iş keşfi (Discovery & Provider Fusion), C3 ilan çıkarma / canlılık / ilan istihbaratı ve C3.1 kanıt doğruluğu ve yaşam döngüsü kapanışı mimarisini tanımlar.
 
 ---
 
@@ -257,6 +257,7 @@ C2.1 fazı, C2 keşif yeteneğini sağlamlaştıran ve veri kaybını/bozulması
 | **C2** | Ters ATS Keşfi ve Sağlayıcı Füzyonu | `CLOSED` | 6 ATS sağlayıcısı, SourceRun, non-destructive merge |
 | **C2.1** | Doğruluk ve Kanonik Birleştirme Kapanışı | `CLOSED` | cluster_key dedup, location_filter uyumu, runtime guard |
 | **C3** | İlan Zenginleştirme ve Yaşam Döngüsü | `CLOSED` | JD extraction, liveness köprüsü, 2-step kapanma, listing health |
+| **C3.1** | Kanıt Doğruluğu ve Yaşam Döngüsü Kapanışı | `CLOSED` | Playwright çözümleme, taze 2. onay, timestamp ayrımı, JD provenance & promotion, yetenek mutabakatı |
 | **C4** | Derin Değerlendirme ve Skorlama | `FUTURE` | A-H çok boyutlu uyum raporları, risk analizleri |
 | **C5** | Başvuru Hazırlığı ve Hermes Orkestrasyonu | `FUTURE` | CV/ön yazı stratejisi, başvuru paketi üretimi |
 
@@ -303,3 +304,55 @@ Upstream CLI çıktısı insan için biçimlendirilmiş metin (`✅ active`) bas
 - `POST /api/opportunities/{id}/extract-jd?force=false`
 - `JobDetail.tsx`: İlan künyesi altında kalite rozeti, canlılık/maaş/açıklama etiketleri ve canlılık tazeleme / ilan metni çıkarma aksiyon butonları.
 
+---
+
+## 14. C3.1 Kanıt Doğruluğu ve Yaşam Döngüsü Kapanışı (Evidence Correctness & Lifecycle Closure)
+
+C3.1 fazı, C3 ile gelen yeteneklerin kanıt zincirini, çalışma zamanı hazırlık kapılarını ve yaşam döngüsü uç durumlarını C4 LLM muhakemesi öncesinde kesinleştiren 10 ana denetim ve düzeltmeyi içermektedir:
+
+### 14.1 Pinned Runtime Guard Kapsamı
+- C3 yürütme yollarının tümü (`check_liveness`, `extract_job`, `detect_reposts`) alt süreç veya köprü çalıştırmadan önce `CareerOpsRuntimeGuard.ensure_ready()` üzerinden fail-closed kontrolden geçer.
+- `detect_reposts()` geçici dosya projeksiyonu yapmadan önce gerekli betik (`detect-reposts.mjs`) varlığını ve sürüm kimliğini doğrular; kilit uyuşmazlığında sıfır alt süreç ve sıfır dosya yazımı güvence altındadır.
+
+### 14.2 Playwright Modül Çözümlemesi ve Öksüz Süreç Koruması
+- `bridges/liveness.mjs` içerisinde Playwright, forkOS veya keyfi çalışma dizinlerinden değil; `createRequire(pathToFileURL(resolve(checkoutDir, 'package.json')))` ile kesin olarak sabitlenmiş upstream checkout (`.vendor/career-ops`) içerisinden yüklenir.
+- Playwright eksik olduğunda köprü çökmez; yapılandırılmış `no_playwright` / `uncertain` makbuzunu döner.
+- Tarayıcı başlatıldığında `SIGINT` ve `SIGTERM` sinyal yakalayıcıları bağlanır; süreç kesilmelerinde veya zaman aşımlarında öksüz Chromium kalması engellenir.
+
+### 14.3 Taze İkinci Onay ile Kapanma Semantiği
+- `LIVENESS_CACHE_TTL = 24 saat` ve `LIVENESS_CLOSE_CONFIRMATION_INTERVAL = 12 saat` sabitleri tanımlanmıştır.
+- Bir kaynak `likely_closed` durumundayken ve üzerinden en az 12 saat geçmişken, önbellekteki süresi dolmuş makbuz **asla ikinci onay yerine geçemez**. Bu durumda önbellek zorunlu olarak atlanır ve adapter'dan taze bir kontrol zorlanır.
+- Aynı `checked_at` zaman damgasına sahip önbellek kaydının yeniden okunması veya `uncertain` sonucu ilanı kapatamaz (`likely_closed` kalır).
+- Kaynak ancak taze ve farklı bir zamanda üretilmiş `expired` gözlemiyle `closed` durumuna geçebilir.
+
+### 14.4 Zaman Damgası Ayrımı (Discovery vs Liveness)
+- `OpportunitySourceObservation.last_seen_at` ve `Opportunity.last_seen_at` yalnızca yeni tarama/keşif sighting'leri tarafından güncellenir.
+- Canlılık kontrolleri (`check_liveness`) bir keşif sighting'i **değildir**; bu nedenle asla `last_seen_at` veya `last_successful_seen_at` değerlerini değiştirmez.
+- Kontrol zamanı yalnızca `enrichment["liveness"]["checked_at"]` içinde izole saklanır.
+
+### 14.5 İlan Metni Kanıt Kaynağı (JD Provenance)
+- Birden fazla kaynağa sahip ilanlarda metin çıkarma tetiklendiğinde `select_extraction_source` ile URL önceliklendirilir: (Kanonik URL -> Yetkili ATS -> Şirket Kariyer Sayfası -> İlk Gözlem).
+- Çıkarma kanıtları (`source_url`, `requested_url`, `returned_url`, `method`, `jd_hash`, `jd_text_length`, `jd_title`, `promoted`, `promotion_reason`, `source_selection_reason`) **yalnızca çıkarmanın yapıldığı kaynağın** `enrichment["jd_extraction"]` alanına yazılır; diğer kaynakların meta verisi kirletilmez.
+
+### 14.6 Veri Kaybı Olmayan İlan Metni Yükseltmesi (Non-Destructive JD Promotion)
+- `normalize_jd_text()`, `compute_jd_hash()` ve `should_promote_jd()` ile güvenli yükseltme:
+  - Mevcut açıklama boş veya taslak ise (<200 karakter) ve çıkarılan metin >=200 karakter ise yükseltilir.
+  - Mevcut açıklama zenginse (örn. 10.000 karakter), yeni çıkarılan metin daha fakir ise (örn. 400 karakter), `force=True` olsa dahi mevcut açıklama ezilmez (`REJECT_POORER_THAN_EXISTING`).
+  - Çıkarılan metin mevcut açıklamayla aynı normalize hash'e sahipse veritabanı yazımı ve event tetiklemesi atlanır (`IDENTICAL_HASH`).
+  - Çıkarılan metin mevcut açıklamadan belirgin derecede daha zenginse (en az 1.5 kat ve en az 300 karakter daha uzun) yükseltilir.
+- **Değerlendirme Eskime Koruması**: İlan metninin maddi değişimi `listing_fingerprint` değerini değiştirir ve C4 değerlendirmesini eskitir (`stale`). Fakir olduğu için reddedilen çıkarmalar ise fingerprint'i korur ve sahte eskimeyi önler.
+
+### 14.7 Yetenek Bağlamı, Repost Bağımsızlığı ve Doctor Mutabakatı
+- `CareerOpsCapabilityContext` ve `CapabilityStatus.DEGRADED` durumu eklendi.
+- `job.repost_analysis` betiği (`detect-reposts.mjs`) tarayıcı gerektirmediğinden, çekirdek çalışma zamanı hazır olduğunda `browser_ready` değerinden bağımsız olarak `SUPPORTED` döner.
+- `job.legitimacy`, forkOS içindeki deterministik `ListingHealthOut` sinyalleri ve risk kuralları ile karşılandığından resmi olarak `SUPPORTED` ilan edilmiştir.
+- `discovery.liveness` ve `job.extract`, Playwright eksik olduğunda `DEGRADED` (API katmanı aktif, tarayıcı fallback'i devre dışı), Playwright hazır olduğunda `SUPPORTED` döner.
+- `CareerOpsDoctor.capabilities_available`, adapter'ın `status == CapabilityStatus.SUPPORTED` dönen yetenek sayısıyla tüm ortam koşullarında (tarayıcılı, tarayıcısız, entegrasyon kapalı) %100 mutabıktır.
+
+### 14.8 SSRF Derinlemesine Savunma ve Repost İzolasyonu
+- `_is_safe_http_url()` ile `ipaddress` kütüphanesi üzerinden loopback (`127.0.0.1`), özel ağ (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local (`169.254.0.0/16`), bulut metadata IP'leri (`169.254.169.254`) ve geçersiz hostlar alt süreç çağrılmadan önce engellenir.
+- `detect_reposts()` her çağrı için benzersiz `repost_scratch/<scratch_id>/data/scan-history.tsv` dizini oluşturur, `CAREER_OPS_ROOT` olarak bu geçici dizini verir ve eşzamanlı çalıştırmalarda birbirinin verisini kirletmez. İşlem sonunda `finally:` bloğunda tüm geçici dosyalar ve dizinler temizlenir.
+
+### 14.9 Olay Semantiği ve Yeniden Açılma
+- Önceden `closed` veya `likely_closed` olan bir kaynağın canlılık kontrolünde `active` dönmesi durumunda `opportunity.source_reopened` eventi fırlatılır ve `closed_at` temizlenir.
+- Kaynak durumu değiştiğinde `opportunity.source_status_changed` eventi yalnızca gerçek durum geçişlerinde tetiklenir.

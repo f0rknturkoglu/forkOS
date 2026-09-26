@@ -9,8 +9,10 @@
  *   node bridges/liveness.mjs <url> [--timeout <ms>] [--no-fallback]
  */
 
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
+
 
 const checkoutDir = process.env.CAREER_OPS_CHECKOUT || process.cwd();
 
@@ -146,13 +148,19 @@ async function main() {
   // Rung 2: Playwright Chromium browser check
   let chromiumModule;
   try {
-    chromiumModule = await import('playwright');
+    const requireFromCheckout = createRequire(pathToFileURL(resolve(checkoutDir, 'package.json')));
+    try {
+      chromiumModule = requireFromCheckout('playwright');
+    } catch {
+      const resolved = requireFromCheckout.resolve('playwright');
+      chromiumModule = await import(pathToFileURL(resolved).href);
+    }
   } catch {
     const out = {
       url,
       status: 'uncertain',
       code: 'no_playwright',
-      reason: 'Playwright not installed for browser fallback',
+      reason: 'Playwright not installed in career-ops checkout for browser fallback',
       method: 'bridge',
       checked_at: new Date().toISOString(),
     };
@@ -162,6 +170,18 @@ async function main() {
 
   const { chromium } = chromiumModule;
   let browser = null;
+
+  const cleanupAndExit = async () => {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {}
+    }
+    process.exit(1);
+  };
+  process.on('SIGINT', cleanupAndExit);
+  process.on('SIGTERM', cleanupAndExit);
+
   try {
     browser = await chromium.launch({ headless: true });
     const page = await newLivenessPage(browser);
@@ -189,10 +209,13 @@ async function main() {
     process.stdout.write(JSON.stringify(out));
     process.exit(0);
   } finally {
+    process.removeListener('SIGINT', cleanupAndExit);
+    process.removeListener('SIGTERM', cleanupAndExit);
     if (browser) {
       await browser.close().catch(() => {});
     }
   }
+
 }
 
 main().catch((err) => {

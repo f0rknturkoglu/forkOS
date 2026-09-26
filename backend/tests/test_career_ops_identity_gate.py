@@ -168,3 +168,79 @@ async def test_discovery_feature_flag_blocks_execution(tmp_path: Path, monkeypat
         await adapter.reverse_scan("greenhouse")
 
     assert runner.invoked is False
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_c3_liveness_identity_gate_blocks_wrong_commit_or_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    _setup_checkout(tmp_path)
+    (tmp_path / "liveness-api.mjs").write_text("// test", encoding="utf-8")
+    (tmp_path / "liveness-browser.mjs").write_text("// test", encoding="utf-8")
+    # Wrong commit
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda cmd, **kwargs: "deadbeef00000000000000000000000000000000" if "rev-parse" in cmd else "v22.5.0",
+    )
+    runner = TrackingMockRunner()
+    adapter = CareerOpsAdapter(enabled=True, checkout_dir=tmp_path, runner=runner)
+
+    with pytest.raises(CareerOpsVersionMismatchError, match="Commit mismatch"):
+        await adapter.check_liveness("https://boards.greenhouse.io/test/1")
+    assert runner.invoked is False
+
+    # Missing companion script liveness-browser.mjs
+    (tmp_path / "liveness-browser.mjs").unlink()
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda cmd, **kwargs: CAREER_OPS_PINNED_COMMIT if "rev-parse" in cmd else "v22.5.0",
+    )
+    with pytest.raises(CareerOpsUnavailableError, match="liveness-browser.mjs"):
+        await adapter.check_liveness("https://boards.greenhouse.io/test/1")
+    assert runner.invoked is False
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_c3_extract_job_identity_gate_blocks_wrong_commit_or_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    _setup_checkout(tmp_path)
+    (tmp_path / "browser-extract.mjs").write_text("// test", encoding="utf-8")
+    # Wrong version
+    (tmp_path / "package.json").write_text(json.dumps({"name": "career-ops", "version": "0.0.1"}), encoding="utf-8")
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda cmd, **kwargs: CAREER_OPS_PINNED_COMMIT if "rev-parse" in cmd else "v22.5.0",
+    )
+    runner = TrackingMockRunner()
+    adapter = CareerOpsAdapter(enabled=True, checkout_dir=tmp_path, runner=runner)
+
+    with pytest.raises(CareerOpsVersionMismatchError, match="Version mismatch"):
+        await adapter.extract_job("https://example.com/job/123")
+    assert runner.invoked is False
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_c3_detect_reposts_identity_gate_blocks_and_leaves_no_scratch_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    checkout_dir = tmp_path / "checkout"
+    checkout_dir.mkdir(parents=True)
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir(parents=True)
+    _setup_checkout(checkout_dir)
+    (checkout_dir / "detect-reposts.mjs").write_text("// test", encoding="utf-8")
+
+    # Unknown commit (has_git=False)
+    (checkout_dir / ".git").rmdir()
+    runner = TrackingMockRunner()
+    adapter = CareerOpsAdapter(enabled=True, checkout_dir=checkout_dir, runtime_dir=runtime_dir, runner=runner)
+
+    rows = [{"url": "https://example.com/1", "first_seen": "2026-08-01", "title": "Platform Engineer", "company": "Acme"}]
+    with pytest.raises(CareerOpsConfigurationError, match="Pinned commit SHA could not be positively verified"):
+        await adapter.detect_reposts(rows)
+
+    assert runner.invoked is False
+    # Invariant: Gate check failed BEFORE any projection created; no repost_scratch or scan-history.tsv exists!
+    assert not (runtime_dir / "repost_scratch").exists()
+    assert not (runtime_dir / "data" / "scan-history.tsv").exists()

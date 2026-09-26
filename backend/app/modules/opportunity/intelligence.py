@@ -381,6 +381,8 @@ def quick_signals(
         liveness_status = "expired"
     elif source_status == "likely_closed":
         liveness_status = "at_risk"
+    elif source_status == "uncertain":
+        liveness_status = "uncertain"
     elif last_seen_at and (now - last_seen_at) <= timedelta(hours=48):
         liveness_status = "live"
     elif source_status == "active" and last_seen_at:
@@ -397,7 +399,12 @@ def quick_signals(
         health -= 20
     if liveness_status == "expired":
         health -= 30
+    elif liveness_status == "at_risk":
+        health -= 15
+    elif liveness_status == "uncertain":
+        health -= 5
     health_score = max(0, min(100, health))
+
 
     listing_health = ListingHealthOut(
         health_score=health_score,

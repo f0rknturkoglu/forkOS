@@ -7219,7 +7219,7 @@ export interface components {
              * Liveness Status
              * @enum {string}
              */
-            liveness_status: "live" | "unchecked" | "at_risk" | "expired";
+            liveness_status: "live" | "unchecked" | "at_risk" | "expired" | "uncertain";
             /**
              * Repost Frequency
              * @enum {string}

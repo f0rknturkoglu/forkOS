@@ -24,8 +24,9 @@ class ListingHealthOut(BaseModel):
     health_score: int = Field(ge=0, le=100)
     jd_completeness: Literal["complete", "concise", "stub"]
     salary_transparency: Literal["transparent", "unclear", "missing"]
-    liveness_status: Literal["live", "unchecked", "at_risk", "expired"]
+    liveness_status: Literal["live", "unchecked", "at_risk", "expired", "uncertain"]
     repost_frequency: Literal["none", "moderate", "frequent"]
+
 
 
 class OpportunityIntelligenceOut(BaseModel):

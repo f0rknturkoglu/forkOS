@@ -1,8 +1,11 @@
 from datetime import UTC, datetime
+import ipaddress
 import json
 from pathlib import Path
+import shutil
 from typing import Any
 from urllib.parse import urlparse
+import uuid
 
 from app.config import settings
 from app.integrations.career_ops.capabilities import (
@@ -21,6 +24,7 @@ from app.integrations.career_ops.errors import (
 from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
 from app.integrations.career_ops.models import (
     CareerOpsCapability,
+    CareerOpsCapabilityContext,
     CareerOpsDiscoveredJob,
     CareerOpsDiscoveryResult,
     CareerOpsDoctorResult,
@@ -45,14 +49,40 @@ REVERSE_ATS_PROVIDERS: frozenset[str] = frozenset({
 
 
 def _is_safe_http_url(url: str) -> bool:
-    """Validate that URL has safe http/https scheme and non-empty network location."""
+    """Validate that URL has safe http/https scheme, non-empty host, and is not private/loopback/cloud-metadata."""
     if not url or not isinstance(url, str):
         return False
     try:
         parsed = urlparse(url.strip())
-        return parsed.scheme in ("http", "https") and bool(parsed.netloc.strip())
+        if parsed.scheme not in ("http", "https"):
+            return False
+        netloc = parsed.netloc.strip()
+        if not netloc:
+            return False
+        hostname = (parsed.hostname or "").strip().lower()
+        if not hostname:
+            return False
+        if hostname in ("localhost", "0.0.0.0", "metadata.google.internal"):
+            return False
+        if hostname.endswith((".local", ".internal", ".localhost")):
+            return False
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+                or str(ip) == "0.0.0.0"
+            ):
+                return False
+        except ValueError:
+            pass
+        return True
     except Exception:
         return False
+
 
 
 
@@ -113,21 +143,23 @@ class CareerOpsAdapter:
     async def capabilities(self) -> list[CareerOpsCapability]:
         doc = await self.doctor()
         ready = doc.status == CareerOpsStatusEnum.READY
+        ctx = CareerOpsCapabilityContext(
+            enabled=self.enabled,
+            core_ready=ready,
+            discovery_enabled=settings.career_ops_discovery_enabled,
+            browser_ready=doc.browser_ready,
+        )
         return [
             CareerOpsCapability(
                 id=c.id,
                 domain=c.domain,
                 name=c.name,
                 description=c.description,
-                status=get_capability_status(
-                    c.id,
-                    enabled=self.enabled,
-                    runtime_ready=ready,
-                    discovery_enabled=settings.career_ops_discovery_enabled,
-                ),
+                status=get_capability_status(c.id, context=ctx),
             )
             for c in get_declared_capabilities()
         ]
+
 
     async def reverse_scan(
         self,
@@ -315,12 +347,24 @@ class CareerOpsAdapter:
         if not self.enabled:
             raise CareerOpsUnavailableError("career-ops capability engine is disabled")
 
+        # Identity and runtime readiness gate: fail-closed before any subprocess execution
+        self.guard.ensure_ready(required_script="liveness-api.mjs")
+        if not (self.checkout_dir / "liveness-browser.mjs").exists():
+            raise CareerOpsUnavailableError(
+                f"Required upstream script 'liveness-browser.mjs' missing from checkout at {self.checkout_dir}"
+            )
+        bridge_path = Path(__file__).parent / "bridges" / "liveness.mjs"
+        if not bridge_path.exists():
+            raise CareerOpsUnavailableError(
+                f"Required bridge script 'bridges/liveness.mjs' missing at {bridge_path}"
+            )
+
         if not _is_safe_http_url(url):
             return CareerOpsLivenessReceipt(
                 url=url,
                 status="uncertain",
                 code="invalid_url",
-                reason="URL scheme must be http or https",
+                reason="URL scheme must be http or https, and cannot target private/local/metadata networks",
                 method="bridge",
                 checked_at=datetime.now(UTC).isoformat(),
             )
@@ -373,10 +417,13 @@ class CareerOpsAdapter:
         if not self.enabled:
             raise CareerOpsUnavailableError("career-ops capability engine is disabled")
 
+        # Identity and runtime readiness gate: fail-closed before any subprocess execution
+        self.guard.ensure_ready(required_script="browser-extract.mjs")
+
         if not _is_safe_http_url(url):
             return CareerOpsJobExtractionResult(
                 url=url,
-                error="Invalid URL scheme (must be http or https)",
+                error="Invalid URL (must be public http or https)",
                 code="invalid_url",
             )
 
@@ -436,7 +483,12 @@ class CareerOpsAdapter:
         if not self.enabled:
             raise CareerOpsUnavailableError("career-ops capability engine is disabled")
 
-        tsv_dir = self.runtime_dir / "data"
+        # Identity and runtime readiness gate: fail-closed before creating projection or subprocess
+        self.guard.ensure_ready(required_script="detect-reposts.mjs")
+
+        scratch_id = uuid.uuid4().hex[:12]
+        scratch_dir = self.runtime_dir / "repost_scratch" / scratch_id
+        tsv_dir = scratch_dir / "data"
         tsv_dir.mkdir(parents=True, exist_ok=True)
         tsv_path = tsv_dir / "scan-history.tsv"
 
@@ -458,6 +510,7 @@ class CareerOpsAdapter:
             exec_res = await self.runner.run_script(
                 "detect-reposts.mjs",
                 ["--window", str(window_days), "--min-span", str(min_span_days)],
+                extra_env={"CAREER_OPS_ROOT": str(scratch_dir)},
                 timeout_seconds=30.0,
             )
             if exec_res.exit_code != 0:
@@ -469,9 +522,11 @@ class CareerOpsAdapter:
             clusters_raw = payload.get("clusters") or []
             return [CareerOpsRepostCluster.model_validate(c) for c in clusters_raw]
         finally:
-            if tsv_path.exists():
+            if scratch_dir.exists():
+                shutil.rmtree(scratch_dir, ignore_errors=True)
+            parent_scratch = self.runtime_dir / "repost_scratch"
+            if parent_scratch.exists() and not any(parent_scratch.iterdir()):
                 try:
-                    tsv_path.unlink()
+                    parent_scratch.rmdir()
                 except OSError:
                     pass
-

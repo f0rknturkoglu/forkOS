@@ -1,6 +1,10 @@
 """Semantic capability registry for career-ops integration."""
 
-from app.integrations.career_ops.models import CapabilityStatus, CareerOpsCapability
+from app.integrations.career_ops.models import (
+    CapabilityStatus,
+    CareerOpsCapability,
+    CareerOpsCapabilityContext,
+)
 
 ALL_CAPABILITIES: tuple[CareerOpsCapability, ...] = (
     CareerOpsCapability(
@@ -168,40 +172,66 @@ def get_declared_capabilities() -> tuple[CareerOpsCapability, ...]:
 
 def get_capability_status(
     capability_id: str,
-    enabled: bool,
-    runtime_ready: bool,
-    discovery_enabled: bool = True,
-    browser_ready: bool = False,
+    context: CareerOpsCapabilityContext | None = None,
+    *,
+    enabled: bool | None = None,
+    runtime_ready: bool | None = None,
+    discovery_enabled: bool | None = None,
+    browser_ready: bool | None = None,
 ) -> CapabilityStatus:
-    if not enabled:
+    if context is None:
+        context = CareerOpsCapabilityContext(
+            enabled=enabled if enabled is not None else True,
+            core_ready=runtime_ready if runtime_ready is not None else False,
+            discovery_enabled=discovery_enabled if discovery_enabled is not None else True,
+            browser_ready=browser_ready if browser_ready is not None else False,
+        )
+
+    if not context.enabled:
         return CapabilityStatus.DISABLED
-    if not runtime_ready:
+    if not context.core_ready:
         return CapabilityStatus.UNAVAILABLE
     if capability_id == "foundation.doctor":
         return CapabilityStatus.SUPPORTED
     if capability_id == "discovery.reverse_ats":
-        if not discovery_enabled:
+        if not context.discovery_enabled:
             return CapabilityStatus.DISABLED
         return CapabilityStatus.SUPPORTED
-    if capability_id in ("discovery.liveness", "job.extract", "job.repost_analysis"):
-        if not browser_ready:
-            return CapabilityStatus.UNAVAILABLE
+    if capability_id == "job.repost_analysis":
+        # Repost analysis is deterministic Node + TSV cluster analysis; does not require browser
         return CapabilityStatus.SUPPORTED
+    if capability_id == "job.legitimacy":
+        # Option A: Deterministic listing-health, transparency, and risk signals
+        return CapabilityStatus.SUPPORTED
+    if capability_id in ("discovery.liveness", "job.extract"):
+        if context.browser_ready:
+            return CapabilityStatus.SUPPORTED
+        # Truthful degraded status: ATS API tier works without browser, generic browser fallback unavailable
+        return CapabilityStatus.DEGRADED
     return CapabilityStatus.UNAVAILABLE
 
 
 def count_available_capabilities(
-    enabled: bool,
-    runtime_ready: bool,
-    discovery_enabled: bool = True,
-    browser_ready: bool = False,
+    context: CareerOpsCapabilityContext | None = None,
+    *,
+    enabled: bool | None = None,
+    runtime_ready: bool | None = None,
+    discovery_enabled: bool | None = None,
+    browser_ready: bool | None = None,
 ) -> int:
+    if context is None:
+        context = CareerOpsCapabilityContext(
+            enabled=enabled if enabled is not None else True,
+            core_ready=runtime_ready if runtime_ready is not None else False,
+            discovery_enabled=discovery_enabled if discovery_enabled is not None else True,
+            browser_ready=browser_ready if browser_ready is not None else False,
+        )
     return sum(
         1
         for cap in ALL_CAPABILITIES
-        if get_capability_status(cap.id, enabled, runtime_ready, discovery_enabled, browser_ready)
-        == CapabilityStatus.SUPPORTED
+        if get_capability_status(cap.id, context=context) == CapabilityStatus.SUPPORTED
     )
+
 
 
 

@@ -20,6 +20,7 @@ from app.integrations.career_ops.config import (
 )
 from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
 from app.integrations.career_ops.models import (
+    CareerOpsCapabilityContext,
     CareerOpsDoctorResult,
     CareerOpsIdentity,
     CareerOpsRuntimeStatus,
@@ -196,12 +197,14 @@ class CareerOpsDoctor:
         browser_ready = probe_browser_readiness(self.checkout_dir, self.node_bin)
 
         # Dynamic computation of available capabilities based on runtime readiness and feature flags
-        available_capabilities_count = count_available_capabilities(
+        cap_ctx = CareerOpsCapabilityContext(
             enabled=True,
-            runtime_ready=True,
+            core_ready=True,
             discovery_enabled=settings.career_ops_discovery_enabled,
             browser_ready=browser_ready,
         )
+        available_capabilities_count = count_available_capabilities(context=cap_ctx)
+
 
         # Execute upstream doctor in isolated workspace WITHOUT --target
         upstream_onboarding: CareerOpsUpstreamOnboarding | None = None
