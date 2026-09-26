@@ -1,6 +1,6 @@
-# forkOS × career-ops Entegrasyonu (C1: Temel & Doctor, C2: Keşif & Sağlayıcı Füzyonu)
+# forkOS × career-ops Entegrasyonu (C1: Temel & Doctor, C2: Keşif & Sağlayıcı Füzyonu, C3: İlan Metni, Canlılık ve İstihbarat)
 
-Bu doküman, `career-ops` projesinin forkOS içerisine **sürüm-sabitli iç yetenek motoru** (version-pinned internal capability engine) olarak nasıl entegre edildiğini, hakikat sınırlarını, C1.1 çalışma zamanı güvenlik sertleştirmelerini ve C2 iş keşfi (Discovery & Provider Fusion) mimarisini tanımlar.
+Bu doküman, `career-ops` projesinin forkOS içerisine **sürüm-sabitli iç yetenek motoru** (version-pinned internal capability engine) olarak nasıl entegre edildiğini, hakikat sınırlarını, C1.1 çalışma zamanı güvenlik sertleştirmelerini, C2 iş keşfi (Discovery & Provider Fusion) ve C3 ilan çıkarma / canlılık / ilan istihbaratı mimarisini tanımlar.
 
 ---
 
@@ -256,6 +256,50 @@ C2.1 fazı, C2 keşif yeteneğini sağlamlaştıran ve veri kaybını/bozulması
 | **C1.1** | Hakikat ve Çalışma Zamanı Sertleştirmesi | `CLOSED` | Streaming bounds, tek kilit dosyası, zombi koruması |
 | **C2** | Ters ATS Keşfi ve Sağlayıcı Füzyonu | `CLOSED` | 6 ATS sağlayıcısı, SourceRun, non-destructive merge |
 | **C2.1** | Doğruluk ve Kanonik Birleştirme Kapanışı | `CLOSED` | cluster_key dedup, location_filter uyumu, runtime guard |
-| **C3** | İlan Zenginleştirme ve Yaşam Döngüsü | `FUTURE` | JD extraction, repost tespiti, liveness kontrolleri |
+| **C3** | İlan Zenginleştirme ve Yaşam Döngüsü | `CLOSED` | JD extraction, liveness köprüsü, 2-step kapanma, listing health |
 | **C4** | Derin Değerlendirme ve Skorlama | `FUTURE` | A-H çok boyutlu uyum raporları, risk analizleri |
 | **C5** | Başvuru Hazırlığı ve Hermes Orkestrasyonu | `FUTURE` | CV/ön yazı stratejisi, başvuru paketi üretimi |
+
+---
+
+## 13. C3 İlan Zenginleştirme, Canlılık ve İlan İstihbaratı (JD Extraction, Liveness & Listing Intelligence)
+
+C3 entegrasyonu, career-ops motorunun içerik çıkarma, sıfır-token link canlılık doğrulaması ve ilan kalitesi değerlendirme yeteneklerini forkOS'a bağlar.
+
+### 13.1 Değişmez Temel İlkeler (Core Invariants)
+1. **Sıfır LLM Çağrısı (Zero LLM Tokens)**: İlan metni çıkarma, canlılık doğrulaması ve ilan kalite değerlendirmeleri %100 deterministiktir (DOM seçicileri, düzenli ifadeler, upstream JSON API'leri ve kural tabanlı puanlama).
+2. **Kanonik Hakikat Tekliği**: Tüm kalıcı durumlar (`OpportunitySourceObservation.enrichment` JSONB alanı, `Opportunity.source_status`, `Opportunity.closed_at`) PostgreSQL'de saklanır. Upstream `scan-history.tsv` projeksiyonları kesinlikle geçicidir (ephemeral scratch) ve işlem sonunda silinir.
+3. **Aday Uygunluk Skoru İzolasyonu**: `Opportunity.score` (adayın profile/beceriye uygunluğu) ilan kalitesi sinyallerinden **asla** etkilenmez. İlan kalitesi ayrı bir teşhis nesnesi (`listing_health`) olarak sunulur.
+4. **Canlılık Tutarlılığı (`uncertain != expired`)**: Ağ zaman aşımı, WAF engeli veya geçici hatalar `uncertain` üretir ve ilanı asla kapatmaz. Kapanma, tüm bağlı kaynaklarda en az 12 saat arayla 2 ardışık onay gerektirir (2-step confirmation).
+
+### 13.2 Statik JSON Köprüsü (`bridges/liveness.mjs`)
+Upstream CLI çıktısı insan için biçimlendirilmiş metin (`✅ active`) bastığından, regex kazıma yerine forkOS'a ait bağımsız bir Node köprüsü yazılmıştır:
+- ATS API'leri (Greenhouse, Lever, Ashby, Workday) doğrudan HTTP üzerinden sıfır tarayıcı maliyetiyle kontrol edilir.
+- Fallback olarak izole Playwright Chromium sayfası çalıştırılır.
+- SSRF koruması (`rejectPrivateOrInvalid`) ile yerel ağ ve özel IP istekleri engellenir.
+- Çıktı tek ve katı bir JSON nesnesidir (`CareerOpsLivenessReceipt`).
+
+### 13.3 İlan Metni Çıkarma (`browser-extract.mjs`) ve Kanonik Yükseltme
+- `CareerOpsAdapter.extract_job(url)`: ATS API ve Playwright fallback ile ilan başlığı ve tam metnini çıkarır.
+- Eğer mevcut `Opportunity` açıklaması taslak/boş ise (`len(desc) < 200`) ve çıkarılan metin yeterince zenginse (`len(text) >= 200`), metin `Opportunity.raw["description"]` alanına yazılır.
+- `Entity.search_text` güncellenerek PostgreSQL unaccent/trgm arama indekslerine anında yansıtılır.
+- Çıkarma meta verileri `OpportunitySourceObservation.enrichment["jd_extraction"]` içine kaydedilir ve `opportunity.updated` eventi loglanır.
+
+### 13.4 Çok Kaynaklı Canlılık Birleştirme (`OpportunityListingService`)
+- 24 saatlik önbellek (`enrichment["liveness"]`) ile gereksiz dış istekler engellenir (`force=True` ile atlanabilir).
+- **Çoklu Kaynak Kuralı**: Bir ilan birden fazla kaynaktan (örn. hem `forkjob:rss` hem `careerops:greenhouse`) gözleniyorsa, en az BİR kaynak aktif kaldığı sürece kanonik ilan `active` kalır.
+- **2 Aşamalı Güvenli Kapanma**: Tüm kaynaklar `expired` olduğunda ilk kontrolde `likely_closed` atanır. En az 12 saat sonra yapılan ikinci kontrolde de hepsi `expired` kalırsa `closed` ve `closed_at = now()` atanır.
+
+### 13.5 İlan Kalitesi Teşhisi (`ListingHealthOut`)
+`quick_signals()` fonksiyonu aday uyum puanına dokunmadan aşağıdaki 5 alt sinyali ve 0–100 arası kalite puanını hesaplar:
+- `jd_completeness`: `complete` (>1000 kr), `concise` (300–1000 kr), `stub` (<300 kr).
+- `salary_transparency`: `transparent` (belirgin aralık), `unclear` (tek sınır veya geniş aralık >%50), `missing`.
+- `liveness_status`: `live`, `at_risk`, `expired`, `unchecked`.
+- `repost_frequency`: `none`, `moderate` (2x), `frequent` (3+).
+- `health_score`: Temel 100 üzerinden eksiklik cezaları düşülerek üretilen kalite puanı.
+
+### 13.6 REST Uçları ve Kullanıcı Arayüzü
+- `POST /api/opportunities/{id}/liveness?force=false`
+- `POST /api/opportunities/{id}/extract-jd?force=false`
+- `JobDetail.tsx`: İlan künyesi altında kalite rozeti, canlılık/maaş/açıklama etiketleri ve canlılık tazeleme / ilan metni çıkarma aksiyon butonları.
+
