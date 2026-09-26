@@ -22,6 +22,7 @@ from app.core.notifications import notify
 
 # Application CRM -- service.py uzerinden dogrudan import edenler bu isimleri korur.
 from app.modules.opportunity import lifecycle
+from app.modules.opportunity.listing_service import OpportunityListingService
 from app.modules.opportunity.application import (  # noqa: F401 (re-export: router service.X ile erisir)
     REJECTION_REASONS,
     TERMINAL_STATUSES,
