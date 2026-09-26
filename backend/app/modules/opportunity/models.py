@@ -127,6 +127,7 @@ class OpportunitySourceObservation(Base):
     last_successful_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source_removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    enrichment: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
 
 class OpportunityRequirement(Base):
