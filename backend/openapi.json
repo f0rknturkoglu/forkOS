@@ -6130,6 +6130,62 @@
         "title": "LinkIn",
         "type": "object"
       },
+      "ListingHealthOut": {
+        "properties": {
+          "health_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Health Score",
+            "type": "integer"
+          },
+          "jd_completeness": {
+            "enum": [
+              "complete",
+              "concise",
+              "stub"
+            ],
+            "title": "Jd Completeness",
+            "type": "string"
+          },
+          "liveness_status": {
+            "enum": [
+              "live",
+              "unchecked",
+              "at_risk",
+              "expired"
+            ],
+            "title": "Liveness Status",
+            "type": "string"
+          },
+          "repost_frequency": {
+            "enum": [
+              "none",
+              "moderate",
+              "frequent"
+            ],
+            "title": "Repost Frequency",
+            "type": "string"
+          },
+          "salary_transparency": {
+            "enum": [
+              "transparent",
+              "unclear",
+              "missing"
+            ],
+            "title": "Salary Transparency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "health_score",
+          "jd_completeness",
+          "salary_transparency",
+          "liveness_status",
+          "repost_frequency"
+        ],
+        "title": "ListingHealthOut",
+        "type": "object"
+      },
       "LocalCognitionOut": {
         "description": "H4 yerel bilis durumu. `reachable` yalnizca prob atildiysa doludur.",
         "properties": {
@@ -9147,6 +9203,41 @@
         "title": "NotificationOut",
         "type": "object"
       },
+      "ObservationLivenessOut": {
+        "properties": {
+          "liveness": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Liveness"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "url",
+          "source_status"
+        ],
+        "title": "ObservationLivenessOut",
+        "type": "object"
+      },
       "OpenTodoOut": {
         "properties": {
           "due_at": {
@@ -9784,6 +9875,16 @@
             "title": "Is Repost",
             "type": "boolean"
           },
+          "listing_health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ListingHealthOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pay_currency": {
             "anyOf": [
               {
@@ -9858,6 +9959,111 @@
           }
         },
         "title": "OpportunityIntelligenceOut",
+        "type": "object"
+      },
+      "OpportunityJdExtractionResultOut": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "promoted": {
+            "title": "Promoted",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "text_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Length"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "promoted"
+        ],
+        "title": "OpportunityJdExtractionResultOut",
+        "type": "object"
+      },
+      "OpportunityLivenessResultOut": {
+        "properties": {
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/ObservationLivenessOut"
+            },
+            "title": "Observations",
+            "type": "array"
+          },
+          "opportunity_id": {
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "source_status": {
+            "title": "Source Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opportunity_id",
+          "source_status"
+        ],
+        "title": "OpportunityLivenessResultOut",
         "type": "object"
       },
       "OpportunityOut": {
@@ -25283,6 +25489,114 @@
         ]
       }
     },
+    "/api/opportunities/{id}/extract-jd": {
+      "post": {
+        "description": "Fırsatın iş ilanı metnini çıkar ve açıklama taslaksa kanonik açıklamaya yükselt.",
+        "operationId": "extract_opportunity_jd_api_opportunities__id__extract_jd_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityJdExtractionResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extract Opportunity Jd",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{id}/liveness": {
+      "post": {
+        "description": "Fırsatın kaynak linklerinin canlılığını doğrula ve durumunu güncelle.",
+        "operationId": "check_opportunity_liveness_api_opportunities__id__liveness_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityLivenessResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Opportunity Liveness",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/opportunities/{item_id}": {
       "delete": {
         "operationId": "delete_api_opportunities__item_id__delete",
@@ -31151,6 +31465,26 @@
           }
         },
         "summary": "Set Automation Profile",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/career-ops/doctor": {
+      "get": {
+        "description": "career-ops yetenek motoru tanı ve durum raporu (salt okunur).",
+        "operationId": "career_ops_doctor_api_system_career_ops_doctor_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Career Ops Doctor",
         "tags": [
           "system"
         ]

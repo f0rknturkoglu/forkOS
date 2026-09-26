@@ -43,6 +43,29 @@ class OpportunityIntelligenceOut(BaseModel):
     listing_health: ListingHealthOut | None = None
 
 
+class ObservationLivenessOut(BaseModel):
+    source: str
+    url: str
+    source_status: str
+    liveness: dict[str, Any] | None = None
+
+
+class OpportunityLivenessResultOut(BaseModel):
+    opportunity_id: str
+    source_status: str
+    observations: list[ObservationLivenessOut] = Field(default_factory=list)
+
+
+class OpportunityJdExtractionResultOut(BaseModel):
+    promoted: bool
+    title: str | None = None
+    text_length: int | None = None
+    reason: str | None = None
+    error: str | None = None
+    code: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
 RequirementImportance = Literal["critical", "high", "meaningful", "preferred", "low_signal"]
 RequirementEvidence = Literal["stated", "structural", "inferred"]
 CandidateMatch = Literal["strong", "partial", "missing"]

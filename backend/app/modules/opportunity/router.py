@@ -45,6 +45,8 @@ from app.modules.opportunity.schemas import (
     OpportunityEvaluationOut,
     OpportunityEvaluationPatch,
     OpportunityIn,
+    OpportunityJdExtractionResultOut,
+    OpportunityLivenessResultOut,
     OpportunityOut,
     OpportunityPatch,
     PrunePreviewOut,
@@ -812,6 +814,48 @@ async def prune_opportunities(
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
     return PruneResultOut(**result)
+
+
+# Liveness ve JD zenginleştirme (C3)
+# ═════════════════════════════════════════════════════════════════════
+
+
+@router.post(
+    "/opportunities/{id}/liveness",
+    response_model=OpportunityLivenessResultOut,
+)
+async def check_opportunity_liveness(
+    id: UUID,
+    force: bool = Query(False),
+    session: AsyncSession = Depends(get_session),
+):
+    """Fırsatın kaynak linklerinin canlılığını doğrula ve durumunu güncelle."""
+    listing_service = service.OpportunityListingService()
+    try:
+        result = await listing_service.verify_opportunity_liveness(session, id, force=force)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+@router.post(
+    "/opportunities/{id}/extract-jd",
+    response_model=OpportunityJdExtractionResultOut,
+)
+async def extract_opportunity_jd(
+    id: UUID,
+    force: bool = Query(False),
+    session: AsyncSession = Depends(get_session),
+):
+    """Fırsatın iş ilanı metnini çıkar ve açıklama taslaksa kanonik açıklamaya yükselt."""
+    listing_service = service.OpportunityListingService()
+    try:
+        result = await listing_service.enrich_job_description(session, id, force=force)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    await session.commit()
+    return result
 
 
 # Kaynak/jobhunter uclari (sources*, sync*, jobhunter) sources_router'da.

@@ -2645,6 +2645,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/{id}/extract-jd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Opportunity Jd
+         * @description Fırsatın iş ilanı metnini çıkar ve açıklama taslaksa kanonik açıklamaya yükselt.
+         */
+        post: operations["extract_opportunity_jd_api_opportunities__id__extract_jd_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/{id}/liveness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Opportunity Liveness
+         * @description Fırsatın kaynak linklerinin canlılığını doğrula ve durumunu güncelle.
+         */
+        post: operations["check_opportunity_liveness_api_opportunities__id__liveness_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{item_id}": {
         parameters: {
             query?: never;
@@ -4657,6 +4697,26 @@ export interface paths {
          * @description Profili uygula (manual/balanced/active): ilgili ayarlar birlikte yazilir.
          */
         post: operations["set_automation_profile_api_system_automation_profile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/career-ops/doctor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Career Ops Doctor
+         * @description career-ops yetenek motoru tanı ve durum raporu (salt okunur).
+         */
+        get: operations["career_ops_doctor_api_system_career_ops_doctor_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7146,6 +7206,31 @@ export interface components {
              */
             to_id: string;
         };
+        /** ListingHealthOut */
+        ListingHealthOut: {
+            /** Health Score */
+            health_score: number;
+            /**
+             * Jd Completeness
+             * @enum {string}
+             */
+            jd_completeness: "complete" | "concise" | "stub";
+            /**
+             * Liveness Status
+             * @enum {string}
+             */
+            liveness_status: "live" | "unchecked" | "at_risk" | "expired";
+            /**
+             * Repost Frequency
+             * @enum {string}
+             */
+            repost_frequency: "none" | "moderate" | "frequent";
+            /**
+             * Salary Transparency
+             * @enum {string}
+             */
+            salary_transparency: "transparent" | "unclear" | "missing";
+        };
         /**
          * LocalCognitionOut
          * @description H4 yerel bilis durumu. `reachable` yalnizca prob atildiysa doludur.
@@ -8137,6 +8222,19 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ObservationLivenessOut */
+        ObservationLivenessOut: {
+            /** Liveness */
+            liveness?: {
+                [key: string]: unknown;
+            } | null;
+            /** Source */
+            source: string;
+            /** Source Status */
+            source_status: string;
+            /** Url */
+            url: string;
+        };
         /** OpenTodoOut */
         OpenTodoOut: {
             /** Due At */
@@ -8357,6 +8455,7 @@ export interface components {
              * @default false
              */
             is_repost: boolean;
+            listing_health?: components["schemas"]["ListingHealthOut"] | null;
             /** Pay Currency */
             pay_currency?: string | null;
             /** Pay Max */
@@ -8383,6 +8482,34 @@ export interface components {
              * @enum {string}
              */
             sponsorship_status: "sponsors" | "not_needed" | "unstated" | "no_sponsorship";
+        };
+        /** OpportunityJdExtractionResultOut */
+        OpportunityJdExtractionResultOut: {
+            /** Code */
+            code?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+            /** Promoted */
+            promoted: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Text Length */
+            text_length?: number | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** OpportunityLivenessResultOut */
+        OpportunityLivenessResultOut: {
+            /** Observations */
+            observations?: components["schemas"]["ObservationLivenessOut"][];
+            /** Opportunity Id */
+            opportunity_id: string;
+            /** Source Status */
+            source_status: string;
         };
         /** OpportunityOut */
         OpportunityOut: {
@@ -16306,6 +16433,72 @@ export interface operations {
             };
         };
     };
+    extract_opportunity_jd_api_opportunities__id__extract_jd_post: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityJdExtractionResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_opportunity_liveness_api_opportunities__id__liveness_post: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpportunityLivenessResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     opportunity_detail_api_opportunities__item_id__get: {
         parameters: {
             query?: never;
@@ -20394,6 +20587,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    career_ops_doctor_api_system_career_ops_doctor_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

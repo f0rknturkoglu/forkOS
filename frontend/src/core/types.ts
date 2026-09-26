@@ -813,6 +813,14 @@ interface OpportunityRiskSignal {
   severity: "neutral" | "warn" | "danger";
 }
 
+export interface ListingHealth {
+  health_score: number;
+  jd_completeness: "complete" | "concise" | "stub";
+  salary_transparency: "transparent" | "unclear" | "missing";
+  liveness_status: "live" | "unchecked" | "at_risk" | "expired";
+  repost_frequency: "none" | "moderate" | "frequent";
+}
+
 interface OpportunityIntelligence {
   repost_count: number;
   is_repost: boolean;
@@ -825,6 +833,7 @@ interface OpportunityIntelligence {
   geo_mismatch: boolean;
   sponsorship_status: "sponsors" | "not_needed" | "unstated" | "no_sponsorship";
   signals: OpportunityRiskSignal[];
+  listing_health?: ListingHealth | null;
 }
 
 export type RequirementImportance = "critical" | "high" | "meaningful" | "preferred" | "low_signal";

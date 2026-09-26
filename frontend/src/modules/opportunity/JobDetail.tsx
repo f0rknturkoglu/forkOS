@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   Award,
   CalendarClock,
   Check,
@@ -21,7 +22,7 @@ import { sourceLabel } from "@/core/labels";
 import { displayScore } from "./scoreDomain";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { planDayForToday } from "@/core/tasks";
-import { Button, Chip, Empty, Input, Section, Select, Tabs, relativeTime } from "@/core/ui";
+import { Button, Chip, Empty, Input, Section, Select, Tabs, relativeTime, useToast } from "@/core/ui";
 import type {
   ApplicationHistoryRow,
   ApplicationTimeline,
@@ -182,7 +183,7 @@ export function JobDetail({ item }: { item: Opportunity }) {
       <JobSummary item={item} online={online} />
       <Tabs<JobTab> ariaLabel="İş ilanı sekmeleri" value={tab} onChange={setTab} items={[...TAB_ITEMS]} />
       <div role="tabpanel" aria-label={TAB_LABELS[tab]} id={`job-tabpanel-${tab}`}>
-        {tab === "ozet" && <JobOverview item={item} />}
+        {tab === "ozet" && <JobOverview item={item} online={online} />}
         {tab === "uyum" && <JobFit item={item} online={online} />}
         {tab === "basvuru" && <JobApplication item={item} online={online} />}
         {tab === "notlar" && <JobNotes item={item} online={online} />}
@@ -250,7 +251,129 @@ function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
   );
 }
 
-function JobOverview({ item }: { item: Opportunity }) {
+function ListingHealthSection({ item, online }: { item: Opportunity; online: boolean }) {
+  const toast = useToast();
+  const health = item.intelligence?.listing_health;
+
+  const checkLiveness = useMutation({
+    mutationFn: () => api.post(`/opportunities/${item.id}/liveness`, {}),
+    onSuccess: () => {
+      toast.push("Canlılık durumu güncellendi.", { tone: "ok" });
+      invalidateAfter("opportunity.write");
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Canlılık kontrolü başarısız";
+      toast.push(msg, { tone: "danger" });
+    },
+  });
+
+  const extractJd = useMutation({
+    mutationFn: () => api.post(`/opportunities/${item.id}/extract-jd`, {}),
+    onSuccess: () => {
+      toast.push("İlan metni zenginleştirildi.", { tone: "ok" });
+      invalidateAfter("opportunity.write");
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "İlan metni çıkarılamadı";
+      toast.push(msg, { tone: "danger" });
+    },
+  });
+
+  const healthScore = health?.health_score ?? 100;
+  const scoreTone: "ok" | "warn" | "danger" = healthScore >= 75 ? "ok" : healthScore >= 50 ? "warn" : "danger";
+
+  const livenessLabels: Record<string, string> = {
+    live: "Canlı",
+    at_risk: "Kapanma Riski",
+    expired: "Kapandı",
+    unchecked: "Kontrol Edilmedi",
+  };
+  const livenessTones: Record<string, "ok" | "warn" | "danger" | "neutral"> = {
+    live: "ok",
+    at_risk: "warn",
+    expired: "danger",
+    unchecked: "neutral",
+  };
+
+  const completenessLabels: Record<string, string> = {
+    complete: "Tam Açıklama (>1000 kr)",
+    concise: "Özet Açıklama (300-1000 kr)",
+    stub: "Kısa/Taslak Açıklama (<300 kr)",
+  };
+
+  const salaryLabels: Record<string, string> = {
+    transparent: "Maaş: Şeffaf",
+    unclear: "Maaş: Belirsiz Aralık",
+    missing: "Maaş: Belirtilmemiş",
+  };
+
+  const repostLabels: Record<string, string> = {
+    none: "İlk Kez Görüldü",
+    moderate: "Tekrar İlan (2x)",
+    frequent: "Sık Tekrar (3+)",
+  };
+
+  return (
+    <Section title="İlan kalitesi ve canlılık" hint={health ? `${healthScore} / 100 Kalite` : undefined}>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {health && <Chip tone={scoreTone}>Kalite Puanı: {healthScore} / 100</Chip>}
+          {health && (
+            <Chip tone={livenessTones[health.liveness_status] ?? "neutral"}>
+              {livenessLabels[health.liveness_status] ?? health.liveness_status}
+            </Chip>
+          )}
+          {health && (
+            <Chip tone={health.jd_completeness === "stub" ? "warn" : "neutral"}>
+              {completenessLabels[health.jd_completeness] ?? health.jd_completeness}
+            </Chip>
+          )}
+          {health && (
+            <Chip
+              tone={
+                health.salary_transparency === "transparent"
+                  ? "ok"
+                  : health.salary_transparency === "unclear"
+                    ? "warn"
+                    : "neutral"
+              }
+            >
+              {salaryLabels[health.salary_transparency] ?? health.salary_transparency}
+            </Chip>
+          )}
+          {health && health.repost_frequency !== "none" && (
+            <Chip tone={health.repost_frequency === "frequent" ? "danger" : "warn"}>
+              {repostLabels[health.repost_frequency] ?? health.repost_frequency}
+            </Chip>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!online || checkLiveness.isPending}
+            onClick={() => checkLiveness.mutate()}
+          >
+            <Activity size={13} />
+            {checkLiveness.isPending ? "Kontrol Ediliyor..." : "Canlılık Kontrolü"}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!online || extractJd.isPending}
+            onClick={() => extractJd.mutate()}
+          >
+            <FileText size={13} />
+            {extractJd.isPending ? "Çıkarılıyor..." : "İlan Metnini Çıkar"}
+          </Button>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function JobOverview({ item, online }: { item: Opportunity; online: boolean }) {
   const risk = closureRisk(item);
   const workMode = remoteKind(item.remote);
   const rows: [string, string][] = [
@@ -279,6 +402,8 @@ function JobOverview({ item }: { item: Opportunity }) {
           ))}
         </dl>
       </Section>
+
+      <ListingHealthSection item={item} online={online} />
 
       <Section title="Kapanma ihtimali" hint={SOURCE_STATUS_LABELS[item.source_status ?? "active"] ?? undefined}>
         <div className="flex flex-wrap items-center gap-3">

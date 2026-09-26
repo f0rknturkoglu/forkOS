@@ -316,4 +316,45 @@ describe("JobDetail", () => {
     );
     expect(vi.mocked(api.get)).toHaveBeenCalledWith(expect.stringContaining("/obsidian/uri/search?q=Senior"));
   });
+
+  it("ilan kalitesi ve canlılık bölümü sağlık rozetini ve aksiyonları gösterir", async () => {
+    const jobWithHealth: Opportunity = {
+      ...JOB,
+      intelligence: {
+        repost_count: 0,
+        is_repost: false,
+        pay_min: 80000,
+        pay_max: 95000,
+        pay_currency: "EUR",
+        pay_range_ratio: 0.19,
+        pay_transparency_risk: false,
+        geo_mismatch: false,
+        sponsorship_status: "unstated",
+        signals: [],
+        listing_health: {
+          health_score: 95,
+          jd_completeness: "complete",
+          salary_transparency: "transparent",
+          liveness_status: "live",
+          repost_frequency: "none",
+        },
+      },
+    };
+
+    render(<JobDetail item={jobWithHealth} />);
+    expect(screen.getByText("İlan kalitesi ve canlılık")).toBeTruthy();
+    expect(screen.getByText(/Kalite Puanı: 95 \/ 100/)).toBeTruthy();
+    expect(screen.getByText("Canlı")).toBeTruthy();
+    expect(screen.getByText("Tam Açıklama (>1000 kr)")).toBeTruthy();
+    expect(screen.getByText("Maaş: Şeffaf")).toBeTruthy();
+
+    const livenessBtn = screen.getByRole("button", { name: /Canlılık Kontrolü/ });
+    fireEvent.click(livenessBtn);
+    expect(vi.mocked(api.post)).toHaveBeenCalledWith("/opportunities/opp-1/liveness", {});
+    expect(invalidationHarness.invalidate).toHaveBeenCalledWith("opportunity.write");
+
+    const extractBtn = screen.getByRole("button", { name: /İlan Metnini Çıkar/ });
+    fireEvent.click(extractBtn);
+    expect(vi.mocked(api.post)).toHaveBeenCalledWith("/opportunities/opp-1/extract-jd", {});
+  });
 });
