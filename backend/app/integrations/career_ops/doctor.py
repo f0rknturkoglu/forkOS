@@ -208,6 +208,7 @@ class CareerOpsDoctor:
 
         # Execute upstream doctor in isolated workspace WITHOUT --target
         upstream_onboarding: CareerOpsUpstreamOnboarding | None = None
+        status = CareerOpsStatusEnum.READY
         warnings: list[str] = []
         try:
             exec_res = await self.runner.run_script(
@@ -216,6 +217,7 @@ class CareerOpsDoctor:
                 timeout_seconds=15.0,
             )
             if exec_res.exit_code != 0:
+                status = CareerOpsStatusEnum.DEGRADED
                 warnings.append(f"doctor.mjs exited with code {exec_res.exit_code}")
             else:
                 try:
@@ -230,6 +232,7 @@ class CareerOpsDoctor:
                         active_cli=payload.get("active_cli"),
                     )
                 except Exception:
+                    status = CareerOpsStatusEnum.DEGRADED
                     warnings.append("doctor.mjs stdout was not JSON parseable")
         except Exception as exc:
             return CareerOpsDoctorResult(
@@ -240,18 +243,20 @@ class CareerOpsDoctor:
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
                 capabilities_available=available_capabilities_count,
+                core_ready=True,
                 browser_ready=browser_ready,
                 warnings=[f"Engine doctor probe failed: {exc}"],
             )
 
         return CareerOpsDoctorResult(
-            status=CareerOpsStatusEnum.READY,
+            status=status,
             expected_identity=expected,
             actual_identity=actual_identity,
             runtime=runtime,
             upstream_onboarding=upstream_onboarding,
             capabilities_declared=len(declared),
             capabilities_available=available_capabilities_count,
+            core_ready=True,
             browser_ready=browser_ready,
             warnings=warnings,
         )

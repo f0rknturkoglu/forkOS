@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
 
 
 class CareerOpsStatusEnum(str, Enum):
@@ -74,6 +75,7 @@ class CareerOpsDoctorResult(BaseModel):
     upstream_onboarding: CareerOpsUpstreamOnboarding | None = None
     capabilities_declared: int = 0
     capabilities_available: int = 0
+    core_ready: bool = False
     browser_ready: bool = False
     canonical_state_owner: str = "forkOS PostgreSQL"
     warnings: list[str] = Field(default_factory=list)
@@ -152,17 +154,51 @@ class CareerOpsLivenessReceipt(BaseModel):
     code: str
     reason: str
     method: Literal["api", "browser", "bridge"]
-    checked_at: str
+    checked_at: datetime
+
+    @field_validator("checked_at", mode="before")
+    @classmethod
+    def validate_and_normalize_checked_at(cls, v: Any) -> datetime:
+        if v is None or v == "":
+            raise ValueError("checked_at cannot be empty")
+        if isinstance(v, datetime):
+            dt = v
+        elif isinstance(v, str):
+            try:
+                v_clean = v.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(v_clean)
+            except Exception as exc:
+                raise ValueError(f"Invalid checked_at format: {v}") from exc
+        else:
+            raise ValueError(f"Unsupported checked_at type: {type(v)}")
+
+        if dt.tzinfo is None:
+            raise ValueError("checked_at must be timezone-aware")
+        return dt.astimezone(UTC)
 
 
 class CareerOpsJobExtractionResult(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     url: str
+    requested_url: str = ""
+    final_url: str = ""
     title: str = ""
     text: str = ""
+    extraction_status: str = "success"
+    job_identity_status: Literal["valid_job", "invalid_non_job", "uncertain_identity"] = "valid_job"
+    identity_reason: str = "valid_specific_posting"
+    warnings: list[str] = Field(default_factory=list)
     error: str | None = None
     code: str | None = None
+
+    @model_validator(mode="after")
+    def populate_url_defaults(self) -> CareerOpsJobExtractionResult:
+        if not self.requested_url:
+            self.requested_url = self.url
+        if not self.final_url:
+            self.final_url = self.url
+        return self
 
 
 class CareerOpsRepostAppearance(BaseModel):

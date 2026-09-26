@@ -22,6 +22,7 @@ from app.integrations.career_ops.errors import (
     CareerOpsUnavailableError,
 )
 from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
+from app.integrations.career_ops.job_identity import assess_extracted_job_identity
 from app.integrations.career_ops.models import (
     CareerOpsCapability,
     CareerOpsCapabilityContext,
@@ -142,10 +143,9 @@ class CareerOpsAdapter:
 
     async def capabilities(self) -> list[CareerOpsCapability]:
         doc = await self.doctor()
-        ready = doc.status == CareerOpsStatusEnum.READY
         ctx = CareerOpsCapabilityContext(
             enabled=self.enabled,
-            core_ready=ready,
+            core_ready=doc.core_ready,
             discovery_enabled=settings.career_ops_discovery_enabled,
             browser_ready=doc.browser_ready,
         )
@@ -439,14 +439,24 @@ class CareerOpsAdapter:
         except CareerOpsTimeoutError:
             return CareerOpsJobExtractionResult(
                 url=url,
+                requested_url=url,
+                final_url=url,
                 error="JD extraction timed out",
                 code="timeout",
+                extraction_status="error",
+                job_identity_status="invalid_non_job",
+                identity_reason="timeout",
             )
         except Exception as exc:
             return CareerOpsJobExtractionResult(
                 url=url,
+                requested_url=url,
+                final_url=url,
                 error=str(exc),
                 code="execution_error",
+                extraction_status="error",
+                job_identity_status="invalid_non_job",
+                identity_reason="execution_error",
             )
 
         if exec_res.exit_code != 0:
@@ -461,13 +471,39 @@ class CareerOpsAdapter:
                 pass
             return CareerOpsJobExtractionResult(
                 url=url,
+                requested_url=url,
+                final_url=url,
                 error=err_msg,
                 code=err_code,
+                extraction_status="error",
+                job_identity_status="invalid_non_job",
+                identity_reason="extraction_error",
             )
 
         try:
             payload = json.loads(exec_res.stdout)
-            return CareerOpsJobExtractionResult.model_validate(payload)
+            final_url = payload.get("url") or url
+            title = payload.get("title") or ""
+            text = payload.get("text") or ""
+
+            assessment = assess_extracted_job_identity(
+                requested_url=url,
+                final_url=final_url,
+                title=title,
+                text=text,
+            )
+
+            return CareerOpsJobExtractionResult(
+                url=final_url,
+                requested_url=url,
+                final_url=final_url,
+                title=title,
+                text=text,
+                extraction_status="success",
+                job_identity_status=assessment.identity_status,
+                identity_reason=assessment.reason,
+                warnings=assessment.warnings,
+            )
         except Exception as exc:
             raise CareerOpsInvalidOutputError(
                 f"Failed to parse JSON from browser-extract.mjs: {exc}"

@@ -269,8 +269,18 @@ function ListingHealthSection({ item, online }: { item: Opportunity; online: boo
 
   const extractJd = useMutation({
     mutationFn: () => api.post(`/opportunities/${item.id}/extract-jd`, {}),
-    onSuccess: () => {
-      toast.push("İlan metni zenginleştirildi.", { tone: "ok" });
+    onSuccess: (data: any) => {
+      if (data?.promoted) {
+        toast.push("İlan metni zenginleştirildi.", { tone: "ok" });
+      } else if (data?.identity_status === "invalid_non_job") {
+        toast.push("İlan metni doğrulanamadı. Kaynak genel kariyer sayfasına yönlendirdi.", { tone: "warn" });
+      } else if (data?.identity_status === "uncertain_identity") {
+        toast.push("İlan kimliği doğrulanamadı.", { tone: "warn" });
+      } else if (data?.reason === "already_has_substantive_description") {
+        toast.push("İlan açıklaması zaten mevcut.", { tone: "neutral" });
+      } else {
+        toast.push("İlan metni yükseltilmedi.", { tone: "neutral" });
+      }
       invalidateAfter("opportunity.write");
     },
     onError: (err: unknown) => {

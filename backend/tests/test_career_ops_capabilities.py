@@ -1,6 +1,7 @@
 import pytest
 from app.config import settings
 from app.integrations.career_ops.adapter import CareerOpsAdapter
+from app.integrations.career_ops.models import CareerOpsStatusEnum
 from app.integrations.career_ops.capabilities import (
     ALL_CAPABILITIES,
     CapabilityStatus,
@@ -103,3 +104,22 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     supported_disabled_count = sum(1 for c in caps_disabled if c.status == CapabilityStatus.SUPPORTED)
     assert doc_disabled.capabilities_available == 0
     assert supported_disabled_count == 0
+
+    # Case 5: C3.2 Finding C - Doctor probe fails/degraded, but core scripts are ready
+    class FailingDoctorRunner:
+        async def run_script(self, script_name, args, timeout_seconds=None):
+            from app.integrations.career_ops.runner import ExecutionResult
+            if script_name == "doctor.mjs":
+                return ExecutionResult(script_name=script_name, exit_code=1, stdout="", stderr="simulated probe error")
+            return ExecutionResult(script_name=script_name, exit_code=0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(settings, "career_ops_discovery_enabled", True)
+    monkeypatch.setattr("app.integrations.career_ops.doctor.probe_browser_readiness", lambda *args, **kwargs: True)
+    adapter_degraded = CareerOpsAdapter(enabled=True, checkout_dir=mock_checkout, runner=FailingDoctorRunner())
+    doc_degraded = await adapter_degraded.doctor()
+    assert doc_degraded.status == CareerOpsStatusEnum.DEGRADED
+    assert doc_degraded.core_ready is True
+    caps_degraded = await adapter_degraded.capabilities()
+    supported_degraded_count = sum(1 for c in caps_degraded if c.status == CapabilityStatus.SUPPORTED)
+    assert doc_degraded.capabilities_available == supported_degraded_count
+    assert doc_degraded.capabilities_available == 6

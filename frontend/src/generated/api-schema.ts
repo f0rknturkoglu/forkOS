@@ -8489,14 +8489,22 @@ export interface components {
             code?: string | null;
             /** Error */
             error?: string | null;
+            /** Final Url */
+            final_url?: string | null;
+            /** Identity Status */
+            identity_status?: string | null;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
             } | null;
             /** Promoted */
             promoted: boolean;
+            /** Promotion Reason */
+            promotion_reason?: string | null;
             /** Reason */
             reason?: string | null;
+            /** Requested Url */
+            requested_url?: string | null;
             /** Text Length */
             text_length?: number | null;
             /** Title */

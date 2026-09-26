@@ -356,3 +356,37 @@ C3.1 fazı, C3 ile gelen yeteneklerin kanıt zincirini, çalışma zamanı hazı
 ### 14.9 Olay Semantiği ve Yeniden Açılma
 - Önceden `closed` veya `likely_closed` olan bir kaynağın canlılık kontrolünde `active` dönmesi durumunda `opportunity.source_reopened` eventi fırlatılır ve `closed_at` temizlenir.
 - Kaynak durumu değiştiğinde `opportunity.source_status_changed` eventi yalnızca gerçek durum geçişlerinde tetiklenir.
+
+---
+
+## 15. C3.2 Son Kanıt Mührü (Final Evidence Seal)
+
+C3.2 fazı, C4 Derin Değerlendirme (Deep Evaluation) başlamadan önce kanıt katmanındaki 3 kritik uç durumu kesin olarak mühürler:
+
+### 15.1 Çıkarma Başarısı vs. İlan Kimliği Doğrulaması (Finding A)
+- **Sorun**: Süresi dolmuş iş ilanları (özellikle Greenhouse, Lever vb.), HTTP 200 veya 302 ile şirketin genel kariyer sayfasına veya iş listesi dizinine (`?error=true`) yönlendirilir. Tarayıcı çıkarma aracı bu sayfadaki metni başarıyla çıkardığı için, genel kariyer sayfası metni meşru bir iş tanımı sanılarak kanonik ilana aktarılmakta ve `listing_fingerprint` değerini bozmaktaydı.
+- **Çözüm — `assess_extracted_job_identity()`**:
+  - İstenen URL (`requested_url`) ile nihai yönlendirilen URL (`final_url`), sayfa başlığı (`title`), gövde metni (`text`) ve canlılık durumu çapraz denetlenir.
+  - Hata parametreli yönlendirmeler (`?error=true`), URL'den iş kimlik parçalarının düşmesi (`/jobs/123` -> `/jobs`), jenerik kariyer başlıkları (`"Current openings at ..."`, `"Careers at ..."`) ve hata belirteçleri (`404`, `"job not found"`) tespit edildiğinde `job_identity_status = "invalid_non_job"` olarak etiketlenir.
+  - Yalnızca protokol (`http -> https`), alan adı geçişi (vanity URL -> ATS) veya iş kimliğini koruyan kanonik yönlendirmeler `valid_job` kabul edilir.
+- **Sınırlı Aday Geri Çekilme (Bounded Candidate Fallback)**:
+  - `get_extraction_candidates()` ile bir ilana ait en fazla 3 aday kaynak URL'si sıralanır.
+  - İlk kaynak yönlendirme veya jenerik sayfa nedeniyle `invalid_non_job` veya `uncertain_identity` alırsa, çıkarılan kanıt adayın `obs.enrichment["jd_extraction"]` kaydına yazılır; kanonik ilana **asla aktarılmaz**.
+  - Servis otomatik olarak sonraki geçerli gözlem URL'sini dener; geçerli bir ilan metni bulursa kanonik ilana yalnızca bu meşru metni aktarır.
+
+### 15.2 Tiplenmiş ve Monotonik Canlılık Zaman Damgaları (Finding B)
+- **Sorun**: Canlılık kontrol makbuzlarında string tabanlı veya serbest biçimli zaman damgaları, zaman tüneli / eski makbuzların yeniden işletilmesi durumunda 12 saatlik onay aralığını ve kapanma mantığını yanıltabilmekteydi.
+- **Çözüm**:
+  - `CareerOpsLivenessReceipt.checked_at` doğrudan `datetime` olarak tiplenmiş, timezone-aware doğrulayıcı ile zorunlu kılınmış ve UTC standardına normalize edilmiştir.
+  - Monotonik onay kuralı: İkinci onay makbuzunun zamanı (`receipt_dt`), ilk/önceki süresi dolmuş kontrolden (`prev_exp_at`) kesin olarak daha yeni olmalıdır (`receipt_dt > prev_exp_at`). Eski veya aynı zaman damgalı tekrarlar (`receipt_dt <= prev_exp_at`) onay sayacını artıramaz ve `stale_non_monotonic_evidence` uyarısıyla reddedilir.
+  - Gelecek saat sapması koruması (Clock skew): `receipt_dt > now + 5 dakika` olan durumlar anomali sayılarak yaşam döngüsü ilerletilmez (`clock_skew_future_timestamp`).
+
+### 15.3 Çekirdek Motor Hazırlığı ile Teşhis Probu Ayrımı (Finding C)
+- **Sorun**: İsteğe bağlı bir teşhis aracı olan `doctor.mjs` probunun zaman aşımına uğraması veya geçici uyarılar üretmesi, sistem durumunu `DEGRADED` yaparken yetenek sayısını hatalı biçimde sıfırlayabilmekteydi.
+- **Çözüm**:
+  - Çekirdek çalışma zamanı (`node`, checkout, pin kilidi, git commit doğrulaması ve `path-resolver.mjs` gibi temel betikler) mevcutsa `CareerOpsDoctorResult.core_ready = True` olarak işaretlenir.
+  - `doctor.mjs --json` probu hata verse veya DEGRADED dönse dahi, `core_ready = True` olduğu sürece temel yetenekler (`discovery.reverse_ats`, `job.repost_analysis`, `job.legitimacy`, `job.extract`, `discovery.liveness`) korunur.
+  - Teşhis probu başarısız olsa bile adapter'ın desteklenen yetenek sayısı ile doctor'ın `capabilities_available` sayısı tam mutabakat içindedir.
+
+### 15.4 C4 Hazırlık Güvencesi
+C3.2 ile tamamlanan bu mühür sayesinde, kanıt katmanının ürettiği iş tanımları, canlılık durumları ve kaynak kanıt zinciri tamamen deterministik, yanıltıcı yönlendirmelere karşı korumalı ve matematiksel olarak doğrulanabilir hale getirilmiştir. Bu durum, C4 aşamasında çalışacak Career Specialist ve Deep Evaluation ajanlarının kirli veya jenerik veriler üzerinde gereksiz veya hatalı muhakeme yapmasını kesin olarak önler.

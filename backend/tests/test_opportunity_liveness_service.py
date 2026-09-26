@@ -548,3 +548,217 @@ async def test_evaluation_staleness_on_jd_material_change_vs_poorer_source(db_se
 
     after_rich_fp = listing_fingerprint(opp, title="Backend Engineer")
     assert initial_fp != after_rich_fp
+
+
+@pytest.mark.asyncio
+async def test_invalid_jd_extraction_cannot_mutate_canonical_jd_or_fingerprint(db_session: AsyncSession):
+    """C3.2 Finding A: Dead job redirecting to generic openings page must NOT mutate canonical JD or fingerprint."""
+    initial_desc = "Original canonical job description that was manually reviewed or previously discovered."
+    opp = await _seed_opportunity(
+        db_session,
+        url="https://boards.greenhouse.io/gitlab/jobs/4279007005",
+        description=initial_desc,
+    )
+    obs = await _seed_observation(
+        db_session,
+        opportunity_id=opp.id,
+        source="careerops:greenhouse",
+        url="https://boards.greenhouse.io/gitlab/jobs/4279007005",
+    )
+
+    initial_fp = listing_fingerprint(opp, title="Backend Engineer")
+
+    # Mock extraction result matching real C3.1 smoke failure:
+    # 3,700 chars of generic openings page returned from ?error=true redirect
+    adapter = MockCareerOpsAdapter()
+    adapter.extraction_responses["https://boards.greenhouse.io/gitlab/jobs/4279007005"] = CareerOpsJobExtractionResult(
+        url="https://job-boards.greenhouse.io/gitlab?error=true",
+        requested_url="https://boards.greenhouse.io/gitlab/jobs/4279007005",
+        final_url="https://job-boards.greenhouse.io/gitlab?error=true",
+        title="Current openings at GitLab",
+        text="Current openings at GitLab Search Department Select... 199 jobs " * 30,
+        job_identity_status="invalid_non_job",
+        identity_reason="provider_error_redirect",
+    )
+
+    service = OpportunityListingService(adapter=adapter)
+    res = await service.enrich_job_description(db_session, opp.id, force=True)
+
+    # 1. Not promoted
+    assert res["promoted"] is False
+    assert res["identity_status"] == "invalid_non_job"
+    assert res["promotion_reason"] == "provider_error_redirect"
+
+    # 2. Canonical description strictly unchanged
+    await db_session.refresh(opp)
+    assert opp.raw["description"] == initial_desc
+
+    # 3. Listing fingerprint strictly unchanged (no false staleness)
+    after_fp = listing_fingerprint(opp, title="Backend Engineer")
+    assert initial_fp == after_fp
+
+    # 4. Evidence recorded strictly in observation enrichment
+    await db_session.refresh(obs)
+    jd_meta = obs.enrichment["jd_extraction"]
+    assert jd_meta["requested_url"] == "https://boards.greenhouse.io/gitlab/jobs/4279007005"
+    assert jd_meta["returned_url"] == "https://job-boards.greenhouse.io/gitlab?error=true"
+    assert jd_meta["identity_status"] == "invalid_non_job"
+    assert jd_meta["promoted"] is False
+
+
+@pytest.mark.asyncio
+async def test_multi_source_fallback_invalid_primary_valid_secondary(db_session: AsyncSession):
+    """C3.2 Finding A / Section 21: Primary generic redirect falls back to valid secondary careers observation."""
+    opp = await _seed_opportunity(
+        db_session,
+        url="https://boards.greenhouse.io/example/jobs/123",
+        description="",  # empty description
+    )
+    obs_primary = await _seed_observation(
+        db_session,
+        opportunity_id=opp.id,
+        source="careerops:greenhouse",
+        url="https://boards.greenhouse.io/example/jobs/123",
+    )
+    obs_secondary = await _seed_observation(
+        db_session,
+        opportunity_id=opp.id,
+        source="forkjob:company_careers",
+        url="https://careers.example.com/jobs/123",
+    )
+
+    adapter = MockCareerOpsAdapter()
+    # Primary fails with generic board redirect
+    adapter.extraction_responses["https://boards.greenhouse.io/example/jobs/123"] = CareerOpsJobExtractionResult(
+        url="https://job-boards.greenhouse.io/example",
+        requested_url="https://boards.greenhouse.io/example/jobs/123",
+        final_url="https://job-boards.greenhouse.io/example",
+        title="Current openings at Example",
+        text="Generic company careers index with multiple job postings listed here. " * 15,
+        job_identity_status="invalid_non_job",
+        identity_reason="redirected_to_board_root",
+    )
+    # Secondary succeeds with genuine JD
+    secondary_text = "Detailed role overview: responsible for backend reliability, scaling PostgreSQL, and distributed caching. " * 6
+    adapter.extraction_responses["https://careers.example.com/jobs/123"] = CareerOpsJobExtractionResult(
+        url="https://careers.example.com/jobs/123",
+        requested_url="https://careers.example.com/jobs/123",
+        final_url="https://careers.example.com/jobs/123",
+        title="Backend Engineer",
+        text=secondary_text,
+        job_identity_status="valid_job",
+        identity_reason="valid_specific_posting",
+    )
+
+    service = OpportunityListingService(adapter=adapter)
+    res = await service.enrich_job_description(db_session, opp.id, force=True)
+
+    # Secondary was extracted and promoted!
+    assert res["promoted"] is True
+    assert res["selected_url"] == "https://careers.example.com/jobs/123"
+    assert res["identity_status"] == "valid_job"
+
+    # Canonical description promoted from secondary
+    await db_session.refresh(opp)
+    assert opp.raw["description"] == secondary_text.strip()
+
+    # Primary retained failure evidence
+    await db_session.refresh(obs_primary)
+    assert obs_primary.enrichment["jd_extraction"]["promoted"] is False
+    assert obs_primary.enrichment["jd_extraction"]["identity_status"] == "invalid_non_job"
+
+    # Secondary has successful extraction evidence
+    await db_session.refresh(obs_secondary)
+    assert obs_secondary.enrichment["jd_extraction"]["promoted"] is True
+    assert obs_secondary.enrichment["jd_extraction"]["identity_status"] == "valid_job"
+
+
+@pytest.mark.asyncio
+async def test_liveness_timestamp_monotonicity_and_clock_skew(db_session: AsyncSession):
+    """C3.2 Finding B: Closure requires strictly newer timestamps and rejects non-monotonic/future skew."""
+    t0 = datetime(2026, 9, 26, 10, 0, 0, tzinfo=UTC)
+    opp = await _seed_opportunity(db_session, url="https://boards.greenhouse.io/test/timing")
+    obs = await _seed_observation(
+        db_session,
+        opportunity_id=opp.id,
+        source="careerops:greenhouse",
+        url="https://boards.greenhouse.io/test/timing",
+    )
+
+    adapter = MockCareerOpsAdapter()
+    service = OpportunityListingService(adapter=adapter)
+
+    # 1. T0: First expired check -> likely_closed
+    adapter.liveness_responses["https://boards.greenhouse.io/test/timing"] = CareerOpsLivenessReceipt(
+        url="https://boards.greenhouse.io/test/timing",
+        status="expired",
+        code="expired",
+        reason="posting gone",
+        method="api",
+        checked_at=t0,
+    )
+    res1 = await service.verify_opportunity_liveness(db_session, opp.id, now=t0)
+    assert res1["source_status"] == "likely_closed"
+    await db_session.refresh(obs)
+    assert obs.source_status == "likely_closed"
+
+    # 2. Older timestamp (T0 - 1h): must NOT advance confirmation count or close
+    t_older = t0 - timedelta(hours=1)
+    adapter.liveness_responses["https://boards.greenhouse.io/test/timing"] = CareerOpsLivenessReceipt(
+        url="https://boards.greenhouse.io/test/timing",
+        status="expired",
+        code="expired",
+        reason="posting gone",
+        method="api",
+        checked_at=t_older,
+    )
+    res2 = await service.verify_opportunity_liveness(db_session, opp.id, force=True, now=t0 + timedelta(hours=13))
+    assert res2["source_status"] == "likely_closed"
+    await db_session.refresh(obs)
+    assert obs.source_status == "likely_closed"
+    assert obs.enrichment["closure_confirmation"]["confirmation_count"] == 1
+
+    # 3. Same timestamp replay (T0): must NOT advance confirmation count or close
+    adapter.liveness_responses["https://boards.greenhouse.io/test/timing"] = CareerOpsLivenessReceipt(
+        url="https://boards.greenhouse.io/test/timing",
+        status="expired",
+        code="expired",
+        reason="posting gone",
+        method="api",
+        checked_at=t0,
+    )
+    res3 = await service.verify_opportunity_liveness(db_session, opp.id, force=True, now=t0 + timedelta(hours=13))
+    assert res3["source_status"] == "likely_closed"
+    await db_session.refresh(obs)
+    assert obs.source_status == "likely_closed"
+
+    # 4. Absurd future timestamp (now + 2 days): clock skew guard rejects lifecycle advancement
+    t_future = t0 + timedelta(days=2)
+    adapter.liveness_responses["https://boards.greenhouse.io/test/timing"] = CareerOpsLivenessReceipt(
+        url="https://boards.greenhouse.io/test/timing",
+        status="expired",
+        code="expired",
+        reason="posting gone",
+        method="api",
+        checked_at=t_future,
+    )
+    res4 = await service.verify_opportunity_liveness(db_session, opp.id, force=True, now=t0 + timedelta(hours=13))
+    assert res4["source_status"] == "likely_closed"
+    await db_session.refresh(obs)
+    assert obs.source_status == "likely_closed"
+
+    # 5. Chronologically newer timestamp >= 12h later (T0 + 13h): advances to CLOSED!
+    t_fresh = t0 + timedelta(hours=13)
+    adapter.liveness_responses["https://boards.greenhouse.io/test/timing"] = CareerOpsLivenessReceipt(
+        url="https://boards.greenhouse.io/test/timing",
+        status="expired",
+        code="expired",
+        reason="posting gone",
+        method="api",
+        checked_at=t_fresh,
+    )
+    res5 = await service.verify_opportunity_liveness(db_session, opp.id, force=True, now=t_fresh)
+    assert res5["source_status"] == "closed"
+    await db_session.refresh(obs)
+    assert obs.source_status == "closed"
+    assert obs.enrichment["closure_confirmation"]["confirmation_count"] == 2

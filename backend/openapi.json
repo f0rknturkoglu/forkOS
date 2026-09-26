@@ -9986,6 +9986,28 @@
             ],
             "title": "Error"
           },
+          "final_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Url"
+          },
+          "identity_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Status"
+          },
           "metadata": {
             "anyOf": [
               {
@@ -10002,6 +10024,17 @@
             "title": "Promoted",
             "type": "boolean"
           },
+          "promotion_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promotion Reason"
+          },
           "reason": {
             "anyOf": [
               {
@@ -10012,6 +10045,17 @@
               }
             ],
             "title": "Reason"
+          },
+          "requested_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Url"
           },
           "text_length": {
             "anyOf": [

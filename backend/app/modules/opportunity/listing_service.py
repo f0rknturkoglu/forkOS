@@ -75,30 +75,43 @@ def should_promote_jd(existing: str | None, candidate: str | None) -> tuple[bool
     return False, "canonical_description_preferred"
 
 
-def select_extraction_source(
+def get_extraction_candidates(
     opportunity: Opportunity,
     observations: list[OpportunitySourceObservation],
-) -> tuple[str | None, OpportunitySourceObservation | None, str]:
-    """Deterministically select which source observation to extract JD from.
+    max_candidates: int = 3,
+) -> list[tuple[str, OpportunitySourceObservation | None, str]]:
+    """Deterministically order candidate source observations for JD extraction (up to max_candidates).
 
     Priority:
     1. Observation matching canonical Opportunity.url
     2. Preferred authoritative ATS observation (greenhouse, lever, ashby, workday, etc.)
     3. Company careers observation
-    4. First safe fallback observation
+    4. Safe fallback observations
     5. Canonical Opportunity.url without matching observation
     """
+    candidates: list[tuple[str, OpportunitySourceObservation | None, str]] = []
+    seen_urls: set[str] = set()
+
+    def add_candidate(url: str | None, obs: OpportunitySourceObservation | None, reason: str) -> None:
+        if not url:
+            return
+        cleaned = url.strip()
+        if cleaned and cleaned not in seen_urls:
+            seen_urls.add(cleaned)
+            candidates.append((cleaned, obs, reason))
+
     opp_url = (opportunity.url or "").strip()
 
     # 1. Observation matching canonical Opportunity.url
     if opp_url:
         for obs in observations:
             if obs.canonical_url and obs.canonical_url.strip() == opp_url:
-                return obs.canonical_url, obs, "canonical_opportunity_url"
+                add_candidate(obs.canonical_url, obs, "canonical_opportunity_url")
 
     # 2. Preferred authoritative ATS observation
     ats_domains = (
         "boards.greenhouse.io",
+        "job-boards.greenhouse.io",
         "jobs.lever.co",
         "jobs.ashbyhq.com",
         "myworkdayjobs.com",
@@ -109,24 +122,35 @@ def select_extraction_source(
     for obs in observations:
         url = (obs.canonical_url or "").strip()
         if url and any(domain in url for domain in ats_domains):
-            return url, obs, "preferred_authoritative_ats"
+            add_candidate(url, obs, "preferred_authoritative_ats")
 
     # 3. Company careers observation
     for obs in observations:
         url = (obs.canonical_url or "").strip()
         if url and ("/careers" in url or "/jobs" in url or "career" in (obs.source or "")):
-            return url, obs, "company_careers"
+            add_candidate(url, obs, "company_careers")
 
-    # 4. First safe fallback observation
+    # 4. Safe fallback observation
     for obs in observations:
         url = (obs.canonical_url or "").strip()
         if url:
-            return url, obs, "fallback_observation"
+            add_candidate(url, obs, "fallback_observation")
 
-    # 5. Opportunity url without matching observation
+    # 5. Canonical Opportunity url without matching observation
     if opp_url:
-        return opp_url, None, "canonical_opportunity_url_no_matching_observation"
+        add_candidate(opp_url, None, "canonical_opportunity_url_no_matching_observation")
 
+    return candidates[:max_candidates]
+
+
+def select_extraction_source(
+    opportunity: Opportunity,
+    observations: list[OpportunitySourceObservation],
+) -> tuple[str | None, OpportunitySourceObservation | None, str]:
+    """Deterministically select primary source observation to extract JD from."""
+    candidates = get_extraction_candidates(opportunity, observations, max_candidates=1)
+    if candidates:
+        return candidates[0]
     return None, None, "no_url"
 
 
@@ -179,6 +203,10 @@ class OpportunityListingService:
                 if checked_at_str:
                     try:
                         checked_at = datetime.fromisoformat(checked_at_str)
+                        if checked_at.tzinfo is None:
+                            checked_at = checked_at.replace(tzinfo=UTC)
+                        else:
+                            checked_at = checked_at.astimezone(UTC)
                         cache_age = now - checked_at
                         if status_in_cache == "expired" and obs.source_status == "likely_closed":
                             # Closure confirmation requires fresh evidence >= 12h later!
@@ -186,6 +214,10 @@ class OpportunityListingService:
                             first_exp_str = closure_conf.get("first_expired_checked_at") or enrichment.get("likely_closed_at")
                             if first_exp_str:
                                 first_exp_at = datetime.fromisoformat(first_exp_str)
+                                if first_exp_at.tzinfo is None:
+                                    first_exp_at = first_exp_at.replace(tzinfo=UTC)
+                                else:
+                                    first_exp_at = first_exp_at.astimezone(UTC)
                                 if (now - first_exp_at) >= LIVENESS_CLOSE_CONFIRMATION_INTERVAL:
                                     # Elapsed interval satisfied; must force fresh adapter call to confirm closure!
                                     receipt_data = None
@@ -204,17 +236,33 @@ class OpportunityListingService:
             if receipt_data is None:
                 receipt = await self.adapter.check_liveness(url)
                 receipt_data = receipt.model_dump()
+                receipt_data["checked_at"] = receipt.checked_at.isoformat()
                 enrichment["liveness"] = receipt_data
                 obs.enrichment = enrichment
                 is_cache_replay = False
 
             status = receipt_data.get("status")
-            receipt_checked_at = receipt_data.get("checked_at") or now.isoformat()
+            receipt_checked_at_str = receipt_data.get("checked_at")
+            if receipt_checked_at_str:
+                receipt_dt = datetime.fromisoformat(receipt_checked_at_str)
+                if receipt_dt.tzinfo is None:
+                    receipt_dt = receipt_dt.replace(tzinfo=UTC)
+                else:
+                    receipt_dt = receipt_dt.astimezone(UTC)
+            else:
+                receipt_dt = now
+
+            # Clock skew protection (Section 26)
+            MAX_CLOCK_SKEW = timedelta(minutes=5)
+            is_future_skew = receipt_dt > (now + MAX_CLOCK_SKEW)
+            if is_future_skew:
+                enrichment.setdefault("warnings", []).append("clock_skew_future_timestamp")
+                obs.enrichment = enrichment
 
             # Note: Do NOT mutate obs.last_seen_at or opportunity.last_seen_at on liveness checks.
             # Liveness checks are URL health probes, not discovery sightings.
 
-            if status == "active":
+            if status == "active" and not is_future_skew:
                 obs.source_status = "active"
                 obs.source_removed_at = None
                 if "closure_confirmation" in enrichment:
@@ -222,7 +270,7 @@ class OpportunityListingService:
                 if "likely_closed_at" in enrichment:
                     enrichment.pop("likely_closed_at", None)
                 obs.enrichment = enrichment
-            elif status == "expired":
+            elif status == "expired" and not is_future_skew:
                 if is_cache_replay:
                     # Cache replay cannot advance confirmation count or close
                     pass
@@ -233,31 +281,53 @@ class OpportunityListingService:
 
                     if obs.source_status == "likely_closed" and first_exp_str:
                         first_exp_at = datetime.fromisoformat(first_exp_str)
-                        prev_exp_checked_at = closure_conf.get("last_expired_checked_at")
+                        if first_exp_at.tzinfo is None:
+                            first_exp_at = first_exp_at.replace(tzinfo=UTC)
+                        else:
+                            first_exp_at = first_exp_at.astimezone(UTC)
 
-                        if receipt_checked_at != prev_exp_checked_at and (now - first_exp_at) >= LIVENESS_CLOSE_CONFIRMATION_INTERVAL:
-                            # 2nd independent confirmation >= 12h apart
+                        prev_exp_str = closure_conf.get("last_expired_checked_at")
+                        prev_exp_at = None
+                        if prev_exp_str:
+                            prev_exp_at = datetime.fromisoformat(prev_exp_str)
+                            if prev_exp_at.tzinfo is None:
+                                prev_exp_at = prev_exp_at.replace(tzinfo=UTC)
+                            else:
+                                prev_exp_at = prev_exp_at.astimezone(UTC)
+
+                        # Monotonic confirmation rule (Section 24 & 25)
+                        is_strictly_newer = prev_exp_at is None or receipt_dt > prev_exp_at
+                        interval_elapsed = (receipt_dt - first_exp_at) >= LIVENESS_CLOSE_CONFIRMATION_INTERVAL
+
+                        if is_strictly_newer and interval_elapsed:
+                            # 2nd independent confirmation >= 12h apart and strictly newer
                             obs.source_status = "closed"
-                            obs.source_removed_at = now
+                            obs.source_removed_at = receipt_dt
                             closure_conf["confirmation_count"] = int(closure_conf.get("confirmation_count", 1)) + 1
-                            closure_conf["last_expired_checked_at"] = receipt_checked_at
+                            closure_conf["last_expired_checked_at"] = receipt_dt.isoformat()
+                            enrichment["closure_confirmation"] = closure_conf
+                            obs.enrichment = enrichment
+                        elif not is_strictly_newer:
+                            # Reject time-travel / non-monotonic evidence! Keep likely_closed without advancing confirmation count
+                            closure_conf.setdefault("warnings", []).append("stale_non_monotonic_evidence")
                             enrichment["closure_confirmation"] = closure_conf
                             obs.enrichment = enrichment
                         else:
+                            # Newer, but interval not yet elapsed
                             obs.source_status = "likely_closed"
-                            closure_conf["last_expired_checked_at"] = receipt_checked_at
+                            closure_conf["last_expired_checked_at"] = receipt_dt.isoformat()
                             enrichment["closure_confirmation"] = closure_conf
                             obs.enrichment = enrichment
                     else:
                         # 1st expired observation
                         obs.source_status = "likely_closed"
                         closure_conf = {
-                            "first_expired_checked_at": receipt_checked_at,
-                            "last_expired_checked_at": receipt_checked_at,
+                            "first_expired_checked_at": receipt_dt.isoformat(),
+                            "last_expired_checked_at": receipt_dt.isoformat(),
                             "confirmation_count": 1,
                         }
                         enrichment["closure_confirmation"] = closure_conf
-                        enrichment["likely_closed_at"] = now.isoformat()
+                        enrichment["likely_closed_at"] = receipt_dt.isoformat()
                         obs.enrichment = enrichment
             elif status == "uncertain":
                 # uncertain != expired. Never hard-close.
@@ -309,6 +379,7 @@ class OpportunityListingService:
                     payload={"previous_status": prev_opp_status, "new_status": "active", "reason": "source_verified_active"},
                 )
 
+        await session.flush()
         return {
             "opportunity_id": str(opportunity_id),
             "source_status": overall_status,
@@ -347,69 +418,152 @@ class OpportunityListingService:
                 "length": len(existing_desc),
             }
 
-        selected_url, selected_obs, source_reason = select_extraction_source(opportunity, observations)
-        if not selected_url:
+        candidates = get_extraction_candidates(opportunity, observations, max_candidates=3)
+        if not candidates:
             return {"promoted": False, "reason": "no_url"}
 
-        extract_res = await self.adapter.extract_job(selected_url)
-        if extract_res.error or not extract_res.text:
+        last_attempt = None
+        for selected_url, selected_obs, source_reason in candidates:
+            extract_res = await self.adapter.extract_job(selected_url)
+            cleaned_text = (extract_res.text or "").strip()
+
+            if extract_res.error or not cleaned_text:
+                failed_meta = {
+                    "source_url": selected_url,
+                    "requested_url": getattr(extract_res, "requested_url", selected_url),
+                    "returned_url": getattr(extract_res, "final_url", getattr(extract_res, "url", selected_url)),
+                    "method": "browser_extract",
+                    "jd_extracted_at": now.isoformat(),
+                    "jd_text_length": len(cleaned_text),
+                    "jd_hash": "",
+                    "jd_title": extract_res.title or "",
+                    "identity_status": getattr(extract_res, "job_identity_status", "invalid_non_job"),
+                    "promoted": False,
+                    "promotion_reason": extract_res.error or "empty_text",
+                    "source_selection_reason": source_reason,
+                }
+                if selected_obs is not None:
+                    obs_enrichment = dict(selected_obs.enrichment or {})
+                    obs_enrichment["jd_extraction"] = failed_meta
+                    selected_obs.enrichment = obs_enrichment
+                else:
+                    raw["jd_extraction"] = failed_meta
+                    opportunity.raw = raw
+
+                last_attempt = {
+                    "promoted": False,
+                    "error": extract_res.error or "empty_text",
+                    "code": extract_res.code,
+                    "identity_status": getattr(extract_res, "job_identity_status", "invalid_non_job"),
+                    "reason": extract_res.error or "empty_text",
+                    "promotion_reason": extract_res.error or "empty_text",
+                    "requested_url": failed_meta["requested_url"],
+                    "final_url": failed_meta["returned_url"],
+                    "selected_url": selected_url,
+                    "metadata": failed_meta,
+                }
+                continue
+
+            # Identity verification: check if extracted text represents the requested posting
+            identity_status = getattr(extract_res, "job_identity_status", "valid_job")
+            identity_reason = getattr(extract_res, "identity_reason", "valid_specific_posting")
+
+            if identity_status != "valid_job":
+                # Rejected non-job or uncertain identity: store rejected evidence, do NOT promote!
+                jd_hash = compute_jd_hash(cleaned_text)
+                jd_meta = {
+                    "source_url": selected_url,
+                    "requested_url": getattr(extract_res, "requested_url", selected_url),
+                    "returned_url": getattr(extract_res, "final_url", getattr(extract_res, "url", selected_url)),
+                    "method": "browser_extract",
+                    "jd_extracted_at": now.isoformat(),
+                    "jd_text_length": len(cleaned_text),
+                    "jd_hash": jd_hash,
+                    "jd_title": extract_res.title,
+                    "identity_status": identity_status,
+                    "promoted": False,
+                    "promotion_reason": identity_reason,
+                    "source_selection_reason": source_reason,
+                }
+                if selected_obs is not None:
+                    obs_enrichment = dict(selected_obs.enrichment or {})
+                    obs_enrichment["jd_extraction"] = jd_meta
+                    selected_obs.enrichment = obs_enrichment
+                else:
+                    raw["jd_extraction"] = jd_meta
+                    opportunity.raw = raw
+
+                last_attempt = {
+                    "promoted": False,
+                    "promotion_reason": identity_reason,
+                    "reason": identity_reason,
+                    "identity_status": identity_status,
+                    "requested_url": jd_meta["requested_url"],
+                    "final_url": jd_meta["returned_url"],
+                    "title": extract_res.title,
+                    "text_length": len(cleaned_text),
+                    "selected_url": selected_url,
+                    "metadata": jd_meta,
+                }
+                # Try next candidate!
+                continue
+
+            # Valid job posting -> Check substantive quality promotion policy
+            promoted, promo_reason = should_promote_jd(existing_desc, cleaned_text)
+            jd_hash = compute_jd_hash(cleaned_text)
+            jd_meta = {
+                "source_url": selected_url,
+                "requested_url": getattr(extract_res, "requested_url", selected_url),
+                "returned_url": getattr(extract_res, "final_url", getattr(extract_res, "url", selected_url)),
+                "method": "browser_extract",
+                "jd_extracted_at": now.isoformat(),
+                "jd_text_length": len(cleaned_text),
+                "jd_hash": jd_hash,
+                "jd_title": extract_res.title,
+                "identity_status": "valid_job",
+                "promoted": promoted,
+                "promotion_reason": promo_reason,
+                "source_selection_reason": source_reason,
+            }
+            if selected_obs is not None:
+                obs_enrichment = dict(selected_obs.enrichment or {})
+                obs_enrichment["jd_extraction"] = jd_meta
+                selected_obs.enrichment = obs_enrichment
+            else:
+                raw["jd_extraction"] = jd_meta
+                opportunity.raw = raw
+
+            if promoted:
+                raw["description"] = cleaned_text
+                opportunity.raw = raw
+
+                search_parts = filter(
+                    None,
+                    [opportunity.organization, opportunity.location, cleaned_text, opportunity.url],
+                )
+                await touch_entity(session, opportunity.id, search_text=" ".join(search_parts))
+
+                await log_event(
+                    session,
+                    verb="opportunity.updated",
+                    entity_id=opportunity.id,
+                    entity_type="opportunity",
+                    payload={"action": "jd_enriched", **jd_meta},
+                )
+
+            await session.flush()
             return {
-                "promoted": False,
-                "error": extract_res.error or "empty_text",
-                "code": extract_res.code,
+                "promoted": promoted,
+                "promotion_reason": promo_reason,
+                "reason": promo_reason,
+                "identity_status": "valid_job",
+                "requested_url": jd_meta["requested_url"],
+                "final_url": jd_meta["returned_url"],
+                "title": extract_res.title,
+                "text_length": len(cleaned_text),
                 "selected_url": selected_url,
+                "metadata": jd_meta,
             }
 
-        cleaned_text = extract_res.text.strip()
-        promoted, promo_reason = should_promote_jd(existing_desc, cleaned_text)
-
-        jd_hash = compute_jd_hash(cleaned_text)
-        jd_meta = {
-            "source_url": selected_url,
-            "requested_url": selected_url,
-            "returned_url": getattr(extract_res, "url", selected_url),
-            "method": "browser_extract",
-            "jd_extracted_at": now.isoformat(),
-            "jd_text_length": len(cleaned_text),
-            "jd_hash": jd_hash,
-            "jd_title": extract_res.title,
-            "promoted": promoted,
-            "promotion_reason": promo_reason,
-            "source_selection_reason": source_reason,
-        }
-
-        # Attach extraction evidence strictly to the matching observation
-        if selected_obs is not None:
-            obs_enrichment = dict(selected_obs.enrichment or {})
-            obs_enrichment["jd_extraction"] = jd_meta
-            selected_obs.enrichment = obs_enrichment
-        else:
-            raw["jd_extraction"] = jd_meta
-            opportunity.raw = raw
-
-        if promoted:
-            raw["description"] = cleaned_text
-            opportunity.raw = raw
-
-            search_parts = filter(
-                None,
-                [opportunity.organization, opportunity.location, cleaned_text, opportunity.url],
-            )
-            await touch_entity(session, opportunity.id, search_text=" ".join(search_parts))
-
-            await log_event(
-                session,
-                verb="opportunity.updated",
-                entity_id=opportunity.id,
-                entity_type="opportunity",
-                payload={"action": "jd_enriched", **jd_meta},
-            )
-
-        return {
-            "promoted": promoted,
-            "promotion_reason": promo_reason,
-            "title": extract_res.title,
-            "text_length": len(cleaned_text),
-            "selected_url": selected_url,
-            "metadata": jd_meta,
-        }
+        await session.flush()
+        return last_attempt or {"promoted": False, "reason": "no_valid_candidate_found"}

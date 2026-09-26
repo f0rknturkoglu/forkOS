@@ -59,8 +59,12 @@ async def test_live_liveness_and_extraction_smoke():
     assert receipt_fallback.status in ("active", "expired", "uncertain")
     assert receipt_fallback.checked_at != ""
 
-    # 3. Real JD extraction smoke
+    # 3. Real JD extraction smoke & C3.2 Finding A seal:
+    # Expired GitLab job redirects to Greenhouse index with ?error=true.
+    # Must be positively recognized as invalid_non_job to prevent polluting canonical listing.
     extract_res = await adapter.extract_job(url_ats)
-    assert extract_res.url.startswith("http")
+    assert extract_res.requested_url == url_ats
+    assert "error=true" in extract_res.final_url
+    assert extract_res.job_identity_status == "invalid_non_job"
+    assert extract_res.identity_reason == "provider_error_redirect"
     assert extract_res.title != ""
-    assert len(extract_res.text) > 200

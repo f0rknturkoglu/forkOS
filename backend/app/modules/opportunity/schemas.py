@@ -62,6 +62,10 @@ class OpportunityJdExtractionResultOut(BaseModel):
     title: str | None = None
     text_length: int | None = None
     reason: str | None = None
+    identity_status: str | None = None
+    requested_url: str | None = None
+    final_url: str | None = None
+    promotion_reason: str | None = None
     error: str | None = None
     code: str | None = None
     metadata: dict[str, Any] | None = None
