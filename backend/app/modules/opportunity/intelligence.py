@@ -32,6 +32,7 @@ from app.modules.opportunity.schemas import (
     EvaluationGateOut,
     EvaluationMatchOut,
     EvaluationRequirementOut,
+    ListingHealthOut,
     OpportunityEvaluationOut,
     OpportunityEvaluationPatch,
     OpportunityIntelligenceOut,
@@ -345,6 +346,67 @@ def quick_signals(
                 severity="neutral",
             )
         )
+
+    # ── Listing Health (0-100) ──────────────────────────────────
+    desc_raw = _description(opportunity).strip()
+    desc_len = len(desc_raw)
+    if desc_len > 1000:
+        jd_completeness = "complete"
+    elif desc_len >= 300:
+        jd_completeness = "concise"
+    else:
+        jd_completeness = "stub"
+
+    if pay_min is not None and pay_max is not None:
+        if range_ratio is not None and range_ratio > 0.5:
+            salary_transparency = "unclear"
+        else:
+            salary_transparency = "transparent"
+    elif pay_min is not None or pay_max is not None:
+        salary_transparency = "unclear"
+    else:
+        salary_transparency = "missing"
+
+    if repost_count >= 3:
+        repost_frequency = "frequent"
+    elif repost_count == 2:
+        repost_frequency = "moderate"
+    else:
+        repost_frequency = "none"
+
+    source_status = getattr(opportunity, "source_status", "active")
+    last_seen_at = getattr(opportunity, "last_seen_at", None)
+
+    if source_status == "closed":
+        liveness_status = "expired"
+    elif source_status == "likely_closed":
+        liveness_status = "at_risk"
+    elif last_seen_at and (now - last_seen_at) <= timedelta(hours=48):
+        liveness_status = "live"
+    elif source_status == "active" and last_seen_at:
+        liveness_status = "live"
+    else:
+        liveness_status = "unchecked"
+
+    health = 100
+    if jd_completeness == "stub":
+        health -= 30
+    if salary_transparency == "missing":
+        health -= 15
+    if repost_frequency == "frequent":
+        health -= 20
+    if liveness_status == "expired":
+        health -= 30
+    health_score = max(0, min(100, health))
+
+    listing_health = ListingHealthOut(
+        health_score=health_score,
+        jd_completeness=jd_completeness,
+        salary_transparency=salary_transparency,
+        liveness_status=liveness_status,
+        repost_frequency=repost_frequency,
+    )
+
     return OpportunityIntelligenceOut(
         repost_count=repost_count,
         is_repost=repost_count >= 2,
@@ -357,6 +419,7 @@ def quick_signals(
         geo_mismatch=geo_mismatch,
         sponsorship_status="no_sponsorship" if no_sponsorship else "unstated",
         signals=signals,
+        listing_health=listing_health,
     )
 
 

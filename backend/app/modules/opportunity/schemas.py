@@ -20,6 +20,14 @@ class RiskSignalOut(BaseModel):
     severity: Literal["neutral", "warn", "danger"] = "neutral"
 
 
+class ListingHealthOut(BaseModel):
+    health_score: int = Field(ge=0, le=100)
+    jd_completeness: Literal["complete", "concise", "stub"]
+    salary_transparency: Literal["transparent", "unclear", "missing"]
+    liveness_status: Literal["live", "unchecked", "at_risk", "expired"]
+    repost_frequency: Literal["none", "moderate", "frequent"]
+
+
 class OpportunityIntelligenceOut(BaseModel):
     repost_count: int = 0
     is_repost: bool = False
@@ -32,6 +40,7 @@ class OpportunityIntelligenceOut(BaseModel):
     sponsorship_status: Literal["sponsors", "not_needed", "unstated", "no_sponsorship"] = "unstated"
     connection_count: int = 0
     signals: list[RiskSignalOut] = Field(default_factory=list)
+    listing_health: ListingHealthOut | None = None
 
 
 RequirementImportance = Literal["critical", "high", "meaningful", "preferred", "low_signal"]
