@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import touch_entity
@@ -111,6 +112,11 @@ class GeneratedDocumentRef(BaseModel):
     opportunity_id: str | None = None
 
 
+class CoverLetterReview(BaseModel):
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    reviewed_at: str | None = None
+
+
 class ApplicationPackage(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -123,6 +129,7 @@ class ApplicationPackage(BaseModel):
     cv_change_audit: list[CvChangeItem] = Field(default_factory=list)
     fact_verification: list[CvFactVerification] = Field(default_factory=list)
     cover_letter: str = ""
+    cover_letter_review: CoverLetterReview = Field(default_factory=CoverLetterReview)
     application_answers: list[ApplicationAnswer] = Field(default_factory=list)
     knockout_answers: list[KnockoutAnswer] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -234,7 +241,13 @@ class ApplicationPackageService:
                 or not pkg.generated_documents
                 or any(not ref.document_id for ref in pkg.generated_documents)
                 or pkg.provenance.get("render_validation") != "passed"
-                or pkg.cover_letter
+                or (
+                    pkg.cover_letter
+                    and (
+                        pkg.cover_letter_review.status != "approved"
+                        or not pkg.cover_letter_review.reviewed_at
+                    )
+                )
                 or artifact_invalid
                 or any(f.status == "ambiguous" for f in pkg.fact_verification)
             ):
@@ -519,6 +532,7 @@ class ApplicationPackageService:
             ],
             fact_verification=cv_verifications,
             cover_letter=cover_draft.cover_letter,
+            cover_letter_review=CoverLetterReview(),
             application_answers=app_answers,
             knockout_answers=[
                 KnockoutAnswer(
@@ -690,7 +704,13 @@ class ApplicationPackageService:
             not pkg.base_cv_document_id
             or not pkg.generated_documents
             or pkg.provenance.get("render_validation") != "passed"
-            or bool(pkg.cover_letter)
+            or (
+                bool(pkg.cover_letter)
+                and (
+                    pkg.cover_letter_review.status != "approved"
+                    or not pkg.cover_letter_review.reviewed_at
+                )
+            )
             or any(fv.status == "ambiguous" for fv in pkg.fact_verification)
         ):
             pkg.readiness = "NEEDS_INPUT"
@@ -721,4 +741,70 @@ class ApplicationPackageService:
                 payload={"evidence_ref": manual_ref},
             )
 
+        return pkg
+
+    async def review_cover_letter(
+        self,
+        session: AsyncSession,
+        opportunity_id: uuid.UUID,
+        decision: Literal["approved", "rejected"],
+    ) -> ApplicationPackage:
+        """Record explicit human review; never change application lifecycle or submit."""
+        app = await session.scalar(
+            select(Application)
+            .where(Application.opportunity_id == opportunity_id)
+            .with_for_update()
+        )
+        if app is None or not app.package:
+            raise ValueError("Application package does not exist.")
+        pkg = await self.get_package(session, opportunity_id)
+        if pkg is None or not pkg.cover_letter:
+            raise ValueError("No cover letter exists for review.")
+        if pkg.readiness == "STALE_EVALUATION":
+            raise ValueError("Evaluation is stale; regenerate the package before review.")
+        pkg.cover_letter_review = CoverLetterReview(
+            status=decision, reviewed_at=datetime.now(UTC).isoformat()
+        )
+        pkg.warnings = [
+            warning for warning in pkg.warnings
+            if warning
+            not in {
+                "Generated cover-letter prose requires explicit material-claim review.",
+                "Cover letter was rejected; regenerate and review it again.",
+            }
+        ]
+        if decision == "rejected":
+            pkg.warnings.append("Cover letter was rejected; regenerate and review it again.")
+        if pkg.readiness not in {"UNSUPPORTED_CLAIMS", "RENDER_FAILED"}:
+            if (
+                decision == "rejected"
+                or any(
+                    answer.classification in {"needs_user_input", "sensitive_user_decision"}
+                    for answer in pkg.application_answers
+                )
+                or not pkg.base_cv_document_id
+                or not pkg.generated_documents
+                or pkg.provenance.get("render_validation") != "passed"
+                or any(fact.status == "ambiguous" for fact in pkg.fact_verification)
+            ):
+                pkg.readiness = "NEEDS_INPUT"
+            else:
+                pkg.readiness = "READY"
+        pkg.updated_at = datetime.now(UTC).isoformat()
+        app.package = pkg.model_dump()
+        await touch_entity(session, opportunity_id)
+        await session.flush()
+        if pkg.readiness == "READY":
+            checked = await self.get_package(session, opportunity_id)
+            if checked is not None:
+                pkg = checked
+                app.package = pkg.model_dump()
+                await session.flush()
+        await log_event(
+            session,
+            verb="opportunity.package_cover_reviewed",
+            entity_id=opportunity_id,
+            entity_type="opportunity",
+            payload={"status": decision, "readiness": pkg.readiness},
+        )
         return pkg

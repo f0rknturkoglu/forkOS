@@ -151,6 +151,7 @@ export const VERB_LABELS: Record<string, string> = {
   "opportunity.duplicates_merged": "Yinelenen kayıtlar birleştirildi",
   "opportunity.evaluated": "Fırsat değerlendirildi",
   "opportunity.package_prepared": "Başvuru paketi üretildi",
+  "opportunity.package_cover_reviewed": "Başvuru ön yazısı incelendi",
   "opportunity.interview_prepared": "Görüşme hazırlığı oluşturuldu",
   "opportunity.interview_practiced": "Görüşme provası kaydedildi",
   "opportunity.interview_debriefed": "Görüşme değerlendirmesi kaydedildi",

@@ -1,16 +1,20 @@
+import httpx
 import pytest
+
 from app.config import settings
 from app.integrations.career_ops.adapter import CareerOpsAdapter
-from app.integrations.career_ops.models import CareerOpsStatusEnum
 from app.integrations.career_ops.capabilities import (
-    ALL_CAPABILITIES,
     CapabilityStatus,
-    CareerOpsCapabilityContext,
-    count_available_capabilities,
     get_capability_status,
     get_declared_capabilities,
     get_provider_capability_inventory,
 )
+from app.integrations.career_ops.models import CareerOpsStatusEnum
+from app.integrations.career_ops.reasoner_status import (
+    get_career_reasoner_runtime_status,
+    probe_local_career_reasoner,
+)
+from app.modules.opportunity.reasoner.factory import get_career_reasoner
 
 
 @pytest.mark.no_database
@@ -123,3 +127,69 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     supported_degraded_count = sum(1 for c in caps_degraded if c.status == CapabilityStatus.SUPPORTED)
     assert doc_degraded.capabilities_available == supported_degraded_count
     assert doc_degraded.capabilities_available == 12
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("provider", "healthy", "expected", "factory_name"),
+    [
+        ("none", False, CapabilityStatus.DEGRADED, "none"),
+        ("mock", False, CapabilityStatus.DEGRADED, "mock"),
+        ("ollama", True, CapabilityStatus.SUPPORTED, "ollama"),
+        ("ollama", False, CapabilityStatus.DEGRADED, "ollama"),
+        ("openai", False, CapabilityStatus.DISABLED, "none"),
+        ("gemini", False, CapabilityStatus.DISABLED, "none"),
+        ("openrouter", False, CapabilityStatus.DISABLED, "none"),
+    ],
+)
+async def test_reasoner_truth_matrix(
+    mock_checkout, monkeypatch, provider, healthy, expected, factory_name
+):
+    monkeypatch.setattr(settings, "career_reasoner_provider", provider)
+    monkeypatch.setattr(settings, "career_reasoner_model", "fixture:latest")
+    assert get_career_reasoner().provider_name == factory_name
+    runtime = get_career_reasoner_runtime_status(ollama_healthy=healthy)
+    assert runtime.capability == expected
+
+    async def probe():
+        return runtime
+
+    monkeypatch.setattr("app.integrations.career_ops.doctor.probe_local_career_reasoner", probe)
+    adapter = CareerOpsAdapter(enabled=True, checkout_dir=mock_checkout)
+    doctor = await adapter.doctor()
+    capabilities = await adapter.capabilities()
+    assert doctor.reasoner_status == expected
+    assert {c.status for c in capabilities if c.id in {"evaluation.deep", "application.package"}} == {expected}
+    assert doctor.capabilities_available == sum(
+        c.status == CapabilityStatus.SUPPORTED for c in capabilities
+    )
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_reasoner_probe_reads_only_loopback_model_metadata(monkeypatch):
+    monkeypatch.setattr(settings, "career_reasoner_provider", "ollama")
+    monkeypatch.setattr(settings, "career_reasoner_model", "fixture:latest")
+    monkeypatch.setattr(settings, "career_reasoner_base_url", "http://127.0.0.1:11434")
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json={"models": [{"name": "fixture:latest"}]})
+
+    transport = httpx.MockTransport(respond)
+    client_factory = httpx.AsyncClient
+    monkeypatch.setattr(
+        "app.integrations.career_ops.reasoner_status.httpx.AsyncClient",
+        lambda **kwargs: client_factory(transport=transport, **kwargs),
+    )
+    status = await probe_local_career_reasoner()
+    assert status.capability == CapabilityStatus.SUPPORTED
+    assert len(requests) == 1
+    assert str(requests[0].url) == "http://127.0.0.1:11434/api/tags"
+    assert requests[0].content == b""
+
+    monkeypatch.setattr(settings, "career_reasoner_base_url", "https://example.com")
+    assert (await probe_local_career_reasoner()).capability == CapabilityStatus.DISABLED
+    assert len(requests) == 1

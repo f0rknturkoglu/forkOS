@@ -8,6 +8,7 @@ import pytest
 from app.db import SessionLocal
 from app.modules.document import service as documents
 from app.modules.opportunity import interview_intelligence as interviews
+from app.modules.opportunity.candidate_context import build_candidate_career_context
 from app.modules.opportunity.career_analytics import (
     compute_snapshot,
     conversion,
@@ -78,9 +79,20 @@ async def test_story_ids_are_canonical_and_not_created_by_prep():
         prep = await interviews.prepare(session, row.id)
         for recommendation in prep.story_recommendations:
             assert await session.get(CareerStory, __import__("uuid").UUID(recommendation.story_id))
+            assert recommendation.evidence_refs == [f"career_story:{story.id}"]
+            assert recommendation.evidence_refs[0] in prep.evidence_refs
+            context = await build_candidate_career_context(session)
+            assert context.get_fact(recommendation.evidence_refs[0]) is not None
         assert prep.story_recommendations
         assert await session.scalar(select(func.count()).select_from(CareerStory)) == 1
         assert story.action == "Implemented fixture"
+        legacy = copy.deepcopy(row.intelligence)
+        legacy["prep"]["story_recommendations"][0]["evidence_refs"] = [f"story:{story.id}"]
+        legacy["prep"]["evidence_refs"] = [f"story:{story.id}"]
+        row.intelligence = legacy
+        loaded = await interviews.get_intelligence(session, row.id)
+        assert loaded.prep.story_recommendations[0].evidence_refs == [f"career_story:{story.id}"]
+        assert loaded.prep.evidence_refs == [f"career_story:{story.id}"]
 
 
 async def test_practice_bounded_and_unverified_claim_flagged():
@@ -101,6 +113,25 @@ async def test_practice_bounded_and_unverified_claim_flagged():
             await interviews.practice(
                 session, row.id, interviews.PracticeIn(question="q", candidate_answer="a")
             )
+
+
+async def test_practice_with_canonical_source_text_does_not_claim_unsupported():
+    async with SessionLocal() as session:
+        _, row = await seed(session)
+        await interviews.prepare(session, row.id)
+        candidate = await build_candidate_career_context(session)
+        source = next(
+            fact for fact in candidate.facts
+            if fact.verified and isinstance(fact.value, dict) and fact.value.get("text")
+        )
+        result = await interviews.practice(
+            session,
+            row.id,
+            interviews.PracticeIn(question="Experience?", candidate_answer=str(source.value["text"])),
+        )
+        assert source.key in result.evidence_refs
+        assert not any("unsupported_claim" in gap for gap in result.gaps)
+        assert result.feedback["technical_correctness"] == "needs_review"
 
 
 async def test_debrief_no_inferred_outcome_or_send_and_analytics_lineage():

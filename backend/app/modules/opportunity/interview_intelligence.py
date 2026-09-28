@@ -185,6 +185,16 @@ async def get_intelligence(session: AsyncSession, interview_id: uuid.UUID) -> In
         raise ValueError("Görüşme bulunamadı.")
     result = InterviewIntelligence.model_validate(row.intelligence or {})
     if result.prep:
+        # Read legacy prep artifacts without writing another evidence namespace.
+        for recommendation in result.prep.story_recommendations:
+            recommendation.evidence_refs = [
+                f"career_story:{ref.removeprefix('story:')}" if ref.startswith("story:") else ref
+                for ref in recommendation.evidence_refs
+            ]
+        result.prep.evidence_refs = [
+            f"career_story:{ref.removeprefix('story:')}" if ref.startswith("story:") else ref
+            for ref in result.prep.evidence_refs
+        ]
         listing, _, evaluation, _, _, signature = await _inputs(session, row)
         result.prep.is_stale = (
             signature != result.prep.input_revision
@@ -223,7 +233,7 @@ async def prepare(session: AsyncSession, interview_id: uuid.UUID) -> InterviewPr
                     story_id=str(story.id),
                     why_relevant=", ".join(matches),
                     likely_question_types=["behavioral"],
-                    evidence_refs=[f"story:{story.id}"],
+                    evidence_refs=[f"career_story:{story.id}"],
                 )
             )
         if len(recommendations) == 3:
@@ -270,6 +280,7 @@ async def prepare(session: AsyncSession, interview_id: uuid.UUID) -> InterviewPr
         unknowns=["Görüşme formatı doğrulanmadı."]
         + ([] if recommendations else ["missing_story_gap"]),
         evidence_refs=refs
+        + sorted({ref for item in recommendations for ref in item.evidence_refs})
         + [f"listing:{listing.jd_hash}"]
         + [f"evaluation:{revision(evaluation.model_dump(exclude={'is_stale', 'stale_reasons'}))}"]
         + (
@@ -336,9 +347,11 @@ async def practice(
             "star_structure": "markers_present" if star else "add_context_action_result",
         },
         strengths=["Kaynak metni içeriyor."] if refs else [],
-        gaps=[
-            "unsupported_claim: Kaynağa bağlı olmayan aday iddiaları kullanıcı incelemesi gerektiriyor."
-        ],
+        gaps=(
+            []
+            if refs
+            else ["unsupported_claim: Kaynağa bağlı olmayan aday iddiaları kullanıcı incelemesi gerektiriyor."]
+        ),
         evidence_refs=refs,
         created_at=datetime.now(UTC).isoformat(),
         prep_input_revision=current.prep.input_revision,

@@ -6,7 +6,15 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    field_validator,
+    model_validator,
+)
 
 
 class CareerOpsStatusEnum(str, Enum):
@@ -31,7 +39,7 @@ class CareerOpsCapabilityContext(BaseModel):
     core_ready: bool = True
     discovery_enabled: bool = True
     browser_ready: bool = False
-    reasoner_available: bool = False
+    reasoner_status: CapabilityStatus = CapabilityStatus.DEGRADED
 
 
 
@@ -78,6 +86,8 @@ class CareerOpsDoctorResult(BaseModel):
     capabilities_available: int = 0
     core_ready: bool = False
     browser_ready: bool = False
+    reasoner_status: CapabilityStatus = CapabilityStatus.UNAVAILABLE
+    reasoner_reason: str = "Career reasoner was not probed because the core is unavailable."
     canonical_state_owner: str = "forkOS PostgreSQL"
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
@@ -221,4 +231,3 @@ class CareerOpsRepostCluster(BaseModel):
     last_seen: str = Field(alias="lastSeen")
     days_span: int = Field(alias="daysSpan")
     appearances: list[CareerOpsRepostAppearance] = Field(default_factory=list)
-

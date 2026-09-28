@@ -20,6 +20,7 @@ from app.integrations.career_ops.models import (
     CareerOpsStatusEnum,
     CareerOpsUpstreamOnboarding,
 )
+from app.integrations.career_ops.reasoner_status import probe_local_career_reasoner
 from app.integrations.career_ops.runner import CareerOpsRunner
 
 
@@ -205,15 +206,13 @@ class CareerOpsDoctor:
         # Probe browser readiness for C3 execution
         browser_ready = probe_browser_readiness(self.checkout_dir, self.node_bin)
 
-        reasoner_available = settings.career_reasoner_provider == "ollama" and bool(
-            settings.career_reasoner_model
-        )
+        reasoner_status = await probe_local_career_reasoner()
         cap_ctx = CareerOpsCapabilityContext(
             enabled=True,
             core_ready=True,
             discovery_enabled=settings.career_ops_discovery_enabled,
             browser_ready=browser_ready,
-            reasoner_available=reasoner_available,
+            reasoner_status=reasoner_status.capability,
         )
         available_capabilities_count = count_available_capabilities(context=cap_ctx)
 
@@ -256,6 +255,8 @@ class CareerOpsDoctor:
                 capabilities_available=available_capabilities_count,
                 core_ready=True,
                 browser_ready=browser_ready,
+                reasoner_status=reasoner_status.capability,
+                reasoner_reason=reasoner_status.reason,
                 warnings=[f"Engine doctor probe failed: {exc}"],
             )
 
@@ -269,5 +270,7 @@ class CareerOpsDoctor:
             capabilities_available=available_capabilities_count,
             core_ready=True,
             browser_ready=browser_ready,
+            reasoner_status=reasoner_status.capability,
+            reasoner_reason=reasoner_status.reason,
             warnings=warnings,
         )

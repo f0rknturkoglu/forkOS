@@ -718,6 +718,9 @@
             "title": "Cover Letter",
             "type": "string"
           },
+          "cover_letter_review": {
+            "$ref": "#/components/schemas/PackageCoverLetterReviewOut"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -12103,6 +12106,50 @@
           "relation"
         ],
         "title": "OpportunityUsageOut",
+        "type": "object"
+      },
+      "PackageCoverLetterReviewIn": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "PackageCoverLetterReviewIn",
+        "type": "object"
+      },
+      "PackageCoverLetterReviewOut": {
+        "properties": {
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "status": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "PackageCoverLetterReviewOut",
         "type": "object"
       },
       "PaidRecurringOut": {
@@ -27410,6 +27457,60 @@
           }
         },
         "summary": "Resolve Application Package Answer",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/{id}/application-package/review-cover-letter": {
+      "post": {
+        "description": "Ön yazının açık kullanıcı incelemesini kaydet; başvuru göndermez.",
+        "operationId": "review_application_package_cover_letter_api_opportunities__id__application_package_review_cover_letter_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackageCoverLetterReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationPackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Application Package Cover Letter",
         "tags": [
           "opportunities"
         ]

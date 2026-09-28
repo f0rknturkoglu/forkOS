@@ -2770,6 +2770,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/{id}/application-package/review-cover-letter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review Application Package Cover Letter
+         * @description Ön yazının açık kullanıcı incelemesini kaydet; başvuru göndermez.
+         */
+        post: operations["review_application_package_cover_letter_api_opportunities__id__application_package_review_cover_letter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/{id}/deep-evaluate": {
         parameters: {
             query?: never;
@@ -5407,6 +5427,7 @@ export interface components {
              * @default
              */
             cover_letter: string;
+            cover_letter_review?: components["schemas"]["PackageCoverLetterReviewOut"];
             /** Created At */
             created_at: string;
             /** Cv Change Audit */
@@ -9362,6 +9383,25 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /** PackageCoverLetterReviewIn */
+        PackageCoverLetterReviewIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approved" | "rejected";
+        };
+        /** PackageCoverLetterReviewOut */
+        PackageCoverLetterReviewOut: {
+            /** Reviewed At */
+            reviewed_at?: string | null;
+            /**
+             * Status
+             * @default pending
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected";
         };
         /** PaidRecurringOut */
         PaidRecurringOut: {
@@ -17427,6 +17467,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ResolveAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationPackageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_application_package_cover_letter_api_opportunities__id__application_package_review_cover_letter_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackageCoverLetterReviewIn"];
             };
         };
         responses: {

@@ -55,6 +55,7 @@ from app.modules.opportunity.schemas import (
     OpportunityLivenessResultOut,
     OpportunityOut,
     OpportunityPatch,
+    PackageCoverLetterReviewIn,
     PrunePreviewOut,
     PruneResultOut,
     ReplyAnalysisIn,
@@ -952,6 +953,26 @@ async def resolve_application_package_answer(
         result = await pkg_service.resolve_user_answer(session, id, body.question, body.answer)
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+@router.post(
+    "/opportunities/{id}/application-package/review-cover-letter",
+    response_model=ApplicationPackageOut,
+)
+async def review_application_package_cover_letter(
+    id: UUID,
+    body: PackageCoverLetterReviewIn,
+    session: AsyncSession = Depends(get_session),
+):
+    """Ön yazının açık kullanıcı incelemesini kaydet; başvuru göndermez."""
+    try:
+        result = await ApplicationPackageService().review_cover_letter(
+            session, id, body.decision
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     await session.commit()
     return result
 

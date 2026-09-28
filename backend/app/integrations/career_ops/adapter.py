@@ -1,11 +1,11 @@
-from datetime import UTC, datetime
 import ipaddress
 import json
-from pathlib import Path
 import shutil
+import uuid
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
-import uuid
 
 from app.config import settings
 from app.integrations.career_ops.capabilities import (
@@ -34,7 +34,6 @@ from app.integrations.career_ops.models import (
     CareerOpsOfferReceipt,
     CareerOpsRepostCluster,
     CareerOpsScanReceipt,
-    CareerOpsStatusEnum,
 )
 from app.integrations.career_ops.runner import CareerOpsRunner, SubprocessCareerOpsRunner
 from app.integrations.career_ops.targeting import CareerOpsDiscoveryConfigBuilder
@@ -143,13 +142,12 @@ class CareerOpsAdapter:
 
     async def capabilities(self) -> list[CareerOpsCapability]:
         doc = await self.doctor()
-        reasoner_available = settings.career_reasoner_provider == "ollama" and bool(settings.career_reasoner_model)
         ctx = CareerOpsCapabilityContext(
             enabled=self.enabled,
             core_ready=doc.core_ready,
             discovery_enabled=settings.career_ops_discovery_enabled,
             browser_ready=doc.browser_ready,
-            reasoner_available=reasoner_available,
+            reasoner_status=doc.reasoner_status,
         )
         return [
             CareerOpsCapability(

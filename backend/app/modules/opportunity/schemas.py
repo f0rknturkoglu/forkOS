@@ -750,6 +750,11 @@ class GeneratedDocumentRefOut(BaseModel):
     opportunity_id: str | None = None
 
 
+class PackageCoverLetterReviewOut(BaseModel):
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    reviewed_at: str | None = None
+
+
 class ApplicationPackageOut(BaseModel):
     opportunity_id: str
     evaluation_revision: str
@@ -759,6 +764,7 @@ class ApplicationPackageOut(BaseModel):
     cv_change_audit: list[CvChangeItemOut] = Field(default_factory=list)
     fact_verification: list[CvFactVerificationOut] = Field(default_factory=list)
     cover_letter: str = ""
+    cover_letter_review: PackageCoverLetterReviewOut = Field(default_factory=PackageCoverLetterReviewOut)
     application_answers: list[ApplicationAnswerOut] = Field(default_factory=list)
     knockout_answers: list[KnockoutAnswerOut] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -774,3 +780,7 @@ class ApplicationPackageOut(BaseModel):
 class ResolveAnswerIn(BaseModel):
     question: str
     answer: str
+
+
+class PackageCoverLetterReviewIn(BaseModel):
+    decision: Literal["approved", "rejected"]

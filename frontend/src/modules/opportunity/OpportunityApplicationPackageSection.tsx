@@ -102,6 +102,21 @@ export function OpportunityApplicationPackageSection({
     },
   });
 
+  const reviewCoverMutation = useMutation({
+    mutationFn: (decision: "approved" | "rejected") =>
+      api.post<ApplicationPackageOut>(`/opportunities/${opportunityId}/application-package/review-cover-letter`, {
+        decision,
+      }),
+    onSuccess: (result) => {
+      invalidateAfter("opportunity.write");
+      refetch();
+      toast.push(`Ön yazı incelemesi kaydedildi: ${readinessLabel(result.readiness)}.`, { tone: "ok" });
+    },
+    onError: (err: any) => {
+      toast.push(err?.message || "Ön yazı incelemesi kaydedilemedi.", { tone: "danger" });
+    },
+  });
+
   const copyCoverLetter = () => {
     if (pkg?.cover_letter) {
       navigator.clipboard.writeText(pkg.cover_letter);
@@ -338,6 +353,40 @@ export function OpportunityApplicationPackageSection({
       {/* Tab: Cover Letter */}
       {activeTab === "cover_letter" && (
         <div className="space-y-3">
+          {pkg.cover_letter && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Chip
+                tone={
+                  pkg.cover_letter_review?.status === "approved"
+                    ? "ok"
+                    : pkg.cover_letter_review?.status === "rejected"
+                      ? "danger"
+                      : "warn"
+                }
+              >
+                {pkg.cover_letter_review?.status === "approved"
+                  ? "İncelendi ve onaylandı"
+                  : pkg.cover_letter_review?.status === "rejected"
+                    ? "Reddedildi"
+                    : "İnsan incelemesi bekliyor"}
+              </Chip>
+              <Button
+                size="sm"
+                disabled={!online || reviewCoverMutation.isPending}
+                onClick={() => reviewCoverMutation.mutate("approved")}
+              >
+                Ön Yazıyı Onayla
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!online || reviewCoverMutation.isPending}
+                onClick={() => reviewCoverMutation.mutate("rejected")}
+              >
+                Reddet
+              </Button>
+            </div>
+          )}
           <div className="flex justify-end">
             <Button size="sm" onClick={copyCoverLetter}>
               <Copy size={13} />

@@ -117,3 +117,47 @@ async def test_answer_resolution_cannot_bypass_metadata_or_missing_artifacts():
         )
         assert resolved.readiness != "READY"
         assert app.package["readiness"] != "READY"
+
+
+async def test_cover_letter_review_gate_and_regeneration(monkeypatch):
+    from app.modules.opportunity.models import Application
+
+    async def local_test_renderer(_html):
+        return b"%PDF-1.4\n%synthetic fixture\n", {"status": "passed"}
+
+    monkeypatch.setattr(
+        "app.modules.opportunity.cv_artifacts.render_cv_pdf", local_test_renderer
+    )
+    async with SessionLocal() as session:
+        await documents.create_local_document(
+            session, title="synthetic.docx", content=synthetic_cv(), category="cv", commit=False
+        )
+        opportunity = await _seed_test_opportunity(session)
+        reasoner = DeterministicMockCareerReasoner()
+        await CareerEvaluationService(reasoner).evaluate_opportunity(session, opportunity.id)
+        service = ApplicationPackageService(reasoner)
+        package = await service.prepare_application_package(session, opportunity.id)
+        assert package.cover_letter
+        assert package.cover_letter_review.status == "pending"
+        assert package.readiness == "NEEDS_INPUT"
+        app = await session.get(Application, opportunity.id)
+        original_status = app.status
+        for answer in package.application_answers:
+            if answer.classification != "safe_verified":
+                package = await service.resolve_user_answer(
+                    session, opportunity.id, answer.question, "Explicit user response"
+                )
+        assert package.readiness == "NEEDS_INPUT"
+        approved = await service.review_cover_letter(session, opportunity.id, "approved")
+        assert approved.cover_letter_review.status == "approved"
+        assert approved.cover_letter_review.reviewed_at
+        assert approved.readiness == "READY"
+        assert app.status == original_status == "preparing"
+        rejected = await service.review_cover_letter(session, opportunity.id, "rejected")
+        assert rejected.readiness == "NEEDS_INPUT"
+        assert app.status == original_status
+        regenerated = await service.prepare_application_package(session, opportunity.id)
+        assert regenerated.cover_letter_review.status == "pending"
+        assert regenerated.cover_letter_review.reviewed_at is None
+        assert regenerated.readiness != "READY"
+        assert app.status == original_status

@@ -234,9 +234,7 @@ def get_capability_status(
         "application.package",
     )
     if capability_id in C4_C5_REASONER_CAPABILITIES:
-        if getattr(context, "reasoner_available", False):
-            return CapabilityStatus.SUPPORTED
-        return CapabilityStatus.DEGRADED
+        return context.reasoner_status
 
     if capability_id == "cv.render_pdf":
         # Browser availability alone does not prove renderer, layout and read order.

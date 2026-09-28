@@ -46,6 +46,7 @@ MODULE = ModuleSpec(
         "opportunity.evaluated",
         "opportunity.evaluation_updated",
         "opportunity.package_prepared",
+        "opportunity.package_cover_reviewed",
         "opportunity.interview_prepared",
         "opportunity.interview_practiced",
         "opportunity.interview_debriefed",
