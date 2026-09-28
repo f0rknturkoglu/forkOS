@@ -11452,7 +11452,7 @@ export interface components {
              * Evidence Type
              * @enum {string}
              */
-            evidence_type: "observed_fact" | "explicit_feedback" | "descriptive_pattern" | "model_interpretation" | "user_statement";
+            evidence_type: "observed_fact" | "explicit_feedback" | "descriptive_pattern" | "model_interpretation" | "user_statement" | "approved_memory";
             /** Sample Size */
             sample_size: number;
             /** Title */

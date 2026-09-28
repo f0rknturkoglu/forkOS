@@ -36,7 +36,7 @@ export function CareerStrategyPanel() {
                 </p>
               ))
             ) : (
-              <p className="text-meta text-muted">Onaylı semantik hedef kartı bulunamadı.</p>
+              <p className="text-meta text-muted">Etkin H2 hedef hafızası bulunamadı.</p>
             )}
           </div>
           <p className="text-meta text-muted">

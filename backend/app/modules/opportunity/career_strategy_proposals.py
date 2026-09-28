@@ -105,7 +105,7 @@ def _drafts(
             Draft(
                 "goal",
                 memory_goal.title,
-                "Onaylı semantik yön için ölçülebilir operasyonel hedef önerisi; otomatik hedef oluşturulmaz.",
+                "Onaylı H2 hedef niyeti için ölçülebilir operasyonel hedef önerisi; otomatik hedef oluşturulmaz.",
                 tuple(memory_goal.evidence_refs),
                 1,
                 "Tek hedef",
@@ -285,9 +285,12 @@ async def refresh_proposals(session: AsyncSession) -> list[ProposalOut]:
 async def _materialize(session: AsyncSession, row: CareerActionProposal) -> tuple[str, uuid.UUID]:
     payload = row.payload or {}
     if row.type == "goal":
-        result = await goal_service.create_goal(
-            session, GoalIn.model_validate(payload), commit=False
-        )
+        try:
+            result = await goal_service.create_goal(
+                session, GoalIn.model_validate(payload), commit=False
+            )
+        except ValueError as exc:
+            raise ProposalError("UNSUPPORTED_TARGET", str(exc)) from exc
         return "goal", result.id
     if row.type == "milestone":
         goal_id = uuid.UUID(str(payload.get("goal_id")))
@@ -351,7 +354,12 @@ async def approve_proposal(session: AsyncSession, proposal_id: uuid.UUID) -> Pro
         return ProposalOut.model_validate(row)
     if row.status not in {"proposed", "approved"}:
         raise ProposalError("INVALID_STATE", "Bu öneri artık onaylanamaz")
-    current = await strategy_snapshot(session, days=90, minimum=3)
+    try:
+        current = await strategy_snapshot(session, days=90, minimum=3)
+    except ValueError as exc:
+        raise ProposalError(
+            "STALE_PROPOSAL", "H2 hedef hafızası doğrulanamadı; önerileri yenile"
+        ) from exc
     if current.evidence_revision != row.strategy_revision:
         raise ProposalError("STALE_PROPOSAL", "Kanıt veya hedef durumu değişti; önerileri yenile")
     row.status = "approved"
@@ -383,7 +391,8 @@ async def approve_proposal(session: AsyncSession, proposal_id: uuid.UUID) -> Pro
         row.target_id = target_id
         row.status = "materialized"
         row.materialization_status = "materialized"
-        await link(session, target_id, row.id, "originated_from")
+        if target_type != "project":
+            await link(session, target_id, row.id, "originated_from")
         if row.related_goal_id and target_type not in {"project", "goal_milestone"}:
             await link(session, target_id, row.related_goal_id, "advances_goal")
         await touch_entity(session, row.id)

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.entity import create_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
-from app.integrations.obsidian import semantic_memory as semantic_storage
+from app.integrations.obsidian import hot_memory as hot_storage
 from app.modules import DeadlineRow
 from app.modules.goal.models import Goal, GoalMilestone
 from app.modules.goal.schemas import (
@@ -105,15 +105,20 @@ async def get_goal(session: AsyncSession, goal_id: uuid.UUID) -> GoalOut | None:
 def _check_memory(memory_id: str | None) -> None:
     if memory_id is None:
         return
-    root = semantic_storage.readable_root()
+    root = hot_storage.readable_root()
     if root is None:
-        raise ValueError("Semantik hedef kasası erişilemiyor")
-    cards = semantic_storage.scan_semantic_cards(root)
-    if not any(
-        card.card_id == memory_id and card.kind == "goal" and card.effective_status == "active"
-        for card in cards
-    ):
-        raise ValueError("Etkin semantik hedef kartı bulunamadı")
+        raise ValueError("H2 hedef hafızasına erişilemiyor")
+    try:
+        snapshot = hot_storage.scan_memories(root)
+        hot_storage.assert_no_conflict(snapshot, memory_id)
+        record = hot_storage.find_memory(snapshot, memory_id)
+        if record is None or record.kind != "goal" or record.effective_status() != "active":
+            raise ValueError("Etkin H2 hedef hafızası bulunamadı")
+        hot_storage.verify_current_revision(root, record, record.revision)
+    except (hot_storage.HotMemoryError, OSError) as exc:
+        raise ValueError(
+            "H2 hedef hafızası doğrulanamadı; kayıt yok, çakışmalı veya erişilemiyor"
+        ) from exc
 
 
 async def create_goal(session: AsyncSession, data: GoalIn, *, commit: bool = True) -> GoalOut:

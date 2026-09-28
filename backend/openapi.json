@@ -17349,7 +17349,8 @@
               "explicit_feedback",
               "descriptive_pattern",
               "model_interpretation",
-              "user_statement"
+              "user_statement",
+              "approved_memory"
             ],
             "title": "Evidence Type",
             "type": "string"

@@ -1,10 +1,13 @@
 """Canonical Goal is measurable state, not an H2 semantic-memory clone."""
 
-from types import SimpleNamespace
+import shutil
+import uuid
+from pathlib import Path
 
 import pytest
 
 from app.db import SessionLocal
+from app.integrations.obsidian import hot_memory as hot_storage
 from app.modules.goal import service
 from app.modules.goal.models import Goal
 from app.modules.goal.schemas import GoalIn, GoalMilestoneIn, GoalMilestonePatch, GoalPatch
@@ -50,17 +53,66 @@ async def test_goal_crud_and_milestone_progress():
         assert await session.get(Goal, created.id)
 
 
-async def test_semantic_link_is_provenance_only(monkeypatch: pytest.MonkeyPatch):
-    card = SimpleNamespace(card_id="memory-1", kind="goal", effective_status="active")
-    monkeypatch.setattr(service.semantic_storage, "readable_root", lambda: "isolated")
-    monkeypatch.setattr(service.semantic_storage, "scan_semantic_cards", lambda root: [card])
+def _memory(
+    root: Path,
+    *,
+    kind: str = "goal",
+    source_mode: str = "explicit_user",
+    expires_at: str | None = None,
+):
+    return hot_storage.create_memory(
+        root,
+        kind=kind,
+        title="EU backend",
+        text="EU backend career direction",
+        importance=3,
+        source_mode=source_mode,
+        expires_at=expires_at,
+    )
+
+
+async def test_h2_link_is_provenance_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    record = _memory(tmp_path)
+    monkeypatch.setattr(service.hot_storage, "readable_root", lambda: tmp_path)
     async with SessionLocal() as session:
-        # An H2 card alone has no operational Goal row.
+        # H2 intent alone has no operational Goal row.
         assert await service.list_goals(session) == []
         created = await service.create_goal(
-            session, GoalIn(title="Operational EU target", source_memory_id="memory-1")
+            session, GoalIn(title="Operational EU target", source_memory_id=record.memory_id)
         )
         await service.update_goal(session, created.id, GoalPatch(status="completed"))
-        assert card.kind == "goal"
-        assert card.card_id == "memory-1"
-        assert (await service.get_goal(session, created.id)).source_memory_id == "memory-1"
+        assert (await service.get_goal(session, created.id)).source_memory_id == record.memory_id
+        # Operational changes never rewrite the H2 intent file.
+        assert (
+            hot_storage.find_memory(hot_storage.scan_memories(tmp_path), record.memory_id).revision
+            == record.revision
+        )
+
+
+@pytest.mark.no_database
+def test_h2_source_validation_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(service.hot_storage, "readable_root", lambda: tmp_path)
+    active = _memory(tmp_path)
+    service._check_memory(active.memory_id)
+    with pytest.raises(ValueError, match="bulunamadı"):
+        service._check_memory(str(uuid.uuid4()))
+    wrong_kind = _memory(tmp_path, kind="preference")
+    with pytest.raises(ValueError, match="bulunamadı"):
+        service._check_memory(wrong_kind.memory_id)
+    expired = _memory(tmp_path, expires_at="2000-01-01T00:00:00+00:00")
+    with pytest.raises(ValueError, match="bulunamadı"):
+        service._check_memory(expired.memory_id)
+    retired = hot_storage.rewrite_memory(
+        tmp_path, active, expected_revision=active.revision, status="retired"
+    )
+    with pytest.raises(ValueError, match="bulunamadı"):
+        service._check_memory(retired.memory_id)
+    approved = _memory(tmp_path, source_mode="approved_candidate")
+    service._check_memory(approved.memory_id)
+    duplicate = tmp_path / hot_storage.MEMORY_ROOT / "duplicate.md"
+    shutil.copyfile(tmp_path / approved.relative_path, duplicate)
+    with pytest.raises(ValueError, match="çakışmalı"):
+        service._check_memory(approved.memory_id)
+    monkeypatch.setattr(service.hot_storage, "readable_root", lambda: None)
+    with pytest.raises(ValueError, match="erişilemiyor"):
+        service._check_memory(approved.memory_id)

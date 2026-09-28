@@ -115,11 +115,88 @@ def test_existing_goal_is_user_statement_and_changes_revision():
         topics=[],
         todos=[],
         now=NOW,
-        goals=[{"id": "g1", "statement": "Avrupa'da backend rolü", "revision": "v1"}],
+        goals=[
+            {
+                "memory_id": "g1",
+                "kind": "goal",
+                "title": "Avrupa'da backend rolü",
+                "text": "Avrupa'da backend rolü arıyorum",
+                "source_mode": "explicit_user",
+                "importance": 5,
+                "revision": "v1",
+                "effective_status": "active",
+                "related_forkos_ids": [],
+            }
+        ],
     )
     assert with_goal.existing_goals[0].evidence_type == "user_statement"
-    assert with_goal.existing_goals[0].evidence_refs == ["memory:g1"]
+    assert with_goal.existing_goals[0].evidence_refs == ["hot_memory:g1"]
     assert with_goal.evidence_revision != original.evidence_revision
+
+
+def test_h2_source_modes_and_revision_are_truthful():
+    goal = {
+        "memory_id": "g1",
+        "kind": "goal",
+        "title": "Backend hedefi",
+        "text": "Backend alanına yönel",
+        "source_mode": "approved_candidate",
+        "importance": 4,
+        "revision": "v1",
+        "effective_status": "active",
+        "related_forkos_ids": [],
+    }
+    first = build_strategy(
+        analytics(), projects=[], milestones=[], topics=[], todos=[], now=NOW, goals=[goal]
+    )
+    assert first.existing_goals[0].evidence_type == "approved_memory"
+    assert "açık kullanıcı beyanı" in first.existing_goals[0].caveat
+    changed = build_strategy(
+        analytics(),
+        projects=[],
+        milestones=[],
+        topics=[],
+        todos=[],
+        now=NOW,
+        goals=[{**goal, "revision": "v2", "text": "Güncellenmiş yön"}],
+    )
+    assert changed.evidence_revision != first.evidence_revision
+
+
+def test_retired_h2_and_a4_model_goal_cannot_impersonate_intent():
+    excluded = [
+        {
+            "memory_id": "retired",
+            "kind": "goal",
+            "title": "Eski yön",
+            "text": "Eski yön",
+            "source_mode": "explicit_user",
+            "revision": "v1",
+            "effective_status": "retired",
+        },
+        {
+            "memory_id": "expired",
+            "kind": "goal",
+            "title": "Süresi geçmiş",
+            "text": "Süresi geçmiş",
+            "source_mode": "explicit_user",
+            "revision": "v1",
+            "effective_status": "expired",
+        },
+        {
+            "card_id": "a4-model-goal",
+            "kind": "goal",
+            "statement": "Model çıkarımı",
+            "evidence_class": "model_derived",
+            "revision": "v1",
+        },
+    ]
+    result = build_strategy(
+        analytics(), projects=[], milestones=[], topics=[], todos=[], now=NOW, goals=excluded
+    )
+    baseline = build_strategy(analytics(), projects=[], milestones=[], topics=[], todos=[], now=NOW)
+    assert result.existing_goals == []
+    assert result.evidence_revision == baseline.evidence_revision
 
 
 def test_explicit_feedback_remains_one_unverified_report():

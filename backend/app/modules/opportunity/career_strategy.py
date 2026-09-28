@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
-from app.integrations.obsidian import semantic_memory as semantic_storage
+from app.integrations.obsidian import hot_memory as hot_storage
 from app.modules.goal import service as goal_service
 from app.modules.learning.models import StudyArea, StudyTopic
 from app.modules.opportunity.career_analytics import CareerAnalyticsSnapshot, snapshot
@@ -33,6 +33,7 @@ class StrategicSignal(BaseModel):
         "descriptive_pattern",
         "model_interpretation",
         "user_statement",
+        "approved_memory",
     ]
     evidence_refs: list[str] = Field(default_factory=list)
     sample_size: int
@@ -98,6 +99,14 @@ def build_strategy(
     previous_goal_progress: list[dict] | None = None,
 ) -> CareerStrategySnapshot:
     """Pure reducer; stable revision excludes wall time and rendered prose."""
+    intent_goals = [
+        goal
+        for goal in (goals or [])
+        if goal.get("kind") == "goal"
+        and goal.get("effective_status") == "active"
+        and goal.get("source_mode") in {"explicit_user", "approved_candidate"}
+        and goal.get("memory_id")
+    ]
     material = {
         "period_days": round(
             (
@@ -115,20 +124,26 @@ def build_strategy(
         "topics": topics,
         "areas": areas or [],
         "todos": todos,
-        "goals": goals or [],
+        "goals": intent_goals,
         "canonical_goals": canonical_goals or [],
     }
     evidence_revision = revision(material)
     existing_goals = [
         StrategicSignal(
-            title=goal["statement"],
-            evidence_type="user_statement",
-            evidence_refs=[f"memory:{goal['id']}"],
+            title=goal["title"],
+            evidence_type=(
+                "user_statement" if goal["source_mode"] == "explicit_user" else "approved_memory"
+            ),
+            evidence_refs=[f"hot_memory:{goal['memory_id']}"],
             sample_size=1,
             confidence="high",
-            caveat="Kullanıcı onaylı mevcut yön; kariyer analitiğiyle otomatik doğrulanmış bir sonuç değil.",
+            caveat=(
+                "Kullanıcının açıkça kaydettiği hedef; kariyer analitiğiyle doğrulanmış bir sonuç değil."
+                if goal["source_mode"] == "explicit_user"
+                else "Onaylanmış kalıcı hedef hafızası; açık kullanıcı beyanı olarak sunulmaz."
+            ),
         )
-        for goal in (goals or [])[:3]
+        for goal in intent_goals[:3]
     ]
     signals: list[StrategicSignal] = []
     for gap in sorted(
@@ -386,12 +401,31 @@ async def strategy_snapshot(
         }
         for item, title in todo_rows
     ]
-    vault_root = semantic_storage.readable_root()
-    profile = semantic_storage.get_semantic_profile(vault_root) if vault_root else None
-    goals = [
-        {"id": card.card_id, "statement": card.statement, "revision": card.revision}
-        for card in (profile.goals if profile else [])
-    ]
+    vault_root = hot_storage.readable_root()
+    goals = []
+    if vault_root is not None:
+        try:
+            memory_snapshot = hot_storage.scan_memories(vault_root)
+        except (hot_storage.HotMemoryError, OSError) as exc:
+            raise ValueError("H2 hedef hafızası okunamadı") from exc
+        if memory_snapshot.conflicts:
+            raise ValueError("H2 hedef hafızasında kimlik çakışması var")
+        goals = [
+            {
+                "memory_id": record.memory_id,
+                "kind": record.kind,
+                "title": record.title,
+                "text": record.text,
+                "source_mode": record.source_mode,
+                "importance": record.importance,
+                "revision": record.revision,
+                "effective_status": record.effective_status(now=moment),
+                "related_forkos_ids": list(record.related_forkos_ids),
+            }
+            for record in memory_snapshot.items
+            if record.kind == "goal" and record.effective_status(now=moment) == "active"
+        ]
+        goals.sort(key=lambda item: (-item["importance"], item["memory_id"]))
     canonical_goals = [
         item.model_dump(mode="json") for item in await goal_service.list_goals(session)
     ]
