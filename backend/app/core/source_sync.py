@@ -198,7 +198,7 @@ async def pending_source_ids(session: AsyncSession, batch: SourceSyncBatch) -> l
     latest: dict[str, SourceRun] = {}
     for row in rows:
         latest.setdefault(row.source, row)
-    finished = {"ok", "empty", "error"}
+    finished = {"ok", "partial", "empty", "error"}
     claimed = await _attempt_counts(
         session, {(batch.id, source_id) for source_id in batch.source_ids}
     )
@@ -214,7 +214,7 @@ async def reconcile_stale_runs(
     session: AsyncSession,
     *,
     older_than: datetime | None = None,
-    long_running_sources: tuple[str, ...] = ("jobhunter:eures",),
+    long_running_sources: tuple[str, ...] = ("forkjob_core:eures",),
     long_older_than: datetime | None = None,
     leases: dict[str, timedelta] | None = None,
     now: datetime | None = None,
@@ -341,7 +341,7 @@ async def _fail_exhausted_sources(session: AsyncSession, batch: SourceSyncBatch)
     changed = 0
     for source_id in batch.source_ids:
         row = latest.get(source_id)
-        if row is None or row.status in ("ok", "empty", "error"):
+        if row is None or row.status in ("ok", "partial", "empty", "error"):
             continue
         if claimed.get((batch.id, source_id), 0) >= MAX_CLAIM_ATTEMPTS:
             row.status = "error"

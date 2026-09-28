@@ -13,7 +13,9 @@ from app.modules.opportunity.worker import NativeJob
 from app.sources.base import RawItem
 
 
-async def _insert_duplicate_pair(session, cluster_key: str, sources: tuple[str, str]):
+async def _insert_duplicate_pair(
+    session, cluster_key: str, sources: tuple[str, str], *, same_url: bool = False
+):
     ids: list[uuid.UUID] = []
     for source in sources:
         entity = await create_entity(
@@ -30,6 +32,7 @@ async def _insert_duplicate_pair(session, cluster_key: str, sources: tuple[str, 
                 found_at=entity.created_at,
                 source=source,
                 external_id=f"{source}-id",
+                url=f"https://example.test/jobs/{cluster_key}" if same_url else None,
                 raw={"forkjob": {"cluster_key": cluster_key}},
             )
         )
@@ -41,6 +44,7 @@ async def test_ingest_tolerates_an_existing_duplicate_cluster():
     cluster_key = f"cluster-{uuid.uuid4().hex}"
     async with SessionLocal() as session:
         ids = await _insert_duplicate_pair(session, cluster_key, ("first", "second"))
+        rows = []
         try:
             job = NativeJob(
                 RawItem(
@@ -53,7 +57,7 @@ async def test_ingest_tolerates_an_existing_duplicate_cluster():
                     },
                 )
             )
-            assert await ingest_jobs(session, [job], "third") == 0
+            assert await ingest_jobs(session, [job], "third") == 1
             await session.commit()
 
             rows = (
@@ -63,11 +67,14 @@ async def test_ingest_tolerates_an_existing_duplicate_cluster():
                     )
                 )
             ).scalars().all()
-            assert len(rows) == 2
-            canonical = min(rows, key=lambda row: (row.found_at, str(row.id)))
-            assert set(canonical.raw["sources"]) == {"first", "second", "third"}
+            assert len(rows) == 3
+            assert all(
+                "third" not in (row.raw or {}).get("sources", [])
+                for row in rows
+                if row.source in {"first", "second"}
+            )
         finally:
-            for entity_id in ids:
+            for entity_id in [*ids, *(row.id for row in rows if row.id not in ids)]:
                 await delete_entity(session, entity_id)
             await session.commit()
 
@@ -76,7 +83,7 @@ async def test_safe_duplicate_cleanup_is_idempotent_and_logs_event():
     cluster_key = f"cleanup-{uuid.uuid4().hex}"
     async with SessionLocal() as session:
         ids = await _insert_duplicate_pair(
-            session, cluster_key, ("cleanup-first", "cleanup-second")
+            session, cluster_key, ("cleanup-first", "cleanup-second"), same_url=True
         )
         try:
             dry_run = await merge_duplicate_clusters(session)

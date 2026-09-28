@@ -182,9 +182,10 @@ describe("JobDetail", () => {
     expect(screen.getByText("kubernetes · description · +22")).toBeTruthy();
     expect(screen.getAllByText("forkjob-rules").length).toBeGreaterThan(0);
 
-    // (b) Profil uyumu CV dosyası kullanmadığını açıkça söyler.
-    expect(screen.getByText("Profil Uyumu")).toBeTruthy();
-    expect(screen.getByText("CV dosyası kullanmaz")).toBeTruthy();
+    // (b) Profil uyumu yalnız kanıtlanan CV/profil verisini kullanır.
+    expect(screen.getByText("CV / profil uyumu")).toBeTruthy();
+    expect(screen.getByText("Kanıta dayalı gereksinim eşleşmesi")).toBeTruthy();
+    expect(screen.getByText(/Bilinmeyenler eksik sayılmaz/)).toBeTruthy();
 
     // (c) CV değerlendirmesi ayrı bir katmandır; henüz çalışmadıysa yolu gösterir.
     expect(screen.getByText("CV Değerlendirmesi")).toBeTruthy();

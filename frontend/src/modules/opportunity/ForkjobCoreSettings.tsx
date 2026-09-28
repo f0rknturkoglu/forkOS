@@ -22,7 +22,7 @@ import {
   useToast,
 } from "@/core/ui";
 
-interface JobhunterConfig {
+interface ForkjobCoreConfig {
   scoring: Record<string, unknown>;
   balance: Record<string, unknown>;
 }
@@ -127,21 +127,21 @@ function TokenListField({
   );
 }
 
-/** Jobhunter ayar çarkı: uyum profili, LinkedIn profilleri, ortam, veri temizliği.
+/** Forkjob Core ayarları: uyum profili, LinkedIn profilleri, ortam, veri temizliği.
  *  `onClose` verilirse modal katmanında, verilmezse çalışma alanı sekmesinde
  *  gömülü olarak çizilir. */
-export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
+export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
   const toast = useToast();
   const online = useOnline();
   const [section, setSection] = useState<"profile" | "linkedin" | "env" | "maintenance">("profile");
 
   const { data: config } = useQuery({
-    queryKey: ["jobhunter-config"],
-    queryFn: () => api.get<JobhunterConfig>("/sources/jobhunter/config"),
+    queryKey: ["forkjob-core-config"],
+    queryFn: () => api.get<ForkjobCoreConfig>("/sources/forkjob-core/config"),
   });
   const { data: env } = useQuery({
-    queryKey: ["jobhunter-env"],
-    queryFn: () => api.get<{ linkein_allow_direct: string; proxies_file: string }>("/sources/jobhunter/env"),
+    queryKey: ["forkjob-core-env"],
+    queryFn: () => api.get<{ linkein_allow_direct: string; proxies_file: string }>("/sources/forkjob-core/env"),
   });
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -221,12 +221,12 @@ export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
         preferred_work_mode: workMode || undefined,
       };
       await Promise.all([
-        api.put("/sources/jobhunter/config", { scoring, balance: config.balance }),
+        api.put("/sources/forkjob-core/config", { scoring, balance: config.balance }),
         api.put("/settings/opportunity.career_profile", { value: careerProfile }),
       ]);
     },
     onSuccess: () => {
-      invalidateAfter("jobhunter.write", "settings.write");
+      invalidateAfter("forkjob_core.write", "settings.write");
       toast.push("Uyum profili ve çalışma izni kaydedildi.", { tone: "ok" });
     },
     onError: (error: Error) => toast.push(`Kaydedilemedi: ${error.message}`, { tone: "danger" }),
@@ -284,7 +284,7 @@ export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
       <Tabs
         value={section}
         onChange={setSection}
-        ariaLabel="Jobhunter ayar bölümleri"
+        ariaLabel="Forkjob Core ayar bölümleri"
         items={[
           { id: "profile", label: "Uyum profili" },
           { id: "linkedin", label: "LinkedIn profilleri" },
@@ -521,7 +521,7 @@ export function JobhunterSettings({ onClose }: { onClose?: () => void }) {
 
   if (!onClose) return body;
   return (
-    <Modal open onClose={onClose} title="Jobhunter ayarları" hint="config.yaml · yalnızca yerel">
+    <Modal open onClose={onClose} title="Forkjob Core ayarları" hint="config.yaml · yalnızca yerel">
       {body}
     </Modal>
   );

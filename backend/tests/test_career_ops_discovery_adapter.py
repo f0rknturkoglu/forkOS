@@ -1,13 +1,9 @@
 import json
 from pathlib import Path
-import subprocess
+
 import pytest
 
 from app.integrations.career_ops.adapter import CareerOpsAdapter
-from app.integrations.career_ops.config import (
-    CAREER_OPS_PINNED_COMMIT,
-    CAREER_OPS_PINNED_VERSION,
-)
 from app.integrations.career_ops.errors import (
     CareerOpsInvalidOutputError,
     CareerOpsSecurityError,
@@ -22,6 +18,7 @@ class MockRunner:
         self.stderr = stderr
         self.last_args: list[str] = []
         self.last_env: dict[str, str] = {}
+        self.last_timeout: float | None = None
 
     async def run_script(
         self,
@@ -32,6 +29,7 @@ class MockRunner:
         max_buffer_bytes: int | None = None,
     ) -> ExecutionResult:
         self.last_args = list(args)
+        self.last_timeout = timeout_seconds
         if extra_env:
             self.last_env = dict(extra_env)
         return ExecutionResult(
@@ -120,6 +118,25 @@ async def test_adapter_reverse_scan_valid_json(mock_checkout: Path, tmp_path: Pa
     assert "7" in runner.last_args
     assert "--limit" in runner.last_args
     assert "50" in runner.last_args
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_workday_reverse_scan_has_longer_timeout(mock_checkout: Path, tmp_path: Path):
+    runner = MockRunner(stdout=SAMPLE_VALID_REVERSE_JSON)
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("scoring:\n  role_terms: [backend]\n", encoding="utf-8")
+    adapter = CareerOpsAdapter(
+        enabled=True,
+        checkout_dir=mock_checkout,
+        runtime_dir=tmp_path / "runtime",
+        runner=runner,
+    )
+
+    await adapter.reverse_scan("workday", config_path=config_file)
+
+    assert runner.last_timeout is not None
+    assert runner.last_timeout >= 600.0
 
 
 @pytest.mark.no_database

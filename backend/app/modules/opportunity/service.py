@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
@@ -50,6 +49,16 @@ from app.modules.opportunity.application import (  # noqa: F401 (re-export: rout
     transition_status,
     upsert_application,
 )
+from app.modules.opportunity.candidate_context import build_candidate_career_context
+from app.modules.opportunity.candidate_fit import ALGORITHM as FAST_SCORE_ALGORITHM
+from app.modules.opportunity.candidate_fit import score_canonical_opportunity, scoring_revision
+from app.modules.opportunity.candidate_match import ALGORITHM as CANDIDATE_MATCH_ALGORITHM
+from app.modules.opportunity.candidate_match import apply_candidate_match
+from app.modules.opportunity.identity import (
+    identity_from_incoming,
+    identity_from_stored,
+    same_real_world_posting,
+)
 from app.modules.opportunity.models import (
     Application,
     Interview,
@@ -68,110 +77,29 @@ from app.modules.opportunity.schemas import (
 from app.modules.opportunity.taxonomy import classify_job
 from app.sources.forkjob_core.models import canonical_url
 
-TECH_KEYWORDS = (
-    "python",
-    "javascript",
-    "typescript",
-    "c#",
-    ".net",
-    "java",
-    "go",
-    "golang",
-    "rust",
-    "c++",
-    "ruby",
-    "php",
-    "swift",
-    "kotlin",
-    "sql",
-    "postgresql",
-    "mysql",
-    "mongodb",
-    "redis",
-    "elasticsearch",
-    "kafka",
-    "rabbitmq",
-    "react",
-    "vue",
-    "angular",
-    "next.js",
-    "node.js",
-    "django",
-    "fastapi",
-    "flask",
-    "spring",
-    "docker",
-    "kubernetes",
-    "aws",
-    "azure",
-    "gcp",
-    "terraform",
-    "graphql",
-    "rest",
-    "ci/cd",
-    "git",
-    "linux",
-    "pytorch",
-    "langchain",
-    "faiss",
-    "rag",
-    "yolo",
-    "opencv",
-)
-
 
 def _calculate_skill_match(
-    o: Opportunity, title: str, reasons: dict | None
+    o: Opportunity, title: str, reasons: dict | None, *, candidate_revision: str | None = None
 ) -> SkillMatchOut | None:
-    if o.kind != "job":
+    del reasons  # Source-specific score explanations are not candidate evidence.
+    if o.kind != "job" or not isinstance(o.raw, dict):
         return None
-    matched: list[str] = []
-    if isinstance(reasons, dict):
-        skills = reasons.get("skills")
-        if isinstance(skills, dict):
-            for k in skills:
-                name = str(k).strip().lower()
-                if name and name not in matched:
-                    matched.append(name)
-        elif isinstance(skills, list):
-            for s in skills:
-                if isinstance(s, dict) and "name" in s:
-                    name = str(s["name"]).strip().lower()
-                    if name and name not in matched:
-                        matched.append(name)
-                elif isinstance(s, str):
-                    name = s.strip().lower()
-                    if name and name not in matched:
-                        matched.append(name)
-
-    forkjob = (o.raw or {}).get("forkjob") or {}
-    description = str(forkjob.get("description") or o.notes or "").lower()
-    full_text = f"{title.lower()} {description}"
-
-    missing: list[str] = []
-    matched_set = {m.lower() for m in matched}
-    for tech in TECH_KEYWORDS:
-        if tech in matched_set:
-            continue
-        # Cogu ilanda teknoloji listesinin yalnizca birkac uyesi bulunur.
-        # Bu ucuz kontrol, uzun metni her anahtar icin regex ile taramayi onler.
-        if tech not in full_text:
-            continue
-        if tech.startswith("."):
-            pattern = rf"(?:^|\W){re.escape(tech)}(?:\b|\W)"
-        else:
-            pattern = rf"(?:\b|\W){re.escape(tech)}(?:\b|\W)"
-        if re.search(pattern, full_text):
-            missing.append(tech)
-
-    total = len(matched) + len(missing)
-    if total == 0:
+    match = o.raw.get("candidate_match")
+    if not isinstance(match, dict) or match.get("algorithm") != CANDIDATE_MATCH_ALGORITHM:
         return None
-    ratio = round(len(matched) / total, 2)
+    if candidate_revision is not None and match.get("candidate_revision") != candidate_revision:
+        return None
+    from app.modules.opportunity.intelligence import listing_fingerprint
+
+    if match.get("listing_fingerprint") != listing_fingerprint(o, title=title):
+        return None
+    ratio = match.get("ratio")
+    if not isinstance(ratio, (int, float)):
+        return None
     return SkillMatchOut(
         match_ratio=ratio,
-        matched=matched,
-        missing=missing[:8],
+        matched=list(match.get("matched") or []),
+        missing=list(match.get("missing") or [])[:8],
     )
 
 
@@ -186,14 +114,18 @@ def _score_reasons(raw: dict[str, Any] | None) -> dict[str, Any] | None:
     return reasons if isinstance(reasons, dict) else None
 
 
-def _skill_match_ratio(opportunity: Opportunity, title: str) -> float | None:
+def _skill_match_ratio(
+    opportunity: Opportunity, title: str, *, candidate_revision: str | None = None
+) -> float | None:
     """Profil uyum orani; HESAPLANAMADIYSA `None`.
 
     Eskiden is ilanlarinda `0.0` yaziliyordu: "hic ortusme yok" ile "hic
     hesaplanmadi" ayni goruntuye dusuyor ve "Hesaplanmadi" filtresi is
     ilanlarinda asla eslesmiyordu. Artik null korunur.
     """
-    match = _calculate_skill_match(opportunity, title, _score_reasons(opportunity.raw))
+    match = _calculate_skill_match(
+        opportunity, title, None, candidate_revision=candidate_revision
+    )
     if match is None:
         return None
     return match.match_ratio
@@ -206,6 +138,7 @@ def _out(
     #: `Application` ORM kaydi veya `ApplicationOut` semasi olabilir; ikisi de
     #: status/status_changed_at tasir.
     application: Any = None,
+    candidate_revision: str | None = None,
 ) -> OpportunityOut:
     from app.modules.opportunity import lifecycle
 
@@ -213,9 +146,9 @@ def _out(
     # Skor kanonik kolondan okunur; raw yalnizca aciklama (reasons) tasir.
     reasons = _score_reasons(o.raw) if include_raw else None
     evaluation = None
-    if o.evaluation:
+    if o.candidate_evaluation:
         try:
-            evaluation = OpportunityEvaluationOut.model_validate(o.evaluation)
+            evaluation = OpportunityEvaluationOut.model_validate(o.candidate_evaluation)
         except ValueError:
             # Eski/yarim kalmis bir JSON detay ucunu kirmaz; yeniden
             # degerlendirme gecerli surumlu belgeyi uretir.
@@ -251,8 +184,10 @@ def _out(
         region=o.region,
         follow_up_at=o.follow_up_at,
         rejection_reason=o.rejection_reason,
-        profile_match_ratio=o.skill_match_ratio,
-        skill_match=_calculate_skill_match(o, title, _score_reasons(o.raw)),
+        profile_match_ratio=_skill_match_ratio(o, title, candidate_revision=candidate_revision),
+        skill_match=_calculate_skill_match(
+            o, title, None, candidate_revision=candidate_revision
+        ),
         application_status=application.status if application is not None else None,
         application_status_changed_at=(
             application.status_changed_at if application is not None else None
@@ -342,7 +277,10 @@ async def list_opportunities(
         stmt = stmt.where(Opportunity.kind == kind)
     stmt = stmt.limit(limit)
     rows = (await session.execute(stmt)).all()
-    outs = [_out(row, include_raw=False) for row in rows]
+    candidate_revision = (await build_candidate_career_context(session)).revision if rows else None
+    outs = [
+        _out(row, include_raw=False, candidate_revision=candidate_revision) for row in rows
+    ]
     outs = await attach_applications(session, rows, outs)
     if not outs:
         return outs
@@ -512,7 +450,7 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
         notes=data.notes,
         last_seen_at=now,
     )
-    item.skill_match_ratio = _skill_match_ratio(item, data.title)
+    apply_candidate_match(item, data.title, await build_candidate_career_context(session))
     session.add(item)
     await log_event(
         session,
@@ -547,7 +485,7 @@ async def patch(
         item.status = next_status
     for key, value in changes.items():
         setattr(item, key, value)
-    item.skill_match_ratio = _skill_match_ratio(item, title or current_title)
+    apply_candidate_match(item, title or current_title, await build_candidate_career_context(session))
     for key in ("deadline_at", "follow_up_at"):
         if isinstance(changes.get(key), datetime):
             changes[key] = changes[key].isoformat()
@@ -681,6 +619,12 @@ async def merge_duplicate_clusters(
             and related_count == 0
             and application_count == 0
             and requirement_count == 0
+            and all(
+                same_real_world_posting(
+                    identity_from_stored(rows[0]), identity_from_stored(row)
+                )
+                for row in rows[1:]
+            )
         )
         if not safe:
             skipped_groups += 1
@@ -901,11 +845,6 @@ async def _refresh_opportunity(
     if deadline_at is not None and (opportunity.deadline_at is None or same_primary_source):
         opportunity.deadline_at = deadline_at
 
-    # Finding 20: Do not degrade/erase skill_match_ratio when incoming description is empty
-    new_skill_match = _skill_match_ratio(opportunity, job.title)
-    if new_skill_match is not None:
-        opportunity.skill_match_ratio = new_skill_match
-
     # Finding 19: Scoring ownership - do not erase existing score
     score = forkjob.get("score")
     if isinstance(score, (int, float)):
@@ -941,7 +880,7 @@ async def _refresh_opportunity(
 
     # User state and richer fields stay put, but when the same discovered job
     # arrives from both engines the visible primary source is career-ops.
-    if source_label.startswith("careerops:") and opportunity.source.startswith("jobhunter:"):
+    if source_label.startswith("careerops:") and opportunity.source.startswith("forkjob_core:"):
         opportunity.source = source_label
 
     opportunity.last_seen_at = now
@@ -999,6 +938,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         return 0
     added = 0
     now = datetime.now(UTC)
+    candidate_context = await build_candidate_career_context(session)
 
     rows_by_job: list[tuple[Any, dict[str, Any], dict[str, Any]]] = []
     for job in jobs:
@@ -1093,7 +1033,18 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         )
 
         cluster_key = forkjob.get("cluster_key") or raw.get("cluster_key")
-        cluster_matches = existing_by_cluster.get(str(cluster_key), []) if cluster_key else []
+        cluster_matches = (
+            [
+                row
+                for row in existing_by_cluster.get(str(cluster_key), [])
+                if same_real_world_posting(
+                    identity_from_stored(row),
+                    identity_from_incoming(job, raw, source_label),
+                )
+            ]
+            if cluster_key
+            else []
+        )
         if cluster_matches:
             canonical = canonical_cluster(cluster_matches)
             _merge_cluster_sources(canonical, cluster_matches, source_label)
@@ -1109,6 +1060,8 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                 source_label=source_label,
                 now=now,
             )
+            score_canonical_opportunity(canonical, job.title, now=now)
+            apply_candidate_match(canonical, job.title, candidate_context)
             touched.append(canonical)
             continue
 
@@ -1135,6 +1088,8 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
                 source_label=source_label,
                 now=now,
             )
+            score_canonical_opportunity(existing, job.title, now=now)
+            apply_candidate_match(existing, job.title, candidate_context)
             touched.append(existing)
             continue
 
@@ -1176,7 +1131,10 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             last_seen_at=now,
             **_announcement_columns(raw),
         )
-        new_opp.skill_match_ratio = _skill_match_ratio(new_opp, job.title)
+        score_canonical_opportunity(new_opp, job.title, now=now)
+        apply_candidate_match(new_opp, job.title, candidate_context)
+        if new_opp.score is not None:
+            new_opp.priority = 3 if new_opp.score >= 50 else 2
         session.add(new_opp)
         if external_id:
             existing_by_ext[str(external_id)] = new_opp
@@ -1431,11 +1389,14 @@ async def _link_announcement_hierarchy(
 
 
 async def backfill_skill_match_ratios(session: AsyncSession, *, batch_size: int = 500) -> int:
-    """Eski ilanlarin uyum orani cache'ini kucuk transaction'larla tamamla.
+    """Refresh canonical scores and evidence-bound matches in bounded batches.
 
-    Isaretci (cursor) ile ilerler: hesaplanamayan ilan `None` kalir, bu yuzden
-    `skill_match_ratio IS NULL` sorgusuyla yeniden secilirse dongu ASLA bitmez.
+    NULL match values can be valid (insufficient evidence), so freshness is
+    determined by version and fingerprints rather than a NULL-column loop.
     """
+    from app.modules.opportunity.intelligence import listing_fingerprint
+
+    candidate_context = await build_candidate_career_context(session)
     updated = 0
     cursor: uuid.UUID | None = None
     while True:
@@ -1452,11 +1413,23 @@ async def backfill_skill_match_ratios(session: AsyncSession, *, batch_size: int 
         if not rows:
             return updated
         for opportunity, title in rows:
-            if opportunity.skill_match_ratio is not None:
-                continue
-            ratio = _skill_match_ratio(opportunity, title)
-            if ratio is not None:
-                opportunity.skill_match_ratio = ratio
+            changed = False
+            fast_meta = (opportunity.raw or {}).get("candidate_fit") or {}
+            if opportunity.score_source != FAST_SCORE_ALGORITHM or (
+                fast_meta.get("scoring_revision") != scoring_revision()
+            ):
+                score_canonical_opportunity(opportunity, title, now=datetime.now(UTC))
+                changed = True
+            stored = (opportunity.raw or {}).get("candidate_match")
+            if not isinstance(stored, dict) or (
+                stored.get("algorithm") != CANDIDATE_MATCH_ALGORITHM
+                or stored.get("candidate_revision") != candidate_context.revision
+                or stored.get("listing_fingerprint")
+                != listing_fingerprint(opportunity, title=title)
+            ):
+                apply_candidate_match(opportunity, title, candidate_context)
+                changed = True
+            if changed:
                 updated += 1
         cursor = rows[-1][0].id
         await session.commit()

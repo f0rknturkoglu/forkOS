@@ -63,7 +63,6 @@ async def queue(
     session: AsyncSession, *, scope: str = DEFAULT_SCOPE
 ) -> tuple[dict[str, Any], bool]:
     from app.modules.media import sync as media_sync
-    from app.sources.announcements import SOURCES as ANNOUNCEMENT_SOURCES
     from app.sources.base import (
         SourceClass,
         is_general_refresh_source,
@@ -71,7 +70,7 @@ async def queue(
         source_class,
         source_estimated_seconds,
     )
-    from app.sources.forkjob_port import forkjob_sources
+    from app.sources.catalog import opportunity_sources
 
     if scope not in REFRESH_SCOPES:
         scope = DEFAULT_SCOPE
@@ -81,7 +80,7 @@ async def queue(
         # Ayni yenilemenin cift baslatilmasi engellenir.
         return current, False
 
-    everything = [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
+    everything = opportunity_sources()
     if scope == "critical":
         selected = [
             source for source in everything if source_class(source) is SourceClass.CRITICAL

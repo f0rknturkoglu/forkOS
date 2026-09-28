@@ -208,6 +208,10 @@ class CareerOpsProviderTargetResult(BaseModel):
     provider: str | None = None
     status: Literal["ok", "partial", "error", "unconfigured"]
     found: StrictInt
+    cap_hit: StrictBool = False
+    max_pages_requested: StrictInt | None = None
+    requests_made: StrictInt | None = None
+    result_limit: StrictInt | None = None
 
 
 class CareerOpsProviderScanReceipt(BaseModel):

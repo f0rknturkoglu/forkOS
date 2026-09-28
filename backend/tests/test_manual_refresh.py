@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.config import settings
+from app.core import source_sync
 from app.db import SessionLocal
 from app.main import app
 from app.modules.system import refresh
 from app.modules.system.models import Setting
+from app.sources.base import is_general_refresh_source
+from app.sources.catalog import opportunity_sources
 
 
 async def _set_status(value: dict) -> None:
@@ -46,7 +51,31 @@ async def test_critical_scope_queues_only_critical_sources():
         status = await source_sync.current_status(session)
     queued = set(status["active"]["source_ids"])
     assert queued == set(critical_source_ids())
-    assert "jobhunter:linkedin" not in queued
+    assert "forkjob_core:linkedin" not in queued
+
+
+@pytest.mark.parametrize("scope", ["standard", "full"])
+async def test_system_refresh_uses_canonical_catalog(scope, monkeypatch):
+    monkeypatch.setattr(settings, "career_ops_enabled", True)
+    monkeypatch.setattr(settings, "career_ops_discovery_enabled", True)
+    await _clear_status()
+
+    catalog = opportunity_sources()
+    expected = {
+        source.id
+        for source in catalog
+        if scope == "full" or is_general_refresh_source(source)
+    }
+    async with SessionLocal() as session:
+        _, started = await refresh.queue(session, scope=scope)
+    assert started is True
+
+    async with SessionLocal() as session:
+        status = await source_sync.current_status(session)
+    assert set(status["active"]["source_ids"]) == expected
+    assert "careerops:boards" in expected
+    assert ("careerops:companies" in expected) == (scope == "full")
+    assert ("forkjob_core:linkedin" in expected) == (scope == "full")
 
 
 async def test_second_start_is_rejected_while_a_refresh_is_running():
@@ -112,24 +141,24 @@ async def test_refresh_endpoint_accepts_and_reports_scope(monkeypatch):
     await _clear_status()
 
 
-async def test_jobhunter_env_reports_the_corrected_field_name(monkeypatch):
+async def test_forkjob_core_env_reports_the_corrected_field_name(monkeypatch):
     """`linkein_allow_direct` yazim hatasi duzeltildi; eski alan da ayni degeri tasir."""
     monkeypatch.setenv("FORKJOB_LINKEDIN_ALLOW_DIRECT", "0")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
-        payload = (await http.get("/api/sources/jobhunter/env")).json()
+        payload = (await http.get("/api/sources/forkjob-core/env")).json()
     assert payload["linkedin_allow_direct"] is False
     assert payload["linkein_allow_direct"] is False
 
     monkeypatch.setenv("FORKJOB_LINKEDIN_ALLOW_DIRECT", "1")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
-        payload = (await http.get("/api/sources/jobhunter/env")).json()
+        payload = (await http.get("/api/sources/forkjob-core/env")).json()
     assert payload["linkedin_allow_direct"] is True
     assert payload["linkein_allow_direct"] is True
 
     # Taninmayan deger guvenli tarafa duser: direct scraping yanlislikla acilmaz.
     monkeypatch.setenv("FORKJOB_LINKEDIN_ALLOW_DIRECT", "evet")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
-        payload = (await http.get("/api/sources/jobhunter/env")).json()
+        payload = (await http.get("/api/sources/forkjob-core/env")).json()
     assert payload["linkedin_allow_direct"] is False
 
 

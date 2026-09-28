@@ -47,7 +47,10 @@ async def test_prep_current_evidence_unknown_stage_and_stale():
         assert prep.story_recommendations == []
         assert "missing_story_gap" in prep.unknowns
         assert not (await interviews.get_intelligence(session, row.id)).prep.is_stale
-        opp.evaluation = {**opp.evaluation, "overall_assessment": "Changed material evaluation"}
+        opp.deep_evaluation = {
+            **opp.deep_evaluation,
+            "overall_assessment": "Changed material evaluation",
+        }
         assert (await interviews.get_intelligence(session, row.id)).prep.is_stale
         row.stage = "technical_screen"
         assert (await interviews.prepare(session, row.id)).interview_stage == "technical_screen"
@@ -174,7 +177,7 @@ async def test_debrief_no_inferred_outcome_or_send_and_analytics_lineage():
         assert result.conversions["applied_to_interview"].rate is None
         assert result.lineage[0]["base_cv_document_id"]
         assert result.lineage[0]["derivative_documents"]
-        assert prep.candidate_context_revision == opp.evaluation["candidate_context_revision"]
+        assert prep.candidate_context_revision == opp.deep_evaluation["candidate_context_revision"]
         assert all(not c["weights_changed"] for c in result.calibration)
 
 

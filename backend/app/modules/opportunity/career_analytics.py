@@ -449,7 +449,7 @@ async def snapshot(
     for opp in opportunities:
         app = apps.get(opp.id)
         package = app.package or {} if app else {}
-        evaluation = opp.evaluation or {}
+        evaluation = opp.candidate_evaluation or {}
         listing = await build_career_listing_context(
             session,
             opp,

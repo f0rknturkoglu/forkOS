@@ -73,7 +73,7 @@ def isolated_data_dirs(tmp_path_factory, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(document_service, "DOCUMENTS_DIR", root / "documents")
     monkeypatch.setattr(backup, "BACKUP_DIR", root / "backups")
     monkeypatch.setattr(artwork, "default_asset_dir", lambda: root / "media")
-    # Uyum profili: PUT /sources/jobhunter/config bu dosyaya yazar; izole
+    # Uyum profili: PUT /sources/forkjob-core/config bu dosyaya yazar; izole
     # edilmezse bir test kullanicinin kalibre ettigi profili EZER.
     monkeypatch.setattr(forkjob_port, "CONFIG_PATH", root / "config.yaml")
     monkeypatch.setattr(forkjob_port, "LEGACY_CONFIG_PATH", root / "legacy-config.yaml")

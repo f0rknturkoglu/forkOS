@@ -141,7 +141,7 @@ async def test_check_stalled_notifies_and_deduplicates_streak():
 async def test_reconcile_stale_runs_dynamic_timeout():
     now = datetime.now(UTC)
     std_source = f"test:std:{uuid.uuid4().hex[:6]}"
-    eures_source = "jobhunter:eures"
+    eures_source = "forkjob_core:eures"
 
     async with engine.begin() as conn:
         # Standart kaynak: 25 dakika önce başladı (15dk eşiğini aştı -> abandoned olmalı)

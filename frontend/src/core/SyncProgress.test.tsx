@@ -49,7 +49,7 @@ describe("SyncProgress", () => {
           id: "batch-1",
           scope: "opportunity",
           status: "running",
-          source_ids: ["osym", "jobhunter:eures", "jobhunter:linkedin"],
+          source_ids: ["osym", "forkjob_core:eures", "forkjob_core:linkedin"],
           total_sources: 3,
           completed_sources: 1,
           ok_sources: 0,
@@ -65,7 +65,7 @@ describe("SyncProgress", () => {
         last_completed: null,
         running: [
           {
-            source: "jobhunter:eures",
+            source: "forkjob_core:eures",
             status: "running",
             started_at: "2026-09-20T10:00:02Z",
             finished_at: null,
@@ -83,7 +83,7 @@ describe("SyncProgress", () => {
             error: "bazı sayfalar alınamadı",
           },
           {
-            source: "jobhunter:eures",
+            source: "forkjob_core:eures",
             status: "running",
             started_at: "2026-09-20T10:00:02Z",
             finished_at: null,
@@ -91,7 +91,7 @@ describe("SyncProgress", () => {
             error: null,
           },
           {
-            source: "jobhunter:linkedin",
+            source: "forkjob_core:linkedin",
             status: "queued",
             started_at: null,
             finished_at: null,

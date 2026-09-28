@@ -4,7 +4,7 @@
  *
  * Kapsam: hikâye düzenleyicisi tıklanana kadar kapalı, CSV içe aktarma
  * önizlemesi + tekrar sayısı + yerel-only beyanı, duyuru kayıtlarının
- * "Şirket Notu" taşımaması, Jobhunter Basit/Advanced ayrımı ve derin bağ.
+ * "Şirket Notu" taşımaması, ForkjobCore Basit/Advanced ayrımı ve derin bağ.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -196,9 +196,9 @@ function mockGet(path: string): unknown {
   if (path.endsWith("/salary-consistency")) {
     return { inconsistent: false, claims: [], warning: null } as SalaryConsistency;
   }
-  if (path.startsWith("/sources/jobhunter/config")) return { scoring: { base: 50 }, balance: {} };
-  if (path.startsWith("/sources/jobhunter/linkedin-profiles")) return [];
-  if (path.startsWith("/sources/jobhunter/env")) return { linkein_allow_direct: "", proxies_file: "" };
+  if (path.startsWith("/sources/forkjob-core/config")) return { scoring: { base: 50 }, balance: {} };
+  if (path.startsWith("/sources/forkjob-core/linkedin-profiles")) return [];
+  if (path.startsWith("/sources/forkjob-core/env")) return { linkein_allow_direct: "", proxies_file: "" };
   if (path.startsWith("/settings")) return {};
   throw new Error(`unmocked GET ${path}`);
 }
@@ -284,15 +284,15 @@ describe("CareerWorkspace", () => {
       "Şirket araştırması",
       "Mülakat hazırlığı",
       "Ön yazı",
-      "Jobhunter ayarları",
+      "Forkjob Core ayarları",
     ]) {
       expect(screen.getByRole("tab", { name })).toBeTruthy();
     }
   });
 
-  it("Jobhunter ayarlarını Basit/Advanced olarak ayırır ve ham metin alanı bırakmaz", async () => {
+  it("ForkjobCore ayarlarını Basit/Advanced olarak ayırır ve ham metin alanı bırakmaz", async () => {
     const { container } = renderWorkspace();
-    fireEvent.click(screen.getByRole("tab", { name: "Jobhunter ayarları" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Forkjob Core ayarları" }));
     expect(await screen.findByText("Basit")).toBeTruthy();
     expect(screen.getByText("Advanced")).toBeTruthy();
     expect(screen.getByText("Elenme kelimeleri")).toBeTruthy();

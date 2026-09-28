@@ -22,8 +22,8 @@ def test_opt_in_linkedin_is_manual_only():
     automatic = {source.id for source in forkjob_sources()}
     manual = {source.id for source in forkjob_sources(include_opt_in=True)}
 
-    assert "jobhunter:linkedin" not in automatic
-    assert "jobhunter:linkedin" in manual
+    assert "forkjob_core:linkedin" not in automatic
+    assert "forkjob_core:linkedin" in manual
 
 
 async def test_portal_keeps_partial_scrape_as_partial(monkeypatch: pytest.MonkeyPatch):

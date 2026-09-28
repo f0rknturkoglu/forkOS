@@ -13,7 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import touch_entity
 from app.core.events import log_event
+from app.core.models import Entity
 from app.integrations.career_ops.adapter import CareerOpsAdapter
+from app.modules.opportunity.candidate_context import build_candidate_career_context
+from app.modules.opportunity.candidate_fit import score_canonical_opportunity
+from app.modules.opportunity.candidate_match import apply_candidate_match
 from app.modules.opportunity.models import Opportunity, OpportunitySourceObservation
 
 LIVENESS_CACHE_TTL = timedelta(hours=24)
@@ -537,6 +541,11 @@ class OpportunityListingService:
             if promoted:
                 raw["description"] = cleaned_text
                 opportunity.raw = raw
+                title = (await session.execute(select(Entity.title).where(Entity.id == opportunity.id))).scalar_one()
+                score_canonical_opportunity(opportunity, title, now=now)
+                apply_candidate_match(
+                    opportunity, title, await build_candidate_career_context(session)
+                )
 
                 search_parts = filter(
                     None,

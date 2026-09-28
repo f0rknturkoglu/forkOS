@@ -23,6 +23,7 @@ from app.modules.opportunity.evaluation_service import (
     CareerEvaluationService,
     DeepEvaluation,
 )
+from app.modules.opportunity.intelligence import evaluate_opportunity as evaluate_candidate
 from app.modules.opportunity.listing_context import build_career_listing_context
 from app.modules.opportunity.models import CareerStory, Opportunity, OpportunitySourceObservation
 from app.modules.opportunity.reasoner.base import (
@@ -209,8 +210,31 @@ async def test_deep_evaluation_none_provider_fails_safely(db_session: AsyncSessi
     assert "CAREER_REASONER_PROVIDER='none'" in str(exc_info.value)
     # Opportunity remains uncorrupted
     await db_session.refresh(opp)
-    assert opp.evaluation == {}
+    assert opp.deep_evaluation == {}
     assert opp.score == 75.0
+
+
+@pytest.mark.asyncio
+async def test_candidate_and_deep_evaluations_do_not_overwrite_each_other(
+    db_session: AsyncSession,
+):
+    opp = await _seed_test_opportunity(db_session)
+    candidate = await evaluate_candidate(db_session, opp.id)
+    assert candidate is not None
+    await db_session.refresh(opp)
+    candidate_payload = dict(opp.candidate_evaluation)
+
+    service = CareerEvaluationService(reasoner=DeterministicMockCareerReasoner())
+    deep = await service.evaluate_opportunity(db_session, opp.id, force=True)
+    await db_session.refresh(opp)
+    assert opp.candidate_evaluation == candidate_payload
+    assert opp.deep_evaluation["overall_assessment"] == deep.overall_assessment
+
+    refreshed_candidate = await evaluate_candidate(db_session, opp.id)
+    assert refreshed_candidate is not None
+    await db_session.refresh(opp)
+    assert opp.deep_evaluation["overall_assessment"] == deep.overall_assessment
+    assert (await service.get_evaluation(db_session, opp.id)).is_stale is False
 
 
 @pytest.mark.asyncio

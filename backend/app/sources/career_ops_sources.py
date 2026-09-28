@@ -40,6 +40,10 @@ class CareerOpsReverseSource:
         adapter = self.adapter or CareerOpsAdapter()
         since_days = settings.career_ops_discovery_since_days
         limit = settings.career_ops_discovery_limit
+        if self.provider == "workday":
+            # The 200-board sweep repeatedly exceeds even the extended budget.
+            # A bounded partial result is preferable to losing every Workday offer.
+            limit = min(limit, 50)
 
         res = await adapter.reverse_scan(
             provider=self.provider,
@@ -99,7 +103,11 @@ class CareerOpsReverseSource:
 
 def get_career_ops_sources(adapter: Any | None = None) -> list[CareerOpsReverseSource]:
     return [
-        CareerOpsReverseSource(provider=provider, adapter=adapter)
+        CareerOpsReverseSource(
+            provider=provider,
+            adapter=adapter,
+            timeout_seconds=630.0 if provider == "workday" else 300.0,
+        )
         for provider in sorted(REVERSE_ATS_PROVIDERS)
     ]
 
@@ -167,9 +175,15 @@ class CareerOpsProviderSource:
                 },
             ))
         details = [f"{error.get('target')}: {error.get('error')}" for error in receipt.errors]
-        bounded = sum(result.status == "partial" for result in receipt.target_results)
+        bounded = [result for result in receipt.target_results if result.cap_hit or result.status == "partial"]
         if bounded:
-            details.append(f"{bounded} hedefte sonuç sınırına ulaşıldı")
+            details.append(
+                "Sonuç sınırı: "
+                + ", ".join(
+                    f"{result.target} ({result.found} görüldü, sınır {result.result_limit or '?'})"
+                    for result in bounded[:4]
+                )
+            )
         return FetchOutcome(items=items, partial=receipt.partial, detail="; ".join(details[:5]))
 
 

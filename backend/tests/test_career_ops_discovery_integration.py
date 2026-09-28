@@ -1,7 +1,8 @@
+import shutil
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-import shutil
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +12,6 @@ from app.modules.opportunity import service
 from app.modules.opportunity.models import Opportunity, OpportunitySourceObservation
 from app.modules.opportunity.worker import NativeJob, poll_source
 from app.sources.base import FetchOutcome, RawItem
-from app.sources.career_ops_sources import CareerOpsReverseSource
 from app.sources.forkjob_core.models import cluster_key as compute_cluster_key
 from app.worker import jobs as worker_jobs
 from app.worker.jobs import _lease_map, _source_catalog
@@ -49,7 +49,7 @@ async def test_canonical_merge_forkjob_and_career_ops(db_session: AsyncSession):
         extra={"organization": "Stripe", "location": "Remote"},
     )
     added1 = await service.ingest_jobs(
-        db_session, [NativeJob(forkjob_item)], "jobhunter:greenhouse:stripe"
+        db_session, [NativeJob(forkjob_item)], "forkjob_core:greenhouse:stripe"
     )
     await db_session.commit()
     assert added1 == 1
@@ -67,7 +67,7 @@ async def test_canonical_merge_forkjob_and_career_ops(db_session: AsyncSession):
         )
     ).scalars().all()
     assert len(obs) == 1
-    assert obs[0].source == "jobhunter:greenhouse:stripe"
+    assert obs[0].source == "forkjob_core:greenhouse:stripe"
 
     # 2. Later discovery via career-ops reverse ATS
     careerops_item = RawItem(
@@ -84,7 +84,7 @@ async def test_canonical_merge_forkjob_and_career_ops(db_session: AsyncSession):
             },
         },
     )
-    added2 = await service.ingest_jobs(
+    await service.ingest_jobs(
         db_session, [NativeJob(careerops_item)], "careerops:greenhouse"
     )
     await db_session.commit()
@@ -104,7 +104,7 @@ async def test_canonical_merge_forkjob_and_career_ops(db_session: AsyncSession):
     ).scalars().all()
     assert len(obs_after) == 2
     sources = {o.source for o in obs_after}
-    assert "jobhunter:greenhouse:stripe" in sources
+    assert "forkjob_core:greenhouse:stripe" in sources
     assert "careerops:greenhouse" in sources
 
 
@@ -232,8 +232,8 @@ async def test_deleting_runtime_leaves_postgresql_intact(tmp_path: Path, db_sess
 
 
 @pytest.mark.asyncio
-async def test_cross_url_cluster_dedup_and_source_merge(db_session: AsyncSession):
-    """Cross-URL dedup: Different URLs with identical cluster_key merge into 1 Opportunity."""
+async def test_cross_url_cluster_does_not_merge_without_strong_evidence(db_session: AsyncSession):
+    """A coarse cluster alone cannot prove that two ATS URLs are one requisition."""
     ckey = compute_cluster_key("ClusterCorp", "Senior Infrastructure Engineer", "Remote")
     url_gh = "https://boards.greenhouse.io/clustercorp/jobs/111"
     url_wd = "https://clustercorp.wd1.myworkdayjobs.com/careers/job/222"
@@ -268,27 +268,26 @@ async def test_cross_url_cluster_dedup_and_source_merge(db_session: AsyncSession
     )
     added2 = await service.ingest_jobs(db_session, [NativeJob(wd_item)], "careerops:workday")
     await db_session.commit()
-    assert added2 == 0  # merged into existing cluster
+    assert added2 == 1
 
     opps = (
         await db_session.execute(
             select(Opportunity).where(Opportunity.organization == "ClusterCorp")
         )
     ).scalars().all()
-    assert len(opps) == 1
-    opp = opps[0]
+    assert len(opps) == 2
 
     obs = (
         await db_session.execute(
             select(OpportunitySourceObservation).where(
-                OpportunitySourceObservation.opportunity_id == opp.id
+                OpportunitySourceObservation.opportunity_id.in_([opp.id for opp in opps])
             )
         )
     ).scalars().all()
     assert len(obs) == 2
     sources = {o.source for o in obs}
     assert sources == {"careerops:greenhouse", "careerops:workday"}
-    assert set((opp.raw or {}).get("sources", [])) == {"careerops:greenhouse", "careerops:workday"}
+    assert len({o.opportunity_id for o in obs}) == 2
 
 
 @pytest.mark.asyncio
@@ -360,7 +359,7 @@ async def test_non_destructive_refresh_rich_forkjob_then_sparse_careerops(db_ses
         },
     )
     added1 = await service.ingest_jobs(
-        db_session, [NativeJob(rich_item)], "jobhunter:greenhouse:richcorp"
+        db_session, [NativeJob(rich_item)], "forkjob_core:greenhouse:richcorp"
     )
     await db_session.commit()
     assert added1 == 1
@@ -374,13 +373,14 @@ async def test_non_destructive_refresh_rich_forkjob_then_sparse_careerops(db_ses
     assert opp.compensation == "$200,000 - $250,000"
     assert opp.country == "TR"
     assert opp.region == "EMEA"
-    assert opp.score == 88.0
+    assert opp.score is not None
+    assert opp.score_source == "forkjob_core-candidate-fit-v2"
 
     # Ingest sparse career-ops item
     sparse_item = RawItem(
-        external_id="https://boards.greenhouse.io/richcorp/jobs/999",
+        external_id="https://jobs.richcorp.com/roles/1/?utm_source=careerops",
         title="Principal Python Architect",
-        url="https://boards.greenhouse.io/richcorp/jobs/999",
+        url="https://jobs.richcorp.com/roles/1/?utm_source=careerops",
         summary=None,
         published_at=None,
         extra={
@@ -406,12 +406,13 @@ async def test_non_destructive_refresh_rich_forkjob_then_sparse_careerops(db_ses
     assert opp.compensation == "$200,000 - $250,000"
     assert opp.country == "TR"
     assert opp.region == "EMEA"
-    assert opp.score == 88.0
+    assert opp.score is not None
+    assert opp.score_source == "forkjob_core-candidate-fit-v2"
     assert (opp.raw or {}).get("description") == "Extensive python and asyncpg expertise required."
     assert (opp.raw or {}).get("forkjob", {}).get("custom_rich_signal") == "verified"
     assert (opp.raw or {}).get("career_ops", {}).get("provider") == "greenhouse"
     assert set((opp.raw or {}).get("sources", [])) == {
-        "jobhunter:greenhouse:richcorp",
+        "forkjob_core:greenhouse:richcorp",
         "careerops:greenhouse",
     }
 
@@ -445,7 +446,7 @@ async def test_non_destructive_refresh_sparse_careerops_then_rich_forkjob(db_ses
     rich_item = RawItem(
         external_id="sparse-rich-222",
         title="Staff Systems Engineer",
-        url="https://sparsecorp.com/careers/222",
+        url="https://jobs.lever.co/sparsecorp/111?utm_source=forkjob",
         summary="Deep distributed systems and Rust experience required.",
         published_at=datetime(2026, 9, 22, tzinfo=UTC),
         extra={
@@ -464,7 +465,7 @@ async def test_non_destructive_refresh_sparse_careerops_then_rich_forkjob(db_ses
         },
     )
     added2 = await service.ingest_jobs(
-        db_session, [NativeJob(rich_item)], "jobhunter:lever:sparsecorp"
+        db_session, [NativeJob(rich_item)], "forkjob_core:lever:sparsecorp"
     )
     await db_session.commit()
     assert added2 == 0
@@ -478,7 +479,8 @@ async def test_non_destructive_refresh_sparse_careerops_then_rich_forkjob(db_ses
     assert opp.compensation == "$220,000"
     assert opp.country == "US"
     assert opp.region == "AMER"
-    assert opp.score == 92.0
+    assert opp.score is not None
+    assert opp.score_source == "forkjob_core-candidate-fit-v2"
     assert (opp.raw or {}).get("description") == "Deep distributed systems and Rust experience required."
     assert (opp.raw or {}).get("career_ops", {}).get("provider") == "lever"
     assert (opp.raw or {}).get("forkjob", {}).get("score") == 92.0
@@ -504,7 +506,9 @@ def test_worker_lease_catalog_includes_career_ops(monkeypatch: pytest.MonkeyPatc
     assert "careerops:greenhouse" in catalog_ids
     assert "careerops:lever" in catalog_ids
     assert "careerops:workday" in catalog_ids
+    assert {"careerops:boards", "careerops:companies"} <= catalog_ids
 
     lease_map = _lease_map()
     assert "careerops:greenhouse" in lease_map
     assert lease_map["careerops:greenhouse"] >= timedelta(seconds=300)
+    assert {"careerops:boards", "careerops:companies"} <= set(lease_map)

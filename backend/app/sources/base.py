@@ -83,7 +83,7 @@ CRITICAL_ATS = frozenset(
     {"greenhouse", "lever", "ashby", "recruitee", "smartrecruiters", "workable"}
 )
 #: Yavas ve/veya opt-in kaynaklar -- genel yenilemeden HARIC.
-SLOW_OPTIN_SOURCE_IDS = frozenset({"jobhunter:eures", "jobhunter:linkedin"})
+SLOW_OPTIN_SOURCE_IDS = frozenset({"forkjob_core:eures", "forkjob_core:linkedin"})
 
 #: Sinif basina sert kosum tavani (saniye). Asan kaynak iptal edilir.
 DEFAULT_TIMEOUT_SECONDS: dict[str, float] = {
@@ -107,9 +107,9 @@ def source_id_of(source: object) -> str:
 
 
 def ats_platform_of(source: object) -> str | None:
-    """`jobhunter:<ats>:<token>` id'sinden ATS platformunu cikar."""
+    """`forkjob_core:<ats>:<token>` id'sinden ATS platformunu cikar."""
     parts = source_id_of(source).split(":")
-    if len(parts) >= 3 and parts[0] == "jobhunter":
+    if len(parts) >= 3 and parts[0] == "forkjob_core":
         return parts[1]
     return None
 

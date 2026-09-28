@@ -1,4 +1,4 @@
-"""Runtime storage for user-authored jobhunter data.
+"""Runtime storage for user-authored forkjob_core data.
 
 The `data/*.yaml` files next to this module ship with the app, so a tracked
 file must never hold something the user creates through the web UI: personal

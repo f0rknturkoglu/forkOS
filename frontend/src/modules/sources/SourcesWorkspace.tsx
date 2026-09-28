@@ -641,6 +641,12 @@ export function SourcesWorkspace({
                         {errorPreview(row.last_error)}
                       </p>
                     )}
+                    {entry.id === "forkjob_core:linkedin" && (
+                      <p className="text-meta text-muted">
+                        İsteğe bağlı: Kariyer ayarlarında arama profili, ayrıca proxy dosyası veya açık doğrudan erişim
+                        izni gerekir.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">

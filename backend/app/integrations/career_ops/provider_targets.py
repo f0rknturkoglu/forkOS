@@ -10,26 +10,47 @@ from typing import Any
 import yaml
 
 from app.sources.forkjob_core.registry import Registry
-from app.sources.forkjob_port import jobhunter_config_path
+from app.sources.forkjob_port import forkjob_core_config_path
 
 PUBLIC_BOARDS: tuple[dict[str, Any], ...] = (
-    {"name": "4 Day Week", "provider": "4dayweek", "max_pages": 2, "max_results": 50},
-    {"name": "Arbeitnow", "provider": "arbeitnow", "max_pages": 2, "max_results": 100},
-    {"name": "Himalayas", "provider": "himalayas", "max_results": 100},
-    {"name": "Jobicy", "provider": "jobicy", "max_results": 100},
-    {"name": "Jobspresso", "provider": "jobspresso", "max_results": 100},
-    {"name": "Landing.jobs", "provider": "landingjobs", "max_results": 100},
-    {"name": "Remotive", "provider": "remotive", "max_results": 100},
-    {"name": "RemoteOK", "provider": "remoteok", "max_results": 100},
+    {"name": "4 Day Week", "provider": "4dayweek", "max_pages": 5, "max_results": 200},
+    {"name": "a16z speedrun", "provider": "a16z-speedrun-talent", "max_pages": 5, "max_results": 200},
+    {"name": "Agentic Engineering Jobs", "provider": "agentic-jobs", "max_pages": 5, "max_results": 200},
+    {"name": "Arbeitnow", "provider": "arbeitnow", "max_pages": 5, "max_results": 200},
+    {"name": "CryptocurrencyJobs", "provider": "cryptocurrencyjobs", "max_results": 200},
+    {"name": "Flowxtra", "provider": "flowxtra", "max_pages": 5, "max_results": 200},
+    {"name": "Generalist World", "provider": "generalist-world", "max_results": 200},
+    {"name": "Get on Board", "provider": "getonbrd", "max_pages": 5, "max_results": 200},
+    {"name": "Hacker News Who is Hiring", "provider": "hackernews", "max_results": 200},
+    {"name": "Himalayas", "provider": "himalayas", "max_results": 200},
+    {"name": "Jobicy", "provider": "jobicy", "max_results": 200},
+    {"name": "Jobspresso", "provider": "jobspresso", "max_results": 200},
+    {"name": "joinup.ch", "provider": "joinup", "max_results": 200},
+    {
+        "name": "JustJoin.it",
+        "provider": "justjoin",
+        "careers_url": "https://justjoin.it/job-offers",
+        "max_pages": 5,
+        "max_results": 200,
+    },
+    {"name": "Landing.jobs", "provider": "landingjobs", "max_results": 200},
+    {"name": "LaraJobs", "provider": "larajobs", "max_results": 200},
+    {"name": "getManfred", "provider": "manfred", "lang": "EN", "max_results": 200},
+    {"name": "NoDesk", "provider": "nodesk", "max_results": 200},
+    {"name": "Python.org Jobs", "provider": "pythonorg", "max_results": 200},
+    {"name": "Remotive", "provider": "remotive", "max_results": 200},
+    {"name": "Remotli", "provider": "remotli", "max_pages": 5, "max_results": 200},
+    {"name": "RemoteOK", "provider": "remoteok", "max_results": 200},
     {
         "name": "The Hub",
         "provider": "thehub",
         "thehub": {"countryCode": "EU", "includeRemote": True},
-        "max_pages": 2,
-        "max_results": 50,
+        "max_pages": 5,
+        "max_results": 200,
     },
-    {"name": "We Work Remotely", "provider": "weworkremotely", "max_results": 100},
-    {"name": "Working Nomads", "provider": "workingnomads", "max_results": 100},
+    {"name": "We Work Remotely", "provider": "weworkremotely", "max_results": 200},
+    {"name": "Working Nomads", "provider": "workingnomads", "max_results": 200},
+    {"name": "Yourator", "provider": "yourator", "max_pages": 5, "max_results": 200},
 )
 
 
@@ -71,7 +92,7 @@ def build_provider_targets(
             )
 
     boards = [dict(board) for board in PUBLIC_BOARDS]
-    config = config_path or jobhunter_config_path()
+    config = config_path or forkjob_core_config_path()
     if config.exists():
         raw = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
         terms = [str(term).strip() for term in (raw.get("scoring") or {}).get("role_terms") or []]

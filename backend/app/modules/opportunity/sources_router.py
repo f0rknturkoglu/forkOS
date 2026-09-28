@@ -1,4 +1,4 @@
-"""Opportunity kaynak/jobhunter senkron uclari (sources*, jobhunter, sync*)."""
+"""Opportunity kaynak/forkjob_core senkron uçları."""
 
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ from app.sources.base import (
     source_estimated_seconds,
     source_timeout_seconds,
 )
+from app.sources.catalog import opportunity_sources
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.linkedin_profiles import LinkedInProfile, LinkedInProfiles
 from app.sources.forkjob_core.scrapers.base import (
@@ -41,7 +42,6 @@ from app.sources.forkjob_core.scrapers.base import (
     clear_cache,
     prune_cache,
 )
-from app.sources.forkjob_port import forkjob_sources
 
 router = APIRouter(tags=["opportunities"])
 
@@ -75,16 +75,7 @@ class CacheClearIn(BaseModel):
 
 
 def _catalog_sources() -> list:
-    sources = [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
-    from app.config import settings
-    if settings.career_ops_enabled and settings.career_ops_discovery_enabled:
-        from app.sources.career_ops_sources import (
-            get_career_ops_provider_sources,
-            get_career_ops_sources,
-        )
-        sources.extend(get_career_ops_sources())
-        sources.extend(get_career_ops_provider_sources())
-    return sources
+    return opportunity_sources()
 
 
 @router.get("/sources/career-ops/providers")
@@ -121,7 +112,7 @@ async def career_ops_providers(session: AsyncSession = Depends(get_session)):
         select(
             OpportunitySourceObservation.opportunity_id,
             func.bool_or(OpportunitySourceObservation.source.like("careerops:%")).label("career_ops"),
-            func.bool_or(OpportunitySourceObservation.source.like("jobhunter:%")).label("forkjob"),
+            func.bool_or(OpportunitySourceObservation.source.like("forkjob_core:%")).label("forkjob"),
         )
         .group_by(OpportunitySourceObservation.opportunity_id)
         .subquery()
@@ -498,12 +489,12 @@ async def source_cache_clear(body: CacheClearIn):
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Jobhunter ayarlari — uyum profili (scoring), LinkedIn, ortam
+# Forkjob Core ayarları — uyum profili (scoring), LinkedIn, ortam
 
 
-def _jobhunter_config() -> Path:
+def _forkjob_core_config() -> Path:
     """Uyum profili konumu: kalici veri dizini (bkz. forkjob_port)."""
-    return forkjob_port.jobhunter_config_path()
+    return forkjob_port.forkjob_core_config_path()
 
 
 def _scoring_payload(cfg) -> dict:
@@ -557,14 +548,14 @@ def _scoring_payload(cfg) -> dict:
     }
 
 
-@router.get("/sources/jobhunter/config")
-async def jobhunter_config():
-    cfg = load_config(_jobhunter_config())
+@router.get("/sources/forkjob-core/config")
+async def forkjob_core_config():
+    cfg = load_config(_forkjob_core_config())
     return _scoring_payload(cfg)
 
 
-@router.put("/sources/jobhunter/config")
-async def jobhunter_config_update(body: dict):
+@router.put("/sources/forkjob-core/config")
+async def forkjob_core_config_update(body: dict):
     """Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.
 
     Yeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING
@@ -574,7 +565,7 @@ async def jobhunter_config_update(body: dict):
         raise HTTPException(422, "scoring objesi gerekli")
     _validate_scoring_payload(body)
 
-    path = _jobhunter_config()
+    path = _forkjob_core_config()
     path.parent.mkdir(parents=True, exist_ok=True)
     header = "# forkjob scoring & balance -- forkOS ayarlar panelinden yonetilir.\n\n"
     payload = header + yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100)
@@ -672,13 +663,13 @@ def _validate_scoring_payload(body: dict) -> None:
                     raise HTTPException(422, "balance.quotas negatif olamaz")
 
 
-@router.get("/sources/jobhunter/linkedin-profiles")
-async def jobhunter_linkedin_profiles():
+@router.get("/sources/forkjob-core/linkedin-profiles")
+async def forkjob_core_linkedin_profiles():
     return [p.to_dict() for p in LinkedInProfiles.load()]
 
 
-@router.put("/sources/jobhunter/linkedin-profiles")
-async def jobhunter_linkedin_profiles_save(body: list = Body(...)):
+@router.put("/sources/forkjob-core/linkedin-profiles")
+async def forkjob_core_linkedin_profiles_save(body: list = Body(...)):
     """Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi."""
     if not isinstance(body, list):
         raise HTTPException(422, "liste bekleniyor")
@@ -693,8 +684,8 @@ async def jobhunter_linkedin_profiles_save(body: list = Body(...)):
     return {"saved": len(parsed)}
 
 
-@router.get("/sources/jobhunter/env")
-async def jobhunter_env():
+@router.get("/sources/forkjob-core/env")
+async def forkjob_core_env():
     """LinkedIn direct/proxy ayarlarinin gercek durumu.
 
     `allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca

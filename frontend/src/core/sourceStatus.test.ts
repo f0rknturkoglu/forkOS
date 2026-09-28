@@ -180,8 +180,8 @@ describe("errorPreview — liste görünümü", () => {
     expect(errorPreview("ConnectError: [SSL: CERTIFICATE_VERIFY_FAILED] cert failed")).toBe(
       "[SSL: CERTIFICATE_VERIFY_FAILED] cert failed",
     );
-    expect(errorPreview("TimeoutError: jobhunter:eures exceeded 900s budget")).toBe(
-      "jobhunter:eures exceeded 900s budget",
+    expect(errorPreview("TimeoutError: forkjob_core:eures exceeded 900s budget")).toBe(
+      "forkjob_core:eures exceeded 900s budget",
     );
     expect(errorPreview("satır bir\nsatır iki")).toBe("satır bir satır iki");
   });

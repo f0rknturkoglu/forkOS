@@ -17,7 +17,14 @@ async def client():
         yield http
 
 
-def _job(tag: str, *, url: str, title: str = "Backend Developer", cluster: str | None = None):
+def _job(
+    tag: str,
+    *,
+    url: str,
+    title: str = "Backend Developer",
+    cluster: str | None = None,
+    summary: str = "python backend",
+):
     from app.modules.opportunity.worker import NativeJob
     from app.sources.base import RawItem
 
@@ -27,7 +34,7 @@ def _job(tag: str, *, url: str, title: str = "Backend Developer", cluster: str |
             external_id=f"scoring-{tag}",
             title=title,
             url=url,
-            summary="python backend",
+            summary=summary,
             extra={
                 "organization": "Acme",
                 "location": "Remote",
@@ -159,8 +166,8 @@ async def test_updated_listing_is_found_by_its_new_title(client: AsyncClient):
         await _cleanup(source)
 
 
-async def test_same_url_variants_and_cluster_collapse_in_one_batch(client: AsyncClient):
-    """Ayni batch icinde URL varyanti/kume tekrarı ikinci kayit ACMAZ."""
+async def test_same_url_variants_merge_but_weak_cluster_stays_separate(client: AsyncClient):
+    """URL varyantı birleşir; yalnızca kaba küme anahtarı iki ilanı birleştirmez."""
     from sqlalchemy import func, select
 
     from app.db import SessionLocal
@@ -189,7 +196,7 @@ async def test_same_url_variants_and_cluster_collapse_in_one_batch(client: Async
                     select(func.count()).select_from(Opportunity).where(Opportunity.source == source)
                 )
             ).scalar_one()
-        assert count == 2, "URL varyanti ve kume tekrari tek kayda inmeli"
+        assert count == 3, "URL varyantı birleşmeli; farklı URL'ler ayrı kalmalı"
     finally:
         await _cleanup(source)
 
@@ -229,7 +236,7 @@ async def test_evaluation_is_stale_when_the_listing_changes(client: AsyncClient)
             fresh = (await http.get(f"/api/opportunities/{listing['id']}")).json()
             assert fresh["evaluation_stale_reason"] is None, "yeni degerlendirme guncel olmali"
 
-            # Ilan metni degisti: kayitli degerlendirme artik bayat.
+            # Kişisel not, bilinen ilan açıklamasının yerine geçmez.
             assert (
                 await http.patch(
                     f"/api/opportunities/{listing['id']}",
@@ -238,7 +245,18 @@ async def test_evaluation_is_stale_when_the_listing_changes(client: AsyncClient)
             ).status_code == 200
             patched = (await http.get(f"/api/opportunities/{listing['id']}")).json()
             assert patched["evaluation"] is not None
-            assert patched["evaluation_stale_reason"] in {"listing", "profile", "version", "missing"}
+            assert patched["evaluation_stale_reason"] is None
+
+            # Asıl ilan açıklaması değişirse değerlendirme bayatlar.
+            async with SessionLocal() as session:
+                await service.ingest_jobs(
+                    session,
+                    [_job("s", url=url, summary="python backend and distributed systems")],
+                    source,
+                )
+                await session.commit()
+            updated = (await http.get(f"/api/opportunities/{listing['id']}")).json()
+            assert updated["evaluation_stale_reason"] == "listing"
     finally:
         await _cleanup(source)
 
@@ -292,12 +310,12 @@ async def test_profile_change_marks_evaluations_stale(client: AsyncClient):
 
 async def test_default_scoring_config_can_be_saved_unchanged(client: AsyncClient):
     """UI'ın GET çıktısı, negatif eleme skoru ve boş kotalarla PUT'a uygun olmalı."""
-    current = (await client.get("/api/sources/jobhunter/config")).json()
+    current = (await client.get("/api/sources/forkjob-core/config")).json()
 
-    saved = await client.put("/api/sources/jobhunter/config", json=current)
+    saved = await client.put("/api/sources/forkjob-core/config", json=current)
 
     assert saved.status_code == 200
-    assert (await client.get("/api/sources/jobhunter/config")).json() == current
+    assert (await client.get("/api/sources/forkjob-core/config")).json() == current
 
 
 async def test_invalid_scoring_config_is_rejected_without_breaking_the_running_one(
@@ -306,28 +324,28 @@ async def test_invalid_scoring_config_is_rejected_without_breaking_the_running_o
     from app.sources import forkjob_port
 
     before = forkjob_port.SCORING
-    current = (await client.get("/api/sources/jobhunter/config")).json()
+    current = (await client.get("/api/sources/forkjob-core/config")).json()
 
     invalid = {
         "scoring": {**current["scoring"], "kill_score": 9999},
         "balance": current["balance"],
     }
-    rejected = await client.put("/api/sources/jobhunter/config", json=invalid)
+    rejected = await client.put("/api/sources/forkjob-core/config", json=invalid)
     assert rejected.status_code == 422
     # Calisan ayar bozulmadi: dogrulama YAZMADAN once yapilir.
     assert forkjob_port.SCORING is before
-    assert (await client.get("/api/sources/jobhunter/config")).json() == current
+    assert (await client.get("/api/sources/forkjob-core/config")).json() == current
 
     broken_skill = {
         "scoring": {**current["scoring"], "skills": [{"name": "", "points": 3}]},
         "balance": current["balance"],
     }
-    assert (await client.put("/api/sources/jobhunter/config", json=broken_skill)).status_code == 422
+    assert (await client.put("/api/sources/forkjob-core/config", json=broken_skill)).status_code == 422
     assert forkjob_port.SCORING is before
 
     negative_quota = {
         "scoring": current["scoring"],
         "balance": {**current["balance"], "quotas": {"TR": -1}},
     }
-    assert (await client.put("/api/sources/jobhunter/config", json=negative_quota)).status_code == 422
+    assert (await client.put("/api/sources/forkjob-core/config", json=negative_quota)).status_code == 422
     assert forkjob_port.SCORING is before

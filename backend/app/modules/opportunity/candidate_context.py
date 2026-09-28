@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.models import Entity
 from app.modules.document.models import Document
 from app.modules.opportunity.models import CareerStory
-from app.sources.forkjob_port import jobhunter_config_path, load_config
+from app.sources.forkjob_port import forkjob_core_config_path, load_config
 
 
 class CandidateFact(BaseModel):
@@ -90,7 +90,7 @@ async def build_candidate_career_context(session: AsyncSession) -> CandidateCare
     try:
         from pathlib import Path
 
-        cfg_path = jobhunter_config_path()
+        cfg_path = forkjob_core_config_path()
         if not cfg_path.exists():
             fallback_path = Path(__file__).resolve().parents[3] / "data" / "config.yaml"
             if fallback_path.exists():

@@ -454,6 +454,11 @@ function JobOverview({ item, online }: { item: Opportunity; online: boolean }) {
 function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
   const band = scoreBand(item.score);
   const profileRatio = item.profile_match_ratio ?? item.skill_match?.match_ratio ?? null;
+  const candidateMatch = item.raw.candidate_match;
+  const matchEvidence =
+    candidateMatch && typeof candidateMatch === "object"
+      ? (candidateMatch as { coverage?: number; unknown?: string[]; algorithm?: string })
+      : null;
   const stale = evaluationStale(item);
   const evaluation = item.evaluation ?? null;
 
@@ -502,10 +507,14 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
         )}
       </Section>
 
-      {/* (b) Profil/beceri ortusmesi — CV DOSYASI kullanmaz. */}
-      <Section title="Profil Uyumu" hint="CV dosyası kullanmaz">
+      {/* (b) Kanıta dayalı CV/profil ve ilan gereksinimi eşleşmesi. */}
+      <Section title="CV / profil uyumu" hint="Kanıta dayalı gereksinim eşleşmesi">
         {profileRatio === null ? (
-          <Empty>Profil uyumu henüz hesaplanmadı.</Empty>
+          <Empty>
+            {matchEvidence?.algorithm
+              ? "Kanıt yetersiz; güvenilir bir oran hesaplanamadı."
+              : "Uyum henüz hesaplanmadı."}
+          </Empty>
         ) : (
           <>
             <div className="mb-4 flex items-center gap-3">
@@ -518,8 +527,12 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
               <Chip tone="ok">%{Math.round(profileRatio * 100)}</Chip>
             </div>
             <p className="mb-3 text-meta text-muted">
-              Tanımlı yerel profilin becerileri ilan metniyle karşılaştırılır; bir CV belgesi okunmaz.
+              Yerel CV ve doğrulanmış profil kanıtları ilanın gereksinimleriyle karşılaştırılır. Bilinmeyenler eksik
+              sayılmaz.
             </p>
+            {typeof matchEvidence?.coverage === "number" && (
+              <p className="mb-3 text-meta text-muted">Kanıt kapsamı: %{Math.round(matchEvidence.coverage * 100)}</p>
+            )}
             <div className="space-y-3">
               {item.skill_match && item.skill_match.matched.length > 0 && (
                 <div>
@@ -529,7 +542,7 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
                   <div className="flex flex-wrap gap-1.5">
                     {item.skill_match.matched.map((skill) => (
                       <Chip key={skill} tone="ok">
-                        ✓ {skill}
+                        {skill}
                       </Chip>
                     ))}
                   </div>
@@ -538,7 +551,7 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
               {item.skill_match && item.skill_match.missing.length > 0 && (
                 <div>
                   <span className="mb-1.5 block text-micro font-medium uppercase tracking-wider text-muted">
-                    İlandaki diğer teknolojiler ({item.skill_match.missing.length})
+                    Kanıtlanan eksikler ({item.skill_match.missing.length})
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {item.skill_match.missing.map((skill) => (
@@ -546,6 +559,9 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
                     ))}
                   </div>
                 </div>
+              )}
+              {matchEvidence?.unknown && matchEvidence.unknown.length > 0 && (
+                <p className="text-meta text-muted">Kanıtı bilinmeyen gereksinim: {matchEvidence.unknown.length}</p>
               )}
             </div>
           </>

@@ -19,16 +19,16 @@ interface LinkedInProfile {
 /**
  * LinkedIn arama profilleri: ekle, düzenle, sil, kaydet.
  *
- * Kaydetme tüm listeyi `PUT /sources/jobhunter/linkedin-profiles` ile yazar;
+ * Kaydetme tüm listeyi `PUT /sources/forkjob-core/linkedin-profiles` ile yazar;
  * backend satırları gitignored yerel YAML dosyasına (`linkedin-profiles.yaml.user`)
- * attığı için bu profiller repoya girmez. Aynı bileşen Jobhunter ayarlarında ve
+ * attığı için bu profiller repoya girmez. Aynı bileşen Forkjob Core ayarlarında ve
  * Ayarlar → Kariyer profili sekmesinde kullanılır (tek kopya).
  */
 export function LinkedInProfilesEditor({ online }: { online: boolean }) {
   const toast = useToast();
   const profilesQuery = useQuery({
-    queryKey: ["jobhunter-linkedin"],
-    queryFn: () => api.get<LinkedInProfile[]>("/sources/jobhunter/linkedin-profiles"),
+    queryKey: ["forkjob-core-linkedin"],
+    queryFn: () => api.get<LinkedInProfile[]>("/sources/forkjob-core/linkedin-profiles"),
   });
 
   const [editing, setEditing] = useState<LinkedInProfile[]>([]);
@@ -37,9 +37,9 @@ export function LinkedInProfilesEditor({ online }: { online: boolean }) {
   }, [profilesQuery.data]);
 
   const save = useMutation({
-    mutationFn: () => api.put("/sources/jobhunter/linkedin-profiles", editing),
+    mutationFn: () => api.put("/sources/forkjob-core/linkedin-profiles", editing),
     onSuccess: () => {
-      invalidateAfter("jobhunter.write");
+      invalidateAfter("forkjob_core.write");
       toast.push(`${editing.length} LinkedIn profili kaydedildi.`, { tone: "ok" });
     },
     onError: (error: Error) => toast.push(`Profiller kaydedilemedi: ${error.message}`, { tone: "danger" }),

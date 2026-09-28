@@ -81,7 +81,7 @@ const iso = (hoursAgo: number) => new Date(NOW - hoursAgo * 3_600_000).toISOStri
 
 function coverageRow(overrides: Partial<SourceCoverageRow> = {}): SourceCoverageRow {
   return {
-    source: "jobhunter:greenhouse:adyen",
+    source: "forkjob_core:greenhouse:adyen",
     kind: "job",
     class: "critical",
     category: "jobs",
@@ -105,7 +105,7 @@ function coverageRow(overrides: Partial<SourceCoverageRow> = {}): SourceCoverage
 
 /** Sağlıklı ama gerçekçi varsayılan: her sorgu okunabilir bir yanıt verir. */
 function healthyState(): Record<string, QueryState> {
-  const rows = Array.from({ length: 42 }, (_, index) => coverageRow({ source: `jobhunter:greenhouse:s${index}` }));
+  const rows = Array.from({ length: 42 }, (_, index) => coverageRow({ source: `forkjob_core:greenhouse:s${index}` }));
   return {
     "system-stats": {
       data: {
@@ -121,7 +121,13 @@ function healthyState(): Record<string, QueryState> {
     },
     sources: {
       data: [
-        { source: "jobhunter:greenhouse:adyen", status: "ok", started_at: iso(1), error: null, finished_at: iso(0.9) },
+        {
+          source: "forkjob_core:greenhouse:adyen",
+          status: "ok",
+          started_at: iso(1),
+          error: null,
+          finished_at: iso(0.9),
+        },
       ],
     },
     "source-coverage": { data: rows },
@@ -279,9 +285,9 @@ describe("Sistem Durumu — bilgi mimarisi", () => {
     const state = healthyState();
     state["source-coverage"] = {
       data: [
-        ...Array.from({ length: 41 }, (_, index) => coverageRow({ source: `jobhunter:greenhouse:s${index}` })),
+        ...Array.from({ length: 41 }, (_, index) => coverageRow({ source: `forkjob_core:greenhouse:s${index}` })),
         coverageRow({
-          source: "jobhunter:greenhouse:broken",
+          source: "forkjob_core:greenhouse:broken",
           last_status: "error",
           last_error_kind: "http_429",
           last_error: "429 too many requests",

@@ -87,9 +87,10 @@ class Settings(BaseSettings):
     career_ops_runtime_dir: str = ""
     career_ops_discovery_enabled: bool = True
     career_ops_discovery_timeout_seconds: float = 300.0
-    career_ops_discovery_since_days: int = 7
-    career_ops_discovery_limit: int = 200
-    career_ops_discovery_max_buffer_bytes: int = 4 * 1024 * 1024
+    career_ops_discovery_since_days: int = 30
+    # Pinned scan-ats-full --limit is a per-ATS company/tenant cap, not a job cap.
+    career_ops_discovery_limit: int = 500
+    career_ops_discovery_max_buffer_bytes: int = 16 * 1024 * 1024
 
     # Career Reasoner provider abstraction (C4/C5)
     career_reasoner_provider: Literal["none", "ollama", "openai", "gemini", "openrouter"] = "none"

@@ -13,7 +13,6 @@ from app.core.models import SourceRun
 from app.db import SessionLocal
 from app.modules.opportunity import service
 from app.modules.opportunity import sync as sync_service
-from app.sources.announcements import SOURCES
 from app.sources.base import (
     CLASS_ORDER,
     FetchOutcome,
@@ -22,7 +21,7 @@ from app.sources.base import (
     source_class,
     source_timeout_seconds,
 )
-from app.sources.forkjob_port import forkjob_sources
+from app.sources.catalog import opportunity_sources
 
 log = logging.getLogger("worker.opportunity")
 
@@ -88,6 +87,7 @@ class NativeJob:
         return {
             "title": self.raw.title,
             "url": self.raw.url,
+            "description": self.raw.summary or self.raw.extra.get("description"),
             "published_at": self.raw.published_at.isoformat() if self.raw.published_at else None,
             **self.raw.extra,
         }
@@ -323,7 +323,7 @@ def critical_source_ids() -> list[str]:
     """
     from app.sources.base import SourceClass, order_by_class
 
-    ordered = order_by_class([*forkjob_sources(), *SOURCES])
+    ordered = order_by_class(opportunity_sources())
     critical = [source for source in ordered if source_class(source) is SourceClass.CRITICAL]
     official = [
         source
@@ -343,7 +343,7 @@ def general_refresh_sources() -> list:
     """
     return [
         source
-        for source in [*forkjob_sources(), *SOURCES]
+        for source in opportunity_sources()
         if is_general_refresh_source(source)
     ]
 
@@ -402,15 +402,7 @@ def select_due_sources(
 
 
 async def poll_named_source(source_id: str, *, batch_id=None) -> int:
-    from app.config import settings
-    all_registered = [*forkjob_sources(include_opt_in=True), *SOURCES]
-    if settings.career_ops_enabled and settings.career_ops_discovery_enabled:
-        from app.sources.career_ops_sources import (
-            get_career_ops_provider_sources,
-            get_career_ops_sources,
-        )
-        all_registered.extend(get_career_ops_sources())
-        all_registered.extend(get_career_ops_provider_sources())
+    all_registered = opportunity_sources()
 
     source = next(
         (

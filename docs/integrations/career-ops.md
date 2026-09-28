@@ -227,6 +227,12 @@ ve işlem sonunda silinir. Sağlayıcı taraması CV'ye göre başlık/konum fil
 uygulamaz; istek/sayfa/kayıt sınırına çarparsa kısmi koşum bildirir. Kayıtlar
 forkOS'un mevcut kanonik `Opportunity` ve `source_run` akışına girer.
 
+Career Acquisition & Ranking v2 değişiklikleri ve sınır denetimi için
+[`career-acquisition-ranking-v2.md`](../career/career-acquisition-ranking-v2.md)
+dosyasına bakın. Bu belge aşağıdaki eski fazların tarihsel kararlarını da
+içerir; C2.1'in gevşek `cluster_key` birleştirmesi artık güçlü ilan kimliği
+olmadan uygulanmaz.
+
 Compose API/worker ortamına `CAREER_OPS_*` değişkenlerini aktarır, Node 22 ve
 Git sağlar, checkout'u salt okunur `/career-ops` yoluna bağlar. `make career-ops-setup`
 sonrası `/api/system/career-ops/doctor` gerçek pin ve Node
@@ -491,7 +497,7 @@ C4–C5 fazı, forkOS × career-ops mimarisinin karar ve başvuru üretim omurga
 
 - **Gereksinim Düzeyinde Kanıt Eşleme**: İlandaki her gereksinim `strong`, `partial`, `missing` veya `unknown` olarak sınıflandırılır. Güçlü ve kısmi eşleşmeler adayın doğrulanmış kanıt anahtarlarına (`candidate_evidence_refs`) ve ilan alıntılarına (`listing_evidence_refs`) bağlanmak zorundadır.
 - **Puan ve Skor İzolasyonu**: İlanın kurallara dayalı ilk tarama puanı (`Opportunity.score`) LLM değerlendirmesi tarafından **asla ezilmez**. İlan sağlığı (listing health) ile aday uyumu (candidate fit) ayrı tutulur.
-- **Kalıcılık**: Değerlendirme `Opportunity.evaluation` ve `Opportunity.evaluated_at` alanlarına yazılır; `opportunity.evaluated` olayı günlüğe kaydedilir.
+- **Kalıcılık**: C4 çıktısı `Opportunity.deep_evaluation` ve `Opportunity.deep_evaluated_at` alanlarına yazılır; yerel aday değerlendirmesi ayrı `candidate_evaluation` alanındadır. `opportunity.evaluated` olayı günlüğe kaydedilir.
 - **Dinamik Eskime (Staleness Detection)**: `get_evaluation()` çağrıldığında mevcut `listing_fingerprint` veya `candidate_context_revision` değerlendirmedeki revizyonla eşleşmiyorsa değerlendirme anında `is_stale = True` olarak işaretlenir.
 
 ### 16.4 C5: Başvuru Paketi Üretimi (`ApplicationPackage`)

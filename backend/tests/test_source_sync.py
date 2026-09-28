@@ -612,6 +612,34 @@ async def test_exhausted_abandoned_source_finalizes_without_a_live_run():
     assert status["last_completed"]["status"] == "completed_with_errors"
 
 
+async def test_partial_source_is_not_reclaimed_or_marked_exhausted():
+    """Kismi basari terminaldir; ayni batch'te tekrar taranmaz."""
+    from app.core.models import SourceRun
+    from app.core.source_sync import claim_pending_sources, create_or_extend_batch
+    from app.modules.opportunity import sync as sync_service
+
+    async with SessionLocal() as session:
+        batch, _ = await create_or_extend_batch(session, ["careerops:boards", "forkjob_core:remoteok"])
+        batch.status = "running"
+        for _ in range(3):
+            session.add(SourceRun(source="careerops:boards", status="partial", batch_id=batch.id))
+        await session.commit()
+        batch_id = batch.id
+
+    async with SessionLocal() as session:
+        claimed, pending = await claim_pending_sources(session, limit=4)
+        assert claimed is not None
+        assert pending == ["forkjob_core:remoteok"]
+
+    async with SessionLocal() as session:
+        status = await sync_service.current_status(session)
+    assert status["active"]["id"] == str(batch_id)
+    assert {row["source"]: row["status"] for row in status["sources"]} == {
+        "careerops:boards": "partial",
+        "forkjob_core:remoteok": "running",
+    }
+
+
 async def test_reclaim_uses_per_source_lease():
     """Critical kaynak 90 sn'de, EURES 930 sn'de geri alinir."""
     from app.core.models import SourceRun
@@ -620,13 +648,13 @@ async def test_reclaim_uses_per_source_lease():
     from app.worker.jobs import reclaim_stale_source_runs
 
     async with SessionLocal() as session:
-        batch, _ = await create_or_extend_batch(session, ["osym", "jobhunter:eures"])
+        batch, _ = await create_or_extend_batch(session, ["osym", "forkjob_core:eures"])
         batch.status = "running"
         started = datetime.now(UTC) - timedelta(minutes=10)
         session.add(SourceRun(source="osym", status="running", batch_id=batch.id, started_at=started))
         session.add(
             SourceRun(
-                source="jobhunter:eures", status="running", batch_id=batch.id, started_at=started
+                source="forkjob_core:eures", status="running", batch_id=batch.id, started_at=started
             )
         )
         await session.commit()
@@ -638,7 +666,7 @@ async def test_reclaim_uses_per_source_lease():
         assert await pending_source_ids(session, batch) == ["osym"]
         status = await current_status(session)
         by_source = {row["source"]: row["status"] for row in status["sources"]}
-        assert by_source == {"osym": "queued", "jobhunter:eures": "running"}
+        assert by_source == {"osym": "queued", "forkjob_core:eures": "running"}
 
 
 async def test_crashed_batch_reaches_terminal_state_without_worker():
@@ -715,9 +743,9 @@ async def test_catalog_exposes_class_estimate_and_circuit(client: AsyncClient):
     by_id = {row["id"]: row for row in rows}
 
     assert by_id["osym"]["class"] == "critical"
-    assert by_id["jobhunter:linkedin"]["class"] == "slow_optin"
-    assert by_id["jobhunter:linkedin"]["opt_in"] is True
-    assert by_id["jobhunter:eures"]["class"] == "slow_optin"
+    assert by_id["forkjob_core:linkedin"]["class"] == "slow_optin"
+    assert by_id["forkjob_core:linkedin"]["opt_in"] is True
+    assert by_id["forkjob_core:eures"]["class"] == "slow_optin"
     assert by_id["osym"]["circuit_open"] is False
     assert by_id["osym"]["estimated_seconds"] > 0
     assert by_id["osym"]["timeout_seconds"] == 60.0
@@ -741,11 +769,11 @@ async def test_general_refresh_excludes_opt_in_sources(
 
     status = (await client.get("/api/sources/sync")).json()
     queued = status["active"]["source_ids"]
-    assert "jobhunter:linkedin" not in queued
-    assert "jobhunter:eures" not in queued
+    assert "forkjob_core:linkedin" not in queued
+    assert "forkjob_core:eures" not in queued
     assert "osym" in queued
     # critical once gelir: ilk kaynak ATS/duyuru olmali
-    assert queued[0] in {"osym", "ylsy", "yok-msc"} or queued[0].startswith("jobhunter:greenhouse")
+    assert queued[0] in {"osym", "ylsy", "yok-msc"} or queued[0].startswith("forkjob_core:greenhouse")
     assert body["total_sources"] == len(queued)
 
 
@@ -760,13 +788,13 @@ async def test_explicit_linkedin_selection_is_still_allowed(
     monkeypatch.setattr(jobs, "drain_source_sync_batches", fake_drain)
 
     response = await client.post(
-        "/api/sources/refresh", json={"source_ids": ["jobhunter:linkedin"]}
+        "/api/sources/refresh", json={"source_ids": ["forkjob_core:linkedin"]}
     )
     assert response.status_code == 200
     assert response.json()["queued"] == 1
 
     status = (await client.get("/api/sources/sync")).json()
-    assert status["active"]["source_ids"] == ["jobhunter:linkedin"]
+    assert status["active"]["source_ids"] == ["forkjob_core:linkedin"]
 
 
 async def test_full_mode_deliberately_includes_opt_in_sources(
@@ -784,5 +812,5 @@ async def test_full_mode_deliberately_includes_opt_in_sources(
     assert response.json()["mode"] == "full"
 
     status = (await client.get("/api/sources/sync")).json()
-    assert "jobhunter:linkedin" in status["active"]["source_ids"]
+    assert "forkjob_core:linkedin" in status["active"]["source_ids"]
     assert status["active"]["total_sources"] > 77

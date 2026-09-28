@@ -20,7 +20,7 @@ export interface OpportunityBrowseFilters {
   year?: number;
   min_score?: number;
   max_score?: number;
-  /** Kalite skoru hesaplanmış mı? `null` skoru ayri secmek icin. */
+  /** Hızlı uygunluk hesaplanmış mı? `null` skoru ayrı seçmek için. */
   score_state?: "computed" | "uncomputed" | "";
   skill?: string;
   min_skill_match?: number;

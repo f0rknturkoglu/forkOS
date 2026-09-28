@@ -13,8 +13,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SourcesPage } from "./SourcesPage";
 
 const catalog = [
-  { id: "jobhunter:eures", interval_minutes: 1440, kind: "job", class: "normal", estimated_seconds: 120 },
-  { id: "jobhunter:linkedin", interval_minutes: 720, kind: "job", class: "slow_optin", estimated_seconds: 180 },
+  { id: "forkjob_core:eures", interval_minutes: 1440, kind: "job", class: "normal", estimated_seconds: 120 },
+  { id: "forkjob_core:linkedin", interval_minutes: 720, kind: "job", class: "slow_optin", estimated_seconds: 180 },
 ];
 
 const coverageBase = {
@@ -37,7 +37,7 @@ const coverageBase = {
 const coverage = [
   {
     ...coverageBase,
-    source: "jobhunter:eures",
+    source: "forkjob_core:eures",
     class: "normal",
     last_status: "ok",
     last_error: null,
@@ -45,7 +45,7 @@ const coverage = [
   },
   {
     ...coverageBase,
-    source: "jobhunter:linkedin",
+    source: "forkjob_core:linkedin",
     class: "slow_optin",
     last_status: "error",
     last_error: "429 Too Many Requests",
@@ -108,8 +108,8 @@ describe("derin bağlantılar", () => {
     harness.params = new URLSearchParams("filter=problems");
     renderPage();
 
-    await waitFor(() => expect(document.getElementById("source-row-jobhunter:linkedin")).toBeTruthy());
-    expect(document.getElementById("source-row-jobhunter:eures")).toBeNull();
+    await waitFor(() => expect(document.getElementById("source-row-forkjob_core:linkedin")).toBeTruthy());
+    expect(document.getElementById("source-row-forkjob_core:eures")).toBeNull();
     expect(screen.getByRole("button", { name: /Yalnızca sorunlular/ }).getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -117,16 +117,16 @@ describe("derin bağlantılar", () => {
     harness.params = new URLSearchParams("problem=1");
     renderPage();
 
-    await waitFor(() => expect(document.getElementById("source-row-jobhunter:linkedin")).toBeTruthy());
-    expect(document.getElementById("source-row-jobhunter:eures")).toBeNull();
+    await waitFor(() => expect(document.getElementById("source-row-forkjob_core:linkedin")).toBeTruthy());
+    expect(document.getElementById("source-row-forkjob_core:eures")).toBeNull();
   });
 
   it("?source= satırı vurgular ve görünüme kaydırır", async () => {
-    harness.params = new URLSearchParams("source=jobhunter:eures");
+    harness.params = new URLSearchParams("source=forkjob_core:eures");
     renderPage();
 
-    const row = await screen.findByText("jobhunter:eures");
-    const node = document.getElementById("source-row-jobhunter:eures");
+    const row = await screen.findByText("forkjob_core:eures");
+    const node = document.getElementById("source-row-forkjob_core:eures");
     expect(node).toBeTruthy();
     expect(node?.contains(row)).toBe(true);
     expect(node?.className).toContain("bg-accent-surface/40");
@@ -134,11 +134,11 @@ describe("derin bağlantılar", () => {
   });
 
   it("odaklanan satır süzgeç onu gizlese bile görünür kalır", async () => {
-    harness.params = new URLSearchParams("filter=problems&source=jobhunter:eures");
+    harness.params = new URLSearchParams("filter=problems&source=forkjob_core:eures");
     renderPage();
 
-    expect(await screen.findByText("jobhunter:eures")).toBeTruthy();
-    await waitFor(() => expect(document.getElementById("source-row-jobhunter:eures")).toBeTruthy());
-    expect(document.getElementById("source-row-jobhunter:linkedin")).toBeTruthy();
+    expect(await screen.findByText("forkjob_core:eures")).toBeTruthy();
+    await waitFor(() => expect(document.getElementById("source-row-forkjob_core:eures")).toBeTruthy());
+    expect(document.getElementById("source-row-forkjob_core:linkedin")).toBeTruthy();
   });
 });

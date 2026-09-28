@@ -218,16 +218,9 @@ LEASE_GRACE = timedelta(seconds=30)
 
 
 def _source_catalog() -> list:
-    from app.config import settings
-    from app.sources.announcements import SOURCES
-    from app.sources.forkjob_port import forkjob_sources
+    from app.sources.catalog import opportunity_sources
 
-    sources = [*forkjob_sources(include_opt_in=True), *SOURCES]
-    if settings.career_ops_enabled and settings.career_ops_discovery_enabled:
-        from app.sources.career_ops_sources import get_career_ops_sources
-
-        sources.extend(get_career_ops_sources())
-    return sources
+    return opportunity_sources()
 
 
 _LEASE_CACHE: tuple[float, dict[str, timedelta]] | None = None

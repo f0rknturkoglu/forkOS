@@ -33414,6 +33414,144 @@
         ]
       }
     },
+    "/api/sources/forkjob-core/config": {
+      "get": {
+        "operationId": "forkjob_core_config_api_sources_forkjob_core_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Forkjob Core Config",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "put": {
+        "description": "Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.\n\nYeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING\naninda guncellenir).",
+        "operationId": "forkjob_core_config_update_api_sources_forkjob_core_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forkjob Core Config Update",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/sources/forkjob-core/env": {
+      "get": {
+        "description": "LinkedIn direct/proxy ayarlarinin gercek durumu.\n\n`allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca\nacarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`\nalani eski istemciler icin ayni degerle korunur.",
+        "operationId": "forkjob_core_env_api_sources_forkjob_core_env_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Forkjob Core Env",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/sources/forkjob-core/linkedin-profiles": {
+      "get": {
+        "operationId": "forkjob_core_linkedin_profiles_api_sources_forkjob_core_linkedin_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Forkjob Core Linkedin Profiles",
+        "tags": [
+          "opportunities"
+        ]
+      },
+      "put": {
+        "description": "Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi.",
+        "operationId": "forkjob_core_linkedin_profiles_save_api_sources_forkjob_core_linkedin_profiles_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {},
+                "title": "Body",
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forkjob Core Linkedin Profiles Save",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/sources/health": {
       "get": {
         "description": "Her kaynagin son kosumu. 'empty' veya 'error' goruyorsan bir sey kirilmis.",
@@ -33460,144 +33598,6 @@
         "summary": "Source Health",
         "tags": [
           "core"
-        ]
-      }
-    },
-    "/api/sources/jobhunter/config": {
-      "get": {
-        "operationId": "jobhunter_config_api_sources_jobhunter_config_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Jobhunter Config",
-        "tags": [
-          "opportunities"
-        ]
-      },
-      "put": {
-        "description": "Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.\n\nYeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING\naninda guncellenir).",
-        "operationId": "jobhunter_config_update_api_sources_jobhunter_config_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "title": "Body",
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Jobhunter Config Update",
-        "tags": [
-          "opportunities"
-        ]
-      }
-    },
-    "/api/sources/jobhunter/env": {
-      "get": {
-        "description": "LinkedIn direct/proxy ayarlarinin gercek durumu.\n\n`allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca\nacarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`\nalani eski istemciler icin ayni degerle korunur.",
-        "operationId": "jobhunter_env_api_sources_jobhunter_env_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Jobhunter Env",
-        "tags": [
-          "opportunities"
-        ]
-      }
-    },
-    "/api/sources/jobhunter/linkedin-profiles": {
-      "get": {
-        "operationId": "jobhunter_linkedin_profiles_api_sources_jobhunter_linkedin_profiles_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Jobhunter Linkedin Profiles",
-        "tags": [
-          "opportunities"
-        ]
-      },
-      "put": {
-        "description": "Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi.",
-        "operationId": "jobhunter_linkedin_profiles_save_api_sources_jobhunter_linkedin_profiles_put",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "items": {},
-                "title": "Body",
-                "type": "array"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Jobhunter Linkedin Profiles Save",
-        "tags": [
-          "opportunities"
         ]
       }
     },

@@ -86,7 +86,7 @@ let obsidianStatus = {
   diagnostic: null as string | null,
 };
 
-/** `GET /sources/jobhunter/linkedin-profiles` gövdesi (Kariyer Profili sekmesi). */
+/** `GET /sources/forkjob-core/linkedin-profiles` gövdesi (Kariyer Profili sekmesi). */
 const LINKEDIN_PROFILES = [{ term: "backend developer", location: "Berlin", results_wanted: 25, is_remote: true }];
 
 function json(value: unknown): Response {
@@ -215,7 +215,7 @@ beforeEach(() => {
       if (url.pathname === "/api/settings/reset") return json({ removed: 3 });
       if (url.pathname === "/api/sources/health") return json([]);
       if (url.pathname === "/api/sources/coverage") return json([]);
-      if (url.pathname === "/api/sources/jobhunter/linkedin-profiles") return json(LINKEDIN_PROFILES);
+      if (url.pathname === "/api/sources/forkjob-core/linkedin-profiles") return json(LINKEDIN_PROFILES);
       if (url.pathname === "/api/rss/feeds") return json([]);
       if (url.pathname === "/api/rss/stats")
         return json({ feeds: 0, active_feeds: 0, failing_feeds: 0, unread: 0, today: 0, saved: 0 });
@@ -717,7 +717,7 @@ describe("SettingsPage Durum & Kaynaklar ve Kariyer Profili", () => {
 
     await waitFor(() => {
       const put = calls.find(
-        (call) => call.method === "PUT" && call.path === "/api/sources/jobhunter/linkedin-profiles",
+        (call) => call.method === "PUT" && call.path === "/api/sources/forkjob-core/linkedin-profiles",
       );
       expect(put?.body).toEqual([{ term: "data engineer", location: "Berlin", results_wanted: 25, is_remote: true }]);
     });

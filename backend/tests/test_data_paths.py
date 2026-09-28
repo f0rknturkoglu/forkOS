@@ -44,7 +44,7 @@ def test_test_runs_are_redirected_away_from_real_data_dirs(isolated_data_dirs: P
     assert REAL_CONFIG_PATH != forkjob_port.CONFIG_PATH
 
 
-def test_jobhunter_config_inherits_legacy_file(tmp_path: Path, monkeypatch) -> None:
+def test_forkjob_core_config_inherits_legacy_file(tmp_path: Path, monkeypatch) -> None:
     """Eski `./config.yaml` yeni konuma KOPYALANIR; kisisel ayar kaybolmaz."""
     legacy = tmp_path / "legacy" / "config.yaml"
     legacy.parent.mkdir(parents=True)
@@ -53,7 +53,7 @@ def test_jobhunter_config_inherits_legacy_file(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setattr(forkjob_port, "CONFIG_PATH", target)
     monkeypatch.setattr(forkjob_port, "LEGACY_CONFIG_PATH", legacy)
 
-    resolved = forkjob_port.jobhunter_config_path()
+    resolved = forkjob_port.forkjob_core_config_path()
 
     assert resolved == target
     assert target.read_text(encoding="utf-8") == "scoring: {}\n"
@@ -61,16 +61,16 @@ def test_jobhunter_config_inherits_legacy_file(tmp_path: Path, monkeypatch) -> N
 
     # Ikinci cagri kopyalamayi tekrarlamaz.
     target.write_text("scoring: {calibrated: true}\n", encoding="utf-8")
-    assert forkjob_port.jobhunter_config_path() == target
+    assert forkjob_port.forkjob_core_config_path() == target
     assert target.read_text(encoding="utf-8") == "scoring: {calibrated: true}\n"
 
 
-def test_jobhunter_config_does_not_touch_disk_without_legacy_file(
+def test_forkjob_core_config_does_not_touch_disk_without_legacy_file(
     tmp_path: Path, monkeypatch
 ) -> None:
     target = tmp_path / "data" / "config.yaml"
     monkeypatch.setattr(forkjob_port, "CONFIG_PATH", target)
     monkeypatch.setattr(forkjob_port, "LEGACY_CONFIG_PATH", tmp_path / "missing.yaml")
 
-    assert forkjob_port.jobhunter_config_path() == target
+    assert forkjob_port.forkjob_core_config_path() == target
     assert not target.exists()

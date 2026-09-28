@@ -48,12 +48,35 @@ def test_scheduler_never_polls_slow_optin_sources():
 
     ids = {source.id for source in general_refresh_sources()}
 
-    assert "jobhunter:eures" not in ids
-    assert "jobhunter:linkedin" not in ids
+    assert "forkjob_core:eures" not in ids
+    assert "forkjob_core:linkedin" not in ids
     # Kullanici secmedigi surece calismayan her kaynak disarida kalmali.
     from app.sources.base import is_opt_in
 
     assert not any(is_opt_in(source) for source in general_refresh_sources())
+
+
+def test_canonical_catalog_is_shared_by_refresh_and_worker(monkeypatch):
+    from app.config import settings
+    from app.modules.opportunity.sources_router import _catalog_sources
+    from app.modules.opportunity.worker import general_refresh_sources
+    from app.sources.base import is_general_refresh_source
+    from app.worker.jobs import _source_catalog
+
+    monkeypatch.setattr(settings, "career_ops_enabled", True)
+    monkeypatch.setattr(settings, "career_ops_discovery_enabled", True)
+    catalog = _catalog_sources()
+    catalog_ids = {source.id for source in catalog}
+    assert catalog_ids == {source.id for source in _source_catalog()}
+    assert {"careerops:boards", "careerops:companies"} <= catalog_ids
+    assert {source.id for source in general_refresh_sources()} == {
+        source.id for source in catalog if is_general_refresh_source(source)
+    }
+    general_ids = {source.id for source in general_refresh_sources()}
+    assert "careerops:boards" in general_ids
+    assert "careerops:companies" not in general_ids
+    assert "forkjob_core:linkedin" not in general_ids
+    assert "forkjob_core:linkedin" in catalog_ids
 
 
 def test_critical_sources_come_first_and_official_ones_lead():
@@ -78,10 +101,10 @@ def test_class_priority_beats_due_time():
         interval_minutes: int
         source_class: str = "normal"
 
-    normal_old = Source("jobhunter:somewhere", 60, "normal")
+    normal_old = Source("forkjob_core:somewhere", 60, "normal")
     critical_new = Source("ylsy", 60, "critical")
     latest = {
-        "jobhunter:somewhere": now - timedelta(minutes=600),
+        "forkjob_core:somewhere": now - timedelta(minutes=600),
         "ylsy": now - timedelta(minutes=61),
     }
 
@@ -152,4 +175,4 @@ def test_refresh_scope_selects_the_right_sources():
     general = {source.id for source in general_refresh_sources()}
     # Kritik kume genel kumenin alt kumesi; opt-in kaynaklar ikisine de girmez.
     assert critical <= general
-    assert "jobhunter:linkedin" not in general
+    assert "forkjob_core:linkedin" not in general

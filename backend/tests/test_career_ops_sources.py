@@ -1,7 +1,5 @@
-from pathlib import Path
 import pytest
 
-from app.integrations.career_ops.adapter import CareerOpsAdapter
 from app.integrations.career_ops.models import (
     CareerOpsDiscoveredJob,
     CareerOpsDiscoveryResult,
@@ -16,8 +14,10 @@ from app.sources.career_ops_sources import (
 class MockDiscoveryAdapter:
     def __init__(self, result: CareerOpsDiscoveryResult):
         self.result = result
+        self.last_kwargs = None
 
     async def reverse_scan(self, provider: str, **kwargs):
+        self.last_kwargs = kwargs
         return self.result
 
 
@@ -38,6 +38,21 @@ def test_career_ops_sources_catalog_and_classification():
         assert s.skip_closure_sweep is True
         assert source_class(s) == SourceClass.SLOW_OPTIN
         assert is_general_refresh_source(s) is False
+
+
+@pytest.mark.no_database
+@pytest.mark.asyncio
+async def test_workday_source_uses_bounded_partial_sweep():
+    result = CareerOpsDiscoveryResult(
+        provider="workday", is_partial=True, partial_detail="scan reached configured cap", offers=[]
+    )
+    adapter = MockDiscoveryAdapter(result)
+
+    outcome = await CareerOpsReverseSource(provider="workday", adapter=adapter).fetch()
+
+    assert adapter.last_kwargs is not None
+    assert adapter.last_kwargs["limit"] == 50
+    assert outcome.partial is True
 
 
 @pytest.mark.no_database

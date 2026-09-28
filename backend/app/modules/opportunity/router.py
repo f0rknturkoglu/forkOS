@@ -22,6 +22,7 @@ from app.modules.opportunity import career_strategy_proposals as strategy_propos
 from app.modules.opportunity import interview_intelligence as interview_ai
 from app.modules.opportunity import lifecycle, scoring, service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
+from app.modules.opportunity.candidate_context import build_candidate_career_context
 from app.modules.opportunity.career_analytics import CareerAnalyticsSnapshot, snapshot
 from app.modules.opportunity.career_strategy import CareerStrategySnapshot, strategy_snapshot
 from app.modules.opportunity.evaluation_service import CareerEvaluationService
@@ -370,7 +371,10 @@ async def opportunity_detail(item_id: UUID, session: AsyncSession = Depends(get_
     if row is None:
         raise HTTPException(404)
     app = await service.get_application(session, item_id)
-    enriched = await enrich_opportunities(session, [row], [service._out(row, application=app)])
+    candidate_revision = (await build_candidate_career_context(session)).revision
+    enriched = await enrich_opportunities(
+        session, [row], [service._out(row, application=app, candidate_revision=candidate_revision)]
+    )
     return enriched[0]
 
 
@@ -622,9 +626,15 @@ async def applications_list(
             .where(*conditions)
         )
     ).scalar_one()
+    candidate_revision = (await build_candidate_career_context(session)).revision
     return ApplicationListOut(
         items=[
-            service._out((opportunity, title), include_raw=False, application=application)
+            service._out(
+                (opportunity, title),
+                include_raw=False,
+                application=application,
+                candidate_revision=candidate_revision,
+            )
             for opportunity, title, application in rows
         ],
         total=total,
@@ -978,7 +988,7 @@ async def review_application_package_cover_letter(
     return result
 
 
-# Kaynak/jobhunter uclari (sources*, sync*, jobhunter) sources_router'da.
+# Kaynak/forkjob_core uçları (sources*, sync*) sources_router'da.
 # include_router() bu FastAPI surumunde lazy _IncludedRouter sarmali uretir ve
 # route.path erisimini kiran testlerle uyumsuzdur; rotalari dogrudan ekliyoruz.
 

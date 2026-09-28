@@ -17,7 +17,7 @@ import {
 const GENERATED = "2026-09-22T10:00:00.000Z";
 
 const PROBLEM: SourceProblemDiagnostic = {
-  source: "jobhunter:linkedin",
+  source: "forkjob_core:linkedin",
   label: "LinkedIn Guest",
   source_class: "slow_optin",
   kind: "job",
@@ -48,7 +48,7 @@ describe("formatSourceDiagnostics", () => {
     expect(bundle).toContain("Source count: 48");
     expect(bundle).toContain("Problems: 1");
     // Kanonik kaynak kimliği (etiket değil) — ajan adapter'ı bununla bulur.
-    expect(bundle).toContain("Source: jobhunter:linkedin");
+    expect(bundle).toContain("Source: forkjob_core:linkedin");
     expect(bundle).toContain("Label: LinkedIn Guest");
     expect(bundle).toContain("Class: Yavaş / isteğe bağlı");
     expect(bundle).toContain("Kind: İş ilanı");
@@ -132,7 +132,7 @@ describe("formatSystemDiagnostics", () => {
     expect(bundle).toContain("Worker: kapalı");
     expect(bundle).toContain("## Sources");
     expect(bundle).toContain("Attention: 2");
-    expect(bundle).toContain("- jobhunter:linkedin (LinkedIn Guest)");
+    expect(bundle).toContain("- forkjob_core:linkedin (LinkedIn Guest)");
     expect(bundle).toContain("error_kind=http_429");
     expect(bundle).toContain("circuit_open=true");
     expect(bundle).toContain("## Brain Interface");

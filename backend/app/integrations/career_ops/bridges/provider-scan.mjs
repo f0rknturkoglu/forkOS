@@ -67,21 +67,22 @@ if (process.argv[2] === 'inventory') {
       continue;
     }
     let requests = 0;
+    const maxPages = Math.min(12, Math.max(1, Number(target.max_pages) || 5));
     const ctx = {
-      ...makeHttpCtx({ onRequest: () => { if (++requests > 30) throw new Error('Request budget exceeded'); } }),
+      ...makeHttpCtx({ onRequest: () => { if (++requests > 40) throw new Error('Request budget exceeded'); } }),
       sinceMs,
       includeUndated: true,
-      maxPages: 2,
+      maxPages,
     };
     try {
       const jobs = await provider.fetch(target, ctx);
       if (!Array.isArray(jobs)) throw new Error('Provider returned a non-array result');
-      const limit = Math.min(200, Math.max(1, Number(target.max_results) || 25));
-      if (jobs.length > limit) partial = true;
+      const limit = Math.min(400, Math.max(1, Number(target.max_results) || 200));
+      if (jobs.length >= limit) partial = true;
       let cappedGlobal = false;
       for (const job of jobs.slice(0, limit)) {
         if (!job || typeof job.title !== 'string' || typeof job.url !== 'string') continue;
-        if (offers.length >= 1500) {
+        if (offers.length >= 5000) {
           partial = true;
           cappedGlobal = true;
           break;
@@ -99,11 +100,18 @@ if (process.argv[2] === 'inventory') {
           kind: target.kind,
         });
       }
-      targetResults.push({ target: target.name, provider: provider.id, status: jobs.length > limit || cappedGlobal ? 'partial' : 'ok', found: jobs.length });
+      const capHit = jobs.length >= limit || cappedGlobal;
+      targetResults.push({
+        target: target.name, provider: provider.id, status: capHit ? 'partial' : 'ok',
+        found: jobs.length, cap_hit: capHit, max_pages_requested: maxPages,
+        requests_made: requests, result_limit: limit,
+      });
     } catch (error) {
       const message = String(error?.message || error).slice(0, 300);
       errors.push({ target: target.name, provider: provider.id, error: message });
-      targetResults.push({ target: target.name, provider: provider.id, status: 'error', found: 0 });
+      targetResults.push({ target: target.name, provider: provider.id, status: 'error', found: 0,
+        cap_hit: message === 'Request budget exceeded', max_pages_requested: maxPages,
+        requests_made: requests, result_limit: Math.min(400, Math.max(1, Number(target.max_results) || 200)) });
       partial = true;
     }
   }

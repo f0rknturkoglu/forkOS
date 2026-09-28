@@ -243,9 +243,9 @@ export const AFTER = {
   // Bilgi artık Vault'ta yaşar: Vault yazması forkOS veritabanını
   // DEĞİŞTİRMEZ, bu yüzden yalnız Vault sorguları tazelenir.
   "obsidian.write": ["vault-status", "vault-item"],
-  // jobhunter uyum profili/LinkedIn profilleri config.yaml'a yazilir; ayarlar
+  // forkjob_core uyum profili/LinkedIn profilleri config.yaml'a yazilir; ayarlar
   // paneli kaydettikten sonra kendi sorgularini taze gormelidir.
-  "jobhunter.write": ["jobhunter-config", "jobhunter-linkedin", "jobhunter-env"],
+  "forkjob_core.write": ["forkjob-core-config", "forkjob-core-linkedin", "forkjob-core-env"],
   "notification.write": ["notifications"],
   // H7 karar/yurutme yuzeyi: kararlar (approve/reject/respond/cancel) yalnizca
   // plan DURUMUNU degistirir, canonical kayda dokunmaz; bu yuzden tazelenen

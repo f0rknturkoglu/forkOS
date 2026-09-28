@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import math
 import os
 import re
+import signal
+import sys
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from pathlib import Path
@@ -104,8 +108,6 @@ class LinkedInScraper(ScraperBase):
 
     async def scrape(self, client: ScraperHttpClient) -> ScrapeBatch:
         del client  # JobSpy owns its HTTP clients, proxy rotation, and TLS setup.
-        runner = self._runner or _import_jobspy_runner()
-        proxies = load_proxies(self.linkedin_config, os.environ)
         attempted = len(self.searches)
         if not attempted:
             return ScrapeBatch(
@@ -114,6 +116,12 @@ class LinkedInScraper(ScraperBase):
                 attempted=0,
                 succeeded=0,
             )
+        # Report the actionable configuration failure before importing JobSpy.
+        # A disabled source with no profiles must not be labelled a proxy error.
+        proxies = load_proxies(self.linkedin_config, os.environ)
+        if self._runner is None:
+            _import_jobspy_runner()  # dependency check before the first child process
+        runner = self._runner
 
         jobs: list[Job] = []
         errors: list[str] = []
@@ -122,8 +130,11 @@ class LinkedInScraper(ScraperBase):
             name = _text(profile.get("name")) or f"profile-{index}"
             try:
                 kwargs = self._runner_kwargs(profile, proxies)
-                frame = await asyncio.to_thread(runner, **kwargs)
-                records = frame.to_dict(orient="records")
+                if runner is None:
+                    records = await _run_jobspy_isolated(kwargs)
+                else:
+                    frame = await asyncio.to_thread(runner, **kwargs)
+                    records = frame.to_dict(orient="records")
                 if not isinstance(records, list):
                     raise TypeError("JobSpy result is not record-oriented")
                 for row in records:
@@ -132,6 +143,8 @@ class LinkedInScraper(ScraperBase):
                         if job is not None:
                             jobs.append(job)
                 succeeded += 1
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:
                 detail = redact_proxy_secrets(f"{type(exc).__name__}: {exc}", proxies)
                 errors.append(f"{name}: {detail}")
@@ -178,6 +191,35 @@ def _import_jobspy_runner() -> Callable[..., Any]:
     if not callable(runner):
         raise ScraperPermanentError("jobspy.scrape_jobs is unavailable")
     return runner
+
+
+async def _run_jobspy_isolated(kwargs: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Run JobSpy in a killable process so source cancellation cannot leave a thread."""
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "app.sources.forkjob_core.scrapers.linkedin_runner",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(
+            process.communicate(json.dumps(dict(kwargs)).encode("utf-8")),
+            timeout=180,
+        )
+        if process.returncode != 0:
+            raise RuntimeError(f"JobSpy subprocess exited with code {process.returncode}")
+        records = json.loads(stdout)
+        if not isinstance(records, list):
+            raise TypeError("JobSpy result is not record-oriented")
+        return records
+    finally:
+        if process.returncode is None:
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+            await process.wait()
 
 
 def _deduplicate(jobs: Sequence[Job]) -> list[Job]:
@@ -281,7 +323,7 @@ def job_from_row(row: Mapping[str, Any]) -> Job | None:
     title = _text(row.get("title"))
     direct_url = _text(row.get("job_url_direct"))
     linkedin_url = _text(row.get("job_url"))
-    url = direct_url or linkedin_url
+    url = canonical_url(direct_url or linkedin_url) if direct_url or linkedin_url else None
     if not title or not url:
         return None
 

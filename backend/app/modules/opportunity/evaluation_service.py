@@ -4,7 +4,7 @@ Coordinates:
 - CandidateCareerContext & CareerListingContext
 - Deterministic pre-analysis
 - Career Specialist Reasoner (Ollama, Cloud, None, Mock)
-- Non-destructive persistence on Opportunity.evaluation
+- Non-destructive persistence on Opportunity.deep_evaluation
 - Dynamic staleness detection and evaluation caching
 - NEVER overwrites Opportunity.score with LLM evaluation
 """
@@ -95,7 +95,7 @@ class CareerEvaluationService:
         if opp is None:
             return None
 
-        raw_eval = dict(opp.evaluation or {})
+        raw_eval = dict(opp.deep_evaluation or {})
         if not raw_eval or not raw_eval.get("listing_fingerprint"):
             return None
 
@@ -205,8 +205,8 @@ class CareerEvaluationService:
         )
 
         # Persist non-destructively: Do NOT mutate opp.score!
-        opp.evaluation = eval_model.model_dump()
-        opp.evaluated_at = now
+        opp.deep_evaluation = eval_model.model_dump()
+        opp.deep_evaluated_at = now
 
         await session.flush()
 

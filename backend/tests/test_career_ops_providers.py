@@ -49,7 +49,26 @@ def test_provider_targets_project_canonical_sources_without_relevance_filters(tm
         "thehub",
         "weworkremotely",
         "workingnomads",
+        "a16z-speedrun-talent",
+        "agentic-jobs",
+        "cryptocurrencyjobs",
+        "flowxtra",
+        "generalist-world",
+        "getonbrd",
+        "hackernews",
+        "joinup",
+        "justjoin",
+        "larajobs",
+        "manfred",
+        "nodesk",
+        "pythonorg",
+        "remotli",
+        "yourator",
     }
+    assert len({board["provider"] for board in targets["job_boards"]}) == len(targets["job_boards"])
+    assert next(board for board in targets["job_boards"] if board["provider"] == "justjoin")[
+        "careers_url"
+    ] == "https://justjoin.it/job-offers"
     assert any(company["provider"] == "smartrecruiters" for company in targets["tracked_companies"])
     assert all(
         company["careers_url"].startswith("https://job-boards.greenhouse.io/")
@@ -65,12 +84,16 @@ def test_provider_targets_project_canonical_sources_without_relevance_filters(tm
 
 @pytest.mark.no_database
 def test_provider_source_registration_is_grouped():
+    from app.sources.career_ops_sources import get_career_ops_sources
+
     sources = get_career_ops_provider_sources()
     assert [source.id for source in sources] == ["careerops:boards", "careerops:companies"]
     assert all(source.skip_closure_sweep for source in sources)
     assert source_class(sources[0]) == SourceClass.NORMAL
     assert is_general_refresh_source(sources[0])
     assert source_class(sources[1]) == SourceClass.SLOW_OPTIN
+    reverse = {source.provider: source for source in get_career_ops_sources()}
+    assert reverse["workday"].timeout_seconds == 630.0
 
 
 @pytest.mark.no_database
@@ -206,7 +229,7 @@ async def test_provider_overlap_prefers_career_ops_without_losing_richer_data(
             "career_ops": {"provider": "arbeitnow", "engine_version": "1.34.0"},
         },
     )
-    assert await service.ingest_jobs(db_session, [NativeJob(original)], "jobhunter:arbeitnow") == 1
+    assert await service.ingest_jobs(db_session, [NativeJob(original)], "forkjob_core:arbeitnow") == 1
     assert await service.ingest_jobs(db_session, [NativeJob(provider)], "careerops:boards") == 0
     await db_session.commit()
     opportunities = list((await db_session.execute(select(Opportunity))).scalars())

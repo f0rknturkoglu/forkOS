@@ -119,7 +119,7 @@ describe("SourceHealthWidget", () => {
     serve(
       json([
         run({ source: "osym" }),
-        run({ source: "jobhunter:linkedin", status: "error", error: "429 Too Many Requests", finished_at: null }),
+        run({ source: "forkjob_core:linkedin", status: "error", error: "429 Too Many Requests", finished_at: null }),
         run({ source: "bulten", status: "empty", items_found: 0 }),
       ]),
     );
@@ -131,7 +131,7 @@ describe("SourceHealthWidget", () => {
 
     await waitFor(() => expect(copied).toContain("# forkOS Source Diagnostics"));
     expect(copied).toContain("## Problem 1");
-    expect(copied).toContain("Source: jobhunter:linkedin");
+    expect(copied).toContain("Source: forkjob_core:linkedin");
     expect(copied).toContain("Source count: 3");
     expect(copied).toContain("429 Too Many Requests");
     expect(copied.match(/## Problem /g)?.length).toBe(1); // sağlıklı ve boş koşu girmiyor

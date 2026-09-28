@@ -7,6 +7,7 @@ metrics or employment history are inferred. Paragraph/page locators survive tail
 import re
 import xml.etree.ElementTree as ET
 import zipfile
+from functools import lru_cache
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -94,8 +95,20 @@ def _extract_cv_evidence(path: Path, source_id: str) -> list[CandidateFact]:
     return facts
 
 
+@lru_cache(maxsize=8)
+def _cached_cv_evidence(
+    path: Path, source_id: str, modified_ns: int, size: int
+) -> tuple[CandidateFact, ...]:
+    del modified_ns, size  # Cache key: a replaced/edited file must be parsed anew.
+    return tuple(_extract_cv_evidence(path, source_id))
+
+
 def extract_cv_evidence(path: Path, source_id: str) -> list[CandidateFact]:
     try:
-        return _extract_cv_evidence(path, source_id)
+        stat = path.stat()
+        return [
+            fact.model_copy(deep=True)
+            for fact in _cached_cv_evidence(path, source_id, stat.st_mtime_ns, stat.st_size)
+        ]
     except (OSError, ValueError, KeyError, zipfile.BadZipFile, ET.ParseError, PyPdfError):
         return []

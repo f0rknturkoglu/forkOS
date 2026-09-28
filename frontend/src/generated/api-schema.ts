@@ -4506,6 +4506,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources/forkjob-core/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Forkjob Core Config */
+        get: operations["forkjob_core_config_api_sources_forkjob_core_config_get"];
+        /**
+         * Forkjob Core Config Update
+         * @description Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.
+         *
+         *     Yeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING
+         *     aninda guncellenir).
+         */
+        put: operations["forkjob_core_config_update_api_sources_forkjob_core_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/forkjob-core/env": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Forkjob Core Env
+         * @description LinkedIn direct/proxy ayarlarinin gercek durumu.
+         *
+         *     `allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca
+         *     acarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`
+         *     alani eski istemciler icin ayni degerle korunur.
+         */
+        get: operations["forkjob_core_env_api_sources_forkjob_core_env_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/forkjob-core/linkedin-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Forkjob Core Linkedin Profiles */
+        get: operations["forkjob_core_linkedin_profiles_api_sources_forkjob_core_linkedin_profiles_get"];
+        /**
+         * Forkjob Core Linkedin Profiles Save
+         * @description Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi.
+         */
+        put: operations["forkjob_core_linkedin_profiles_save_api_sources_forkjob_core_linkedin_profiles_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sources/health": {
         parameters: {
             query?: never;
@@ -4519,75 +4588,6 @@ export interface paths {
          */
         get: operations["source_health_api_sources_health_get"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sources/jobhunter/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Jobhunter Config */
-        get: operations["jobhunter_config_api_sources_jobhunter_config_get"];
-        /**
-         * Jobhunter Config Update
-         * @description Uyum profili ve dengeler. config.yaml a yazilir ve SICAK yuklenir.
-         *
-         *     Yeni skorlar bir sonraki senkron turunda gecerli olur (forkjob_port.SCORING
-         *     aninda guncellenir).
-         */
-        put: operations["jobhunter_config_update_api_sources_jobhunter_config_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sources/jobhunter/env": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Jobhunter Env
-         * @description LinkedIn direct/proxy ayarlarinin gercek durumu.
-         *
-         *     `allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca
-         *     acarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`
-         *     alani eski istemciler icin ayni degerle korunur.
-         */
-        get: operations["jobhunter_env_api_sources_jobhunter_env_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sources/jobhunter/linkedin-profiles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Jobhunter Linkedin Profiles */
-        get: operations["jobhunter_linkedin_profiles_api_sources_jobhunter_linkedin_profiles_get"];
-        /**
-         * Jobhunter Linkedin Profiles Save
-         * @description Kullanici LinkedIn arama profillerinin tamami -- atomik YAML yazimi.
-         */
-        put: operations["jobhunter_linkedin_profiles_save_api_sources_jobhunter_linkedin_profiles_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -21446,38 +21446,7 @@ export interface operations {
             };
         };
     };
-    source_health_api_sources_health_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SourceRunOut"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    jobhunter_config_api_sources_jobhunter_config_get: {
+    forkjob_core_config_api_sources_forkjob_core_config_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -21497,7 +21466,7 @@ export interface operations {
             };
         };
     };
-    jobhunter_config_update_api_sources_jobhunter_config_put: {
+    forkjob_core_config_update_api_sources_forkjob_core_config_put: {
         parameters: {
             query?: never;
             header?: never;
@@ -21532,7 +21501,7 @@ export interface operations {
             };
         };
     };
-    jobhunter_env_api_sources_jobhunter_env_get: {
+    forkjob_core_env_api_sources_forkjob_core_env_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -21552,7 +21521,7 @@ export interface operations {
             };
         };
     };
-    jobhunter_linkedin_profiles_api_sources_jobhunter_linkedin_profiles_get: {
+    forkjob_core_linkedin_profiles_api_sources_forkjob_core_linkedin_profiles_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -21572,7 +21541,7 @@ export interface operations {
             };
         };
     };
-    jobhunter_linkedin_profiles_save_api_sources_jobhunter_linkedin_profiles_put: {
+    forkjob_core_linkedin_profiles_save_api_sources_forkjob_core_linkedin_profiles_put: {
         parameters: {
             query?: never;
             header?: never;
@@ -21592,6 +21561,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_health_api_sources_health_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceRunOut"][];
                 };
             };
             /** @description Validation Error */

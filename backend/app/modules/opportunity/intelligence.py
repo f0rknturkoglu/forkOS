@@ -216,7 +216,7 @@ def parse_compensation(value: str | None) -> tuple[int | None, int | None, str |
 def _description(opportunity: Opportunity) -> str:
     raw = opportunity.raw or {}
     forkjob = raw.get("forkjob") if isinstance(raw.get("forkjob"), dict) else {}
-    return str(forkjob.get("description") or raw.get("description") or opportunity.notes or "")
+    return str(raw.get("description") or forkjob.get("description") or opportunity.notes or "")
 
 
 def _contains(text: str, needles: Sequence[str]) -> bool:
@@ -383,9 +383,9 @@ def quick_signals(
         liveness_status = "at_risk"
     elif source_status == "uncertain":
         liveness_status = "uncertain"
-    elif last_seen_at and (now - last_seen_at) <= timedelta(hours=48):
-        liveness_status = "live"
-    elif source_status == "active" and last_seen_at:
+    elif (last_seen_at and (now - last_seen_at) <= timedelta(hours=48)) or (
+        source_status == "active" and last_seen_at
+    ):
         liveness_status = "live"
     else:
         liveness_status = "unchecked"
@@ -882,7 +882,7 @@ def evaluation_staleness(
     hesaplananlarla karsilastirilir; eski surumle ya da parmak izi hic
     yazilmadan uretilmis degerlendirmeler "missing" sayilir (yeniden hesapla).
     """
-    evaluation = opportunity.evaluation or {}
+    evaluation = opportunity.candidate_evaluation or {}
     if not evaluation:
         return None
     if evaluation.get("version") != EVALUATION_VERSION:
@@ -1044,9 +1044,9 @@ async def evaluate_opportunity(
         candidate_document_title=candidate_document_title,
         candidate_text=candidate_text,
     )
-    if opportunity.evaluation:
+    if opportunity.candidate_evaluation:
         try:
-            previous = OpportunityEvaluationOut.model_validate(opportunity.evaluation)
+            previous = OpportunityEvaluationOut.model_validate(opportunity.candidate_evaluation)
         except ValueError:
             previous = None
         if previous is not None:
@@ -1058,8 +1058,8 @@ async def evaluate_opportunity(
             evaluation.notes = previous.notes
             for match in evaluation.matches:
                 match.story_ids = story_ids_by_requirement.get(match.requirement_id, [])
-    opportunity.evaluation = evaluation.model_dump(mode="json")
-    opportunity.evaluated_at = evaluation.evaluated_at
+    opportunity.candidate_evaluation = evaluation.model_dump(mode="json")
+    opportunity.candidate_evaluated_at = evaluation.evaluated_at
     await touch_entity(session, opportunity.id)
     await log_event(
         session,
@@ -1085,9 +1085,9 @@ async def update_evaluation(
     opportunity = await session.get(Opportunity, item_id)
     if opportunity is None:
         return None
-    if not opportunity.evaluation:
+    if not opportunity.candidate_evaluation:
         return None
-    current = OpportunityEvaluationOut.model_validate(opportunity.evaluation)
+    current = OpportunityEvaluationOut.model_validate(opportunity.candidate_evaluation)
     payload = current.model_dump(mode="python")
     payload.update(patch.model_dump(exclude_unset=True))
     payload["evaluated_at"] = datetime.now(UTC)
@@ -1103,8 +1103,8 @@ async def update_evaluation(
     payload["score"] = score
     payload["recommendation"] = recommendation
     evaluation = OpportunityEvaluationOut.model_validate(payload)
-    opportunity.evaluation = evaluation.model_dump(mode="json")
-    opportunity.evaluated_at = evaluation.evaluated_at
+    opportunity.candidate_evaluation = evaluation.model_dump(mode="json")
+    opportunity.candidate_evaluated_at = evaluation.evaluated_at
     await touch_entity(session, opportunity.id)
     await log_event(
         session,

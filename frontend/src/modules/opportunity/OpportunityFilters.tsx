@@ -429,7 +429,7 @@ function FilterPanelPopover({
               </Button>
             </div>
             <p className="mt-1.5 text-micro text-muted">
-              “Hesaplanmadı”, kalite skoru henüz üretilmemiş ilanları getirir; 0 puan ile karışmaz.
+              “Hesaplanmadı”, hızlı uygunluk skoru henüz üretilmemiş ilanları getirir; 0 puan ile karışmaz.
             </p>
           </Section>
         )}

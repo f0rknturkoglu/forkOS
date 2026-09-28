@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Integer, String, case, cast, extract, func, literal, select, union_all
+from sqlalchemy import Integer, String, case, cast, extract, func, literal, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
+from app.modules.opportunity.candidate_context import build_candidate_career_context
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.schemas import OpportunityBrowseOut
 from app.modules.opportunity.service import _out, attach_applications
@@ -49,7 +50,13 @@ def _effective_date():
     return func.coalesce(Opportunity.published_at, Opportunity.found_at)
 
 
-def _conditions(filters: BrowseFilters):
+def _match_is_current(candidate_revision: str | None):
+    if candidate_revision is None:
+        return None
+    return Opportunity.raw["candidate_match"]["candidate_revision"].astext == candidate_revision
+
+
+def _conditions(filters: BrowseFilters, *, candidate_revision: str | None = None):
     conditions = []
     if filters.section == "trash":
         conditions.append(Opportunity.trashed_at.is_not(None))
@@ -82,9 +89,9 @@ def _conditions(filters: BrowseFilters):
     if filters.remote:
         conditions.append(_remote_bucket() == filters.remote)
     if filters.archetype:
-        conditions.append(Opportunity.evaluation["archetype"].astext == filters.archetype)
+        conditions.append(Opportunity.candidate_evaluation["archetype"].astext == filters.archetype)
     if filters.recommendation:
-        conditions.append(Opportunity.evaluation["recommendation"].astext == filters.recommendation)
+        conditions.append(Opportunity.candidate_evaluation["recommendation"].astext == filters.recommendation)
     # Skor araligi KAPSAYICIDIR (min <= score <= max). null skor aralik
     # filtrelerine girmez; 0 ile -1 ayri degerlerdir.
     if filters.min_score is not None:
@@ -110,12 +117,23 @@ def _conditions(filters: BrowseFilters):
         )
     if filters.min_skill_match is not None:
         conditions.append(Opportunity.skill_match_ratio >= filters.min_skill_match)
+        if (current := _match_is_current(candidate_revision)) is not None:
+            conditions.append(current)
     if filters.max_skill_match is not None:
         conditions.append(Opportunity.skill_match_ratio <= filters.max_skill_match)
+        if (current := _match_is_current(candidate_revision)) is not None:
+            conditions.append(current)
     if filters.skill_match_state == "computed":
         conditions.append(Opportunity.skill_match_ratio.is_not(None))
+        if (current := _match_is_current(candidate_revision)) is not None:
+            conditions.append(current)
     elif filters.skill_match_state == "uncomputed":
-        conditions.append(Opportunity.skill_match_ratio.is_(None))
+        current = _match_is_current(candidate_revision)
+        conditions.append(
+            or_(Opportunity.skill_match_ratio.is_(None), current.is_not(True))
+            if current is not None
+            else Opportunity.skill_match_ratio.is_(None)
+        )
     if filters.search and filters.search.strip():
         query = func.plainto_tsquery("simple", func.immutable_unaccent(filters.search.strip()))
         conditions.append(Entity.search_vec.op("@@")(query))
@@ -147,7 +165,7 @@ def _remote_bucket():
     )
 
 
-def _order(filters: BrowseFilters):
+def _order(filters: BrowseFilters, *, candidate_revision: str | None = None):
     effective_date = _effective_date()
     # Deterministik tie-break: sayfalama sirasinda kayit atlanmaz/tekrarlanmaz.
     stable = (Entity.title.asc(), Opportunity.id.asc())
@@ -158,8 +176,14 @@ def _order(filters: BrowseFilters):
     if filters.sort == "skill_match":
         # Yuksek oran once; esitlikte genel skor, sonra tarih, sonra id/title.
         # Hesaplanmamis (null) oranlar en sonda kalir.
+        current = _match_is_current(candidate_revision)
+        match_ratio = (
+            case((current, Opportunity.skill_match_ratio), else_=None)
+            if current is not None
+            else Opportunity.skill_match_ratio
+        )
         return (
-            Opportunity.skill_match_ratio.desc().nulls_last(),
+            match_ratio.desc().nulls_last(),
             Opportunity.score.desc().nulls_last(),
             effective_date.desc(),
             *stable,
@@ -168,7 +192,9 @@ def _order(filters: BrowseFilters):
         return (effective_date.desc(), *stable)
     if filters.sort == "score_asc":
         return (Opportunity.score.asc().nulls_last(), effective_date.desc(), *stable)
-    return (Opportunity.score.desc().nulls_last(), effective_date.desc(), *stable)
+    # Fresh unscored discoveries remain visible while their cheap score is
+    # pending; they must not be buried behind years of already-scored jobs.
+    return (func.coalesce(Opportunity.score, 50).desc(), effective_date.desc(), *stable)
 
 
 def _facet_expressions(filters: BrowseFilters) -> dict[str, object]:
@@ -180,8 +206,8 @@ def _facet_expressions(filters: BrowseFilters) -> dict[str, object]:
         "regions": Opportunity.region,
         "source_statuses": Opportunity.source_status,
         "remote": _remote_bucket(),
-        "archetypes": Opportunity.evaluation["archetype"].astext,
-        "recommendations": Opportunity.evaluation["recommendation"].astext,
+        "archetypes": Opportunity.candidate_evaluation["archetype"].astext,
+        "recommendations": Opportunity.candidate_evaluation["recommendation"].astext,
         "years": cast(extract("year", _effective_date()), Integer),
     }
     if filters.section == "announcements":
@@ -229,7 +255,12 @@ async def _facets(
 async def browse_opportunities(
     session: AsyncSession, filters: BrowseFilters
 ) -> OpportunityBrowseOut:
-    conditions = _conditions(filters)
+    candidate_revision = (
+        (await build_candidate_career_context(session)).revision
+        if filters.section == "jobs"
+        else None
+    )
+    conditions = _conditions(filters, candidate_revision=candidate_revision)
     base = (
         select(Opportunity, Entity.title)
         .join(Entity, Entity.id == Opportunity.id)
@@ -237,7 +268,9 @@ async def browse_opportunities(
     )
     rows = (
         await session.execute(
-            base.order_by(*_order(filters)).offset(filters.offset).limit(filters.limit)
+            base.order_by(*_order(filters, candidate_revision=candidate_revision))
+            .offset(filters.offset)
+            .limit(filters.limit)
         )
     ).all()
     total = (
@@ -262,7 +295,9 @@ async def browse_opportunities(
     # Facet'lar sayfalama (offset > 0) sirasinda degismez; yalnizca ilk sayfada hesaplanir.
     facets = await _facets(session, conditions, filters) if filters.offset == 0 else {}
 
-    out_items = [_out(row, include_raw=False) for row in rows]
+    out_items = [
+        _out(row, include_raw=False, candidate_revision=candidate_revision) for row in rows
+    ]
     from app.modules.opportunity.intelligence import enrich_opportunities
 
     out_items = await enrich_opportunities(session, rows, out_items)

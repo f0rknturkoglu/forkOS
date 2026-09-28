@@ -3,13 +3,13 @@
  *
  * forkOS bir ilanda ÜÇ ayrı skor taşır ve bunlar karıştırılmaz:
  *
- *  - **Kalite skoru** (`score`): kaynak/kural tabanlı ilan kalitesi, `-1..100`.
+ *  - **Hızlı uygunluk** (`score`): kaynaktan bağımsız kural tabanlı aday uyumu, `-1..100`.
  *    `-1` = elendi, `null` = hiç hesaplanmadı. `0` ile `null` AYNI ŞEY DEĞİL.
  *  - **Profil uyumu** (`skill_match_ratio`): `0..1` oranı; `null` = hesaplanmadı.
  *  - **Tavsiye skoru** (`evaluation.score`): CV ile iki aşamalı değerlendirme,
  *    `0..100`.
  *
- * Arayüzde TEK ana skor (kalite) gösterilir; diğer ikisi açıklanabilir detayda
+ * Arayüzde TEK ana skor (hızlı uygunluk) gösterilir; diğer ikisi açıklanabilir detayda
  * yaşar. Aralık presetleri, etiketler ve varyant sayımı buradan türetilir.
  *
  * Backend karşılığı: `backend/app/modules/opportunity/scoring.py`.
@@ -50,19 +50,19 @@ export const SCORE_RANGES = [
 ] as const;
 
 /**
- * Kalite skoru var/yok filtresi: `null` kayıtları ayrı seçebilmek için.
+ * Hızlı uygunluk var/yok filtresi: `null` kayıtları ayrı seçebilmek için.
  *
  * Etiketler `Profil / beceri uyumu` bölümündeki "Hesaplanmadı" ile
- * karışmasın diye "kalite skoru"nu açıkça söyler.
+ * karışmasın diye "hızlı uygunluk" adını açıkça söyler.
  */
 export const SCORE_STATE_PRESETS = [
   { label: "Tümü", state: undefined },
-  { label: "Kalite skoru var", state: "computed" as const },
-  { label: "Kalite skoru yok", state: "uncomputed" as const },
+  { label: "Hızlı uygunluk var", state: "computed" as const },
+  { label: "Hızlı uygunluk yok", state: "uncomputed" as const },
 ] as const;
 
 /**
- * Kalite skorunun GÖRÜNEN değeri.
+ * Hızlı uygunluk skorunun GÖRÜNEN değeri.
  *
  * Yukarı yuvarlama (79.6 → "80") ile "70–79" aralığı çelişirdi: filtre
  * kapsayıcı olduğu için 79.6 o aralığa girer ama ekranda 80 görünürdü.

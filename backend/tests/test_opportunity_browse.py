@@ -8,6 +8,15 @@ from httpx import ASGITransport, AsyncClient
 
 from app.db import SessionLocal
 from app.main import app
+from app.modules.opportunity import browse as opportunity_browse
+from app.modules.opportunity import service as opportunity_service
+from app.modules.opportunity.candidate_context import (
+    CandidateCareerContext,
+    CandidateFact,
+    build_candidate_career_context,
+)
+from app.modules.opportunity.candidate_match import ALGORITHM as CANDIDATE_MATCH_ALGORITHM
+from app.modules.opportunity.intelligence import listing_fingerprint
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.service import backfill_skill_match_ratios
 
@@ -45,6 +54,24 @@ async def _delete_opportunities(client: AsyncClient, item_ids: list[str]) -> Non
     for item_id in item_ids:
         await client.post(f"/api/opportunities/{item_id}/trash")
         await client.delete(f"/api/opportunities/{item_id}")
+
+
+def _set_fixture_match(
+    row: Opportunity, title: str, ratio: float | None, candidate_revision: str
+) -> None:
+    row.skill_match_ratio = ratio
+    if ratio is not None:
+        row.raw = {
+            **(row.raw or {}),
+            "candidate_match": {
+                "algorithm": CANDIDATE_MATCH_ALGORITHM,
+                "candidate_revision": candidate_revision,
+                "listing_fingerprint": listing_fingerprint(row, title=title),
+                "ratio": ratio,
+                "matched": [],
+                "missing": [],
+            },
+        }
 
 
 async def test_browse_filters_jobs_and_paginates(client: AsyncClient):
@@ -147,14 +174,30 @@ async def test_browse_filters_region_with_the_same_value_as_its_facet(client: As
         await _delete_opportunities(client, created_ids)
 
 
-async def test_browse_filters_and_globally_sorts_cached_cv_match(client: AsyncClient):
+async def test_browse_filters_and_globally_sorts_cached_cv_match(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     marker = uuid.uuid4().hex[:10]
     created_ids = await _create_scored_jobs(client, marker, (99, 30, 70))
     try:
+        context = CandidateCareerContext(
+            revision="profile-1",
+            experience_years=2,
+            facts=[
+                CandidateFact(key=f"skill:{skill}", value=skill, source_type="config")
+                for skill in ("Python", "Docker")
+            ],
+        )
+
+        async def candidate_context(_session):
+            return context
+
+        monkeypatch.setattr(opportunity_service, "build_candidate_career_context", candidate_context)
+        monkeypatch.setattr(opportunity_browse, "build_candidate_career_context", candidate_context)
         payloads = (
-            ({"skills": ["python"]}, "Python and Docker role"),
+            ({"skills": ["python"]}, "5 years of Python and Docker required"),
             ({"skills": ["python", "docker"]}, "Python and Docker role"),
-            ({"skills": ["python"]}, "Python role"),
+            ({"skills": ["python"]}, "Experience with Python in backend engineering and production services."),
         )
         async with SessionLocal() as session:
             for item_id, (reasons, description) in zip(created_ids, payloads, strict=True):
@@ -204,8 +247,9 @@ async def test_browse_filters_and_globally_sorts_cached_cv_match(client: AsyncCl
         )
         assert sorted_response.status_code == 200
         sorted_items = sorted_response.json()["items"]
-        assert [item["skill_match"]["match_ratio"] for item in sorted_items] == [1.0, 1.0, 0.5]
-        assert [item["score"] for item in sorted_items] == [70, 30, 99]
+        assert [item["skill_match"]["match_ratio"] for item in sorted_items] == [1.0, 1.0, 0.667]
+        assert {item["id"] for item in sorted_items[:2]} == {created_ids[1], created_ids[2]}
+        assert sorted_items[2]["id"] == created_ids[0]
     finally:
         await _delete_opportunities(client, created_ids)
 
@@ -305,7 +349,7 @@ async def test_browse_filters_by_archetype_and_recommendation(client: AsyncClien
         async with SessionLocal() as session:
             row1 = await session.get(Opportunity, uuid.UUID(id1))
             assert row1 is not None
-            row1.evaluation = {
+            row1.candidate_evaluation = {
                 "version": 1,
                 "score": 85,
                 "recommendation": "pursue",
@@ -313,7 +357,7 @@ async def test_browse_filters_by_archetype_and_recommendation(client: AsyncClien
             }
             row2 = await session.get(Opportunity, uuid.UUID(id2))
             assert row2 is not None
-            row2.evaluation = {
+            row2.candidate_evaluation = {
                 "version": 1,
                 "score": 40,
                 "recommendation": "skip",
@@ -489,10 +533,10 @@ async def test_score_filter_combines_with_source_region_and_remote(client: Async
             rows[0].source = "manual"
             rows[0].region = "TR"
             rows[0].remote = "remote"
-            rows[1].source = "jobhunter:greenhouse:acme"
+            rows[1].source = "forkjob_core:greenhouse:acme"
             rows[1].region = "EU"
             rows[1].remote = "hybrid"
-            rows[2].source = "jobhunter:greenhouse:acme"
+            rows[2].source = "forkjob_core:greenhouse:acme"
             rows[2].region = "EU"
             rows[2].remote = "remote"
             await session.commit()
@@ -505,7 +549,7 @@ async def test_score_filter_combines_with_source_region_and_remote(client: Async
             assert response.status_code == 200
             return {item["id"] for item in response.json()["items"]}
 
-        assert await ids(min_score=50, source="jobhunter:greenhouse:acme") == {
+        assert await ids(min_score=50, source="forkjob_core:greenhouse:acme") == {
             created[1],
             created[2],
         }
@@ -537,10 +581,11 @@ async def test_profile_match_boundaries_at_0700_and_0400(client: AsyncClient):
     created = await _create_scored_jobs(client, marker, (50, 50, 50))
     try:
         async with SessionLocal() as session:
+            candidate_revision = (await build_candidate_career_context(session)).revision
             rows = [await session.get(Opportunity, uuid.UUID(item_id)) for item_id in created]
-            for row, ratio in zip(rows, (0.699, 0.700, 0.0), strict=True):
+            for index, (row, ratio) in enumerate(zip(rows, (0.699, 0.700, 0.0), strict=True)):
                 assert row is not None
-                row.skill_match_ratio = ratio
+                _set_fixture_match(row, f"Backend Engineer {marker} {index}", ratio, candidate_revision)
             await session.commit()
 
         async def total(**params) -> int:
@@ -566,9 +611,10 @@ async def test_uncomputed_profile_match_is_selectable(client: AsyncClient):
     created = await _create_scored_jobs(client, marker, (50, 50))
     try:
         async with SessionLocal() as session:
+            candidate_revision = (await build_candidate_career_context(session)).revision
             rows = [await session.get(Opportunity, uuid.UUID(item_id)) for item_id in created]
             rows[0].skill_match_ratio = None
-            rows[1].skill_match_ratio = 0.0
+            _set_fixture_match(rows[1], f"Backend Engineer {marker} 1", 0.0, candidate_revision)
             await session.commit()
 
         uncomputed = await client.get(
@@ -586,16 +632,48 @@ async def test_uncomputed_profile_match_is_selectable(client: AsyncClient):
         await _delete_opportunities(client, created)
 
 
+async def test_candidate_revision_change_hides_stale_match(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    marker = uuid.uuid4().hex[:10]
+    created = await _create_scored_jobs(client, marker, (60,))
+    try:
+        async with SessionLocal() as session:
+            row = await session.get(Opportunity, uuid.UUID(created[0]))
+            assert row is not None
+            _set_fixture_match(row, f"Backend Engineer {marker} 0", 0.8, "cv-before")
+            await session.commit()
+
+        async def changed_candidate(_session):
+            return CandidateCareerContext(revision="cv-after")
+
+        monkeypatch.setattr(opportunity_browse, "build_candidate_career_context", changed_candidate)
+        stale = await client.get(
+            "/api/opportunities/browse",
+            params={"section": "jobs", "search": marker, "skill_match_state": "computed"},
+        )
+        assert stale.json()["total"] == 0
+        visible = await client.get(
+            "/api/opportunities/browse",
+            params={"section": "jobs", "search": marker, "skill_match_state": "uncomputed"},
+        )
+        assert visible.json()["total"] == 1
+        assert visible.json()["items"][0]["profile_match_ratio"] is None
+    finally:
+        await _delete_opportunities(client, created)
+
+
 async def test_high_profile_match_returns_real_totals_not_zero(client: AsyncClient):
     """Regresyon: '%70+' filtresi 0/0 göstermemeli (Faz 7.7)."""
     marker = uuid.uuid4().hex[:10]
     created = await _create_scored_jobs(client, marker, (95, 85, 30, 10))
     try:
         async with SessionLocal() as session:
+            candidate_revision = (await build_candidate_career_context(session)).revision
             rows = [await session.get(Opportunity, uuid.UUID(item_id)) for item_id in created]
-            for row, ratio in zip(rows, (0.95, 0.85, 0.30, 0.10), strict=True):
+            for index, (row, ratio) in enumerate(zip(rows, (0.95, 0.85, 0.30, 0.10), strict=True)):
                 assert row is not None
-                row.skill_match_ratio = ratio
+                _set_fixture_match(row, f"Backend Engineer {marker} {index}", ratio, candidate_revision)
             await session.commit()
 
         response = await client.get(
@@ -647,10 +725,11 @@ async def test_skill_match_sort_is_stable_with_null_last(client: AsyncClient):
     created = await _create_scored_jobs(client, marker, (90, 20, 70, 40))
     try:
         async with SessionLocal() as session:
+            candidate_revision = (await build_candidate_career_context(session)).revision
             rows = [await session.get(Opportunity, uuid.UUID(item_id)) for item_id in created]
-            for row, ratio in zip(rows, (0.8, 0.8, 0.5, None), strict=True):
+            for index, (row, ratio) in enumerate(zip(rows, (0.8, 0.8, 0.5, None), strict=True)):
                 assert row is not None
-                row.skill_match_ratio = ratio
+                _set_fixture_match(row, f"Backend Engineer {marker} {index}", ratio, candidate_revision)
             await session.commit()
 
         response = await client.get(

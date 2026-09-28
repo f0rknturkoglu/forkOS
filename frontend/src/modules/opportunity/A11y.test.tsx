@@ -20,14 +20,14 @@ import { Popover, Tabs } from "@/core/ui";
 const harness = vi.hoisted(() => {
   const catalog = [
     {
-      id: "jobhunter:linkedin",
+      id: "forkjob_core:linkedin",
       interval_minutes: 720,
       kind: "job",
       class: "slow_optin",
       estimated_seconds: 300,
     },
     {
-      id: "jobhunter:eures",
+      id: "forkjob_core:eures",
       interval_minutes: 1440,
       kind: "job",
       class: "normal",
@@ -37,7 +37,7 @@ const harness = vi.hoisted(() => {
   const runs = [
     {
       id: "run-1",
-      source: "jobhunter:eures",
+      source: "forkjob_core:eures",
       status: "ok",
       items_found: 4,
       error: null,
@@ -49,7 +49,7 @@ const harness = vi.hoisted(() => {
   ];
   const coverage = [
     {
-      source: "jobhunter:linkedin",
+      source: "forkjob_core:linkedin",
       kind: "job",
       class: "slow_optin",
       category: null,
@@ -69,7 +69,7 @@ const harness = vi.hoisted(() => {
       tracked: true,
     },
     {
-      source: "jobhunter:eures",
+      source: "forkjob_core:eures",
       kind: "job",
       class: "normal",
       category: null,
@@ -236,7 +236,7 @@ describe("Kaynak satırı düğme adları", () => {
 
     // Her satırın düğmesi ayrı ad alır: iki kayıt, iki farklı ad.
     expect(await screen.findAllByRole("button", { name: /— yenile$/ })).toHaveLength(2);
-    for (const id of ["jobhunter:linkedin", "jobhunter:eures"]) {
+    for (const id of ["forkjob_core:linkedin", "forkjob_core:eures"]) {
       expect(screen.getByRole("button", { name: `${sourceLabel(id)} — yenile` })).toBeTruthy();
     }
   });
@@ -245,10 +245,10 @@ describe("Kaynak satırı düğme adları", () => {
     harness.post.mockRejectedValueOnce(new Error("ağ hatası"));
     renderWorkspace();
 
-    const name = `${sourceLabel("jobhunter:eures")} — yenile`;
+    const name = `${sourceLabel("forkjob_core:eures")} — yenile`;
     fireEvent.click(await screen.findByRole("button", { name }));
 
-    await waitFor(() => expect(harness.post).toHaveBeenCalledWith("/sources/jobhunter%3Aeures/refresh"));
+    await waitFor(() => expect(harness.post).toHaveBeenCalledWith("/sources/forkjob_core%3Aeures/refresh"));
     // pending hata sonrası temizlenir; düğme yeniden kullanılabilir olur.
     await waitFor(() => expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(false));
   });

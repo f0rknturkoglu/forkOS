@@ -16,7 +16,6 @@ from app.sources.base import FetchOutcome, RawItem
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.models import Job
 from app.sources.forkjob_core.registry import Registry
-from app.sources.forkjob_core.score import score_job
 from app.sources.forkjob_core.scrapers.base import ScrapeBatch
 from app.sources.forkjob_core.scrapers.index import get_scraper, unavailable_reason
 from app.sources.forkjob_core.scrapers.registry import LayerBSource, load_registry_b
@@ -32,7 +31,7 @@ CONFIG_PATH = DATA_DIR / "config.yaml"
 LEGACY_CONFIG_PATH = Path("config.yaml")
 
 
-def jobhunter_config_path() -> Path:
+def forkjob_core_config_path() -> Path:
     """Uyum profili (scoring/balance) dosyasinin konumu.
 
     Kalici veri dizini tercih edilir; eski kurulumdaki `./config.yaml` ilk
@@ -46,11 +45,10 @@ def jobhunter_config_path() -> Path:
     return CONFIG_PATH
 
 
-SCORING = load_config(jobhunter_config_path())
+SCORING = load_config(forkjob_core_config_path())
 
 
 def job_to_raw(job: Job) -> RawItem:
-    score_job(job, SCORING)
     row = job.to_row()
     return RawItem(
         external_id=job.external_id or job.job_id,
@@ -79,7 +77,7 @@ class AtsBoardSource:
 
     @property
     def id(self) -> str:
-        return f"jobhunter:{self.company.source}"
+        return f"forkjob_core:{self.company.source}"
 
     async def fetch(self) -> list[RawItem]:
         adapter = build_adapter(self.company)
@@ -96,7 +94,7 @@ class PortalSource:
 
     @property
     def id(self) -> str:
-        return f"jobhunter:{self.portal.key}"
+        return f"forkjob_core:{self.portal.key}"
 
     @property
     def category(self) -> str:

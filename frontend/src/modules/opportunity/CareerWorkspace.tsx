@@ -8,7 +8,7 @@ import { CareerConnectionsPanel } from "./CareerConnectionsPanel";
 import { CompanyResearchPanel } from "./CompanyResearchPanel";
 import { InterviewPrepPanel } from "./InterviewPrepPanel";
 import { CoverLetterPanel } from "./CoverLetterPanel";
-import { JobhunterSettings } from "./JobhunterSettings";
+import { ForkjobCoreSettings } from "./ForkjobCoreSettings";
 import { CareerInsightsPanel } from "./CareerInsightsPanel";
 import { CareerStrategyPanel } from "./CareerStrategyPanel";
 
@@ -22,7 +22,7 @@ const TABS = [
   { id: "company", label: "Şirket araştırması" },
   { id: "interview", label: "Mülakat hazırlığı" },
   { id: "cover", label: "Ön yazı" },
-  { id: "settings", label: "Jobhunter ayarları" },
+  { id: "settings", label: "Forkjob Core ayarları" },
 ] as const;
 
 /**
@@ -67,7 +67,7 @@ export function CareerWorkspace({
       {tab === "company" && <CompanyResearchPanel jobKinds={jobKinds} />}
       {tab === "interview" && <InterviewPrepPanel />}
       {tab === "cover" && <CoverLetterPanel />}
-      {tab === "settings" && <JobhunterSettings />}
+      {tab === "settings" && <ForkjobCoreSettings />}
     </div>
   );
 }

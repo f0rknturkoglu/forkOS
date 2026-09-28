@@ -8,7 +8,7 @@ forkOS bir ilanda UC ayri skor tasir ve bunlar karistirilmaz:
 * **profil uyumu** (``opportunity.skill_match_ratio``): ``0..1`` arasi oran.
   ``None`` = hesaplanmadi (eski surumler bunu ``0`` yaziyordu ve "hesaplanmadi"
   filtresi is ilanlarinda asla eslesmiyordu).
-* **tavsiye skoru** (``opportunity.evaluation.score``): CV ile iki asamali
+* **tavsiye skoru** (``opportunity.candidate_evaluation.score``): CV ile iki asamali
   degerlendirmenin ``0..100`` sonucu.
 
 Aralik esikleri buradan gelir; arayuzdeki preset listesi bununla ayni olmali

@@ -3,7 +3,7 @@
  * LinkedInProfilesEditor — paylaşılan LinkedIn arama profili editörü.
  *
  * Kapsam: sunucudan gelen profiller, ekle/düzenle/sil akışıyla birlikte
- * `PUT /sources/jobhunter/linkedin-profiles` gövdesine eksiksiz yazılır ve
+ * `PUT /sources/forkjob-core/linkedin-profiles` gövdesine eksiksiz yazılır ve
  * çevrimdışıyken kaydetme kapalıdır.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -77,7 +77,7 @@ describe("LinkedInProfilesEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /Kaydet/ }));
 
     await waitFor(() =>
-      expect(apiMock.put).toHaveBeenCalledWith("/sources/jobhunter/linkedin-profiles", [
+      expect(apiMock.put).toHaveBeenCalledWith("/sources/forkjob-core/linkedin-profiles", [
         { term: "Veri Mühendisi", location: "Ankara", results_wanted: 10, is_remote: true },
       ]),
     );
@@ -90,7 +90,7 @@ describe("LinkedInProfilesEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: /Kaydet/ }));
 
     await waitFor(() =>
-      expect(apiMock.put).toHaveBeenCalledWith("/sources/jobhunter/linkedin-profiles", [
+      expect(apiMock.put).toHaveBeenCalledWith("/sources/forkjob-core/linkedin-profiles", [
         { ...STORED[0], term: "Frontend Developer" },
       ]),
     );

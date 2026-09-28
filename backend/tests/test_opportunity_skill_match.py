@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.modules.opportunity.candidate_context import CandidateCareerContext, CandidateFact
+from app.modules.opportunity.candidate_match import apply_candidate_match
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.service import _calculate_skill_match
 
@@ -10,27 +12,27 @@ from app.modules.opportunity.service import _calculate_skill_match
 def test_calculate_skill_match_job():
     opp = Opportunity(
         kind="job",
-        notes="We are looking for a backend developer skilled in Kubernetes, AWS and Redis.",
-        raw={
-            "forkjob": {
-                "score": 85,
-                "reasons": {
-                    "skills": [
-                        {"name": "python", "points": 8.0, "where": "title"},
-                        {"name": "docker", "points": 6.0, "where": "body"},
-                    ]
-                },
-                "description": "Experience with Python, Docker, Kubernetes and Redis is required.",
-            }
-        },
+        raw={"description": "Experience with Python, Docker, Kubernetes and Redis is required."},
     )
-
-    match = _calculate_skill_match(opp, "Python Software Engineer", opp.raw["forkjob"]["reasons"])
+    context = CandidateCareerContext(
+        revision="cv-1",
+        base_cv={"content_available": True},
+        facts=[
+            CandidateFact(
+                key="cv:line:1",
+                value={"text": "Python and Docker projects"},
+                source_type="document",
+                verified=True,
+            )
+        ],
+    )
+    apply_candidate_match(opp, "Python Software Engineer", context)
+    match = _calculate_skill_match(opp, "Python Software Engineer", {"skills": ["fake"]})
     assert match is not None
-    assert "python" in match.matched
-    assert "docker" in match.matched
-    assert "kubernetes" in match.missing
-    assert "redis" in match.missing
+    assert "Python" in match.matched
+    assert "Docker" in match.matched
+    assert "Kubernetes" not in match.missing
+    assert "Redis" not in match.missing
     assert match.match_ratio > 0.0
     assert match.match_ratio <= 1.0
 

@@ -95,8 +95,8 @@ const harness = vi.hoisted(() => {
     avg_applied_to_interview_days: 7,
     by_source: [
       {
-        key: "jobhunter:linkedin",
-        label: "jobhunter:linkedin",
+        key: "forkjob_core:linkedin",
+        label: "forkjob_core:linkedin",
         total: 3,
         responded: 1,
         interviewed: 0,

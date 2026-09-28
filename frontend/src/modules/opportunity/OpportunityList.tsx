@@ -23,7 +23,7 @@ import type { RemoteKind } from "./labels";
 
 /**
  * İkincil skorlar tek satırda: profil uyumu (oran) ve tavsiye skoru (puan).
- * Satırdaki TEK ana skor kalite skorudur; bu metin açıklanabilir detaydır.
+ * Satırdaki TEK ana skor hızlı aday uyumudur; bu metin açıklanabilir detaydır.
  */
 function secondaryScoreLabel(item: Opportunity): string | null {
   const parts: string[] = [];
@@ -108,8 +108,8 @@ export function OpportunityCard({
             announcement
               ? "Duyuru"
               : item.score === null
-                ? "Kalite skoru hesaplanmadı"
-                : `Kalite skoru ${displayScore(item.score)} / 100`
+                ? "Hızlı uygunluk hesaplanmadı"
+                : `Hızlı uygunluk ${displayScore(item.score)} / 100`
           }
         >
           {announcement ? (
@@ -318,9 +318,9 @@ export function OpportunityCard({
       ) : (
         <div
           className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}
-          title="Kalite skoru: kaynak ve kural tabanlı ilan kalitesi (−1 = elendi)"
+          title="Hızlı aday uyumu: kaynaktan bağımsız kural tabanlı skor (−1 = elendi)"
           aria-label={
-            item.score === null ? "Kalite skoru hesaplanmadı" : `Kalite skoru ${displayScore(item.score)} / 100`
+            item.score === null ? "Hızlı uygunluk hesaplanmadı" : `Hızlı uygunluk ${displayScore(item.score)} / 100`
           }
         >
           <div
@@ -367,7 +367,7 @@ export function OpportunityCard({
             <Chip tone="accent">{announcementCategoryLabel(item.category)}</Chip>
           )}
           {/* Ikincil skorlar TEK açıklanabilir chip'te toplanir: satirda tek
-              ana skor (kalite) kalir, digerleri ayrinti olarak sunulur. */}
+              ana skor (hızlı uygunluk) kalır, diğerleri ayrıntı olarak sunulur. */}
           {!announcement && secondaryScoreLabel(item) && (
             <Chip tone="neutral">
               <span title="Profil uyumu: becerilerin ilan metniyle örtüşmesi · Tavsiye skoru: CV ile iki aşamalı değerlendirme">

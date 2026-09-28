@@ -22,8 +22,8 @@ import { useOnline } from "@/lib/hooks";
 import { SourcesWorkspace } from "./SourcesWorkspace";
 
 const catalog = [
-  { id: "jobhunter:eures", interval_minutes: 1440, kind: "job", class: "normal", estimated_seconds: 120 },
-  { id: "jobhunter:linkedin", interval_minutes: 720, kind: "job", class: "slow_optin", estimated_seconds: 180 },
+  { id: "forkjob_core:eures", interval_minutes: 1440, kind: "job", class: "normal", estimated_seconds: 120 },
+  { id: "forkjob_core:linkedin", interval_minutes: 720, kind: "job", class: "slow_optin", estimated_seconds: 180 },
   { id: "announcement:ylsy", interval_minutes: 4320, kind: "announcement", class: "normal", estimated_seconds: 30 },
 ];
 
@@ -46,7 +46,7 @@ const coverageBase = {
 const coverage = [
   {
     ...coverageBase,
-    source: "jobhunter:eures",
+    source: "forkjob_core:eures",
     class: "normal",
     last_status: "ok",
     last_run_at: "2026-09-21T08:00:00Z",
@@ -55,7 +55,7 @@ const coverage = [
   },
   {
     ...coverageBase,
-    source: "jobhunter:linkedin",
+    source: "forkjob_core:linkedin",
     class: "slow_optin",
     last_status: "error",
     last_run_at: "2026-09-22T08:00:00Z",
@@ -81,7 +81,7 @@ const coverage = [
 const runs = [
   {
     id: "run-1",
-    source: "jobhunter:eures",
+    source: "forkjob_core:eures",
     status: "ok",
     items_found: 4,
     error: null,
@@ -181,7 +181,7 @@ describe("satır yenilemesi", () => {
     renderSurface();
     fireEvent.click(await screen.findByRole("button", { name: "eures — yenile" }));
 
-    await waitFor(() => expect(harness.post).toHaveBeenCalledWith("/sources/jobhunter%3Aeures/refresh"));
+    await waitFor(() => expect(harness.post).toHaveBeenCalledWith("/sources/forkjob_core%3Aeures/refresh"));
     // Satır tek başına çekilir: toplu uç (`/sources/refresh`) kullanılmaz.
     expect(harness.post).not.toHaveBeenCalledWith("/sources/refresh", expect.anything());
   });
@@ -247,7 +247,7 @@ describe("sorunlu satır", () => {
     await waitFor(() => expect(harness.clipboard.writeText).toHaveBeenCalledTimes(1));
     const bundle = harness.clipboard.writeText.mock.calls[0][0];
     expect(bundle).toContain("# forkOS Source Diagnostics");
-    expect(bundle).toContain("Source: jobhunter:linkedin");
+    expect(bundle).toContain("Source: forkjob_core:linkedin");
     expect(bundle).toContain("Circuit open: true");
     expect(bundle).toContain("Error kind label: 429");
   });

@@ -146,14 +146,14 @@ describe("opportunity search input", () => {
     expect(screen.getAllByRole("button", { name: /bilinmiyor/i })).toHaveLength(1);
   });
 
-  it("kalite skoru 'yok' filtresi gerçekten API'ye gider", async () => {
+  it("hızlı uygunluk 'yok' filtresi gerçekten API'ye gider", async () => {
     render(<OpportunityPage />);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Filtreler/ }));
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Kalite skoru yok" }));
+      fireEvent.click(screen.getByRole("button", { name: "Hızlı uygunluk yok" }));
     });
     await act(async () => {
       vi.advanceTimersByTime(400);
@@ -171,7 +171,7 @@ describe("opportunity search input", () => {
     });
 
     // İki farklı eksen iki farklı ad taşır: aynı ada sahip iki chip olmamalı.
-    expect(screen.getAllByRole("button", { name: "Kalite skoru yok" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Hızlı uygunluk yok" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Hesaplanmadı" })).toHaveLength(1);
   });
 

@@ -233,8 +233,8 @@ class CareerOpsAdapter:
         self,
         provider: str,
         *,
-        since_days: int = 7,
-        limit: int | None = 200,
+        since_days: int = 30,
+        limit: int | None = 500,
         include_undated: bool = False,
         config_path: Path | None = None,
     ) -> CareerOpsDiscoveryResult:
@@ -275,6 +275,8 @@ class CareerOpsAdapter:
 
         # 3. Execute through runner with discovery timeout and buffer
         timeout = settings.career_ops_discovery_timeout_seconds
+        if norm_provider == "workday":
+            timeout = max(timeout, 600.0)
         max_buffer = settings.career_ops_discovery_max_buffer_bytes
         try:
             exec_res = await self.runner.run_script(

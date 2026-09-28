@@ -65,11 +65,15 @@ class Opportunity(EntityBacked, Base):
     region: Mapped[str | None] = mapped_column(Text)  # TR | EU | OTHER | UNKNOWN
     follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
-    # career-ops iki asamali degerlendirmesi. Firsatin aranabilir kimligi
-    # zaten entity-backed oldugu icin 1:1 destek tablosu yerine kaydin kendi
-    # surumlu JSON belgesi olarak tutulur.
-    evaluation: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
-    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 0075 oncesi tek alan. Bilinmeyen eski bicimleri korur; yeni yazma YOK.
+    legacy_evaluation: Mapped[dict[str, Any]] = mapped_column("evaluation", JSONB, default=dict)
+    legacy_evaluated_at: Mapped[datetime | None] = mapped_column(
+        "evaluated_at", DateTime(timezone=True)
+    )
+    candidate_evaluation: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    candidate_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deep_evaluation: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    deep_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # ── Kaynak gozlemi ve kapanma (job + duyuru) ───────────────────────
     # active | missing | likely_closed | closed

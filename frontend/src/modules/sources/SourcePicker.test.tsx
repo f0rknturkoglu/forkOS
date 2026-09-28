@@ -27,15 +27,21 @@ beforeEach(() => {
   harness.get.mockImplementation(async (path: string) => {
     if (path === "/sources/catalog") {
       return [
-        { id: "jobhunter:eures", interval_minutes: 1440, kind: "job", class: "normal", estimated_seconds: 120 },
-        { id: "jobhunter:linkedin", interval_minutes: 720, kind: "job", class: "slow_optin", estimated_seconds: 180 },
+        { id: "forkjob_core:eures", interval_minutes: 1440, kind: "job", class: "normal", estimated_seconds: 120 },
+        {
+          id: "forkjob_core:linkedin",
+          interval_minutes: 720,
+          kind: "job",
+          class: "slow_optin",
+          estimated_seconds: 180,
+        },
       ];
     }
     if (path === "/sources/runs") {
       return [
         {
           id: "run-1",
-          source: "jobhunter:eures",
+          source: "forkjob_core:eures",
           status: "ok",
           items_found: 4,
           error: null,
@@ -71,7 +77,7 @@ describe("kaynak seçici", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kaynakları çek (1)" }));
 
     await waitFor(() =>
-      expect(harness.post).toHaveBeenCalledWith("/sources/refresh", { source_ids: ["jobhunter:eures"] }),
+      expect(harness.post).toHaveBeenCalledWith("/sources/refresh", { source_ids: ["forkjob_core:eures"] }),
     );
   });
 
