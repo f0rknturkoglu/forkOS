@@ -9394,6 +9394,8 @@ export interface components {
         };
         /** PackageCoverLetterReviewOut */
         PackageCoverLetterReviewOut: {
+            /** Content Hash */
+            content_hash?: string | null;
             /** Reviewed At */
             reviewed_at?: string | null;
             /**

@@ -17,6 +17,7 @@ from app.core.time import local_zone
 from app.modules import DeadlineRow
 from app.modules.document.models import Document
 from app.modules.opportunity import lifecycle
+from app.modules.opportunity.cover_letter_integrity import sync_application_cover_letter
 from app.modules.opportunity.models import (
     Application,
     ApplicationHistory,
@@ -251,7 +252,9 @@ async def apply(
         app.cv_document_id = data.cv_document_id
         app.cv_title = doc_title
         app.cv_modified_at = doc.drive_modified_at
-    for key in ("cover_letter", "company_research", "salary_expectation", "note"):
+    if data.cover_letter is not None:
+        sync_application_cover_letter(app, data.cover_letter)
+    for key in ("company_research", "salary_expectation", "note"):
         value = getattr(data, key)
         if value is not None:
             setattr(app, key, value)
@@ -309,7 +312,9 @@ async def upsert_application(
             app.cv_document_id = data.cv_document_id
             app.cv_title = doc_title
             app.cv_modified_at = doc.drive_modified_at
-    for key in ("cover_letter", "company_research", "salary_expectation", "note"):
+    if data.cover_letter is not None:
+        sync_application_cover_letter(app, data.cover_letter)
+    for key in ("company_research", "salary_expectation", "note"):
         value = getattr(data, key)
         if value is not None:
             setattr(app, key, value)

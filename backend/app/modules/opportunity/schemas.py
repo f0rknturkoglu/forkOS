@@ -753,6 +753,7 @@ class GeneratedDocumentRefOut(BaseModel):
 class PackageCoverLetterReviewOut(BaseModel):
     status: Literal["pending", "approved", "rejected"] = "pending"
     reviewed_at: str | None = None
+    content_hash: str | None = None
 
 
 class ApplicationPackageOut(BaseModel):

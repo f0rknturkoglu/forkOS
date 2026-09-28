@@ -27,6 +27,10 @@ from app.core.events import log_event
 from app.modules.opportunity.candidate_context import (
     build_candidate_career_context,
 )
+from app.modules.opportunity.cover_letter_integrity import (
+    REVIEW_REQUIRED_WARNING,
+    cover_letter_hash,
+)
 from app.modules.opportunity.evaluation_service import (
     CareerEvaluationService,
 )
@@ -115,6 +119,7 @@ class GeneratedDocumentRef(BaseModel):
 class CoverLetterReview(BaseModel):
     status: Literal["pending", "approved", "rejected"] = "pending"
     reviewed_at: str | None = None
+    content_hash: str | None = None
 
 
 class ApplicationPackage(BaseModel):
@@ -145,6 +150,18 @@ class ApplicationPackage(BaseModel):
     @property
     def cv_changes(self) -> list[CvChangeItem]:
         return self.cv_change_audit
+
+
+def cover_letter_approval_valid(pkg: ApplicationPackage) -> bool:
+    if not pkg.cover_letter:
+        return True
+    review = pkg.cover_letter_review
+    return bool(
+        review.status == "approved"
+        and review.reviewed_at
+        and review.content_hash
+        and review.content_hash == cover_letter_hash(pkg.cover_letter)
+    )
 
 
 COMMON_APPLICATION_QUESTIONS = [
@@ -178,6 +195,21 @@ class ApplicationPackageService:
 
         pkg_data = dict(app.package)
         pkg = ApplicationPackage.model_validate(pkg_data)
+        cover_mismatch = cover_letter_hash(app.cover_letter or "") != cover_letter_hash(
+            pkg.cover_letter
+        )
+        invalid_approval = (
+            pkg.cover_letter_review.status == "approved"
+            and not cover_letter_approval_valid(pkg)
+        )
+        if cover_mismatch or invalid_approval:
+            pkg.cover_letter_review = CoverLetterReview()
+            if pkg.readiness == "READY":
+                pkg.readiness = "NEEDS_INPUT"
+            if REVIEW_REQUIRED_WARNING not in pkg.warnings:
+                pkg.warnings.append(REVIEW_REQUIRED_WARNING)
+            if REVIEW_REQUIRED_WARNING not in pkg.readiness_reasons:
+                pkg.readiness_reasons.append(REVIEW_REQUIRED_WARNING)
 
         # Re-check evaluation freshness
         evaluation = await self.eval_service.get_evaluation(session, opportunity_id)
@@ -241,13 +273,7 @@ class ApplicationPackageService:
                 or not pkg.generated_documents
                 or any(not ref.document_id for ref in pkg.generated_documents)
                 or pkg.provenance.get("render_validation") != "passed"
-                or (
-                    pkg.cover_letter
-                    and (
-                        pkg.cover_letter_review.status != "approved"
-                        or not pkg.cover_letter_review.reviewed_at
-                    )
-                )
+                or not cover_letter_approval_valid(pkg)
                 or artifact_invalid
                 or any(f.status == "ambiguous" for f in pkg.fact_verification)
             ):
@@ -704,13 +730,7 @@ class ApplicationPackageService:
             not pkg.base_cv_document_id
             or not pkg.generated_documents
             or pkg.provenance.get("render_validation") != "passed"
-            or (
-                bool(pkg.cover_letter)
-                and (
-                    pkg.cover_letter_review.status != "approved"
-                    or not pkg.cover_letter_review.reviewed_at
-                )
-            )
+            or not cover_letter_approval_valid(pkg)
             or any(fv.status == "ambiguous" for fv in pkg.fact_verification)
         ):
             pkg.readiness = "NEEDS_INPUT"
@@ -760,10 +780,14 @@ class ApplicationPackageService:
         pkg = await self.get_package(session, opportunity_id)
         if pkg is None or not pkg.cover_letter:
             raise ValueError("No cover letter exists for review.")
+        if cover_letter_hash(app.cover_letter or "") != cover_letter_hash(pkg.cover_letter):
+            raise ValueError("Cover letter changed; refresh the package before review.")
         if pkg.readiness == "STALE_EVALUATION":
             raise ValueError("Evaluation is stale; regenerate the package before review.")
         pkg.cover_letter_review = CoverLetterReview(
-            status=decision, reviewed_at=datetime.now(UTC).isoformat()
+            status=decision,
+            reviewed_at=datetime.now(UTC).isoformat(),
+            content_hash=cover_letter_hash(pkg.cover_letter),
         )
         pkg.warnings = [
             warning for warning in pkg.warnings
@@ -771,7 +795,11 @@ class ApplicationPackageService:
             not in {
                 "Generated cover-letter prose requires explicit material-claim review.",
                 "Cover letter was rejected; regenerate and review it again.",
+                REVIEW_REQUIRED_WARNING,
             }
+        ]
+        pkg.readiness_reasons = [
+            reason for reason in pkg.readiness_reasons if reason != REVIEW_REQUIRED_WARNING
         ]
         if decision == "rejected":
             pkg.warnings.append("Cover letter was rejected; regenerate and review it again.")

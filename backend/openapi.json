@@ -12127,6 +12127,17 @@
       },
       "PackageCoverLetterReviewOut": {
         "properties": {
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash"
+          },
           "reviewed_at": {
             "anyOf": [
               {
